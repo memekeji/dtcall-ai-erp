@@ -1,0 +1,475 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if object %}编辑收款{% else %}新增收款{% endif %}</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        body {
+            background: #f8f9fa;
+            font-family: 'Microsoft YaHei', sans-serif;
+        }
+        .form-container {
+            max-width: 800px;
+            margin: 20px auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .form-header {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            color: white;
+            padding: 20px 30px;
+            position: relative;
+        }
+        .form-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            opacity: 0.3;
+        }
+        .form-header h2 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 300;
+            position: relative;
+            z-index: 1;
+            color: #333;
+        }
+        .form-header .subtitle {
+            margin: 5px 0 0 0;
+            opacity: 0.8;
+            font-size: 14px;
+            position: relative;
+            z-index: 1;
+            color: #555;
+        }
+        .form-body {
+            padding: 30px;
+        }
+        .layui-form-item {
+            margin-bottom: 25px;
+        }
+        .layui-form-label {
+            width: 120px;
+            font-weight: 500;
+            color: #333;
+            background: #f8f9fa;
+            border-radius: 4px 0 0 4px;
+        }
+        .layui-input-block {
+            margin-left: 120px;
+        }
+        .layui-input, .layui-textarea, .layui-select {
+            border: 1px solid #e1e5e9;
+            border-radius: 0 4px 4px 0;
+            transition: all 0.3s ease;
+        }
+        .layui-input:focus, .layui-textarea:focus {
+            border-color: #a8edea;
+            box-shadow: 0 0 0 2px rgba(168, 237, 234, 0.2);
+        }
+        .required-field::after {
+            content: '*';
+            color: #ff5722;
+            margin-left: 4px;
+        }
+        .form-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #a8edea;
+        }
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .section-title i {
+            margin-right: 8px;
+            color: #a8edea;
+        }
+        .form-actions {
+            text-align: center;
+            padding: 20px 0;
+            border-top: 1px solid #e1e5e9;
+            background: #f8f9fa;
+            margin: 30px -30px -30px -30px;
+        }
+        .layui-btn {
+            padding: 10px 30px;
+            border-radius: 25px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .layui-btn-normal {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            border: none;
+            color: #333;
+        }
+        .layui-btn-normal:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(168, 237, 234, 0.4);
+        }
+        .layui-btn-primary {
+            background: #fff;
+            border: 1px solid #d9d9d9;
+            color: #666;
+        }
+        .layui-btn-primary:hover {
+            border-color: #a8edea;
+            color: #a8edea;
+        }
+        .amount-input {
+            position: relative;
+        }
+        .amount-input::before {
+            content: '¥';
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+            font-weight: 500;
+            z-index: 10;
+        }
+        .amount-input .layui-input {
+            padding-left: 30px;
+            font-size: 16px;
+            font-weight: 500;
+        }
+        .invoice-info {
+            background: #fff;
+            border: 1px solid #e1e5e9;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+        .invoice-detail {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .invoice-detail:last-child {
+            margin-bottom: 0;
+        }
+        .detail-label {
+            color: #666;
+            font-size: 14px;
+        }
+        .detail-value {
+            color: #333;
+            font-weight: 500;
+        }
+        .upload-area {
+            border: 2px dashed #d9d9d9;
+            border-radius: 6px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .upload-area:hover {
+            border-color: #a8edea;
+            background: rgba(168, 237, 234, 0.05);
+        }
+        .upload-icon {
+            font-size: 48px;
+            color: #d9d9d9;
+            margin-bottom: 10px;
+        }
+        .progress-bar {
+            background: #f0f0f0;
+            border-radius: 10px;
+            height: 8px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <div class="form-header">
+            <h2>
+                <i class="layui-icon layui-icon-dollar" style="margin-right: 10px;"></i>
+                {% if object %}编辑收款记录{% else %}新增收款记录{% endif %}
+            </h2>
+            <p class="subtitle">请填写收款信息，确保回款数据准确无误</p>
+        </div>
+        
+        <div class="form-body">
+            <form class="layui-form" method="post" lay-filter="incomeForm">
+                {% csrf_token %}
+                
+                <!-- 关联信息 -->
+                <div class="form-section">
+                    <div class="section-title">
+                        <i class="layui-icon layui-icon-link"></i>
+                        关联发票信息
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label required-field">关联发票</label>
+                        <div class="layui-input-block">
+                            <select name="invoice" class="layui-select" required lay-filter="invoice">
+                                <option value="">请选择发票</option>
+                                {% for invoice in invoices %}
+                                <option value="{{ invoice.id }}" 
+                                        data-code="{{ invoice.code }}" 
+                                        data-amount="{{ invoice.amount }}"
+                                        data-title="{{ invoice.invoice_title }}"
+                                        data-entered="{{ invoice.enter_amount|default:0 }}"
+                                        {% if form.invoice.value == invoice.id %}selected{% endif %}>
+                                    {{ invoice.code }} - ¥{{ invoice.amount }} ({{ invoice.invoice_title }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div id="invoiceInfo" class="invoice-info" style="display: none;">
+                        <div class="invoice-detail">
+                            <span class="detail-label">发票号码：</span>
+                            <span class="detail-value" id="invoiceCode">-</span>
+                        </div>
+                        <div class="invoice-detail">
+                            <span class="detail-label">发票金额：</span>
+                            <span class="detail-value" id="invoiceAmount">¥0.00</span>
+                        </div>
+                        <div class="invoice-detail">
+                            <span class="detail-label">开票抬头：</span>
+                            <span class="detail-value" id="invoiceTitle">-</span>
+                        </div>
+                        <div class="invoice-detail">
+                            <span class="detail-label">已收金额：</span>
+                            <span class="detail-value" id="enteredAmount">¥0.00</span>
+                        </div>
+                        <div class="invoice-detail">
+                            <span class="detail-label">待收金额：</span>
+                            <span class="detail-value" id="remainingAmount" style="color: #ff5722;">¥0.00</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 收款信息 -->
+                <div class="form-section">
+                    <div class="section-title">
+                        <i class="layui-icon layui-icon-rmb"></i>
+                        收款信息
+                    </div>
+                    
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label required-field">到账金额</label>
+                                <div class="layui-input-block amount-input">
+                                    <input type="number" step="0.01" name="amount" value="{{ form.amount.value|default:'' }}" 
+                                           placeholder="0.00" class="layui-input" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label required-field">到账日期</label>
+                                <div class="layui-input-block">
+                                    <input type="datetime-local" name="income_date" value="{{ form.income_date.value|default:'' }}" 
+                                           class="layui-input" required>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 附件上传 -->
+                <div class="form-section">
+                    <div class="section-title">
+                        <i class="layui-icon layui-icon-upload"></i>
+                        收款凭证
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">相关附件</label>
+                        <div class="layui-input-block">
+                            <div class="upload-area" id="uploadArea">
+                                <div class="upload-icon">
+                                    <i class="layui-icon layui-icon-upload-drag"></i>
+                                </div>
+                                <p>点击或拖拽文件到此处上传</p>
+                                <p style="color: #999; font-size: 12px;">支持银行回单、收款凭证等文件，单个文件不超过 10MB</p>
+                            </div>
+                            <input type="hidden" name="file_ids" value="{{ form.file_ids.value|default:'' }}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 备注信息 -->
+                <div class="form-section">
+                    <div class="section-title">
+                        <i class="layui-icon layui-icon-edit"></i>
+                        备注信息
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">备注说明</label>
+                        <div class="layui-input-block">
+                            <textarea name="remark" placeholder="请输入收款备注信息（选填）" 
+                                      class="layui-textarea" rows="4">{{ form.remark.value|default:'' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 提交按钮 -->
+                <div class="form-actions">
+                    <button class="layui-btn layui-btn-normal layui-btn-lg" lay-submit lay-filter="submit">
+                        <i class="layui-icon layui-icon-ok"></i>
+                        {% if object %}更新收款{% else %}确认收款{% endif %}
+                    </button>
+                    <button type="button" class="layui-btn layui-btn-primary layui-btn-lg" onclick="parent.layer.closeAll()" style="margin-left: 15px;">
+                        <i class="layui-icon layui-icon-close"></i>
+                        取消
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['form', 'layer', 'upload', 'laydate'], function() {
+            var form = layui.form;
+            var layer = layui.layer;
+            var upload = layui.upload;
+            var laydate = layui.laydate;
+            
+            // 日期时间选择器
+            laydate.render({
+                elem: 'input[name="income_date"]',
+                type: 'datetime',
+                value: new Date()
+            });
+            
+            // 文件上传
+            upload.render({
+                elem: '#uploadArea',
+                url: '/upload/',
+                multiple: true,
+                drag: true,
+                accept: 'file',
+                acceptMime: 'image/*,application/pdf,.doc,.docx,.xls,.xlsx',
+                before: function(obj) {
+                    layer.load();
+                },
+                done: function(res) {
+                    layer.closeAll('loading');
+                    if(res.code === 0) {
+                        layer.msg('上传成功');
+                        var currentIds = $('input[name="file_ids"]').val();
+                        var newIds = currentIds ? currentIds + ',' + res.data.id : res.data.id;
+                        $('input[name="file_ids"]').val(newIds);
+                    } else {
+                        layer.msg('上传失败：' + res.msg);
+                    }
+                },
+                error: function() {
+                    layer.closeAll('loading');
+                    layer.msg('上传异常');
+                }
+            });
+            
+            // 监听发票选择变化
+            form.on('select(invoice)', function(data) {
+                if(data.value) {
+                    var option = $('option[value="' + data.value + '"]');
+                    var invoiceAmount = parseFloat(option.data('amount'));
+                    var enteredAmount = parseFloat(option.data('entered')) || 0;
+                    var remainingAmount = invoiceAmount - enteredAmount;
+                    var progress = enteredAmount / invoiceAmount * 100;
+                    
+                    $('#invoiceCode').text(option.data('code'));
+                    $('#invoiceAmount').text('¥' + invoiceAmount.toFixed(2));
+                    $('#invoiceTitle').text(option.data('title'));
+                    $('#enteredAmount').text('¥' + enteredAmount.toFixed(2));
+                    $('#remainingAmount').text('¥' + remainingAmount.toFixed(2));
+                    $('#progressFill').css('width', progress + '%');
+                    $('#invoiceInfo').show();
+                    
+                    // 自动填充收款金额为剩余金额
+                    $('input[name="amount"]').val(remainingAmount.toFixed(2));
+                } else {
+                    $('#invoiceInfo').hide();
+                    $('input[name="amount"]').val('');
+                }
+            });
+            
+            // 表单验证
+            form.verify({
+                amount: function(value) {
+                    if(!/^\d+(\.\d{1,2})?$/.test(value)) {
+                        return '金额格式不正确，最多保留两位小数';
+                    }
+                    if(parseFloat(value) <= 0) {
+                        return '收款金额必须大于0';
+                    }
+                    
+                    // 检查收款金额是否超过剩余金额
+                    var remainingAmount = $('#remainingAmount').text().replace('¥', '').replace(',', '');
+                    if(remainingAmount && parseFloat(value) > parseFloat(remainingAmount)) {
+                        return '收款金额不能超过剩余应收金额';
+                    }
+                }
+            });
+            
+            // 监听提交
+            form.on('submit(submit)', function(data) {
+                var loadIndex = layer.load(2, {shade: [0.3, '#000']});
+                
+                setTimeout(function() {
+                    layer.close(loadIndex);
+                    layer.msg('收款成功', {icon: 1}, function() {
+                        parent.layer.closeAll();
+                        if(parent.layui && parent.layui.table) {
+                            parent.layui.table.reload('incomeTable');
+                        }
+                    });
+                }, 1000);
+                
+                return true;
+            });
+            
+            // 金额输入格式化
+            $('input[name="amount"]').on('blur', function() {
+                var value = $(this).val();
+                if(value && !isNaN(value)) {
+                    $(this).val(parseFloat(value).toFixed(2));
+                }
+            });
+            
+            // 初始化显示已选择的发票信息
+            var selectedInvoice = $('select[name="invoice"]').val();
+            if(selectedInvoice) {
+                form.trigger('select(invoice)', {value: selectedInvoice});
+            }
+        });
+    </script>
+</body>
+</html>

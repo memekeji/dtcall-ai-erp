@@ -1,0 +1,324 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工时管理</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .workhour-stats {
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin-bottom: 10px;
+        }
+        .stat-card.success {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        .stat-card.warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        .stat-card.info {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+        .stat-number {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <!-- 统计卡片 -->
+        <div class="layui-row layui-col-space15 workhour-stats">
+            <div class="layui-col-md3">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalRecords">0</div>
+                    <div class="stat-label">总记录数</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="stat-card success">
+                    <div class="stat-number" id="totalHours">0</div>
+                    <div class="stat-label">总工时(小时)</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="stat-card info">
+                    <div class="stat-number" id="avgHours">0</div>
+                    <div class="stat-label">平均工时(小时)</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="stat-card warning">
+                    <div class="stat-number" id="todayHours">0</div>
+                    <div class="stat-label">今日工时(小时)</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <h3>工时记录管理</h3>
+                
+                <!-- 按钮和搜索区域 -->
+                <div class="layui-row layui-col-space10" style="margin-top: 15px; position: relative; z-index: 10;">
+                    <div class="layui-col-md6">
+                        <!-- 操作按钮区域 -->
+                        <button type="button" class="layui-btn layui-btn-normal layui-btn-sm" id="addWorkHourBtn" style="position: relative; z-index: 100;">
+                            <i class="layui-icon layui-icon-add-1"></i> 记录工时
+                        </button>
+                        <button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="exportWorkHourBtn" style="margin-left: 8px; position: relative; z-index: 100;">
+                            <i class="layui-icon layui-icon-export"></i> 导出
+                        </button>
+                        <button type="button" class="layui-btn layui-btn-warm layui-btn-sm" id="viewStatsBtn" style="margin-left: 8px; position: relative; z-index: 100;">
+                            <i class="layui-icon layui-icon-chart"></i> 统计分析
+                        </button>
+                    </div>
+                    <div class="layui-col-md6" style="text-align: right;">
+                        <!-- 搜索区域 -->
+                        <div class="layui-inline">
+                            <select id="searchUser" lay-filter="searchUser">
+                                <option value="">工作人员</option>
+                                {% for user in users %}
+                                <option value="{{ user.id }}">{{ user.username }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="layui-inline">
+                            <select id="searchTask" lay-filter="searchTask">
+                                <option value="">关联任务</option>
+                                {% for task in tasks %}
+                                <option value="{{ task.id }}">{{ task.title }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="layui-inline">
+                            <input type="text" id="searchDateRange" placeholder="工作日期范围" class="layui-input" style="width: 200px;">
+                        </div>
+                        <div class="layui-inline">
+                            <button type="button" class="layui-btn layui-btn-sm" onclick="searchWorkHour()">
+                                <i class="layui-icon layui-icon-search"></i> 搜索
+                            </button>
+                            <button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="resetSearch()">
+                                <i class="layui-icon layui-icon-refresh"></i> 重置
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-card-body">
+                <table id="workHourTable" class="layui-table" lay-filter="workHourTable"></table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['table', 'layer', 'form', 'laydate'], function() {
+            var table = layui.table;
+            var layer = layui.layer;
+            var form = layui.form;
+            var laydate = layui.laydate;
+
+            // 初始化日期选择器
+            laydate.render({
+                elem: '#searchDateRange',
+                range: true,
+                format: 'yyyy-MM-dd'
+            });
+
+            // 初始化表格
+            table.render({
+                elem: '#workHourTable',
+                url: '/adm/task/workhour/datalist/',
+                cols: [[
+                    {field: 'id', title: 'ID', width: 80, align: 'center'},
+                    {field: 'user_name', title: '工作人员', width: 120, align: 'center'},
+                    {field: 'task_title', title: '关联任务', width: 200},
+                    {field: 'project_name', title: '所属项目', width: 150},
+                    {field: 'work_date', title: '工作日期', width: 120, align: 'center'},
+                    {field: 'hours', title: '工作时长', width: 100, align: 'center', templet: function(d) {
+                        return d.hours + ' 小时';
+                    }},
+                    {field: 'description', title: '工作内容', minWidth: 200},
+                    {field: 'create_time', title: '记录时间', width: 150, align: 'center'},
+                    {title: '操作', width: 150, toolbar: '#workHourToolBar', fixed: 'right'}
+                ]],
+                page: true,
+                limit: 20,
+                height: 'full-300',
+                done: function(res) {
+                    updateStats(res.data);
+                }
+            });
+
+            // 绑定按钮事件
+            $('#addWorkHourBtn').on('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                addWorkHour();
+            });
+
+            $('#exportWorkHourBtn').on('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                exportWorkHour();
+            });
+
+            $('#viewStatsBtn').on('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                viewStats();
+            });
+
+            // 更新统计数据
+            function updateStats(data) {
+                var totalRecords = data.length;
+                var totalHours = data.reduce((sum, item) => sum + parseFloat(item.hours), 0);
+                var avgHours = totalRecords > 0 ? (totalHours / totalRecords).toFixed(1) : 0;
+                
+                // 计算今日工时
+                var today = new Date().toISOString().split('T')[0];
+                var todayHours = data.filter(item => item.work_date === today)
+                                    .reduce((sum, item) => sum + parseFloat(item.hours), 0);
+                
+                $('#totalRecords').text(totalRecords);
+                $('#totalHours').text(totalHours.toFixed(1));
+                $('#avgHours').text(avgHours);
+                $('#todayHours').text(todayHours.toFixed(1));
+            }
+
+            // 监听工具条
+            table.on('tool(workHourTable)', function(obj) {
+                var data = obj.data;
+                var layEvent = obj.event;
+
+                if (layEvent === 'edit') {
+                    layer.open({
+                        type: 2,
+                        title: '编辑工时记录',
+                        shadeClose: true,
+                        shade: 0.3,
+                        area: ['75%', '90%'],
+                        offset: 'r',
+                        content: '/adm/task/workhour/edit/' + data.id + '/',
+                        end: function() {
+                            table.reload('workHourTable');
+                        }
+                    });
+                } else if (layEvent === 'delete') {
+                    layer.confirm('确定删除这条工时记录吗？', function(index) {
+                        // 这里添加删除逻辑
+                        layer.msg('删除功能开发中...', {icon: 0});
+                        layer.close(index);
+                    });
+                }
+            });
+        });
+
+        // 记录工时
+        function addWorkHour() {
+            layui.use(['layer'], function() {
+                var layer = layui.layer;
+                
+                layer.open({
+                    type: 2,
+                    title: '记录工时',
+                    shadeClose: true,
+                    shade: 0.3,
+                    area: ['75%', '90%'],
+                    offset: 'r',
+                    content: '/adm/task/workhour/add/',
+                    end: function() {
+                        layui.table.reload('workHourTable');
+                    }
+                });
+            });
+        }
+
+        // 导出工时
+        function exportWorkHour() {
+            layui.use(['layer'], function() {
+                var layer = layui.layer;
+                layer.msg('导出功能开发中...', {icon: 0});
+            });
+        }
+
+        // 查看统计
+        function viewStats() {
+            layui.use(['layer'], function() {
+                var layer = layui.layer;
+                
+                layer.open({
+                    type: 2,
+                    title: '工时统计分析',
+                    content: '/adm/task/workhour/stats/',
+                    area: ['90%', '80%'],
+                    maxmin: true
+                });
+            });
+        }
+
+        // 搜索工时
+        function searchWorkHour() {
+            layui.use(['table'], function() {
+                var table = layui.table;
+                var user = $('#searchUser').val();
+                var task = $('#searchTask').val();
+                var dateRange = $('#searchDateRange').val();
+                var params = {};
+                
+                if(user) params.user_id = user;
+                if(task) params.task_id = task;
+                if(dateRange) {
+                    var dates = dateRange.split(' - ');
+                    if(dates.length === 2) {
+                        params.start_date = dates[0];
+                        params.end_date = dates[1];
+                    }
+                }
+                
+                table.reload('workHourTable', {
+                    where: params
+                });
+            });
+        }
+
+        // 重置搜索
+        function resetSearch() {
+            layui.use(['table', 'form'], function() {
+                var table = layui.table;
+                var form = layui.form;
+                
+                $('#searchUser').val('');
+                $('#searchTask').val('');
+                $('#searchDateRange').val('');
+                form.render('select');
+                
+                table.reload('workHourTable', {
+                    where: {}
+                });
+            });
+        }
+    </script>
+
+    <!-- 工具栏模板 -->
+    <script type="text/html" id="workHourToolBar">
+        <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
+        <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
+    </script>
+</body>
+</html>

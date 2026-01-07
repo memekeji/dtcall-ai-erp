@@ -1,0 +1,97 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>发票详情</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <h3>发票详情</h3>
+            </div>
+            <div class="layui-card-body">
+                <table class="layui-table">
+                    <tbody>
+                        <tr>
+                            <td width="150"><strong>发票号码</strong></td>
+                            <td>{{ invoice.code }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>关联客户ID</strong></td>
+                            <td>{{ invoice.customer_id }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>关联合同ID</strong></td>
+                            <td>{{ invoice.contract_id }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>关联项目ID</strong></td>
+                            <td>{{ invoice.project_id }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>发票金额</strong></td>
+                            <td>¥{{ invoice.amount }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>发票类型</strong></td>
+                            <td>
+                                {% if invoice.invoice_type == 1 %}增值税专用发票
+                                {% elif invoice.invoice_type == 2 %}普通发票
+                                {% elif invoice.invoice_type == 3 %}专用发票
+                                {% else %}未知类型
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>开票抬头</strong></td>
+                            <td>{{ invoice.invoice_title }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>纳税人识别号</strong></td>
+                            <td>{{ invoice.invoice_tax }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>开票状态</strong></td>
+                            <td>
+                                {% if invoice.open_status == 0 %}未开票
+                                {% elif invoice.open_status == 1 %}已开票
+                                {% elif invoice.open_status == 2 %}已作废
+                                {% else %}未知状态
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>已到账金额</strong></td>
+                            <td>¥{{ invoice.enter_amount }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>回款状态</strong></td>
+                            <td>
+                                {% if invoice.enter_status == 0 %}未回款
+                                {% elif invoice.enter_status == 1 %}部分回款
+                                {% elif invoice.enter_status == 2 %}全部回款
+                                {% else %}未知状态
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>创建时间</strong></td>
+                            <td>{{ invoice.create_time|date:"Y-m-d H:i:s" }}</td>
+                        </tr>
+                        {% if invoice.remark %}
+                        <tr>
+                            <td><strong>备注</strong></td>
+                            <td>{{ invoice.remark }}</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

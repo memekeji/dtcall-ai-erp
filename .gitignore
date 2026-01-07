@@ -1,0 +1,98 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.production.local
+.env.development.local
+.env.test.local
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Media files
+media/
+
+# Static files
+staticfiles/
+
+# Logs
+logs/
+*.log
+
+# Test files
+test_*.py
+tests/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# OS generated files
+Thumbs.db
+.DS_Store
+
+# Debug
+debug_api_urls.js
+
+# Other
+*.bak
+*.old
+*.pyc
+*.pyo
+__pycache__/
+
+# Coverage
+coverage.xml
+.coverage
+.pytest_cache/
+
+# Build
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Windows
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*

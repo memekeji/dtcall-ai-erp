@@ -1,0 +1,319 @@
+{% extends 'include/common.html' %}
+{% block title %}会议记录详情{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <span class="layui-breadcrumb">
+                    <a href="javascript:;">会议管理</a>
+                    <a href="{% url 'adm_meeting_records' %}">会议记录列表</a>
+                    <a><cite>会议记录详情</cite></a>
+                </span>
+            </div>
+            <div class="layui-col-md6 text-right">
+                <button class="layui-btn layui-btn-warm" onclick="createMinutes()">创建会议纪要</button>
+                <button class="layui-btn layui-btn-primary" onclick="closeLayer()">关闭</button>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <div class="layui-form">
+            <div class="layui-form-item">
+                <label class="layui-form-label">会议标题</label>
+                <div class="layui-input-block">
+                    <div class="layui-input">{{ detail.title }}</div>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">会议日期</label>
+                <div class="layui-input-block">
+                    <div class="layui-input">{{ detail.meeting_date }}</div>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">主持人</label>
+                <div class="layui-input-block">
+                    <div class="layui-input">{{ detail.host_name|default:'未设置' }}</div>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">记录人</label>
+                <div class="layui-input-block">
+                    <div class="layui-input">{{ detail.recorder_name|default:'未设置' }}</div>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">创建时间</label>
+                <div class="layui-input-block">
+                    <div class="layui-input">{{ detail.create_time }}</div>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">会议内容</label>
+                <div class="layui-input-block">
+                    <div class="layui-textarea" style="min-height: 200px;">{{ detail.content }}</div>
+                </div>
+            </div>
+            
+            <!-- 关联的会议纪要 -->
+            <div class="layui-form-item">
+                <label class="layui-form-label">会议纪要</label>
+                <div class="layui-input-block">
+                    <div id="meeting_minutes_list">
+                        {% if meeting_minutes %}
+                            <ul class="layui-timeline">
+                                {% for minute in meeting_minutes %}
+                                    <li class="layui-timeline-item">
+                                        <i class="layui-icon layui-timeline-axis"></i>
+                                        <div class="layui-timeline-content layui-text">
+                                            <div class="layui-timeline-title">{{ minute.title }}</div>
+                                            <p>创建时间：{{ minute.created_at }}</p>
+                                            <a href="{% url 'personal:minutes_view' minute.id %}" class="layui-btn layui-btn-sm" target="_blank">查看详情</a>
+                                        </div>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p style="color: #999;">暂无相关会议纪要</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function closeLayer() {
+    var index = parent.layer.getFrameIndex(window.name);
+    parent.layer.close(index);
+}
+
+function createMinutes() {
+    var meetingId = '{{ detail.id }}';
+    
+    // 创建带录音上传功能的弹窗
+    layer.open({
+        type: 1,
+        title: '创建会议纪要',
+        area: ['600px', '350px'],
+        content: `
+            <div style="padding: 20px;">
+                <div style="margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 15px;">请选择生成方式：</h3>
+                    <div class="layui-radio layui-radio-checked" style="margin-bottom: 10px;">
+                        <input type="radio" name="summary_type" value="manual" title="手动输入" checked>
+                    </div>
+                    <div class="layui-radio" style="margin-bottom: 10px;">
+                        <input type="radio" name="summary_type" value="audio" title="上传录音自动生成">
+                    </div>
+                </div>
+                
+                <div id="audio_upload_area" style="display: none; margin-top: 20px; border: 2px dashed #e6e6e6; border-radius: 4px; padding: 20px; text-align: center;">
+                    <i class="layui-icon layui-icon-upload" style="font-size: 48px; color: #1E9FFF;"></i>
+                    <p style="margin-top: 10px;">点击上传或拖拽录音文件到此处</p>
+                    <input type="file" id="audio_file" accept="audio/*" style="display: none;">
+                    <div id="file_info" style="margin-top: 10px; text-align: left; display: none;">
+                        <p>文件名: <span id="file_name"></span></p>
+                        <p>文件大小: <span id="file_size"></span></p>
+                    </div>
+                </div>
+            </div>
+        `,
+        btn: ['下一步', '取消'],
+        btn1: function(index) {
+            var summaryType = $(":radio[name='summary_type']:checked").val();
+            
+            if (summaryType === 'audio') {
+                var audioFile = document.getElementById('audio_file').files[0];
+                if (!audioFile) {
+                    layer.msg('请上传录音文件', {icon: 2});
+                    return false;
+                }
+                
+                // 显示上传进度
+                var uploadIndex = layer.load(2);
+                
+                // 这里应该有上传录音文件的逻辑，暂时简化处理
+                // 在实际应用中，应该通过AJAX上传文件
+                
+                setTimeout(function() {
+                    layer.close(uploadIndex);
+                    layer.close(index);
+                    
+                    // 打开会议纪要创建页面，传递会议ID和录音文件信息
+                layer.open({
+                    type: 2,
+                    title: '创建会议纪要（录音生成）',
+                    content: "{% url 'personal:minutes_add' %}?meeting_id=" + meetingId + "&audio=true",
+                    area: ['800px', '600px'],
+                    position: 'rb',
+                    zIndex: 9999,
+                    scrollbar: true,
+                    cancel: function(index, layero) {
+                        return true;
+                    },
+                    success: function(layero, index) {
+                        console.log('录音生成弹窗创建成功，应用定位样式和确保iframe内容可交互');
+                        // 立即应用定位样式
+                        $(layero).css({
+                            'position': 'fixed',
+                            'z-index': 9999
+                        });
+                        // 应用样式到所有父容器
+                        $(layero).parents().css({
+                            'position': 'fixed',
+                            'z-index': 9999
+                        });
+                        // 获取iframe元素
+                        var iframe = layero.find('iframe')[0];
+                        // 监听iframe加载完成事件
+                        if (iframe) {
+                            iframe.onload = function() {
+                                try {
+                                    // 设置iframe内部所有元素的交互属性
+                                    var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                                    $(iframeDoc.body).find('*').css({
+                                        'pointer-events': 'auto',
+                                        'user-select': 'auto',
+                                        'touch-action': 'auto'
+                                    });
+                                    // 特别处理表单元素，确保可交互
+                                    $(iframeDoc.body).find('input, select, textarea, button').prop('disabled', false);
+                                    
+                                    // 向iframe发送消息，请求确保交互性
+                                    setTimeout(function() {
+                                        if (iframe.contentWindow && iframe.contentWindow.postMessage) {
+                                            console.log('向iframe发送交互请求消息');
+                                            iframe.contentWindow.postMessage('iframe_request_interaction', '*');
+                                            // 发送焦点请求
+                                            setTimeout(function() {
+                                                iframe.contentWindow.postMessage('focus_form_elements', '*');
+                                            }, 200);
+                                        }
+                                    }, 100);
+                                } catch (e) {
+                                    console.error('无法访问iframe内容:', e);
+                                }
+                            };
+                        }
+                        // 延迟300ms后再次应用样式，确保定位正确
+                        setTimeout(function() {
+                            $(layero).css({
+                                'position': 'fixed',
+                                'z-index': 9999
+                            });
+                            $(layero).parents().css({
+                                'position': 'fixed',
+                                'z-index': 9999
+                            });
+                        }, 300);
+                    }
+                });
+                }, 1500);
+            } else {
+                layer.close(index);
+                
+                // 直接打开手动输入会议纪要页面
+                layer.open({
+                    type: 2,
+                    title: '创建会议纪要',
+                    content: "{% url 'personal:minutes_add' %}?meeting_id=" + meetingId,
+                    area: ['800px', '600px'],
+                    position: 'rb',
+                    zIndex: 9999,
+                    scrollbar: true,
+                    cancel: function(index, layero) {
+                        return true;
+                    },
+                    success: function(layero, index) {
+                        console.log('手动输入弹窗创建成功，应用定位样式和确保iframe内容可交互');
+                        // 立即应用定位样式
+                        $(layero).css({
+                            'position': 'fixed',
+                            'z-index': 9999
+                        });
+                        // 应用样式到所有父容器
+                        $(layero).parents().css({
+                            'position': 'fixed',
+                            'z-index': 9999
+                        });
+                        // 获取iframe元素
+                        var iframe = layero.find('iframe')[0];
+                        // 监听iframe加载完成事件
+                        if (iframe) {
+                            iframe.onload = function() {
+                                try {
+                                    // 设置iframe内部所有元素的交互属性
+                                    var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                                    $(iframeDoc.body).find('*').css({
+                                        'pointer-events': 'auto',
+                                        'user-select': 'auto',
+                                        'touch-action': 'auto'
+                                    });
+                                    // 特别处理表单元素，确保可交互
+                                    $(iframeDoc.body).find('input, select, textarea, button').prop('disabled', false);
+                                    
+                                    // 向iframe发送消息，请求确保交互性
+                                    setTimeout(function() {
+                                        if (iframe.contentWindow && iframe.contentWindow.postMessage) {
+                                            console.log('向iframe发送交互请求消息');
+                                            iframe.contentWindow.postMessage('iframe_request_interaction', '*');
+                                            // 发送焦点请求
+                                            setTimeout(function() {
+                                                iframe.contentWindow.postMessage('focus_form_elements', '*');
+                                            }, 200);
+                                        }
+                                    }, 100);
+                                } catch (e) {
+                                    console.error('无法访问iframe内容:', e);
+                                }
+                            };
+                        }
+                        // 延迟300ms后再次应用样式，确保定位正确
+                        setTimeout(function() {
+                            $(layero).css({
+                                'position': 'fixed',
+                                'z-index': 9999
+                            });
+                            $(layero).parents().css({
+                                'position': 'fixed',
+                                'z-index': 9999
+                            });
+                        }, 300);
+                    }
+                });
+            }
+        }
+    });
+    
+    // 监听单选框变化
+    $(document).off('change', "input[name='summary_type']").on('change', "input[name='summary_type']", function() {
+        if ($(this).val() === 'audio') {
+            $('#audio_upload_area').show();
+        } else {
+            $('#audio_upload_area').hide();
+        }
+    });
+    
+    // 点击上传区域触发文件选择
+    $(document).off('click', '#audio_upload_area').on('click', '#audio_upload_area', function() {
+        $('#audio_file').click();
+    });
+    
+    // 监听文件选择
+    $(document).off('change', '#audio_file').on('change', '#audio_file', function(e) {
+        var file = e.target.files[0];
+        if (file) {
+            $('#file_name').text(file.name);
+            $('#file_size').text((file.size / (1024 * 1024)).toFixed(2) + 'MB');
+            $('#file_info').show();
+        }
+    });
+}
+
+
+</script>
+{% endblock %}

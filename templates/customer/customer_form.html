@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{% if object %}编辑客户{% else %}添加客户{% endif %}</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <style>
+        .required-field::after {
+            content: " *";
+            color: red;
+        }
+        .contact-item {
+            border: 1px solid #e6e6e6;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            position: relative;
+        }
+        .contact-item.primary {
+            border-color: #5FB878;
+            background-color: #f8fff8;
+        }
+        .contact-delete {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            cursor: pointer;
+            color: #FF5722;
+        }
+        .primary-badge {
+            position: absolute;
+            top: -8px;
+            left: 10px;
+            background: #5FB878;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <h3>{% if object %}编辑客户{% else %}添加客户{% endif %}</h3>
+                    </div>
+                    <div class="layui-card-body">
+                        <form class="layui-form" method="post" id="customerForm">
+                            {% csrf_token %}
+                            
+                            <!-- 基本信息 -->
+                            <fieldset class="layui-elem-field">
+                                <legend>基本信息</legend>
+                                <div class="layui-field-box">
+                                    <div class="layui-row layui-col-space15">
+                                        <div class="layui-col-md6">
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label required-field">客户名称</label>
+                                                <div class="layui-input-block">
+                                                    {{ form.name }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="layui-col-md6">
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">客户来源</label>
+                                                <div class="layui-input-block">
+                                                    {{ form.customer_source }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="layui-row layui-col-space15">
+                                        <div class="layui-col-md6">
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">客户等级</label>
+                                                <div class="layui-input-block">
+                                                    {{ form.grade_id }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="layui-col-md6">
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">所属行业</label>
+                                                <div class="layui-input-block">
+                                                    {{ form.industry_id }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="layui-row layui-col-space15">
+                                        <div class="layui-col-md6">
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">客户意向</label>
+                                                <div class="layui-input-block">
+                                                    {{ form.services_id }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="layui-col-md6">
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">客户状态</label>
+                                                <div class="layui-input-block">
+                                                    {{ form.customer_status }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </fieldset>
+                            
+                            <!-- 地址信息 -->
+                            <fieldset class="layui-elem-field">
+                                <legend>地址信息</legend>
+                                <div class="layui-field-box">
+                                    <div class="layui-row layui-col-space15">
+                                        <div class="layui-col-md3">
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">省份</label>
+                                                <div class="layui-input-block">
+                                                    {{ form.province }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="layui-col-md3">
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">城市</label>
+                                                <div class="layui-input-block">
+                                                    {{ form.city }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="layui-col-md3">
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">区县</label>
+                                                <div class="layui-input-block">
+                                                    {{ form.district }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="layui-col-md3">
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">乡镇</label>
+                                                <div class="layui-input-block">
+                                                    {{ form.town }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">详细地址</label>
+                                        <div class="layui-input-block">
+                                            {{ form.address }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </fieldset>
+                            
+                            <!-- 联系人信息 -->
+                            <fieldset class="layui-elem-field">
+                                <legend>联系人信息</legend>
+                                <div class="layui-field-box">
+                                    <div id="contactsContainer" data-initial-count="{{ contact_formset.total_form_count|default:0 }}">
+                                        {% for contact_form in contact_formset %}
+                                            <div class="contact-item" data-form-index="{{ forloop.counter0 }}">
+                                                {% if contact_form.instance.is_primary %}
+                                                    <div class="primary-badge">主要联系人</div>
+                                                {% endif %}
+                                                <div class="contact-delete" data-form-index="{{ forloop.counter0 }}">
+                                                    <i class="layui-icon layui-icon-close"></i>
+                                                </div>
+                                                
+                                                {{ contact_form.id }}
+                                                {{ contact_form.DELETE }}
+                                                
+                                                <div class="layui-row layui-col-space15">
+                                                    <div class="layui-col-md4">
+                                                        <div class="layui-form-item">
+                                                            <label class="layui-form-label required-field">联系人</label>
+                                                            <div class="layui-input-block">
+                                                                {{ contact_form.contact_person }}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="layui-col-md4">
+                                                        <div class="layui-form-item">
+                                                            <label class="layui-form-label required-field">联系电话</label>
+                                                            <div class="layui-input-block">
+                                                                {{ contact_form.phone }}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="layui-col-md4">
+                                                        <div class="layui-form-item">
+                                                            <label class="layui-form-label">职位</label>
+                                                            <div class="layui-input-block">
+                                                                {{ contact_form.position }}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="layui-row layui-col-space15">
+                                                    <div class="layui-col-md6">
+                                                        <div class="layui-form-item">
+                                                            <label class="layui-form-label">邮箱</label>
+                                                            <div class="layui-input-block">
+                                                                {{ contact_form.email }}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="layui-col-md6">
+                                                        <div class="layui-form-item">
+                                                            <label class="layui-form-label">主要联系人</label>
+                                                            <div class="layui-input-block">
+                                                                <input type="radio" name="primary_contact" value="{{ contact_form.instance.id|default:forloop.counter0 }}" 
+                                                                       {% if contact_form.instance.is_primary %}checked{% endif %}
+                                                                       lay-skin="primary" title="主要联系人">
+                                                                {{ contact_form.is_primary }}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                    
+                                    <div class="layui-form-item">
+                                        <div class="layui-input-block">
+                                            <button type="button" class="layui-btn layui-btn-normal" onclick="addContact()">
+                                                <i class="layui-icon layui-icon-add-1"></i> 添加联系人
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 管理表单数据 -->
+                                    {{ contact_formset.management_form }}
+                                </div>
+                            </fieldset>
+                            
+                            <!-- 自定义字段 -->
+                            {% if custom_fields %}
+                            <fieldset class="layui-elem-field">
+                                <legend>自定义字段</legend>
+                                <div class="layui-field-box">
+                                    <div class="layui-row layui-col-space15">
+                                        {% for field in custom_fields %}
+                                            <div class="layui-col-md6">
+                                                <div class="layui-form-item">
+                                                    <label class="layui-form-label {% if field.is_required %}required-field{% endif %}">
+                                                        {{ field.name }}
+                                                    </label>
+                                                    <div class="layui-input-block">
+                                                        {% if field.field_type == 'text' %}
+                                                            <input type="text" name="custom_field_{{ field.id }}" 
+                                                                   class="layui-input" placeholder="请输入{{ field.name }}"
+                                                                   {% if field.is_required %}required{% endif %}
+                                                                   value="{{ field.current_value|default:'' }}">
+                                                        {% elif field.field_type == 'number' %}
+                                                            <input type="number" name="custom_field_{{ field.id }}" 
+                                                                   class="layui-input" placeholder="请输入{{ field.name }}"
+                                                                   {% if field.is_required %}required{% endif %}
+                                                                   value="{{ field.current_value|default:'' }}">
+                                                        {% elif field.field_type == 'date' %}
+                                                            <input type="date" name="custom_field_{{ field.id }}" 
+                                                                   class="layui-input"
+                                                                   {% if field.is_required %}required{% endif %}
+                                                                   value="{{ field.current_value|default:'' }}">
+                                                        {% elif field.field_type == 'textarea' %}
+                                                            <textarea name="custom_field_{{ field.id }}" 
+                                                                      class="layui-textarea" placeholder="请输入{{ field.name }}"
+                                                                      {% if field.is_required %}required{% endif %}>{{ field.current_value|default:'' }}</textarea>
+                                                        {% elif field.field_type == 'select' %}
+                                                            <select name="custom_field_{{ field.id }}" class="layui-input"
+                                                                    {% if field.is_required %}required{% endif %}>
+                                                                <option value="">请选择{{ field.name }}</option>
+                                                                {% for option in field.options_list %}
+                                                                    <option value="{{ option }}" 
+                                                                            {% if option == field.current_value %}selected{% endif %}>
+                                                                        {{ option }}
+                                                                    </option>
+                                                                {% endfor %}
+                                                            </select>
+                                                        {% elif field.field_type == 'datetime' %}
+                                                            <input type="datetime-local" name="custom_field_{{ field.id }}" 
+                                                                   class="layui-input"
+                                                                   {% if field.is_required %}required{% endif %}
+                                                                   value="{{ field.current_value|default:'' }}">
+                                                        {% elif field.field_type == 'radio' %}
+                                                            <div class="layui-input-block">
+                                                                {% for option in field.options_list %}
+                                                                <input type="radio" name="custom_field_{{ field.id }}" 
+                                                                       value="{{ option }}" title="{{ option }}"
+                                                                       {% if option == field.current_value %}checked{% endif %}
+                                                                       {% if field.is_required and forloop.first %}required{% endif %}>
+                                                                {% endfor %}
+                                                            </div>
+                                                        {% elif field.field_type == 'checkbox' %}
+                                                            <input type="checkbox" name="custom_field_{{ field.id }}" 
+                                                                   value="1" lay-skin="switch" lay-text="是|否"
+                                                                   {% if field.current_value == '1' %}checked{% endif %}>
+                                                        {% else %}
+                                                            <input type="text" name="custom_field_{{ field.id }}" 
+                                                                   class="layui-input" placeholder="请输入{{ field.name }}"
+                                                                   {% if field.is_required %}required{% endif %}
+                                                                   value="{{ field.current_value|default:'' }}">
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </fieldset>
+                            {% endif %}
+                            
+                            <!-- 其他信息 -->
+                            <fieldset class="layui-elem-field">
+                                <legend>其他信息</legend>
+                                <div class="layui-field-box">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">客户描述</label>
+                                        <div class="layui-input-block">
+                                            {{ form.content }}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">主要经营业务</label>
+                                        <div class="layui-input-block">
+                                            {{ form.market }}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">备注信息</label>
+                                        <div class="layui-input-block">
+                                            {{ form.remark }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </fieldset>
+                            
+                            <!-- 税务信息 -->
+                            <fieldset class="layui-elem-field">
+                                <legend>税务信息</legend>
+                                <div class="layui-field-box">
+                                    <div class="layui-row layui-col-space15">
+                                        <div class="layui-col-md6">
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">开户银行</label>
+                                                <div class="layui-input-block">
+                                                    {{ form.tax_bank }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="layui-col-md6">
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">银行账号</label>
+                                                <div class="layui-input-block">
+                                                    {{ form.tax_banksn }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="layui-row layui-col-space15">
+                                        <div class="layui-col-md6">
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">纳税人识别号</label>
+                                                <div class="layui-input-block">
+                                                    {{ form.tax_num }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="layui-col-md6">
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">税务联系电话</label>
+                                                <div class="layui-input-block">
+                                                    {{ form.tax_mobile }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">税务地址</label>
+                                        <div class="layui-input-block">
+                                            {{ form.tax_address }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </fieldset>
+                            
+                            <!-- 协同操作 -->
+                            <fieldset class="layui-elem-field">
+                                <legend>协同操作</legend>
+                                <div class="layui-field-box">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">共享给其他员工</label>
+                                        <div class="layui-input-block">
+                                            <select name="share_ids" multiple="multiple" class="layui-select" lay-search lay-filter="share_ids">
+                                                <!-- 这里会通过JavaScript动态加载员工列表 -->
+                                            </select>
+                                            <div class="layui-form-mid layui-word-aux">
+                                                选择要共享的员工，按住Ctrl可多选
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </fieldset>
+                            
+                            <!-- 提交按钮 -->
+                            <div class="layui-form-item">
+                                <div class="layui-input-block">
+                                    <button class="layui-btn" type="submit">保存</button>
+                                    <a href="{% url 'customer:customer_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        // 联系人管理功能 - 简化版实现
+        
+        // 在layui加载完成后执行初始化
+        layui.use(['form'], function() {
+            var form = layui.form;
+            var contactIndex = {{ contact_formset.total_form_count|default:0 }};
+            
+            // 初始化函数
+            function initContactManagement() {
+                // 为现有删除按钮添加事件
+                attachDeleteEvents();
+                
+                // 主要联系人单选按钮处理
+                handlePrimaryContactChange();
+            }
+            
+            // 为所有删除按钮添加点击事件
+            function attachDeleteEvents() {
+                // 使用事件委托确保动态创建的元素也能触发事件
+                document.getElementById('contactsContainer').addEventListener('click', function(e) {
+                    // 检查点击的元素是否是删除按钮或其子元素
+                    var deleteButton = e.target.closest('.contact-delete');
+                    if (deleteButton) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleContactDelete(deleteButton);
+                    }
+                }, false);
+            }
+            
+            // 处理联系人删除
+            function handleContactDelete(deleteButton) {
+                var contactItem = deleteButton.closest('.contact-item');
+                
+                if (!contactItem) {
+                    console.error('Contact item not found');
+                    return;
+                }
+                
+                // 获取表单索引
+                var formIndex = contactItem.getAttribute('data-form-index');
+                
+                // 检查联系人是否为空
+                var isEmpty = checkIfContactEmpty(contactItem);
+                
+                // 确认删除或直接删除
+                if (isEmpty || confirm('确定要删除这个联系人吗？')) {
+                    // 标记为删除（用于表单提交）
+                    var deleteField = contactItem.querySelector('input[name^="contacts-"][name$="-DELETE"]');
+                    if (deleteField) {
+                        deleteField.value = 'on';
+                    }
+                    
+                    // 从DOM中移除
+                    contactItem.style.display = 'none';
+                    contactItem.style.height = '0';
+                    contactItem.style.margin = '0';
+                    contactItem.style.padding = '0';
+                    
+                    // 使用setTimeout确保DOM更新后再移除元素
+                    setTimeout(function() {
+                        contactItem.remove();
+                        updateFormCounts();
+                    }, 300);
+                }
+            }
+            
+            // 检查联系人是否为空
+            function checkIfContactEmpty(contactItem) {
+                var inputFields = contactItem.querySelectorAll('input[type="text"], input[type="email"]');
+                for (var i = 0; i < inputFields.length; i++) {
+                    if (inputFields[i].value && inputFields[i].value.trim() !== '') {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            
+            // 更新表单计数
+            function updateFormCounts() {
+                var totalForms = document.querySelector('input[name="contacts-TOTAL_FORMS"]') || 
+                                document.getElementById('id_contacts-TOTAL_FORMS');
+                
+                if (totalForms) {
+                    var visibleContactItems = document.querySelectorAll('.contact-item:not([style*="display: none"])');
+                    totalForms.value = visibleContactItems.length;
+                }
+            }
+            
+            // 主要联系人单选按钮处理
+            function handlePrimaryContactChange() {
+                document.addEventListener('change', function(e) {
+                    if (e.target.name === 'primary_contact') {
+                        // 重置所有is_primary字段为false
+                        document.querySelectorAll('input[name$="-is_primary"]').forEach(function(field) {
+                            field.value = 'false';
+                        });
+                        
+                        // 设置选中的联系人的is_primary为true
+                        var selectedIndex = e.target.value;
+                        var selectedField = document.querySelector('input[name="contacts-' + selectedIndex + '-is_primary"]');
+                        if (selectedField) {
+                            selectedField.value = 'true';
+                        }
+                    }
+                });
+            }
+            
+            // 添加联系人函数
+            window.addContact = function() {
+                var container = document.getElementById('contactsContainer');
+                var totalForms = document.querySelector('input[name="contacts-TOTAL_FORMS"]') || 
+                                document.getElementById('id_contacts-TOTAL_FORMS');
+                
+                if (container && totalForms) {
+                    var newIndex = contactIndex;
+                    var newContactHtml = '<div class="contact-item" data-form-index="' + newIndex + '">' +
+                        '<div class="contact-delete" data-form-index="' + newIndex + '" style="cursor: pointer; position: absolute; top: 10px; right: 10px; z-index: 10;" onclick="this.closest(\'.contact-item\').remove();">' +
+                        '<i class="layui-icon layui-icon-close"></i>' +
+                        '</div>' +
+                        '<input type="hidden" name="contacts-' + newIndex + '-id" id="id_contacts-' + newIndex + '-id">' +
+                        '<input type="hidden" name="contacts-' + newIndex + '-DELETE" id="id_contacts-' + newIndex + '-DELETE">' +
+                        '<div class="layui-row layui-col-space15">' +
+                        '<div class="layui-col-md4">' +
+                        '<div class="layui-form-item">' +
+                        '<label class="layui-form-label required-field">联系人</label>' +
+                        '<div class="layui-input-block">' +
+                        '<input type="text" name="contacts-' + newIndex + '-contact_person" class="layui-input" required>' +
+                        '</div>' +
+                        '</div>' +
+                        '</div>' +
+                        '<div class="layui-col-md4">' +
+                        '<div class="layui-form-item">' +
+                        '<label class="layui-form-label required-field">联系电话</label>' +
+                        '<div class="layui-input-block">' +
+                        '<input type="text" name="contacts-' + newIndex + '-phone" class="layui-input" required>' +
+                        '</div>' +
+                        '</div>' +
+                        '</div>' +
+                        '<div class="layui-col-md4">' +
+                        '<div class="layui-form-item">' +
+                        '<label class="layui-form-label">职位</label>' +
+                        '<div class="layui-input-block">' +
+                        '<input type="text" name="contacts-' + newIndex + '-position" class="layui-input">' +
+                        '</div>' +
+                        '</div>' +
+                        '</div>' +
+                        '</div>' +
+                        '<div class="layui-row layui-col-space15">' +
+                        '<div class="layui-col-md6">' +
+                        '<div class="layui-form-item">' +
+                        '<label class="layui-form-label">邮箱</label>' +
+                        '<div class="layui-input-block">' +
+                        '<input type="email" name="contacts-' + newIndex + '-email" class="layui-input">' +
+                        '</div>' +
+                        '</div>' +
+                        '</div>' +
+                        '<div class="layui-col-md6">' +
+                        '<div class="layui-form-item">' +
+                        '<label class="layui-form-label">主要联系人</label>' +
+                        '<div class="layui-input-block">' +
+                        '<input type="radio" name="primary_contact" value="' + newIndex + '" lay-skin="primary" title="主要联系人">' +
+                        '<input type="hidden" name="contacts-' + newIndex + '-is_primary" value="false">' +
+                        '</div>' +
+                        '</div>' +
+                        '</div>' +
+                        '</div>' +
+                        '</div>';
+                    
+                    // 创建临时元素来解析HTML
+                    var tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = newContactHtml;
+                    var newContactItem = tempDiv.firstElementChild;
+                    
+                    // 添加到容器
+                    container.appendChild(newContactItem);
+                    
+                    // 更新索引和表单计数
+                    contactIndex++;
+                    totalForms.value = contactIndex;
+                    
+                    // 重新渲染表单
+                    form.render();
+                    
+                    // 为删除按钮添加内联事件监听器作为备用
+                    var deleteButton = newContactItem.querySelector('.contact-delete');
+                    if (deleteButton) {
+                        deleteButton.onclick = function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleContactDelete(this);
+                        };
+                    }
+                }
+            };
+            
+            // 直接暴露removeContact函数供紧急使用
+            window.removeContact = handleContactDelete;
+            
+            // 初始化
+            initContactManagement();
+            
+            // 加载员工列表
+            loadEmployees();
+        });
+        
+        // 加载员工列表
+        function loadEmployees() {
+            // 发送AJAX请求获取员工列表
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/user/employee_list/', true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    var employees = JSON.parse(xhr.responseText);
+                    renderEmployeeOptions(employees);
+                }
+            };
+            xhr.send();
+        }
+        
+        // 渲染员工选项
+        function renderEmployeeOptions(employees) {
+            var selectElement = document.querySelector('select[name="share_ids"]');
+            if (!selectElement) return;
+            
+            // 清空现有选项
+            selectElement.innerHTML = '';
+            
+            // 添加员工选项
+            employees.forEach(function(employee) {
+                var option = document.createElement('option');
+                option.value = employee.id;
+                option.textContent = employee.name + ' (' + employee.username + ')';
+                selectElement.appendChild(option);
+            });
+            
+            // 重新渲染表单
+            layui.form.render('select');
+        }
+        
+        // 加载已共享的员工
+        function loadSharedEmployees() {
+            var customerId = {{ object.id|default:0 }};
+            if (customerId === 0) return;
+            
+            // 发送AJAX请求获取已共享的员工
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/customer/get_shared_employees/' + customerId + '/', true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    var sharedEmployeeIds = JSON.parse(xhr.responseText);
+                    
+                    // 设置已选中的员工
+                    var selectElement = document.querySelector('select[name="share_ids"]');
+                    if (selectElement) {
+                        for (var i = 0; i < selectElement.options.length; i++) {
+                            var option = selectElement.options[i];
+                            if (sharedEmployeeIds.includes(parseInt(option.value))) {
+                                option.selected = true;
+                            }
+                        }
+                    }
+                    
+                    // 重新渲染表单
+                    layui.form.render('select');
+                }
+            };
+            xhr.send();
+        }
+        
+        // 页面加载完成后加载已共享的员工
+        window.onload = function() {
+            loadSharedEmployees();
+        };
+
+    </script>
+</body>
+</html>

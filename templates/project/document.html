@@ -1,0 +1,316 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>项目文档管理</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .document-stats {
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin-bottom: 10px;
+        }
+
+        .stat-card.success {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .stat-card.warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .stat-card.info {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+
+        .stat-number {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layui-fluid">
+        <!-- 统计卡片 -->
+        <div class="layui-row layui-col-space15 document-stats">
+            <div class="layui-col-md3">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalDocuments">0</div>
+                    <div class="stat-label">总文档数</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="stat-card success">
+                    <div class="stat-number" id="recentDocuments">0</div>
+                    <div class="stat-label">本月新增</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="stat-card info">
+                    <div class="stat-number" id="myDocuments">0</div>
+                    <div class="stat-label">我的文档</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="stat-card warning">
+                    <div class="stat-number" id="sharedDocuments">0</div>
+                    <div class="stat-label">共享文档</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <!-- 按钮和搜索区域 -->
+                <div class="layui-row layui-col-space10">
+                    <div class="layui-col-md6">
+                        <!-- 操作按钮区域 -->
+                        <button class="layui-btn layui-btn-normal layui-btn-sm" onclick="addDocument()">
+                            <i class="layui-icon layui-icon-add-1"></i> 新建文档
+                        </button>
+                        <button class="layui-btn layui-btn-primary layui-btn-sm" onclick="exportDocument()"
+                            style="margin-left: 8px;">
+                            <i class="layui-icon layui-icon-export"></i> 导出
+                        </button>
+                    </div>
+                    <div class="layui-col-md6" style="text-align: right;">
+                        <!-- 搜索区域 -->
+                        <div class="layui-inline">
+                            <select id="searchProject" lay-filter="searchProject">
+                                <option value="">所属项目</option>
+                                {% for project in projects %}
+                                <option value="{{ project.id }}">{{ project.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="layui-inline">
+                            <input type="text" id="searchKeywords" placeholder="文档标题" class="layui-input"
+                                style="width: 120px;">
+                        </div>
+                        <div class="layui-inline">
+                            <button type="button" class="layui-btn layui-btn-sm" onclick="searchDocument()">
+                                <i class="layui-icon layui-icon-search"></i> 搜索
+                            </button>
+                            <button type="button" class="layui-btn layui-btn-sm layui-btn-primary"
+                                onclick="resetSearch()">
+                                <i class="layui-icon layui-icon-refresh"></i> 重置
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-card-body">
+                <table id="documentTable" class="layui-table" lay-filter="documentTable"></table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['element', 'table', 'layer', 'form'], function () {
+            var element = layui.element;
+            var table = layui.table;
+            var layer = layui.layer;
+            var form = layui.form;
+
+            // 初始化表格
+            function initTable() {
+                var tableIns = table.render({
+                    elem: '#documentTable',
+                    url: '/adm/project/document/datalist/',
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    request: {
+                        pageName: 'page',
+                        limitName: 'limit'
+                    },
+                    response: {
+                        statusName: 'code',
+                        statusCode: 0,
+                        msgName: 'msg',
+                        countName: 'count',
+                        dataName: 'data'
+                    },
+                    cols: [[
+                        { field: 'id', title: 'ID', width: 80, align: 'center' },
+                        { field: 'title', title: '文档标题', width: 250 },
+                        { field: 'project_name', title: '所属项目', width: 150 },
+                        { field: 'creator_name', title: '创建人', width: 100, align: 'center' },
+                        {
+                            field: 'file_path', title: '文件路径', width: 200, templet: function (d) {
+                                if (d.file_path) {
+                                    return '<a href="' + d.file_path + '" target="_blank" class="layui-btn layui-btn-xs layui-btn-primary">查看文件</a>';
+                                } else {
+                                    return '<span style="color: #999;">无文件</span>';
+                                }
+                            }
+                        },
+                        { field: 'create_time', title: '创建时间', width: 150, align: 'center' },
+                        { title: '操作', width: 200, toolbar: '#documentToolBar', fixed: 'right' }
+                    ]],
+                    page: true,
+                    limit: 20,
+                    height: 'full-300',
+                    loading: true,
+                    done: function (res) {
+                        if (res.code === 0) {
+                            updateStats(res.data || []);
+                        } else {
+                            layer.msg('数据加载失败: ' + (res.msg || '未知错误'), {icon: 2});
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        layer.msg('数据加载失败: ' + error, {icon: 2});
+                    }
+                });
+                
+                return tableIns;
+            }
+
+            // 更新统计数据
+            function updateStats(data) {
+                var total = data.length;
+                var recent = 0; // 这里可以根据实际需求计算本月新增
+                var my = 0; // 这里可以根据实际需求计算我的文档
+                var shared = 0; // 这里可以根据实际需求计算共享文档
+
+                $('#totalDocuments').text(total);
+                $('#recentDocuments').text(recent);
+                $('#myDocuments').text(my);
+                $('#sharedDocuments').text(shared);
+            }
+
+            // 确保DOM和layui完全加载后初始化表格
+            $(document).ready(function() {
+                initTable();
+            });
+
+            // 监听工具条
+            table.on('tool(documentTable)', function (obj) {
+                var data = obj.data;
+                var layEvent = obj.event;
+
+                if (layEvent === 'view') {
+                    layer.open({
+                        type: 2,
+                        title: '文档详情',
+                        shadeClose: true,
+                        shade: 0.3,
+                        area: ['75%', '90%'],
+                        offset: 'r',
+                        content: '/adm/project/document/detail/' + data.id + '/'
+                    });
+                } else if (layEvent === 'edit') {
+                    layer.open({
+                        type: 2,
+                        title: '编辑文档',
+                        shadeClose: true,
+                        shade: 0.3,
+                        area: ['75%', '90%'],
+                        offset: 'r',
+                        content: '/adm/project/document/edit/' + data.id + '/',
+                        end: function () {
+                            table.reload('documentTable');
+                        }
+                    });
+                } else if (layEvent === 'delete') {
+                    layer.confirm('确定删除这个文档吗？', function (index) {
+                        // 这里添加删除逻辑
+                        layer.msg('删除功能开发中...', { icon: 0 });
+                        layer.close(index);
+                    });
+                }
+            });
+        });
+
+        // 新建文档
+        function addDocument() {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+
+                layer.open({
+                    type: 2,
+                    title: '新建文档',
+                    shadeClose: true,
+                    shade: 0.3,
+                    area: ['75%', '90%'],
+                    offset: 'r',
+                    content: '/adm/project/document/add/',
+                    end: function () {
+                        layui.table.reload('documentTable');
+                    }
+                });
+            });
+        }
+
+        // 导出文档
+        function exportDocument() {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.msg('导出功能开发中...', { icon: 0 });
+            });
+        }
+
+        // 搜索文档
+        function searchDocument() {
+            layui.use(['table'], function () {
+                var table = layui.table;
+                var project = $('#searchProject').val();
+                var keywords = $('#searchKeywords').val();
+                var params = {};
+
+                if (project) params.project_id = project;
+                if (keywords) params.keywords = keywords;
+
+                table.reload('documentTable', {
+                    where: params
+                });
+            });
+        }
+
+        // 重置搜索
+        function resetSearch() {
+            layui.use(['table', 'form'], function () {
+                var table = layui.table;
+                var form = layui.form;
+
+                $('#searchProject').val('');
+                $('#searchKeywords').val('');
+                form.render('select');
+
+                table.reload('documentTable', {
+                    where: {}
+                });
+            });
+        }
+    </script>
+
+    <!-- 工具栏模板 -->
+    <script type="text/html" id="documentToolBar">
+        <a class="layui-btn layui-btn-xs" lay-event="view">详情</a>
+        <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
+        <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
+    </script>
+</body>
+
+</html>

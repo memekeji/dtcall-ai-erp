@@ -1,0 +1,976 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新增{% if contract_type == '1' %}销售{% elif contract_type == '2' %}采购{% elif contract_type == '3' %}服务{% endif %}合同</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        /* 表单区域样式 - 简化为整体设计 */
+        .contract-form-section {
+            padding: 15px 0;
+            margin-bottom: 5px;
+            border-bottom: 1px solid #1E9FFF;
+            transition: none;
+        }
+        
+        .contract-form-section:hover {
+            transform: none;
+        }
+        
+        .contract-form-section h3 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 16px;
+            font-weight: 600;
+            border-bottom: none;
+            padding-bottom: 5px;
+        }
+        
+        .form-group-row {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 0 -10px;
+        }
+        
+        .form-group {
+            flex: 1;
+            min-width: 200px;
+            padding: 0 10px;
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .form-group .layui-input,
+        .form-group .layui-select,
+        .form-group .layui-textarea {
+            width: 100%;
+            border-radius: 4px;
+            border: 1px solid #dcdfe6;
+            transition: all 0.3s ease;
+        }
+        
+        .form-group .layui-input:focus,
+        .form-group .layui-select:focus,
+        .form-group .layui-textarea:focus {
+            border-color: #1E9FFF;
+            box-shadow: 0 0 0 2px rgba(30, 159, 255, 0.2);
+        }
+        
+        /* 分类选择器样式 */
+        .category-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .category-selector .layui-select {
+            flex: 1;
+        }
+        
+        /* 按钮样式 */
+        .contract-btn {
+            padding: 8px 20px;
+            border-radius: 4px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .contract-btn-primary {
+            background: linear-gradient(135deg, #1E9FFF 0%, #009688 100%);
+            color: white;
+        }
+        
+        .contract-btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(30, 159, 255, 0.4);
+        }
+        
+        .contract-btn-default {
+            background: #f8f9fa;
+            color: #666;
+            border: 1px solid #dcdfe6;
+        }
+        
+        .contract-btn-default:hover {
+            background: #e9ecef;
+            color: #333;
+        }
+        
+        /* 滚动条样式 */
+        body::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        body::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        
+        body::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #1E9FFF 0%, #009688 100%);
+            border-radius: 3px;
+        }
+        
+        body::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #009688 0%, #1E9FFF 100%);
+        }
+        
+        /* 页面容器样式 */
+        .contract-form-container {
+            padding: 20px;
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+        
+        /* 弹窗内页面样式优化 */
+        body {
+            background: #f8f9fa;
+            overflow-x: hidden;
+        }
+        
+        .layui-layer-page .layui-layer-content {
+            overflow: visible;
+        }
+        
+        /* 头部样式 */
+        .contract-form-header {
+            background: linear-gradient(135deg, #1E9FFF 0%, #009688 100%);
+            color: white;
+            padding: 20px 25px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(30, 159, 255, 0.3);
+        }
+        
+        .contract-form-header h2 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        /* 底部按钮区域 */
+        .contract-form-footer {
+            background: #f8f9fa;
+            padding: 20px 25px;
+            border-top: 1px solid #e9ecef;
+            text-align: right;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+            margin-top: 20px;
+            border-radius: 0 0 8px 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="contract-form-container">
+        <!-- 主体内容 -->
+        <div class="contract-form-body" style="padding: 0;">
+            <form class="layui-form" lay-filter="contractForm">
+            {% csrf_token %}
+            <!-- 隐藏字段 -->
+            <input type="hidden" name="types" value="{{ contract_type|default:'1' }}">
+            
+            <!-- 合同分类选择区域 -->
+            {% if not category_id %}
+            <div class="contract-form-section">
+                <h3>合同分类</h3>
+                <div class="layui-form-item">
+                    <label class="layui-form-label">分类选择</label>
+                    <div class="layui-input-block">
+                        <div class="contract-category-selector" id="categorySelector">
+                            <!-- 分类选择框将通过JavaScript动态创建 -->
+                            <!-- 二级和三级分类选择框将通过JavaScript动态创建 -->
+                            <input type="hidden" name="category_id" id="selectedCategoryId" value="">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 已选分类信息显示区域 -->
+            {% if selected_category %}
+            <div class="contract-form-section">
+                <h3>已选分类</h3>
+                <div class="layui-form-item">
+                    <label class="layui-form-label">分类信息</label>
+                    <div class="layui-input-block">
+                        <div class="selected-category-info">
+                            <strong>{{ selected_category.name }}</strong> ({{ selected_category.code }})
+                            <input type="hidden" name="category_id" value="{{ selected_category.id }}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 基本信息区域 -->
+            <div class="contract-form-section">
+                <h3>基本信息</h3>
+                <div class="form-group-row">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">合同编号</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="code" value="{{ default_contract_number }}" placeholder="请输入合同编号" class="layui-input" lay-verify="required|code">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">合同名称</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="name" placeholder="请输入合同名称" class="layui-input" lay-verify="required|name">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group-row">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">客户名称</label>
+                        <div class="layui-input-block">
+                            {% if customer %}
+                            <input type="hidden" name="customer_id" id="customerId" value="{{ customer.id }}">
+                            <input type="text" name="customer" value="{{ customer.name }}" placeholder="请输入客户名称" class="layui-input" lay-verify="required" readonly>
+                            {% else %}
+                            <div class="layui-input-group">
+                                <input type="hidden" name="customer_id" id="customerId">
+                                <input type="text" name="customer" id="customerName" placeholder="请选择客户" class="layui-input" lay-verify="required|customer" readonly>
+                                <div class="layui-input-suffix">
+                                    <button type="button" class="layui-btn layui-btn-sm layui-btn-primary" id="selectCustomerBtn">
+                                        <i class="layui-icon layui-icon-search"></i> 选择客户
+                                    </button>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">合同金额</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="cost" placeholder="请输入合同金额" class="layui-input" lay-verify="required|cost">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 客户信息区域 -->
+            <div class="contract-form-section">
+                <h3>客户信息</h3>
+                <div class="form-group-row">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">客户代表</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="contact_name" placeholder="请输入客户代表" class="layui-input">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">联系电话</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="contact_mobile" placeholder="请输入联系电话" class="layui-input">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="layui-form-item">
+                    <label class="layui-form-label">客户地址</label>
+                    <div class="layui-input-block">
+                        <input type="text" name="contact_address" placeholder="请输入客户地址" class="layui-input">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 时间信息区域 -->
+            <div class="contract-form-section">
+                <h3>时间信息</h3>
+                <div class="form-group-row">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">签订时间</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="sign_time" id="signTime" placeholder="请选择签订时间" class="layui-input" lay-verify="required|sign_time">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">开始时间</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="start_time" id="startTime" placeholder="请选择开始时间" class="layui-input" lay-verify="required|start_time">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">结束时间</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="end_time" id="endTime" placeholder="请选择结束时间" class="layui-input" lay-verify="required|end_time">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 其他信息区域 -->
+            <div class="contract-form-section">
+                <h3>其他信息</h3>
+                <div class="form-group-row">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">合同类型</label>
+                        <div class="layui-input-block">
+                            <select name="types" lay-verify="required|types">
+                                <option value="">请选择合同类型</option>
+                                <option value="1" selected>普通合同</option>
+                                <option value="2">商品合同</option>
+                                <option value="3">服务合同</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">是否含税</label>
+                        <div class="layui-input-block">
+                            <input type="radio" name="is_tax" value="0" title="不含税" checked>
+                            <input type="radio" name="is_tax" value="1" title="含税">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="layui-form-item">
+                    <label class="layui-form-label">备注信息</label>
+                    <div class="layui-input-block">
+                        <textarea name="remark" placeholder="请输入备注信息" class="layui-textarea"></textarea>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- 底部操作栏 -->
+    <div class="contract-form-footer">
+        <button type="button" class="layui-btn layui-btn-primary" id="closeContract">关闭</button>
+        <button type="submit" class="layui-btn layui-btn-normal" lay-submit lay-filter="contractForm">提交</button>
+    </div>
+</div>
+
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['form', 'layer', 'laydate'], function() {
+            var form = layui.form;
+            var layer = layui.layer;
+            var laydate = layui.laydate;
+            var $ = layui.$;
+
+            // 设置弹窗层级 - 使用最高层级，确保在所有弹窗之上
+            // 设置add.html页面内弹窗的基础zIndex值比父页面高
+
+            // 初始化日期选择器
+            laydate.render({
+                elem: '#signTime',
+                type: 'datetime',
+                theme: '#1E9FFF',
+                format: 'yyyy-MM-dd HH:mm:ss',
+                value: new Date(), // 设置默认值为当前时间
+                done: function(value, date, endDate) {
+                    // 确保时间值同步到表单字段
+                    $('#signTime').val(value);
+                }
+            });
+            
+            laydate.render({
+                elem: '#startTime',
+                type: 'datetime',
+                theme: '#1E9FFF',
+                format: 'yyyy-MM-dd HH:mm:ss',
+                value: new Date(), // 设置默认值为当前时间
+                done: function(value, date, endDate) {
+                    // 确保时间值同步到表单字段
+                    $('#startTime').val(value);
+                }
+            });
+            
+            laydate.render({
+                elem: '#endTime',
+                type: 'datetime',
+                theme: '#1E9FFF',
+                format: 'yyyy-MM-dd HH:mm:ss',
+                value: new Date(new Date().setDate(new Date().getDate() + 30)), // 设置默认值为30天后
+                done: function(value, date, endDate) {
+                    // 确保时间值同步到表单字段
+                    $('#endTime').val(value);
+                }
+            });
+            
+            // 页面加载完成后，手动设置时间字段的初始值
+            setTimeout(function() {
+                var signTime = new Date();
+                var startTime = new Date();
+                var endTime = new Date(new Date().setDate(new Date().getDate() + 30));
+                
+                // 格式化时间
+                var formatTime = function(date) {
+                    var year = date.getFullYear();
+                    var month = (date.getMonth() + 1).toString().padStart(2, '0');
+                    var day = date.getDate().toString().padStart(2, '0');
+                    var hours = date.getHours().toString().padStart(2, '0');
+                    var minutes = date.getMinutes().toString().padStart(2, '0');
+                    var seconds = date.getSeconds().toString().padStart(2, '0');
+                    return year + '-' + month + '-' + day + ' ' + hours + ':' + minutes + ':' + seconds;
+                };
+                
+                $('#signTime').val(formatTime(signTime));
+                $('#startTime').val(formatTime(startTime));
+                $('#endTime').val(formatTime(endTime));
+                
+                // console.log('时间字段初始值设置完成:');
+                // console.log('签订时间:', $('#signTime').val());
+                // console.log('开始时间:', $('#startTime').val());
+                // console.log('结束时间:', $('#endTime').val());
+            }, 100);
+
+            // 关闭按钮事件
+            $('#closeContract').on('click', function() {
+                // 关闭当前iframe
+                var index = parent.layer.getFrameIndex(window.name);
+                parent.layer.close(index);
+            });
+
+            // 表单验证
+            form.verify({
+                category: function(value) {
+                    if (value === '') {
+                        return '请选择合同分类';
+                    }
+                },
+                code: function(value) {
+                    if (value === '') {
+                        return '请输入合同编号';
+                    }
+                },
+                name: function(value) {
+                    if (value === '') {
+                        return '请输入合同名称';
+                    }
+                },
+                customer: function(value) {
+                    if (value === '') {
+                        return '请选择客户';
+                    }
+                },
+                cost: function(value) {
+                    if (value === '') {
+                        return '请输入合同金额';
+                    }
+                    if (isNaN(value) || parseFloat(value) <= 0) {
+                        return '合同金额必须为大于0的数字';
+                    }
+                },
+                sign_time: function(value) {
+                    if (value === '') {
+                        return '请选择签订时间';
+                    }
+                },
+                start_time: function(value) {
+                    if (value === '') {
+                        return '请选择开始时间';
+                    }
+                },
+                end_time: function(value) {
+                    if (value === '') {
+                        return '请选择结束时间';
+                    }
+                },
+                types: function(value) {
+                    if (value === '') {
+                        return '请选择合同类型';
+                    }
+                }
+            });
+
+            // 客户选择功能
+            $('#selectCustomerBtn').on('click', function() {
+                // 打开客户选择窗口
+                layer.open({
+                        type: 2,
+                        title: '选择客户',
+                        area: ['900px', '600px'],
+                        content: '/customer/select/',
+                        btn: ['确定', '取消'],
+                        zIndex: 2147483647, // 设置更高的zIndex，确保在父页面弹窗之上
+                        yes: function(index, layero) {
+                            // 通过iframe的contentWindow获取选中的客户
+                            var iframe = layero.find('iframe')[0];
+                            if (iframe && iframe.contentWindow) {
+                                // 向客户选择页面发送消息，请求获取选中的客户
+                                iframe.contentWindow.postMessage({type: 'getSelectedCustomer'}, '*');
+                                
+                                // 监听客户选择页面的响应
+                                var messageHandler = function(event) {
+                                    if (event.data && event.data.type === 'selectedCustomer') {
+                                        setSelectedCustomer(event.data.data);
+                                        window.removeEventListener('message', messageHandler);
+                                        layer.close(index);
+                                    }
+                                };
+                                window.addEventListener('message', messageHandler);
+                                
+                                // 设置超时，如果5秒内没有响应，使用localStorage备用方案
+                                setTimeout(function() {
+                                    window.removeEventListener('message', messageHandler);
+                                    var selectedCustomer = localStorage.getItem('selectedCustomer');
+                                    if (selectedCustomer) {
+                                        setSelectedCustomer(JSON.parse(selectedCustomer));
+                                        localStorage.removeItem('selectedCustomer'); // 清除已使用的数据
+                                        layer.close(index);
+                                    } else {
+                                        layer.msg('请先选择客户', {icon: 2});
+                                    }
+                                }, 5000);
+                            } else {
+                                layer.msg('客户选择窗口加载失败', {icon: 2});
+                            }
+                        },
+                        btn2: function(index) {
+                            layer.close(index);
+                        },
+                        success: function(layero, index) {
+                            // 窗口打开成功后，清除之前的localStorage数据
+                            localStorage.removeItem('selectedCustomer');
+                            // 使用layer提供的方法确保弹窗在最上层
+                            layer.setTop(layero);
+                        }
+                    });
+            });
+            
+            // 设置选中的客户
+            function setSelectedCustomer(customerData) {
+                // 设置所有可能的客户ID字段，确保数据同步
+                $('#customerId').val(customerData.id);
+                // 同时更新隐藏字段，确保数据一致
+                if ($('input[name="customer_id"]').length > 0) {
+                    $('input[name="customer_id"]').val(customerData.id);
+                }
+                $('#customerName').val(customerData.name);
+                
+                // 自动填充客户信息
+                $('input[name="contact_name"]').val(customerData.contact_name || '');
+                $('input[name="contact_mobile"]').val(customerData.phone || '');
+                $('input[name="contact_address"]').val(customerData.address || '');
+                
+                layer.msg('客户选择成功', {icon: 1});
+            }
+            
+            // 暴露给客户选择页面调用的函数
+            window.setSelectedCustomer = setSelectedCustomer;
+            
+            // 页面加载时检查URL参数，如果有客户ID则自动加载客户信息
+            $(document).ready(function() {
+                // 获取URL参数
+                var urlParams = new URLSearchParams(window.location.search);
+                var customerId = urlParams.get('customer_id');
+                
+                if (customerId) {
+                    // 如果有客户ID参数，自动加载客户信息
+                    loadCustomerInfo(customerId);
+                }
+            });
+            
+            // 根据客户ID加载客户信息
+            function loadCustomerInfo(customerId) {
+                var csrfToken = $('input[name="csrfmiddlewaretoken"]').val();
+                
+                $.ajax({
+                    url: '/adm/customer/detail-api/' + customerId + '/',
+                    type: 'GET',
+                    headers: {
+                        'X-CSRFToken': csrfToken
+                    },
+                    success: function(res) {
+                        if (res.id) {
+                            setSelectedCustomer({
+                                id: res.id,
+                                name: res.name,
+                                contact_name: res.contact_person || '',
+                                phone: res.phone || '',
+                                address: res.address || ''
+                            });
+                        } else {
+                            layer.msg('客户信息加载失败', {icon: 2});
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        layer.msg('客户信息加载失败: ' + error, {icon: 2});
+                    }
+                });
+            }
+
+            // 表单提交
+            form.on('submit(contractForm)', function(data) {
+                // 验证客户是否已选择，优先使用#customerId的值
+                var customerId = $('#customerId').val();
+                
+                if (!customerId) {
+                    layer.msg('请选择客户', {icon: 2});
+                    return false;
+                }
+                
+                // 确保customer_id字段被包含在提交数据中
+                data.field.customer_id = customerId;
+                
+                // 获取分类ID - 优先从隐藏字段获取
+                var categoryId = $('#selectedCategoryId').val();
+                if (!categoryId && $('input[name="category_id"]').length > 0) {
+                    categoryId = $('input[name="category_id"]').val();
+                }
+                
+                // 确保category_id字段被包含在提交数据中
+                if (categoryId) {
+                    data.field.category_id = categoryId;
+                }
+                
+                // 调试：检查所有必填字段是否都有值
+                // console.log('提交数据检查:', data.field);
+                var requiredFields = ['code', 'name', 'customer_id', 'cost', 'sign_time', 'start_time', 'end_time', 'types', 'category_id'];
+                var missingFields = [];
+                
+                // 特别检查时间字段的值 - 直接从DOM获取
+                // console.log('时间字段详细检查:');
+                // console.log('sign_time 输入框值:', $('#signTime').val());
+                // console.log('start_time 输入框值:', $('#startTime').val());
+                // console.log('end_time 输入框值:', $('#endTime').val());
+                // console.log('category_id 值:', categoryId);
+                
+                // 重新获取所有字段的实际值，确保数据一致性
+                var actualFieldValues = {};
+                requiredFields.forEach(function(field) {
+                    var fieldValue = '';
+                    
+                    switch(field) {
+                        case 'customer_id':
+                            fieldValue = customerId;
+                            break;
+                        case 'category_id':
+                            fieldValue = categoryId;
+                            break;
+                        case 'sign_time':
+                            fieldValue = $('#signTime').val();
+                            break;
+                        case 'start_time':
+                            fieldValue = $('#startTime').val();
+                            break;
+                        case 'end_time':
+                            fieldValue = $('#endTime').val();
+                            break;
+                        case 'code':
+                            fieldValue = $('input[name="code"]').val();
+                            break;
+                        case 'name':
+                            fieldValue = $('input[name="name"]').val();
+                            break;
+                        case 'cost':
+                            fieldValue = $('input[name="cost"]').val();
+                            break;
+                        case 'types':
+                            fieldValue = $('select[name="types"]').val();
+                            break;
+                        default:
+                            fieldValue = data.field[field] || '';
+                    }
+                    
+                    actualFieldValues[field] = fieldValue;
+                    // console.log('字段 ' + field + ' 的实际值:', fieldValue);
+                    
+                    if (!fieldValue || fieldValue === '' || fieldValue === 'undefined' || fieldValue === null) {
+                        missingFields.push(field);
+                    }
+                });
+                
+                if (missingFields.length > 0) {
+                    // console.log('缺失字段:', missingFields);
+                    // console.log('详细缺失信息:');
+                    missingFields.forEach(function(field) {
+                        // console.log('  ' + field + ': ' + (actualFieldValues[field] || '空值'));
+                    });
+                    
+                    var fieldNames = {
+                        'code': '合同编号',
+                        'name': '合同名称',
+                        'customer_id': '客户名称',
+                        'cost': '合同金额',
+                        'sign_time': '签订时间',
+                        'start_time': '开始时间',
+                        'end_time': '结束时间',
+                        'types': '合同类型',
+                        'category_id': '合同分类'
+                    };
+                    
+                    var missingNames = missingFields.map(function(field) {
+                        return fieldNames[field] || field;
+                    });
+                    
+                    layer.msg('请填写以下必填字段：' + missingNames.join('、'), {icon: 2});
+                    return false;
+                }
+                
+                var loadIndex = layer.load(2, {shade: [0.3, '#000']});
+                // 获取CSRF令牌
+                var csrfToken = $('input[name="csrfmiddlewaretoken"]').val();
+                
+                // 使用实际获取的字段值替换data.field中的值
+                Object.keys(actualFieldValues).forEach(function(field) {
+                    data.field[field] = actualFieldValues[field];
+                });
+                
+                // console.log('最终提交数据:', data.field);
+                
+                $.ajax({
+                    url: '/contract/sales/add/',
+                    type: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken
+                    },
+                    data: data.field,
+                    success: function(res) {
+                        layer.close(loadIndex);
+                        if (res.code === 0) {
+                            layer.msg('合同创建成功', {icon: 1, time: 2000}, function() {
+                                // 关闭当前iframe
+                                var index = parent.layer.getFrameIndex(window.name);
+                                parent.layer.close(index);
+                                // 刷新父页面
+                                parent.location.reload();
+                            });
+                        } else {
+                            layer.msg(res.msg || '创建失败', {icon: 2});
+                        }
+                    },
+                    error: function() {
+                        layer.close(loadIndex);
+                        layer.msg('网络错误，请重试', {icon: 2});
+                    }
+                });
+                
+                return false;
+            });
+
+            // 动态分类选择逻辑
+            var currentLevel = 1;
+            var selectedCategoryId = '';
+            
+            // 动态创建分类选择框
+            function createCategorySelect(level) {
+                var selectId = 'categoryLevel' + level;
+                var selectName = 'category_level' + level;
+                var filterName = 'categoryLevel' + level;
+                
+                // 检查是否已存在该级别的选择框
+                if ($('#' + selectId).length > 0) {
+                    // 如果已存在，先解绑事件再移除
+                    $('#' + selectId).off('change');
+                    $('#' + selectId).remove();
+                }
+                
+                // 创建新的选择框
+                var selectHtml = '<select name="' + selectName + '" lay-filter="categoryLevel' + level + '" id="' + selectId + '">';
+                selectHtml += '<option value="">请选择' + getLevelName(level) + '分类</option>';
+                selectHtml += '</select>';
+                
+                $('#categorySelector').append(selectHtml);
+                form.render('select');
+                
+                return selectId;
+            }
+            
+            // 初始化分类选择框
+            function initCategorySelects() {
+                // 移除所有已存在的选择框
+                removeCategorySelects(1);
+                
+                // 先解绑所有分类选择框的事件
+                 form.off('select(categoryLevel1)');
+                 form.off('select(categoryLevel2)');
+                 form.off('select(categoryLevel3)');
+                 
+                 // 加载一级分类
+                 loadCategories(null, 1);
+                 
+                 // 监听分类选择框变化
+                 form.on('select(categoryLevel1)', function(data){
+                     var selectedOption = $(data.elem).find('option:selected');
+                     var hasChildren = selectedOption.data('has-children');
+                     
+                     if (data.value && hasChildren) {
+                         loadCategories(data.value, 2);
+                     } else {
+                         removeCategorySelects(2);
+                     }
+                 });
+                 
+                 form.on('select(categoryLevel2)', function(data){
+                     var selectedOption = $(data.elem).find('option:selected');
+                     var hasChildren = selectedOption.data('has-children');
+                     
+                     if (data.value && hasChildren) {
+                         loadCategories(data.value, 3);
+                     } else {
+                         removeCategorySelects(3);
+                     }
+                 });
+                 
+                 form.on('select(categoryLevel3)', function(data){
+                     var selectedOption = $(data.elem).find('option:selected');
+                     var hasChildren = selectedOption.data('has-children');
+                     
+                     if (data.value && hasChildren) {
+                         loadCategories(data.value, 4);
+                     } else {
+                         removeCategorySelects(4);
+                     }
+                 });
+            }
+            
+            // 移除指定级别及更高级别的选择框
+            function removeCategorySelects(fromLevel) {
+                for (var i = fromLevel; i <= 3; i++) {
+                    $('#categoryLevel' + i).remove();
+                }
+            }
+            
+            // 获取分类数据
+            function loadCategories(parentId, level) {
+                var url = parentId ? '/basedata/contract/category/children/' + parentId + '/' : '/basedata/contract/category/children/';
+                
+                // 获取CSRF token
+                var csrfToken = $('input[name="csrfmiddlewaretoken"]').val();
+                
+                // 显示加载状态
+                var targetSelect = createCategorySelect(level);
+                var loadingHtml = '<option value="">加载中...</option>';
+                $('#' + targetSelect).html(loadingHtml);
+                form.render('select');
+                
+                $.ajax({
+                    url: url,
+                    type: 'GET',
+                    headers: {
+                        'X-CSRFToken': csrfToken
+                    },
+                    success: function(res) {
+                        if (res.code === 0) {
+                            var html = '<option value="">请选择' + getLevelName(level) + '分类</option>';
+                            
+                            // 检查是否有数据
+                            if (res.data.length === 0) {
+                                html = '<option value="">暂无分类数据</option>';
+                            } else {
+                                res.data.forEach(function(item) {
+                                    html += '<option value="' + item.id + '" data-has-children="' + item.has_children + '">' + item.name + '</option>';
+                                });
+                            }
+                            
+                            $('#' + targetSelect).html(html);
+                            form.render('select');
+                            
+                            // 移除更高级别的选择框
+                            removeCategorySelects(level + 1);
+                        } else {
+                            layer.msg('获取分类数据失败: ' + (res.msg || '未知错误'), {icon: 2});
+                            // 显示错误状态
+                            var errorHtml = '<option value="">加载失败</option>';
+                            $('#' + targetSelect).html(errorHtml);
+                            form.render('select');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('分类数据请求失败:', error);
+                        var errorHtml = '<option value="">加载失败</option>';
+                        $('#' + targetSelect).html(errorHtml);
+                        form.render('select');
+                        
+                        if (xhr.status === 403) {
+                            layer.msg('请先登录系统', {icon: 2});
+                        } else if (xhr.status === 404) {
+                            layer.msg('分类接口不存在', {icon: 2});
+                        } else {
+                            layer.msg('网络错误，请重试', {icon: 2});
+                        }
+                    }
+                });
+            }
+            
+            // 获取级别名称
+            function getLevelName(level) {
+                var names = {1: '一', 2: '二', 3: '三'};
+                return names[level] || level;
+            }
+            
+            // 页面加载完成后，初始化分类选择框
+            setTimeout(function() {
+                // 初始化一级分类
+                loadCategories(null, 1);
+                
+                // 确保分类选择框正确渲染
+                form.render('select');
+                
+                // console.log('分类选择框初始化完成');
+            }, 200);
+            
+            // 一级分类变化
+            form.on('select(categoryLevel1)', function(data) {
+                var selectedOption = $(data.elem).find('option:selected');
+                var hasChildren = selectedOption.data('has-children') === true;
+                
+                if (data.value) {
+                    if (hasChildren) {
+                        // 有子分类，加载二级分类
+                        loadCategories(data.value, 2);
+                        selectedCategoryId = '';
+                    } else {
+                        // 没有子分类，直接选中
+                        selectedCategoryId = data.value;
+                        removeCategorySelects(2); // 移除二级和三级选择框
+                    }
+                } else {
+                    // 清空选择
+                    selectedCategoryId = '';
+                    removeCategorySelects(2); // 移除二级和三级选择框
+                }
+                
+                $('#selectedCategoryId').val(selectedCategoryId);
+            });
+            
+            // 二级分类变化
+            form.on('select(categoryLevel2)', function(data) {
+                var selectedOption = $(data.elem).find('option:selected');
+                var hasChildren = selectedOption.data('has-children') === true;
+                
+                if (data.value) {
+                    if (hasChildren) {
+                        // 有子分类，加载三级分类
+                        loadCategories(data.value, 3);
+                        selectedCategoryId = '';
+                    } else {
+                        // 没有子分类，直接选中
+                        selectedCategoryId = data.value;
+                        removeCategorySelects(3); // 移除三级选择框
+                    }
+                } else {
+                    // 清空选择
+                    selectedCategoryId = '';
+                    removeCategorySelects(3); // 移除三级选择框
+                }
+                
+                $('#selectedCategoryId').val(selectedCategoryId);
+            });
+            
+            // 三级分类变化
+            form.on('select(categoryLevel3)', function(data) {
+                if (data.value) {
+                    selectedCategoryId = data.value;
+                } else {
+                    selectedCategoryId = '';
+                }
+                $('#selectedCategoryId').val(selectedCategoryId);
+            });
+        });
+    </script>
+</body>
+</html>

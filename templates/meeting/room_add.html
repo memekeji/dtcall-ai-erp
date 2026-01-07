@@ -1,0 +1,108 @@
+{% extends 'include/common.html' %}
+
+{% block title %}{% if detail %}编辑会议室{% else %}添加会议室{% endif %}{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <span class="layui-breadcrumb">
+                    <a href="javascript:;">会议室管理</a>
+                    <a href="{% url 'adm_meeting_room' %}">会议室列表</a>
+                    <a><cite>{% if detail %}编辑会议室{% else %}添加会议室{% endif %}</cite></a>
+                </span>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form" lay-filter="formData">
+            <input type="hidden" name="id" value="{{ detail.id|default:'' }}">
+            <div class="layui-form-item">
+                <label class="layui-form-label">会议室名称</label>
+                <div class="layui-input-block">
+                    <input type="text" name="title" value="{{ detail.title|default:'' }}" lay-verify="required" placeholder="请输入会议室名称" class="layui-input">
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">负责人</label>
+                <div class="layui-input-block">
+                    <select name="keep_uid" lay-search>
+                        <option value="">请选择负责人</option>
+                        {% for user in users %}
+                        <option value="{{ user.id }}" {% if detail.keep_uid == user.id %}selected{% endif %}>{{ user.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">会议室描述</label>
+                <div class="layui-input-block">
+                    <textarea name="content" placeholder="请输入会议室描述" class="layui-textarea">{{ detail.content|default:'' }}</textarea>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" lay-submit lay-filter="submitBtn">立即提交</button>
+                    <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// 获取CSRF token
+function getCookie(name) {
+    var cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        var cookies = document.cookie.split(';');
+        for (var i = 0; i < cookies.length; i++) {
+            var cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+var csrftoken = getCookie('csrftoken');
+
+// 设置AJAX默认请求头
+$.ajaxSetup({
+    beforeSend: function(xhr, settings) {
+        if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+            xhr.setRequestHeader("X-CSRFToken", csrftoken);
+        }
+    }
+});
+
+layui.use(['form', 'jquery'], function(){
+    var form = layui.form;
+    var $ = layui.jquery;
+    
+    // 表单提交
+    form.on('submit(submitBtn)', function(data){
+        $.ajax({
+            url: '{% if detail %}{% url "adm_meeting_room_edit" %}{% else %}{% url "adm_meeting_room_add" %}{% endif %}',
+            type: 'post',
+            data: data.field,
+            success: function(res){
+                if(res.code === 0){
+                    layer.msg('操作成功', function(){
+                        var index = parent.layer.getFrameIndex(window.name);
+                        parent.layer.close(index);
+                        parent.layui.table.reload('dataTable');
+                    });
+                } else {
+                    layer.msg(res.msg);
+                }
+            }
+        });
+        return false;
+    });
+});
+</script>
+{% endblock %}

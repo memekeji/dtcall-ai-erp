@@ -1,0 +1,588 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据大屏 - DTCall管理系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2563EB',
+                        secondary: '#F97316',
+                        success: '#10B981',
+                        warning: '#F59E0B',
+                        danger: '#EF4444',
+                        dark: '#F8FAFC',
+                        'dark-2': '#334155',
+                        'light-1': '#1E293B',
+                        'light-2': '#334155',
+                        'blue-gradient': 'linear-gradient(135deg, #2563EB 0%, #3B82F6 100%)',
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'card': '0 4px 20px rgba(0, 0, 0, 0.08)',
+                        'card-hover': '0 8px 30px rgba(0, 0, 0, 0.12)',
+                        'glow': '0 0 15px rgba(22, 93, 255, 0.3)',
+                    }
+                },
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .text-shadow {
+                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+            .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+            }
+            .scrollbar-hide {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+            .card-gradient {
+                background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 1));
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(0, 0, 0, 0.05);
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            }
+            .animate-number {
+                animation: numberChange 2s ease-out forwards;
+            }
+            @keyframes numberChange {
+                from { opacity: 0; transform: translateY(10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            .pulse-ring {
+                animation: pulse 2s infinite;
+            }
+            @keyframes pulse {
+                0% { box-shadow: 0 0 0 0 rgba(22, 93, 255, 0.4); }
+                70% { box-shadow: 0 0 0 10px rgba(22, 93, 255, 0); }
+                100% { box-shadow: 0 0 0 0 rgba(22, 93, 255, 0); }
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 font-inter text-gray-800 min-h-screen bg-grid">
+    <!-- 顶部导航 -->
+    <header class="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-6">
+
+            </div>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 py-6">
+        <!-- 页面标题 -->
+        <div class="mb-8">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div>
+                    <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold text-shadow">业务数据总览</h2>
+                    <p class="text-gray-400 mt-1">实时监控公司核心业务指标与数据趋势</p>
+                </div>
+                <div class="hidden md:flex items-center space-x-6 mx-6">
+                    <a href="/dashboard/" class="text-primary border-b-2 border-primary px-1 py-2 font-medium">数据大屏</a>
+                    <a href="/dashboard/finance/"
+                        class="text-gray-600 hover:text-primary transition-colors px-1 py-2">财务大屏</a>
+                    <a href="/dashboard/business/"
+                        class="text-gray-600 hover:text-primary transition-colors px-1 py-2">经营大屏</a>
+                    <a href="/dashboard/production/"
+                        class="text-gray-600 hover:text-primary transition-colors px-1 py-2">生产大屏</a>
+                </div>
+                <div class="mt-4 md:mt-0 flex space-x-3">
+                    <div class="relative">
+                        <select
+                            class="bg-white border border-gray-300 rounded-lg px-4 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none">
+                            <option>今日</option>
+                            <option>本周</option>
+                            <option selected>本月</option>
+                            <option>本季度</option>
+                            <option>本年</option>
+                        </select>
+                        <div class="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                            <i class="fa fa-chevron-down text-gray-400 text-xs"></i>
+                        </div>
+                    </div>
+                    <button
+                        class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg transition-all flex items-center space-x-2 shadow-glow">
+                        <i class="fa fa-download"></i>
+                        <span>导出报告</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 数据更新时间 -->
+            <div class="mt-4 flex items-center text-sm text-gray-500">
+                <i class="fa fa-refresh mr-2 text-gray-400"></i>
+                <span>数据最后更新: {{ last_updated|date:"Y-m-d H:i:s" }}</span>
+                <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-success text-xs bg-success/10">
+                    <span class="w-2 h-2 bg-success rounded-full mr-1 animate-pulse"></span>实时
+                </span>
+            </div>
+        </div>
+        <!-- 系统使用情况统计 -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">系统使用情况</h3>
+                <span class="text-sm text-gray-500">实时统计</span>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <!-- 总用户数 -->
+                <div
+                    class="bg-white rounded-lg p-4 shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-xs">总用户数</p>
+                            <p class="text-xl font-bold text-blue-600 mt-1">{{ system_stats.total_users }}</p>
+                        </div>
+                        <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <i class="fa fa-users text-blue-600 text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 总客户数 -->
+                <div
+                    class="bg-white rounded-lg p-4 shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-xs">总客户数</p>
+                            <p class="text-xl font-bold text-green-600 mt-1">{{ system_stats.total_customers }}</p>
+                        </div>
+                        <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                            <i class="fa fa-user-plus text-green-600 text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 总合同数 -->
+                <div
+                    class="bg-white rounded-lg p-4 shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-xs">总合同数</p>
+                            <p class="text-xl font-bold text-purple-600 mt-1">{{ system_stats.total_contracts }}</p>
+                        </div>
+                        <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <i class="fa fa-file-text text-purple-600 text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 今日操作数 -->
+                <div
+                    class="bg-white rounded-lg p-4 shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-xs">今日操作</p>
+                            <p class="text-xl font-bold text-orange-600 mt-1">{{ system_stats.today_operations }}</p>
+                        </div>
+                        <div class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                            <i class="fa fa-cogs text-orange-600 text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 本月新增客户 -->
+                <div
+                    class="bg-white rounded-lg p-4 shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-xs">本月新客户</p>
+                            <p class="text-xl font-bold text-teal-600 mt-1">{{ system_stats.new_customers_month }}</p>
+                        </div>
+                        <div class="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
+                            <i class="fa fa-user-plus text-teal-600 text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 本月新增合同 -->
+                <div
+                    class="bg-white rounded-lg p-4 shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-xs">本月新合同</p>
+                            <p class="text-xl font-bold text-red-600 mt-1">{{ system_stats.new_contracts_month }}</p>
+                        </div>
+                        <div class="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                            <i class="fa fa-plus-circle text-red-600 text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 图表区域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- 销售趋势图 -->
+            <div class="lg:col-span-2 card-gradient rounded-xl p-6 shadow-card">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-semibold text-lg">销售业绩趋势</h3>
+                    <div class="flex space-x-2">
+                        <button class="px-3 py-1 text-xs bg-primary/20 text-primary rounded-full">月度</button>
+                        <button
+                            class="px-3 py-1 text-xs bg-gray-800 text-gray-400 hover:text-white rounded-full transition-colors">季度</button>
+                        <button
+                            class="px-3 py-1 text-xs bg-gray-800 text-gray-400 hover:text-white rounded-full transition-colors">年度</button>
+                    </div>
+                </div>
+                <div class="h-[300px]">
+                    <canvas id="salesTrendChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 客户来源分布 -->
+            <div class="card-gradient rounded-xl p-6 shadow-card">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-semibold text-lg">客户来源分布</h3>
+                    <button class="text-gray-400 hover:text-white">
+                        <i class="fa fa-ellipsis-v"></i>
+                    </button>
+                </div>
+                <div class="h-[300px]">
+                    <canvas id="customerSourceChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据表格和项目状态 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- 项目状态 -->
+            <div class="card-gradient rounded-xl p-6 shadow-card">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-semibold text-lg">项目完成情况</h3>
+                    <span class="text-xs text-gray-400">总计 {{ total_projects }} 个项目</span>
+                </div>
+                <div class="space-y-4">
+                    {% for project in project_status %}
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span>{{ project.name }}</span>
+                            <span class="font-medium">{{ project.progress }}%</span>
+                        </div>
+                        <div class="w-full bg-gray-800 rounded-full h-2">
+                            <div class="h-2 rounded-full"
+                                style="width: {{ project.progress }}%; background: {{ project.color }}"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <button
+                    class="w-full mt-6 py-2 text-sm text-primary border border-primary/30 rounded-lg hover:bg-primary/10 transition-colors">
+                    查看全部项目
+                </button>
+            </div>
+
+            <!-- 最近交易 -->
+            <div class="lg:col-span-2 card-gradient rounded-xl p-6 shadow-card">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-semibold text-lg">最近交易记录</h3>
+                    <button class="text-sm text-primary hover:text-primary/80">查看全部</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[600px]">
+                        <thead>
+                            <tr class="text-left text-xs text-gray-400 border-b border-gray-800">
+                                <th class="pb-3 font-medium">客户名称</th>
+                                <th class="pb-3 font-medium">交易金额</th>
+                                <th class="pb-3 font-medium">交易状态</th>
+                                <th class="pb-3 font-medium">交易时间</th>
+                                <th class="pb-3 font-medium">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for transaction in recent_transactions %}
+                            <tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
+                                <td class="py-4">
+                                    <div class="flex items-center">
+                                        <img src="{{ transaction.customer_avatar }}"
+                                            alt="{{ transaction.customer_name }}" class="w-8 h-8 rounded-full mr-3">
+                                        <span>{{ transaction.customer_name }}</span>
+                                    </div>
+                                </td>
+                                <td class="py-4 font-medium">¥{{ transaction.amount }}</td>
+                                <td class="py-4">
+                                    <span class="px-2 py-1 rounded-full text-xs {{ transaction.status_class }}">{{
+                                        transaction.status_text }}</span>
+                                </td>
+                                <td class="py-4 text-gray-400 text-sm">{{ transaction.time }}</td>
+                                <td class="py-4">
+                                    <button class="text-gray-400 hover:text-primary transition-colors">
+                                        <i class="fa fa-eye"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-gray-800/50 backdrop-blur-md border-t border-gray-800 mt-12 py-6">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="text-gray-400 text-sm">
+                    © 2023 DTCall 数据中心. 保留所有权利.
+                </div>
+                <div class="flex space-x-6 mt-4 md:mt-0">
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors text-sm">使用条款</a>
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors text-sm">隐私政策</a>
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors text-sm">帮助中心</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        // 等待DOM加载完成
+        document.addEventListener('DOMContentLoaded', function () {
+            // 销售趋势图
+            const salesTrendCtx = document.getElementById('salesTrendChart').getContext('2d');
+            const salesTrendChart = new Chart(salesTrendCtx, {
+                type: 'line',
+                data: {
+                    labels: {{ sales_trend.labels | safe }},
+            datasets: [
+            {
+                label: '销售额',
+                data: {{ sales_trend.data | safe }},
+            borderColor: '#165DFF',
+            backgroundColor: 'rgba(22, 93, 255, 0.1)',
+            borderWidth: 2,
+            tension: 0.4,
+            fill: true,
+            pointBackgroundColor: '#165DFF',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointHoverShadowColor: 'rgba(22, 93, 255, 0.5)',
+            pointHoverShadowBlur: 10,
+                        },
+            {
+                label: '目标',
+                data: {{ sales_trend.target | safe }},
+            borderColor: 'rgba(255, 255, 255, 0.3)',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            tension: 0.4,
+            fill: false,
+            pointRadius: 0,
+                        }
+        ]
+                },
+            options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        color: '#8A8F98',
+                        usePointStyle: true,
+                        boxWidth: 6,
+                        padding: 20
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(17, 24, 39, 0.8)',
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    padding: 12,
+                    titleColor: '#fff',
+                    bodyColor: '#E5E7EB',
+                    bodyFont: {
+                        size: 13
+                    },
+                    titleFont: {
+                        size: 14,
+                        weight: 'bold'
+                    },
+                    displayColors: true,
+                    callbacks: {
+                        label: function (context) {
+                            return context.dataset.label + ': ¥' + context.raw.toLocaleString();
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        display: false,
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#8A8F98',
+                        padding: 10
+                    }
+                },
+                y: {
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.05)',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#8A8F98',
+                        padding: 10,
+                        callback: function (value) {
+                            if (value >= 10000) {
+                                return '¥' + (value / 10000).toFixed(1) + '万';
+                            } else if (value >= 1000) {
+                                return '¥' + (value / 1000).toFixed(1) + 'k';
+                            }
+                            return '¥' + value;
+                        }
+                    }
+                }
+            },
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            animation: {
+                duration: 1500,
+                easing: 'easeOutQuart'
+            }
+        }
+            });
+
+        // 客户来源饼图
+        const customerSourceCtx = document.getElementById('customerSourceChart').getContext('2d');
+        const customerSourceChart = new Chart(customerSourceCtx, {
+            type: 'doughnut',
+            data: {
+                labels: {{ customer_source.labels | safe }},
+        datasets: [{
+            data: {{ customer_source.data | safe }},
+            backgroundColor: [
+            '#165DFF',
+            '#0FC6C2',
+            '#FF7D00',
+            '#F53F3F',
+            '#722ED1',
+            '#86909C'
+        ],
+            borderWidth: 0,
+            borderRadius: 4,
+            hoverOffset: 10
+                    }]
+                },
+        options: {
+            responsive: true,
+                maintainAspectRatio: false,
+                    cutout: '70%',
+                        plugins: {
+                legend: {
+                    position: 'bottom',
+                        labels: {
+                        color: '#8A8F98',
+                            usePointStyle: true,
+                                boxWidth: 6,
+                                    padding: 15,
+                                        generateLabels: function(chart) {
+                                            const datasets = chart.data.datasets;
+                                            return chart.data.labels.map(function (label, i) {
+                                                const value = datasets[0].data[i];
+                                                const total = datasets[0].data.reduce((a, b) => a + b, 0);
+                                                const percentage = Math.round((value / total) * 100);
+
+                                                return {
+                                                    text: `${label} (${percentage}%)`,
+                                                    fillStyle: datasets[0].backgroundColor[i],
+                                                    strokeStyle: datasets[0].borderColor,
+                                                    lineWidth: datasets[0].borderWidth,
+                                                    hidden: isNaN(datasets[0].data[i]) || chart.getDatasetMeta(0).data[i].hidden,
+                                                    index: i
+                                                };
+                                            });
+                                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(17, 24, 39, 0.8)',
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                            borderWidth: 1,
+                                padding: 12,
+                                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.raw || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = Math.round((value / total) * 100);
+                            return `${label}: ${value} (${percentage}%)`;
+                        }
+                    }
+                }
+            },
+            animation: {
+                animateScale: true,
+                    animateRotate: true,
+                        duration: 1500,
+                            easing: 'easeOutQuart'
+            }
+        }
+            });
+
+        // 添加卡片悬停动画
+        const cards = document.querySelectorAll('.card-gradient');
+        cards.forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.classList.add('shadow-card-hover');
+                card.classList.add('-translate-y-1');
+            });
+            card.addEventListener('mouseleave', () => {
+                card.classList.remove('shadow-card-hover');
+                card.classList.remove('-translate-y-1');
+            });
+        });
+
+        // 数字动画效果
+        const animateValue = (obj, start, end, duration) => {
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                const value = Math.floor(progress * (end - start) + start);
+                obj.innerHTML = value.toLocaleString();
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        };
+
+        // 为所有数字添加动画
+        const numberElements = document.querySelectorAll('.animate-number');
+        numberElements.forEach(el => {
+            const target = parseInt(el.innerText.replace(/,/g, ''));
+            el.innerText = '0';
+            animateValue(el, 0, target, 2000);
+        });
+        });
+    </script>
+</body>
+
+</html>

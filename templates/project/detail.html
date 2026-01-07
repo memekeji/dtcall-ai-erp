@@ -1,0 +1,595 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>项目详情 - {{ project.name }}</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .project-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .project-stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 15px;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        .progress-bar {
+            background: rgba(255,255,255,0.2);
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .progress-fill {
+            background: #fff;
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        .member-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #5FB878;
+            color: white;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 8px;
+            font-size: 12px;
+        }
+        .task-status {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            color: white;
+        }
+        .status-1 { background: #FFB800; }
+        .status-2 { background: #1E9FFF; }
+        .status-3 { background: #5FB878; }
+        .status-4 { background: #FF5722; }
+        .status-5 { background: #999; }
+        .priority-1 { color: #5FB878; }
+        .priority-2 { color: #FFB800; }
+        .priority-3 { color: #FF5722; }
+        .priority-4 { color: #FF0000; font-weight: bold; }
+    </style>
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <!-- 项目头部信息 -->
+        <div class="project-header">
+            <div class="layui-row">
+                <div class="layui-col-md8">
+                    <h2 style="margin: 0; color: white;">{{ project.name }}</h2>
+                    <p style="margin: 5px 0; opacity: 0.9;">{{ project.code }} | {{ project.description|truncatechars:100 }}</p>
+                    <div style="margin-top: 10px;">
+                        <span class="layui-badge layui-bg-blue">{{ project.get_status_display }}</span>
+                        <span class="layui-badge priority-{{ project.priority }}" style="margin-left: 10px;">{{ project.get_priority_display }}</span>
+                        {% if project.manager %}
+                        <span style="margin-left: 15px;">项目经理：{{ project.manager.username }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: {{ project_progress }}%;"></div>
+                    </div>
+                    <div style="margin-top: 5px; font-size: 12px;">项目进度：{{ project_progress }}%</div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="project-stats">
+                        <div class="stat-item">
+                            <div class="stat-number">{{ task_stats.total_tasks }}</div>
+                            <div class="stat-label">总任务</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">{{ task_stats.completed_tasks }}</div>
+                            <div class="stat-label">已完成</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">{{ total_hours|floatformat:1 }}</div>
+                            <div class="stat-label">总工时</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">{{ project.members.count }}</div>
+                            <div class="stat-label">团队成员</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 详细信息选项卡 -->
+        <div class="layui-tab layui-tab-brief" lay-filter="projectDetailTab">
+            <ul class="layui-tab-title">
+                <li class="layui-this">基本信息</li>
+                <li>任务列表</li>
+                <li>团队成员</li>
+                <li>工时统计</li>
+                <li>项目文档</li>
+            </ul>
+            <div class="layui-tab-content">
+                <!-- 基本信息 -->
+                <div class="layui-tab-item layui-show">
+                    <div class="layui-row layui-col-space20">
+                        <div class="layui-col-md6">
+                            <div class="layui-card">
+                                <div class="layui-card-header">项目基本信息</div>
+                                <div class="layui-card-body">
+                                    <table class="layui-table" lay-skin="nob">
+                                        <tbody>
+                                            <tr>
+                                                <td width="100">项目名称</td>
+                                                <td>{{ project.name }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td>项目编号</td>
+                                                <td>{{ project.code }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td>项目分类</td>
+                                                <td>{{ project.category.name|default:"未分类" }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td>项目状态</td>
+                                                <td><span class="layui-badge layui-bg-blue">{{ project.get_status_display }}</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td>优先级</td>
+                                                <td><span class="priority-{{ project.priority }}">{{ project.get_priority_display }}</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td>项目经理</td>
+                                                <td>{{ project.manager.username|default:"未指定" }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td>所属部门</td>
+                                                <td>{{ project.department.name|default:"未指定" }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td>创建人</td>
+                                                <td>{{ project.creator.username }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-card">
+                                <div class="layui-card-header">时间与预算</div>
+                                <div class="layui-card-body">
+                                    <table class="layui-table" lay-skin="nob">
+                                        <tbody>
+                                            <tr>
+                                                <td width="100">开始日期</td>
+                                                <td>{{ project.start_date|date:"Y-m-d" }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td>结束日期</td>
+                                                <td>{{ project.end_date|date:"Y-m-d" }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td>项目预算</td>
+                                                <td>¥{{ project.budget|floatformat:2 }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td>实际成本</td>
+                                                <td>¥{{ project.actual_cost|floatformat:2 }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td>项目进度</td>
+                                                <td>
+                                                    <div class="layui-progress">
+                                                        <div class="layui-progress-bar" lay-percent="{{ project_progress }}%"></div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>创建时间</td>
+                                                <td>{{ project.create_time|date:"Y-m-d H:i" }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% if project.description %}
+                    <div class="layui-card" style="margin-top: 20px;">
+                        <div class="layui-card-header">项目描述</div>
+                        <div class="layui-card-body">
+                            {{ project.description|linebreaks }}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- 关联信息 -->
+                    <div class="layui-card" style="margin-top: 20px;">
+                        <div class="layui-card-header">关联信息</div>
+                        <div class="layui-card-body">
+                            <div class="layui-row layui-col-space20">
+                                <!-- 关联客户 -->
+                                <div class="layui-col-md6">
+                                    <h4 style="margin-top: 0; margin-bottom: 15px; font-size: 14px; font-weight: bold;">关联客户</h4>
+                                    {% if related_customers %}
+                                    <ul class="layui-timeline">
+                                        {% for customer in related_customers %}
+                                        <li class="layui-timeline-item">
+                                            <i class="layui-icon layui-timeline-axis"></i>
+                                            <div class="layui-timeline-content layui-text">
+                                                <div class="layui-timeline-title">{{ customer.name }}</div>
+                                            </div>
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% else %}
+                                    <div style="color: #999; text-align: center; padding: 20px 0;">暂无关联客户</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- 关联合同 -->
+                                <div class="layui-col-md6">
+                                    <h4 style="margin-top: 0; margin-bottom: 15px; font-size: 14px; font-weight: bold;">关联合同</h4>
+                                    {% if related_contracts %}
+                                    <ul class="layui-timeline">
+                                        {% for contract in related_contracts %}
+                                        <li class="layui-timeline-item">
+                                            <i class="layui-icon layui-timeline-axis"></i>
+                                            <div class="layui-timeline-content layui-text">
+                                                <div class="layui-timeline-title">{{ contract.name }}</div>
+                                                <p style="font-size: 12px; color: #666; margin: 5px 0;">
+                                                    合同编号：{{ contract.contract_number }}<br>
+                                                    金额：¥{{ contract.amount|floatformat:2 }}<br>
+                                                    签订日期：{{ contract.sign_date }}
+                                                </p>
+                                            </div>
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% else %}
+                                    <div style="color: #999; text-align: center; padding: 20px 0;">暂无关联合同</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-row layui-col-space20" style="margin-top: 20px;">
+                                <!-- 关联订单 -->
+                                <div class="layui-col-md6">
+                                    <h4 style="margin-top: 0; margin-bottom: 15px; font-size: 14px; font-weight: bold;">关联订单</h4>
+                                    {% if related_orders %}
+                                    <table class="layui-table" lay-skin="nob">
+                                        <thead>
+                                            <tr>
+                                                <th>订单编号</th>
+                                                <th>金额</th>
+                                                <th>状态</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for order in related_orders %}
+                                            <tr>
+                                                <td>{{ order.order_number }}</td>
+                                                <td>¥{{ order.amount|floatformat:2 }}</td>
+                                                <td>{{ order.get_status_display }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                    {% else %}
+                                    <div style="color: #999; text-align: center; padding: 20px 0;">暂无关联订单</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- 关联供应商 -->
+                                <div class="layui-col-md6">
+                                    <h4 style="margin-top: 0; margin-bottom: 15px; font-size: 14px; font-weight: bold;">关联供应商</h4>
+                                    {% if related_suppliers %}
+                                    <ul class="layui-timeline">
+                                        {% for supplier in related_suppliers %}
+                                        <li class="layui-timeline-item">
+                                            <i class="layui-icon layui-timeline-axis"></i>
+                                            <div class="layui-timeline-content layui-text">
+                                                <div class="layui-timeline-title">{{ supplier.name }}</div>
+                                            </div>
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% else %}
+                                    <div style="color: #999; text-align: center; padding: 20px 0;">暂无关联供应商</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 任务列表 -->
+                <div class="layui-tab-item">
+                    <div class="layui-card">
+                        <div class="layui-card-header">
+                            项目任务 ({{ tasks.count }})
+                            <div class="layui-btn-group" style="float: right;">
+                                <button class="layui-btn layui-btn-sm" onclick="addTask()">新增任务</button>
+                            </div>
+                        </div>
+                        <div class="layui-card-body">
+                            <table class="layui-table" lay-skin="line">
+                                <thead>
+                                    <tr>
+                                        <th>任务标题</th>
+                                        <th>负责人</th>
+                                        <th>状态</th>
+                                        <th>优先级</th>
+                                        <th>进度</th>
+                                        <th>开始日期</th>
+                                        <th>结束日期</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for task in tasks %}
+                                    <tr>
+                                        <td>{{ task.title }}</td>
+                                        <td>{{ task.assignee.username|default:"未指定" }}</td>
+                                        <td><span class="task-status status-{{ task.status }}">{{ task.get_status_display }}</span></td>
+                                        <td><span class="priority-{{ task.priority }}">{{ task.get_priority_display }}</span></td>
+                                        <td>{{ task.progress }}%</td>
+                                        <td>{{ task.start_date|date:"Y-m-d" }}</td>
+                                        <td>{{ task.end_date|date:"Y-m-d" }}</td>
+                                        <td>
+                                            <button class="layui-btn layui-btn-xs" onclick="editTask({{ task.id }})">编辑</button>
+                                            <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteTask({{ task.id }})">删除</button>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="8" style="text-align: center; color: #999;">暂无任务数据</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 团队成员 -->
+                <div class="layui-tab-item">
+                    <div class="layui-card">
+                        <div class="layui-card-header">团队成员 ({{ all_members|length }})</div>
+                        <div class="layui-card-body">
+                            <div class="layui-row layui-col-space20">
+                                {% for member in all_members %}
+                                <div class="layui-col-md4" style="margin-bottom: 20px;">
+                                    <div style="padding: 15px; border: 1px solid #e6e6e6; border-radius: 6px;">
+                                        <div style="display: flex; align-items: center;">
+                                            <div class="member-avatar">{{ member.username|first }}</div>
+                                            <div>
+                                                <div style="font-weight: bold;">{{ member.username }}</div>
+                                                <div style="font-size: 12px; color: #999;">{{ member.name|default:"" }}</div>
+                                            </div>
+                                        </div>
+                                        {% for mh in member_hours %}
+                                            {% if mh.user__username == member.username %}
+                                            <div style="margin-top: 10px; font-size: 12px;">
+                                                <div>工时：{{ mh.total_hours|floatformat:1 }}小时</div>
+                                                <div>任务：{{ mh.task_count }}个</div>
+                                            </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% empty %}
+                                <div class="layui-col-md12" style="text-align: center; color: #999; padding: 40px;">
+                                    暂无团队成员
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 工时统计 -->
+                <div class="layui-tab-item">
+                    <div class="layui-card">
+                        <div class="layui-card-header">工时统计 (总计: {{ total_hours|floatformat:1 }}小时)</div>
+                        <div class="layui-card-body">
+                            <table class="layui-table" lay-skin="line">
+                                <thead>
+                                    <tr>
+                                        <th>工作人员</th>
+                                        <th>关联任务</th>
+                                        <th>工作日期</th>
+                                        <th>工作时长</th>
+                                        <th>工作内容</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for wh in work_hours %}
+                                    <tr>
+                                        <td>{{ wh.user.username }}</td>
+                                        <td>{{ wh.task.title }}</td>
+                                        <td>{{ wh.work_date|date:"Y-m-d" }}</td>
+                                        <td>{{ wh.hours }}小时</td>
+                                        <td>{{ wh.description|truncatechars:50 }}</td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="5" style="text-align: center; color: #999;">暂无工时记录</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 项目文档 -->
+                <div class="layui-tab-item">
+                    <div class="layui-card">
+                        <div class="layui-card-header">
+                            项目文档 ({{ documents.count }})
+                            <div class="layui-btn-group" style="float: right;">
+                                <button class="layui-btn layui-btn-sm" onclick="addDocument()">新增文档</button>
+                            </div>
+                        </div>
+                        <div class="layui-card-body">
+                            <table class="layui-table" lay-skin="line">
+                                <thead>
+                                    <tr>
+                                        <th>文档标题</th>
+                                        <th>创建人</th>
+                                        <th>创建时间</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for doc in documents %}
+                                    <tr>
+                                        <td>
+                                            <a href="javascript:void(0)" onclick="viewDocument({{ doc.id }})" style="color: #1E9FFF;">
+                                                {{ doc.title }}
+                                            </a>
+                                        </td>
+                                        <td>{{ doc.creator.username }}</td>
+                                        <td>{{ doc.create_time|date:"Y-m-d H:i" }}</td>
+                                        <td>
+                                            <button class="layui-btn layui-btn-xs" onclick="editDocument({{ doc.id }})">编辑</button>
+                                            <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteDocument({{ doc.id }})">删除</button>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="4" style="text-align: center; color: #999;">暂无文档数据</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div style="text-align: center; margin-top: 30px;">
+            <button class="layui-btn" onclick="editProject()">编辑项目</button>
+            <button class="layui-btn layui-btn-primary" onclick="closeWindow()">关闭</button>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['element', 'layer'], function () {
+            var element = layui.element;
+            var layer = layui.layer;
+        });
+
+        function editProject() {
+            var url = '/adm/project/edit/{{ project.id }}/';
+            parent.layer.open({
+                type: 2,
+                title: '编辑项目',
+                shadeClose: true,
+                shade: 0.3,
+                area: ['75%', '90%'],
+                offset: 'r',
+                content: url
+            });
+        }
+
+        function addTask() {
+            var url = '/adm/task/add/?project_id={{ project.id }}';
+            parent.layer.open({
+                type: 2,
+                title: '新增任务',
+                shadeClose: true,
+                shade: 0.3,
+                area: ['75%', '90%'],
+                offset: 'r',
+                content: url
+            });
+        }
+
+        function editTask(taskId) {
+            var url = '/adm/task/edit/' + taskId + '/';
+            parent.layer.open({
+                type: 2,
+                title: '编辑任务',
+                shadeClose: true,
+                shade: 0.3,
+                area: ['75%', '90%'],
+                offset: 'r',
+                content: url
+            });
+        }
+
+        function addDocument() {
+            var url = '/adm/project/document/add/?project_id={{ project.id }}';
+            parent.layer.open({
+                type: 2,
+                title: '新增文档',
+                shadeClose: true,
+                shade: 0.3,
+                area: ['75%', '90%'],
+                offset: 'r',
+                content: url,
+                end: function() {
+                    // 刷新当前页面以更新文档列表
+                    window.location.reload();
+                }
+            });
+        }
+
+        function editDocument(docId) {
+            var url = '/adm/project/document/edit/' + docId + '/';
+            parent.layer.open({
+                type: 2,
+                title: '编辑文档',
+                shadeClose: true,
+                shade: 0.3,
+                area: ['75%', '90%'],
+                offset: 'r',
+                content: url
+            });
+        }
+
+        function viewDocument(docId) {
+            var url = '/adm/project/document/detail/' + docId + '/';
+            parent.layer.open({
+                type: 2,
+                title: '文档详情',
+                shadeClose: true,
+                shade: 0.3,
+                area: ['75%', '90%'],
+                offset: 'r',
+                content: url
+            });
+        }
+
+        function closeWindow() {
+            var index = parent.layer.getFrameIndex(window.name);
+            parent.layer.close(index);
+        }
+    </script>
+</body>
+
+</html>

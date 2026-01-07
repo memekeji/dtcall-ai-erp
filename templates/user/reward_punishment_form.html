@@ -1,0 +1,214 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>{% if form.instance.id %}编辑奖罚记录{% else %}新增奖罚记录{% endif %}</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/common.css' %}">
+    <style>
+        .layui-container {
+            width: 100%;
+            background-color: #f5f5f5;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow-x: hidden;
+        }
+        .form-container {
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            height: 100%;
+            background-color: #fff;
+            box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
+        }
+        .form-section {
+            background: #f8f8f8;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .form-section-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 2px solid #16b777;
+            padding-bottom: 10px;
+        }
+        /* 修复表单元素样式 */
+        .layui-form-item {
+            margin-bottom: 20px;
+        }
+        .layui-form-label {
+            width: 120px;
+            padding-right: 10px;
+            text-align: right;
+            color: #333;
+            font-weight: 500;
+        }
+        .layui-input-block {
+            margin-left: 150px;
+        }
+        .layui-input, .layui-select, .layui-textarea {
+            border-color: #ccc;
+            background-color: #fff;
+            color: #333;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .layui-input:hover, .layui-select:hover, .layui-textarea:hover {
+            border-color: #999;
+        }
+        .layui-input:focus, .layui-select:focus, .layui-textarea:focus {
+            border-color: #16b777;
+            box-shadow: 0 0 0 3px rgba(22, 183, 119, 0.1);
+        }
+        .layui-textarea {
+            height: auto;
+            min-height: 80px;
+        }
+        /* 确保按钮样式正确 */
+        .layui-btn {
+            margin-right: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .layui-btn-primary {
+            border-color: #d2d2d2;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-container">
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <div class="form-container">
+                    <form class="layui-form" id="rewardPunishmentForm">
+                        {% csrf_token %}
+                        
+                        <div class="form-section">
+                            <div class="form-section-title">基本信息</div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">员工</label>
+                                <div class="layui-input-block">
+                                    {{ form.employee }}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">类型</label>
+                                <div class="layui-input-block">
+                                    {{ form.type }}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">级别</label>
+                                <div class="layui-input-block">
+                                    {{ form.level }}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">标题</label>
+                                <div class="layui-input-block">
+                                    {{ form.title }}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">原因</label>
+                                <div class="layui-input-block">
+                                    {{ form.reason }}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">金额</label>
+                                <div class="layui-input-block">
+                                    {{ form.amount }}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">生效日期</label>
+                                <div class="layui-input-block">
+                                    {{ form.effective_date }}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">备注</label>
+                                <div class="layui-input-block">
+                                    {{ form.remarks }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="layui-form-item">
+                            <div class="layui-input-block">
+                                <button type="submit" class="layui-btn layui-btn-normal" lay-submit lay-filter="formSubmit">提交</button>
+                                <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['form', 'laydate'], function(){
+            var form = layui.form;
+            var laydate = layui.laydate;
+            
+            // 初始化日期选择器
+            laydate.render({
+                elem: '#id_effective_date',
+                type: 'date'
+            });
+            
+            // 表单提交
+            form.on('submit(formSubmit)', function(data){
+                var formData = new FormData(document.getElementById('rewardPunishmentForm'));
+                
+                fetch('', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.code === 0) {
+                        layer.msg(result.msg, {icon: 1}, function(){
+                            // 关闭当前弹窗并刷新父页面
+                            var index = parent.layer.getFrameIndex(window.name);
+                            parent.layer.close(index);
+                            if (parent.layui && parent.layui.table) {
+                                parent.layui.table.reload('rewardPunishmentTable');
+                            }
+                        });
+                    } else {
+                        layer.msg(result.msg || '操作失败', {icon: 2});
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    layer.msg('网络错误，请重试', {icon: 2});
+                });
+                
+                return false; // 阻止表单默认提交
+            });
+            
+            // 渲染表单
+            form.render();
+        });
+    </script>
+</body>
+</html>

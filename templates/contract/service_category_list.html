@@ -1,0 +1,278 @@
+{% extends "home/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-col-md12">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <div class="layui-row">
+                        <div class="layui-col-sm6 layui-col-md4">
+                            <h3>服务分类管理</h3>
+                        </div>
+                        <div class="layui-col-sm6 layui-col-md8" style="text-align: right;">
+                            <button class="layui-btn" onclick="addItem()">
+                                <i class="layui-icon layui-icon-plus"></i> 添加分类
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-card-body">
+                    <!-- 搜索框 -->
+                    <div class="layui-form-item" style="margin-bottom: 15px;">
+                        <form class="layui-form" id="searchForm" lay-filter="searchForm">
+                            {% csrf_token %}
+                            <div class="layui-input-inline">
+                                <input type="text" name="search" placeholder="请输入分类名称或代码" class="layui-input">
+                            </div>
+                            <div class="layui-input-inline">
+                                <button type="submit" class="layui-btn layui-btn-sm" lay-submit lay-filter="doSearch">
+                                    <i class="layui-icon layui-icon-search"></i> 搜索
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <!-- 数据表格 -->
+                    <table id="dataTable" lay-filter="dataTable"></table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 定义API_URLS配置
+window.API_URLS = {
+    list: '{% url "contract:service_category_list" %}',
+    add: '{% url "contract:service_category_add" %}',
+    edit: '{% url "contract:service_category_edit" id=1 %}'.replace('1', '{id}'),
+    delete: '{% url "approval:delete_item" model_name="service_category" pk=1 %}'.replace('1', '{id}')
+};
+
+// 使用原生JavaScript确保文档加载完成后再执行
+function ensureDocumentReady(callback) {
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        callback();
+    } else {
+        document.addEventListener('DOMContentLoaded', callback);
+    }
+}
+
+// 执行初始化
+ensureDocumentReady(function() {
+    // 确保layui已加载
+    if (typeof layui !== 'undefined') {
+        initLayuiComponents();
+    } else {
+        // 如果layui未加载，等待一段时间后重试
+        console.warn('layui未加载，等待并重试...');
+        setTimeout(checkLayuiAndInit, 300);
+    }
+    
+    function checkLayuiAndInit() {
+        if (typeof layui !== 'undefined') {
+            initLayuiComponents();
+        } else {
+            console.error('layui加载失败，请检查layui.js是否正确引入');
+        }
+    }
+    
+    function initLayuiComponents() {
+        layui.use(['table', 'form', 'layer', 'jquery'], function() {
+            const table = layui.table;
+            const form = layui.form;
+            const layer = layui.layer;
+            const $ = layui.jquery;
+            
+            // 使用全局的API_URLS变量
+            const API_URLS = window.API_URLS || {};
+            
+            // 定义表格列配置
+            var tableColumns = [ // 表头配置
+                {field: 'id', title: 'ID', width: 80, sort: true},  // ID列
+                {field: 'name', title: '分类名称', width: 200, sort: true},  // 分类名称
+                {field: 'code', title: '分类代码', width: 150, sort: true},  // 分类代码
+                {field: 'parent', title: '上级分类', width: 150},  // 上级分类
+                {field: 'description', title: '分类描述', width: 200},  // 分类描述
+                {field: 'sort_order', title: '排序', width: 100, sort: true},  // 排序
+                {field: 'is_active', title: '是否启用', width: 100, templet: function(d) { return d.is_active ? '<span class="layui-badge layui-bg-green">启用</span>' : '<span class="layui-badge">禁用</span>'; }},  // 是否启用
+                {field: 'created_at', title: '创建时间', width: 200, sort: true},  // 创建时间
+                {fixed: 'right', title: '操作', toolbar: '#operationBar', width: 150}  // 操作按钮栏
+            ];
+            
+            // 渲染表格
+            if (layui && layui.table) {
+                layui.table.render({
+                    elem: '#dataTable',
+                    url: API_URLS.list,
+                    page: true,
+                    limit: 10,
+                    limits: [10, 20, 50, 100],
+                    cols: [tableColumns],
+                    done: function(res, curr, count) {
+                        // 完成渲染后的回调
+                    }
+                });
+            } else {
+                console.warn('Layui table module not loaded properly');
+            }
+            
+            // 搜索表单提交
+            if (layui && layui.form) {
+                layui.form.on('submit(doSearch)', function(data) {
+                    if (layui && layui.table) {
+                        layui.table.reload('dataTable', {
+                            where: data.field,
+                            page: { curr: 1 }
+                        });
+                    } else {
+                        console.warn('Layui table module not available for reload');
+                    }
+                    return false;
+                });
+            }
+            
+            // 刷新表格
+            function refreshTable() {
+                table.reload('dataTable');
+            }
+            
+            // 添加按钮点击
+            function addItem() {
+                layer.open({
+                    type: 2,
+                    title: '添加',
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['75%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: API_URLS.add,
+                    success: function(layero, index) {
+                        if (layero && typeof layero.css === 'function') {
+                            layero.css({
+                                'right': '0',
+                                'top': '0',
+                                'height': '100%'
+                            });
+                        }
+                    },
+                    end: function() {
+                        refreshTable();
+                    }
+                });
+            }
+            
+            // 编辑按钮点击
+            function editItem(id) {
+                const editUrl = API_URLS.edit.replace('{id}', id);
+                layer.open({
+                    type: 2,
+                    title: '编辑',
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['75%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: editUrl,
+                    success: function(layero, index) {
+                        if (layero && typeof layero.css === 'function') {
+                            layero.css({
+                                'right': '0',
+                                'top': '0',
+                                'height': '100%'
+                            });
+                        }
+                    },
+                    end: function() {
+                        refreshTable();
+                    }
+                });
+            }
+            
+            // 删除按钮点击
+            function deleteItem(id) {
+                // 获取当前URL并提取模型名称
+                const currentUrl = window.location.pathname;
+                let deleteUrl = '';
+                
+                // 根据URL路径判断模型类型并构建删除URL
+                if (API_URLS.delete) {
+                    // 使用API_URLS.delete构建删除URL
+                    deleteUrl = API_URLS.delete.replace('{id}', id);
+                }
+                
+                if (!deleteUrl || deleteUrl === '') {
+                    layer.msg('删除功能未配置');
+                    console.error('删除URL为空，检查模型配置');
+                    return;
+                }
+                
+                console.log('构建的删除URL:', deleteUrl);
+                
+                layer.confirm('确认删除这条记录吗？', function(index) {
+                    // 获取CSRF令牌
+                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                    
+                    $.ajax({
+                        url: deleteUrl,
+                        type: 'POST',
+                        data: {csrfmiddlewaretoken: csrfToken},
+                        success: function(res) {
+                            // 支持多种响应格式
+                            if (res.success || res.code === 0) {
+                                layer.msg('删除成功');
+                                refreshTable();
+                            } else {
+                                layer.msg(res.message || res.msg || '删除失败');
+                            }
+                        },
+                        error: function(xhr) {
+                            console.error('删除请求失败:', xhr);
+                            layer.msg('网络错误或服务器异常');
+                        }
+                    });
+                    layer.close(index);
+                });
+            }
+            
+            // 暴露全局函数
+            window.refreshTable = refreshTable;
+            window.addItem = addItem;
+            
+            // 监听表格工具事件
+            if (layui && layui.table) {
+                layui.table.on('tool(dataTable)', function(obj) {
+                    const data = obj.data;
+                    const layEvent = obj.event;
+                    
+                    if (layEvent === 'edit') {
+                        if (typeof editItem === 'function') {
+                            editItem(data.id);
+                        }
+                    } else if (layEvent === 'delete') {
+                        if (typeof deleteItem === 'function') {
+                            deleteItem(data.id);
+                        }
+                    }
+                });
+            } else {
+                console.warn('Layui table module not available for events');
+            }
+            window.editItem = editItem;
+            window.deleteItem = deleteItem;
+        });
+    }
+});
+</script>
+
+<!-- 操作按钮栏模板 -->
+<script type="text/html" id="operationBar">
+    <button class="layui-btn layui-btn-xs" lay-event="edit">编辑</button>
+    <button class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</button>
+</script>
+{% endblock %}

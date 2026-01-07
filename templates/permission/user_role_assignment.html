@@ -1,0 +1,444 @@
+{% extends 'home/base.html' %}
+{% load static %}
+
+{% block title %}用户角色分配 - DTCall{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 全局样式 */
+    :root {
+        --primary: #3b82f6;
+        --primary-hover: #2563eb;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-300: #d1d5db;
+        --gray-400: #9ca3af;
+        --gray-500: #6b7280;
+        --gray-600: #4b5563;
+        --gray-700: #374151;
+        --gray-800: #1f2937;
+        --border-radius: 8px;
+        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --transition: all 0.3s ease;
+    }
+
+    body {
+        background-color: var(--gray-50);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        color: var(--gray-800);
+    }
+
+    /* 页面容器 */
+    .container {
+        max-width: 100%;
+        margin: 0 auto;
+        padding: 24px;
+    }
+
+    /* 页面标题 */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+
+    .page-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin: 0;
+        display: flex;
+        align-items: center;
+    }
+
+    .page-title i {
+        margin-right: 8px;
+        color: var(--primary);
+        font-size: 28px;
+    }
+
+    /* 工具栏 */
+    .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: white;
+        padding: 16px 20px;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .search-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+        min-width: 300px;
+    }
+
+    .search-input {
+        position: relative;
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .search-input .layui-input {
+        padding-left: 40px;
+        height: 40px;
+        border-radius: var(--border-radius);
+        border: 1px solid var(--gray-300);
+        transition: var(--transition);
+    }
+
+    .search-input .layui-input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .search-input i {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--gray-400);
+    }
+
+    /* 表格容器 */
+    .table-container {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-sm);
+        overflow: hidden;
+    }
+
+    /* 自定义表格样式 */
+    .layui-table {
+        margin: 0;
+        border-radius: var(--border-radius);
+        overflow: hidden;
+    }
+
+    .layui-table th {
+        background-color: var(--gray-50);
+        font-weight: 600;
+        color: var(--gray-700);
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--gray-200);
+        text-align: left;
+    }
+
+    .layui-table td {
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--gray-200);
+        transition: var(--transition);
+    }
+
+    .layui-table tbody tr:hover {
+        background-color: var(--gray-50);
+    }
+
+    /* 操作按钮组 */
+    .action-buttons {
+        display: flex;
+        gap: 6px;
+        justify-content: flex-end;
+    }
+
+    .action-btn {
+        padding: 4px 12px;
+        border-radius: var(--border-radius);
+        font-size: 12px;
+        border: none;
+        cursor: pointer;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .btn-assign { background-color: #dbeafe; color: var(--primary); }
+    .btn-assign:hover { background-color: #bfdbfe; }
+
+    /* 角色分配弹窗 */
+    .role-assign-form {
+        padding: 20px;
+    }
+
+    .role-list {
+        max-height: 400px;
+        overflow-y: auto;
+        margin: 16px 0;
+        border: 1px solid var(--gray-200);
+        border-radius: var(--border-radius);
+        padding: 8px;
+    }
+
+    .role-item {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        border-radius: var(--border-radius);
+        transition: var(--transition);
+    }
+
+    .role-item:hover {
+        background-color: var(--gray-50);
+    }
+
+    .role-item input[type="checkbox"] {
+        margin-right: 12px;
+        width: 18px;
+        height: 18px;
+    }
+
+    .role-item label {
+        flex: 1;
+        cursor: pointer;
+    }
+
+    /* 空状态 */
+    .empty-state {
+        padding: 60px 20px;
+        text-align: center;
+        color: var(--gray-500);
+    }
+
+    .empty-state i {
+        font-size: 48px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+        .container {
+            padding: 12px;
+        }
+
+        .toolbar {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .search-group {
+            min-width: auto;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- 工具栏 -->
+    <div class="toolbar">
+        <form class="search-group" id="searchForm" method="get" lay-submit lay-filter="search">
+            <div class="search-input">
+                <i class="layui-icon layui-icon-search"></i>
+                <input type="text" name="username" placeholder="请输入用户名或姓名" class="layui-input" value="{{ username|default:'' }}">
+            </div>
+            <div class="search-input">
+                <i class="layui-icon layui-icon-search"></i>
+                <select name="department_id" class="layui-select">
+                    <option value="">所有部门</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept.id }}" {% if dept.id|stringformat:"s" == department_id %}selected{% endif %}>{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="layui-btn layui-btn-primary">
+                <i class="layui-icon layui-icon-search"></i> 搜索
+            </button>
+            <button type="button" class="layui-btn layui-btn-primary" onclick="clearSearch()">
+                <i class="layui-icon layui-icon-refresh"></i> 重置
+            </button>
+        </form>
+    </div>
+
+    <!-- 表格容器 -->
+    <div class="table-container">
+        <table class="layui-table" id="user-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>用户名</th>
+                    <th>姓名</th>
+                    <th>部门</th>
+                    <th>角色</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>{{ user.id }}</td>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.name }}</td>
+                    <td>{{ user.department.name if user.department else '未分配' }}</td>
+                    <td>
+                        {% if user.groups.all %}
+                        {% for group in user.groups.all %}
+                        <span class="layui-badge layui-bg-blue">{{ group.name }}</span>
+                        {% endfor %}
+                        {% else %}
+                        <span class="layui-badge layui-bg-gray">未分配</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if user.is_active %}
+                        <span class="layui-badge layui-bg-green">启用</span>
+                        {% else %}
+                        <span class="layui-badge layui-bg-red">禁用</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="action-btn btn-assign" onclick="assignRoles({{ user.id }}, '{{ user.name }}')">
+                                <i class="layui-icon layui-icon-set"></i> 分配角色
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="empty-state">
+                        <i class="layui-icon layui-icon-face-cry"></i>
+                        <p>暂无用户数据</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 角色分配弹窗 -->
+<div id="roleAssignForm" style="display: none; padding: 20px;">
+    <form class="role-assign-form" id="roleAssignFormContent">
+        {% csrf_token %}
+        <input type="hidden" name="user_id" id="assignUserId">
+        <div class="layui-form-item">
+            <label class="layui-form-label">用户名</label>
+            <div class="layui-input-block">
+                <input type="text" id="assignUserName" readonly class="layui-input layui-bg-gray">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">分配角色</label>
+            <div class="layui-input-block">
+                <div class="role-list" id="roleList">
+                    {% for role in roles %}
+                    <div class="role-item">
+                        <input type="checkbox" name="role_ids[]" value="{{ role.id }}" lay-skin="primary" title="{{ role.name }}">
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+layui.use(['form', 'layer', 'jquery'], function(){  
+    var form = layui.form;
+    var layer = layui.layer;
+    var $ = layui.jquery;
+    
+    // 设置全局AJAX请求携带CSRF token
+    $.ajaxSetup({
+        headers: {
+            'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
+        }
+    });
+    
+    // 搜索表单提交
+    form.on('submit(search)', function(data){
+        var params = [];
+        if(data.field.username) params.push('username=' + encodeURIComponent(data.field.username));
+        if(data.field.department_id) params.push('department_id=' + encodeURIComponent(data.field.department_id));
+        window.location.href = window.location.pathname + '?' + params.join('&');
+        return false;
+    });
+    
+    // 分配角色
+    window.assignRoles = function(userId, userName) {
+        $('#assignUserId').val(userId);
+        $('#assignUserName').val(userName);
+        
+        // 重置所有复选框
+        $('#roleList input[type="checkbox"]').prop('checked', false);
+        
+        // 获取用户当前角色
+        $.ajax({
+            url: '/api/user/' + userId + '/roles/',
+            type: 'GET',
+            success: function(res) {
+                if(res.code === 200) {
+                    // 选中用户已有角色
+                    var userRoles = res.data;
+                    for(var i = 0; i < userRoles.length; i++) {
+                        $('#roleList input[type="checkbox"][value="' + userRoles[i].id + '"]').prop('checked', true);
+                    }
+                    form.render();
+                }
+                
+                // 打开弹窗
+                layer.open({
+                    type: 1,
+                    title: '分配角色 - ' + userName,
+                    area: ['500px', '500px'],
+                    content: $('#roleAssignForm'),
+                    shade: 0.3,
+                    btn: ['保存', '取消'],
+                    yes: function(index, layero) {
+                        // 提交表单
+                        $.ajax({
+                            url: '/system/permission/user-role-assignment/',
+                            type: 'POST',
+                            data: $('#roleAssignFormContent').serialize(),
+                            success: function(res) {
+                                if(res.code === 200) {
+                                    layer.msg('角色分配成功');
+                                    layer.close(index);
+                                    setTimeout(function() { window.location.reload(); }, 1000);
+                                } else {
+                                    layer.msg(res.msg || '角色分配失败');
+                                }
+                            },
+                            error: function() {
+                                layer.msg('网络错误，请重试');
+                            }
+                        });
+                    },
+                    btn2: function(index) {
+                        layer.close(index);
+                    }
+                });
+            },
+            error: function() {
+                layer.msg('获取用户角色失败');
+            }
+        });
+    };
+    
+    // 清空搜索
+    window.clearSearch = function() {
+        window.location.href = window.location.pathname;
+    };
+    
+    // 初始化表单
+    form.render();
+});
+</script>
+{% endblock %}

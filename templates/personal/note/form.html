@@ -1,0 +1,70 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{% if note %}编辑笔记{% else %}新增笔记{% endif %}{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>{% if note %}编辑笔记{% else %}新增笔记{% endif %}</h3>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form" method="post">
+            {% csrf_token %}
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md8">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">笔记标题 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.title }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">笔记分类</label>
+                        <div class="layui-input-block">
+                            {{ form.category }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">标签</label>
+                <div class="layui-input-block">
+                    {{ form.tags }}
+                    <div class="layui-form-mid layui-word-aux">多个标签用逗号分隔</div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">笔记内容 <span style="color: red;">*</span></label>
+                <div class="layui-input-block">
+                    {{ form.content }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <input type="checkbox" name="is_important" lay-skin="primary" title="重要标记" {% if form.is_important.value %}checked{% endif %}>
+                    <input type="checkbox" name="is_private" lay-skin="primary" title="私人笔记" {% if form.is_private.value %}checked{% endif %}>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" lay-submit>保存</button>
+                    <button type="button" class="layui-btn layui-btn-primary" onclick="history.back()">返回</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+layui.use(['form'], function(){
+    var form = layui.form;
+});
+</script>
+{% endblock %}

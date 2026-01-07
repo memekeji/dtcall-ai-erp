@@ -1,0 +1,514 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新增销售合同</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        /* 表单区域样式 */
+        .contract-form-section {
+            padding: 15px 0;
+            margin-bottom: 5px;
+            border-bottom: 1px solid #1E9FFF;
+        }
+        
+        .contract-form-section h3 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 16px;
+            font-weight: 600;
+            border-bottom: none;
+            padding-bottom: 5px;
+        }
+        
+        .form-group-row {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 0 -10px;
+        }
+        
+        .form-group {
+            flex: 1;
+            min-width: 200px;
+            padding: 0 10px;
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .form-group .layui-input,
+        .form-group .layui-select,
+        .form-group .layui-textarea {
+            width: 100%;
+            border-radius: 4px;
+            border: 1px solid #dcdfe6;
+            transition: all 0.3s ease;
+        }
+        
+        .form-group .layui-input:focus,
+        .form-group .layui-select:focus,
+        .form-group .layui-textarea:focus {
+            border-color: #1E9FFF;
+            box-shadow: 0 0 0 2px rgba(30, 159, 255, 0.2);
+        }
+        
+        /* 按钮样式 */
+        .contract-btn {
+            padding: 8px 20px;
+            border-radius: 4px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .contract-btn-primary {
+            background: linear-gradient(135deg, #1E9FFF 0%, #009688 100%);
+            color: white;
+        }
+        
+        .contract-btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(30, 159, 255, 0.4);
+        }
+        
+        .contract-btn-default {
+            background: #f8f9fa;
+            color: #666;
+            border: 1px solid #dcdfe6;
+        }
+        
+        .contract-btn-default:hover {
+            background: #e9ecef;
+            color: #333;
+        }
+        
+        /* 页面容器样式 */
+        .contract-form-container {
+            padding: 20px;
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+        
+        /* 头部样式 */
+        .contract-form-header {
+            background: linear-gradient(135deg, #1E9FFF 0%, #009688 100%);
+            color: white;
+            padding: 20px 25px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(30, 159, 255, 0.3);
+        }
+        
+        .contract-form-header h2 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        /* 底部按钮区域 */
+        .contract-form-footer {
+            background: #f8f9fa;
+            padding: 20px 25px;
+            border-top: 1px solid #e9ecef;
+            text-align: right;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+            margin-top: 20px;
+            border-radius: 0 0 8px 8px;
+        }
+        
+        /* 客户选择样式 */
+        .customer-selector {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .customer-selector input {
+            flex: 1;
+        }
+        
+        /* 滚动条样式 */
+        body::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        body::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        
+        body::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #1E9FFF 0%, #009688 100%);
+            border-radius: 3px;
+        }
+        
+        body::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #009688 0%, #1E9FFF 100%);
+        }
+    </style>
+</head>
+<body>
+    <div class="contract-form-container">
+        <!-- 头部 -->
+        <div class="contract-form-header">
+            <h2><i class="layui-icon layui-icon-form"></i> 新增销售合同</h2>
+        </div>
+
+        <!-- 主体内容 -->
+        <div class="contract-form-body" style="padding: 0;">
+            <form class="layui-form" lay-filter="contractForm">
+                {% csrf_token %}
+                
+                <!-- 基本信息区域 -->
+                <div class="contract-form-section">
+                    <h3><i class="layui-icon layui-icon-user"></i> 基本信息</h3>
+                    <div class="form-group-row">
+                        <div class="form-group">
+                            <label>合同编号 <span style="color: red;">*</span></label>
+                            <input type="text" name="code" placeholder="请输入合同编号" class="layui-input" lay-verify="required" value="{{ default_contract_number }}">
+                        </div>
+                        <div class="form-group">
+                            <label>合同名称 <span style="color: red;">*</span></label>
+                            <input type="text" name="name" placeholder="请输入合同名称" class="layui-input" lay-verify="required">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group-row">
+                        <div class="form-group">
+                            <label>合同金额 <span style="color: red;">*</span></label>
+                            <input type="text" name="cost" placeholder="请输入合同金额" class="layui-input" lay-verify="required|cost">
+                        </div>
+                        <div class="form-group">
+                            <label>合同类型</label>
+                            <select name="types" lay-verify="required">
+                                <option value="1" selected>普通合同</option>
+                                <option value="2">商品合同</option>
+                                <option value="3">服务合同</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 客户信息区域 -->
+                <div class="contract-form-section">
+                    <h3><i class="layui-icon layui-icon-group"></i> 客户信息</h3>
+                    <div class="form-group-row">
+                        <div class="form-group">
+                            <label>客户名称 <span style="color: red;">*</span></label>
+                            <div class="customer-selector">
+                                <input type="hidden" name="customer_id" id="customerId">
+                                <input type="text" name="customer" id="customerName" placeholder="请选择客户" class="layui-input" lay-verify="required|customer" readonly>
+                                <button type="button" class="layui-btn layui-btn-sm layui-btn-primary" id="selectCustomerBtn">
+                                    <i class="layui-icon layui-icon-search"></i> 选择客户
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>客户代表</label>
+                            <input type="text" name="contact_name" placeholder="请输入客户代表" class="layui-input">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group-row">
+                        <div class="form-group">
+                            <label>联系电话</label>
+                            <input type="text" name="contact_mobile" placeholder="请输入联系电话" class="layui-input">
+                        </div>
+                        <div class="form-group">
+                            <label>是否含税</label>
+                            <div class="layui-input-block">
+                                <input type="radio" name="is_tax" value="0" title="不含税" checked>
+                                <input type="radio" name="is_tax" value="1" title="含税">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>客户地址</label>
+                        <input type="text" name="contact_address" placeholder="请输入客户地址" class="layui-input">
+                    </div>
+                </div>
+
+                <!-- 时间信息区域 -->
+                <div class="contract-form-section">
+                    <h3><i class="layui-icon layui-icon-date"></i> 时间信息</h3>
+                    <div class="form-group-row">
+                        <div class="form-group">
+                            <label>签订时间 <span style="color: red;">*</span></label>
+                            <input type="text" name="sign_time" id="signTime" placeholder="请选择签订时间" class="layui-input" lay-verify="required">
+                        </div>
+                        <div class="form-group">
+                            <label>开始时间 <span style="color: red;">*</span></label>
+                            <input type="text" name="start_time" id="startTime" placeholder="请选择开始时间" class="layui-input" lay-verify="required">
+                        </div>
+                        <div class="form-group">
+                            <label>结束时间 <span style="color: red;">*</span></label>
+                            <input type="text" name="end_time" id="endTime" placeholder="请选择结束时间" class="layui-input" lay-verify="required">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 备注信息区域 -->
+                <div class="contract-form-section">
+                    <h3><i class="layui-icon layui-icon-edit"></i> 备注信息</h3>
+                    <div class="layui-form-item">
+                        <div class="layui-input-block">
+                            <textarea name="remark" placeholder="请输入备注信息" class="layui-textarea"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- 底部操作栏 -->
+        <div class="contract-form-footer">
+            <button type="button" class="layui-btn layui-btn-primary" id="closeContract">关闭</button>
+            <button type="submit" class="layui-btn layui-btn-normal" lay-submit lay-filter="contractForm">提交</button>
+        </div>
+    </div>
+
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['form', 'layer', 'laydate'], function() {
+            var form = layui.form;
+            var layer = layui.layer;
+            var laydate = layui.laydate;
+            var $ = layui.$;
+
+            // 初始化日期选择器
+            laydate.render({
+                elem: '#signTime',
+                type: 'datetime',
+                theme: '#1E9FFF',
+                format: 'yyyy-MM-dd HH:mm:ss',
+                value: new Date(),
+                done: function(value, date, endDate) {
+                    $('#signTime').val(value);
+                }
+            });
+            
+            laydate.render({
+                elem: '#startTime',
+                type: 'datetime',
+                theme: '#1E9FFF',
+                format: 'yyyy-MM-dd HH:mm:ss',
+                value: new Date(),
+                done: function(value, date, endDate) {
+                    $('#startTime').val(value);
+                }
+            });
+            
+            laydate.render({
+                elem: '#endTime',
+                type: 'datetime',
+                theme: '#1E9FFF',
+                format: 'yyyy-MM-dd HH:mm:ss',
+                value: new Date(new Date().setDate(new Date().getDate() + 30)),
+                done: function(value, date, endDate) {
+                    $('#endTime').val(value);
+                }
+            });
+            
+            // 页面加载完成后设置默认值
+            setTimeout(function() {
+                var signTime = new Date();
+                var startTime = new Date();
+                var endTime = new Date(new Date().setDate(new Date().getDate() + 30));
+                
+                var formatTime = function(date) {
+                    var year = date.getFullYear();
+                    var month = (date.getMonth() + 1).toString().padStart(2, '0');
+                    var day = date.getDate().toString().padStart(2, '0');
+                    var hours = date.getHours().toString().padStart(2, '0');
+                    var minutes = date.getMinutes().toString().padStart(2, '0');
+                    var seconds = date.getSeconds().toString().padStart(2, '0');
+                    return year + '-' + month + '-' + day + ' ' + hours + ':' + minutes + ':' + seconds;
+                };
+                
+                $('#signTime').val(formatTime(signTime));
+                $('#startTime').val(formatTime(startTime));
+                $('#endTime').val(formatTime(endTime));
+            }, 100);
+
+            // 关闭按钮事件
+            $('#closeContract').on('click', function() {
+                var index = parent.layer.getFrameIndex(window.name);
+                parent.layer.close(index);
+            });
+
+            // 表单验证
+            form.verify({
+                cost: function(value) {
+                    if (value === '') {
+                        return '请输入合同金额';
+                    }
+                    if (isNaN(value) || parseFloat(value) <= 0) {
+                        return '合同金额必须为大于0的数字';
+                    }
+                },
+                customer: function(value) {
+                    if (value === '') {
+                        return '请选择客户';
+                    }
+                }
+            });
+
+            // 客户选择功能
+            $('#selectCustomerBtn').on('click', function() {
+                layer.open({
+                    type: 2,
+                    title: '选择客户',
+                    area: ['900px', '600px'],
+                    content: '/customer/select/',
+                    btn: ['确定', '取消'],
+                    zIndex: 2147483647,
+                    yes: function(index, layero) {
+                        var iframe = layero.find('iframe')[0];
+                        if (iframe && iframe.contentWindow) {
+                            iframe.contentWindow.postMessage({type: 'getSelectedCustomer'}, '*');
+                            
+                            var messageHandler = function(event) {
+                                if (event.data && event.data.type === 'selectedCustomer') {
+                                    setSelectedCustomer(event.data.data);
+                                    window.removeEventListener('message', messageHandler);
+                                    layer.close(index);
+                                }
+                            };
+                            window.addEventListener('message', messageHandler);
+                            
+                            setTimeout(function() {
+                                window.removeEventListener('message', messageHandler);
+                                var selectedCustomer = localStorage.getItem('selectedCustomer');
+                                if (selectedCustomer) {
+                                    setSelectedCustomer(JSON.parse(selectedCustomer));
+                                    localStorage.removeItem('selectedCustomer');
+                                    layer.close(index);
+                                } else {
+                                    layer.msg('请先选择客户', {icon: 2});
+                                }
+                            }, 5000);
+                        } else {
+                            layer.msg('客户选择窗口加载失败', {icon: 2});
+                        }
+                    },
+                    btn2: function(index) {
+                        layer.close(index);
+                    },
+                    success: function(layero, index) {
+                        localStorage.removeItem('selectedCustomer');
+                        layer.setTop(layero);
+                    }
+                });
+            });
+            
+            // 设置选中的客户
+            function setSelectedCustomer(customerData) {
+                $('#customerId').val(customerData.id);
+                if ($('input[name="customer_id"]').length > 0) {
+                    $('input[name="customer_id"]').val(customerData.id);
+                }
+                $('#customerName').val(customerData.name);
+                
+                // 自动填充客户信息
+                $('input[name="contact_name"]').val(customerData.contact_name || '');
+                $('input[name="contact_mobile"]').val(customerData.phone || '');
+                $('input[name="contact_address"]').val(customerData.address || '');
+                
+                layer.msg('客户选择成功', {icon: 1});
+            }
+            
+            // 暴露给客户选择页面调用的函数
+            window.setSelectedCustomer = setSelectedCustomer;
+
+            // 表单提交
+            form.on('submit(contractForm)', function(data) {
+                var customerId = $('#customerId').val();
+                
+                if (!customerId) {
+                    layer.msg('请选择客户', {icon: 2});
+                    return false;
+                }
+                
+                data.field.customer_id = customerId;
+                
+                var loadIndex = layer.load(2, {shade: [0.3, '#000']});
+                var csrfToken = $('input[name="csrfmiddlewaretoken"]').val();
+                
+                $.ajax({
+                    url: '/contract/sales/add/',
+                    type: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken
+                    },
+                    data: data.field,
+                    success: function(res) {
+                        layer.close(loadIndex);
+                        if (res.code === 0) {
+                            layer.msg('合同创建成功', {icon: 1, time: 2000}, function() {
+                                var index = parent.layer.getFrameIndex(window.name);
+                                parent.layer.close(index);
+                                parent.location.reload();
+                            });
+                        } else {
+                            layer.msg(res.msg || '创建失败', {icon: 2});
+                        }
+                    },
+                    error: function() {
+                        layer.close(loadIndex);
+                        layer.msg('网络错误，请重试', {icon: 2});
+                    }
+                });
+                
+                return false;
+            });
+
+            // 页面加载时检查URL参数，如果有客户ID则自动加载客户信息
+            $(document).ready(function() {
+                var urlParams = new URLSearchParams(window.location.search);
+                var customerId = urlParams.get('customer_id');
+                
+                if (customerId) {
+                    loadCustomerInfo(customerId);
+                }
+            });
+            
+            // 根据客户ID加载客户信息
+            function loadCustomerInfo(customerId) {
+                var csrfToken = $('input[name="csrfmiddlewaretoken"]').val();
+                
+                $.ajax({
+                    url: '/customer/detail-api/' + customerId + '/',
+                    type: 'GET',
+                    headers: {
+                        'X-CSRFToken': csrfToken
+                    },
+                    success: function(res) {
+                        if (res.id) {
+                            setSelectedCustomer({
+                                id: res.id,
+                                name: res.name,
+                                contact_name: res.contact_person || '',
+                                phone: res.phone || '',
+                                address: res.address || ''
+                            });
+                        } else {
+                            layer.msg('客户信息加载失败', {icon: 2});
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        layer.msg('客户信息加载失败: ' + error, {icon: 2});
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

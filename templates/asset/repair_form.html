@@ -1,0 +1,75 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{% if repair %}编辑报修记录{% else %}新增报修记录{% endif %}{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>{% if repair %}编辑报修记录{% else %}新增报修记录{% endif %}</h3>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form" method="post">
+            {% csrf_token %}
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">资产 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.asset }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">维修人员</label>
+                        <div class="layui-input-block">
+                            {{ form.repair_person }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">故障描述 <span style="color: red;">*</span></label>
+                <div class="layui-input-block">
+                    {{ form.fault_description }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">维修说明</label>
+                <div class="layui-input-block">
+                    {{ form.repair_description }}
+                </div>
+            </div>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">维修费用</label>
+                        <div class="layui-input-block">
+                            {{ form.repair_cost }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">状态</label>
+                        <div class="layui-input-block">
+                            {{ form.status }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" type="submit">保存</button>
+                    <a href="{% url 'system:admin_office:asset_repair_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

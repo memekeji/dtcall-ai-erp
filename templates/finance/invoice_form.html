@@ -1,0 +1,444 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if object %}编辑发票{% else %}新增发票{% endif %}</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        body {
+            background: #f8f9fa;
+            font-family: 'Microsoft YaHei', sans-serif;
+        }
+        .form-container {
+            max-width: 900px;
+            margin: 20px auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .form-header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 20px 30px;
+            position: relative;
+        }
+        .form-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            opacity: 0.3;
+        }
+        .form-header h2 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 300;
+            position: relative;
+            z-index: 1;
+        }
+        .form-header .subtitle {
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+            font-size: 14px;
+            position: relative;
+            z-index: 1;
+        }
+        .form-body {
+            padding: 30px;
+        }
+        .layui-form-item {
+            margin-bottom: 25px;
+        }
+        .layui-form-label {
+            width: 120px;
+            font-weight: 500;
+            color: #333;
+            background: #f8f9fa;
+            border-radius: 4px 0 0 4px;
+        }
+        .layui-input-block {
+            margin-left: 120px;
+        }
+        .layui-input, .layui-textarea, .layui-select {
+            border: 1px solid #e1e5e9;
+            border-radius: 0 4px 4px 0;
+            transition: all 0.3s ease;
+        }
+        .layui-input:focus, .layui-textarea:focus {
+            border-color: #4facfe;
+            box-shadow: 0 0 0 2px rgba(79, 172, 254, 0.2);
+        }
+        .required-field::after {
+            content: '*';
+            color: #ff5722;
+            margin-left: 4px;
+        }
+        .form-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #4facfe;
+        }
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .section-title i {
+            margin-right: 8px;
+            color: #4facfe;
+        }
+        .form-actions {
+            text-align: center;
+            padding: 20px 0;
+            border-top: 1px solid #e1e5e9;
+            background: #f8f9fa;
+            margin: 30px -30px -30px -30px;
+        }
+        .layui-btn {
+            padding: 10px 30px;
+            border-radius: 25px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .layui-btn-normal {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            border: none;
+        }
+        .layui-btn-normal:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(79, 172, 254, 0.4);
+        }
+        .layui-btn-primary {
+            background: #fff;
+            border: 1px solid #d9d9d9;
+            color: #666;
+        }
+        .layui-btn-primary:hover {
+            border-color: #4facfe;
+            color: #4facfe;
+        }
+        .amount-input {
+            position: relative;
+        }
+        .amount-input::before {
+            content: '¥';
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+            font-weight: 500;
+            z-index: 10;
+        }
+        .amount-input .layui-input {
+            padding-left: 30px;
+            font-size: 16px;
+            font-weight: 500;
+        }
+        .invoice-preview {
+            background: #fff;
+            border: 1px solid #e1e5e9;
+            border-radius: 6px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .preview-title {
+            font-size: 18px;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .preview-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .preview-item:last-child {
+            border-bottom: none;
+        }
+        .preview-label {
+            font-weight: 500;
+            color: #666;
+        }
+        .preview-value {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <div class="form-header">
+            <h2>
+                <i class="layui-icon layui-icon-file" style="margin-right: 10px;"></i>
+                {% if object %}编辑发票信息{% else %}新增发票信息{% endif %}
+            </h2>
+            <p class="subtitle">请填写完整的发票信息，确保开票数据准确无误</p>
+        </div>
+        
+        <div class="form-body">
+            <form class="layui-form" method="post" lay-filter="invoiceForm">
+                {% csrf_token %}
+                
+                <!-- 基本信息 -->
+                <div class="form-section">
+                    <div class="section-title">
+                        <i class="layui-icon layui-icon-form"></i>
+                        基本信息
+                    </div>
+                    
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label required-field">发票号码</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="code" value="{{ form.code.value|default:'' }}" 
+                                           placeholder="请输入发票号码" class="layui-input" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label required-field">发票类型</label>
+                                <div class="layui-input-block">
+                                    <select name="invoice_type" class="layui-select" required>
+                                        <option value="">请选择发票类型</option>
+                                        <option value="1" {% if form.invoice_type.value == "1" %}selected{% endif %}>增值税专用发票</option>
+                                        <option value="2" {% if form.invoice_type.value == "2" %}selected{% endif %}>普通发票</option>
+                                        <option value="3" {% if form.invoice_type.value == "3" %}selected{% endif %}>专用发票</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 关联信息 -->
+                <div class="form-section">
+                    <div class="section-title">
+                        <i class="layui-icon layui-icon-link"></i>
+                        关联信息
+                    </div>
+                    
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label required-field">关联客户</label>
+                                <div class="layui-input-block">
+                                    <select name="customer" class="layui-select" required>
+                                        <option value="">请选择客户</option>
+                                        {% for customer in customers %}
+                                        <option value="{{ customer.id }}" {% if form.customer.value == customer.id %}selected{% endif %}>{{ customer.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">关联合同</label>
+                                <div class="layui-input-block">
+                                    <select name="contract" class="layui-select">
+                                        <option value="">请选择合同</option>
+                                        <option value="1">合同001</option>
+                                        <option value="2">合同002</option>
+                                        <option value="3">合同003</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">关联项目</label>
+                                <div class="layui-input-block">
+                                    <select name="project" class="layui-select">
+                                        <option value="">请选择项目</option>
+                                        <option value="1">项目A</option>
+                                        <option value="2">项目B</option>
+                                        <option value="3">项目C</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 开票信息 -->
+                <div class="form-section">
+                    <div class="section-title">
+                        <i class="layui-icon layui-icon-rmb"></i>
+                        开票信息
+                    </div>
+                    
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label required-field">发票金额</label>
+                                <div class="layui-input-block amount-input">
+                                    <input type="number" step="0.01" name="amount" value="{{ form.amount.value|default:'' }}" 
+                                           placeholder="0.00" class="layui-input" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label required-field">开票抬头</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="invoice_title" value="{{ form.invoice_title.value|default:'' }}" 
+                                           placeholder="请输入开票抬头" class="layui-input" required>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">纳税人识别号</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="invoice_tax" value="{{ form.invoice_tax.value|default:'' }}" 
+                                   placeholder="请输入纳税人识别号" class="layui-input">
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">已到账金额</label>
+                        <div class="layui-input-block amount-input">
+                            <input type="number" step="0.01" name="enter_amount" value="{{ form.enter_amount.value|default:'0.00' }}" 
+                                   placeholder="0.00" class="layui-input">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 发票预览 -->
+                <div class="form-section">
+                    <div class="section-title">
+                        <i class="layui-icon layui-icon-survey"></i>
+                        发票预览
+                    </div>
+                    
+                    <div class="invoice-preview">
+                        <div class="preview-title">发票信息预览</div>
+                        <div class="preview-item">
+                            <span class="preview-label">发票号码：</span>
+                            <span class="preview-value" id="preview-code">-</span>
+                        </div>
+                        <div class="preview-item">
+                            <span class="preview-label">发票类型：</span>
+                            <span class="preview-value" id="preview-type">-</span>
+                        </div>
+                        <div class="preview-item">
+                            <span class="preview-label">开票抬头：</span>
+                            <span class="preview-value" id="preview-title">-</span>
+                        </div>
+                        <div class="preview-item">
+                            <span class="preview-label">纳税人识别号：</span>
+                            <span class="preview-value" id="preview-tax">-</span>
+                        </div>
+                        <div class="preview-item">
+                            <span class="preview-label">发票金额：</span>
+                            <span class="preview-value" id="preview-amount" style="color: #ff5722; font-weight: 600;">¥0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 提交按钮 -->
+                <div class="form-actions">
+                    <button class="layui-btn layui-btn-normal layui-btn-lg" lay-submit lay-filter="submit">
+                        <i class="layui-icon layui-icon-ok"></i>
+                        {% if object %}更新发票{% else %}创建发票{% endif %}
+                    </button>
+                    <button type="button" class="layui-btn layui-btn-primary layui-btn-lg" onclick="parent.layer.closeAll()" style="margin-left: 15px;">
+                        <i class="layui-icon layui-icon-close"></i>
+                        取消
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['form', 'layer'], function() {
+            var form = layui.form;
+            var layer = layui.layer;
+            
+            // 实时预览更新
+            function updatePreview() {
+                $('#preview-code').text($('input[name="code"]').val() || '-');
+                $('#preview-title').text($('input[name="invoice_title"]').val() || '-');
+                $('#preview-tax').text($('input[name="invoice_tax"]').val() || '-');
+                
+                var typeText = $('select[name="invoice_type"] option:selected').text();
+                $('#preview-type').text(typeText === '请选择发票类型' ? '-' : typeText);
+                
+                var amount = $('input[name="amount"]').val();
+                $('#preview-amount').text(amount ? '¥' + parseFloat(amount).toFixed(2) : '¥0.00');
+            }
+            
+            // 监听输入变化
+            $('input[name="code"], input[name="invoice_title"], input[name="invoice_tax"], input[name="amount"]').on('input', updatePreview);
+            $('select[name="invoice_type"]').on('change', updatePreview);
+            
+            // 表单验证
+            form.verify({
+                amount: function(value) {
+                    if(!/^\d+(\.\d{1,2})?$/.test(value)) {
+                        return '金额格式不正确，最多保留两位小数';
+                    }
+                    if(parseFloat(value) <= 0) {
+                        return '发票金额必须大于0';
+                    }
+                    if(parseFloat(value) > 1000000) {
+                        return '单张发票金额不能超过100万元';
+                    }
+                },
+                invoice_tax: function(value) {
+                    if(value && !/^[0-9A-Z]{15,20}$/.test(value)) {
+                        return '纳税人识别号格式不正确';
+                    }
+                }
+            });
+            
+            // 监听提交
+            form.on('submit(submit)', function(data) {
+                var loadIndex = layer.load(2, {shade: [0.3, '#000']});
+                
+                setTimeout(function() {
+                    layer.close(loadIndex);
+                    layer.msg('提交成功', {icon: 1}, function() {
+                        parent.layer.closeAll();
+                        if(parent.layui && parent.layui.table) {
+                            parent.layui.table.reload('invoiceTable');
+                        }
+                    });
+                }, 1000);
+                
+                return true;
+            });
+            
+            // 金额输入格式化
+            $('input[name="amount"]').on('blur', function() {
+                var value = $(this).val();
+                if(value && !isNaN(value)) {
+                    $(this).val(parseFloat(value).toFixed(2));
+                    updatePreview();
+                }
+            });
+            
+            // 初始化预览
+            updatePreview();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{% if object %}编辑菜单{% else %}新增菜单{% endif %}</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <style>
+        .layui-fluid {
+            padding: 15px;
+        }
+        .layui-form-label {
+            width: 120px;
+        }
+        .layui-input-block {
+            margin-left: 150px;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <h3>{% if object %}编辑菜单{% else %}新增菜单{% endif %}</h3>
+                    </div>
+                    <div class="layui-card-body">
+                        <form class="layui-form" action="" method="post">
+                            {% csrf_token %}
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">菜单名称</label>
+                                <div class="layui-input-block">
+                                    {{ form.title }}
+                                    {% if form.title.errors %}
+                                    <div class="layui-form-mid layui-text-danger">{{ form.title.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">图标</label>
+                                <div class="layui-input-block">
+                                    {{ form.icon }}
+                                    <div class="layui-form-mid layui-word-aux">例如： (layui图标，可在layui文档中查找)</div>
+                                    {% if form.icon.errors %}
+                                    <div class="layui-form-mid layui-text-danger">{{ form.icon.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">链接地址</label>
+                                <div class="layui-input-block">
+                                    {{ form.src }}
+                                    <div class="layui-form-mid layui-word-aux">例如：/system/menu/</div>
+                                    {% if form.src.errors %}
+                                    <div class="layui-form-mid layui-text-danger">{{ form.src.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">父菜单</label>
+                                <div class="layui-input-block">
+                                    <select name="pid" lay-verify="" class="layui-select">
+                                        <option value="0">无父菜单(顶级菜单)</option>
+                                        {% for menu in form.pid.field.queryset %}
+                                        <option value="{{ menu.id }}" {% if form.pid.value == menu.id|stringformat:'s' or form.pid.value == menu.id %}selected{% endif %}>{{ menu.title }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    {% if form.pid.errors %}
+                                    <div class="layui-form-mid layui-text-danger">{{ form.pid.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">排序</label>
+                                <div class="layui-input-block">
+                                    {{ form.sort }}
+                                    <div class="layui-form-mid layui-word-aux">数字越小，排序越靠前</div>
+                                    {% if form.sort.errors %}
+                                    <div class="layui-form-mid layui-text-danger">{{ form.sort.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">状态</label>
+                                <div class="layui-input-block">
+                                    <input type="radio" name="status" value="1" title="正常" {% if form.status.value == 1 or not form.status.value %}checked{% endif %} lay-skin="primary">
+                                    <input type="radio" name="status" value="0" title="禁用" {% if form.status.value == 0 %}checked{% endif %} lay-skin="primary">
+                                    {% if form.status.errors %}
+                                    <div class="layui-form-mid layui-text-danger">{{ form.status.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <div class="layui-input-block">
+                                    <button type="submit" class="layui-btn" lay-submit lay-filter="formDemo">保存</button>
+                                    <button type="button" class="layui-btn layui-btn-primary" onclick="history.back()">返回</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+    layui.use(['form'], function() {
+        var form = layui.form;
+        
+        // 表单验证
+        form.verify({
+            title: function(value) {
+                if (value.length < 1) {
+                    return '菜单名称不能为空';
+                }
+            },
+            src: function(value) {
+                if (value.length < 1) {
+                    return '链接地址不能为空';
+                }
+            }
+        });
+        
+        // 表单提交事件
+        form.on('submit(formDemo)', function(data) {
+            return true;
+        });
+    });
+    </script>
+</body>
+</html>

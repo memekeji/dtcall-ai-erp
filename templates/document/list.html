@@ -1,0 +1,136 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}公文管理{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <h3>公文管理</h3>
+            </div>
+            <div class="layui-col-md6" style="text-align: right;">
+                <a href="{% url 'system:admin_office:document_create' %}" class="layui-btn layui-btn-sm">
+                    <i class="layui-icon layui-icon-add-1"></i> 新增公文
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <!-- 搜索表单 -->
+        <form class="layui-form" method="get">
+            <div class="layui-row layui-col-space10">
+                <div class="layui-col-md3">
+                    <input type="text" name="search" value="{{ search }}" placeholder="搜索公文标题或编号" class="layui-input">
+                </div>
+                <div class="layui-col-md2">
+                    <select name="category" class="layui-input">
+                        <option value="">全部分类</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat.pk }}" {% if category == cat.pk|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="layui-col-md2">
+                    <select name="status" class="layui-input">
+                        <option value="">全部状态</option>
+                        {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="layui-col-md3">
+                    <button class="layui-btn" type="submit">搜索</button>
+                    <a href="{% url 'system:admin_office:document_list' %}" class="layui-btn layui-btn-primary">重置</a>
+                </div>
+            </div>
+        </form>
+        
+        <!-- 数据表格 -->
+        <table class="layui-table" lay-skin="line">
+            <thead>
+                <tr>
+                    <th>公文编号</th>
+                    <th>公文标题</th>
+                    <th>分类</th>
+                    <th>起草人</th>
+                    <th>起草部门</th>
+                    <th>状态</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for document in page_obj %}
+                <tr>
+                    <td>{{ document.document_number }}</td>
+                    <td>{{ document.title }}</td>
+                    <td>{{ document.category.name }}</td>
+                    <td>{{ document.author.name }}</td>
+                    <td>{{ document.department.name|default:"未指定" }}</td>
+                    <td>
+                        {% if document.status == 'draft' %}
+                            <span class="layui-badge layui-bg-gray">{{ document.get_status_display }}</span>
+                        {% elif document.status == 'pending' %}
+                            <span class="layui-badge layui-bg-orange">{{ document.get_status_display }}</span>
+                        {% elif document.status == 'approved' %}
+                            <span class="layui-badge layui-bg-green">{{ document.get_status_display }}</span>
+                        {% elif document.status == 'rejected' %}
+                            <span class="layui-badge layui-bg-red">{{ document.get_status_display }}</span>
+                        {% else %}
+                            <span class="layui-badge">{{ document.get_status_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ document.created_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        <a href="{% url 'system:admin_office:document_detail' document.pk %}" class="layui-btn layui-btn-xs">查看</a>
+                        {% if document.author == request.user and document.status == 'draft' %}
+                            <a href="{% url 'system:admin_office:document_update' document.pk %}" class="layui-btn layui-btn-xs layui-btn-normal">编辑</a>
+                        {% endif %}
+                        {% if document.author == request.user %}
+                            <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteDocument({{ document.pk }})">删除</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align: center; color: #999;">暂无数据</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <!-- 分页 -->
+        {% if page_obj.has_other_pages %}
+        <div class="layui-box layui-laypage layui-laypage-default">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}&category={{ category }}&status={{ status }}" class="layui-laypage-prev">上一页</a>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <span class="layui-laypage-curr"><em>{{ num }}</em></span>
+                {% else %}
+                    <a href="?page={{ num }}&search={{ search }}&category={{ category }}&status={{ status }}">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&search={{ search }}&category={{ category }}&status={{ status }}" class="layui-laypage-next">下一页</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function deleteDocument(id) {
+    layer.confirm('确定要删除这个公文吗？', {
+        btn: ['确定', '取消']
+    }, function(){
+        layer.msg('删除功能待实现');
+    });
+}
+</script>
+{% endblock %}

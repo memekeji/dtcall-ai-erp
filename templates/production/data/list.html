@@ -1,0 +1,158 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据采集</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .search-form {
+            margin-bottom: 15px;
+        }
+        .table-toolbar {
+            margin-bottom: 15px;
+        }
+        .status-normal {
+            color: #5FB878;
+        }
+        .status-abnormal {
+            color: #FF5722;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <!-- 页面标题 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <h2 style="margin-bottom: 20px;">数据采集</h2>
+            </div>
+        </div>
+
+        <!-- 工具栏 -->
+        <div class="layui-row table-toolbar">
+            <div class="layui-col-md6">
+                <button class="layui-btn" onclick="location.href='{% url 'production:data_collection_add' %}'">
+                    <i class="layui-icon layui-icon-add-1"></i> 添加数据
+                </button>
+                <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:baseinfo_index' %}'">
+                    <i class="layui-icon layui-icon-return"></i> 返回
+                </button>
+            </div>
+            <div class="layui-col-md6" style="text-align: right;">
+                <form method="get" class="layui-form layui-form-pane" style="display: inline-block;">
+                    <div class="layui-input-group">
+                        <select name="equipment" lay-search>
+                            <option value="">全部设备</option>
+                            {% for equipment in equipments %}
+                                <option value="{{ equipment.id }}" {% if selected_equipment == equipment.id|stringformat:"s" %}selected{% endif %}>{{ equipment.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="layui-input-split layui-input-suffix">
+                            <button class="layui-btn" type="submit">
+                                <i class="layui-icon layui-icon-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 数据表格 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-body" style="padding: 0;">
+                        <table class="layui-table" lay-skin="line">
+                            <thead>
+                                <tr>
+                                    <th>设备名称</th>
+                                    <th>参数名称</th>
+                                    <th>参数值</th>
+                                    <th>单位</th>
+                                    <th>标准范围</th>
+                                    <th>状态</th>
+                                    <th>采集时间</th>
+                                    <th>采集人</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for data in page_obj %}
+                                <tr>
+                                    <td>{{ data.equipment.name }}</td>
+                                    <td>{{ data.parameter_name }}</td>
+                                    <td>{{ data.parameter_value }}</td>
+                                    <td>{{ data.unit }}</td>
+                                    <td>
+                                        {% if data.standard_min and data.standard_max %}
+                                            {{ data.standard_min }} ~ {{ data.standard_max }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if data.is_normal %}
+                                            <span class="status-normal">正常</span>
+                                        {% else %}
+                                            <span class="status-abnormal">异常</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ data.collect_time|date:"Y-m-d H:i:s" }}</td>
+                                    <td>{{ data.collector.username|default:"-" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" style="text-align: center; padding: 40px; color: #999;">
+                                        暂无数据
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分页 -->
+        {% if page_obj.has_other_pages %}
+        <div class="layui-row" style="margin-top: 20px;">
+            <div class="layui-col-md12" style="text-align: center;">
+                <div id="pagination"></div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['layer', 'laypage', 'form'], function () {
+            var layer = layui.layer;
+            var laypage = layui.laypage;
+            var form = layui.form;
+
+            {% if page_obj.has_other_pages %}
+            // 分页
+            laypage.render({
+                elem: 'pagination',
+                count: {{ page_obj.paginator.count }},
+                limit: 50,
+                curr: {{ page_obj.number }},
+                jump: function(obj, first) {
+                    if (!first) {
+                        var url = new URL(window.location);
+                        url.searchParams.set('page', obj.curr);
+                        window.location.href = url.toString();
+                    }
+                }
+            });
+            {% endif %}
+        });
+    </script>
+</body>
+
+</html>

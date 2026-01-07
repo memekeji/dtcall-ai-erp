@@ -1,0 +1,184 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工艺路线详情</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+        }
+        .layui-fluid {
+            padding: 15px;
+        }
+        h2 {
+            margin: 0 0 15px 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .detail-info {
+            margin-bottom: 20px;
+        }
+
+        .info-card {
+            margin-bottom: 15px;
+        }
+
+        .info-card .layui-card-body {
+            padding: 15px;
+        }
+
+        .info-row {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .info-label {
+            width: 120px;
+            font-weight: bold;
+            color: #666;
+        }
+
+        .info-value {
+            flex: 1;
+        }
+
+        .status-enabled {
+            color: #5FB878;
+        }
+
+        .status-disabled {
+            color: #FF5722;
+        }
+        .table-toolbar {
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layui-fluid">
+        <!-- 页面标题 -->
+        <h2>工艺路线详情</h2>
+
+        <!-- 工具栏 -->
+        <div class="table-toolbar">
+            <button class="layui-btn" 
+                onclick="showEditDialog({{ process_route.pk }})">
+                <i class="layui-icon layui-icon-edit"></i> 编辑
+            </button>
+            <button class="layui-btn layui-btn-primary" 
+                onclick="parent.layer.closeAll()">
+                <i class="layui-icon layui-icon-return"></i> 关闭
+            </button>
+        </div>
+
+        <!-- 工艺路线基本信息 -->
+        <div class="info-card layui-card">
+            <div class="layui-card-header">基本信息</div>
+            <div class="layui-card-body">
+                <div class="info-row">
+                    <div class="info-label">工艺路线编码：</div>
+                    <div class="info-value">{{ process_route.code }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">工艺路线名称：</div>
+                    <div class="info-value">{{ process_route.name }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">工艺路线描述：</div>
+                    <div class="info-value">{{ process_route.description|default:'无' }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">总工时：</div>
+                    <div class="info-value">{{ process_route.total_time }} 小时</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">总成本：</div>
+                    <div class="info-value">￥{{ process_route.total_cost }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">状态：</div>
+                    <div class="info-value">
+                        {% if process_route.status %}
+                        <span class="status-enabled">启用</span>
+                        {% else %}
+                        <span class="status-disabled">禁用</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">创建时间：</div>
+                    <div class="info-value">{{ process_route.create_time|date:"Y-m-d H:i" }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">创建人：</div>
+                    <div class="info-value">{{ process_route.creator.username|default:'系统' }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 工序列表 -->
+        <div class="layui-card">
+            <div class="layui-card-header">工序列表</div>
+            <div class="layui-card-body" style="padding: 0;">
+                <table class="layui-table" lay-skin="line">
+                    <thead>
+                        <tr>
+                            <th>执行顺序</th>
+                            <th>工序名称</th>
+                            <th>工序编码</th>
+                            <th>预估工时</th>
+                            <th>标准工时</th>
+                            <th>每小时成本</th>
+                            <th>所属部门</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in procedure_items %}
+                        <tr>
+                            <td>{{ item.sequence }}</td>
+                            <td>{{ item.procedure.name }}</td>
+                            <td>{{ item.procedure.code }}</td>
+                            <td>{{ item.estimated_time }} 小时</td>
+                            <td>{{ item.procedure.standard_time }} 小时</td>
+                            <td>￥{{ item.procedure.cost_per_hour }}</td>
+                            <td>{{ item.procedure.department.name|default:'无' }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 40px; color: #999;">
+                                暂无工序
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['layer'], function () {
+            var layer = layui.layer;
+        });
+
+        // 显示编辑对话框
+        function showEditDialog(id) {
+            // 关闭当前详情对话框
+            parent.layer.closeAll();
+            // 打开编辑对话框
+            parent.showProcessRouteDialog('edit', id);
+        }
+    </script>
+</body>
+
+</html>

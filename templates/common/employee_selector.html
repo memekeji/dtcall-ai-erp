@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>参与人员选择器</title>
+    <link rel="stylesheet" href="/static/layui/css/layui.css">
+    <style>
+        .employee-selector-container {
+            display: flex;
+            height: 400px;
+            border: 1px solid #e6e6e6;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .department-tree-section {
+            flex: 0 0 30%;
+            border-right: 1px solid #e6e6e6;
+            background-color: #f8f8f8;
+            overflow-y: auto;
+        }
+        
+        .employee-list-section {
+            flex: 0 0 70%;
+            overflow-y: auto;
+        }
+        
+        .department-tree-title {
+            padding: 10px 15px;
+            font-weight: bold;
+            border-bottom: 1px solid #e6e6e6;
+            background-color: #fff;
+        }
+        
+        .employee-list-title {
+            padding: 10px 15px;
+            font-weight: bold;
+            border-bottom: 1px solid #e6e6e6;
+            background-color: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .employee-list-content {
+            padding: 10px 15px;
+        }
+        
+        .employee-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .employee-item:last-child {
+            border-bottom: none;
+        }
+        
+        .employee-info {
+            display: inline-block;
+            margin-left: 8px;
+        }
+        
+        .employee-name {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .employee-detail {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        /* 树形结构样式 */
+        .layui-tree {
+            padding: 10px;
+        }
+        
+        .layui-tree li {
+            margin-bottom: 5px;
+        }
+        
+        .layui-tree li a:hover {
+            background-color: #e6f7ff;
+        }
+        
+        .layui-tree li a.layui-tree-spread {
+            background-color: #e6f7ff;
+        }
+        
+        .layui-tree li .layui-tree-branch::after {
+            border-left-color: #5FB878;
+        }
+        
+        .layui-tree li .layui-tree-leaf::before {
+            border-color: #1E9FFF;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .employee-selector-container {
+                flex-direction: column;
+            }
+            
+            .department-tree-section,
+            .employee-list-section {
+                flex: 0 0 auto;
+                height: 200px;
+            }
+            
+            .department-tree-section {
+                border-right: none;
+                border-bottom: 1px solid #e6e6e6;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="employee-selector-container">
+        <!-- 左侧部门树形结构 -->
+        <div class="department-tree-section">
+            <div class="department-tree-title">部门列表</div>
+            <div id="departmentTree"></div>
+        </div>
+        
+        <!-- 右侧员工列表 -->
+        <div class="employee-list-section">
+            <div class="employee-list-title">
+                <span>参与人员</span>
+                <span id="selectedCount" class="layui-badge layui-bg-blue">0</span>
+            </div>
+            <div class="employee-list-content" id="employeeList">
+                <!-- 员工列表将通过JavaScript动态生成 -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- 已选择员工的隐藏字段，用于表单提交 -->
+    <input type="hidden" name="participant_ids" id="participantIds" value="">
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['tree', 'form'], function() {
+            var tree = layui.tree;
+            var form = layui.form;
+            
+            // 部门树数据
+            var departmentTreeData = [];
+            
+            // 已选择的员工ID集合
+            var selectedEmployeeIds = new Set();
+            
+            // 初始化部门树
+            function initDepartmentTree() {
+                // 从API获取部门树数据
+                $.ajax({
+                    url: '/system/department/department-tree-api/',
+                    type: 'GET',
+                    dataType: 'json',
+                    success: function(res) {
+                        if (res.code === 0) {
+                            departmentTreeData = res.data;
+                            renderDepartmentTree();
+                        } else {
+                            layer.msg('获取部门数据失败');
+                        }
+                    },
+                    error: function() {
+                        layer.msg('获取部门数据失败');
+                    }
+                });
+            }
+            
+            // 渲染部门树
+            function renderDepartmentTree() {
+                tree.render({
+                    elem: '#departmentTree',
+                    data: departmentTreeData,
+                    showCheckbox: false,
+                    accordion: true,
+                    click: function(obj) {
+                        // 点击部门节点，加载该部门下的员工
+                        loadDepartmentEmployees(obj.data.id);
+                        // 高亮当前选中的部门
+                        highlightSelectedDepartment(obj.data.id);
+                    }
+                });
+            }
+            
+            // 高亮选中的部门
+            function highlightSelectedDepartment(departmentId) {
+                // 移除所有高亮
+                $('#departmentTree .layui-tree a').removeClass('layui-tree-spread');
+                // 高亮当前选中的部门
+                $('#departmentTree .layui-tree a[data-id="' + departmentId + '"]').addClass('layui-tree-spread');
+            }
+            
+            // 加载部门员工
+            function loadDepartmentEmployees(departmentId) {
+                $.ajax({
+                    url: '/system/department/' + departmentId + '/employees/',
+                    type: 'GET',
+                    dataType: 'json',
+                    success: function(res) {
+                        if (res.code === 0) {
+                            renderEmployeeList(res.data);
+                        } else {
+                            layer.msg('获取员工数据失败');
+                        }
+                    },
+                    error: function() {
+                        layer.msg('获取员工数据失败');
+                    }
+                });
+            }
+            
+            // 渲染员工列表
+            function renderEmployeeList(employees) {
+                var html = '';
+                if (employees.length === 0) {
+                    html = '<div style="text-align: center; color: #999; padding: 20px;">该部门下暂无员工</div>';
+                } else {
+                    employees.forEach(function(employee) {
+                        var isChecked = selectedEmployeeIds.has(employee.id);
+                        html += '<div class="employee-item">';
+                        html += '<input type="checkbox" name="employee" value="' + employee.id + '" ';
+                        html += isChecked ? 'checked' : '';
+                        html += ' lay-skin="primary" title="" lay-filter="employeeCheckbox">';
+                        html += '<div class="employee-info">';
+                        html += '<span class="employee-name">' + employee.name + '</span>';
+                        html += '<span class="employee-detail">' + employee.username + ' | ' + (employee.position_name || '无职位') + '</span>';
+                        html += '</div>';
+                        html += '</div>';
+                    });
+                }
+                $('#employeeList').html(html);
+                form.render('checkbox');
+            }
+            
+            // 监听员工复选框事件
+            form.on('checkbox(employeeCheckbox)', function(data) {
+                var employeeId = parseInt(data.value);
+                if (data.elem.checked) {
+                    selectedEmployeeIds.add(employeeId);
+                } else {
+                    selectedEmployeeIds.delete(employeeId);
+                }
+                updateSelectedCount();
+                updateHiddenField();
+            });
+            
+            // 更新已选择员工数量
+            function updateSelectedCount() {
+                $('#selectedCount').text(selectedEmployeeIds.size);
+            }
+            
+            // 更新隐藏字段
+            function updateHiddenField() {
+                var selectedIds = Array.from(selectedEmployeeIds).join(',');
+                $('#participantIds').val(selectedIds);
+            }
+            
+            // 初始化函数
+            function init() {
+                initDepartmentTree();
+                updateSelectedCount();
+                updateHiddenField();
+            }
+            
+            // 页面加载完成后初始化
+            $(document).ready(function() {
+                init();
+            });
+        });
+    </script>
+</body>
+</html>

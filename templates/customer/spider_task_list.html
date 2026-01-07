@@ -1,0 +1,340 @@
+{% block content %}
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>爬虫任务管理</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <script src="{% static 'js/jquery.min.js' %}"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+</head>
+<body>
+    {% csrf_token %}
+    <div class="layui-card">
+        <div class="layui-card-body">
+            <div class="search-bar layui-form" lay-filter="searchForm">
+                <div class="layui-form-item layui-row layui-col-space10">
+                    <div class="layui-col-md4 layui-col-sm6 layui-col-xs12">
+                        <label class="layui-form-label">任务名称</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="task_name" placeholder="请输入任务名称" autocomplete="off" class="layui-input">
+                        </div>
+                    </div>
+                    <div class="layui-col-md4 layui-col-sm6 layui-col-xs12">
+                        <label class="layui-form-label">任务状态</label>
+                        <div class="layui-input-block">
+                            <select name="status" lay-search>
+                                <option value="">全部状态</option>
+                                <option value="0">未开始</option>
+                                <option value="1">运行中</option>
+                                <option value="2">已停止</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="layui-col-md4 layui-col-sm12 layui-col-xs12">
+                        <div class="layui-input-block">
+                            <button class="layui-btn layui-btn-normal layui-btn-sm" lay-submit lay-filter="search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+                            <button class="layui-btn layui-btn-primary layui-btn-sm" lay-submit lay-filter="reset"><i class="layui-icon layui-icon-refresh"></i> 重置</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- 表格工具栏模板 -->
+            <script type="text/html" id="toolbar">
+                <div class="layui-btn-container">
+                    <button class="layui-btn layui-btn-sm" lay-event="addTask"><i class="layui-icon layui-icon-add"></i> 添加任务</button>
+                    <button class="layui-btn layui-btn-sm" lay-event="refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+                    <button class="layui-btn layui-btn-sm layui-btn-danger" lay-event="batchDelete"><i class="layui-icon layui-icon-delete"></i> 批量删除</button>
+                </div>
+            </script>
+            <!-- 操作列模板 -->
+            <script type="text/html" id="operation">
+                {% verbatim %}
+                <a class="layui-btn layui-btn-xs" lay-event="start"><i class="layui-icon layui-icon-play"></i> 启动</a>
+                <a class="layui-btn layui-btn-xs layui-btn-warm" lay-event="settings"><i class="layui-icon layui-icon-set"></i> 设置</a>
+                <a class="layui-btn layui-btn-xs layui-btn-primary" lay-event="stop"><i class="layui-icon layui-icon-pause"></i> 停止</a>
+                <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete"><i class="layui-icon layui-icon-delete"></i> 删除</a>
+                {% endverbatim %}
+            </script>
+            <!-- 状态列模板 -->
+            <script type="text/html" id="statusTpl">
+                {% verbatim %}
+                {{# if(d.status === 0){ }}
+                    <span class="layui-badge">未开始</span>
+                {{# } else if(d.status === 1){ }}
+                    <span class="layui-badge layui-bg-green">运行中</span>
+                {{# } else if(d.status === 2){ }}
+                    <span class="layui-badge layui-bg-gray">已停止</span>
+                {{# } else { }}
+                    <span class="layui-badge layui-bg-red">未知状态</span>
+                {{# } }}
+                {% endverbatim %}
+            </script>
+            <!-- 表格容器 -->
+            <div class="table-container" style="padding: 15px;">
+                <table id="spiderTaskTable" lay-filter="spiderTaskTable"></table>
+            </div>
+        </div>
+    </div> <!-- 修复：添加缺失的 layui-card 的闭合标签 -->
+
+        <!-- 表格渲染逻辑已合并至下方script块 -->
+        <script>
+layui.use(['table', 'layer', 'form', 'laytpl'], function() {
+    const table = layui.table;
+    const layer = layui.layer;
+    const form = layui.form;
+    const laytpl = layui.laytpl;
+    window.csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    // 配置LayUI模板分隔符避免与Django冲突
+    laytpl.config({
+        delimiters: ['[[', ']]']
+    });
+
+    // 加载状态处理
+    const showLoading = () => {
+        if ($('#spiderTaskTable').length) {
+            $('#spiderTaskTable').hide();
+        }
+        $('.table-container').prepend('<div class="loading-indicator"><i class="layui-icon layui-icon-loading layui-icon-spin"></i> 正在加载任务数据...</div>');
+    };
+
+    const hideLoading = () => {
+        $('.loading-indicator').remove();
+        if ($('#spiderTaskTable').length) {
+            $('#spiderTaskTable').show();
+        }
+    };
+
+    // 渲染表格
+    // 表格实例变量
+    let taskTable = null;
+
+    // 渲染表格
+    const renderTable = () => {
+        showLoading();
+        if (taskTable) {
+            taskTable.reload({
+                url: '{% url 'customer:spider_task_list_data' %}',
+                method: 'GET',
+                headers: {'X-CSRFToken': window.csrfToken},
+                where: {_t: new Date().getTime()}, // 添加时间戳防止缓存
+                page: {curr: 1}, // 重置到第一页
+                done: function(res, curr, count) {
+                    hideLoading();
+                    if (res.code !== 0) {
+                        layer.msg('数据加载失败: ' + (res.msg || '未知错误'), {icon: 2});
+                    } else if (count === 0) {
+                        layer.msg('没有找到任务数据', {icon: 0});
+                    }
+                },
+                error: function() {
+                    hideLoading();
+                    layer.msg('表格加载失败', {icon: 2});
+                }
+            });
+            return;
+        }
+        taskTable = table.render({
+            elem: '#spiderTaskTable',
+            url: '{% url 'customer:spider_task_list_data' %}',
+            method: 'GET',
+            headers: {'X-CSRFToken': window.csrfToken},
+            toolbar: '#toolbar',
+            defaultToolbar: [],
+            title: '爬虫任务列表',
+            cols: [[
+                {type: 'checkbox', fixed: 'left'},
+                {field: 'id', title: 'ID', width: 80, fixed: 'left', unresize: true, sort: true},
+                {field: 'task_name', title: '任务名称', minWidth: 160, sort: true},
+                {field: 'status', title: '状态', width: 120, templet: '#statusTpl', align: 'center', sort: true},
+                {field: 'create_time', title: '创建时间', width: 180},
+                {fixed: 'right', title: '操作', toolbar: '#operation', width: 320, align: 'center'}
+            ]],
+            page: true,
+            limit: 10,
+            limits: [10, 20, 30, 50],
+            loading: true,
+            cellMinWidth: 80,
+            height: 'full-200',
+            where: {
+                _t: new Date().getTime() // 添加时间戳防止缓存
+            },
+            done: function(res, curr, count) {
+                hideLoading();
+                if (res.code !== 0) {
+                    layer.msg('数据加载失败: ' + (res.msg || '未知错误'), {icon: 2});
+                } else if (count === 0) {
+                    layer.msg('没有找到任务数据', {icon: 0});
+                }
+            },
+            error: function() {
+                hideLoading();
+                layer.msg('表格加载失败', {icon: 2});
+            }
+        });
+    };
+
+    // 初始加载表格
+    renderTable();
+
+    // 搜索功能
+    form.on('submit(search)', function(data) {
+        taskTable.reload({
+            where: data.field,
+            page: {curr: 1}
+        });
+        return false;
+    });
+
+    // 重置按钮
+    form.on('submit(reset)', function() {
+        form.val('searchForm', {task_name: '', status: ''});
+        taskTable.reload({
+            where: {},
+            page: {curr: 1}
+        });
+        return false;
+    });
+
+    // 工具栏事件
+    table.on('toolbar(spiderTaskTable)', function(obj) {
+        const checkStatus = table.checkStatus(obj.config.id);
+        switch(obj.event) {
+            case 'addTask':
+                // 添加任务逻辑
+                layer.open({
+                    type: 2,
+                    title: '添加爬虫任务',
+                    area: ['80%', '100%'],
+                    anim: 5,
+                    offset: 'rt',
+                    shadeClose: true,
+                    content: '{% url 'customer:spider_task_create' %}'
+                });
+                break;
+            case 'refresh':
+                taskTable.reload();
+                layer.msg('数据已刷新', {icon: 1});
+                break;
+            case 'batchDelete':
+                const data = checkStatus.data;
+                if (data.length === 0) return layer.msg('请选择要删除的任务', {icon: 0});
+                
+                layer.confirm(`确定删除选中的 ${data.length} 个任务吗？`, function(index) {
+                    $.ajax({
+                        url: '{% url 'customer:spider_task_batch_delete' %}', // 添加命名空间前缀
+                        type: 'POST',
+                        headers: {'X-CSRFToken': window.csrfToken},
+                        data: JSON.stringify({ids: data.map(item => item.id)}),
+                        contentType: 'application/json',
+                        success: function(res) {
+                                if(res.code === 0) {
+                                    layer.msg('删除成功', {icon: 1});
+                                    taskTable.reload();
+                                } else {
+                                    layer.msg(res.msg || '删除失败', {icon: 2});
+                                }
+                            },
+                        error: function(xhr) {
+                            layer.msg(`请求失败: ${xhr.responseJSON?.error || '服务器错误'}`, {icon: 2});
+                        }
+                    });
+                    layer.close(index);
+                });
+                break;
+        }
+    });
+
+    // 行工具事件
+    table.on('tool(spiderTaskTable)', function(obj) {
+        const data = obj.data;
+        switch(obj.event) {
+            case 'start':
+            case 'stop':
+            case 'delete':
+                handleTaskAction(data.id, obj.event, obj);
+                break;
+            case 'settings':
+                layer.msg('设置功能待实现', {icon: 0});
+                break;
+        }
+    });
+
+    // 处理任务操作
+    const handleTaskAction = (taskId, action, obj) => {
+        const actionText = {
+            start: '启动',
+            stop: '停止',
+            delete: '删除'
+        };
+        const data = obj.data;
+
+        if (action === 'delete') {
+            layer.confirm(`确定删除任务 ${data.task_name} 吗？`, function(index) {
+                $.ajax({
+                    url: '{% url 'customer:spider_task_batch_delete' %}',
+                    type: 'post',
+                    data: JSON.stringify({ids: [data.id]}),
+                    headers: {'X-CSRFToken': window.csrfToken},
+                    contentType: 'application/json',
+                    success: function(res) {
+                        if(res.code === 0) {
+                            obj.del();
+                            layer.msg('删除成功', {icon: 1});
+                        } else {
+                            layer.msg(res.msg || '删除失败', {icon: 2});
+                        }
+                    },
+                    error: function() {
+                        layer.msg('服务器错误', {icon: 2});
+                    }
+                });
+                layer.close(index);
+            });
+        } else if (action === 'start' || action === 'stop') {
+            // 使用统一的action URL处理启动和停止操作
+            layer.confirm(`确定${actionText[action]}任务 ${data.task_name} 吗？`, function(index) {
+                $.ajax({
+                    url: '{% url 'customer:spider_task_action' 0 %}'.replace('0', data.id),
+                    type: 'POST',
+                    headers: {'X-CSRFToken': window.csrfToken},
+                    data: {action: action},
+                    beforeSend: function() {
+                        // 显示加载动画
+                        layer.load(2);
+                    },
+                    success: function(res) {
+                        layer.closeAll('loading');
+                        if(res.code === 0) {
+                            layer.msg(res.msg, {icon: 1});
+                            // 刷新表格数据
+                            taskTable.reload();
+                        } else {
+                            layer.msg(res.msg || '操作失败', {icon: 2});
+                        }
+                    },
+                    error: function(xhr) {
+                        layer.closeAll('loading');
+                        layer.msg(`请求失败: ${xhr.responseJSON?.msg || '服务器错误'}`, {icon: 2});
+                    }
+                });
+                layer.close(index);
+            });
+        }
+    };
+
+    // 统一错误处理
+    const handleError = e => {
+        const message = e.message || '未知错误';
+        layer.msg(`操作出错: ${message}`, {icon: 2});
+    };
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleError);
+});
+</script>
+</body>
+</html>
+{% endblock %}

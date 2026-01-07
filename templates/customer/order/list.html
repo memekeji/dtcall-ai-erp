@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>客户订单管理</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <style>
+        .layui-table-cell {
+            height: auto !important;
+            white-space: normal;
+        }
+        .custom-field-header {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        .action-buttons {
+            white-space: nowrap;
+        }
+        .status-normal { color: #5FB878; }
+        .status-disabled { color: #FF5722; }
+        .status-pending { color: #FFB800; }
+        
+        /* 确保按钮和搜索区域在一行显示 */
+        .toolbar-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: nowrap;
+            margin-bottom: 15px;
+        }
+        
+        .button-group {
+            flex-shrink: 0;
+            margin-right: 15px;
+        }
+        
+        .search-group {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .search-inputs {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .search-inputs .layui-input {
+            flex: 1;
+            min-width: 80px;
+        }
+        
+        .search-inputs .search-btn {
+            flex-shrink: 0;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .toolbar-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .button-group {
+                margin-right: 0;
+                margin-bottom: 10px;
+            }
+            
+            .search-inputs {
+                flex-wrap: wrap;
+            }
+        }
+        
+        /* 表格筛选样式 */
+        .layui-table-filter {
+            background-color: #f8f9fa;
+        }
+        
+        .layui-table-sort {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <h3>客户订单管理</h3>
+                    </div>
+                    <div class="layui-card-body">
+                        <!-- 操作按钮和搜索表单 -->
+                        <div class="toolbar-container">
+                            <!-- 操作按钮区域 -->
+                            <div class="button-group">
+                                <div class="layui-btn-group">
+                                    <button type="button" class="layui-btn layui-btn-sm" id="addOrder">
+                                        <i class="layui-icon layui-icon-add-1"></i> 添加订单
+                                    </button>
+                                    <button type="button" class="layui-btn layui-btn-sm layui-btn-normal" id="batchImport">
+                                        <i class="layui-icon layui-icon-upload"></i> 批量导入
+                                    </button>
+                                    <button type="button" class="layui-btn layui-btn-sm layui-btn-danger" id="batchDelete">
+                                        <i class="layui-icon layui-icon-delete"></i> 批量删除
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- 搜索区域 -->
+                            <div class="search-group">
+                                <form class="layui-form" id="searchForm">
+                                    <div class="search-inputs">
+                                        <input type="text" name="search" placeholder="订单号/产品名/客户名" class="layui-input">
+                                        <select name="status" class="layui-input">
+                                            <option value="">全部状态</option>
+                                            <option value="pending">待处理</option>
+                                            <option value="confirmed">已确认</option>
+                                            <option value="processing">处理中</option>
+                                            <option value="shipped">已发货</option>
+                                            <option value="delivered">已交付</option>
+                                            <option value="completed">已完成</option>
+                                            <option value="cancelled">已取消</option>
+                                        </select>
+                                        <button type="submit" class="layui-btn layui-btn-sm search-btn">
+                                            <i class="layui-icon layui-icon-search"></i> 搜索
+                                        </button>
+                                        <button type="reset" class="layui-btn layui-btn-sm layui-btn-primary search-btn">
+                                            <i class="layui-icon layui-icon-refresh"></i> 重置
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        <!-- 数据表格 -->
+                        <table class="layui-hide" id="orderTable" lay-filter="orderTable"></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 表格工具栏模板 -->
+    <script type="text/html" id="toolbarDemo">
+
+    </script>
+
+    <!-- 行工具栏模板 -->
+    <script type="text/html" id="barDemo">
+        <div class="action-buttons">
+            <a class="layui-btn layui-btn-xs" lay-event="detail">详情</a>
+            <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
+            <a class="layui-btn layui-btn-xs layui-btn-warm" lay-event="pay">收款</a>
+            <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="del">删除</a>
+        </div>
+    </script>
+
+    <script src="/static/js/jquery.min.js"></script>
+    <script src="/static/layui/layui.js"></script>
+    {% csrf_token %}
+    <script>
+        // 检查layui是否加载
+        if (typeof layui !== 'undefined') {
+            layui.use(['table', 'form', 'layer'], function(){
+                // 检查每个模块是否加载成功
+                var table = layui.table;
+                var form = layui.form;
+                var layer = layui.layer;
+                var $ = typeof jQuery !== 'undefined' ? jQuery : (typeof $ !== 'undefined' ? $ : null);
+                
+                // 渲染表格
+                if (table && typeof table.render === 'function') {
+                    try {
+                        table.render({
+                            elem: '#orderTable',
+                            url: '{% url "customer:customer_order_list_data" %}',
+                            toolbar: '#toolbarDemo',
+                            defaultToolbar: ['filter', 'exports', 'print'],
+                            page: true,
+                            limits: [10, 20, 50, 100],
+                            limit: 20,
+                            loading: true,
+                            height: 'full-200',
+                            even: true, // 开启隔行背景
+                            text: {
+                                none: '暂无相关数据'
+                            },
+                            cols: [[
+                                {type: 'checkbox', fixed: 'left'},
+                                {field: 'id', title: 'ID', width: 80, fixed: 'left', sort: true},
+                                {field: 'order_number', title: '订单号', width: 150, sort: true},
+                                {field: 'customer_name', title: '客户名称', width: 200, templet: function(d) {
+                                    return d && d.customer_name ? 
+                                        d.customer_name : '-';
+                                }},
+                                {field: 'product_name', title: '产品名称', width: 200},
+                                {field: 'amount', title: '订单金额', width: 120, sort: true, templet: function(d){
+                                    return d && d.amount ? '¥' + d.amount.toLocaleString() : '¥0';
+                                }},
+                                {field: 'status_display', title: '订单状态', width: 100, templet: function(d){
+                                    if (!d) return '-';
+                                    var statusClass = '';
+                                    switch(d.status) {
+                                        case 'pending': statusClass = 'layui-bg-orange'; break;
+                                        case 'confirmed': statusClass = 'layui-bg-blue'; break;
+                                        case 'processing': statusClass = 'layui-bg-cyan'; break;
+                                        case 'shipped': statusClass = 'layui-bg-green'; break;
+                                        case 'delivered': statusClass = 'layui-bg-green'; break;
+                                        case 'completed': statusClass = 'layui-bg-green'; break;
+                                        case 'cancelled': statusClass = 'layui-bg-red'; break;
+                                        default: statusClass = 'layui-bg-gray';
+                                    }
+                                    return '<span class="layui-badge ' + statusClass + '">' + (d.status_display || '') + '</span>';
+                                }},
+                                {field: 'order_date', title: '订单日期', width: 120, sort: true},
+                                {field: 'create_time', title: '创建时间', width: 160, sort: true},
+                                {field: 'description', title: '订单描述', minWidth: 200},
+                                {title: '操作', width: 200, fixed: 'right', align: 'center', toolbar: '#barDemo'}
+                            ]],
+                            parseData: function(res){
+                                return {
+                                    "code": res && res.code ? res.code : 0,
+                                    "msg": res && res.msg ? res.msg : '',
+                                    "count": res && res.count ? res.count : 0,
+                                    "data": res && res.data ? res.data : []
+                                };
+                            },
+                            done: function(res, curr, count) {
+                                // 表格渲染完成后的回调
+                                console.log('订单数据加载完成，共' + count + '条数据');
+                            }
+                        });
+                    } catch (e) {
+                        console.error('表格渲染失败:', e);
+                    }
+                } else {
+                    console.warn('table模块未加载或render方法不存在');
+                }
+            
+                // 获取搜索参数
+                function getSearchParams() {
+                    if (typeof $ !== 'undefined' && $('#searchForm').length) {
+                        var params = {};
+                        try {
+                            $('#searchForm').serializeArray().forEach(function(item) {
+                                if (item && item.value) {
+                                    params[item.name] = item.value;
+                                }
+                            });
+                        } catch (e) {
+                            console.error('获取搜索参数失败:', e);
+                        }
+                        return params;
+                    }
+                    return {};
+                }
+            
+                // 搜索表单提交
+                if (form && typeof form.on === 'function') {
+                    try {
+                        form.on('submit()', function(data) {
+                            if (table && typeof table.reload === 'function') {
+                                table.reload('orderTable', {
+                                    where: data && data.field ? data.field : {},
+                                    page: {curr: 1}
+                                });
+                            }
+                            return false;
+                        });
+                    } catch (e) {
+                        console.error('表单提交事件绑定失败:', e);
+                    }
+                }
+            
+                // 重置表单
+                if (typeof $ !== 'undefined') {
+                    try {
+                        $('button[type="reset"]').click(function() {
+                            if ($('#searchForm').length) {
+                                $('#searchForm')[0].reset();
+                                if (table && typeof table.reload === 'function') {
+                                    table.reload('orderTable', {
+                                        where: {},
+                                        page: {curr: 1}
+                                    });
+                                }
+                            }
+                            return false;
+                        });
+                    } catch (e) {
+                        console.error('重置按钮事件绑定失败:', e);
+                    }
+                }
+            
+                // 头工具栏事件
+                if (table && typeof table.on === 'function') {
+                    try {
+                        table.on('toolbar(orderTable)', function(obj) {
+                            if (obj && obj.config && table && typeof table.checkStatus === 'function') {
+                                var checkStatus = table.checkStatus(obj.config.id);
+                                switch(obj.event) {
+                                    case 'add':
+                                        addOrder();
+                                        break;
+                                    case 'import':
+                                        showImportDialog();
+                                        break;
+                                    case 'batchDelete':
+                                        var data = checkStatus && checkStatus.data ? checkStatus.data : [];
+                                        if (data.length === 0) {
+                                            if (layer && typeof layer.msg === 'function') {
+                                                layer.msg('请选择要删除的订单');
+                                            }
+                                            return;
+                                        }
+                                        batchDelete(data);
+                                        break;
+                                }
+                            }
+                        });
+                    } catch (e) {
+                        console.error('工具栏事件绑定失败:', e);
+                    }
+                }
+            
+                // 添加订单按钮点击事件
+                if (typeof $ !== 'undefined') {
+                    try {
+                        $('#addOrder').click(function() {
+                            addOrder();
+                        });
+                    } catch (e) {
+                        console.error('添加订单按钮事件绑定失败:', e);
+                    }
+                }
+            
+                // 批量删除按钮点击事件
+                if (typeof $ !== 'undefined') {
+                    try {
+                        $('#batchDelete').click(function() {
+                            if (table && typeof table.checkStatus === 'function') {
+                                var checkStatus = table.checkStatus('orderTable');
+                                var data = checkStatus && checkStatus.data ? checkStatus.data : [];
+                                if (data.length === 0) {
+                                    if (layer && typeof layer.msg === 'function') {
+                                        layer.msg('请选择要删除的订单');
+                                    }
+                                    return;
+                                }
+                                batchDelete(data);
+                            }
+                        });
+                    } catch (e) {
+                        console.error('批量删除按钮事件绑定失败:', e);
+                    }
+                }
+            
+                // 添加订单
+                function addOrder() {
+                    if (layer && typeof layer.open === 'function') {
+                        try {
+                            layer.open({
+                                type: 2,
+                                title: '添加客户订单',
+                                shadeClose: false,
+                                shade: 0.3,
+                                maxmin: true,
+                                area: ['80%', '90%'],
+                                offset: 'r',
+                                anim: 2,
+                                content: '{% url "customer:customer_order_create" %}',
+                                success: function(layero, index) {
+                                    if (layero && layero.css) {
+                                        layero.css({
+                                            'right': '0',
+                                            'top': '0',
+                                            'height': '100%'
+                                        });
+                                    }
+                                },
+                                end: function() {
+                                    if (table && typeof table.reload === 'function') {
+                                        table.reload('orderTable');
+                                    }
+                                }
+                            });
+                        } catch (e) {
+                            console.error('打开添加订单对话框失败:', e);
+                        }
+                    }
+                }
+            
+                // 显示导入对话框
+                function showImportDialog() {
+                    if (layer && typeof layer.msg === 'function') {
+                        layer.msg('订单批量导入功能开发中');
+                    }
+                }
+            
+                // 批量删除
+                function batchDelete(data) {
+                    if (!data || !Array.isArray(data)) return;
+                    
+                    var ids = data.map(function(item) {
+                        return item && item.id ? item.id : null;
+                    }).filter(Boolean);
+                    
+                    if (ids.length === 0) return;
+                    
+                    if (layer && typeof layer.confirm === 'function' && typeof layer.msg === 'function') {
+                        layer.confirm('确定删除选中的 ' + ids.length + ' 个订单吗？', function(index) {
+                            if (typeof $ !== 'undefined' && typeof $.ajax === 'function') {
+                                $.ajax({
+                                    url: '{% url "customer:customer_order_batch_delete" %}',
+                                    type: 'POST',
+                                    contentType: 'application/json',
+                                    data: JSON.stringify({ids: ids}),
+                                    headers: {
+                                        'X-CSRFToken': typeof $ !== 'undefined' && $('[name=csrfmiddlewaretoken]').length ? 
+                                            $('[name=csrfmiddlewaretoken]').val() : ''
+                                    },
+                                    success: function(res) {
+                                        if (res && res.status === 'success') {
+                                            if (layer && typeof layer.msg === 'function') {
+                                                layer.msg('批量删除成功');
+                                            }
+                                            if (table && typeof table.reload === 'function') {
+                                                table.reload('orderTable');
+                                            }
+                                        } else {
+                                            if (layer && typeof layer.msg === 'function') {
+                                                layer.msg(res && res.message || '批量删除失败');
+                                            }
+                                        }
+                                    },
+                                    error: function() {
+                                        if (layer && typeof layer.msg === 'function') {
+                                            layer.msg('网络错误，请稍后重试');
+                                        }
+                                    }
+                                });
+                            }
+                            if (layer && typeof layer.close === 'function') {
+                                layer.close(index);
+                            }
+                        });
+                    }
+                }
+            
+                // 监听工具条
+                if (table && typeof table.on === 'function') {
+                    try {
+                        table.on('tool(orderTable)', function(obj){
+                            if (obj && obj.data) {
+                                var data = obj.data;
+                                switch(obj.event) {
+                                    case 'detail':
+                                        showOrderDetail(data.id);
+                                        break;
+                                    case 'edit':
+                                        editOrder(data.id);
+                                        break;
+                                    case 'pay':
+                                        showPaymentDialog(data.id);
+                                        break;
+                                    case 'del':
+                                        deleteOrder(data.id);
+                                        break;
+                                }
+                            }
+                        });
+                    } catch (e) {
+                        console.error('工具条事件监听失败:', e);
+                    }
+                }
+            
+                // 查看订单详情
+                function showOrderDetail(orderId) {
+                    if (!orderId) return;
+                    
+                    if (layer && typeof layer.open === 'function') {
+                        try {
+                            layer.open({
+                                type: 2,
+                                title: '订单详情',
+                                shadeClose: false,
+                                shade: 0.3,
+                                maxmin: true,
+                                area: ['80%', '90%'],
+                                content: '/customer/orders/' + orderId + '/detail/',
+                                success: function(layero, index) {
+                                    if (layero && layero.css) {
+                                        layero.css({
+                                            'right': '0',
+                                            'top': '0',
+                                            'height': '100%'
+                                        });
+                                    }
+                                }
+                            });
+                        } catch (e) {
+                            console.error('打开订单详情对话框失败:', e);
+                        }
+                    }
+                }
+            
+                // 编辑订单
+                function editOrder(orderId) {
+                    if (!orderId) return;
+                    // 使用与详情页面一致的URL格式
+                    if (window && typeof window.location !== 'undefined') {
+                        window.location.href = '/customer/orders/' + orderId + '/edit/';
+                    }
+                }
+            
+                // 收款操作
+                function showPaymentDialog(orderId) {
+                    if (!orderId) return;
+                    
+                    if (layer && typeof layer.open === 'function') {
+                        try {
+                            layer.open({
+                                type: 1,
+                                title: '订单收款',
+                                area: ['500px', '400px'],
+                                shade: 0.3,
+                                content: `
+                                    <div class="layui-form" style="padding: 20px;">
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">收款金额</label>
+                                            <div class="layui-input-block">
+                                                <input type="number" name="amount" placeholder="请输入收款金额" 
+                                                       class="layui-input" min="0" step="0.01" required lay-verify="required|number">
+                                            </div>
+                                        </div>
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">收款方式</label>
+                                            <div class="layui-input-block">
+                                                <select name="payment_method" lay-verify="required">
+                                                    <option value="">请选择收款方式</option>
+                                                    <option value="alipay">支付宝</option>
+                                                    <option value="wechat">微信支付</option>
+                                                    <option value="bank">银行转账</option>
+                                                    <option value="cash">现金</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">收款日期</label>
+                                            <div class="layui-input-block">
+                                                <input type="text" name="payment_date" class="layui-input" 
+                                                       lay-verify="required" readonly placeholder="请选择收款日期">
+                                            </div>
+                                        </div>
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">备注</label>
+                                            <div class="layui-input-block">
+                                                <textarea name="remark" placeholder="请输入收款备注" 
+                                                          class="layui-textarea"></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="layui-form-item" style="text-align: center; margin-top: 30px;">
+                                            <button class="layui-btn layui-btn-normal" lay-submit lay-filter="submitPayment">确认收款</button>
+                                            <button type="button" class="layui-btn layui-btn-primary" onclick="if (window.layer && window.layer.closeAll) window.layer.closeAll()">取消</button>
+                                        </div>
+                                    </div>
+                                `,
+                                success: function(layero, index) {
+                                    // 加载日期选择器
+                                    try {
+                                        if (layui && typeof layui.use === 'function') {
+                                            layui.use('laydate', function() {
+                                                var laydate = layui.laydate;
+                                                if (laydate && typeof laydate.render === 'function' && layero && layero.find) {
+                                                    laydate.render({
+                                                        elem: layero.find('[name="payment_date"]')[0],
+                                                        type: 'date',
+                                                        value: new Date().toISOString().split('T')[0]
+                                                    });
+                                                }
+                                            });
+                                        }
+                                    } catch (e) {
+                                        console.log('日期选择器未加载:', e);
+                                    }
+                                
+                                    // 表单提交
+                                    if (form && typeof form.on === 'function') {
+                                        form.on('submit(submitPayment)', function(data) {
+                                            // 显示加载提示
+                                            var loadIndex = null;
+                                            if (layer && typeof layer.load === 'function') {
+                                                loadIndex = layer.load(1);
+                                            }
+                                        
+                                            // 构建请求数据
+                                            var postData = Object.assign({}, 
+                                                data && data.field ? data.field : {}, 
+                                                {
+                                                    csrfmiddlewaretoken: typeof $ !== 'undefined' && $('[name=csrfmiddlewaretoken]').length ? 
+                                                        $('[name=csrfmiddlewaretoken]').val() : ''
+                                                }
+                                            );
+                                        
+                                            // 发送AJAX请求到后端处理收款
+                                            if (typeof $ !== 'undefined' && typeof $.ajax === 'function') {
+                                                $.ajax({
+                                                    url: '/customer/orders/' + orderId + '/payment/',
+                                                    type: 'post',
+                                                    data: postData,
+                                                    dataType: 'json',
+                                                    success: function(res) {
+                                                        if (layer && typeof layer.close === 'function' && loadIndex !== null) {
+                                                            layer.close(loadIndex);
+                                                        }
+                                                        if (res && res.status === 'success') {
+                                                            if (layer && typeof layer.msg === 'function') {
+                                                                layer.msg(res.message || '收款操作成功！', {icon: 1}, function() {
+                                                                    if (layer && typeof layer.close === 'function') {
+                                                                        layer.close(index);
+                                                                    }
+                                                                    // 刷新表格数据
+                                                                    if (table && typeof table.reload === 'function') {
+                                                                        table.reload('orderTable');
+                                                                    }
+                                                                });
+                                                            }
+                                                        } else {
+                                                            if (layer && typeof layer.msg === 'function') {
+                                                                layer.msg(res && res.message || '收款失败', {icon: 2});
+                                                            }
+                                                        }
+                                                    },
+                                                    error: function() {
+                                                        if (layer && typeof layer.close === 'function' && loadIndex !== null) {
+                                                            layer.close(loadIndex);
+                                                        }
+                                                        if (layer && typeof layer.msg === 'function') {
+                                                            layer.msg('收款请求失败，请稍后重试', {icon: 2});
+                                                        }
+                                                    }
+                                                });
+                                            }
+                                            return false;
+                                        });
+                                    }
+                                
+                                    if (form && typeof form.render === 'function') {
+                                        form.render();
+                                    }
+                                }
+                            });
+                        } catch (e) {
+                            console.error('打开收款对话框失败:', e);
+                        }
+                    }
+                }
+            
+                // 删除订单
+                function deleteOrder(id) {
+                    if (!id) return;
+                    
+                    if (layer && typeof layer.confirm === 'function' && typeof layer.msg === 'function') {
+                        layer.confirm('确定删除该订单吗？', function(index) {
+                            if (typeof $ !== 'undefined' && typeof $.post === 'function') {
+                                $.post('/customer/orders/' + id + '/delete/', {
+                                    csrfmiddlewaretoken: typeof $ !== 'undefined' && $('[name=csrfmiddlewaretoken]').length ? 
+                                        $('[name=csrfmiddlewaretoken]').val() : ''
+                                }, function(res) {
+                                    if (res && res.status === 'success') {
+                                        if (layer && typeof layer.msg === 'function') {
+                                            layer.msg('删除成功');
+                                        }
+                                        if (table && typeof table.reload === 'function') {
+                                            table.reload('orderTable');
+                                        }
+                                    } else {
+                                        if (layer && typeof layer.msg === 'function') {
+                                            layer.msg(res && res.message || '删除失败');
+                                        }
+                                    }
+                                }).fail(function() {
+                                    if (layer && typeof layer.msg === 'function') {
+                                        layer.msg('删除请求失败');
+                                    }
+                                });
+                            }
+                            if (layer && typeof layer.close === 'function') {
+                                layer.close(index);
+                            }
+                        });
+                    }
+                }
+            });
+        } else {
+            console.warn('layui框架未加载，部分功能可能无法使用');
+            // 降级处理：直接提交表单
+            if (typeof $ !== 'undefined') {
+                $('#searchForm').on('submit', function() {
+                    return true; // 使用原生表单提交
+                });
+            }
+        }
+    </script>
+</body>
+</html>

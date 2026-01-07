@@ -1,0 +1,212 @@
+{% extends 'home/base.html' %}
+{% load static %}
+
+{% block title %}AI任务管理 - DTCALL管理后台{% endblock %}
+
+{% block content %}
+<div class="layui-fluid">
+    <div class="layui-card">
+        <div class="layui-card-header">
+            <div class="layui-row">
+                <div class="layui-col-md8">
+                    <h2>AI任务管理</h2>
+                </div>
+            </div>
+        </div>
+        
+        <div class="layui-card-body">
+            <!-- 统计卡片 -->
+            <div class="layui-row layui-col-space15" style="margin-bottom: 20px;">
+                <div class="layui-col-md3">
+                    <div class="layui-card layui-bg-blue">
+                        <div class="layui-card-body">
+                            <div class="layui-row">
+                                <div class="layui-col-md8">
+                                    <div class="stat-number">{{ total_executions }}</div>
+                                    <div class="stat-label">总任务数</div>
+                                </div>
+                                <div class="layui-col-md4 text-right">
+                                    <i class="layui-icon layui-icon-chart" style="font-size: 30px; color: rgba(255,255,255,0.8);"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md3">
+                    <div class="layui-card layui-bg-green">
+                        <div class="layui-card-body">
+                            <div class="layui-row">
+                                <div class="layui-col-md8">
+                                    <div class="stat-number">{{ running_executions }}</div>
+                                    <div class="stat-label">执行中</div>
+                                </div>
+                                <div class="layui-col-md4 text-right">
+                                    <i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop" style="font-size: 30px; color: rgba(255,255,255,0.8);"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md3">
+                    <div class="layui-card layui-bg-orange">
+                        <div class="layui-card-body">
+                            <div class="layui-row">
+                                <div class="layui-col-md8">
+                                    <div class="stat-number">{{ completed_executions }}</div>
+                                    <div class="stat-label">已完成</div>
+                                </div>
+                                <div class="layui-col-md4 text-right">
+                                    <i class="layui-icon layui-icon-ok-circle" style="font-size: 30px; color: rgba(255,255,255,0.8);"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md3">
+                    <div class="layui-card layui-bg-red">
+                        <div class="layui-card-body">
+                            <div class="layui-row">
+                                <div class="layui-col-md8">
+                                    <div class="stat-number">{{ failed_executions }}</div>
+                                    <div class="stat-label">执行失败</div>
+                                </div>
+                                <div class="layui-col-md4 text-right">
+                                    <i class="layui-icon layui-icon-close-circle" style="font-size: 30px; color: rgba(255,255,255,0.8);"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 执行记录表格 -->
+            <table class="layui-table" lay-filter="executionTable">
+                <thead>
+                    <tr>
+                        <th>任务ID</th>
+                        <th>所属工作流</th>
+                        <th>状态</th>
+                        <th>开始时间</th>
+                        <th>完成时间</th>
+                        <th>执行时长</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for execution in executions %}
+                    <tr>
+                        <td>{{ execution.id }}</td>
+                        <td>
+                            <a href="{% url 'ai:workflow_detail' execution.workflow.id %}">{{ execution.workflow.name }}</a>
+                        </td>
+                        <td>
+                            {% if execution.status == 'running' %}
+                            <span class="layui-badge layui-bg-green">执行中</span>
+                            {% elif execution.status == 'completed' %}
+                            <span class="layui-badge layui-bg-blue">已完成</span>
+                            {% elif execution.status == 'failed' %}
+                            <span class="layui-badge layui-bg-red">执行失败</span>
+                            {% elif execution.status == 'cancelled' %}
+                            <span class="layui-badge layui-bg-gray">已取消</span>
+                            {% else %}
+                            <span class="layui-badge layui-bg-orange">待执行</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ execution.started_at|date:'Y-m-d H:i:s' }}</td>
+                        <td>
+                            {% if execution.completed_at %}
+                            {{ execution.completed_at|date:'Y-m-d H:i:s' }}
+                            {% else %}
+                            -尚未完成-
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if execution.completed_at %}
+                            {% with duration=execution.completed_at|timeuntil:execution.started_at %}
+                            {{ duration }}
+                            {% endwith %}
+                            {% else %}
+                            -执行中-
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="layui-btn-group">
+                                <a href="{% url 'ai:ai_task_detail' execution.id %}" class="layui-btn layui-btn-xs layui-btn-primary">
+                                    <i class="layui-icon layui-icon-eye"></i> 查看详情
+                                </a>
+                                {% if execution.status == 'running' %}
+                                <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="cancelExecution('{{ execution.id }}')">
+                                    <i class="layui-icon layui-icon-close"></i> 取消执行
+                                </button>
+                                {% elif execution.status == 'failed' %}
+                                <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="retryExecution('{{ execution.id }}')">
+                                    <i class="layui-icon layui-icon-refresh"></i> 重试
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center">暂无任务记录</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <!-- 分页 -->
+            <div class="layui-row">
+                <div class="layui-col-md12 text-center">
+                    <div class="layui-box layui-laypage layui-laypage-default" id="pagination"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+layui.use(['layer', 'table', 'laypage'], function() {
+    var layer = layui.layer;
+    var table = layui.table;
+    var laypage = layui.laypage;
+    
+    // 初始化分页
+    laypage.render({
+        elem: 'pagination',
+        count: {{ paginator.count }},
+        limit: {{ paginator.per_page }},
+        curr: {{ page_obj.number }},
+        layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip'],
+        jump: function(obj, first) {
+            if (!first) {
+                window.location.href = '?page=' + obj.curr;
+            }
+        }
+    });
+    
+    // 取消执行
+    window.cancelExecution = function(executionId) {
+        layer.confirm('确定要取消这个执行任务吗？', {
+            title: '取消确认',
+            btn: ['确定取消', '取消']
+        }, function(index) {
+            // TODO: 实现取消执行逻辑
+            layer.msg('取消执行功能尚未实现', {icon: 2});
+            layer.close(index);
+        });
+    };
+    
+    // 重试执行
+    window.retryExecution = function(executionId) {
+        layer.confirm('确定要重试这个执行任务吗？', {
+            title: '重试确认',
+            btn: ['确定重试', '取消']
+        }, function(index) {
+            // TODO: 实现重试执行逻辑
+            layer.msg('重试执行功能尚未实现', {icon: 2});
+            layer.close(index);
+        });
+    };
+});
+</script>
+{% endblock %}

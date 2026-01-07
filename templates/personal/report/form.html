@@ -1,0 +1,112 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{% if report %}编辑工作汇报{% else %}新增工作汇报{% endif %}{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>{% if report %}编辑工作汇报{% else %}新增工作汇报{% endif %}</h3>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form" method="post">
+            {% csrf_token %}
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md8">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">汇报标题 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.title }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">汇报类型</label>
+                        <div class="layui-input-block">
+                            {{ form.report_type }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">汇报日期 <span style="color: red;">*</span></label>
+                <div class="layui-input-inline">
+                    {{ form.report_date }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">工作总结 <span style="color: red;">*</span></label>
+                <div class="layui-input-block">
+                    {{ form.summary }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">已完成工作 <span style="color: red;">*</span></label>
+                <div class="layui-input-block">
+                    {{ form.completed_work }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">下期工作计划 <span style="color: red;">*</span></label>
+                <div class="layui-input-block">
+                    {{ form.next_work }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">存在问题</label>
+                <div class="layui-input-block">
+                    {{ form.problems }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">意见建议</label>
+                <div class="layui-input-block">
+                    {{ form.suggestions }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">接收人</label>
+                <div class="layui-input-block">
+                    <div class="layui-row">
+                        {% for user in form.recipient_users.field.queryset %}
+                        <div class="layui-col-md3">
+                            <input type="checkbox" name="recipient_users" value="{{ user.pk }}" 
+                                   {% if user in report.recipient_users.all %}checked{% endif %}
+                                   lay-skin="primary" title="{{ user.name }}">
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" lay-submit>保存草稿</button>
+                    <button class="layui-btn layui-btn-normal" name="submit" type="submit">提交汇报</button>
+                    <button type="button" class="layui-btn layui-btn-primary" onclick="history.back()">返回</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+layui.use(['form', 'laydate'], function(){
+    var form = layui.form;
+    var laydate = layui.laydate;
+    
+    // 渲染日期选择器
+    laydate.render({
+        elem: '#id_report_date'
+    });
+});
+</script>
+{% endblock %}

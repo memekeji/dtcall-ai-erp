@@ -1,0 +1,80 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{% if oil %}编辑油耗记录{% else %}新增油耗记录{% endif %}{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>{% if oil %}编辑油耗记录{% else %}新增油耗记录{% endif %}</h3>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form" method="post">
+            {% csrf_token %}
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">车辆</label>
+                        <div class="layui-input-block">
+                            {{ form.vehicle }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">加油量(升)</label>
+                        <div class="layui-input-block">
+                            {{ form.oil_amount }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">加油费用</label>
+                        <div class="layui-input-block">
+                            {{ form.oil_cost }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">里程数(公里)</label>
+                        <div class="layui-input-block">
+                            {{ form.mileage }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">加油日期</label>
+                        <div class="layui-input-block">
+                            {{ form.oil_date }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">加油站</label>
+                        <div class="layui-input-block">
+                            {{ form.gas_station }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" type="submit">保存</button>
+                    <a href="{% url 'system:admin_office:vehicle_oil_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

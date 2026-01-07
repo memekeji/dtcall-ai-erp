@@ -1,0 +1,225 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工艺路线管理</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .search-form {
+            margin-bottom: 15px;
+        }
+
+        .table-toolbar {
+            margin-bottom: 15px;
+        }
+
+        .status-enabled {
+            color: #5FB878;
+        }
+
+        .status-disabled {
+            color: #FF5722;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <!-- 页面标题 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <h2 style="margin-bottom: 20px;">工艺路线管理</h2>
+            </div>
+        </div>
+
+        <!-- 工具栏 -->
+        <div class="layui-row table-toolbar">
+            <div class="layui-col-md6">
+                <button class="layui-btn" onclick="showProcessRouteDialog('add')">
+                    <i class="layui-icon layui-icon-add-1"></i> 添加工艺路线
+                </button>
+                <button class="layui-btn layui-btn-primary" 
+                    onclick="location.href='{% url 'production:baseinfo_index' %}'">
+                    <i class="layui-icon layui-icon-return"></i> 返回
+                </button>
+            </div>
+            <div class="layui-col-md6" style="text-align: right;">
+                <form method="get" class="layui-form layui-form-pane" style="display: inline-block;">
+                    <div class="layui-input-group">
+                        <input type="text" name="search" value="{{ search }}" placeholder="搜索工艺路线名称或编码"
+                            class="layui-input" style="width: 200px; display: inline-block;">
+                        <div class="layui-input-split layui-input-suffix">
+                            <button class="layui-btn" type="submit">
+                                <i class="layui-icon layui-icon-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 数据表格 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-body" style="padding: 0;">
+                        <table class="layui-table" lay-skin="line">
+                            <thead>
+                                <tr>
+                                    <th>工艺路线编码</th>
+                                    <th>工艺路线名称</th>
+                                    <th>总工时</th>
+                                    <th>总成本</th>
+                                    <th>状态</th>
+                                    <th>创建时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for process_route in page_obj %}
+                                <tr>
+                                    <td>{{ process_route.code }}</td>
+                                    <td>{{ process_route.name }}</td>
+                                    <td>{{ process_route.total_time }}小时</td>
+                                    <td>￥{{ process_route.total_cost }}</td>
+                                    <td>
+                                        {% if process_route.status %}
+                                        <span class="status-enabled">启用</span>
+                                        {% else %}
+                                        <span class="status-disabled">禁用</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ process_route.create_time|date:"Y-m-d H:i" }}</td>
+                                    <td>
+                                        <button class="layui-btn layui-btn-xs" 
+                                            onclick="showProcessRouteDialog('detail', {{ process_route.pk }})">
+                                            <i class="layui-icon layui-icon-detail"></i> 详情
+                                        </button>
+                                        <button class="layui-btn layui-btn-xs" 
+                                            onclick="showProcessRouteDialog('edit', {{ process_route.pk }})">
+                                            <i class="layui-icon layui-icon-edit"></i> 编辑
+                                        </button>
+                                        <button class="layui-btn layui-btn-xs layui-btn-danger" 
+                                            onclick="deleteProcessRoute({{ process_route.pk }}, '{{ process_route.name }}')">
+                                            <i class="layui-icon layui-icon-delete"></i> 删除
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" style="text-align: center; padding: 40px; color: #999;">
+                                        暂无数据
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分页 -->
+        {% if page_obj.has_other_pages %}
+        <div class="layui-row" style="margin-top: 20px;">
+            <div class="layui-col-md12" style="text-align: center;">
+                <div id="pagination"></div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['layer', 'laypage'], function () {
+            var layer = layui.layer;
+            var laypage = layui.laypage;
+
+            {% if page_obj.has_other_pages %}
+            // 分页
+            laypage.render({
+                elem: 'pagination',
+                count: {{ page_obj.paginator.count }},
+                limit: 20,
+                curr: {{ page_obj.number }},
+                jump: function (obj, first) {
+                    if (!first) {
+                        var url = new URL(window.location);
+                        url.searchParams.set('page', obj.curr);
+                        window.location.href = url.toString();
+                    }
+                }
+            });
+            {% endif %}
+        });
+
+        function deleteProcessRoute(id, name) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.confirm('确定要删除工艺路线 "' + name + '" 吗？', {
+                    icon: 3,
+                    title: '确认删除'
+                }, function (index) {
+                    window.location.href = '{% url 'production:process_route_delete' 0 %}'.replace('0', id);
+                    layer.close(index);
+                });
+            });
+        }
+
+        // 显示工艺路线对话框 - 从右侧弹出
+        function showProcessRouteDialog(action, id) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                var title = '';
+                var url = '';
+
+                switch(action) {
+                    case 'add':
+                        title = '添加工艺路线';
+                        url = '{% url 'production:process_route_add' %}';
+                        break;
+                    case 'edit':
+                        title = '编辑工艺路线';
+                        url = '{% url 'production:process_route_edit' 0 %}'.replace('0', id);
+                        break;
+                    case 'detail':
+                        title = '工艺路线详情';
+                        url = '{% url 'production:process_route_detail' 0 %}'.replace('0', id);
+                        break;
+                    default:
+                        return;
+                }
+
+                // 从右侧弹出页面
+                layer.open({
+                    type: 2,
+                    title: title,
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '90%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: url,
+                    success: function(layero, index) {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    },
+                    end: function() {
+                        // 关闭弹窗后刷新页面，确保数据最新
+                        window.location.reload();
+                    }
+                });
+            });
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,230 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}数据源管理{% endblock %}
+
+{% block content %}
+<div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-col-md12">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <h3>数据源管理</h3>
+                </div>
+                <div class="layui-card-body">
+                    <!-- 搜索和筛选 -->
+                    <form class="layui-form" method="get" style="margin-bottom: 20px;">
+                        <div class="layui-row layui-col-space10">
+                            <div class="layui-col-md3">
+                                <input type="text" name="search" value="{{ search }}" placeholder="搜索数据源名称、编码" class="layui-input">
+                            </div>
+                            <div class="layui-col-md2">
+                                <select name="source_type">
+                                    <option value="">全部类型</option>
+                                    {% for value, label in source_types %}
+                                    <option value="{{ value }}" {% if source_type == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="layui-col-md2">
+                                <button type="submit" class="layui-btn">
+                                    <i class="layui-icon layui-icon-search"></i> 搜索
+                                </button>
+                            </div>
+                            <div class="layui-col-md5" style="text-align: right;">
+                                <a href="{% url 'production:data_source_form' %}" class="layui-btn layui-btn-normal">
+                                    <i class="layui-icon layui-icon-add-1"></i> 新增数据源
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- 数据源列表 -->
+                    <table class="layui-table">
+                        <thead>
+                            <tr>
+                                <th>数据源名称</th>
+                                <th>编码</th>
+                                <th>类型</th>
+                                <th>连接地址</th>
+                                <th>采集间隔</th>
+                                <th>状态</th>
+                                <th>最后采集</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for source in page_obj %}
+                            <tr>
+                                <td>
+                                    <strong>{{ source.name }}</strong>
+                                    {% if source.description %}
+                                    <br><small class="layui-text-muted">{{ source.description|truncatechars:50 }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>{{ source.code }}</td>
+                                <td>
+                                    <span class="layui-badge layui-bg-blue">{{ source.get_source_type_display }}</span>
+                                </td>
+                                <td>
+                                    {% if source.endpoint_url %}
+                                        {{ source.endpoint_url|truncatechars:40 }}
+                                    {% elif source.host %}
+                                        {{ source.host }}:{{ source.port|default:"" }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>{{ source.collection_interval }}秒</td>
+                                <td>
+                                    {% if source.is_active %}
+                                        {% if source.error_count > 0 %}
+                                        <span class="layui-badge layui-bg-orange">异常</span>
+                                        {% else %}
+                                        <span class="layui-badge layui-bg-green">正常</span>
+                                        {% endif %}
+                                    {% else %}
+                                    <span class="layui-badge layui-bg-gray">已停用</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if source.last_collection_time %}
+                                        {{ source.last_collection_time|date:"m-d H:i" }}
+                                    {% else %}
+                                        <span class="layui-text-muted">未采集</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="layui-btn-group">
+                                        <button class="layui-btn layui-btn-xs">
+                                            <i class="layui-icon layui-icon-search"></i> 预览
+                                        </button>
+                                        <a href="{% url 'production:data_mapping_list' source.id %}" class="layui-btn layui-btn-xs">
+                                            <i class="layui-icon layui-icon-set"></i> 映射
+                                        </a>
+                                        <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="manualCollect({{ source.id }})">
+                                            <i class="layui-icon layui-icon-refresh"></i> 采集
+                                        </button>
+                                    </div>
+                                    <div class="layui-btn-group" style="margin-top: 5px;">
+                                        <a href="{% url 'production:data_source_form' source.id %}" class="layui-btn layui-btn-xs">
+                                            <i class="layui-icon layui-icon-edit"></i> 编辑
+                                        </a>
+                                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteSource({{ source.id }})">
+                                            <i class="layui-icon layui-icon-delete"></i> 删除
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" style="text-align: center; padding: 50px;">
+                                    <i class="layui-icon layui-icon-face-cry" style="font-size: 48px; color: #ccc;"></i>
+                                    <p style="color: #999; margin-top: 10px;">暂无数据源</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <!-- 分页 -->
+                    {% if page_obj.has_other_pages %}
+                    <div id="pagination"></div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+layui.use(['layer', 'laypage'], function(){
+    var layer = layui.layer;
+    var laypage = layui.laypage;
+    
+    // 分页
+    {% if page_obj.has_other_pages %}
+    laypage.render({
+        elem: 'pagination',
+        count: {{ page_obj.paginator.count }},
+        curr: {{ page_obj.number }},
+        limit: 20,
+        layout: ['count', 'prev', 'page', 'next', 'limit', 'skip'],
+        jump: function(obj, first){
+            if(!first){
+                var url = new URL(window.location);
+                url.searchParams.set('page', obj.curr);
+                window.location.href = url.toString();
+            }
+        }
+    });
+    {% endif %}
+});
+
+// 手动采集
+function manualCollect(sourceId) {
+    layui.use('layer', function(){
+        var layer = layui.layer;
+        layer.confirm('确定要手动触发数据采集吗？', {
+            icon: 3,
+            title: '确认采集'
+        }, function(index) {
+            var loadingIndex = layer.load(1, {shade: [0.1, '#fff']});
+            
+            $.post('/production/data/source/' + sourceId + '/collect/', {
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            }, function(response) {
+                layer.close(loadingIndex);
+                if (response.code === 0) {
+                    layer.msg('数据采集成功！成功: ' + response.data.success_count + ', 错误: ' + response.data.error_count, {
+                        icon: 1,
+                        time: 3000
+                    });
+                    setTimeout(function() {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    layer.alert('数据采集失败：' + response.msg, {
+                        icon: 2,
+                        title: '采集结果'
+                    });
+                }
+            }).fail(function() {
+                layer.close(loadingIndex);
+                layer.msg('请求失败', {icon: 2});
+            });
+            
+            layer.close(index);
+        });
+    });
+}
+
+// 删除数据源
+function deleteSource(sourceId) {
+    layui.use('layer', function(){
+        var layer = layui.layer;
+        layer.confirm('确定要删除这个数据源吗？删除后相关的采集记录也将被删除。', {
+            icon: 3,
+            title: '确认删除'
+        }, function(index) {
+            $.post('/production/data/source/' + sourceId + '/delete/', {
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            }, function(response) {
+                if (response.code === 0) {
+                    layer.msg('删除成功', {icon: 1});
+                    setTimeout(function() {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    layer.msg('删除失败：' + response.msg, {icon: 2});
+                }
+            }).fail(function() {
+                layer.msg('请求失败', {icon: 2});
+            });
+            
+            layer.close(index);
+        });
+    });
+}
+</script>
+{% endblock %}

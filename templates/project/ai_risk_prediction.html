@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>风险预测分析</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .analysis-container {
+            padding: 20px;
+        }
+        .project-selector {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .risk-card {
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            color: white;
+        }
+        .risk-high {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+        }
+        .risk-medium {
+            background: linear-gradient(135deg, #feca57 0%, #ff9f43 100%);
+        }
+        .risk-low {
+            background: linear-gradient(135deg, #26de81 0%, #20bf6b 100%);
+        }
+        .stat-box {
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+            background: #fff;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="analysis-container">
+        <div class="project-selector">
+            <h3>选择项目进行风险预测分析</h3>
+            <div class="layui-form">
+                <div class="layui-form-item">
+                    <div class="layui-input-inline" style="width: 400px;">
+                        <select id="projectSelect" lay-filter="projectSelect">
+                            <option value="">请选择项目</option>
+                            {% for project in projects %}
+                            <option value="{{ project.id }}">{{ project.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="button" class="layui-btn" onclick="analyzeRisk()">
+                        <i class="layui-icon layui-icon-search"></i> 开始分析
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="analysisResult" style="display: none;">
+            <div class="layui-row layui-col-space15" id="riskCards">
+                <!-- 风险卡片将通过AJAX加载 -->
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['form', 'layer'], function() {
+            var form = layui.form;
+            var layer = layui.layer;
+            form.render();
+        });
+
+        function analyzeRisk() {
+            var projectId = $('#projectSelect').val();
+            if (!projectId) {
+                layer.msg('请先选择项目', {icon: 0});
+                return;
+            }
+
+            var index = layer.load(2, {shade: [0.3, '#000']});
+            
+            $.ajax({
+                url: '/project/api/ai/risk-prediction/' + projectId + '/',
+                type: 'GET',
+                dataType: 'json',
+                success: function(res) {
+                    layer.close(index);
+                    if (res.code === 0) {
+                        $('#analysisResult').show();
+                        renderRiskCards(res.data);
+                    } else {
+                        layer.msg(res.msg || '分析失败', {icon: 2});
+                    }
+                },
+                error: function() {
+                    layer.close(index);
+                    layer.msg('请求失败，请检查网络', {icon: 2});
+                }
+            });
+        }
+
+        function renderRiskCards(data) {
+            var html = '';
+            
+            // 风险概览
+            var riskLevel = data.risk_level || 'low';
+            var riskClass = 'risk-' + riskLevel;
+            
+            html += '<div class="layui-col-md4">';
+            html += '<div class="stat-box">';
+            html += '<h4>风险等级</h4>';
+            html += '<div class="risk-card ' + riskClass + '" style="margin-top: 10px;">';
+            html += '<h2>' + (data.risk_level_display || '低风险') + '</h2>';
+            html += '</div></div></div>';
+            
+            html += '<div class="layui-col-md4">';
+            html += '<div class="stat-box">';
+            html += '<h4>风险得分</h4>';
+            html += '<h2 style="color: #009688; margin-top: 10px;">' + (data.risk_score || 0) + '</h2>';
+            html += '</div></div>';
+            
+            html += '<div class="layui-col-md4">';
+            html += '<div class="stat-box">';
+            html += '<h4>预警指标</h4>';
+            html += '<h2 style="color: #ff6b6b; margin-top: 10px;">' + (data.warning_count || 0) + '</h2>';
+            html += '</div></div>';
+            
+            $('#riskCards').html(html);
+        }
+    </script>
+</body>
+</html>

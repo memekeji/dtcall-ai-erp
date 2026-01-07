@@ -1,0 +1,259 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生产管理</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .stats-card {
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            color: white;
+            margin-bottom: 10px;
+        }
+        .stats-card.plan {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .stats-card.task {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        .stats-card.utilization {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+        .stats-card.efficiency {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        .stat-number {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .stat-sub {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        .quick-actions {
+            margin-bottom: 20px;
+        }
+        .action-btn {
+            margin: 5px;
+        }
+        .recent-item {
+            padding: 10px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .recent-item:hover {
+            background-color: #f8f9fa;
+        }
+        .status-badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            color: white;
+        }
+        .status-active {
+            background-color: #5FB878;
+        }
+        .status-pending {
+            background-color: #FFB800;
+        }
+        .status-normal {
+            background-color: #1E9FFF;
+        }
+        .status-maintenance {
+            background-color: #FF5722;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background-color: #f0f0f0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #5FB878;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <!-- 页面标题 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <h2 style="margin-bottom: 20px;">生产管理</h2>
+            </div>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md3">
+                <div class="stats-card plan">
+                    <div class="stat-number">{{ plan_count }}</div>
+                    <div class="stat-label">生产计划</div>
+                    <div class="stat-sub">{{ active_plan_count }} 进行中</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="stats-card task">
+                    <div class="stat-number">{{ task_count }}</div>
+                    <div class="stat-label">生产任务</div>
+                    <div class="stat-sub">{{ active_task_count }} 待执行</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="stats-card utilization">
+                    <div class="stat-number">85%</div>
+                    <div class="stat-label">设备利用率</div>
+                    <div class="stat-sub">+2.1% 较昨日</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="stats-card efficiency">
+                    <div class="stat-number">92%</div>
+                    <div class="stat-label">生产效率</div>
+                    <div class="stat-sub">+1.5% 较上周</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 快捷操作 -->
+        <div class="layui-row layui-col-space15 quick-actions">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">快捷操作</div>
+                    <div class="layui-card-body">
+                        <button class="layui-btn action-btn" onclick="location.href='{% url 'production:production_plan_add' %}'">
+                            <i class="layui-icon layui-icon-add-1"></i> 新建计划
+                        </button>
+                        <button class="layui-btn layui-btn-normal action-btn" onclick="location.href='{% url 'production:production_task_add' %}'">
+                            <i class="layui-icon layui-icon-add-1"></i> 新建任务
+                        </button>
+                        <button class="layui-btn layui-btn-warm action-btn" onclick="location.href='{% url 'production:resource_scheduling' %}'">
+                            <i class="layui-icon layui-icon-date"></i> 资源调度
+                        </button>
+                        <button class="layui-btn layui-btn-danger action-btn" onclick="location.href='{% url 'production:quality_check_add' %}'">
+                            <i class="layui-icon layui-icon-ok-circle"></i> 质量检查
+                        </button>
+                        <button class="layui-btn layui-btn-primary action-btn" onclick="location.href='{% url 'production:equipment_monitor' %}'">
+                            <i class="layui-icon layui-icon-chart-screen"></i> 设备监控
+                        </button>
+                        <button class="layui-btn layui-btn-primary action-btn" onclick="location.href='{% url 'production:performance_analysis' %}'">
+                            <i class="layui-icon layui-icon-chart"></i> 性能分析
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最近计划和设备状态 -->
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md6">
+                <div class="layui-card">
+                    <div class="layui-card-header">最近生产计划</div>
+                    <div class="layui-card-body" style="padding: 0;">
+                        <div class="recent-item">
+                            <div>
+                                <div style="font-weight: bold;">P2024001 - 产品A生产计划</div>
+                                <div style="font-size: 12px; color: #999; margin-top: 5px;">
+                                    <span class="status-badge status-active">进行中</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 75%;"></div>
+                                </div>
+                            </div>
+                            <div style="text-align: right; font-size: 12px; color: #999;">
+                                75%
+                            </div>
+                        </div>
+                        <div class="recent-item">
+                            <div>
+                                <div style="font-weight: bold;">P2024002 - 产品B生产计划</div>
+                                <div style="font-size: 12px; color: #999; margin-top: 5px;">
+                                    <span class="status-badge status-pending">待审核</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 0%;"></div>
+                                </div>
+                            </div>
+                            <div style="text-align: right; font-size: 12px; color: #999;">
+                                0%
+                            </div>
+                        </div>
+                        <div style="text-align: center; padding: 15px;">
+                            <button class="layui-btn layui-btn-primary layui-btn-sm" onclick="location.href='{% url 'production:production_plan_list' %}'">
+                                查看全部计划
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-col-md6">
+                <div class="layui-card">
+                    <div class="layui-card-header">设备状态监控</div>
+                    <div class="layui-card-body" style="padding: 0;">
+                        <div class="recent-item">
+                            <div>
+                                <div style="font-weight: bold;">EQ001 - 生产线A</div>
+                                <div style="font-size: 12px; color: #999; margin-top: 5px;">
+                                    <span class="status-badge status-normal">正常</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 85%;"></div>
+                                </div>
+                            </div>
+                            <div style="text-align: right; font-size: 12px; color: #999;">
+                                85%
+                            </div>
+                        </div>
+                        <div class="recent-item">
+                            <div>
+                                <div style="font-weight: bold;">EQ002 - 生产线B</div>
+                                <div style="font-size: 12px; color: #999; margin-top: 5px;">
+                                    <span class="status-badge status-maintenance">维修中</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 0%;"></div>
+                                </div>
+                            </div>
+                            <div style="text-align: right; font-size: 12px; color: #999;">
+                                0%
+                            </div>
+                        </div>
+                        <div style="text-align: center; padding: 15px;">
+                            <button class="layui-btn layui-btn-primary layui-btn-sm" onclick="location.href='{% url 'production:equipment_monitor' %}'">
+                                查看设备监控
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['layer'], function () {
+            var layer = layui.layer;
+        });
+    </script>
+</body>
+
+</html>

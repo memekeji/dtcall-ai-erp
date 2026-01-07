@@ -1,0 +1,72 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ equipment.name }} - 数据图表</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <!-- 页面标题 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <h2 style="margin-bottom: 20px;">{{ equipment.name }} - 数据图表</h2>
+                <p style="color: #666;">设备编号：{{ equipment.code }}</p>
+            </div>
+        </div>
+
+        <!-- 图表区域 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">最近7天数据趋势</div>
+                    <div class="layui-card-body">
+                        <div id="dataChart" style="height: 400px; display: flex; align-items: center; justify-content: center; color: #999;">
+                            图表功能开发中...<br>
+                            <small>数据：{{ chart_data }}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="layui-row" style="margin-top: 20px;">
+            <div class="layui-col-md12">
+                <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:equipment_detail' equipment.pk %}'">
+                    <i class="layui-icon layui-icon-return"></i> 返回设备详情
+                </button>
+                <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:data_collection_list' %}?equipment={{ equipment.pk }}'">
+                    <i class="layui-icon layui-icon-list"></i> 查看数据列表
+                </button>
+                <button class="layui-btn layui-btn-primary" onclick="refreshChart()">
+                    <i class="layui-icon layui-icon-refresh"></i> 刷新数据
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['layer'], function () {
+            var layer = layui.layer;
+        });
+
+        function refreshChart() {
+            location.reload();
+        }
+
+        // 这里可以集成 ECharts 或其他图表库来显示实际的数据图表
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('图表数据:', {{ chart_data|safe }});
+            // 未来可以在这里初始化图表
+        });
+    </script>
+</body>
+
+</html>

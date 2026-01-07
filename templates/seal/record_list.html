@@ -1,0 +1,91 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}用章记录{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>用章记录</h3>
+    </div>
+    <div class="layui-card-body">
+        <!-- 搜索表单 -->
+        <form class="layui-form" method="get">
+            <div class="layui-row layui-col-space10">
+                <div class="layui-col-md3">
+                    <input type="text" name="search" placeholder="搜索文件标题或申请人" class="layui-input">
+                </div>
+                <div class="layui-col-md2">
+                    <input type="date" name="date_from" placeholder="开始日期" class="layui-input">
+                </div>
+                <div class="layui-col-md2">
+                    <input type="date" name="date_to" placeholder="结束日期" class="layui-input">
+                </div>
+                <div class="layui-col-md3">
+                    <button class="layui-btn" type="submit">搜索</button>
+                    <button class="layui-btn layui-btn-primary" type="reset">重置</button>
+                </div>
+            </div>
+        </form>
+        
+        <!-- 数据表格 -->
+        <table class="layui-table" lay-skin="line">
+            <thead>
+                <tr>
+                    <th>印章名称</th>
+                    <th>文件标题</th>
+                    <th>申请人</th>
+                    <th>用章日期</th>
+                    <th>用章时间</th>
+                    <th>份数</th>
+                    <th>状态</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for application in page_obj %}
+                <tr>
+                    <td>{{ application.seal.name }}</td>
+                    <td>{{ application.document_title }}</td>
+                    <td>{{ application.applicant.name }}</td>
+                    <td>{{ application.use_date }}</td>
+                    <td>{{ application.use_time|date:"Y-m-d H:i"|default:"-" }}</td>
+                    <td>{{ application.copies }}</td>
+                    <td>
+                        {% if application.status == 'used' %}
+                            <span class="layui-badge layui-bg-green">已用章</span>
+                        {% else %}
+                            <span class="layui-badge layui-bg-gray">未用章</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; color: #999;">暂无用章记录</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <!-- 分页 -->
+        {% if page_obj.has_other_pages %}
+        <div class="layui-box layui-laypage layui-laypage-default">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}" class="layui-laypage-prev">上一页</a>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <span class="layui-laypage-curr"><em>{{ num }}</em></span>
+                {% else %}
+                    <a href="?page={{ num }}">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}" class="layui-laypage-next">下一页</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

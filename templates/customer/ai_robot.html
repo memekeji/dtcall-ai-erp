@@ -1,0 +1,570 @@
+{% extends 'home/iframe_base.html' %}
+{% load static %}
+
+{% block title %}AI机器人管理{% endblock %}
+
+{% block css %}
+<style>
+    .robot-card {
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+        transition: all 0.3s ease;
+    }
+    .robot-card:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        transform: translateY(-2px);
+    }
+    .robot-status {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    .robot-status.online {
+        background: #f6ffed;
+        color: #52c41a;
+        border: 1px solid #b7eb8f;
+    }
+    .robot-status.offline {
+        background: #fff2f0;
+        color: #ff4d4f;
+        border: 1px solid #ffccc7;
+    }
+    .robot-stats {
+        display: flex;
+        justify-content: space-around;
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid #f0f0f0;
+    }
+    .stat-item {
+        text-align: center;
+    }
+    .stat-number {
+        font-size: 24px;
+        font-weight: bold;
+        color: #1890ff;
+    }
+    .stat-label {
+        font-size: 12px;
+        color: #666;
+        margin-top: 5px;
+    }
+    .robot-actions {
+        margin-top: 15px;
+        text-align: right;
+    }
+    .config-panel {
+        background: #fafafa;
+        border-radius: 6px;
+        padding: 20px;
+        margin-top: 20px;
+    }
+    .config-item {
+        margin-bottom: 15px;
+    }
+    .config-item label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+        color: #333;
+    }
+    .robot-actions .layui-btn {
+        margin-left: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-col-md12">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <h3><i class="layui-icon layui-icon-android"></i> AI机器人管理</h3>
+                </div>
+                <div class="layui-card-body">
+                    <!-- 机器人状态概览 -->
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md4">
+                            <div class="robot-card">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h4><i class="layui-icon layui-icon-android" style="color: #1890ff;"></i> 智能客服机器人</h4>
+                                    <span class="robot-status online">在线</span>
+                                </div>
+                                <p style="color: #666; margin: 10px 0;">自动回复客户咨询，提供24小时在线服务</p>
+                                <div class="robot-stats">
+                                    <div class="stat-item">
+                                        <div class="stat-number">156</div>
+                                        <div class="stat-label">今日对话</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-number">89%</div>
+                                        <div class="stat-label">解决率</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-number">2.3s</div>
+                                        <div class="stat-label">平均响应</div>
+                                    </div>
+                                </div>
+                                <div class="robot-actions">
+                                    <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="configRobot('customer_service')">
+                                        <i class="layui-icon layui-icon-set"></i> 配置
+                                    </button>
+                                    <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="viewLogs('customer_service')">
+                                        <i class="layui-icon layui-icon-chart"></i> 日志
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="layui-col-md4">
+                            <div class="robot-card">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h4><i class="layui-icon layui-icon-cellphone" style="color: #52c41a;"></i> 电话营销机器人</h4>
+                                    <span class="robot-status offline">离线</span>
+                                </div>
+                                <p style="color: #666; margin: 10px 0;">自动拨打电话进行客户营销和回访</p>
+                                <div class="robot-stats">
+                                    <div class="stat-item">
+                                        <div class="stat-number">0</div>
+                                        <div class="stat-label">今日通话</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-number">0%</div>
+                                        <div class="stat-label">接通率</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-number">0min</div>
+                                        <div class="stat-label">平均时长</div>
+                                    </div>
+                                </div>
+                                <div class="robot-actions">
+                                    <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="configRobot('telemarketing')">
+                                        <i class="layui-icon layui-icon-set"></i> 配置
+                                    </button>
+                                    <button class="layui-btn layui-btn-xs layui-btn-disabled">
+                                        <i class="layui-icon layui-icon-play"></i> 启动
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="layui-col-md4">
+                            <div class="robot-card">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h4><i class="layui-icon layui-icon-email" style="color: #faad14;"></i> 邮件营销机器人</h4>
+                                    <span class="robot-status online">在线</span>
+                                </div>
+                                <p style="color: #666; margin: 10px 0;">自动发送营销邮件和客户关怀邮件</p>
+                                <div class="robot-stats">
+                                    <div class="stat-item">
+                                        <div class="stat-number">45</div>
+                                        <div class="stat-label">今日发送</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-number">78%</div>
+                                        <div class="stat-label">打开率</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-number">12%</div>
+                                        <div class="stat-label">点击率</div>
+                                    </div>
+                                </div>
+                                <div class="robot-actions">
+                                    <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="configRobot('email_marketing')">
+                                        <i class="layui-icon layui-icon-set"></i> 配置
+                                    </button>
+                                    <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="viewLogs('email_marketing')">
+                                        <i class="layui-icon layui-icon-chart"></i> 日志
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="layui-col-md4">
+                            <div class="robot-card">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h4><i class="layui-icon layui-icon-cellphone" style="color: #fa541c;"></i> 短信营销机器人</h4>
+                                    <span class="robot-status online">在线</span>
+                                </div>
+                                <p style="color: #666; margin: 10px 0;">自动发送营销短信和客户关怀短信</p>
+                                <div class="robot-stats">
+                                    <div class="stat-item">
+                                        <div class="stat-number">120</div>
+                                        <div class="stat-label">今日发送</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-number">95%</div>
+                                        <div class="stat-label">到达率</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-number">8%</div>
+                                        <div class="stat-label">回复率</div>
+                                    </div>
+                                </div>
+                                <div class="robot-actions">
+                                    <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="configRobot('sms_marketing')">
+                                        <i class="layui-icon layui-icon-set"></i> 配置
+                                    </button>
+                                    <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="viewLogs('sms_marketing')">
+                                        <i class="layui-icon layui-icon-chart"></i> 日志
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="layui-col-md4">
+                            <div class="robot-card">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h4><i class="layui-icon layui-icon-cellphone" style="color: #09bb07;"></i> 微信机器人</h4>
+                                    <span class="robot-status online">在线</span>
+                                </div>
+                                <p style="color: #666; margin: 10px 0;">自动添加客户微信，实现智能对话和销售任务</p>
+                                <div class="robot-stats">
+                                    <div class="stat-item">
+                                        <div class="stat-number">28</div>
+                                        <div class="stat-label">今日添加</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-number">85%</div>
+                                        <div class="stat-label">通过率</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-number">65</div>
+                                        <div class="stat-label">今日对话</div>
+                                    </div>
+                                </div>
+                                <div class="robot-actions">
+                                    <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="configRobot('wechat')">
+                                        <i class="layui-icon layui-icon-set"></i> 配置
+                                    </button>
+                                    <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="viewLogs('wechat')">
+                                        <i class="layui-icon layui-icon-chart"></i> 日志
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+// 预先定义全局函数，确保按钮点击时函数已存在
+let layerModule = null;
+let formModule = null;
+
+// 配置机器人
+window.configRobot = function(robotType) {
+    // 检查Layui和layer模块是否已加载
+    if (typeof layui === 'undefined' || !layerModule) {
+        if (typeof layui !== 'undefined') {
+            // 尝试立即加载所需模块
+            layui.use(['layer', 'form'], function() {
+                layerModule = layui.layer;
+                formModule = layui.form;
+                // 重新调用当前函数
+                window.configRobot(robotType);
+            });
+        } else {
+            // Layui未加载，使用降级方案
+            alert('Layui未加载，功能暂时不可用，请刷新页面重试');
+        }
+        return;
+    }
+    
+    if (!layerModule || typeof layerModule.open !== 'function') {
+        console.warn('Layui layer module not properly loaded');
+        alert('功能暂时不可用，请刷新页面重试');
+        return;
+    }
+    
+    var title = '';
+    var content = '';
+    
+    switch(robotType) {
+        case 'customer_service':
+            title = '智能客服机器人配置';
+            content = `
+                <div style="padding: 20px;">
+                    <form class="layui-form" lay-filter="robotConfigForm">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">机器人名称</label>
+                            <div class="layui-input-block">
+                                <input type="text" name="robot_name" class="layui-input" value="智能客服小助手" placeholder="请输入机器人名称">
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">欢迎语</label>
+                            <div class="layui-input-block">
+                                <textarea name="welcome_message" class="layui-textarea" placeholder="请输入欢迎语">您好！我是智能客服小助手，有什么可以帮助您的吗？</textarea>
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">工作时间</label>
+                            <div class="layui-input-block">
+                                <input type="text" name="working_hours" class="layui-input" value="00:00-23:59" placeholder="请输入工作时间">
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">转人工阈值</label>
+                            <div class="layui-input-block">
+                                <input type="number" name="transfer_threshold" class="layui-input" value="3" placeholder="连续无法回答次数">
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">启用状态</label>
+                            <div class="layui-input-block">
+                                <input type="radio" name="status" value="1" title="启用" checked>
+                                <input type="radio" name="status" value="0" title="禁用">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            `;
+            break;
+        case 'telemarketing':
+            title = '电话营销机器人配置';
+            content = `
+                <div style="padding: 20px;">
+                    <form class="layui-form" lay-filter="robotConfigForm">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">拨打时间段</label>
+                            <div class="layui-input-block">
+                                <input type="text" name="calling_hours" class="layui-input" value="09:00-18:00" placeholder="请输入拨打时间段">
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">话术模板</label>
+                            <div class="layui-input-block">
+                                <textarea name="script_template" class="layui-textarea" placeholder="请输入话术模板">您好，我是XX公司的客服，想了解一下您对我们产品的需求...</textarea>
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">最大通话时长</label>
+                            <div class="layui-input-block">
+                                <input type="number" name="max_call_duration" class="layui-input" value="300" placeholder="秒">
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">重拨间隔</label>
+                            <div class="layui-input-block">
+                                <input type="number" name="redial_interval" class="layui-input" value="24" placeholder="小时">
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">启用状态</label>
+                            <div class="layui-input-block">
+                                <input type="radio" name="status" value="1" title="启用">
+                                <input type="radio" name="status" value="0" title="禁用" checked>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            `;
+            break;
+        case 'email_marketing':
+            title = '邮件营销机器人配置';
+            content = `
+                <div style="padding: 20px;">
+                    <form class="layui-form" lay-filter="robotConfigForm">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">发送邮箱</label>
+                            <div class="layui-input-block">
+                                <input type="email" name="sender_email" class="layui-input" placeholder="请输入发送邮箱">
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">SMTP服务器</label>
+                            <div class="layui-input-block">
+                                <input type="text" name="smtp_server" class="layui-input" placeholder="请输入SMTP服务器地址">
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">SMTP端口</label>
+                            <div class="layui-input-block">
+                                <input type="number" name="smtp_port" class="layui-input" value="465" placeholder="请输入SMTP端口">
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">邮件模板</label>
+                            <div class="layui-input-block">
+                                <textarea name="email_template" class="layui-textarea" placeholder="请输入邮件模板">尊敬的客户，感谢您对我们的关注...</textarea>
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">发送频率</label>
+                            <div class="layui-input-block">
+                                <select name="send_frequency" class="layui-input">
+                                    <option value="daily">每日</option>
+                                    <option value="weekly">每周</option>
+                                    <option value="monthly">每月</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">启用状态</label>
+                            <div class="layui-input-block">
+                                <input type="radio" name="status" value="1" title="启用" checked>
+                                <input type="radio" name="status" value="0" title="禁用">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            `;
+            break;
+        case 'sms_marketing':
+            title = '短信营销机器人配置';
+            content = `
+                <div style="padding: 20px;">
+                    <form class="layui-form" lay-filter="robotConfigForm">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">短信签名</label>
+                            <div class="layui-input-block">
+                                <input type="text" name="sms_sign" class="layui-input" placeholder="请输入短信签名">
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">短信模板</label>
+                            <div class="layui-input-block">
+                                <textarea name="sms_template" class="layui-textarea" placeholder="请输入短信模板">尊敬的客户，您有新的优惠信息待查看...</textarea>
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">发送频率</label>
+                            <div class="layui-input-block">
+                                <input type="number" name="send_frequency" class="layui-input" value="1" placeholder="每日最大发送次数">
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">启用状态</label>
+                            <div class="layui-input-block">
+                                <input type="radio" name="status" value="1" title="启用" checked>
+                                <input type="radio" name="status" value="0" title="禁用">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            `;
+            break;
+        case 'wechat':
+            title = '微信机器人配置';
+            content = `
+                <div style="padding: 20px;">
+                    <form class="layui-form" lay-filter="robotConfigForm">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">机器人名称</label>
+                            <div class="layui-input-block">
+                                <input type="text" name="robot_name" class="layui-input" value="微信销售助手" placeholder="请输入机器人名称">
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">欢迎语</label>
+                            <div class="layui-input-block">
+                                <textarea name="welcome_message" class="layui-textarea" placeholder="请输入欢迎语">您好！我是您的专属销售顾问，很高兴为您服务！</textarea>
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">自动添加好友</label>
+                            <div class="layui-input-block">
+                                <input type="radio" name="auto_add_friend" value="1" title="启用" checked>
+                                <input type="radio" name="auto_add_friend" value="0" title="禁用">
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">自动回复</label>
+                            <div class="layui-input-block">
+                                <input type="radio" name="auto_reply" value="1" title="启用" checked>
+                                <input type="radio" name="auto_reply" value="0" title="禁用">
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">机器人联动</label>
+                            <div class="layui-input-block">
+                                <input type="checkbox" name="robot_linkage" title="电话机器人" checked>
+                                <input type="checkbox" name="robot_linkage" title="邮件机器人" checked>
+                                <input type="checkbox" name="robot_linkage" title="短信机器人" checked>
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">启用状态</label>
+                            <div class="layui-input-block">
+                                <input type="radio" name="status" value="1" title="启用" checked>
+                                <input type="radio" name="status" value="0" title="禁用">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            `;
+            break;
+    }
+    
+    layerModule.open({
+        type: 1,
+        title: title,
+        area: ['600px', '600px'],
+        content: content,
+        btn: ['保存', '取消'],
+        yes: function(index) {
+            if (layerModule && typeof layerModule.msg === 'function' && typeof layerModule.close === 'function') {
+                // 这里可以添加表单提交逻辑
+                layerModule.msg('配置保存成功');
+                layerModule.close(index);
+            }
+        }
+    });
+};
+
+// 查看日志
+window.viewLogs = function(robotType) {
+    // 检查Layui和layer模块是否已加载
+    if (typeof layui === 'undefined' || !layerModule) {
+        if (typeof layui !== 'undefined') {
+            // 尝试立即加载所需模块
+            layui.use(['layer', 'form'], function() {
+                layerModule = layui.layer;
+                formModule = layui.form;
+                // 重新调用当前函数
+                window.viewLogs(robotType);
+            });
+        } else {
+            // Layui未加载，使用降级方案
+            alert('Layui未加载，功能暂时不可用，请刷新页面重试');
+        }
+        return;
+    }
+    
+    if (!layerModule || typeof layerModule.open !== 'function') {
+        console.warn('Layui layer module not properly loaded');
+        alert('功能暂时不可用，请刷新页面重试');
+        return;
+    }
+    
+    layerModule.open({
+        type: 2,
+        title: '机器人运行日志',
+        area: ['80%', '70%'],
+        content: '/adm/customer/public/ai-robot/logs/?type=' + robotType
+    });
+};
+
+// 页面加载完成后初始化Layui模块
+if (typeof layui !== 'undefined') {
+    layui.use(['layer', 'form'], function() {
+        layerModule = layui.layer;
+        formModule = layui.form;
+    });
+} else {
+    console.warn('Layui is not loaded. Some functionality may be limited.');
+}
+</script>
+{% endblock %}

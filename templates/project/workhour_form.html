@@ -1,0 +1,148 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if is_edit %}编辑工时记录{% else %}记录工时{% endif %}</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+
+<body>
+    <div class="layui-container" style="padding: 20px;">
+        <form class="layui-form" lay-filter="workhourForm">
+            {% csrf_token %}
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">关联任务 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            <select name="task_id" required>
+                                <option value="">请选择任务</option>
+                                {% for task in tasks %}
+                                <option value="{{ task.id }}" 
+                                    {% if work_hour and work_hour.task_id == task.id %}selected{% endif %}>
+                                    {{ task.title }}{% if task.project %} ({{ task.project.name }}){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">工作人员</label>
+                        <div class="layui-input-block">
+                            <select name="user_id">
+                                {% for user in users %}
+                                <option value="{{ user.id }}" 
+                                    {% if work_hour and work_hour.user_id == user.id %}selected{% elif not work_hour and user.id == request.user.id %}selected{% endif %}>
+                                    {{ user.username }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">工作日期 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            <input type="date" name="work_date" 
+                                   value="{% if work_hour %}{{ work_hour.work_date|date:'Y-m-d' }}{% endif %}" 
+                                   class="layui-input" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">工作时长 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            <input type="number" name="hours" step="0.5" min="0.5" max="24" 
+                                   value="{% if work_hour %}{{ work_hour.hours }}{% endif %}" 
+                                   placeholder="请输入工作时长(小时)" class="layui-input" required>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">工作内容</label>
+                <div class="layui-input-block">
+                    <textarea name="description" placeholder="请描述具体的工作内容" class="layui-textarea" 
+                              rows="4">{% if work_hour %}{{ work_hour.description }}{% endif %}</textarea>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button type="submit" class="layui-btn" lay-submit lay-filter="submitBtn">
+                        {% if is_edit %}更新记录{% else %}提交记录{% endif %}
+                    </button>
+                    <button type="button" class="layui-btn layui-btn-primary" onclick="closeWindow()">取消</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['form', 'layer'], function () {
+            var form = layui.form;
+            var layer = layui.layer;
+
+            // 监听表单提交
+            form.on('submit(submitBtn)', function (data) {
+                var loadIndex = layer.load(2);
+                
+                // 添加CSRF token
+                var formData = data.field;
+                formData.csrfmiddlewaretoken = $('[name=csrfmiddlewaretoken]').val();
+                
+                console.log('Submitting workhour data:', formData);
+                
+                $.ajax({
+                    url: window.location.href,
+                    type: 'POST',
+                    data: formData,
+                    dataType: 'json',
+                    success: function (res) {
+                        console.log('Workhour response:', res);
+                        layer.close(loadIndex);
+                        if (res.code === 0) {
+                            layer.msg(res.msg, { icon: 1 }, function () {
+                                // 关闭弹窗并刷新父页面
+                                var index = parent.layer.getFrameIndex(window.name);
+                                parent.layer.close(index);
+                                if (parent.layui.table) {
+                                    parent.layui.table.reload('workhourTable');
+                                }
+                            });
+                        } else {
+                            layer.msg(res.msg, { icon: 2 });
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.log('Workhour error:', xhr.responseText);
+                        layer.close(loadIndex);
+                        layer.msg('网络错误，请重试: ' + error, { icon: 2 });
+                    }
+                });
+                
+                return false;
+            });
+        });
+
+        function closeWindow() {
+            var index = parent.layer.getFrameIndex(window.name);
+            parent.layer.close(index);
+        }
+    </script>
+</body>
+
+</html>

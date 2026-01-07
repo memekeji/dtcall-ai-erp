@@ -1,0 +1,229 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>员工关怀</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/common.css' %}">
+    <style>
+        .layui-container {
+            width: 100% !important;
+            max-width: none !important;
+            padding: 0;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow-x: hidden;
+        }
+        .content-box {
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            height: calc(100vh - 120px);
+        }
+        .search-bar {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .care-type-birthday { background-color: #ff7c45; color: white; padding: 2px 8px; border-radius: 3px; }
+        .care-type-anniversary { background-color: #52c41a; color: white; padding: 2px 8px; border-radius: 3px; }
+        .care-type-holiday { background-color: #1890ff; color: white; padding: 2px 8px; border-radius: 3px; }
+        .care-type-other { background-color: #722ed1; color: white; padding: 2px 8px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="layui-container">
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <div class="content-box">
+                    <div class="layui-row">
+                        <div class="layui-col-md12">
+                            <div class="search-bar">
+                                <form class="layui-form" id="searchForm">
+                                    <div class="layui-form-item">
+                                        <div class="layui-inline">
+                                            <label class="layui-form-label">员工姓名</label>
+                                            <div class="layui-input-inline">
+                                                <input type="text" name="employee_name" placeholder="请输入员工姓名" class="layui-input">
+                                            </div>
+                                        </div>
+                                        <div class="layui-inline">
+                                            <label class="layui-form-label">关怀类型</label>
+                                            <div class="layui-input-inline">
+                                                <select name="care_type">
+                                                    <option value="">全部</option>
+                                                    <option value="birthday">生日关怀</option>
+                                                    <option value="anniversary">入职纪念</option>
+                                                    <option value="holiday">节日关怀</option>
+                                                    <option value="other">其他关怀</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="layui-inline">
+                                            <label class="layui-form-label">关怀日期</label>
+                                            <div class="layui-input-inline">
+                                                <input type="text" name="care_date" placeholder="请选择日期" class="layui-input" id="careDate">
+                                            </div>
+                                        </div>
+                                        <div class="layui-inline">
+                                            <button type="button" class="layui-btn layui-btn-normal" id="searchBtn">搜索</button>
+                                            <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                            
+                            <div class="layui-btn-group">
+                                <button class="layui-btn layui-btn-normal" id="addBtn">新增关怀记录</button>
+                                <button class="layui-btn layui-btn-warm" id="birthdayBtn">本月生日员工</button>
+                                <button class="layui-btn layui-btn-primary" id="anniversaryBtn">本月入职纪念</button>
+                            </div>
+                            
+                            <table class="layui-table" id="employeeCareTable" lay-filter="employeeCareTable"></table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['table', 'form', 'layer', 'laydate'], function(){
+            var table = layui.table;
+            var form = layui.form;
+            var layer = layui.layer;
+            var laydate = layui.laydate;
+            
+            // 初始化日期选择器
+            laydate.render({
+                elem: '#careDate',
+                type: 'date'
+            });
+            
+            // 初始化表格
+            table.render({
+                elem: '#employeeCareTable',
+                url: '{% url "user:employee_care_list" %}',
+                method: 'GET',
+                cols: [[
+                    {field: 'id', title: 'ID', width: 80, sort: true},
+                    {field: 'employee_name', title: '员工姓名', width: 120},
+                    {field: 'care_type_display', title: '关怀类型', width: 120, templet: function(d){
+                        var typeClass = 'care-type-' + d.care_type;
+                        var typeText = '';
+                        switch(d.care_type) {
+                            case 'birthday': typeText = '生日关怀'; break;
+                            case 'anniversary': typeText = '入职纪念'; break;
+                            case 'holiday': typeText = '节日关怀'; break;
+                            case 'other': typeText = '其他关怀'; break;
+                        }
+                        return '<span class="' + typeClass + '">' + typeText + '</span>';
+                    }},
+                    {field: 'care_date', title: '关怀日期', width: 120, sort: true},
+                    {field: 'content', title: '关怀内容', minWidth: 200},
+                    {field: 'executor_name', title: '执行人', width: 120},
+                    {field: 'created_at', title: '创建时间', width: 180, sort: true},
+                    {title: '操作', width: 150, toolbar: '#operationBar'}
+                ]],
+                page: true,
+                limit: 20,
+                limits: [10, 20, 50, 100]
+            });
+            
+            // 搜索功能
+            document.getElementById('searchBtn').addEventListener('click', function(){
+                var searchData = form.val('searchForm');
+                table.reload('employeeCareTable', {
+                    where: searchData
+                });
+            });
+            
+            // 新增按钮
+            document.getElementById('addBtn').addEventListener('click', function(){
+                layer.open({
+                    type: 2,
+                    title: '新增员工关怀记录',
+                    content: '{% url "user:employee_care_add" %}',
+                    area: ['800px', '600px'],
+                    end: function(){
+                        table.reload('employeeCareTable');
+                    }
+                });
+            });
+            
+            // 本月生日员工
+            document.getElementById('birthdayBtn').addEventListener('click', function(){
+                var currentMonth = new Date().getMonth() + 1;
+                table.reload('employeeCareTable', {
+                    where: {
+                        care_type: 'birthday',
+                        month: currentMonth
+                    }
+                });
+            });
+            
+            // 本月入职纪念
+            document.getElementById('anniversaryBtn').addEventListener('click', function(){
+                var currentMonth = new Date().getMonth() + 1;
+                table.reload('employeeCareTable', {
+                    where: {
+                        care_type: 'anniversary',
+                        month: currentMonth
+                    }
+                });
+            });
+            
+            // 表格操作
+            table.on('tool(employeeCareTable)', function(obj){
+                var data = obj.data;
+                if(obj.event === 'edit'){
+                    layer.open({
+                        type: 2,
+                        title: '编辑员工关怀记录',
+                        content: '{% url "user:employee_care_edit" 0 %}'.replace('0', data.id),
+                        area: ['800px', '600px'],
+                        end: function(){
+                            table.reload('employeeCareTable');
+                        }
+                    });
+                } else if(obj.event === 'delete'){
+                    layer.confirm('确定删除这条员工关怀记录吗？', function(index){
+                        var xhr = new XMLHttpRequest();
+                        xhr.open('DELETE', '/user/employee-care/' + data.id + '/delete/');
+                        xhr.setRequestHeader('Content-Type', 'application/json');
+                        xhr.onreadystatechange = function() {
+                            if (xhr.readyState === 4) {
+                                if (xhr.status === 200) {
+                                    var res = JSON.parse(xhr.responseText);
+                                    if(res.code === 0){
+                                        layer.msg('删除成功');
+                                        table.reload('employeeCareTable');
+                                    } else {
+                                        layer.msg(res.msg);
+                                    }
+                                } else {
+                                    layer.msg('删除失败');
+                                }
+                            }
+                        };
+                        xhr.send();
+                        layer.close(index);
+                    });
+                }
+            });
+        });
+    </script>
+    
+    <!-- 操作列模板 -->
+    <script type="text/html" id="operationBar">
+        <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
+        <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="delete">删除</a>
+    </script>
+</body>
+</html>

@@ -1,0 +1,414 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文档详情</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <h2>{{ document.title }}</h2>
+            </div>
+            <div class="layui-card-body">
+                <div class="layui-row layui-col-space15">
+                    <div class="layui-col-md6">
+                        <table class="layui-table">
+                            <tbody>
+                                <tr>
+                                    <td width="120"><strong>文档标题</strong></td>
+                                    <td>{{ document.title }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>所属项目</strong></td>
+                                    <td>{{ document.project.name }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>创建人</strong></td>
+                                    <td>{{ document.creator.username }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>创建时间</strong></td>
+                                    <td>{{ document.create_time|date:"Y-m-d H:i" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>更新时间</strong></td>
+                                    <td>{{ document.update_time|date:"Y-m-d H:i" }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="layui-col-md6">
+                        {% if document.file_path %}
+                        <div class="layui-card">
+                            <div class="layui-card-header">
+                                <h3>附件文件</h3>
+                            </div>
+                            <div class="layui-card-body">
+                                <p><strong>文件路径：</strong>{{ document.file_path }}</p>
+                                <p>
+                                    <button class="layui-btn layui-btn-sm" onclick="previewAttachment('{{ document.file_path }}', '{{ document.file_path|slice:"-4:"|lower }}')">
+                                        <i class="layui-icon layui-icon-read"></i> 预览文件
+                                    </button>
+                                    <a href="{{ document.file_path }}" target="_blank" class="layui-btn layui-btn-normal layui-btn-sm" style="margin-left: 10px;">
+                                        <i class="layui-icon layui-icon-download-circle"></i> 下载文件
+                                    </a>
+                                </p>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="layui-card">
+                            <div class="layui-card-body">
+                                <p style="color: #999; text-align: center;">暂无附件文件</p>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if document.content %}
+                <div class="layui-card" style="margin-top: 20px;">
+                    <div class="layui-card-header">
+                        <h3>文档内容</h3>
+                    </div>
+                    <div class="layui-card-body">
+                        <div style="white-space: pre-wrap; line-height: 1.6;">{{ document.content }}</div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div style="margin-top: 20px; text-align: center;">
+                    <button type="button" class="layui-btn layui-btn-primary" onclick="closeWindow()">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/office_preview.js' %}"></script>
+    <script>
+        function closeWindow() {
+            var index = parent.layer.getFrameIndex(window.name);
+            parent.layer.close(index);
+        }
+
+        // 预览附件文件
+        function previewAttachment(filePath, extension) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                var fileName = filePath.split('/').pop();
+                
+                // 显示加载中
+                var loadingIndex = layer.load(2, {
+                    shade: [0.3, '#000']
+                });
+                
+                // 根据文件类型决定预览方式
+                if (['.txt', '.log', '.md', '.json', '.xml', '.csv', '.js', '.html', '.css'].includes(extension)) {
+                    // 文本文件预览
+                    $.ajax({
+                        url: filePath,
+                        type: 'GET',
+                        dataType: 'text',
+                        success: function(content) {
+                            layer.close(loadingIndex);
+                            showTextPreview(fileName, content);
+                        },
+                        error: function() {
+                            layer.close(loadingIndex);
+                            layer.msg('预览失败，请尝试下载', {icon: 2});
+                        }
+                    });
+                } else if (['.jpg', '.jpeg', '.png', '.gif', '.bmp'].includes(extension)) {
+                    // 图片文件预览
+                    layer.close(loadingIndex);
+                    showImagePreview(fileName, filePath);
+                } else if (['.pdf'].includes(extension)) {
+                    // PDF文件预览
+                    layer.close(loadingIndex);
+                    layui.use(['layer'], function () {
+                        var layer = layui.layer;
+                        layer.open({
+                            type: 1,
+                            title: 'PDF预览 - ' + fileName,
+                            area: ['95%', '95%'],
+                            content: '<div style="padding:20px;height:calc(100% - 50px);display:flex;flex-direction:column;">' +
+                                     '<div style="flex:1;overflow:hidden;">' +
+                                     '<iframe src="' + filePath + '" style="width:100%;height:100%;border:none;" frameborder="0"></iframe>' +
+                                     '</div></div>',
+                            btn: ['下载', '关闭'],
+                            btn1: function(index) {
+                                window.open(filePath, '_blank');
+                            }
+                        });
+                    });
+                } else if (['.mp3', '.wav', '.ogg', '.flac'].includes(extension)) {
+                    // 音频文件预览
+                    layer.close(loadingIndex);
+                    showAudioPreview(fileName, filePath, getMimeType(extension));
+                } else if (['.mp4', '.webm', '.ogg', '.avi'].includes(extension)) {
+                    // 视频文件预览
+                    layer.close(loadingIndex);
+                    showVideoPreview(fileName, filePath, getMimeType(extension));
+                } else {
+                    // 检查是否为Office文档
+                    if (['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'].includes(extension)) {
+                        layer.close(loadingIndex);
+                        // Office文档使用统一预览组件
+                        var previewData = {
+                            name: fileName,
+                            office_type: extension.substring(1).toUpperCase(),
+                            file_path: filePath,
+                            // 由于是直接文件路径，我们需要模拟preview_options数据
+                            preview_options: [{
+                                name: '文档内容',
+                                type: 'iframe',
+                                content: filePath
+                            }]
+                        };
+                        
+                        // 调用统一预览组件
+                        standardOfficePreview(previewData);
+                    } else {
+                        // 不支持的文件类型
+                        layer.close(loadingIndex);
+                        layer.msg('不支持此文件类型的预览', {icon: 0});
+                    }
+                }
+            });
+        }
+
+        // 获取文件MIME类型
+        function getMimeType(extension) {
+            const mimeTypes = {
+                '.mp3': 'audio/mpeg',
+                '.wav': 'audio/wav',
+                '.ogg': 'audio/ogg',
+                '.flac': 'audio/flac',
+                '.mp4': 'video/mp4',
+                '.webm': 'video/webm',
+                '.ogg': 'video/ogg',
+                '.avi': 'video/avi'
+            };
+            return mimeTypes[extension] || 'application/octet-stream';
+        }
+
+        // 显示文本预览
+        function showTextPreview(fileName, content) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                var truncated = false;
+                
+                // 如果内容过长，进行截断
+                if (content.length > 10000) {
+                    content = content.substring(0, 10000) + '\n\n... 内容过长，已截断显示';
+                    truncated = true;
+                }
+                
+                layer.open({
+                    type: 1,
+                    title: '文本预览 - ' + fileName,
+                    area: ['80%', '80%'],
+                    content: '<div style="padding:20px;">' +
+                             (truncated ? '<div style="color:#f56c6c;margin-bottom:10px;">⚠️ 文件内容过长，已截断显示</div>' : '') +
+                             '<pre style="font-family:monospace;white-space:pre-wrap;overflow:auto;max-height:60vh;">' + escapeHtml(content) + '</pre></div>',
+                    btn: ['下载', '复制内容', '关闭'],
+                    btn1: function(index) {
+                        // 下载文件
+                        window.open(filePath, '_blank');
+                    },
+                    btn2: function(index) {
+                        // 复制内容到剪贴板
+                        navigator.clipboard.writeText(content).then(function() {
+                            layer.msg('复制成功', {icon: 1});
+                        }).catch(function() {
+                            layer.msg('复制失败', {icon: 2});
+                        });
+                        return false; // 不关闭弹窗
+                    }
+                });
+            });
+        }
+
+        // 显示图片预览
+        function showImagePreview(fileName, filePath) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                
+                // 创建预览容器
+                var previewContainer = document.createElement('div');
+                previewContainer.style.cssText = 'position: relative; width: 100%; height: 100%; overflow: hidden; background: #000;';
+                
+                var img = document.createElement('img');
+                img.src = filePath;
+                img.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); max-width: 100%; max-height: 80vh; cursor: move; transition: transform 0.1s ease;';
+                img.id = 'preview-image-' + Math.random().toString(36).substr(2, 9);
+                
+                previewContainer.appendChild(img);
+                
+                // 打开弹窗
+                var index = layer.open({
+                    type: 1,
+                    title: '图片预览 - ' + fileName,
+                    area: ['80%', '80%'],
+                    content: '<div style="padding:20px;height:calc(100% - 50px);">' + previewContainer.outerHTML + '</div>',
+                    maxmin: true,
+                    btn: ['下载', '关闭'],
+                    btn1: function(index) {
+                        // 创建临时链接下载图片
+                        var a = document.createElement('a');
+                        a.href = filePath;
+                        a.download = fileName;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        layer.close(index);
+                    }
+                });
+                
+                // 在弹窗打开后，获取实际的img元素并添加事件监听器
+                setTimeout(function() {
+                    var actualImg = document.getElementById(img.id);
+                    if (actualImg) {
+                        // 实现鼠标滚轮缩放和鼠标左键拖动
+                        var scale = 1;
+                        var isDragging = false;
+                        var startX = 0;
+                        var startY = 0;
+                        var offsetX = 0;
+                        var offsetY = 0;
+                        
+                        // 鼠标滚轮缩放
+                        actualImg.addEventListener('wheel', function(e) {
+                            e.preventDefault();
+                            
+                            // 计算缩放中心
+                            var rect = actualImg.getBoundingClientRect();
+                            var centerX = e.clientX - rect.left;
+                            var centerY = e.clientY - rect.top;
+                            
+                            // 计算缩放比例
+                            var delta = e.deltaY > 0 ? 0.9 : 1.1;
+                            var newScale = Math.max(0.1, Math.min(10, scale * delta));
+                            
+                            // 计算偏移量，使缩放中心保持不变
+                            var scaleDiff = newScale - scale;
+                            offsetX += centerX * scaleDiff / scale;
+                            offsetY += centerY * scaleDiff / scale;
+                            
+                            scale = newScale;
+                            
+                            // 应用变换
+                            actualImg.style.transform = 'translate(-50%, -50%) scale(' + scale + ') translate(' + offsetX + 'px, ' + offsetY + 'px)';
+                        });
+                        
+                        // 鼠标左键拖动
+                        actualImg.addEventListener('mousedown', function(e) {
+                            if (e.button === 0) { // 左键
+                                isDragging = true;
+                                startX = e.clientX;
+                                startY = e.clientY;
+                                actualImg.style.cursor = 'grabbing';
+                            }
+                        });
+                        
+                        document.addEventListener('mousemove', function(e) {
+                            if (isDragging) {
+                                var deltaX = e.clientX - startX;
+                                var deltaY = e.clientY - startY;
+                                
+                                offsetX += deltaX;
+                                offsetY += deltaY;
+                                
+                                actualImg.style.transform = 'translate(-50%, -50%) scale(' + scale + ') translate(' + offsetX + 'px, ' + offsetY + 'px)';
+                                
+                                startX = e.clientX;
+                                startY = e.clientY;
+                            }
+                        });
+                        
+                        document.addEventListener('mouseup', function(e) {
+                            if (e.button === 0) {
+                                isDragging = false;
+                                actualImg.style.cursor = 'move';
+                            }
+                        });
+                        
+                        // 阻止右键菜单
+                        actualImg.addEventListener('contextmenu', function(e) {
+                            e.preventDefault();
+                        });
+                    }
+                }, 100); // 等待弹窗完全渲染
+            });
+        }
+
+
+
+        // 显示音频预览
+        function showAudioPreview(fileName, filePath, mimeType) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 1,
+                    title: '音频预览 - ' + fileName,
+                    area: ['500px', '200px'],
+                    content: '<div style="padding:20px; text-align:center;">' +
+                             '<audio controls style="width:100%;">' +
+                             '<source src="' + filePath + '" type="' + mimeType + '">' +
+                             '您的浏览器不支持音频播放' +
+                             '</audio></div>',
+                    btn: ['下载', '关闭'],
+                    btn1: function(index) {
+                        window.open(filePath, '_blank');
+                    }
+                });
+            });
+        }
+
+        // 显示视频预览
+        function showVideoPreview(fileName, filePath, mimeType) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 1,
+                    title: '视频预览 - ' + fileName,
+                    area: ['90%', '90%'],
+                    content: '<div style="height:100%; display:flex; justify-content:center; align-items:center; background:#000;">' +
+                             '<video controls style="max-width:95%; max-height:95%;">' +
+                             '<source src="' + filePath + '" type="' + mimeType + '">' +
+                             '您的浏览器不支持视频播放' +
+                             '</video></div>',
+                    maxmin: true,
+                    end: function() {
+                        // 清理资源
+                        var video = document.querySelector('video');
+                        if (video) {
+                            video.pause();
+                            video.src = '';
+                        }
+                    }
+                });
+            });
+        }
+
+        // HTML转义函数
+        function escapeHtml(text) {
+            var map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,115 @@
+{% extends 'home/base.html' %}
+{% load static %}
+
+{% block title %}工作流详情 - {{ workflow.name }} - DTCALL管理后台{% endblock %}
+
+{% block content %}
+<div class="layui-fluid">
+    <div class="layui-card">
+        <div class="layui-card-header">
+            <h2>工作流详情</h2>
+        </div>
+        <div class="layui-card-body">
+            <!-- 工作流基本信息 -->
+            <div class="layui-form-item">
+                <div class="layui-row">
+                    <div class="layui-col-md6">
+                        <label class="layui-form-label">工作流名称：</label>
+                        <div class="layui-input-block">
+                            <span class="layui-form-text">{{ workflow.name }}</span>
+                        </div>
+                    </div>
+                    <div class="layui-col-md6">
+                        <label class="layui-form-label">状态：</label>
+                        <div class="layui-input-block">
+                            <span class="layui-form-text">
+                                <span class="layui-badge {% if workflow.status == 'draft' %}layui-bg-gray{% elif workflow.status == 'published' %}layui-bg-blue{% else %}layui-bg-black{% endif %}">
+                                    {{ workflow.get_status_display }}
+                                </span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">描述：</label>
+                <div class="layui-input-block">
+                    <span class="layui-form-text">{{ workflow.description|default:'无' }}</span>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <div class="layui-row">
+                    <div class="layui-col-md6">
+                        <label class="layui-form-label">创建者：</label>
+                        <div class="layui-input-block">
+                            <span class="layui-form-text">{{ workflow.owner.username }}</span>
+                        </div>
+                    </div>
+                    <div class="layui-col-md6">
+                        <label class="layui-form-label">创建时间：</label>
+                        <div class="layui-input-block">
+                            <span class="layui-form-text">{{ workflow.created_at }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <div class="layui-row">
+                    <div class="layui-col-md6">
+                        <label class="layui-form-label">更新时间：</label>
+                        <div class="layui-input-block">
+                            <span class="layui-form-text">{{ workflow.updated_at }}</span>
+                        </div>
+                    </div>
+                    <div class="layui-col-md6">
+                        <label class="layui-form-label">执行次数：</label>
+                        <div class="layui-input-block">
+                            <span class="layui-form-text">{{ workflow.executions.count }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 工作流节点信息 -->
+            <div class="layui-form-item">
+                <label class="layui-form-label">工作流节点：</label>
+                <div class="layui-input-block">
+                    <div class="layui-text">节点信息将在数据库迁移后显示</div>
+                </div>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="layui-form-item layui-layout-right">
+                <div class="layui-input-block">
+                    {% if user == workflow.owner or user.is_superuser %}
+                    <a href="{% url 'ai:workflow_designer' workflow.id %}" class="layui-btn">设计工作流</a>
+                    <a href="{% url 'ai:workflow_update' workflow.id %}" class="layui-btn layui-btn-normal">编辑信息</a>
+                    <button class="layui-btn layui-btn-danger" onclick="deleteWorkflow('{{ workflow.id }}')">删除</button>
+                    {% endif %}
+                    <a href="{% url 'ai:workflow_list' %}" class="layui-btn layui-btn-primary">返回列表</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+layui.use(['layer'], function() {
+    var layer = layui.layer;
+    
+    // 删除工作流确认
+    window.deleteWorkflow = function(workflowId) {
+        layer.confirm('确定要删除这个工作流吗？此操作不可撤销！', {
+            btn: ['确定删除', '取消'],
+            title: '删除确认'
+        }, function(index) {
+            window.location.href = '{% url 'ai:workflow_delete' workflow.id %}';
+            layer.close(index);
+        });
+    };
+});
+</script>
+{% endblock %}

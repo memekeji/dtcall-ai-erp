@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <style>
+        .layui-fluid {
+            padding: 15px;
+        }
+        .warning-alert {
+            background: #fff7e6;
+            border: 1px solid #ffd591;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #d48806;
+        }
+        .warning-alert i {
+            margin-right: 8px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <h3>数据还原管理</h3>
+                    </div>
+                    <div class="layui-card-body">
+                        <div class="warning-alert">
+                            <i class="layui-icon layui-icon-tips"></i>
+                            请谨慎操作数据还原功能，还原操作将覆盖当前数据，建议在还原前先进行数据备份。
+                        </div>
+
+                        <!-- 数据表格 -->
+                        <table class="layui-table">
+                            <thead>
+                                <tr>
+                                    <th>备份名称</th>
+                                    <th>备份类型</th>
+                                    <th>文件大小</th>
+                                    <th>创建者</th>
+                                    <th>备份时间</th>
+                                    <th>描述</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for backup in page_obj %}
+                                <tr>
+                                    <td>{{ backup.name }}</td>
+                                    <td>{{ backup.get_backup_type_display }}</td>
+                                    <td>{{ backup.file_size|filesizeformat }}</td>
+                                    <td>{{ backup.creator.username|default:'系统' }}</td>
+                                    <td>{{ backup.created_at|date:'Y-m-d H:i' }}</td>
+                                    <td>{{ backup.description|truncatechars:50 }}</td>
+                                    <td>
+                                        <button class="layui-btn layui-btn-normal layui-btn-xs" onclick="restoreBackup({{ backup.id }}, '{{ backup.name }}')">还原</button>
+                                
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" style="text-align: center; color: #999;">暂无可还原的备份数据</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+
+                        <!-- 分页 -->
+                        {% if page_obj.has_other_pages %}
+                        <div id="pagination"></div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['laypage', 'layer'], function(){
+            var laypage = layui.laypage;
+            var layer = layui.layer;
+            
+            {% if page_obj.has_other_pages %}
+            laypage.render({
+                elem: 'pagination',
+                count: {{ page_obj.paginator.count }},
+                curr: {{ page_obj.number }},
+                limit: 20,
+                layout: ['count', 'prev', 'page', 'next', 'limit', 'skip'],
+                jump: function(obj, first){
+                    if(!first){
+                        var url = new URL(window.location);
+                        url.searchParams.set('page', obj.curr);
+                        window.location.href = url.toString();
+                    }
+                }
+            });
+            {% endif %}
+        });
+
+        // 获取CSRF令牌
+        function getCookie(name) {
+            var cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        function restoreBackup(id, name) {
+            layui.use('layer', function(){
+                var layer = layui.layer;
+                layer.confirm('确定要还原备份 "' + name + '" 吗？<br><span style="color:red;">此操作将覆盖当前数据，请谨慎操作！</span>', {
+                    icon: 3, 
+                    title:'数据还原确认',
+                    area: ['400px', '200px']
+                }, function(index){
+                    // 显示加载层
+                    var loadIndex = layer.load(1, {shade: [0.5, '#000']});
+                    
+                    // 发送还原请求
+                    fetch('{% url "system:restore_backup" 0 %}'.replace('0', id), {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken'),
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({})
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        layer.close(loadIndex);
+                        if(data.success) {
+                            layer.msg(data.message, {icon: 1}, function(){
+                                location.reload();
+                            });
+                        } else {
+                            layer.msg(data.message, {icon: 2});
+                        }
+                    })
+                    .catch(error => {
+                        layer.close(loadIndex);
+                        layer.msg('还原失败：' + error.message, {icon: 2});
+                    });
+                    
+                    layer.close(index);
+                });
+            });
+        }
+
+
+    </script>
+</body>
+</html>

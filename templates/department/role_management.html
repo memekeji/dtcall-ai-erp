@@ -1,0 +1,767 @@
+{% load static %}
+
+<style>
+    /* 全局样式变量 - 与项目其他页面保持一致 */
+    :root {
+        --primary: #3b82f6;
+        --primary-hover: #2563eb;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-300: #d1d5db;
+        --gray-400: #9ca3af;
+        --gray-500: #6b7280;
+        --gray-600: #4b5563;
+        --gray-700: #374151;
+        --gray-800: #1f2937;
+        --border-radius: 8px;
+        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        --transition: all 0.3s ease;
+    }
+
+    /* 页面容器 */
+    .role-management-container {
+        max-width: 100%;
+        margin: 0 auto;
+        padding: 24px;
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-md);
+    }
+    
+    /* 部门信息卡片 */
+    .department-info {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+        padding: 24px;
+        border-radius: var(--border-radius);
+        margin-bottom: 24px;
+        color: white;
+        box-shadow: var(--shadow-md);
+    }
+    
+    .department-info h3 {
+        margin: 0 0 12px 0;
+        font-size: 24px;
+        font-weight: 600;
+    }
+    
+    .department-info p {
+        margin: 8px 0;
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 14px;
+    }
+    
+    /* 章节标题 */
+    .section-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--gray-800);
+        margin: 32px 0 16px 0;
+        padding-bottom: 12px;
+        border-bottom: 2px solid var(--gray-200);
+        display: flex;
+        align-items: center;
+    }
+    
+    .section-title::before {
+        content: '';
+        width: 4px;
+        height: 20px;
+        background: var(--primary);
+        border-radius: 2px;
+        margin-right: 12px;
+    }
+    
+    /* 继承关系设置 */
+    .inheritance-section {
+        background: white;
+        padding: 20px;
+        border-radius: var(--border-radius);
+        margin-bottom: 24px;
+        border: 1px solid var(--gray-200);
+        box-shadow: var(--shadow-sm);
+    }
+    
+    .inheritance-section h4 {
+        margin: 0 0 16px 0;
+        color: var(--primary);
+        font-size: 16px;
+        font-weight: 600;
+    }
+    
+    /* 角色列表 */
+    .role-list {
+        margin-bottom: 24px;
+    }
+    
+    /* 角色项 */
+    .role-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        border: 1px solid var(--gray-200);
+        border-radius: var(--border-radius);
+        margin-bottom: 12px;
+        background: white;
+        transition: var(--transition);
+        box-shadow: var(--shadow-sm);
+    }
+    
+    .role-item:hover {
+        border-color: var(--primary);
+        box-shadow: var(--shadow-md);
+        transform: translateY(-1px);
+    }
+    
+    /* 角色信息 */
+    .role-info {
+        flex: 1;
+    }
+    
+    .role-title {
+        font-weight: 600;
+        color: var(--gray-800);
+        font-size: 15px;
+    }
+    
+    .role-type {
+        color: var(--gray-500);
+        font-size: 12px;
+        margin-left: 8px;
+        background: var(--gray-100);
+        padding: 2px 8px;
+        border-radius: 12px;
+    }
+    
+    .role-source {
+        font-size: 13px;
+        color: var(--gray-500);
+        margin-top: 4px;
+    }
+    
+    /* 角色操作按钮组 */
+    .role-actions {
+        display: flex;
+        gap: 8px;
+    }
+    
+    /* 角色类型样式 */
+    .inherited-role {
+        border-left: 4px solid var(--success);
+    }
+    
+    .current-role {
+        border-left: 4px solid var(--primary);
+    }
+    
+    /* 默认角色标识 */
+    .default-badge {
+        background: var(--warning);
+        color: white;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+        margin-left: 8px;
+    }
+    
+    /* 添加角色区域 */
+    .add-role-section {
+        background: white;
+        padding: 24px;
+        border-radius: var(--border-radius);
+        margin-top: 24px;
+        border: 1px solid var(--gray-200);
+        box-shadow: var(--shadow-sm);
+    }
+    
+    /* 无角色提示 */
+    .no-roles {
+        text-align: center;
+        color: var(--gray-500);
+        padding: 48px 0;
+        background: var(--gray-50);
+        border-radius: var(--border-radius);
+        border: 1px dashed var(--gray-300);
+    }
+    
+    /* 自定义开关样式 */
+    .toggle-switch {
+        display: inline-block;
+        position: relative;
+        width: 50px;
+        height: 24px;
+        margin-right: 12px;
+    }
+    
+    .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    
+    .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: var(--gray-300);
+        transition: var(--transition);
+        border-radius: 24px;
+    }
+    
+    .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 20px;
+        width: 20px;
+        left: 2px;
+        bottom: 2px;
+        background-color: white;
+        transition: var(--transition);
+        border-radius: 50%;
+        box-shadow: var(--shadow-sm);
+    }
+    
+    input:checked + .toggle-slider {
+        background-color: var(--primary);
+    }
+    
+    input:checked + .toggle-slider:before {
+        transform: translateX(26px);
+    }
+
+    /* Layui表单样式覆盖 */
+    .layui-form {
+        margin: 0;
+    }
+
+    .layui-form-item {
+        margin-bottom: 20px;
+    }
+
+    .layui-form-label {
+        font-weight: 500;
+        color: var(--gray-700);
+    }
+
+    .layui-input, .layui-select, .layui-textarea {
+        border-radius: var(--border-radius);
+        border: 1px solid var(--gray-300);
+        transition: var(--transition);
+        height: 40px;
+    }
+
+    .layui-input:focus, .layui-select:focus, .layui-textarea:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .layui-btn {
+        border-radius: var(--border-radius);
+        transition: var(--transition);
+        font-weight: 500;
+        padding: 0 20px;
+    }
+
+    .layui-btn-normal {
+        background-color: var(--primary);
+        border-color: var(--primary);
+    }
+
+    .layui-btn-normal:hover {
+        background-color: var(--primary-hover);
+        border-color: var(--primary-hover);
+    }
+
+    .layui-btn-danger {
+        background-color: var(--danger);
+        border-color: var(--danger);
+    }
+
+    .layui-btn-danger:hover {
+        background-color: #dc2626;
+        border-color: #dc2626;
+    }
+
+    .layui-btn-xs {
+        padding: 0 10px;
+        height: 26px;
+        line-height: 26px;
+    }
+
+    /* 表单行间距调整 */
+    .layui-form-item {
+        margin-bottom: 20px;
+    }
+
+    /* 响应式调整 */
+    @media (max-width: 768px) {
+        .role-management-container {
+            padding: 16px;
+        }
+
+        .role-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .role-actions {
+            align-self: flex-end;
+        }
+    }
+</style>
+
+<div class="role-management-container">
+    <!-- 部门信息 -->
+    <div class="department-info">
+        <h3>{{ department.name }}</h3>
+        <p>部门代码: {{ department.code }}</p>
+        <p>部门层级: {{ department.level }}</p>
+        {% if parent_department %}
+        <p>上级部门: {{ parent_department.name }}</p>
+        {% endif %}
+    </div>
+    
+    <!-- 继承关系设置 -->
+    {% if parent_department %}
+    <div class="inheritance-section">
+        <h4>继承关系设置</h4>
+        <div class="layui-form">
+            <div class="layui-form-item">
+                <label class="layui-form-label">继承角色</label>
+                <div class="layui-input-block">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="inherit-roles" {% if inheritance and inheritance.inherit_roles %}checked{% endif %}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span>从上级部门继承角色</span>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">继承权限</label>
+                <div class="layui-input-block">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="inherit-permissions" {% if inheritance and inheritance.inherit_permissions %}checked{% endif %}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span>从上级部门继承权限</span>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button type="button" class="layui-btn layui-btn-normal" id="save-inheritance">
+                        <i class="layui-icon layui-icon-save"></i> 保存设置
+                    </button>
+                    {% if inheritance %}
+                    <button type="button" class="layui-btn layui-btn-danger" id="delete-inheritance">
+                        <i class="layui-icon layui-icon-delete"></i> 删除继承关系
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- 当前部门角色 -->
+    <div class="section-title">当前部门角色</div>
+    <div class="role-list" id="current-roles-list">
+        {% if current_roles %}
+            {% for role in current_roles %}
+            <div class="role-item current-role" data-role-id="{{ role.permission_group.id }}">
+                <div class="role-info">
+                    <div class="role-main-info">
+                        <span class="role-title">{{ role.permission_group.title }}</span>
+                        <span class="role-type">{{ role.permission_group.get_role_type_display }}</span>
+                        {% if role.is_default %}
+                        <span class="default-badge">默认</span>
+                        {% endif %}
+                    </div>
+                    <div class="role-meta-info">
+                        <span class="meta-item">
+                            <i class="layui-icon layui-icon-number"></i>
+                            优先级: {{ role.priority }}
+                        </span>
+                    </div>
+                </div>
+                <div class="role-actions">
+                    <button class="layui-btn layui-btn-xs layui-btn-danger remove-role-btn" 
+                            onclick="removeRole({{ role.permission_group.id }})"
+                            title="移除角色">
+                        <i class="layui-icon layui-icon-delete"></i> 移除
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-roles">
+                <i class="layui-icon layui-icon-user"></i>
+                <p>暂无角色</p>
+                <p style="font-size: 12px; color: var(--gray-400); margin-top: 8px;">点击下方添加角色按钮为部门分配角色</p>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- 继承的角色 -->
+    {% if parent_department %}
+    <div class="section-title">继承的角色</div>
+    <div class="role-list" id="inherited-roles-list">
+        <div class="no-roles">
+            <i class="layui-icon layui-anim layui-anim-rotate layui-anim-loop"></i>
+            <p>加载中...</p>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- 添加角色 -->
+    <div class="add-role-section">
+        <div class="section-title">添加角色</div>
+        <div class="layui-form" lay-filter="add-role-form">
+            <div class="layui-form-item">
+                <label class="layui-form-label">选择角色</label>
+                <div class="layui-input-block">
+                    <select name="role-select" id="role-select" lay-verify="required" 
+                            lay-filter="role-select">
+                        <option value="">请选择角色</option>
+                        {% for role in available_roles %}
+                        <option value="{{ role.id }}">{{ role.title }} ({{ role.get_role_type_display }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">设为默认</label>
+                <div class="layui-input-block">
+                    <input type="checkbox" name="is-default" id="is-default" 
+                           lay-skin="switch" lay-text="是|否" lay-filter="default-switch">
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">优先级</label>
+                <div class="layui-input-block">
+                    <input type="number" name="priority" id="priority" value="0" 
+                           class="layui-input" min="0" max="100" placeholder="请输入优先级">
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button type="button" class="layui-btn layui-btn-normal" id="add-role">
+                        <i class="layui-icon layui-icon-add-circle"></i> 添加角色
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    var departmentId = {{ department.id }};
+    
+    // 使用父页面的layui实例，避免重新初始化
+    if (typeof layui !== 'undefined') {
+        var form = layui.form;
+        var layer = layui.layer;
+        var $ = layui.jquery;
+        
+        // 渲染表单
+        form.render();
+        
+        // 加载继承的角色
+        loadInheritedRoles();
+        
+        // 保存继承关系设置
+        $('#save-inheritance').on('click', function() {
+            var inheritRoles = $('#inherit-roles').is(':checked');
+            var inheritPermissions = $('#inherit-permissions').is(':checked');
+            
+            // 添加加载动画
+            var loadingIndex = layer.load(2, {shade: [0.3, '#fff']});
+            
+            $.ajax({
+                url: '/system/department/' + departmentId + '/inheritance/',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    inherit_roles: inheritRoles,
+                    inherit_permissions: inheritPermissions
+                }),
+                headers: {
+                    'X-CSRFToken': getCsrfToken()
+                },
+                success: function(res) {
+                    layer.close(loadingIndex);
+                    if (res.code === 0) {
+                        layer.msg('保存成功', {icon: 1, time: 1500});
+                        // 重新加载继承的角色
+                        loadInheritedRoles();
+                    } else {
+                        layer.msg(res.msg || '保存失败', {icon: 2, time: 2000});
+                    }
+                },
+                error: function() {
+                    layer.close(loadingIndex);
+                    layer.msg('网络错误，请稍后重试', {icon: 2, time: 2000});
+                }
+            });
+        });
+        
+        // 删除继承关系
+        $('#delete-inheritance').on('click', function() {
+            layer.confirm('确定要删除继承关系吗？', {
+                icon: 3,
+                title: '确认删除',
+                btn: ['确定', '取消'],
+                btnAlign: 'c'
+            }, function(index) {
+                var loadingIndex = layer.load(2, {shade: [0.3, '#fff']});
+                
+                $.ajax({
+                    url: '/system/department/' + departmentId + '/inheritance/',
+                    type: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': getCsrfToken()
+                    },
+                    success: function(res) {
+                        layer.close(loadingIndex);
+                        if (res.code === 0) {
+                            layer.msg('删除成功', {icon: 1, time: 1500});
+                            setTimeout(function() {
+                                location.reload();
+                            }, 1500);
+                        } else {
+                            layer.msg(res.msg || '删除失败', {icon: 2, time: 2000});
+                        }
+                    },
+                    error: function() {
+                        layer.close(loadingIndex);
+                        layer.msg('网络错误，请稍后重试', {icon: 2, time: 2000});
+                    }
+                });
+                layer.close(index);
+            });
+        });
+        
+        // 添加角色
+        $('#add-role').on('click', function() {
+            var roleId = $('#role-select').val();
+            var isDefault = $('#is-default').is(':checked');
+            var priority = $('#priority').val();
+            
+            // 表单验证
+            if (!roleId) {
+                layer.msg('请选择要添加的角色', {icon: 2, time: 1500});
+                $('#role-select').focus();
+                return;
+            }
+            
+            // 验证优先级范围
+            if (priority < 0 || priority > 100) {
+                layer.msg('优先级必须在0-100之间', {icon: 2, time: 1500});
+                $('#priority').focus();
+                return;
+            }
+            
+            // 添加加载动画
+            var loadingIndex = layer.load(2, {shade: [0.3, '#fff']});
+            
+            $.ajax({
+                url: '/system/department/' + departmentId + '/roles/',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    role_id: roleId,
+                    is_default: isDefault,
+                    priority: priority
+                }),
+                headers: {
+                    'X-CSRFToken': getCsrfToken()
+                },
+                success: function(res) {
+                    layer.close(loadingIndex);
+                    if (res.code === 0) {
+                        layer.msg('添加角色成功', {icon: 1, time: 1500});
+                        setTimeout(function() {
+                            // 刷新父页面数据
+                            if (window.parent && window.parent.refreshDepartmentData) {
+                                window.parent.refreshDepartmentData();
+                            } else {
+                                location.reload();
+                            }
+                        }, 1500);
+                    } else {
+                        layer.msg(res.msg || '添加失败', {icon: 2, time: 2000});
+                    }
+                },
+                error: function() {
+                    layer.close(loadingIndex);
+                    layer.msg('网络错误，请稍后重试', {icon: 2, time: 2000});
+                }
+            });
+        });
+        
+        // 表单控件事件监听
+        form.on('select(role-select)', function(data) {
+            // 角色选择事件
+            console.log('选择了角色:', data.value);
+        });
+        
+        form.on('switch(default-switch)', function(data) {
+            // 默认角色开关事件
+            console.log('默认角色开关:', data.elem.checked);
+        });
+        
+        // 添加按钮点击效果
+        $('.layui-btn').on('click', function(e) {
+            var btn = $(this);
+            btn.addClass('layui-btn-disabled');
+            setTimeout(function() {
+                btn.removeClass('layui-btn-disabled');
+            }, 1000);
+        });
+    }
+    
+    // 移除角色
+    function removeRole(roleId) {
+        layui.layer.confirm('确定要移除该角色吗？', {
+            icon: 3,
+            title: '确认移除',
+            btn: ['确定', '取消'],
+            btnAlign: 'c'
+        }, function(index) {
+            var loadingIndex = layui.layer.load(2, {shade: [0.3, '#fff']});
+            
+            $.ajax({
+                url: '/system/department/' + departmentId + '/roles/',
+                type: 'DELETE',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    role_id: roleId
+                }),
+                headers: {
+                    'X-CSRFToken': getCsrfToken()
+                },
+                success: function(res) {
+                    layui.layer.close(loadingIndex);
+                    if (res.code === 0) {
+                        layui.layer.msg('移除角色成功', {icon: 1, time: 1500});
+                        // 平滑移除元素
+                        $('[data-role-id="' + roleId + '"]').fadeOut(300, function() {
+                            $(this).remove();
+                            // 检查是否还有角色
+                            if ($('.role-item.current-role').length === 0) {
+                                $('#current-roles-list').html(`<div class="no-roles">
+                                    <i class="layui-icon"></i>
+                                    <p>暂无角色</p>
+                                    <p style="font-size: 12px; color: var(--gray-400); margin-top: 8px;">点击下方添加角色按钮为部门分配角色</p>
+                                </div>`);
+                            }
+                        });
+                    } else {
+                        layui.layer.msg(res.msg || '移除失败', {icon: 2, time: 2000});
+                    }
+                },
+                error: function() {
+                    layui.layer.close(loadingIndex);
+                    layui.layer.msg('网络错误，请稍后重试', {icon: 2, time: 2000});
+                }
+            });
+            layui.layer.close(index);
+        });
+    }
+    
+    // 加载继承的角色
+    function loadInheritedRoles() {
+        var container = $('#inherited-roles-list');
+        container.html(`<div class="no-roles">
+            <i class="layui-icon layui-anim layui-anim-rotate layui-anim-loop"></i>
+            <p>加载中...</p>
+        </div>`);
+        
+        $.ajax({
+            url: '/system/department/' + departmentId + '/roles/',
+            type: 'GET',
+            success: function(res) {
+                if (res.code === 0) {
+                    var inheritedRoles = res.data.inherited_roles;
+                    
+                    if (inheritedRoles.length > 0) {
+                        var html = '';
+                        inheritedRoles.forEach(function(role) {
+                            html += '<div class="role-item inherited-role" data-inherited-role-id="' + role.id + '">';
+                            html += '<div class="role-info">';
+                            html += '<div class="role-main-info">';
+                            html += '<span class="role-title">' + role.title + '</span>';
+                            html += '<span class="role-type">' + role.role_type + '</span>';
+                            html += '</div>';
+                            html += '<div class="role-meta-info">';
+                            html += '<span class="meta-item">';
+                            html += '<i class="layui-icon"></i>';
+                            html += '继承自上级部门';
+                            html += '</span>';
+                            html += '</div>';
+                            html += '</div>';
+                            html += '</div>';
+                        });
+                        container.hide().html(html).fadeIn(300);
+                    } else {
+                        container.html(`<div class="no-roles">
+                            <i class="layui-icon"></i>
+                            <p>暂无继承的角色</p>
+                        </div>`);
+                    }
+                }
+            },
+            error: function() {
+                container.html(`<div class="no-roles">
+                    <i class="layui-icon"></i>
+                    <p>加载失败</p>
+                    <p style="font-size: 12px; color: var(--gray-400); margin-top: 8px;">点击刷新页面重试</p>
+                </div>`);
+            }
+        });
+    }
+    
+    // 获取CSRF令牌
+    function getCsrfToken() {
+        var name = 'csrftoken';
+        var cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            var cookies = document.cookie.split(';');
+            for (var i = 0; i < cookies.length; i++) {
+                var cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // 添加页面加载动画
+    $(document).ready(function() {
+        // 页面元素淡入效果
+        $('.role-management-container').hide().fadeIn(500);
+        
+        // 滚动平滑效果
+        $('a[href^="#"]').on('click', function(event) {
+            event.preventDefault();
+            var target = $(this.getAttribute('href'));
+            if (target.length) {
+                $('html, body').stop().animate({
+                    scrollTop: target.offset().top
+                }, 800);
+            }
+        });
+    });
+</script>

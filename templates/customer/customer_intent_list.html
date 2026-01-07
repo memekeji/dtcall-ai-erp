@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>客户意向管理</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <style>
+        /* 自适应样式优化 */
+        @media screen and (max-width: 768px) {
+            .layui-col-xs12 {
+                margin-bottom: 10px;
+            }
+            .search-form {
+                text-align: left !important;
+            }
+            .search-input {
+                width: 100% !important;
+                margin-bottom: 10px;
+            }
+            .search-btn {
+                width: 100%;
+            }
+        }
+        
+        @media screen and (min-width: 769px) {
+            .search-form {
+                text-align: right;
+            }
+            .search-input {
+                width: 200px;
+            }
+        }
+        
+        /* 工具栏按钮样式 */
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        /* 拖拽排序样式 */
+        .layui-table-body tr.dragging {
+            background-color: #e6f7ff !important;
+            border: 1px solid #91d5ff !important;
+            opacity: 0.8;
+            transform: scale(1.02);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+            z-index: 9999;
+        }
+        
+        .layui-table-body tr {
+            transition: all 0.3s ease;
+        }
+        
+        /* 排序输入框样式 */
+        .sort-input {
+            cursor: text !important;
+            border: 1px solid #e6e6e6;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+        
+        .sort-input:focus {
+            border-color: #1E9FFF;
+            box-shadow: 0 0 0 2px rgba(30, 159, 255, 0.2);
+        }
+        
+        @media screen and (max-width: 768px) {
+            .toolbar-right {
+                justify-content: flex-start;
+                margin-top: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <h3>客户意向管理</h3>
+                    </div>
+                    <div class="layui-card-body">
+                        <!-- 工具栏和搜索表单 -->
+                        <div class="layui-row layui-col-space10" style="margin-bottom: 15px;">
+                            <!-- 左侧工具栏 -->
+                            <div class="layui-col-xs12 layui-col-sm6 layui-col-md4">
+                                <div class="toolbar-left">
+                                    <a href="{% url 'customer:customer_intent_form' %}" class="layui-btn layui-btn-sm">
+                                        <i class="layui-icon layui-icon-add-1"></i> 添加意向
+                                    </a>
+                                </div>
+                            </div>
+                            <!-- 右侧搜索表单 -->
+                            <div class="layui-col-xs12 layui-col-sm6 layui-col-md8">
+                                <div class="toolbar-right">
+                                    <form class="layui-form search-form" id="searchForm">
+                                        {% csrf_token %}
+                                        <div class="layui-inline">
+                                            <input type="text" name="search" placeholder="意向名称" class="layui-input search-input">
+                                        </div>
+                                        <div class="layui-inline">
+                                            <button type="submit" class="layui-btn search-btn">
+                                                <i class="layui-icon layui-icon-search"></i> 搜索
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 数据表格 -->
+                        <table class="layui-hide" id="intentTable" lay-filter="intentTable"></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 行工具栏模板 -->
+    <script type="text/html" id="barDemo">
+        <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
+        <a class="layui-btn layui-btn-xs" lay-event="toggle">切换状态</a>
+        <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="del">删除</a>
+    </script>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['table', 'form', 'layer', 'jquery'], function(){
+            var table = layui.table;
+            var form = layui.form;
+            var layer = layui.layer;
+            var $ = layui.jquery;
+            
+            // 初始化表格
+            table.render({
+                elem: '#intentTable',
+                url: '{% url "customer:customer_intent_list_data" %}',
+                cols: [[
+                    {field: 'id', title: 'ID', width: 80},
+                    {field: 'name', title: '意向名称', width: 200},
+                    {field: 'sort', title: '排序', width: 100, edit: 'text', templet: function(d) {
+                        return '<input type="number" class="layui-input sort-input" value="' + d.sort + '" data-id="' + d.id + '" style="width: 60px; text-align: center;">';
+                    }},
+                    {field: 'status', title: '状态', width: 100, templet: function(d) {
+                        return d.status ? '<span style="color: #5FB878;">启用</span>' : '<span style="color: #FF5722;">禁用</span>';
+                    }},
+                    {field: 'create_time', title: '创建时间', width: 160},
+                    {title: '操作', width: 250, fixed: 'right', align: 'center', toolbar: '#barDemo'}
+                ]],
+                page: true,
+                limits: [10, 20, 50],
+                limit: 20,
+                loading: true,
+                text: {
+                    none: '暂无相关数据'
+                },
+                parseData: function(res) {
+                    return {
+                        "code": res.code,
+                        "msg": res.msg,
+                        "count": res.count,
+                        "data": res.data
+                    };
+                }
+            });
+            
+            // 搜索表单提交
+            form.on('submit()', function(data) {
+                table.reload('intentTable', {
+                    where: data.field,
+                    page: {curr: 1}
+                });
+                return false;
+            });
+            
+            // 行工具栏事件
+            table.on('tool(intentTable)', function(obj) {
+                var data = obj.data;
+                switch(obj.event) {
+                    case 'edit':
+                        window.location.href = '{% url "customer:customer_intent_form_edit" 0 %}'.replace('0', data.id);
+                        break;
+                    case 'toggle':
+                        toggleIntentStatus(data.id);
+                        break;
+                    case 'del':
+                        layer.confirm('确定删除该意向吗？', function(index) {
+                            deleteIntent(data.id);
+                            layer.close(index);
+                        });
+                        break;
+                }
+            });
+            
+            // 切换状态
+            function toggleIntentStatus(id) {
+                $.post('{% url "customer:customer_intent_toggle" 0 %}'.replace('0', id), {
+                    csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+                }, function(res) {
+                    if (res.code === 0) {
+                        layer.msg(res.msg);
+                        table.reload('intentTable');
+                    } else {
+                        layer.msg(res.msg || '操作失败');
+                    }
+                });
+            }
+            
+            // 更新排序
+            function updateSort(id, sortValue) {
+                $.post('{% url "customer:customer_intent_update_sort" 0 %}'.replace('0', id), {
+                    csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val(),
+                    sort: sortValue
+                }, function(res) {
+                    if (res.code === 0) {
+                        layer.msg(res.msg || '排序更新成功');
+                        table.reload('intentTable');
+                    } else {
+                        layer.msg(res.msg || '排序更新失败');
+                    }
+                }).fail(function(jqXHR, textStatus, errorThrown) {
+                    console.log('AJAX error:', textStatus, errorThrown);
+                    layer.msg('排序更新失败: ' + textStatus);
+                });
+            }
+            
+            // 删除意向
+            function deleteIntent(id) {
+                var url = '{% url "customer:customer_intent_delete" 0 %}'.replace('0', id);
+                console.log('Delete URL:', url);
+                $.post(url, {
+                    csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+                }, function(res) {
+                    console.log('Delete response:', res);
+                    if (res.code === 0) {
+                        layer.msg('删除成功');
+                        table.reload('intentTable');
+                    } else {
+                        layer.msg(res.msg || '删除失败');
+                    }
+                }).fail(function(jqXHR, textStatus, errorThrown) {
+                    console.log('AJAX error:', textStatus, errorThrown);
+                    console.log('Response:', jqXHR.responseText);
+                    layer.msg('删除失败: ' + textStatus);
+                });
+            }
+            
+            // 事件监听：排序输入框失去焦点
+            $('body').on('blur', '.sort-input', function() {
+                var id = $(this).data('id');
+                var sortValue = parseInt($(this).val());
+                if (!isNaN(sortValue)) {
+                    updateSort(id, sortValue);
+                } else {
+                    layer.msg('请输入有效的数字');
+                    // 恢复原来的值
+                    var tr = $(this).closest('tr');
+                    var oldValue = table.cache.intentTable[tr.data('index')].sort;
+                    $(this).val(oldValue);
+                }
+            });
+            
+            // 事件监听：排序输入框回车键
+            $('body').on('keydown', '.sort-input', function(e) {
+                if (e.keyCode === 13) {
+                    var id = $(this).data('id');
+                    var sortValue = parseInt($(this).val());
+                    if (!isNaN(sortValue)) {
+                        updateSort(id, sortValue);
+                    } else {
+                        layer.msg('请输入有效的数字');
+                        // 恢复原来的值
+                        var tr = $(this).closest('tr');
+                        var oldValue = table.cache.intentTable[tr.data('index')].sort;
+                        $(this).val(oldValue);
+                    }
+                }
+            });
+            
+            // 表格行拖拽排序功能
+            function initDragSort() {
+                // 添加拖拽样式
+                $('.layui-table-body tr').css({
+                    'cursor': 'move',
+                    'user-select': 'none'
+                });
+                
+                var dragging = false;
+                var currentTr;
+                var startIndex;
+                var initialOrder = [];
+                
+                // 鼠标按下事件
+                $('.layui-table-body').on('mousedown', 'tr[data-index]', function(e) {
+                    // 跳过输入框
+                    if (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'button') return;
+                    
+                    dragging = true;
+                    currentTr = $(this);
+                    startIndex = currentTr.data('index');
+                    
+                    // 记录初始排序
+                    $('.layui-table-body tr[data-index]').each(function() {
+                        var index = $(this).data('index');
+                        var rowData = table.cache.intentTable[index];
+                        if (rowData) {
+                            initialOrder.push({
+                                id: rowData.id,
+                                sort: rowData.sort
+                            });
+                        }
+                    });
+                    
+                    // 添加拖拽中样式
+                    currentTr.addClass('dragging');
+                    
+                    // 阻止默认行为
+                    e.preventDefault();
+                });
+                
+                // 鼠标移动事件
+                $(document).on('mousemove', function(e) {
+                    if (!dragging || !currentTr) return;
+                    
+                    // 计算当前鼠标位置
+                    var currentY = e.pageY;
+                    var trTop = currentTr.offset().top;
+                    var trHeight = currentTr.outerHeight();
+                    
+                    // 检查是否需要交换位置
+                    var tableBody = currentTr.closest('.layui-table-body');
+                    var rows = tableBody.find('tr[data-index]');
+                    
+                    rows.each(function() {
+                        var tr = $(this);
+                        if (tr.is(currentTr)) return;
+                        
+                        var trOffset = tr.offset();
+                        if (currentY > trOffset.top && currentY < trOffset.top + trHeight) {
+                            // 交换位置
+                            if (currentY < trOffset.top + trHeight / 2) {
+                                // 向上移动
+                                currentTr.insertBefore(tr);
+                            } else {
+                                // 向下移动
+                                currentTr.insertAfter(tr);
+                            }
+                        }
+                    });
+                });
+                
+                // 鼠标释放事件
+                $(document).on('mouseup', function() {
+                    if (!dragging || !currentTr) {
+                        dragging = false;
+                        currentTr = null;
+                        return;
+                    }
+                    
+                    dragging = false;
+                    currentTr.removeClass('dragging');
+                    
+                    // 获取新的排序顺序
+                    var newOrder = [];
+                    $('.layui-table-body tr[data-index]').each(function(index) {
+                        var index = $(this).data('index');
+                        var rowData = table.cache.intentTable[index];
+                        if (rowData) {
+                            newOrder.push({
+                                id: rowData.id,
+                                sort: index
+                            });
+                        }
+                    });
+                    
+                    // 批量更新排序
+                    $.post('{% url "customer:customer_intent_batch_update_sort" %}', {
+                        csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val(),
+                        sort_order: JSON.stringify(newOrder)
+                    }, function(res) {
+                        if (res.code === 0) {
+                            layer.msg('排序更新成功');
+                            table.reload('intentTable');
+                        } else {
+                            layer.msg(res.msg || '排序更新失败');
+                        }
+                    }).fail(function(jqXHR, textStatus, errorThrown) {
+                        console.log('AJAX error:', textStatus, errorThrown);
+                        layer.msg('排序更新失败: ' + textStatus);
+                    });
+                    
+                    currentTr = null;
+                });
+            }
+            
+            // 表格渲染完成后初始化拖拽排序
+            table.on('done(intentTable)', function() {
+                initDragSort();
+            });
+            
+            // 初始加载后初始化拖拽排序
+            initDragSort();
+        });
+    </script>
+</body>
+</html>

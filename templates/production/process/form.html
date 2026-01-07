@@ -1,0 +1,129 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if process_route %}编辑工艺路线{% else %}添加工艺路线{% endif %}</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+        }
+        .layui-fluid {
+            padding: 15px;
+        }
+        h2 {
+            margin: 0 0 15px 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layui-fluid">
+        <!-- 页面标题 -->
+        <h2>
+            {% if process_route %}编辑工艺路线{% else %}添加工艺路线{% endif %}
+        </h2>
+
+        <!-- 表单 -->
+        <div class="layui-card">
+            <div class="layui-card-body">
+                <form class="layui-form" method="post" id="processRouteForm">
+                    {% csrf_token %}
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">工艺路线名称 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.name }}
+                            {% if form.name.errors %}
+                                <div style="color: red; margin-top: 5px;">{{ form.name.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">工艺路线编码 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.code }}
+                            {% if form.code.errors %}
+                                <div style="color: red; margin-top: 5px;">{{ form.code.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item layui-form-text">
+                        <label class="layui-form-label">工艺路线描述</label>
+                        <div class="layui-input-block">
+                            {{ form.description }}
+                            {% if form.description.errors %}
+                                <div style="color: red; margin-top: 5px;">{{ form.description.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item">
+                        <div class="layui-input-block">
+                            <input type="checkbox" name="status" {% if form.status.value %}checked{% endif %} lay-skin="switch" lay-text="启用|禁用">
+                            {% if form.status.errors %}
+                                <div style="color: red; margin-top: 5px;">{{ form.status.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item">
+                        <div class="layui-input-block">
+                            <button class="layui-btn" lay-submit lay-filter="formSubmit">
+                                {% if process_route %}更新{% else %}保存{% endif %}
+                            </button>
+                            <button type="button" class="layui-btn layui-btn-primary" onclick="parent.layer.closeAll()">
+                                取消
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['form', 'layer'], function () {
+            var form = layui.form;
+            var layer = layui.layer;
+
+            // 监听提交
+            form.on('submit(formSubmit)', function(data) {
+                // 表单提交成功后，关闭弹出窗口并刷新父页面
+                $.ajax({
+                    url: window.location.href,
+                    type: 'POST',
+                    data: $('#processRouteForm').serialize(),
+                    success: function(response) {
+                        // 检查是否有表单错误
+                        if (response.indexOf('error') > -1 || response.indexOf('errors') > -1) {
+                            // 有错误，重新加载页面显示错误
+                            window.location.reload();
+                        } else {
+                            // 成功，关闭弹出窗口并刷新父页面
+                            parent.layer.closeAll();
+                            parent.window.location.reload();
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        layer.msg('提交失败，请稍后重试');
+                    }
+                });
+                return false; // 阻止表单默认提交
+            });
+        });
+    </script>
+</body>
+
+</html>

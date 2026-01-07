@@ -1,0 +1,235 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>质量管理</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .search-form {
+            margin-bottom: 15px;
+        }
+        .table-toolbar {
+            margin-bottom: 15px;
+        }
+        .result-qualified {
+            color: #5FB878;
+        }
+        .result-unqualified {
+            color: #FF5722;
+        }
+        .result-pending {
+            color: #FFB800;
+        }
+        .rate-display {
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <!-- 页面标题 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <h2 style="margin-bottom: 20px;">质量管理</h2>
+            </div>
+        </div>
+
+        <!-- 工具栏 -->
+        <div class="layui-row table-toolbar">
+            <div class="layui-col-md6">
+                <button class="layui-btn" onclick="location.href='{% url 'production:quality_check_add' %}'">
+                    <i class="layui-icon layui-icon-add-1"></i> 添加质检记录
+                </button>
+                <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:production_task_index' %}'">
+                    <i class="layui-icon layui-icon-return"></i> 返回
+                </button>
+            </div>
+            <div class="layui-col-md6" style="text-align: right;">
+                <form method="get" class="layui-form layui-form-pane" style="display: inline-block;">
+                    <div class="layui-input-group">
+                        <select name="task" lay-search>
+                            <option value="">全部任务</option>
+                            {% for task in tasks %}
+                                <option value="{{ task.id }}" {% if selected_task == task.id|stringformat:"s" %}selected{% endif %}>{{ task.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <select name="result" lay-search>
+                            <option value="">全部结果</option>
+                            {% for value, label in result_choices %}
+                                <option value="{{ value }}" {% if selected_result == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="layui-input-split layui-input-suffix">
+                            <button class="layui-btn" type="submit">
+                                <i class="layui-icon layui-icon-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 数据表格 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-body" style="padding: 0;">
+                        <table class="layui-table" lay-skin="line">
+                            <thead>
+                                <tr>
+                                    <th>关联任务</th>
+                                    <th>检查员</th>
+                                    <th>检查数量</th>
+                                    <th>合格数量</th>
+                                    <th>不合格数量</th>
+                                    <th>合格率</th>
+                                    <th>检查结果</th>
+                                    <th>检查时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for quality_check in page_obj %}
+                                <tr>
+                                    <td>{{ quality_check.task.name }}</td>
+                                    <td>{{ quality_check.checker.username|default:"-" }}</td>
+                                    <td>{{ quality_check.check_quantity }}</td>
+                                    <td>{{ quality_check.qualified_quantity }}</td>
+                                    <td>{{ quality_check.defective_quantity }}</td>
+                                    <td>
+                                        <span class="rate-display 
+                                            {% if quality_check.qualified_rate >= 95 %}result-qualified
+                                            {% elif quality_check.qualified_rate >= 80 %}result-pending
+                                            {% else %}result-unqualified{% endif %}">
+                                            {{ quality_check.qualified_rate }}%
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if quality_check.result == 1 %}
+                                            <span class="result-qualified">合格</span>
+                                        {% elif quality_check.result == 2 %}
+                                            <span class="result-unqualified">不合格</span>
+                                        {% elif quality_check.result == 3 %}
+                                            <span class="result-pending">待检</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ quality_check.check_time|date:"Y-m-d H:i" }}</td>
+                                    <td>
+                                        <button class="layui-btn layui-btn-xs" onclick="location.href='{% url 'production:quality_check_edit' quality_check.pk %}'">
+                                            <i class="layui-icon layui-icon-edit"></i> 编辑
+                                        </button>
+                                        {% if quality_check.defect_description %}
+                                        <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="viewDefect('{{ quality_check.defect_description|escapejs }}')">
+                                            <i class="layui-icon layui-icon-search"></i> 缺陷
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" style="text-align: center; padding: 40px; color: #999;">
+                                        暂无数据
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分页 -->
+        {% if page_obj.has_other_pages %}
+        <div class="layui-row" style="margin-top: 20px;">
+            <div class="layui-col-md12" style="text-align: center;">
+                <div id="pagination"></div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 质量统计 -->
+        <div class="layui-row" style="margin-top: 20px;">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">质量统计</div>
+                    <div class="layui-card-body">
+                        <div class="layui-row layui-col-space15">
+                            <div class="layui-col-md3" style="text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #1E9FFF;">
+                                    {{ page_obj.paginator.count }}
+                                </div>
+                                <div style="color: #666;">总检查次数</div>
+                            </div>
+                            <div class="layui-col-md3" style="text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #5FB878;">
+                                    95%
+                                </div>
+                                <div style="color: #666;">平均合格率</div>
+                            </div>
+                            <div class="layui-col-md3" style="text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #FFB800;">
+                                    3
+                                </div>
+                                <div style="color: #666;">待检项目</div>
+                            </div>
+                            <div class="layui-col-md3" style="text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #FF5722;">
+                                    2
+                                </div>
+                                <div style="color: #666;">不合格项目</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['layer', 'laypage', 'form'], function () {
+            var layer = layui.layer;
+            var laypage = layui.laypage;
+            var form = layui.form;
+
+            {% if page_obj.has_other_pages %}
+            // 分页
+            laypage.render({
+                elem: 'pagination',
+                count: {{ page_obj.paginator.count }},
+                limit: 20,
+                curr: {{ page_obj.number }},
+                jump: function(obj, first) {
+                    if (!first) {
+                        var url = new URL(window.location);
+                        url.searchParams.set('page', obj.curr);
+                        window.location.href = url.toString();
+                    }
+                }
+            });
+            {% endif %}
+        });
+
+        function viewDefect(description) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 1,
+                    title: '缺陷描述',
+                    shadeClose: true,
+                    shade: 0.3,
+                    area: ['500px', '300px'],
+                    content: '<div style="padding: 20px;">' + description + '</div>'
+                });
+            });
+        }
+    </script>
+</body>
+
+</html>

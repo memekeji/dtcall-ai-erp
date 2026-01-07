@@ -1,0 +1,350 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>经营大屏 - DTCall管理系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <style>
+        .card-gradient {
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 1));
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans text-gray-800 min-h-screen">
+    <!-- 顶部导航 -->
+    <header class="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-6">
+                <h1 class="text-xl font-bold text-purple-600">经营数据大屏</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="text-sm text-gray-500">数据更新时间: {{ last_updated|date:"Y-m-d H:i:s" }}</span>
+                <a href="/dashboard/" class="text-purple-600 hover:text-purple-800">返回总览</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 py-6">
+        <!-- 核心指标卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <!-- 新增客户 -->
+            <div class="card-gradient rounded-xl p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-gray-500 text-sm">本月新增客户</p>
+                        <h3 class="text-3xl font-bold mt-1 text-blue-600">{{ new_customers }}</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
+                        <i class="fa fa-user-plus text-blue-600 text-xl"></i>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <span class="text-green-600 flex items-center text-sm">
+                        <i class="fa fa-arrow-up mr-1"></i> {{ new_customers_growth|floatformat:1 }}%
+                    </span>
+                    <span class="text-gray-500 text-sm ml-2">较上月</span>
+                </div>
+            </div>
+
+            <!-- 签约客户 -->
+            <div class="card-gradient rounded-xl p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-gray-500 text-sm">本月签约客户</p>
+                        <h3 class="text-3xl font-bold mt-1 text-green-600">{{ signed_customers }}</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
+                        <i class="fa fa-handshake-o text-green-600 text-xl"></i>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <span class="text-green-600 flex items-center text-sm">
+                        <i class="fa fa-arrow-up mr-1"></i> {{ signed_customers_growth|floatformat:1 }}%
+                    </span>
+                    <span class="text-gray-500 text-sm ml-2">较上月</span>
+                </div>
+            </div>
+
+            <!-- 客户满意度 -->
+            <div class="card-gradient rounded-xl p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-gray-500 text-sm">客户满意度</p>
+                        <h3 class="text-3xl font-bold mt-1 text-yellow-600">{{ customer_satisfaction }}%</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-lg bg-yellow-100 flex items-center justify-center">
+                        <i class="fa fa-star text-yellow-600 text-xl"></i>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <span class="text-green-600 flex items-center text-sm">
+                        <i class="fa fa-arrow-up mr-1"></i> {{ satisfaction_growth|floatformat:1 }}%
+                    </span>
+                    <span class="text-gray-500 text-sm ml-2">较上月</span>
+                </div>
+            </div>
+
+            <!-- 市场占有率 -->
+            <div class="card-gradient rounded-xl p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-gray-500 text-sm">市场占有率</p>
+                        <h3 class="text-3xl font-bold mt-1 text-purple-600">{{ market_share }}%</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
+                        <i class="fa fa-pie-chart text-purple-600 text-xl"></i>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <span class="text-green-600 flex items-center text-sm">
+                        <i class="fa fa-arrow-up mr-1"></i> {{ market_share_growth|floatformat:1 }}%
+                    </span>
+                    <span class="text-gray-500 text-sm ml-2">较上月</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 图表区域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- 客户地区分布 -->
+            <div class="card-gradient rounded-xl p-6 shadow-lg">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-semibold text-lg">客户地区分布</h3>
+                </div>
+                <div class="h-[300px]">
+                    <canvas id="distributionChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 客户转化漏斗 -->
+            <div class="card-gradient rounded-xl p-6 shadow-lg">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-semibold text-lg">客户转化漏斗</h3>
+                </div>
+                <div class="space-y-4">
+                    <!-- 潜在客户 -->
+                    <div class="relative">
+                        <div class="flex justify-between text-sm mb-2">
+                            <span>潜在客户</span>
+                            <span class="font-medium">{{ funnel_data.potential|default:0 }}</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-8 relative overflow-hidden">
+                            <div class="h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-medium" style="width: 100%">
+                                100%
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 意向客户 -->
+                    <div class="relative">
+                        <div class="flex justify-between text-sm mb-2">
+                            <span>意向客户</span>
+                            <span class="font-medium">{{ funnel_data.interested|default:0 }}</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-8 relative overflow-hidden">
+                            {% widthratio funnel_data.interested|default:1 funnel_data.potential|default:1 100 as width %}
+                            <div class="h-8 rounded-full bg-green-500 flex items-center justify-center text-white text-xs font-medium" style="width: {{ width }}%">
+                                {{ width }}%
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 商机客户 -->
+                    <div class="relative">
+                        <div class="flex justify-between text-sm mb-2">
+                            <span>商机客户</span>
+                            <span class="font-medium">{{ funnel_data.opportunity|default:0 }}</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-8 relative overflow-hidden">
+                            {% widthratio funnel_data.opportunity|default:1 funnel_data.potential|default:1 100 as width %}
+                            <div class="h-8 rounded-full bg-yellow-500 flex items-center justify-center text-white text-xs font-medium" style="width: {{ width }}%">
+                                {{ width }}%
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 签约客户 -->
+                    <div class="relative">
+                        <div class="flex justify-between text-sm mb-2">
+                            <span>签约客户</span>
+                            <span class="font-medium">{{ funnel_data.signed|default:0 }}</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-8 relative overflow-hidden">
+                            {% widthratio funnel_data.signed|default:1 funnel_data.potential|default:1 100 as width %}
+                            <div class="h-8 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs font-medium" style="width: {{ width }}%">
+                                {{ width }}%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 详细数据 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- 销售排行榜 -->
+            <div class="card-gradient rounded-xl p-6 shadow-lg">
+                <h3 class="font-semibold text-lg mb-4">销售排行榜</h3>
+                <div class="space-y-3">
+                    {% for seller in sales_ranking %}
+                    <div class="flex items-center justify-between p-3 {% if forloop.first %}bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-lg border-l-4 border-yellow-400{% elif forloop.second %}bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border-l-4 border-gray-400{% elif forloop.third %}bg-gradient-to-r from-orange-50 to-orange-100 rounded-lg border-l-4 border-orange-400{% else %}bg-gray-50 rounded-lg{% endif %}">
+                        <div class="flex items-center">
+                            <span class="w-6 h-6 {% if forloop.first %}bg-yellow-400{% elif forloop.second %}bg-gray-400{% elif forloop.third %}bg-orange-400{% else %}bg-gray-300 text-gray-600{% endif %} text-white rounded-full flex items-center justify-center text-xs font-bold mr-3">{{ forloop.counter }}</span>
+                            <span class="font-medium">{{ seller.name }}</span>
+                        </div>
+                        <span class="font-bold {% if forloop.first %}text-yellow-600{% elif forloop.second %}text-gray-600{% elif forloop.third %}text-orange-600{% else %}text-gray-600{% endif %}">¥{{ seller.amount|default:0|floatformat:0 }}</span>
+                    </div>
+                    {% empty %}
+                    <div class="text-center text-gray-500 py-4">暂无销售数据</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- 客户行业分布 -->
+            <div class="card-gradient rounded-xl p-6 shadow-lg">
+                <h3 class="font-semibold text-lg mb-4">客户行业分布</h3>
+                <div class="h-[250px]">
+                    <canvas id="industryChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 经营指标 -->
+            <div class="card-gradient rounded-xl p-6 shadow-lg">
+                <h3 class="font-semibold text-lg mb-4">关键经营指标</h3>
+                <div class="space-y-4">
+                    <!-- 客户获取成本 -->
+                    <div class="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                        <div>
+                            <p class="text-sm font-medium text-blue-800">客户获取成本</p>
+                            <p class="text-xs text-blue-600">CAC</p>
+                        </div>
+                        <span class="text-xl font-bold text-blue-600">¥{{ cac|default:0|floatformat:0 }}</span>
+                    </div>
+
+                    <!-- 客户生命周期价值 -->
+                    <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                        <div>
+                            <p class="text-sm font-medium text-green-800">客户生命周期价值</p>
+                            <p class="text-xs text-green-600">LTV</p>
+                        </div>
+                        <span class="text-xl font-bold text-green-600">¥{{ ltv|default:0|floatformat:0 }}</span>
+                    </div>
+
+                    <!-- 客户流失率 -->
+                    <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                        <div>
+                            <p class="text-sm font-medium text-red-800">月客户流失率</p>
+                            <p class="text-xs text-red-600">Churn Rate</p>
+                        </div>
+                        <span class="text-xl font-bold text-red-600">{{ churn_rate|default:0|floatformat:1 }}%</span>
+                    </div>
+
+                    <!-- 平均订单价值 -->
+                    <div class="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
+                        <div>
+                            <p class="text-sm font-medium text-purple-800">平均订单价值</p>
+                            <p class="text-xs text-purple-600">AOV</p>
+                        </div>
+                        <span class="text-xl font-bold text-purple-600">¥{{ aov|default:0|floatformat:0 }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 客户地区分布图
+            const distributionCtx = document.getElementById('distributionChart').getContext('2d');
+            new Chart(distributionCtx, {
+                type: 'bar',
+                data: {
+                    labels: {{ distribution_data.labels|safe }},
+                    datasets: [{
+                        label: '客户数量',
+                        data: {{ distribution_data.data|safe }},
+                        backgroundColor: [
+                            '#3B82F6',
+                            '#10B981',
+                            '#F59E0B',
+                            '#EF4444',
+                            '#8B5CF6',
+                            '#06B6D4'
+                        ],
+                        borderRadius: 8,
+                        borderSkipped: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 客户行业分布饼图
+            const industryCtx = document.getElementById('industryChart').getContext('2d');
+            new Chart(industryCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: {{ industry_data.labels|safe }},
+                    datasets: [{
+                        data: {{ industry_data.data|safe }},
+                        backgroundColor: [
+                            '#3B82F6',
+                            '#10B981',
+                            '#F59E0B',
+                            '#EF4444',
+                            '#8B5CF6',
+                            '#06B6D4'
+                        ],
+                        borderWidth: 0,
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                boxWidth: 12,
+                                padding: 8,
+                                usePointStyle: true
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>菜单管理</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+        .layui-fluid {
+            padding: 15px;
+            height: 100%;
+            overflow: hidden;
+            margin: 0;
+        }
+        .layui-row {
+            height: 100%;
+            margin: 0;
+        }
+        .layui-col-md12 {
+            height: 100%;
+        }
+        .menu-tree {
+            position: relative;
+        }
+        .menu-item {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        .menu-level-0 td:first-child {
+            font-weight: bold;
+        }
+        .menu-level-1 td:first-child {
+            padding-left: 40px !important;
+        }
+        .menu-level-2 td:first-child {
+            padding-left: 80px !important;
+        }
+        .menu-level-3 td:first-child {
+            padding-left: 120px !important;
+        }
+        .menu-level-4 td:first-child {
+            padding-left: 160px !important;
+        }
+        .menu-level-5 td:first-child {
+            padding-left: 200px !important;
+        }
+        /* 折叠展开图标样式 */
+        .toggle-icon {
+            cursor: pointer;
+            margin-right: 8px;
+            transition: transform 0.3s ease;
+            display: inline-block;
+            width: 16px;
+            text-align: center;
+        }
+        .toggle-icon.expanded {
+            transform: rotate(90deg);
+        }
+        /* 子菜单样式 */
+        .submenu-item {
+            display: none;
+            transition: all 0.3s ease;
+        }
+        .submenu-item.expanded {
+            display: table-row;
+        }
+        /* 子菜单容器样式 */
+        .submenu-wrapper {
+            /* 用于分组子菜单 */
+        }
+        /* 菜单表格容器 */
+        .layui-table-container {
+            height: calc(100vh - 160px) !important;
+            max-height: none !important;
+            overflow-y: auto;
+            overflow-x: auto;
+        }
+        /* 确保卡片和容器填满空间 */
+        .layui-card {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .layui-card-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 20px);
+        }
+        /* 确保表格占据剩余空间 */
+        .layui-table-container {
+            flex: 1;
+            height: calc(100% - 100px) !important;
+        }
+        /* 搜索区域样式 */
+        .layui-form.layui-form-pane {
+            margin-bottom: 15px;
+        }
+        /* 动画效果 */
+        .menu-item {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .menu-item.collapsing {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-body">
+                        <!-- 搜索栏 -->
+                        <div class="layui-form layui-form-pane" style="margin-bottom: 20px;">
+                            <div class="layui-form-item">
+                                <div class="layui-inline">
+                                    <input type="text" name="search" placeholder="搜索菜单名称" autocomplete="off" class="layui-input" value="{{ search }}">
+                                </div>
+                                <div class="layui-inline">
+                                    <button class="layui-btn" onclick="searchMenu()">
+                                        <i class="layui-icon layui-icon-search"></i> 搜索
+                                    </button>
+                                    <a href="{% url 'system:menu:menu_create' %}" class="layui-btn layui-btn-normal">
+                                        <i class="layui-icon layui-icon-add-1"></i> 新增菜单
+                                    </a>
+                                    <button id="sync-btn" class="layui-btn layui-btn-warm">
+                                        <i class="layui-icon layui-icon-refresh"></i> 同步数据
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 拖拽排序功能已内置，可直接拖拽菜单项进行排序，系统会自动保存 -->
+                        
+                        <!-- 菜单列表 -->
+                        <div class="layui-table-container">
+                            <table class="layui-table" lay-even>
+                                <thead>
+                                    <tr>
+                                        <th>菜单名称</th>
+                                        <th>图标</th>
+                                        <th>链接</th>
+                                        <th>排序</th>
+                                        <th>状态</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if menus %}
+                                    {% for menu in menus %}
+                                    <!-- 顶级菜单 -->
+                                    <tr class="menu-item menu-level-0 draggable-row" data-id="{{ menu.id }}">
+                                        <td>
+                                            <i class="layui-icon layui-icon-rank" style="margin-right: 10px; cursor: move;"></i>
+                                            {% if menu.submenus.all %}
+                                            <i class="layui-icon toggle-icon" data-id="{{ menu.id }}"></i>
+                                            {% else %}
+                                            <span style="width: 16px; display: inline-block;"></span>
+                                            {% endif %}
+                                            <span class="menu-title" data-id="{{ menu.id }}">{{ menu.title }}</span>
+                                        </td>
+                                        <td>
+                                            {% if menu.icon %}
+                                            <i class="layui-icon">{{ menu.icon }}</i>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ menu.src }}</td>
+                                        <td class="sort-value">{{ menu.sort }}</td>
+                                        <td>
+                                            {% if menu.status == 1 %}
+                                            <span class="layui-badge layui-bg-green">正常</span>
+                                            {% else %}
+                                            <span class="layui-badge">禁用</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <a class="layui-btn layui-btn-xs" href="{% url 'system:menu:menu_update' menu.id %}">编辑</a>
+                                            <a class="layui-btn layui-btn-xs layui-btn-danger" href="{% url 'system:menu:menu_delete' menu.id %}">删除</a>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- 递归显示子菜单 -->
+                                    {% if menu.submenus.all %}
+                                        {% include 'menu/menu_tree.html' with menus=menu.submenus.all|dictsort:'sort' level=1 parent_id=menu.id %}
+                                    {% endif %}
+                                    {% endfor %}
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="6" class="text-center">暂无菜单数据</td>
+                                    </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        function searchMenu() {
+            var search = document.querySelector('input[name="search"]').value;
+            var url = new URL(window.location);
+            if (search) {
+                url.searchParams.set('search', search);
+            } else {
+                url.searchParams.delete('search');
+            }
+            window.location.href = url.toString();
+        }
+
+        // 回车搜索
+        document.querySelector('input[name="search"]').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchMenu();
+            }
+        });
+        
+        // 数据同步功能
+        let syncInterval = null;
+        let lastSyncTime = null;
+        
+        // 初始化同步功能
+        function initSyncFeature() {
+            // 添加手动同步按钮点击事件
+            document.getElementById('sync-btn').addEventListener('click', function() {
+                syncMenuData(true);
+            });
+            
+            // 开始定期同步（每30秒）
+            startAutoSync();
+            
+            // 检查URL中是否有refresh参数，如果有则立即刷新菜单数据
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('refresh') && urlParams.get('refresh') === '1') {
+                // 移除URL参数，避免刷新页面后再次触发
+                urlParams.delete('refresh');
+                const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+                window.history.replaceState({}, document.title, newUrl);
+                
+                // 立即刷新菜单数据
+                syncMenuData(true);
+            }
+        }
+        
+        // 开始自动同步
+        function startAutoSync() {
+            if (syncInterval) {
+                clearInterval(syncInterval);
+            }
+            syncInterval = setInterval(function() {
+                syncMenuData(false);
+            }, 30000); // 30秒同步一次
+        }
+        
+        // 停止自动同步
+        function stopAutoSync() {
+            if (syncInterval) {
+                clearInterval(syncInterval);
+                syncInterval = null;
+            }
+        }
+        
+        // 同步菜单数据
+        function syncMenuData(showLoading) {
+            const syncBtn = document.getElementById('sync-btn');
+            const originalText = syncBtn.innerHTML;
+            
+            // 显示加载状态
+            if (showLoading) {
+                syncBtn.innerHTML = '<i class="layui-icon layui-icon-loading layui-icon layui-anim layui-anim-rotate layui-anim-loop"></i> 同步中...';
+                syncBtn.disabled = true;
+            }
+            
+            // 发送请求获取最新菜单数据
+            fetch("{% url 'system:menu:menu_sync' %}")
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        updateMenuTable(data.data);
+                        updateSyncTime();
+                    }
+                })
+                .catch(error => {
+                    console.error('菜单数据同步失败:', error);
+                    if (showLoading) {
+                        alert('数据同步失败，请重试');
+                    }
+                })
+                .finally(() => {
+                    // 恢复按钮状态
+                    if (showLoading) {
+                        syncBtn.innerHTML = originalText;
+                        syncBtn.disabled = false;
+                    }
+                });
+        }
+        
+        // 更新同步时间显示
+        function updateSyncTime() {
+            const now = new Date();
+            lastSyncTime = now;
+            
+            // 创建或更新同步时间显示元素
+            let syncTimeEl = document.getElementById('sync-time');
+            if (!syncTimeEl) {
+                syncTimeEl = document.createElement('div');
+                syncTimeEl.id = 'sync-time';
+                syncTimeEl.style.marginTop = '10px';
+                syncTimeEl.style.color = '#666';
+                syncTimeEl.style.fontSize = '12px';
+                document.querySelector('.layui-card-body').insertBefore(syncTimeEl, document.querySelector('.layui-table-container'));
+            }
+            
+            syncTimeEl.textContent = `最后同步时间: ${now.toLocaleString('zh-CN')}`;
+        }
+        
+        // 更新菜单表格
+        function updateMenuTable(menuData) {
+            const tableBody = document.querySelector('.layui-table tbody');
+            const searchValue = document.querySelector('input[name="search"]').value.toLowerCase();
+            
+            // 清空现有表格内容
+            tableBody.innerHTML = '';
+            
+            // 生成新的表格内容
+            if (menuData && menuData.length > 0) {
+                // 对菜单数据按sort字段排序（包括子菜单）
+                const sortMenuData = sortMenusBySortField(JSON.parse(JSON.stringify(menuData)));
+                
+                // 根据搜索值过滤菜单
+                let filteredMenus = sortMenuData;
+                if (searchValue) {
+                    filteredMenus = filterMenusBySearch(sortMenuData, searchValue);
+                }
+                
+                // 渲染过滤后的菜单
+                filteredMenus.forEach(menu => {
+                    renderMenuRow(tableBody, menu, 0, null);
+                });
+                
+                // 重新初始化菜单折叠/展开功能
+                initMenuToggleFeature();
+            } else {
+                // 显示无数据提示
+                const emptyRow = document.createElement('tr');
+                emptyRow.innerHTML = '<td colspan="6" class="text-center">暂无菜单数据</td>';
+                tableBody.appendChild(emptyRow);
+            }
+        }
+        
+        // 按sort字段排序菜单数据（递归处理子菜单）
+        function sortMenusBySortField(menuData) {
+            // 对顶级菜单排序
+            const sortedMenus = menuData.sort((a, b) => (a.sort || 0) - (b.sort || 0));
+            
+            // 递归对子菜单排序
+            sortedMenus.forEach(menu => {
+                if (menu.submenus && menu.submenus.length > 0) {
+                    menu.submenus = sortMenusBySortField(menu.submenus);
+                }
+            });
+            
+            return sortedMenus;
+        }
+        
+        // 根据搜索值过滤菜单
+        function filterMenusBySearch(menuData, searchValue) {
+            const filtered = [];
+            
+            function filterMenu(menu) {
+                // 检查当前菜单是否匹配搜索值
+                const matches = menu.title.toLowerCase().includes(searchValue);
+                
+                // 检查子菜单
+                let hasMatchingChild = false;
+                if (menu.submenus && menu.submenus.length > 0) {
+                    // 递归过滤子菜单
+                    const filteredChildren = menu.submenus.filter(child => filterMenu(child));
+                    menu.submenus = filteredChildren;
+                    hasMatchingChild = filteredChildren.length > 0;
+                }
+                
+                // 如果当前菜单匹配或有匹配的子菜单，则添加到结果中
+                if (matches || hasMatchingChild) {
+                    filtered.push(menu);
+                    return true;
+                }
+                
+                return false;
+            }
+            
+            // 对所有顶级菜单应用过滤
+            menuData.forEach(menu => filterMenu(menu));
+            return filtered;
+        }
+        
+        // 渲染菜单行
+        function renderMenuRow(tableBody, menu, level, parentId = null) {
+            const tr = document.createElement('tr');
+            
+            // 设置基础类名和数据属性
+            if (level > 0) {
+                tr.className = `menu-item menu-level-${level} submenu-item`;
+                tr.dataset.parentId = parentId;
+            } else {
+                tr.className = `menu-item menu-level-${level} draggable-row`;
+                tr.style.fontWeight = 'bold';
+            }
+            tr.dataset.id = menu.id;
+            
+            // 创建菜单名称单元格
+            const titleCell = document.createElement('td');
+            
+            // 添加拖拽图标（仅顶级菜单）
+            if (level === 0) {
+                const dragIcon = document.createElement('i');
+                dragIcon.className = 'layui-icon layui-icon-rank';
+                dragIcon.style.marginRight = '10px';
+                dragIcon.style.cursor = 'move';
+                titleCell.appendChild(dragIcon);
+            }
+            
+            // 添加层级前缀
+            if (level > 0) {
+                for (let i = 0; i < level; i++) {
+                    const prefix = document.createElement('span');
+                    prefix.style.marginRight = '8px';
+                    prefix.textContent = '├─';
+                    titleCell.appendChild(prefix);
+                }
+            }
+            
+            // 添加折叠/展开图标
+            if (menu.submenus && menu.submenus.length > 0) {
+                const toggleIcon = document.createElement('i');
+                toggleIcon.className = 'layui-icon toggle-icon';
+                toggleIcon.textContent = '';
+                toggleIcon.dataset.id = menu.id;
+                toggleIcon.style.marginRight = '8px';
+                toggleIcon.style.cursor = 'pointer';
+                titleCell.appendChild(toggleIcon);
+            } else {
+                const spacer = document.createElement('span');
+                spacer.style.width = '16px';
+                spacer.style.display = 'inline-block';
+                spacer.style.marginRight = '8px';
+                titleCell.appendChild(spacer);
+            }
+            
+            // 添加菜单标题
+            const menuTitle = document.createElement('span');
+            menuTitle.className = 'menu-title';
+            menuTitle.dataset.id = menu.id;
+            menuTitle.textContent = menu.title;
+            menuTitle.style.cursor = 'pointer';
+            titleCell.appendChild(menuTitle);
+            
+            // 创建图标单元格
+            const iconCell = document.createElement('td');
+            if (menu.icon) {
+                const iconEl = document.createElement('i');
+                iconEl.className = 'layui-icon';
+                iconEl.textContent = menu.icon;
+                iconCell.appendChild(iconEl);
+            }
+            
+            // 创建链接单元格
+            const srcCell = document.createElement('td');
+            srcCell.textContent = menu.src;
+            
+            // 创建排序单元格
+            const sortCell = document.createElement('td');
+            sortCell.textContent = menu.sort;
+            
+            // 创建状态单元格
+            const statusCell = document.createElement('td');
+            const statusSpan = document.createElement('span');
+            statusSpan.className = menu.status === 1 ? 'layui-badge layui-bg-green' : 'layui-badge';
+            statusSpan.textContent = menu.status === 1 ? '正常' : '禁用';
+            statusCell.appendChild(statusSpan);
+            
+            // 创建操作单元格
+            const actionCell = document.createElement('td');
+            const updateUrl = "{% url 'system:menu:menu_update' 0 %}".replace('0', menu.id);
+            const deleteUrl = "{% url 'system:menu:menu_delete' 0 %}".replace('0', menu.id);
+            actionCell.innerHTML = `
+                <a class="layui-btn layui-btn-xs" href="${updateUrl}">编辑</a>
+                <a class="layui-btn layui-btn-xs layui-btn-danger" href="${deleteUrl}">删除</a>
+            `;
+            
+            // 添加所有单元格到行
+            tr.appendChild(titleCell);
+            tr.appendChild(iconCell);
+            tr.appendChild(srcCell);
+            tr.appendChild(sortCell);
+            tr.appendChild(statusCell);
+            tr.appendChild(actionCell);
+            
+            // 添加行到表格
+            tableBody.appendChild(tr);
+            
+            // 递归渲染子菜单
+            if (menu.submenus && menu.submenus.length > 0) {
+                menu.submenus.forEach(submenu => {
+                    renderMenuRow(tableBody, submenu, level + 1, menu.id);
+                });
+            }
+        }
+        
+        // 页面加载完成后初始化同步功能
+        document.addEventListener('DOMContentLoaded', function() {
+            initSyncFeature();
+            initDragSortFeature();
+            initMenuToggleFeature();
+        });
+        
+        // 初始化菜单折叠/展开功能
+        function initMenuToggleFeature() {
+            // 默认折叠所有子菜单
+            document.querySelectorAll('.submenu-item').forEach(item => {
+                item.classList.remove('expanded');
+            });
+            
+            // 为所有折叠/展开图标添加点击事件
+            document.querySelectorAll('.toggle-icon').forEach(icon => {
+                icon.addEventListener('click', function() {
+                    toggleMenu(this.dataset.id);
+                });
+            });
+            
+            // 为所有菜单标题添加点击事件
+            document.querySelectorAll('.menu-title').forEach(title => {
+                title.addEventListener('click', function() {
+                    toggleMenu(this.dataset.id);
+                });
+            });
+        }
+        
+        // 折叠/展开菜单
+        function toggleMenu(menuId) {
+            // 获取所有直接子菜单
+            const submenuItems = document.querySelectorAll(`.submenu-item[data-parent-id="${menuId}"]`);
+            if (submenuItems.length === 0) return;
+            
+            // 获取对应的折叠/展开图标
+            const toggleIcon = document.querySelector(`.toggle-icon[data-id="${menuId}"]`);
+            
+            // 检查当前状态
+            const isExpanded = submenuItems[0].classList.contains('expanded');
+            
+            // 切换所有直接子菜单的展开/折叠状态
+            submenuItems.forEach(item => {
+                if (isExpanded) {
+                    item.classList.remove('expanded');
+                } else {
+                    item.classList.add('expanded');
+                }
+            });
+            
+            // 切换图标状态
+            if (toggleIcon) {
+                toggleIcon.classList.toggle('expanded');
+            }
+            
+            // 重新初始化拖拽排序功能，确保展开的子菜单也能被拖拽
+            // 注意：只重新启用拖拽功能，不保存原始排序
+            enableDragSort();
+        }
+        
+        // 拖拽排序相关变量
+        let draggedElement = null;
+        let originalOrder = [];
+        let isSaving = false;
+        
+        // 保存原始排序
+        function saveOriginalOrder() {
+            originalOrder = [];
+            document.querySelectorAll('.draggable-row').forEach(row => {
+                originalOrder.push(row.getAttribute('data-id'));
+            });
+        }
+        
+        // 启用拖拽排序
+        function enableDragSort() {
+            const rows = document.querySelectorAll('.draggable-row');
+            
+            rows.forEach(row => {
+                row.setAttribute('draggable', 'true');
+                
+                // 移除现有的事件监听器（防止重复添加）
+                row.removeEventListener('dragstart', handleDragStart);
+                row.removeEventListener('dragend', handleDragEnd);
+                row.removeEventListener('dragover', handleDragOver);
+                row.removeEventListener('dragenter', handleDragEnter);
+                row.removeEventListener('dragleave', handleDragLeave);
+                row.removeEventListener('drop', handleDrop);
+                
+                // 添加拖拽事件监听
+                row.addEventListener('dragstart', handleDragStart);
+                row.addEventListener('dragend', handleDragEnd);
+                row.addEventListener('dragover', handleDragOver);
+                row.addEventListener('dragenter', handleDragEnter);
+                row.addEventListener('dragleave', handleDragLeave);
+                row.addEventListener('drop', handleDrop);
+            });
+            
+            // 添加拖拽样式（如果不存在）
+            if (!document.getElementById('drag-sort-styles')) {
+                const style = document.createElement('style');
+                style.id = 'drag-sort-styles';
+                style.textContent = `
+                    .draggable-row.dragging {
+                        opacity: 0.5;
+                        background-color: #f0f0f0;
+                    }
+                    .draggable-row.drag-over {
+                        background-color: #e6f7ff;
+                        border: 1px dashed #1890ff;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+        
+        // 拖拽事件处理函数
+        function handleDragStart(e) {
+            draggedElement = this;
+            setTimeout(() => {
+                this.classList.add('dragging');
+            }, 0);
+        }
+        
+        function handleDragEnd() {
+            draggedElement = null;
+            document.querySelectorAll('.draggable-row').forEach(el => {
+                el.classList.remove('dragging', 'drag-over');
+            });
+            updateSortNumbers();
+        }
+        
+        function handleDragOver(e) {
+            e.preventDefault();
+            return false;
+        }
+        
+        function handleDragEnter(e) {
+            e.preventDefault();
+            if (this !== draggedElement) {
+                this.classList.add('drag-over');
+            }
+        }
+        
+        function handleDragLeave() {
+            this.classList.remove('drag-over');
+        }
+        
+        function handleDrop(e) {
+            e.preventDefault();
+            
+            if (this !== draggedElement) {
+                const parent = draggedElement.parentNode;
+                const children = Array.from(parent.children);
+                const draggedIndex = children.indexOf(draggedElement);
+                const dropIndex = children.indexOf(this);
+                
+                if (draggedIndex < dropIndex) {
+                    this.parentNode.insertBefore(draggedElement, this.nextSibling);
+                } else {
+                    this.parentNode.insertBefore(draggedElement, this);
+                }
+            }
+            
+            document.querySelectorAll('.draggable-row').forEach(el => {
+                el.classList.remove('dragging', 'drag-over');
+            });
+            
+            updateSortNumbers();
+            
+            // 拖拽完成后自动保存排序结果
+            setTimeout(function() {
+                autoSaveMenuOrder();
+            }, 500);
+            
+            return false;
+        }
+        
+        // 更新排序数字
+        function updateSortNumbers() {
+            const rows = document.querySelectorAll('.draggable-row');
+            rows.forEach((row, index) => {
+                const sortCell = row.querySelector('.sort-value');
+                if (sortCell) {
+                    sortCell.textContent = index + 1;
+                }
+            });
+        }
+        
+        // 自动保存菜单排序
+        function autoSaveMenuOrder() {
+            // 避免短时间内多次保存
+            if (isSaving) {
+                return;
+            }
+            
+            const orderedMenuIds = Array.from(document.querySelectorAll('.draggable-row')).map(row => row.getAttribute('data-id'));
+            
+            // 检查排序是否有变化
+            if (JSON.stringify(orderedMenuIds) === JSON.stringify(originalOrder)) {
+                return;
+            }
+            
+            isSaving = true;
+            
+            // 构建表单数据
+            const formData = new FormData();
+            orderedMenuIds.forEach(id => {
+                formData.append('menu_ids[]', id);
+            });
+            formData.append('pid', ''); // 顶级菜单的pid为空
+            
+            // 获取CSRF令牌 - 使用Django推荐的方式
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+            
+            // 获取CSRF令牌，确保令牌不为空
+            const csrftoken = getCookie('csrftoken');
+            
+            // 确保我们有有效的CSRF令牌
+            if (!csrftoken) {
+                console.error('CSRF令牌未找到，请刷新页面重试');
+                return;
+            }
+            
+            // 发送请求，使用正确的HTTP头名称
+            fetch("{% url 'system:menu:menu_order' %}", {
+                method: 'POST',
+                credentials: 'same-origin', // 包含cookie
+                headers: {
+                    'X-CSRFToken': csrftoken,
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // 更新原始排序
+                    originalOrder = orderedMenuIds.slice();
+                    // 重新加载菜单数据以显示最新排序
+                    syncMenuData(false);
+                } else {
+                    console.error('保存菜单排序失败:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('保存菜单排序失败:', error);
+            })
+            .finally(() => {
+                isSaving = false;
+            });
+        }
+        
+        // 初始化拖拽排序功能
+        function initDragSortFeature() {
+            // 页面加载时自动启用拖拽排序
+            saveOriginalOrder();
+            enableDragSort();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,252 @@
+{% extends 'home/iframe_base.html' %}
+
+{% block title %}{% if form.instance.id %}编辑AI模型配置{% else %}添加AI模型配置{% endif %}{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        {% if form.instance.id %}编辑AI模型配置{% else %}添加AI模型配置{% endif %}
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form" method="post" action="">
+            {% csrf_token %}
+            
+            <!-- 基本信息组 -->
+            <div class="layui-form-item layui-form-text">
+                <label class="layui-form-label"></label>
+                <div class="layui-input-block">
+                    <h3 style="color: #009688; margin-bottom: 15px;">基本信息</h3>
+                </div>
+            </div>
+            
+            <div class="layui-row">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">模型名称 <span style="color: #FF5722;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.name }}
+                            <div class="layui-form-mid layui-word-aux">
+                                给AI模型起一个友好的名称，用于在系统中识别不同的模型配置
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">提供商 <span style="color: #FF5722;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.provider }}
+                            <div class="layui-form-mid layui-word-aux">
+                                选择AI模型服务的提供商，如OpenAI、阿里千问、DeepSeek等
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-row">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">模型类型 <span style="color: #FF5722;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.model_type }}
+                            <div class="layui-form-mid layui-word-aux">
+                                选择模型的主要用途，如对话模型、文本生成、嵌入模型等
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">模型标识 <span style="color: #FF5722;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.model_name }}
+                            <div class="layui-form-mid layui-word-aux">
+                                具体的模型名称，如"gpt-3.5-turbo"、"qwen-turbo"、"deepseek-chat"等
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- API配置组 -->
+            <div class="layui-form-item layui-form-text">
+                <label class="layui-form-label"></label>
+                <div class="layui-input-block">
+                    <h3 style="color: #009688; margin-bottom: 15px; margin-top: 20px;">API配置</h3>
+                </div>
+            </div>
+            
+            <div class="layui-row">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">API密钥 <span style="color: #FF5722;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.api_key }}
+                            <div class="layui-form-mid layui-word-aux">
+                                访问AI服务的认证密钥，用于验证请求的合法性
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">API地址 <span style="color: #FF5722;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.api_base }}
+                            <div class="layui-form-mid layui-word-aux">
+                                AI服务的访问URL，支持不同的部署环境（官方云服务、私有部署等）<br>
+                                例如：https://api.openai.com/v1 或 https://api.deepseek.com/v1
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-row">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">组织ID</label>
+                        <div class="layui-input-block">
+                            {{ form.organization }}
+                            <div class="layui-form-mid layui-word-aux">
+                                某些AI提供商（如OpenAI、DeepSeek）用于区分不同组织的标识<br>
+                                用于资源隔离和计费管理，允许在同一API密钥下区分不同组织的使用
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">项目ID</label>
+                        <div class="layui-input-block">
+                            {{ form.project }}
+                            <div class="layui-form-mid layui-word-aux">
+                                某些AI提供商用于在组织内部区分不同项目的标识<br>
+                                用于更细粒度的资源管理和计费
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 生成参数组 -->
+            <div class="layui-form-item layui-form-text">
+                <label class="layui-form-label"></label>
+                <div class="layui-input-block">
+                    <h3 style="color: #009688; margin-bottom: 15px; margin-top: 20px;">生成参数</h3>
+                </div>
+            </div>
+            
+            <div class="layui-row">
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">最大tokens <span style="color: #FF5722;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.max_tokens }}
+                            <div class="layui-form-mid layui-word-aux">
+                                控制AI模型生成内容的最大长度，单位为tokens<br>
+                                建议值：1024-4096，根据实际需求调整
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">温度 <span style="color: #FF5722;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.temperature }}
+                            <div class="layui-form-mid layui-word-aux">
+                                控制AI生成内容的随机性，取值范围：0-2<br>
+                                建议值：创意生成0.7-1.5，事实回答0.1-0.5
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">top_p <span style="color: #FF5722;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.top_p }}
+                            <div class="layui-form-mid layui-word-aux">
+                                控制AI生成内容的多样性，取值范围：0-1<br>
+                                建议值：0.8-1.0，与温度参数配合使用
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 高级设置组 -->
+            <div class="layui-form-item layui-form-text">
+                <label class="layui-form-label"></label>
+                <div class="layui-input-block">
+                    <h3 style="color: #009688; margin-bottom: 15px; margin-top: 20px;">高级设置</h3>
+                </div>
+            </div>
+            
+            <div class="layui-row">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">是否默认</label>
+                        <div class="layui-input-block">
+                            {{ form.is_default }}
+                            <div class="layui-form-mid layui-word-aux">
+                                设置该模型是否为系统默认使用的模型<br>
+                                当系统需要调用AI服务但未指定具体模型时，使用默认模型
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">是否激活 <span style="color: #FF5722;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.is_active }}
+                            <div class="layui-form-mid layui-word-aux">
+                                控制该模型配置是否可用<br>
+                                可以临时禁用某个模型配置，便于测试和管理
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 提交按钮 -->
+            <div class="layui-form-item" style="margin-top: 30px;">
+                <div class="layui-input-block">
+                    <button type="submit" class="layui-btn layui-btn-lg" lay-submit lay-filter="formDemo">提交</button>
+                    <button type="button" class="layui-btn layui-btn-primary layui-btn-lg" onclick="parent.layer.closeAll()">取消</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script type="text/javascript">
+layui.use(['form', 'layer'], function() {
+    var form = layui.form;
+    var layer = layui.layer;
+    
+    // 渲染表单
+    form.render();
+    
+    // 监听表单提交
+    form.on('submit(formDemo)', function(data) {
+        // 显示加载中
+        var index = layer.load(1, {
+            shade: [0.1, '#fff']
+        });
+        
+        // 表单提交后关闭弹窗
+        setTimeout(function() {
+            layer.close(index);
+            // 关闭iframe弹窗
+            parent.layer.closeAll();
+        }, 1000);
+        
+        return true;
+    });
+});
+</script>
+{% endblock %}

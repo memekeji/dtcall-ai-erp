@@ -1,0 +1,401 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}会议室记录列表{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <h3>会议室记录列表</h3>
+            </div>
+            <div class="layui-col-md6" style="text-align: right;">
+                <a href="{% url 'system:admin_office:meeting_reservation_create' %}" class="layui-btn layui-btn-sm">
+                    <i class="layui-icon layui-icon-add-1"></i> 新增预约
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <!-- 搜索表单 -->
+        <form class="layui-form" method="get">
+            <div class="layui-row layui-col-space10">
+                <div class="layui-col-md3">
+                    <select name="room" class="layui-input">
+                        <option value="">全部会议室</option>
+                        {% for room in rooms %}
+                        <option value="{{ room.pk }}" {% if room_id == room.pk|stringformat:"s" %}selected{% endif %}>{{
+                            room.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="layui-col-md2">
+                    <select name="status" class="layui-input">
+                        <option value="">全部状态</option>
+                        {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="layui-col-md3">
+                    <button class="layui-btn" type="submit">搜索</button>
+                    <a href="{% url 'system:admin_office:meeting_reservation_list' %}" class="layui-btn layui-btn-primary">重置</a>
+                </div>
+            </div>
+        </form>
+
+        <!-- 数据表格 -->
+        <table class="layui-table" lay-skin="line">
+            <thead>
+                <tr>
+                    <th>会议主题</th>
+                    <th>会议室</th>
+                    <th>组织者</th>
+                    <th>开始时间</th>
+                    <th>结束时间</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for reservation in page_obj %}
+                <tr>
+                    <td>{{ reservation.title }}</td>
+                    <td>{{ reservation.meeting_room.name }}</td>
+                    <td>{{ reservation.organizer.name }}</td>
+                    <td>{{ reservation.start_time|date:"Y-m-d H:i" }}</td>
+                    <td>{{ reservation.end_time|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        {% if reservation.status == 'pending' %}
+                        <span class="layui-badge layui-bg-orange">{{ reservation.get_status_display }}</span>
+                        {% elif reservation.status == 'approved' %}
+                        <span class="layui-badge layui-bg-green">{{ reservation.get_status_display }}</span>
+                        {% elif reservation.status == 'rejected' %}
+                        <span class="layui-badge layui-bg-red">{{ reservation.get_status_display }}</span>
+                        {% else %}
+                        <span class="layui-badge">{{ reservation.get_status_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button class="layui-btn layui-btn-xs"
+                            onclick="viewReservation({{ reservation.pk }})">查看</button>
+                        {% if reservation.status == 'pending' %}
+                        <button class="layui-btn layui-btn-xs layui-btn-green"
+                            onclick="approveReservation({{ reservation.pk }})">批准</button>
+                        <button class="layui-btn layui-btn-xs layui-btn-red"
+                            onclick="rejectReservation({{ reservation.pk }})">拒绝</button>
+                        {% endif %}
+                        {% if reservation.status == 'approved' %}
+                        <button class="layui-btn layui-btn-xs layui-btn-warm"
+                            onclick="createMeetingMinutes({{ reservation.pk }})">创建纪要</button>
+                        {% endif %}
+                        <button class="layui-btn layui-btn-xs layui-btn-danger"
+                            onclick="deleteReservation({{ reservation.pk }})">删除</button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; color: #999;">暂无数据</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- 分页 -->
+        {% if page_obj.has_other_pages %}
+        <div class="layui-box layui-laypage layui-laypage-default">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&room={{ room_id }}&status={{ status }}"
+                class="layui-laypage-prev">上一页</a>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <span class="layui-laypage-curr"><em>{{ num }}</em></span>
+            {% else %}
+            <a href="?page={{ num }}&room={{ room_id }}&status={{ status }}">{{ num }}</a>
+            {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&room={{ room_id }}&status={{ status }}"
+                class="layui-laypage-next">下一页</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>//<![CDATA[
+// 页面加载完成后执行初始化
+window.addEventListener('DOMContentLoaded', function() {
+    
+    // 确保jQuery可用
+    window.$ = window.jQuery || layui.jquery || function(selector) {
+        return document.querySelectorAll(selector);
+    };
+    
+    // 配置layer默认参数，移除zIndex设置
+    if (layui && layui.layer) {
+        layui.layer.config({
+            // 移除zIndex设置
+        });
+    }
+    
+    // 确保layer可用，添加降级处理
+    window.layer = window.layer || layui.layer || {
+        msg: function(text, options) {
+            alert(text);
+        },
+        confirm: function(content, options, yes) {
+            if (confirm(content)) {
+                if (typeof yes === 'function') yes();
+            }
+        },
+        prompt: function(options, yes) {
+            var value = prompt(options.title);
+            if (value !== null && typeof yes === 'function') {
+                yes(value, null);
+            }
+        },
+        open: function(options) {
+            alert('弹窗功能暂不可用');
+        },
+        close: function() {},
+        load: function() { return null; }
+    };
+});
+
+// 定义全局函数
+window.viewReservation = function(id) {
+    window.location.href = '/system/admin_office/meeting_reservation/update/' + id + '/';
+};
+
+window.approveReservation = function(id) {
+    layer.confirm('确定要批准这条预约吗？', {
+        btn: ['确定', '取消']
+    }, function () {
+        try {
+            $.ajax({
+                url: '/system/admin_office/meeting_reservation/approve/' + id + '/',
+                type: 'POST',
+                data: {
+                    id: id,
+                    csrfmiddlewaretoken: '{{ csrf_token }}'
+                },
+                success: function (res) {
+                    if (res && res.code === 0) {
+                        layer.msg('预约已批准', { icon: 1 });
+                        setTimeout(function () {
+                            window.location.reload();
+                        }, 1000);
+                    } else {
+                        layer.msg('操作失败：' + (res ? res.message : '未知错误'), { icon: 2 });
+                    }
+                },
+                error: function (xhr) {
+                    layer.msg('服务器错误，请重试', { icon: 2 });
+                }
+            });
+        } catch (e) {
+            alert('操作出错，请刷新页面重试');
+        }
+    });
+};
+
+window.rejectReservation = function(id) {
+    layer.prompt({
+        title: '请输入拒绝原因',
+        formType: 2
+    }, function (reason, index) {
+        try {
+            $.ajax({
+                url: '/system/admin_office/meeting_reservation/reject/' + id + '/',
+                type: 'POST',
+                data: {
+                    id: id,
+                    reason: reason,
+                    csrfmiddlewaretoken: '{{ csrf_token }}'
+                },
+                success: function (res) {
+                    if (res && res.code === 0) {
+                        layer.msg('预约已拒绝', { icon: 1 });
+                        setTimeout(function () {
+                            window.location.reload();
+                        }, 1000);
+                    } else {
+                        layer.msg('操作失败：' + (res ? res.message : '未知错误'), { icon: 2 });
+                    }
+                },
+                error: function (xhr) {
+                    layer.msg('服务器错误，请重试', { icon: 2 });
+                }
+            });
+        } catch (e) {
+            alert('操作出错，请刷新页面重试');
+        }
+    });
+};
+
+window.deleteReservation = function(id) {
+    layer.confirm('确定要删除这条会议记录吗？', {
+        btn: ['确定', '取消']
+    }, function () {
+        try {
+            $.ajax({
+                url: '/system/admin_office/meeting_reservation/delete/' + id + '/',
+                type: 'POST',
+                data: {
+                    id: id,
+                    csrfmiddlewaretoken: '{{ csrf_token }}'
+                },
+                success: function (res) {
+                    if (res && res.code === 0) {
+                        layer.msg('删除成功', { icon: 1 });
+                        setTimeout(function () {
+                            window.location.reload();
+                        }, 1000);
+                    } else {
+                        layer.msg('删除失败：' + (res ? res.message : '未知错误'), { icon: 2 });
+                    }
+                },
+                error: function (xhr) {
+                    layer.msg('服务器错误，请重试', { icon: 2 });
+                }
+            });
+        } catch (e) {
+            alert('操作出错，请刷新页面重试');
+        }
+    }, function () {
+        // 取消按钮回调
+    });
+};
+
+window.createMeetingMinutes = function(reservationId) {
+    console.log('createMeetingMinutes被调用，预约ID:', reservationId);
+    try {
+        layer.open({
+            type: 1,
+            title: '创建会议纪要',
+            area: ['70%', '90%'],
+            // 设置从右侧弹出的精确位置
+            offset: 'r',
+            // 添加平滑过渡动画
+            anim: 2,
+            // 不允许点击遮罩关闭，确保内容正常操作
+            shadeClose: false,
+            // 允许滚动条，确保内容完整显示
+            scrollbar: true,
+            // 添加cancel回调确保弹窗正常关闭
+            cancel: function(index) {
+                layer.close(index);
+                return false;
+            },
+            success: function(layero) {
+                console.log('弹窗创建成功');
+                // 确保窗口顶部边距为0
+                if (layero && layero.css) {
+                    layero.css({ 'top': '0px' });
+                }
+            },
+            content: '<div style="padding: 20px;">' +
+                '<div style="margin-bottom: 20px;">' +
+                '<h3 style="margin-bottom: 15px;">请选择生成方式：</h3>' +
+                '<div style="margin-bottom: 10px;">' +
+                '<input type="radio" name="summary_type" value="manual" checked> <span style="margin-left: 5px;">手动输入</span>' +
+                '</div>' +
+                '<div style="margin-bottom: 10px;">' +
+                '<input type="radio" name="summary_type" value="audio"> <span style="margin-left: 5px;">上传录音自动生成</span>' +
+                '</div>' +
+                '</div>' +
+                '<p style="color: #666; font-size: 14px;">选择方式后点击"下一步"，在后续页面上传录音文件</p>' +
+                '</div>',
+            btn: ['下一步', '取消'],
+            btn1: function (index) {
+                try {
+                    var summaryType = document.querySelector("input[name='summary_type']:checked").value;
+                    console.log('选择的纪要生成方式:', summaryType);
+
+                    // 关闭当前弹窗
+                    if (layer.close) layer.close(index);
+
+                    if (summaryType === 'audio') {
+                        console.log('打开录音生成纪要页面');
+                        // 录音生成纪要页面弹窗
+                        if (layer.open) {
+                            layer.open({
+                                type: 2,
+                                title: '创建会议纪要（录音生成）',
+                                content: "/personal/minutes/add/?reservation_id=" + reservationId + "&audio=true",
+                                area: ['70%', '90%'],
+                                // 设置从右侧弹出的精确位置
+                                offset: 'r',
+                                // 添加平滑过渡动画
+                                anim: 2,
+                                // 不允许点击遮罩关闭，确保iframe内容正常操作
+                                shadeClose: false,
+                                // 允许滚动条，确保内容完整显示
+                                scrollbar: true,
+                                // 添加cancel回调确保弹窗正常关闭
+                                cancel: function(index) {
+                                    layer.close(index);
+                                    return false;
+                                },
+                                success: function(layero) {
+                                    console.log('录音生成纪要页面已打开');
+                                    // 确保窗口顶部边距为0
+                                    if (layero && layero.css) {
+                                        layero.css({ 'top': '0px' });
+                                    }
+                                }
+                            });
+                        }
+                    } else {
+                        // 手动输入方式也使用layer.open打开弹窗，保持一致性
+                        if (layer.open) {
+                            layer.open({
+                                type: 2,
+                                title: '创建会议纪要（手动输入）',
+                                content: "/personal/minutes/add/?reservation_id=" + reservationId,
+                                area: ['70%', '90%'],
+                                // 设置从右侧弹出的精确位置
+                                offset: 'r',
+                                // 添加平滑过渡动画
+                                anim: 2,
+                                shadeClose: false,
+                                scrollbar: true,
+                                cancel: function(index) {
+                                    layer.close(index);
+                                    return false;
+                                },
+                                success: function(layero) {
+                                    console.log('手动输入纪要页面已打开');
+                                    // 确保窗口顶部边距为0
+                                    if (layero && layero.css) {
+                                        layero.css({ 'top': '0px' });
+                                    }
+                                }
+                            });
+                        } else {
+                            window.location.href = "/personal/minutes/add/?reservation_id=" + reservationId;
+                        }
+                    }
+                        } catch (e) {
+                            console.error('创建纪要操作异常:', e);
+                            alert('操作出错，请刷新页面重试');
+                        }
+                    }
+                });
+
+        // 无需监听单选框变化，因为不再需要显示上传区域
+    } catch (e) {
+        console.error('创建纪要弹窗异常:', e);
+        alert('无法打开创建纪要窗口，请刷新页面重试');
+    }
+};
+
+console.log('会议预约操作函数已加载');
+
+//]]></script>
+{% endblock %}

@@ -1,0 +1,178 @@
+{% extends "home/base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block css %}
+<style>
+.layui-form {
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 20px;
+    background: #fff;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.layui-form-item {
+    margin-bottom: 15px;
+}
+
+.layui-form-label {
+    width: 120px;
+    text-align: right;
+    padding-right: 15px;
+}
+
+.layui-input-block {
+    margin-left: 120px;
+}
+
+.form-buttons {
+    text-align: center;
+    margin-top: 30px;
+}
+
+.form-buttons .layui-btn {
+    margin: 0 10px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h2>{{ page_title }}</h2>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form" method="post">
+            {% csrf_token %}
+            
+            {% if form.non_field_errors %}
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <div class="layui-elem-field layui-field-error">
+                        <div class="layui-field-box">
+                            {% for error in form.non_field_errors %}
+                            <p>{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">{{ form.name.label }}</label>
+                <div class="layui-input-block">
+                    {{ form.name }}
+                    {% if form.name.errors %}
+                    <div class="layui-form-mid layui-word-aux" style="color: #FF5722;">
+                        {% for error in form.name.errors %}
+                        {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">{{ form.code.label }}</label>
+                <div class="layui-input-block">
+                    {{ form.code }}
+                    {% if form.code.errors %}
+                    <div class="layui-form-mid layui-word-aux" style="color: #FF5722;">
+                        {% for error in form.code.errors %}
+                        {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">{{ form.parent.label }}</label>
+                <div class="layui-input-block">
+                    {{ form.parent }}
+                    {% if form.parent.errors %}
+                    <div class="layui-form-mid layui-word-aux" style="color: #FF5722;">
+                        {% for error in form.parent.errors %}
+                        {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">{{ form.sort_order.label }}</label>
+                <div class="layui-input-block">
+                    {{ form.sort_order }}
+                    {% if form.sort_order.errors %}
+                    <div class="layui-form-mid layui-word-aux" style="color: #FF5722;">
+                        {% for error in form.sort_order.errors %}
+                        {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">{{ form.is_active.label }}</label>
+                <div class="layui-input-block">
+                    {{ form.is_active }}
+                    {% if form.is_active.errors %}
+                    <div class="layui-form-mid layui-word-aux" style="color: #FF5722;">
+                        {% for error in form.is_active.errors %}
+                        {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">{{ form.description.label }}</label>
+                <div class="layui-input-block">
+                    {{ form.description }}
+                    {% if form.description.errors %}
+                    <div class="layui-form-mid layui-word-aux" style="color: #FF5722;">
+                        {% for error in form.description.errors %}
+                        {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="form-buttons">
+                <button type="submit" class="layui-btn layui-btn-normal">保存</button>
+                <button type="button" class="layui-btn layui-btn-primary" onclick="window.location.href='{{ back_url }}'">返回</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+layui.use(['form'], function(){
+    var form = layui.form;
+    
+    // 表单验证
+    form.verify({
+        name: function(value){
+            if(value.length < 1){
+                return '请输入采购分类名称';
+            }
+        }
+    });
+    
+    // 表单提交
+    form.on('submit', function(data){
+        return true;
+    });
+});
+</script>
+{% endblock %}

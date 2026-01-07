@@ -1,0 +1,237 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>资源调度</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .resource-card {
+            margin-bottom: 15px;
+        }
+        .workload-bar {
+            width: 100%;
+            height: 8px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+        .workload-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        .workload-low {
+            background-color: #5FB878;
+        }
+        .workload-medium {
+            background-color: #FFB800;
+        }
+        .workload-high {
+            background-color: #FF5722;
+        }
+        .task-item {
+            padding: 8px;
+            margin: 5px 0;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border-left: 3px solid #1E9FFF;
+        }
+        .task-name {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .task-time {
+            font-size: 12px;
+            color: #666;
+            margin-top: 3px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <!-- 页面标题 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <h2 style="margin-bottom: 20px;">资源调度</h2>
+            </div>
+        </div>
+
+        <!-- 设备使用情况 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">设备使用情况</div>
+                    <div class="layui-card-body">
+                        <div class="layui-row layui-col-space15">
+                            {% for equipment_info in equipment_usage %}
+                            <div class="layui-col-md4">
+                                <div class="layui-card resource-card">
+                                    <div class="layui-card-header">
+                                        <strong>{{ equipment_info.equipment.name }}</strong>
+                                        <span style="float: right; font-size: 12px; color: #666;">
+                                            {{ equipment_info.equipment.code }}
+                                        </span>
+                                    </div>
+                                    <div class="layui-card-body">
+                                        <div style="margin-bottom: 10px;">
+                                            <span style="font-size: 12px; color: #666;">当前任务数：</span>
+                                            <span style="font-weight: bold; color: {% if equipment_info.task_count > 3 %}#FF5722{% elif equipment_info.task_count > 1 %}#FFB800{% else %}#5FB878{% endif %};">
+                                                {{ equipment_info.task_count }}
+                                            </span>
+                                        </div>
+                                        
+                                        <div class="workload-bar">
+                                            <div class="workload-fill 
+                                                {% if equipment_info.task_count > 3 %}workload-high
+                                                {% elif equipment_info.task_count > 1 %}workload-medium
+                                                {% else %}workload-low{% endif %}" 
+                                                style="width: {% widthratio equipment_info.task_count 5 100 %}%;">
+                                            </div>
+                                        </div>
+                                        
+                                        {% if equipment_info.current_tasks %}
+                                            <div style="margin-top: 10px;">
+                                                <div style="font-size: 12px; color: #666; margin-bottom: 5px;">当前任务：</div>
+                                                {% for task in equipment_info.current_tasks %}
+                                                <div class="task-item">
+                                                    <div class="task-name">{{ task.name }}</div>
+                                                    <div class="task-time">{{ task.plan_start_time|date:"m-d H:i" }} - {{ task.plan_end_time|date:"m-d H:i" }}</div>
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                        {% else %}
+                                            <div style="text-align: center; color: #999; margin-top: 10px;">
+                                                设备空闲
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="layui-col-md12">
+                                <div style="text-align: center; padding: 40px; color: #999;">
+                                    暂无设备数据
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 人员工作负荷 -->
+        <div class="layui-row" style="margin-top: 20px;">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">人员工作负荷</div>
+                    <div class="layui-card-body" style="padding: 0;">
+                        <table class="layui-table" lay-skin="line">
+                            <thead>
+                                <tr>
+                                    <th>员工姓名</th>
+                                    <th>当前任务数</th>
+                                    <th>工作负荷</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user_info in user_workload %}
+                                <tr>
+                                    <td>{{ user_info.user.username }}</td>
+                                    <td>{{ user_info.active_tasks }}</td>
+                                    <td>
+                                        <div class="workload-bar">
+                                            <div class="workload-fill 
+                                                {% if user_info.active_tasks > 5 %}workload-high
+                                                {% elif user_info.active_tasks > 2 %}workload-medium
+                                                {% else %}workload-low{% endif %}" 
+                                                style="width: {% widthratio user_info.active_tasks 8 100 %}%;">
+                                            </div>
+                                        </div>
+                                        <small>
+                                            {% if user_info.active_tasks > 5 %}
+                                                负荷过重
+                                            {% elif user_info.active_tasks > 2 %}
+                                                负荷适中
+                                            {% else %}
+                                                负荷较轻
+                                            {% endif %}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        {% if user_info.active_tasks > 5 %}
+                                            <span style="color: #FF5722;">繁忙</span>
+                                        {% elif user_info.active_tasks > 2 %}
+                                            <span style="color: #FFB800;">正常</span>
+                                        {% else %}
+                                            <span style="color: #5FB878;">空闲</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="viewUserTasks('{{ user_info.user.username }}')">
+                                            查看任务
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" style="text-align: center; padding: 40px; color: #999;">
+                                        暂无人员数据
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 快速操作 -->
+        <div class="layui-row" style="margin-top: 20px;">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">快速操作</div>
+                    <div class="layui-card-body">
+                        <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:production_plan_list' %}'">
+                            <i class="layui-icon layui-icon-template-1"></i> 生产计划
+                        </button>
+                        <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:production_task_list' %}'">
+                            <i class="layui-icon layui-icon-list"></i> 生产任务
+                        </button>
+                        <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:equipment_list' %}'">
+                            <i class="layui-icon layui-icon-engine"></i> 设备管理
+                        </button>
+                        <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:equipment_monitor' %}'">
+                            <i class="layui-icon layui-icon-chart-screen"></i> 设备监控
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['layer'], function () {
+            var layer = layui.layer;
+        });
+
+        function viewUserTasks(username) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.msg('查看 ' + username + ' 的任务详情');
+                // 这里可以跳转到用户任务详情页面
+            });
+        }
+    </script>
+</body>
+
+</html>

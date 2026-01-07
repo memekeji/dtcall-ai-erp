@@ -1,0 +1,269 @@
+{% extends "home/iframe_base.html" %}
+{% load static %}
+
+{% block title %}
+{% if backup %}编辑备份任务{% else %}新建备份任务{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>{% if backup %}编辑备份任务{% else %}新建备份任务{% endif %}</h3>
+    </div>
+    <div class="layui-card-body">
+        <!-- 直接在HTML中添加表单验证和按钮状态控制 -->
+        <form class="layui-form" method="post" action="" id="backupForm" onsubmit="return false;">
+            {% csrf_token %}
+            <div class="layui-form-item">
+                <label class="layui-form-label">备份名称</label>
+                <div class="layui-input-block">
+                    <input type="text" name="name" value="{{ form.name.value|default:'' }}" 
+                           placeholder="请输入备份名称" class="layui-input" required>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">备份类型</label>
+                <div class="layui-input-block">
+                    <select name="backup_type" id="backupTypeSelect" required>
+                        <option value="">请选择备份类型</option>
+                        {% for type_key, type_name in form.backup_type.field.choices %}
+                        <option value="{{ type_key }}" 
+                                {% if form.backup_type.value == type_key %}selected{% endif %}>
+                            {{ type_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <p>
+                        <span class="layui-form-mid layui-word-aux">
+                            备份类型说明：
+                        </span>
+                        <span class="layui-form-mid layui-word-aux">
+                            数据库备份：备份数据库中的所有数据。<br>
+                            增量备份及差异备份将在下个版本实现。
+                        </span>
+                    </p>
+                </div>
+            </div>
+            
+            <div class="layui-form-item layui-form-text">
+                <label class="layui-form-label">备份描述</label>
+                <div class="layui-input-block">
+                    <textarea name="description" placeholder="请输入备份描述" 
+                              class="layui-textarea">{{ form.description.value|default:'' }}</textarea>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <!-- 初始状态下，如果默认备份类型是不支持的类型，直接禁用按钮 -->
+                    <button type="button" class="layui-btn" id="saveBtn" 
+                            onclick="handleSave();">
+                        保存
+                    </button>
+                    <button type="button" class="layui-btn layui-btn-primary" 
+                            onclick="handleCancel();">
+                        取消
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// 直接在HTML中嵌入JavaScript，确保立即执行
+(function() {
+    console.log('备份表单初始化');
+    
+    // 初始化layui表单
+    if (window.layui && window.layui.form) {
+        window.layui.form.render();
+        console.log('layui表单初始化完成');
+    }
+    
+    // 等待DOM加载完成
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initBackupForm);
+    } else {
+        initBackupForm();
+    }
+    
+    function initBackupForm() {
+            // 获取DOM元素
+            var backupForm = document.getElementById('backupForm');
+            var backupTypeSelect = document.getElementById('backupTypeSelect');
+            var saveBtn = document.getElementById('saveBtn');
+            
+            // 检查DOM元素是否存在
+            if (!backupForm || !backupTypeSelect || !saveBtn) {
+                console.error('未找到必要的DOM元素');
+                return;
+            }
+            
+            // 显示消息的函数
+            function showMessage(message, isSuccess) {
+                var icon = isSuccess ? 1 : 2;
+                
+                // 尝试使用layer显示消息
+                if (window.parent && window.parent.layui && window.parent.layui.layer) {
+                    window.parent.layui.layer.msg(message, {
+                        icon: icon,
+                        time: 3000,
+                        offset: 'center',
+                        shade: 0.3
+                    });
+                } else if (window.layui && window.layui.layer) {
+                    window.layui.layer.msg(message, {
+                        icon: icon,
+                        time: 3000,
+                        offset: 'center',
+                        shade: 0.3
+                    });
+                } else {
+                    alert(message);
+                }
+            }
+            
+            // 更新保存按钮状态
+            function updateSaveButtonState() {
+                // 确保获取最新的备份类型
+                var selectedType = backupTypeSelect.value;
+                console.log('当前选择的备份类型值:', selectedType, '类型:', typeof selectedType);
+                
+                // 精确匹配备份类型值
+                var isUnsupported = selectedType === 'incremental' || selectedType === 'differential';
+                
+                console.log('更新保存按钮状态，备份类型:', selectedType, '是否不支持:', isUnsupported);
+                
+                if (isUnsupported) {
+                    // 禁用按钮
+                    saveBtn.disabled = true;
+                    
+                    // 添加禁用样式类
+                    if (!saveBtn.classList.contains('layui-btn-disabled')) {
+                        saveBtn.classList.add('layui-btn-disabled');
+                    }
+                    
+                    // 添加内联样式，确保按钮变灰且不可点击
+                    saveBtn.style.opacity = '0.6';
+                    saveBtn.style.cursor = 'not-allowed';
+                    saveBtn.style.pointerEvents = 'none';
+                    
+                    // 显示提示信息
+                    showMessage('该功能将在下一个版本中更新，暂时不可用', false);
+                } else {
+                    // 启用按钮
+                    saveBtn.disabled = false;
+                    
+                    // 移除禁用样式类
+                    if (saveBtn.classList.contains('layui-btn-disabled')) {
+                        saveBtn.classList.remove('layui-btn-disabled');
+                    }
+                    
+                    // 移除内联样式
+                    saveBtn.style.opacity = '';
+                    saveBtn.style.cursor = '';
+                    saveBtn.style.pointerEvents = '';
+                }
+            }
+            
+            // 处理保存按钮点击事件
+            function handleSave() {
+                // 再次检查备份类型，确保安全
+                var selectedType = backupTypeSelect.value;
+                
+                if (selectedType === 'incremental' || selectedType === 'differential') {
+                    showMessage('该功能将在下一个版本中更新，暂时不可用', false);
+                    return false;
+                }
+                
+                // 收集表单数据
+                var formData = new FormData(backupForm);
+                
+                // 创建AJAX请求
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', backupForm.action || window.location.pathname, true);
+                xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                
+                // 处理响应
+                xhr.onload = function() {
+                    if (xhr.status === 200) {
+                        try {
+                            var res = JSON.parse(xhr.responseText);
+                            if (res.success) {
+                                showMessage(res.message, true);
+                                
+                                // 关闭弹窗并刷新父页面
+                                if (window.parent && window.parent.layui && window.parent.layui.layer) {
+                                    setTimeout(function() {
+                                        window.parent.layui.layer.closeAll();
+                                        window.parent.location.reload();
+                                    }, 1500);
+                                } else {
+                                    setTimeout(function() {
+                                        window.location.href = '/system/backup/';
+                                    }, 1500);
+                                }
+                            } else {
+                                showMessage(res.message, false);
+                            }
+                        } catch (e) {
+                            showMessage('请求失败：' + xhr.responseText, false);
+                        }
+                    } else {
+                        showMessage('请求失败：' + xhr.statusText, false);
+                    }
+                };
+                
+                xhr.onerror = function() {
+                    showMessage('网络错误，请稍后重试', false);
+                };
+                
+                // 发送请求
+                xhr.send(formData);
+            }
+            
+            // 处理取消按钮点击事件
+            function handleCancel() {
+                if (window.parent && window.parent.layui && window.parent.layui.layer) {
+                    window.parent.layui.layer.closeAll();
+                } else {
+                    window.history.back();
+                }
+            }
+            
+            // 移除旧的事件监听器，避免重复绑定
+            try {
+                backupTypeSelect.removeEventListener('change', updateSaveButtonState);
+            } catch (e) {
+                console.log('没有旧的事件监听器需要移除');
+            }
+            
+            // 重新绑定change事件
+            backupTypeSelect.addEventListener('change', updateSaveButtonState);
+            
+            // 添加layui表单监听，确保下拉选择变化时能触发事件
+            if (window.layui && window.layui.form) {
+                window.layui.form.on('select(backupTypeSelect)', function(data) {
+                    console.log('layui select事件触发，选择值:', data.value);
+                    updateSaveButtonState();
+                });
+            }
+            
+            // 立即检查并设置按钮状态，确保初始状态正确
+            updateSaveButtonState();
+            
+            // 添加延迟检查，确保DOM完全加载后状态正确
+            setTimeout(function() {
+                updateSaveButtonState();
+            }, 100);
+            
+            // 暴露函数到全局，以便HTML调用
+            window.updateSaveButtonState = updateSaveButtonState;
+            window.handleSave = handleSave;
+            window.handleCancel = handleCancel;
+        }
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,133 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}日程安排{% endblock %}
+
+{% block content %}
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <h3>日程安排 - {{ current_date|date:"Y年m月d日" }}</h3>
+                    </div>
+                    <div class="layui-card-body">
+                        <!-- 操作栏 -->
+                        <div class="layui-form layui-form-pane" style="margin-bottom: 20px;">
+                            <div class="layui-form-item">
+                                <div class="layui-inline">
+                                    <input type="date" name="date" class="layui-input" value="{{ current_date|date:'Y-m-d' }}">
+                                </div>
+                                <div class="layui-inline">
+                                    <button class="layui-btn" onclick="changeDate()">
+                                        <i class="layui-icon layui-icon-search"></i> 查看
+                                    </button>
+                                    <a href="{% url 'personal:schedule_add' %}" class="layui-btn layui-btn-normal">
+                                        <i class="layui-icon layui-icon-add-1"></i> 新增日程
+                                    </a>
+                                    <a href="{% url 'personal:schedule_calendar' %}" class="layui-btn layui-btn-primary">
+                                        <i class="layui-icon layui-icon-date"></i> 日历视图
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 日程时间轴 -->
+                        <div class="layui-timeline">
+                            {% for schedule in schedules %}
+                            <div class="layui-timeline-item">
+                                <i class="layui-icon layui-timeline-axis">&#xe63f;</i>
+                                <div class="layui-timeline-content layui-text">
+                                    <div class="layui-timeline-title">
+                                        <div class="layui-row">
+                                            <div class="layui-col-xs8">
+                                                <h3 style="margin: 0;">
+                                                    {{ schedule.start_time|date:"H:i" }} - {{ schedule.end_time|date:"H:i" }}
+                                                    {{ schedule.title }}
+                                                </h3>
+                                            </div>
+                                            <div class="layui-col-xs4" style="text-align: right;">
+                                                <span class="layui-badge 
+                                                    {% if schedule.priority == 4 %}layui-bg-red
+                                                    {% elif schedule.priority == 3 %}layui-bg-orange
+                                                    {% elif schedule.priority == 2 %}layui-bg-blue
+                                                    {% else %}layui-bg-gray{% endif %}">
+                                                    {{ schedule.priority_display }}
+                                                </span>
+                                                <span class="layui-badge layui-badge-rim
+                                                    {% if schedule.status == 'completed' %}layui-bg-green
+                                                    {% elif schedule.status == 'in_progress' %}layui-bg-blue
+                                                    {% elif schedule.status == 'cancelled' %}layui-bg-gray
+                                                    {% else %}{% endif %}">
+                                                    {{ schedule.status_display }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    {% if schedule.content %}
+                                    <p style="margin: 10px 0; color: #666;">{{ schedule.content }}</p>
+                                    {% endif %}
+                                    
+                                    <div style="margin-top: 10px;">
+                                        {% if schedule.location %}
+                                            <i class="layui-icon layui-icon-location"></i> {{ schedule.location }}
+                                        {% endif %}
+                                        
+                                        {% if schedule.is_all_day %}
+                                            <span class="layui-badge layui-badge-rim">全天</span>
+                                        {% endif %}
+                                        
+                                        {% if schedule.is_private %}
+                                            <span class="layui-badge layui-badge-rim">私人</span>
+                                        {% endif %}
+                                        
+                                        {% if schedule.reminder_time %}
+                                            <span style="color: #999;">
+                                                <i class="layui-icon layui-icon-time"></i> 
+                                                提醒: {{ schedule.reminder_time|date:"m-d H:i" }}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div style="margin-top: 15px;">
+                                        <a href="{% url 'personal:schedule_edit' schedule.pk %}" class="layui-btn layui-btn-xs">编辑</a>
+                                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteSchedule({{ schedule.pk }})">删除</button>
+                                    </div>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div style="text-align: center; color: #999; padding: 50px;">
+                                <i class="layui-icon layui-icon-date" style="font-size: 48px; display: block; margin-bottom: 20px;"></i>
+                                今日暂无日程安排
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+<script>
+    layui.use(['layer'], function(){
+        var layer = layui.layer;
+        
+        window.deleteSchedule = function(id) {
+            layer.confirm('确定要删除这个日程吗？', {
+                btn: ['确定', '取消']
+            }, function(index) {
+                // 发送删除请求
+                window.location.href = "{% url 'personal:schedule_delete' 0 %}".replace('0', id);
+                layer.close(index);
+            });
+        };
+    });
+
+    function changeDate() {
+        var date = document.querySelector('input[name="date"]').value;
+        var url = new URL(window.location);
+        if (date) {
+            url.searchParams.set('date', date);
+        } else {
+            url.searchParams.delete('date');
+        }
+        window.location.href = url.toString();
+    }
+</script>
+{% endblock %}

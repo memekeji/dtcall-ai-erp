@@ -1,0 +1,122 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}车辆维修保养记录{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <h3>车辆维修保养记录</h3>
+            </div>
+            <div class="layui-col-md6" style="text-align: right;">
+                <a href="{% url 'system:admin_office:vehicle_maintenance_create' %}" class="layui-btn layui-btn-sm">
+                    <i class="layui-icon layui-icon-add-1"></i> 新增记录
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <!-- 搜索表单 -->
+        <form class="layui-form" method="get">
+            <div class="layui-row layui-col-space10">
+                <div class="layui-col-md3">
+                    <select name="vehicle" class="layui-input">
+                        <option value="">全部车辆</option>
+                        {% for vehicle in vehicles %}
+                        <option value="{{ vehicle.pk }}" {% if vehicle_id == vehicle.pk|stringformat:"s" %}selected{% endif %}>{{ vehicle.license_plate }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="layui-col-md2">
+                    <select name="type" class="layui-input">
+                        <option value="">全部类型</option>
+                        {% for value, label in type_choices %}
+                        <option value="{{ value }}" {% if maintenance_type == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="layui-col-md3">
+                    <button class="layui-btn" type="submit">搜索</button>
+                    <a href="{% url 'system:admin_office:vehicle_maintenance_list' %}" class="layui-btn layui-btn-primary">重置</a>
+                </div>
+            </div>
+        </form>
+        
+        <!-- 数据表格 -->
+        <table class="layui-table" lay-skin="line">
+            <thead>
+                <tr>
+                    <th>车牌号</th>
+                    <th>类型</th>
+                    <th>维修/保养日期</th>
+                    <th>里程数</th>
+                    <th>费用</th>
+                    <th>服务商</th>
+                    <th>操作人</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for maintenance in page_obj %}
+                <tr>
+                    <td>{{ maintenance.vehicle.license_plate }}</td>
+                    <td>
+                        {% if maintenance.maintenance_type == 'repair' %}
+                            <span class="layui-badge layui-bg-orange">{{ maintenance.get_maintenance_type_display }}</span>
+                        {% else %}
+                            <span class="layui-badge layui-bg-green">{{ maintenance.get_maintenance_type_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ maintenance.maintenance_date }}</td>
+                    <td>{{ maintenance.mileage }}公里</td>
+                    <td>￥{{ maintenance.cost }}</td>
+                    <td>{{ maintenance.service_provider }}</td>
+                    <td>{{ maintenance.operator.name }}</td>
+                    <td>
+                        <a href="{% url 'system:admin_office:vehicle_maintenance_update' maintenance.pk %}" class="layui-btn layui-btn-xs">编辑</a>
+                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteMaintenance({{ maintenance.pk }})">删除</button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align: center; color: #999;">暂无数据</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <!-- 分页 -->
+        {% if page_obj.has_other_pages %}
+        <div class="layui-box layui-laypage layui-laypage-default">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}&vehicle={{ vehicle_id }}&type={{ maintenance_type }}" class="layui-laypage-prev">上一页</a>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <span class="layui-laypage-curr"><em>{{ num }}</em></span>
+                {% else %}
+                    <a href="?page={{ num }}&vehicle={{ vehicle_id }}&type={{ maintenance_type }}">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&vehicle={{ vehicle_id }}&type={{ maintenance_type }}" class="layui-laypage-next">下一页</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function deleteMaintenance(id) {
+    layer.confirm('确定要删除这条维修保养记录吗？', {
+        btn: ['确定', '取消']
+    }, function(){
+        layer.msg('删除功能待实现');
+    });
+}
+</script>
+{% endblock %}

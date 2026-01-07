@@ -1,0 +1,242 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if is_edit %}编辑任务{% else %}新建任务{% endif %}</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+
+<body>
+    <div class="layui-container" style="padding: 20px;">
+        <form class="layui-form" lay-filter="taskForm">
+            {% csrf_token %}
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md12">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">任务标题 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            <input type="text" name="title" value="{% if task %}{{ task.title }}{% endif %}" 
+                                   placeholder="请输入任务标题" class="layui-input" required>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">所属项目</label>
+                        <div class="layui-input-block">
+                            {% if task and task.project_id %}
+                                <!-- 编辑任务时，显示任务关联的项目 -->
+                                <input type="text" name="project_name" value="{{ task.project.name }}" class="layui-input" readonly>
+                                <input type="hidden" name="project_id" value="{{ task.project.id }}">
+                            {% elif current_project_id %}
+                                <!-- 新增任务时，显示URL参数传递的项目 -->
+                                <!-- 修复：使用更可靠的条件判断，避免类型转换问题 -->
+                                {% for project in projects %}
+                                    {% if project.id|stringformat:"s" == current_project_id %}
+                                        <input type="text" name="project_name" value="{{ project.name }}" class="layui-input" readonly>
+                                        <input type="hidden" name="project_id" value="{{ project.id }}">
+                                    {% endif %}
+                                {% endfor %}
+                                <!-- 备选方案：如果找不到项目，显示URL参数 -->
+                                {% if not projects|length %}
+                                    <input type="text" name="project_name" value="项目ID: {{ current_project_id }}" class="layui-input" readonly>
+                                    <input type="hidden" name="project_id" value="{{ current_project_id }}">
+                                {% endif %}
+                            {% else %}
+                                <!-- 保留原逻辑，防止意外情况 -->
+                                <select name="project_id">
+                                    <option value="">请选择项目</option>
+                                    {% for project in projects %}
+                                    <option value="{{ project.id }}" 
+                                        {% if task and task.project_id == project.id %}selected{% endif %}>
+                                        {{ project.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">负责人</label>
+                        <div class="layui-input-block">
+                            <select name="assignee_id">
+                                <option value="">请选择负责人</option>
+                                {% for user in users %}
+                                <option value="{{ user.id }}" 
+                                    {% if task and task.assignee_id == user.id %}selected{% endif %}>
+                                    {{ user.username }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">开始日期 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            <input type="date" name="start_date" 
+                                   value="{% if task %}{{ task.start_date|date:'Y-m-d' }}{% endif %}" 
+                                   class="layui-input" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">结束日期 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            <input type="date" name="end_date" 
+                                   value="{% if task %}{{ task.end_date|date:'Y-m-d' }}{% endif %}" 
+                                   class="layui-input" required>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">预估工时</label>
+                        <div class="layui-input-block">
+                            <input type="number" name="estimated_hours" 
+                                   value="{% if task %}{{ task.estimated_hours }}{% endif %}" 
+                                   placeholder="请输入预估工时(小时)" class="layui-input">
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">优先级</label>
+                        <div class="layui-input-block">
+                            <select name="priority">
+                                <option value="1" {% if task and task.priority == 1 %}selected{% endif %}>低</option>
+                                <option value="2" {% if task and task.priority == 2 or not task %}selected{% endif %}>中</option>
+                                <option value="3" {% if task and task.priority == 3 %}selected{% endif %}>高</option>
+                                <option value="4" {% if task and task.priority == 4 %}selected{% endif %}>紧急</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% if is_edit %}
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">任务状态</label>
+                        <div class="layui-input-block">
+                            <select name="status">
+                                <option value="1" {% if task.status == 1 %}selected{% endif %}>未开始</option>
+                                <option value="2" {% if task.status == 2 %}selected{% endif %}>进行中</option>
+                                <option value="3" {% if task.status == 3 %}selected{% endif %}>已完成</option>
+                                <option value="4" {% if task.status == 4 %}selected{% endif %}>已延期</option>
+                                <option value="5" {% if task.status == 5 %}selected{% endif %}>已取消</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">完成进度</label>
+                        <div class="layui-input-block">
+                            <input type="number" name="progress" min="0" max="100" 
+                                   value="{% if task %}{{ task.progress }}{% else %}0{% endif %}" 
+                                   placeholder="0-100" class="layui-input">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">参与人员</label>
+                <div class="layui-input-block">
+                    {% include 'common/employee_selector.html' %}
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">任务描述</label>
+                <div class="layui-input-block">
+                    <textarea name="description" placeholder="请输入任务描述" class="layui-textarea" 
+                              rows="4">{% if task %}{{ task.description }}{% endif %}</textarea>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button type="submit" class="layui-btn" lay-submit lay-filter="submitBtn">
+                        {% if is_edit %}更新任务{% else %}创建任务{% endif %}
+                    </button>
+                    <button type="button" class="layui-btn layui-btn-primary" onclick="closeWindow()">取消</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['form', 'layer'], function () {
+            var form = layui.form;
+            var layer = layui.layer;
+
+            // 监听表单提交
+            form.on('submit(submitBtn)', function (data) {
+                var loadIndex = layer.load(2);
+                
+                // 添加CSRF token
+                var formData = data.field;
+                formData.csrfmiddlewaretoken = $('[name=csrfmiddlewaretoken]').val();
+                
+                console.log('Submitting task data:', formData);
+                
+                $.ajax({
+                    url: window.location.href,
+                    type: 'POST',
+                    data: formData,
+                    dataType: 'json',
+                    success: function (res) {
+                        console.log('Task response:', res);
+                        layer.close(loadIndex);
+                        if (res.code === 0) {
+                            layer.msg(res.msg, { icon: 1 }, function () {
+                                // 关闭弹窗并刷新父页面
+                                var index = parent.layer.getFrameIndex(window.name);
+                                parent.layer.close(index);
+                                parent.layui.table.reload('taskTable');
+                            });
+                        } else {
+                            layer.msg(res.msg, { icon: 2 });
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.log('Task error:', xhr.responseText);
+                        layer.close(loadIndex);
+                        layer.msg('网络错误，请重试: ' + error, { icon: 2 });
+                    }
+                });
+                
+                return false;
+            });
+        });
+
+        function closeWindow() {
+            var index = parent.layer.getFrameIndex(window.name);
+            parent.layer.close(index);
+        }
+    </script>
+</body>
+
+</html>

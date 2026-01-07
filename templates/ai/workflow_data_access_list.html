@@ -1,0 +1,574 @@
+{% extends 'home/iframe_base.html' %}
+{% load static %}
+
+{% block title %}数据访问权限管理 - DTCALL管理后台{% endblock %}
+
+{% block css %}
+<style>
+    .list-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    .page-header {
+        margin-bottom: 25px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #f0f0f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    .page-title {
+        font-size: 20px;
+        font-weight: bold;
+        color: #333;
+    }
+    .tool-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    .filter-form {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .filter-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .filter-label {
+        color: #666;
+        font-size: 14px;
+    }
+    .add-btn {
+        background-color: #00f2fe;
+        color: #333;
+    }
+    .add-btn:hover {
+        background-color: #00d4dc;
+    }
+    .table-card {
+        background-color: #fff;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+    .table-header {
+        background-color: #fafafa;
+        padding: 15px 20px;
+        border-bottom: 1px solid #f0f0f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .table-title {
+        font-size: 16px;
+        font-weight: 500;
+        color: #333;
+    }
+    .table-actions {
+        display: flex;
+        gap: 10px;
+    }
+    .status-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-size: 12px;
+    }
+    .status-active {
+        background-color: #f6ffed;
+        color: #52c41a;
+    }
+    .status-inactive {
+        background-color: #f5f5f5;
+        color: #8c8c8c;
+    }
+    .access-type-tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-size: 12px;
+        background-color: #e6f7ff;
+        color: #1890ff;
+    }
+    .action-icon {
+        margin: 0 5px;
+        cursor: pointer;
+    }
+    .action-icon:hover {
+        opacity: 0.7;
+    }
+    .edit-icon {
+        color: #1890ff;
+    }
+    .delete-icon {
+        color: #f5222d;
+    }
+    .view-icon {
+        color: #52c41a;
+    }
+    .table-footer {
+        padding: 15px 20px;
+        border-top: 1px solid #f0f0f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: #fafafa;
+    }
+    .pagination-info {
+        color: #666;
+        font-size: 14px;
+    }
+    .layui-table {
+        margin: 0;
+    }
+    .layui-table th {
+        background-color: #fafafa;
+        font-weight: 500;
+        color: #333;
+    }
+    .layui-table tr:hover {
+        background-color: #fafafa;
+    }
+    .no-data {
+        text-align: center;
+        padding: 60px 20px;
+        color: #999;
+    }
+    .no-data-icon {
+        font-size: 48px;
+        margin-bottom: 10px;
+    }
+    .search-input {
+        width: 280px;
+    }
+    .batch-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    .back-link {
+        margin-bottom: 20px;
+    }
+    .workflow-info {}
+    
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+        .list-container {
+            padding: 0 15px;
+        }
+        .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .tool-bar {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .filter-form {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .filter-item {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .search-input {
+            width: 100%;
+        }
+        .table-footer {
+            flex-direction: column;
+            gap: 10px;
+        }
+        .pagination-info {
+            order: 2;
+        }
+        .layui-laypage {
+            order: 1;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="list-container">
+    <!-- 返回链接 -->
+    <div class="back-link">
+        <a href="{% url 'ai:workflow_dashboard' %}" class="layui-btn layui-btn-primary layui-btn-sm">
+            <i class="layui-icon layui-icon-left"></i> 返回工作流仪表盘
+        </a>
+    </div>
+    
+    <!-- 页面标题 -->
+    <div class="page-header">
+        <h2 class="page-title">数据访问权限管理</h2>
+        <a href="{% url 'ai:workflow_data_access_create' %}" class="layui-btn add-btn">
+            <i class="layui-icon layui-icon-plus"></i> 新建数据访问权限
+        </a>
+    </div>
+    
+    <!-- 工具栏 -->
+    <div class="tool-bar">
+        <form class="filter-form" action="" method="get">
+            <!-- 工作流筛选 -->
+            <div class="filter-item">
+                <label class="filter-label">工作流:</label>
+                <select name="workflow_id" lay-filter="workflow-filter">
+                    <option value="">全部工作流</option>
+                    {% for workflow in workflows %}
+                    <option value="{{ workflow.id }}" {% if workflow.id|stringformat:"s" == request.GET.workflow_id %}selected{% endif %}>
+                        {{ workflow.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- 访问类型筛选 -->
+            <div class="filter-item">
+                <label class="filter-label">访问类型:</label>
+                <select name="access_type" lay-filter="access-type-filter">
+                    <option value="">全部类型</option>
+                    {% for choice in access_type_choices %}
+                    <option value="{{ choice.0 }}" {% if choice.0 == request.GET.access_type %}selected{% endif %}>
+                        {{ choice.1 }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- 状态筛选 -->
+            <div class="filter-item">
+                <label class="filter-label">状态:</label>
+                <select name="is_active" lay-filter="status-filter">
+                    <option value="">全部状态</option>
+                    <option value="1" {% if request.GET.is_active == '1' %}selected{% endif %}>启用</option>
+                    <option value="0" {% if request.GET.is_active == '0' %}selected{% endif %}>禁用</option>
+                </select>
+            </div>
+            
+            <!-- 搜索框 -->
+            <div class="filter-item" style="margin-left: auto;">
+                <div class="layui-input-group" style="width: 280px;">
+                    <input type="text" name="search" placeholder="搜索权限名称或描述" 
+                           value="{{ request.GET.search }}" 
+                           class="layui-input layui-input-sm search-input">
+                    <span class="layui-input-group-btn">
+                        <button class="layui-btn layui-btn-sm layui-btn-normal" type="submit">
+                            <i class="layui-icon layui-icon-search"></i>
+                        </button>
+                    </span>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- 数据表格卡片 -->
+    <div class="table-card">
+        <!-- 表格头部 -->
+        <div class="table-header">
+            <div class="table-title">数据访问权限列表</div>
+            <div class="table-actions">
+                <button class="layui-btn layui-btn-sm layui-btn-primary" id="refresh-btn">
+                    <i class="layui-icon layui-icon-refresh"></i> 刷新
+                </button>
+                <button class="layui-btn layui-btn-sm layui-btn-primary" id="export-btn">
+                    <i class="layui-icon layui-icon-download"></i> 导出
+                </button>
+            </div>
+        </div>
+        
+        <!-- 表格内容 -->
+        <div class="table-content">
+            {% if data_access_list %}
+            <table class="layui-table" lay-skin="line">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">ID</th>
+                        <th>权限名称</th>
+                        <th>工作流</th>
+                        <th>访问类型</th>
+                        <th>访问范围</th>
+                        <th>授权对象</th>
+                        <th>状态</th>
+                        <th style="width: 150px;">创建时间</th>
+                        <th style="width: 120px;">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for access in data_access_list %}
+                    <tr>
+                        <td>{{ access.id }}</td>
+                        <td>
+                            <div style="font-weight: 500;">{{ access.name }}</div>
+                            <div style="font-size: 12px; color: #999; margin-top: 2px;">
+                                {{ access.description|default:''|truncatechars:50 }}
+                            </div>
+                        </td>
+                        <td>
+                            <a href="{% url 'ai:workflow_detail' access.workflow.id %}" 
+                               target="_blank" 
+                               class="workflow-info" 
+                               style="color: #00f2fe;">
+                                {{ access.workflow.name }}
+                            </a>
+                        </td>
+                        <td>
+                            <span class="access-type-tag">{{ access.get_access_type_display }}</span>
+                        </td>
+                        <td>{{ access.get_access_scope_display }}</td>
+                        <td>
+                            {% if access.access_type == 'ALL_USERS' %}
+                            所有用户
+                            {% elif access.access_type == 'OWNER_ONLY' %}
+                            仅所有者
+                            {% elif access.access_type == 'SPECIFIC_USERS' %}
+                            <div style="max-width: 150px; word-break: break-all;">
+                                {% for user in access.users.all %}
+                                {{ user.username }}{% if not forloop.last %}, {% endif %}
+                                {% endfor %}
+                            </div>
+                            {% elif access.access_type == 'SPECIFIC_GROUPS' %}
+                            <div style="max-width: 150px; word-break: break-all;">
+                                {% for group in access.groups.all %}
+                                {{ group.name }}{% if not forloop.last %}, {% endif %}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="status-badge {% if access.is_active %}status-active{% else %}status-inactive{% endif %}">
+                                {% if access.is_active %}启用{% else %}禁用{% endif %}
+                            </span>
+                        </td>
+                        <td>{{ access.created_at|date:"Y-m-d H:i:s" }}</td>
+                        <td>
+                            <a href="{% url 'ai:workflow_data_access_edit' access.id %}" class="action-icon edit-icon">
+                                <i class="layui-icon layui-icon-edit"></i>
+                            </a>
+                            <a href="javascript:void(0);" 
+                               class="action-icon delete-icon" 
+                               data-id="{{ access.id }}" 
+                               data-name="{{ access.name }}">
+                                <i class="layui-icon layui-icon-delete"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="no-data">
+                <i class="layui-icon layui-icon-note no-data-icon"></i>
+                <p>暂无数据访问权限配置</p>
+                <p style="font-size: 12px; margin-top: 5px;">
+                    <a href="{% url 'ai:workflow_data_access_create' %}" style="color: #00f2fe;">
+                        点击此处创建第一个数据访问权限
+                    </a>
+                </p>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- 分页控件 -->
+        {% if is_paginated %}
+        <div class="table-footer">
+            <div class="pagination-info">
+                共 {{ paginator.count }} 条记录，当前第 {{ page_obj.number }} / {{ paginator.num_pages }} 页
+            </div>
+            <div class="layui-box layui-laypage layui-laypage-default">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+                   class="layui-laypage-prev">上一页</a>
+                {% else %}
+                <a href="javascript:void(0);" class="layui-laypage-prev layui-disabled">上一页</a>
+                {% endif %}
+                
+                {% for num in paginator.page_range %}
+                    {% if num == page_obj.number %}
+                    <span class="layui-laypage-curr"><em class="layui-laypage-em"></em><em>{{ num }}</em></span>
+                    {% elif num > page_obj.number|add:-3 and num < page_obj.number|add:3 %}
+                    <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+                   class="layui-laypage-next">下一页</a>
+                {% else %}
+                <a href="javascript:void(0);" class="layui-laypage-next layui-disabled">下一页</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+    layui.use(['layer', 'form', 'table'], function() {
+        var layer = layui.layer;
+        var form = layui.form;
+        var table = layui.table;
+        
+        // 刷新按钮
+        $('#refresh-btn').on('click', function() {
+            location.reload();
+        });
+        
+        // 导出按钮
+        $('#export-btn').on('click', function() {
+            // 构建导出URL，包含当前筛选条件
+            var exportUrl = "{% url 'ai:workflow_data_access_export' %}";
+            var queryParams = window.location.search;
+            
+            if (queryParams) {
+                exportUrl += queryParams;
+            }
+            
+            // 跳转到导出URL
+            window.location.href = exportUrl;
+        });
+        
+        // 删除权限
+        $('.delete-icon').on('click', function() {
+            var id = $(this).data('id');
+            var name = $(this).data('name');
+            
+            layer.confirm('确定要删除数据访问权限 "' + name + '" 吗？此操作不可撤销。', {
+                btn: ['确定', '取消'],
+                icon: 3,
+                title: '确认删除'
+            }, function(index) {
+                // 发送删除请求
+                $.ajax({
+                    url: "{% url 'ai:workflow_data_access_delete' '0' %}".replace('0', id),
+                    type: 'POST',
+                    data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
+                    success: function(response) {
+                        if (response.success) {
+                            layer.msg('删除成功', { icon: 1 });
+                            // 刷新页面
+                            setTimeout(function() {
+                                location.reload();
+                            }, 1000);
+                        } else {
+                            layer.msg(response.message || '删除失败', { icon: 5 });
+                        }
+                    },
+                    error: function() {
+                        layer.msg('服务器错误，请稍后重试', { icon: 5 });
+                    }
+                });
+                
+                layer.close(index);
+            });
+        });
+        
+        // 监听选择框变化，自动提交筛选表单
+        form.on('select', function(data) {
+            // 获取当前选择框的name
+            var fieldName = data.elem.name;
+            
+            // 仅在特定选择框变化时自动提交
+            if (fieldName === 'workflow_id' || fieldName === 'access_type' || fieldName === 'is_active') {
+                // 找到对应的表单并提交
+                data.elem.form.submit();
+            }
+        });
+        
+        // 批量操作处理函数
+        function handleBatchOperation(operation, selectedIds) {
+            if (!selectedIds || selectedIds.length === 0) {
+                layer.msg('请先选择要操作的权限', { icon: 5 });
+                return;
+            }
+            
+            var confirmMsg = '';
+            var actionUrl = '';
+            
+            switch(operation) {
+                case 'enable':
+                    confirmMsg = '确定要启用选中的 ' + selectedIds.length + ' 个权限吗？';
+                    actionUrl = "{% url 'ai:workflow_data_access_batch_enable' %}";
+                    break;
+                case 'disable':
+                    confirmMsg = '确定要禁用选中的 ' + selectedIds.length + ' 个权限吗？';
+                    actionUrl = "{% url 'ai:workflow_data_access_batch_disable' %}";
+                    break;
+                case 'delete':
+                    confirmMsg = '确定要删除选中的 ' + selectedIds.length + ' 个权限吗？此操作不可撤销！';
+                    actionUrl = "{% url 'ai:workflow_data_access_batch_delete' %}";
+                    break;
+                default:
+                    return;
+            }
+            
+            layer.confirm(confirmMsg, {
+                btn: ['确定', '取消'],
+                icon: 3
+            }, function(index) {
+                // 发送批量操作请求
+                $.ajax({
+                    url: actionUrl,
+                    type: 'POST',
+                    data: {
+                        ids: selectedIds.join(','),
+                        csrfmiddlewaretoken: '{{ csrf_token }}'
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            layer.msg(response.message || '操作成功', { icon: 1 });
+                            // 刷新页面
+                            setTimeout(function() {
+                                location.reload();
+                            }, 1000);
+                        } else {
+                            layer.msg(response.message || '操作失败', { icon: 5 });
+                        }
+                    },
+                    error: function() {
+                        layer.msg('服务器错误，请稍后重试', { icon: 5 });
+                    }
+                });
+                
+                layer.close(index);
+            });
+        }
+        
+        // 表单渲染
+        form.render();
+        
+        // 页面加载完成后的初始化
+        $(document).ready(function() {
+            // 平滑滚动效果
+            $(document).on('click', 'a[href^="#"]', function(e) {
+                e.preventDefault();
+                var target = $(this.getAttribute('href'));
+                if (target.length) {
+                    $('html, body').stop().animate({
+                        scrollTop: target.offset().top
+                    }, 500);
+                }
+            });
+            
+            // 添加表格行悬停效果
+            $('.layui-table tbody tr').hover(
+                function() {
+                    $(this).find('.action-icon').css('opacity', 1);
+                },
+                function() {
+                    // 可以在这里添加移出时的效果
+                }
+            );
+        });
+    });
+</script>
+{% endblock %}

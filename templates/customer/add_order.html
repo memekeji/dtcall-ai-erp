@@ -1,0 +1,170 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>添加订单记录</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+<body>
+    <div class="layui-fluid" style="padding: 15px;">
+        <form class="layui-form" action="" lay-filter="orderForm">
+            <div class="layui-form-item">
+                <label class="layui-form-label">订单编号</label>
+                <div class="layui-input-block">
+                    <input type="text" name="order_number" placeholder="请输入订单编号" autocomplete="off" class="layui-input" lay-verify="required">
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">关联合同</label>
+                <div class="layui-input-block">
+                    <select name="contract_id" id="contract_select">
+                        <option value="">不关联合同</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">订单日期</label>
+                <div class="layui-input-block">
+                    <input type="text" name="order_date" id="order_date" placeholder="请选择订单日期" autocomplete="off" class="layui-input" lay-verify="required">
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">订单金额</label>
+                <div class="layui-input-block">
+                    <input type="number" name="amount" placeholder="请输入订单金额" autocomplete="off" class="layui-input" lay-verify="required|number" step="0.01">
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">产品名称</label>
+                <div class="layui-input-block">
+                    <input type="text" name="product_name" placeholder="请输入产品名称" autocomplete="off" class="layui-input" lay-verify="required">
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">订单状态</label>
+                <div class="layui-input-block">
+                    <select name="status" lay-verify="required">
+                        <option value="">请选择订单状态</option>
+                        <option value="pending">待处理</option>
+                        <option value="confirmed">已确认</option>
+                        <option value="processing">处理中</option>
+                        <option value="completed">已完成</option>
+                        <option value="cancelled">已取消</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="layui-form-item layui-form-text">
+                <label class="layui-form-label">订单描述</label>
+                <div class="layui-input-block">
+                    <textarea name="description" placeholder="请输入订单描述" class="layui-textarea"></textarea>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" lay-submit lay-filter="submitOrder">立即提交</button>
+                    <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['form', 'laydate', 'layer'], function(){
+            var form = layui.form;
+            var laydate = layui.laydate;
+            var layer = layui.layer;
+            
+            // 初始化日期选择器
+            laydate.render({
+                elem: '#order_date',
+                type: 'date'
+            });
+            
+            // 获取客户ID
+            function getCustomerId() {
+                var urlParams = new URLSearchParams(window.location.search);
+                return urlParams.get('customer_id');
+            }
+            
+            // 加载客户合同列表
+            function loadContracts() {
+                var customerId = getCustomerId();
+                if (!customerId) return;
+                
+                $.ajax({
+                    url: '/adm/customer/detail-api/' + customerId + '/contracts/',
+                    type: 'GET',
+                    success: function(response) {
+                        var contractSelect = $('#contract_select');
+                        contractSelect.empty();
+                        contractSelect.append('<option value="">不关联合同</option>');
+                        
+                        if (response.data && response.data.length > 0) {
+                            response.data.forEach(function(contract) {
+                                contractSelect.append('<option value="' + contract.id + '">' + contract.name + ' (' + contract.amount + '元)</option>');
+                            });
+                        }
+                        form.render('select');
+                    },
+                    error: function(xhr) {
+                        console.error('加载合同列表失败:', xhr);
+                    }
+                });
+            }
+            
+            // 页面加载时加载合同列表
+            loadContracts();
+            
+            // 监听提交
+            form.on('submit(submitOrder)', function(data){
+                var customerId = getCustomerId();
+                if (!customerId) {
+                    layer.msg('客户ID参数缺失', {icon: 2});
+                    return false;
+                }
+                
+                var formData = data.field;
+                formData.customer_id = customerId;
+                
+                $.ajax({
+                    url: '/adm/customer/add-order/',
+                    type: 'POST',
+                    data: JSON.stringify(formData),
+                    contentType: 'application/json',
+                    headers: {
+                        'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+                    },
+                    success: function(response) {
+                        if (response.code === 0) {
+                            layer.msg('订单记录添加成功，已同步到财务记录', {icon: 1});
+                            setTimeout(function() {
+                                var index = parent.layer.getFrameIndex(window.name);
+                                parent.layer.close(index);
+                            }, 1500);
+                        } else {
+                            layer.msg(response.msg || '添加失败', {icon: 2});
+                        }
+                    },
+                    error: function(xhr) {
+                        layer.msg('添加失败: ' + (xhr.responseJSON?.error || xhr.statusText), {icon: 2});
+                    }
+                });
+                
+                return false;
+            });
+        });
+    </script>
+</body>
+</html>

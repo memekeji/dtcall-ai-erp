@@ -1,0 +1,120 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}公告通知{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <h3>公告通知</h3>
+            </div>
+            <div class="layui-col-md6" style="text-align: right;">
+                <span style="color: #999; font-size: 12px;">
+                    <i class="layui-icon layui-icon-tips"></i> 个人用户只能查看公告，不能发布
+                </span>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <!-- 搜索表单 -->
+        <form class="layui-form" method="get">
+            <div class="layui-row layui-col-space10">
+                <div class="layui-col-md4">
+                    <input type="text" name="search" value="{{ search }}" placeholder="搜索公告标题或内容" class="layui-input">
+                </div>
+                <div class="layui-col-md3">
+                    <select name="notice_type" class="layui-input">
+                        <option value="">全部类型</option>
+                        <option value="system" {% if notice_type == 'system' %}selected{% endif %}>系统公告</option>
+                        <option value="company" {% if notice_type == 'company' %}selected{% endif %}>公司新闻</option>
+                        <option value="notice" {% if notice_type == 'notice' %}selected{% endif %}>通知公告</option>
+                    </select>
+                </div>
+                <div class="layui-col-md3">
+                    <button class="layui-btn" type="submit">搜索</button>
+                    <a href="{% url 'personal:notice_list' %}" class="layui-btn layui-btn-primary">重置</a>
+                </div>
+            </div>
+        </form>
+        
+        <!-- 公告列表 -->
+        {% if page_obj %}
+            {% for notice in page_obj %}
+            <div class="layui-panel" style="margin-bottom: 15px; padding: 15px;">
+                <div class="layui-row">
+                    <div class="layui-col-md8">
+                        <h4 style="margin-bottom: 10px;">
+                            <a href="#" onclick="showNoticeDetail({{ notice.pk }})" style="color: #333;">
+                                {{ notice.title }}
+                            </a>
+                            {% if notice.is_top %}
+                                <span class="layui-badge layui-bg-red" style="margin-left: 10px;">置顶</span>
+                            {% endif %}
+                        </h4>
+                    </div>
+                    <div class="layui-col-md4" style="text-align: right;">
+                        {% if notice.notice_type == 'system' %}
+                            <span class="layui-badge layui-bg-blue">系统公告</span>
+                        {% elif notice.notice_type == 'company' %}
+                            <span class="layui-badge layui-bg-green">公司新闻</span>
+                        {% else %}
+                            <span class="layui-badge layui-bg-orange">通知公告</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div style="margin: 10px 0;">
+                    <p>{{ notice.content|truncatechars:200 }}</p>
+                </div>
+                <div style="color: #999; font-size: 12px;">
+                    发布时间: {{ notice.publish_time|date:"Y-m-d H:i" }} | 
+                    发布人: {{ notice.author.name }}
+                    {% if notice.expire_time %}
+                        | 有效期至: {{ notice.expire_time|date:"Y-m-d H:i" }}
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+            
+            <!-- 分页 -->
+            {% if page_obj.has_other_pages %}
+            <div class="layui-box layui-laypage layui-laypage-default">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}&notice_type={{ notice_type }}" class="layui-laypage-prev">上一页</a>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <span class="layui-laypage-curr"><em>{{ num }}</em></span>
+                    {% else %}
+                        <a href="?page={{ num }}&search={{ search }}&notice_type={{ notice_type }}">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}&search={{ search }}&notice_type={{ notice_type }}" class="layui-laypage-next">下一页</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        {% else %}
+            <div style="text-align: center; padding: 50px; color: #999;">
+                <i class="layui-icon layui-icon-notice" style="font-size: 48px; display: block; margin-bottom: 15px;"></i>
+                <p>暂无公告通知</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 公告详情弹窗 -->
+<div id="notice-detail" style="display: none; padding: 20px;">
+    <div id="notice-content"></div>
+</div>
+
+<script>
+function showNoticeDetail(noticeId) {
+    // 这里可以通过AJAX获取公告详情
+    layer.msg('公告详情功能待完善');
+}
+</script>
+{% endblock %}

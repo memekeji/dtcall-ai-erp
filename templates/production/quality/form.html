@@ -1,0 +1,129 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if quality_check %}编辑质量检查{% else %}添加质量检查{% endif %}</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <!-- 页面标题 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <h2 style="margin-bottom: 20px;">
+                    {% if quality_check %}编辑质量检查{% else %}添加质量检查{% endif %}
+                </h2>
+            </div>
+        </div>
+
+        <!-- 表单 -->
+        <div class="layui-row">
+            <div class="layui-col-md10">
+                <div class="layui-card">
+                    <div class="layui-card-body">
+                        <form class="layui-form" method="post">
+                            {% csrf_token %}
+                              
+                            <div class="layui-form-item">
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">关联任务 <span style="color: red;">*</span></label>
+                                    <div class="layui-input-inline" style="width: 250px;">
+                                        {{ form.task }}
+                                        {% if form.task.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.task.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">检查数量 <span style="color: red;">*</span></label>
+                                    <div class="layui-input-inline" style="width: 120px;">
+                                        {{ form.check_quantity }}
+                                        {% if form.check_quantity.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.check_quantity.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">合格数量 <span style="color: red;">*</span></label>
+                                    <div class="layui-input-inline" style="width: 120px;">
+                                        {{ form.qualified_quantity }}
+                                        {% if form.qualified_quantity.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.qualified_quantity.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">不合格数量 <span style="color: red;">*</span></label>
+                                    <div class="layui-input-inline" style="width: 120px;">
+                                        {{ form.defective_quantity }}
+                                        {% if form.defective_quantity.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.defective_quantity.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">检查结果 <span style="color: red;">*</span></label>
+                                    <div class="layui-input-inline" style="width: 150px;">
+                                        {{ form.result }}
+                                        {% if form.result.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.result.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">缺陷描述</label>
+                                <div class="layui-input-block">
+                                    {{ form.defect_description }}
+                                    {% if form.defect_description.errors %}
+                                        <div style="color: red; margin-top: 5px;">{{ form.defect_description.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">改进建议</label>
+                                <div class="layui-input-block">
+                                    {{ form.improvement_suggestion }}
+                                    {% if form.improvement_suggestion.errors %}
+                                        <div style="color: red; margin-top: 5px;">{{ form.improvement_suggestion.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <div class="layui-input-block">
+                                    <button type="submit" class="layui-btn layui-btn-normal">保存</button>
+                                    <a href="{% url 'production:quality_check_list' %}" class="layui-btn layui-btn-primary">返回列表</a>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['form'], function() {
+            var form = layui.form;
+            
+            // 渲染表单
+            form.render();
+        });
+    </script>
+</body>
+
+</html>

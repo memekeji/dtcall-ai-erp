@@ -1,0 +1,1023 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{% if minute %}编辑会议纪要{% else %}{% if request.GET.audio %}创建会议纪要（录音生成）{% else %}新建会议纪要{% endif %}{% endif %}{% endblock %}
+
+{% block extra_css %}
+<style>
+/* 自定义样式替代layui样式 */
+.custom-card {
+    border: 1px solid #e6e6e6;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px 0 rgba(0,0,0,.05);
+    margin-bottom: 20px;
+    position: relative;
+    z-index: 1;
+}
+
+/* 确保整个文档可交互 - 更强大的覆盖规则 */
+*,
+*::before,
+*::after,
+.layui-input-wrap .layui-input-prefix,
+.layui-input-wrap .layui-input-split,
+.layui-input-wrap .layui-input-suffix,
+.layui-tab-title .layui-this:after,
+.layui-table-view .layui-form-checkbox[lay-skin=primary] i::before,
+.layui-table-view .layui-form-radio[lay-skin=primary] i::before {
+    box-sizing: border-box;
+    pointer-events: auto !important;
+    -webkit-user-select: auto !important;
+    -moz-user-select: auto !important;
+    -ms-user-select: auto !important;
+    user-select: auto !important;
+    -ms-touch-action: manipulation !important;
+    touch-action: manipulation !important;
+}
+
+/* 确保表单元素可交互 */
+input,
+textarea,
+select,
+button,
+form * {
+    pointer-events: auto !important;
+    cursor: auto !important;
+}
+
+/* 确保iframe内容在任何情况下都可交互 */
+body {
+    position: relative;
+    z-index: 0;
+    overflow: visible;
+}
+
+/* 防止任何覆盖层阻止交互 */
+.layui-layer-shade,
+.layui-layer-move,
+.loading-mask,
+.modal-backdrop {
+    display: none !important;
+    pointer-events: none !important;
+    z-index: -1 !important;
+}
+
+body {
+    position: relative;
+    z-index: 0;
+}
+
+.custom-card-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid #e6e6e6;
+    background-color: #f9f9f9;
+    border-radius: 4px 4px 0 0;
+}
+
+.custom-card-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+
+.custom-card-body {
+    padding: 20px;
+}
+
+.custom-alert {
+    padding: 10px 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.custom-bg-blue {
+    background-color: #e6f7ff;
+    border-left: 4px solid #1890ff;
+}
+
+.custom-bg-green {
+    background-color: #f6ffed;
+    border-left: 4px solid #52c41a;
+}
+
+.custom-text {
+    color: #333;
+}
+
+.custom-icon {
+    margin-right: 8px;
+    font-size: 16px;
+}
+
+.custom-form .custom-form-item {
+    margin-bottom: 20px;
+}
+
+.custom-form-label {
+    display: inline-block;
+    width: 120px;
+    padding: 9px 15px;
+    font-weight: 400;
+    line-height: 20px;
+    text-align: right;
+}
+
+.custom-input-block {
+    margin-left: 140px;
+    line-height: 38px;
+}
+
+.custom-btn {
+    display: inline-block;
+    padding: 9px 18px;
+    margin-right: 10px;
+    border: 1px solid #d9d9d9;
+    border-radius: 4px;
+    background-color: #1890ff;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.custom-btn:hover {
+    background-color: #40a9ff;
+    border-color: #40a9ff;
+}
+
+.custom-btn-primary {
+    background-color: #fff;
+    color: #333;
+}
+
+.custom-btn-primary:hover {
+    color: #1890ff;
+    border-color: #1890ff;
+}
+
+/* 适配表单元素 */
+.custom-form input[type="text"],
+.custom-form input[type="datetime-local"],
+.custom-form select,
+.custom-form textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #d9d9d9;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-size: 14px;
+}
+
+.custom-form input[type="text"]:focus,
+.custom-form input[type="datetime-local"]:focus,
+.custom-form select:focus,
+.custom-form textarea:focus {
+    border-color: #1890ff;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+/* 适配录音上传区域 */
+#audio_upload_area {
+    border: 2px dashed #e6e6e6;
+    border-radius: 4px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+#audio_upload_area:hover {
+    border-color: #1890ff;
+}
+
+/* 自定义网格布局 */
+.custom-row {
+    display: flex;
+    flex-wrap: wrap;
+    margin-right: -15px;
+    margin-left: -15px;
+}
+
+.custom-col-space15 {
+    margin-right: -15px;
+    margin-left: -15px;
+}
+
+.custom-col-md4,
+.custom-col-md8 {
+    position: relative;
+    width: 100%;
+    min-height: 1px;
+    padding-right: 15px;
+    padding-left: 15px;
+}
+
+.custom-col-md8 {
+    flex: 0 0 66.666667%;
+    max-width: 66.666667%;
+}
+
+.custom-col-md4 {
+    flex: 0 0 33.333333%;
+    max-width: 33.333333%;
+}
+
+/* 自定义按钮样式 */
+.custom-btn-warm {
+    background-color: #faad14;
+    border-color: #faad14;
+    color: white;
+}
+
+.custom-btn-warm:hover {
+    background-color: #ffc53d;
+    border-color: #ffc53d;
+}
+
+/* 辅助文本样式 */
+.custom-form-mid {
+    display: inline-block;
+    margin-right: 10px;
+}
+
+.custom-word-aux {
+    color: #999;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+/* 加载动画 */
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* 响应式布局 */
+@media screen and (max-width: 768px) {
+    .custom-form-label {
+        width: 100%;
+        text-align: left;
+        padding: 9px 0;
+    }
+    .custom-input-block {
+        margin-left: 0;
+    }
+    .custom-col-md4,
+    .custom-col-md8 {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="custom-card">
+    <div class="custom-card-body">
+        <!-- 与会议室预约关联信息 -->
+        {% if reservation_id %}
+        <div class="custom-alert custom-bg-blue custom-text" style="margin-bottom: 20px;">
+            <span class="custom-icon">📋</span> 此会议纪要与<span style="font-weight: bold;">会议室预约</span>相关联
+        </div>
+        <input type="hidden" name="reservation_id" value="{{ reservation_id }}">
+        {% endif %}
+        
+        <!-- 录音生成提示 -->
+        {% if request.GET.audio %}
+        <div class="custom-alert custom-bg-green custom-text" style="margin-bottom: 20px;">
+            <span class="custom-icon">🎤</span> 当前为<span style="font-weight: bold;">录音自动生成</span>模式，请上传会议录音以自动生成纪要
+        </div>
+        {% endif %}
+        
+        <form class="custom-form" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <!-- 隐藏的会议ID字段 - 优先使用自动创建的会议ID -->
+            <input type="hidden" name="meeting_id" id="meeting_id_hidden" value="{% if auto_meeting_id %}{{ auto_meeting_id }}{% elif request.GET.meeting_id %}{{ request.GET.meeting_id }}{% elif request.GET.id %}{{ request.GET.id }}{% elif meeting_id %}{{ meeting_id }}{% endif %}">
+            <!-- 录音上传区域（只有在录音生成模式下显示） -->
+            {% if request.GET.audio %}
+            <div class="custom-form-item">
+                <label class="custom-form-label">会议录音 <span style="color: red;">*</span></label>
+                <div class="custom-input-block">
+                    <div id="audio_upload_area" style="border: 2px dashed #e6e6e6; border-radius: 4px; padding: 20px; text-align: center;">
+                          <span class="custom-icon-upload" style="font-size: 48px; color: #1E9FFF;">📁</span>
+                          <p style="margin-top: 10px;">点击上传或拖拽录音文件到此处</p>
+                          <input type="file" id="audio_file" name="audio_file" accept="audio/*" style="display: none;">
+                          <div id="file_info" style="margin-top: 10px; text-align: left; display: none;">
+                              <p>文件名: <span id="file_name"></span></p>
+                              <p>文件大小: <span id="file_size"></span></p>
+                          </div>
+                      </div>
+                </div>
+            </div>
+            
+            <div class="custom-form-item">
+                <div class="custom-input-block">
+                    <button type="button" id="generate_ai_minutes" class="custom-btn custom-btn-warm">生成AI会议纪要</button>
+                </div>
+            </div>
+            {% endif %}
+            <div class="custom-row custom-col-space15">
+                <div class="custom-col-md8">
+                    <div class="custom-form-item">
+                        <label class="custom-form-label">会议主题 <span style="color: red;">*</span></label>
+                        <div class="custom-input-block">
+                            {{ form.title }}
+                        </div>
+                    </div>
+                </div>
+                <div class="custom-col-md4">
+                    <div class="custom-form-item">
+                        <label class="custom-form-label">会议类型</label>
+                        <div class="custom-input-block">
+                            {{ form.meeting_type }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="custom-row custom-col-space15">
+                <div class="custom-col-md4">
+                    <div class="custom-form-item">
+                        <label class="custom-form-label">会议时间 <span style="color: red;">*</span></label>
+                        <div class="custom-input-block">
+                            {{ form.meeting_date }}
+                        </div>
+                    </div>
+                </div>
+                <div class="custom-col-md4">
+                    <div class="custom-form-item">
+                        <label class="custom-form-label">会议地点</label>
+                        <div class="custom-input-block">
+                            {{ form.location }}
+                        </div>
+                    </div>
+                </div>
+                <div class="custom-col-md4">
+                    <div class="custom-form-item">
+                        <label class="custom-form-label">主持人</label>
+                        <div class="custom-input-block">
+                            {{ form.host }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="custom-form-item">
+                <label class="custom-form-label">参会人员</label>
+                <div class="custom-input-block">
+                    {{ form.attendees }}
+                      <div class="custom-form-mid custom-word-aux">多个人员用逗号分隔</div>
+                </div>
+            </div>
+            
+            <div class="custom-form-item">
+                <label class="custom-form-label">会议内容 <span style="color: red;">*</span></label>
+                <div class="custom-input-block">
+                    {{ form.content }}
+                </div>
+            </div>
+            
+            <div class="custom-form-item">
+                <label class="custom-form-label">会议决议</label>
+                <div class="custom-input-block">
+                    {{ form.decisions }}
+                </div>
+            </div>
+            
+            <div class="custom-form-item">
+                <label class="custom-form-label">行动项</label>
+                <div class="custom-input-block">
+                    {{ form.action_items }}
+                </div>
+            </div>
+            
+            <div class="custom-form-item">
+                <label class="custom-form-label">附件信息</label>
+                <div class="custom-input-block">
+                    {{ form.attachments }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <div class="custom-input-block">
+                {{ form.is_public }}
+                <label for="{{ form.is_public.id_for_label }}">公开会议纪要</label>
+            </div>
+        </div>
+        
+        <div class="custom-form-item">
+            <div class="custom-input-block">
+                <button class="custom-btn" type="submit">保存会议纪要</button>
+                <a href="{% url 'personal:minutes_list' %}" class="custom-btn custom-btn-primary">返回</a>
+            </div>
+        </div>
+        </form>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+// 确保jQuery已加载
+if (typeof jQuery === 'undefined') {
+    console.error('jQuery未加载');
+}
+
+// 自定义消息提示函数
+function showMessage(message, type) {
+    var color = type === 'success' ? '#52c41a' : '#f5222d';
+    var icon = type === 'success' ? '✓' : '✗';
+    
+    // 移除所有可能存在的旧消息元素
+    var oldMessages = document.querySelectorAll('[style*="z-index: 5"]');
+    oldMessages.forEach(function(oldMsg) {
+        if (oldMsg.parentNode) oldMsg.parentNode.removeChild(oldMsg);
+    });
+    
+    var msgDiv = document.createElement('div');
+    msgDiv.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:12px 20px;background-color:#fff;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.15);z-index:5;pointer-events:none;display:flex;align-items:center;';
+    msgDiv.style.userSelect = 'none';
+    msgDiv.style.touchAction = 'none';
+    
+    var iconSpan = document.createElement('span');
+    iconSpan.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background-color:' + color + ';color:white;margin-right:8px;';
+    iconSpan.textContent = icon;
+    
+    var textSpan = document.createElement('span');
+    textSpan.textContent = message;
+    
+    msgDiv.appendChild(iconSpan);
+    msgDiv.appendChild(textSpan);
+    document.body.appendChild(msgDiv);
+    
+    setTimeout(function() {
+        msgDiv.style.opacity = '0';
+        msgDiv.style.transition = 'opacity 0.3s';
+        setTimeout(function() {
+            document.body.removeChild(msgDiv);
+        }, 300);
+    }, 2000);
+}
+
+// 自定义加载提示函数
+function showLoading() {
+    // 移除所有可能存在的旧加载元素
+    var oldLoadings = document.querySelectorAll('#custom_loading');
+    oldLoadings.forEach(function(oldLoading) {
+        if (oldLoading.parentNode) oldLoading.parentNode.removeChild(oldLoading);
+    });
+    
+    // 创建加载动画元素，使用最低的z-index
+    var loadingDiv = document.createElement('div');
+    loadingDiv.id = 'custom_loading';
+    loadingDiv.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:40px;height:40px;border:3px solid #f3f3f3;border-radius:50%;border-top-color:#1890ff;animation:spin 1s ease-in-out infinite;z-index:1;pointer-events:none;';
+    
+    // 将加载动画添加到最小的可见容器，避免覆盖整个页面
+    var smallestContainer = document.querySelector('form');
+    if (smallestContainer) {
+        smallestContainer.style.position = 'relative';
+        smallestContainer.appendChild(loadingDiv);
+    } else {
+        // 作为最后的选择，添加到body的最底层
+        loadingDiv.style.position = 'fixed';
+        document.body.appendChild(loadingDiv);
+    }
+    
+    return loadingDiv;
+}
+
+function hideLoading(loadingDiv) {
+    // 安全移除加载元素的多种方法
+    try {
+        if (loadingDiv && loadingDiv.parentNode) {
+            loadingDiv.parentNode.removeChild(loadingDiv);
+        } else {
+            var existingLoading = document.getElementById('custom_loading');
+            if (existingLoading && existingLoading.parentNode) {
+                existingLoading.parentNode.removeChild(existingLoading);
+            }
+        }
+    } catch (e) {
+        console.log('移除加载元素时出错:', e);
+    }
+}
+
+// 全局函数定义，确保在任何地方都可以访问
+function removeBlockingElements() {
+    var blockingElements = document.querySelectorAll('#custom_loading, .loading-mask, .layui-layer-shade, .layui-layer, .modal-backdrop, .modal');
+    blockingElements.forEach(function(el) {
+        if (el && el.parentNode && el.tagName.toLowerCase() !== 'body') {
+            try {
+                el.parentNode.removeChild(el);
+            }
+            catch (e) {
+                // 即使无法移除，也要确保它不阻止交互
+                el.style.pointerEvents = 'none';
+                el.style.zIndex = '0';
+            }
+        }
+    });
+}
+
+function enforceInteractivity() {
+    // 强制所有元素可交互
+    document.querySelectorAll('*').forEach(function(element) {
+        element.style.pointerEvents = 'auto';
+        element.style.userSelect = 'auto';
+        element.style.touchAction = 'auto';
+        element.style.zIndex = ''; // 重置z-index，避免覆盖问题
+    });
+    
+    // 确保重要容器有正确的定位和z-index
+    var mainContainers = document.querySelectorAll('.custom-card, .custom-card-body, form');
+    mainContainers.forEach(function(container, index) {
+        container.style.position = 'relative';
+        container.style.zIndex = '1';
+        container.style.pointerEvents = 'auto';
+    });
+}
+
+function setupIframeInteractivity() {
+    if (window.parent !== window) {
+        // 更直接的iframe交互处理
+        try {
+            // 设置当前窗口的document和body的所有样式以确保可交互
+            document.documentElement.style.cssText += ';pointer-events:auto !important;user-select:auto !important;touch-action:manipulation !important;';
+            document.body.style.cssText += ';pointer-events:auto !important;user-select:auto !important;touch-action:manipulation !important;';
+            
+            // 通知父窗口
+            if (window.parent.postMessage) {
+                window.parent.postMessage('iframe_loaded', '*');
+                
+                // 多次发送消息，增加成功几率
+                setTimeout(function() { window.parent.postMessage('iframe_request_interaction', '*'); }, 500);
+                setTimeout(function() { window.parent.postMessage('iframe_request_interaction', '*'); }, 1000);
+                setTimeout(function() { window.parent.postMessage('iframe_request_interaction', '*'); }, 2000);
+            }
+        }
+        catch (e) {
+            console.log('iframe交互设置失败:', e);
+        }
+    }
+}
+
+// 自执行函数，确保在页面加载的最早阶段就开始处理交互性
+(function() {
+    // 立即执行一次
+    removeBlockingElements();
+    enforceInteractivity();
+    setupIframeInteractivity();
+    
+    // 如果DOM已经加载完成，立即执行
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        enforceInteractivity();
+    }
+})();
+
+// 页面加载完成后，再次确保iframe可以正常交互和页面初始化
+$(document).ready(function() {
+    // 再次执行清理和交互性设置
+    removeBlockingElements();
+    enforceInteractivity();
+    setupIframeInteractivity();
+    
+    // 移除任何可能阻止交互的全局事件监听器
+    
+    // 简单的日期时间选择器样式增强
+    var meetingDateInput = document.getElementById('id_meeting_date');
+    if (meetingDateInput) {
+        meetingDateInput.type = 'datetime-local';
+    }
+});
+
+{% if request.GET.audio %}
+// 录音上传功能 - 仅在录音模式下执行
+// 完全重写拖拽上传功能，确保兼容性和可靠性
+window.addEventListener('DOMContentLoaded', function() {
+        console.log('初始化录音上传功能...');
+        
+        // 获取DOM元素
+        var uploadArea = document.getElementById('audio_upload_area');
+        var fileInput = document.getElementById('audio_file');
+        var fileInfo = document.getElementById('file_info');
+        var fileName = document.getElementById('file_name');
+        var fileSize = document.getElementById('file_size');
+        var generateBtn = document.getElementById('generate_ai_minutes');
+        
+        // 检查必要元素是否存在
+        if (!uploadArea || !fileInput || !generateBtn) {
+            console.error('录音上传功能：必要元素未找到');
+            return;
+        }
+        
+        // 确保上传区域样式正确设置
+        uploadArea.style.position = 'relative';
+        uploadArea.style.zIndex = '1000';
+        uploadArea.style.pointerEvents = 'auto';
+        uploadArea.style.cursor = 'pointer';
+        
+        // 1. 阻止默认的拖放行为（仅在上传区域内）
+        uploadArea.ondragenter = function(e) {
+            e = e || event;
+            e.preventDefault();
+            uploadArea.style.borderColor = '#1E9FFF';
+            uploadArea.style.backgroundColor = '#f0f8ff';
+            console.log('文件拖拽进入区域');
+        };
+        
+        uploadArea.ondragover = function(e) {
+            e = e || event;
+            e.preventDefault();
+            // 必须阻止默认行为，否则不会触发drop事件
+            return false;
+        };
+        
+        uploadArea.ondragleave = function(e) {
+            e = e || event;
+            e.preventDefault();
+            uploadArea.style.borderColor = '#e6e6e6';
+            uploadArea.style.backgroundColor = 'transparent';
+            console.log('文件拖拽离开区域');
+        };
+        
+        uploadArea.ondrop = function(e) {
+            e = e || event;
+            e.preventDefault();
+            
+            // 恢复样式
+            uploadArea.style.borderColor = '#e6e6e6';
+            uploadArea.style.backgroundColor = 'transparent';
+            
+            // 检查是否有文件
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                var file = e.dataTransfer.files[0];
+                console.log('文件已拖放:', file.name);
+                
+                // 为了兼容性，使用DataTransfer API设置文件
+                try {
+                    var dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(file);
+                    fileInput.files = dataTransfer.files;
+                    console.log('文件设置成功');
+                    
+                    // 手动触发change事件
+                    var changeEvent = document.createEvent('HTMLEvents');
+                    changeEvent.initEvent('change', true, false);
+                    fileInput.dispatchEvent(changeEvent);
+                } catch (error) {
+                    console.error('设置文件失败:', error);
+                    alert('文件上传失败，请尝试点击上传区域选择文件');
+                }
+            }
+            return false;
+        };
+        
+        // 2. 点击上传区域触发文件选择
+        uploadArea.onclick = function() {
+            console.log('点击上传区域');
+            fileInput.click();
+        };
+        
+        // 3. 监听文件选择
+        fileInput.onchange = function() {
+            if (this.files && this.files[0]) {
+                var file = this.files[0];
+                console.log('文件已选择:', file.name);
+                
+                // 显示文件信息
+                fileName.textContent = file.name;
+                fileSize.textContent = (file.size / (1024 * 1024)).toFixed(2) + 'MB';
+                fileInfo.style.display = 'block';
+            }
+        };
+        
+        // 4. 生成AI会议纪要按钮
+        generateBtn.onclick = function() {
+            console.log('点击生成AI会议纪要');
+            
+            try {
+                // 获取上传的音频文件
+                const audioFileInput = document.getElementById('audio_file');
+                if (!audioFileInput) {
+                    showMessage('无法找到音频文件输入元素', 'error');
+                    return;
+                }
+                
+                const audioFile = audioFileInput.files[0];
+                
+                // 获取会议ID
+                let meetingId = null;
+                // 尝试多种方式获取会议ID
+                if ($(this).closest('form').length) {
+                    meetingId = $(this).closest('form').find('input[name="id"]').val();
+                }
+                
+                if (!meetingId && $('#meeting_id_hidden').length) {
+                    meetingId = $('#meeting_id_hidden').val();
+                }
+                
+                if (!meetingId) {
+                    // 如果没有会议ID，尝试从URL中获取
+                    const urlParams = new URLSearchParams(window.location.search);
+                    meetingId = urlParams.get('id') || urlParams.get('meeting_id');
+                }
+                
+                // 如果仍然没有会议ID，自动创建一个临时会议记录
+                console.log('正在处理音频文件，准备生成会议纪要...');
+                if (!meetingId) {
+                    console.log('没有找到会议ID，正在创建临时会议记录...');
+                    
+                    // 获取CSRF令牌
+                    let csrfToken = '{{ csrf_token }}';
+                    if (!csrfToken || csrfToken === '{{ csrf_token }}') {
+                        const cookieValue = document.cookie
+                            .split('; ')
+                            .find(row => row.startsWith('csrftoken='))
+                            ?.split('=')[1];
+                        if (cookieValue) {
+                            csrfToken = cookieValue;
+                        }
+                    }
+                    
+                    // 获取会议主题（如果有）
+                    let meetingTitle = '临时会议记录';
+                    const titleInput = document.getElementById('id_title');
+                    if (titleInput && titleInput.value.trim()) {
+                        meetingTitle = titleInput.value.trim();
+                    }
+                    
+                    // 添加加载提示
+                    const tempLoading = showLoading();
+                    
+                    // 同步创建临时会议记录
+                    $.ajax({
+                        url: '/oa/meeting/create-temp/',  // 假设的创建临时会议的接口
+                        type: 'POST',
+                        async: false, // 同步请求，等待创建成功后再继续
+                        data: {
+                            'title': meetingTitle,
+                            'meeting_date': new Date().toISOString().slice(0, 16), // 当前时间
+                            'csrfmiddlewaretoken': csrfToken
+                        },
+                        headers: {
+                            'X-CSRFToken': csrfToken
+                        },
+                        success: function(response) {
+                            hideLoading(tempLoading);
+                            if (response && response.success && response.meeting_id) {
+                                meetingId = response.meeting_id;
+                                console.log('成功创建临时会议记录，ID:', meetingId);
+                                
+                                // 更新隐藏字段
+                                if ($('#meeting_id_hidden').length) {
+                                    $('#meeting_id_hidden').val(meetingId);
+                                }
+                                
+                                // 显示成功消息
+                                showMessage('已自动创建临时会议记录', 'success');
+                            } else {
+                                console.error('创建临时会议记录失败:', response);
+                                showMessage('创建临时会议记录失败：' + (response?.message || '未知错误'), 'error');
+                                meetingId = null;
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            hideLoading(tempLoading);
+                            console.error('创建临时会议记录请求失败:', error);
+                            
+                            // 如果创建临时会议记录失败，尝试使用现有的表单保存逻辑
+                            try {
+                                showMessage('需要先保存会议记录，正在准备表单提交...', 'info');
+                                
+                                // 检查表单是否存在
+                                const form = $(this).closest('form');
+                                if (form.length) {
+                                    // 确保必要的字段有值
+                                    if (!titleInput.value.trim()) {
+                                        titleInput.value = 'AI生成会议纪要';
+                                    }
+                                    
+                                    // 临时禁用提交按钮，避免重复提交
+                                    const submitButton = form.find('button[type="submit"]');
+                                    if (submitButton.length) {
+                                        submitButton.prop('disabled', true);
+                                        setTimeout(() => submitButton.prop('disabled', false), 2000);
+                                    }
+                                    
+                                    // 提交表单保存会议记录
+                                    form.submit();
+                                } else {
+                                    showMessage('无法找到表单元素，请手动填写会议基本信息并保存', 'error');
+                                }
+                            } catch (e) {
+                                showMessage('保存会议记录失败，请先填写基本信息并点击\'保存会议纪要\'按钮', 'error');
+                            }
+                        },
+                        timeout: 10000 // 10秒超时
+                    });
+                }
+                
+                // 如果仍然没有会议ID，提示用户
+                if (!meetingId) {
+                    showMessage('无法获取或创建会议ID，请先填写会议基本信息并点击\'保存会议纪要\'按钮', 'error');
+                    return;
+                }
+                
+                // 验证是否上传了音频文件
+                if (!audioFile) {
+                    showMessage('请先上传会议录音文件', 'error');
+                    return;
+                }
+                
+                // 验证文件类型
+                const allowedTypes = ['audio/wav', 'audio/mp3', 'audio/mpeg', 'audio/ogg', 'audio/wma'];
+                if (!allowedTypes.includes(audioFile.type)) {
+                    showMessage('不支持的音频格式，请上传WAV、MP3、OGG或WMA格式的文件', 'error');
+                    return;
+                }
+                
+                // 验证文件大小（限制100MB）
+                const maxSize = 100 * 1024 * 1024; // 100MB
+                if (audioFile.size > maxSize) {
+                    showMessage('音频文件过大，请上传小于100MB的文件', 'error');
+                    return;
+                }
+                
+                // 获取CSRF令牌
+                let csrfToken = '{{ csrf_token }}';
+                if (!csrfToken || csrfToken === '{{ csrf_token }}') {
+                    // 如果模板变量未正确渲染，尝试从cookie获取
+                    const cookieValue = document.cookie
+                        .split('; ')
+                        .find(row => row.startsWith('csrftoken='))
+                        ?.split('=')[1];
+                    if (cookieValue) {
+                        csrfToken = cookieValue;
+                    } else {
+                        showMessage('无法获取安全令牌，请刷新页面重试', 'error');
+                        return;
+                    }
+                }
+                
+                // 构建表单数据
+                const formData = new FormData();
+                formData.append('meeting_id', meetingId);
+                formData.append('audio_file', audioFile);
+                formData.append('csrfmiddlewaretoken', csrfToken);
+                
+                // 添加加载提示
+                const loadingElement = showLoading();
+                
+                // 步骤1: 保存录音文件并进行语音转文字
+                $.ajax({
+                    url: '/oa/meeting/save-audio/',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    beforeSend: function(xhr) {
+                        xhr.setRequestHeader('X-CSRFToken', csrfToken);
+                    },
+                    success: function(response) {
+                        try {
+                            hideLoading(loadingElement);
+                            
+                            if (response && response.success) {
+                                // 检查是否有转写文本
+                                if (response.transcript) {
+                                    console.log('语音转文字成功，已获取文本内容');
+                                }
+                                
+                                showLoading();
+                                
+                                // 步骤2: 直接从save_audio响应中获取会议纪要内容
+                                // save_audio已经包含了完整的AI会议纪要生成逻辑，避免重复调用
+                                try {
+                                    // 检查响应中是否包含会议纪要内容
+                                    if (response.transcript) {
+                                        // 填充表单字段
+                                        $('#id_content').val(response.transcript); // 将AI生成的会议纪要内容填充到会议内容字段
+                                        $('#id_decisions').val(''); // 决议部分留空，由用户填写
+                                        $('#id_action_items').val(''); // 行动项留空，由用户填写
+                                        
+                                        // 显示成功消息
+                                        showMessage('AI生成会议纪要成功！会议内容已自动填充。', 'success');
+                                    } else {
+                                        // 如果没有会议纪要内容，显示提示
+                                        showMessage('会议纪要生成完成，但未获取到具体内容。请手动填写决议和行动项。', 'warning');
+                                    }
+                                    
+                                    // 隐藏加载状态
+                                    hideLoading();
+                                    resetInteractivity();
+                                } catch (e) {
+                                    hideLoading();
+                                    console.error('处理会议纪要内容时发生错误:', e);
+                                    showMessage('处理会议纪要内容时发生错误', 'error');
+                                }
+                            } else {
+                                showMessage('语音处理失败：' + (response?.message || '服务器错误'), 'error');
+                            }
+                        } catch (e) {
+                            hideLoading(loadingElement);
+                            console.error('处理语音转文字响应时发生错误:', e);
+                            showMessage('处理语音数据时发生错误', 'error');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        hideLoading(loadingElement);
+                        console.error('保存录音文件失败:', error);
+                        
+                        // 根据不同错误类型显示不同的提示
+                        if (status === 'timeout') {
+                            showMessage('保存文件超时，请检查网络连接或文件大小', 'error');
+                        } else {
+                            showMessage('保存录音文件失败：' + (xhr.responseJSON?.message || '服务器错误'), 'error');
+                        }
+                    },
+                    timeout: 90000 // 90秒超时，给大文件更多时间
+                });
+            } catch (e) {
+                console.error('生成AI会议纪要过程中发生未捕获的错误:', e);
+                hideLoading();
+                showMessage('生成AI会议纪要时发生未知错误', 'error');
+            }
+        };
+        
+        console.log('录音上传功能初始化完成');
+    });
+{% endif %}
+
+// 简化的交互性重置函数
+function resetInteractivity() {
+    try {
+        // 移除所有可能的遮罩层和覆盖元素
+        var overlays = document.querySelectorAll('#custom_loading, .loading-mask, .layui-layer-shade, .layui-layer, .modal-backdrop, .modal');
+        overlays.forEach(function(overlay) {
+            if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        });
+        
+        // 确保关键元素可交互
+        var criticalElements = document.querySelectorAll('input, textarea, select, button, .audio_upload_area');
+        criticalElements.forEach(function(element) {
+            element.style.pointerEvents = 'auto';
+            element.style.userSelect = 'auto';
+            element.style.touchAction = 'auto';
+            element.disabled = false;
+            element.readOnly = false;
+        });
+    } catch (e) {
+        console.error('重置交互性时出错:', e);
+    }
+}
+
+// 页面加载完成后执行一次交互性重置
+window.addEventListener('load', function() {
+    resetInteractivity();
+    
+    // 仅在必要时定期执行，避免频繁重置影响性能
+    if (!window.resetInterval) {
+        window.resetInterval = setInterval(resetInteractivity, 5000);
+    }
+});
+
+// 优化的事件处理 - 移除覆盖原生事件处理机制的代码，避免冲突
+
+// 添加message事件监听器，响应父窗口的交互请求
+window.addEventListener('message', function(event) {
+    // 检查消息来源，确保安全
+    if (event.origin !== window.location.origin) {
+        return;
+    }
+    
+    // 处理来自父窗口的交互请求
+    if (event.data === 'iframe_request_interaction') {
+        console.log('收到父窗口交互请求，立即重置交互性');
+        enforceInteractivity();
+        removeBlockingElements();
+        
+        // 特别确保表单元素可交互
+        document.querySelectorAll('input, textarea, select, button').forEach(function(element) {
+            element.style.pointerEvents = 'auto';
+            element.style.userSelect = 'auto';
+            element.style.touchAction = 'auto';
+            element.disabled = false;
+            element.readOnly = false;
+        });
+    }
+    
+    // 处理其他可能的消息类型
+    if (event.data === 'focus_form_elements') {
+        console.log('收到焦点设置请求');
+        var firstInput = document.querySelector('input, textarea, select');
+        if (firstInput) {
+            setTimeout(function() {
+                firstInput.focus();
+            }, 100);
+        }
+    }
+}, false);
+</script>
+{% endblock extra_js %}
+{% endblock content %}

@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>操作日志</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <!-- 直接引入echarts，避免动态加载可能导致的问题 -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-body">
+                        <!-- 统计图表区域 -->
+                        <div class="layui-row layui-col-space10" style="margin-bottom: 10px;">
+                            <!-- 图表1：日志类型统计（饼图） -->
+                            <div class="layui-col-md3">
+                                <div class="layui-card">
+                                    <div class="layui-card-body">
+                                        <h3 style="font-size: 12px; margin-bottom: 5px; text-align: center;">日志类型分布</h3>
+                                        <div id="log-type-chart" style="width: 100%; height: 150px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- 图表2：日志数量趋势（折线图） -->
+                            <div class="layui-col-md3">
+                                <div class="layui-card">
+                                    <div class="layui-card-body">
+                                        <h3 style="font-size: 12px; margin-bottom: 5px; text-align: center;">最近7天日志数量</h3>
+                                        <div id="log-trend-chart" style="width: 100%; height: 150px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- 图表3：操作模块统计（柱状图） -->
+                            <div class="layui-col-md3">
+                                <div class="layui-card">
+                                    <div class="layui-card-body">
+                                        <h3 style="font-size: 12px; margin-bottom: 5px; text-align: center;">操作模块分布</h3>
+                                        <div id="log-module-chart" style="width: 100%; height: 150px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- 图表4：操作人统计（柱状图） -->
+                            <div class="layui-col-md3">
+                                <div class="layui-card">
+                                    <div class="layui-card-body">
+                                        <h3 style="font-size: 12px; margin-bottom: 5px; text-align: center;">操作人分布</h3>
+                                        <div id="log-user-chart" style="width: 100%; height: 150px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 搜索栏 -->
+                        <div class="layui-form layui-form-pane" style="margin-bottom: 20px;">
+                            <div class="layui-form-item">
+                                <div class="layui-inline">
+                                    <input type="text" name="search" placeholder="搜索用户、模块或操作" autocomplete="off" class="layui-input" value="{{ search }}" style="width: 400px;">
+                                </div>
+                                <div class="layui-inline">
+                                    <select name="log_type" class="layui-input">
+                                        <option value="">全部类型</option>
+                                        {% for type_code, type_name in log_types %}
+                                        <option value="{{ type_code }}" {% if log_type == type_code %}selected{% endif %}>{{ type_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="layui-inline">
+                                    <button class="layui-btn" onclick="searchData()">
+                                        <i class="layui-icon layui-icon-search"></i> 搜索
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 数据表格 -->
+                        <table class="layui-table">
+                            <thead>
+                                <tr>
+                                    <th>操作用户</th>
+                                    <th>日志类型</th>
+                                    <th>操作模块</th>
+                                    <th>操作动作</th>
+                                    <th>IP地址</th>
+                                    <th>操作时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in page_obj %}
+                                <tr>
+                                    <td>{% if log.user %}{{ log.user.name|default:log.user.username|default:"-" }}{% else %}-{% endif %}</td>
+                                    <td>
+                                        <span class="layui-badge 
+                                            {% if log.log_type == 'login' %}layui-bg-blue
+                                            {% elif log.log_type == 'create' %}layui-bg-green
+                                            {% elif log.log_type == 'update' %}layui-bg-orange
+                                            {% elif log.log_type == 'delete' %}layui-bg-red
+                                            {% else %}layui-bg-gray{% endif %}">
+                                            {{ log.get_log_type_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ log.module }}</td>
+                                    <td>{{ log.action }}</td>
+                                    <td>{{ log.ip_address }}</td>
+                                    <td>{{ log.created_at|date:"Y-m-d H:i:s" }}</td>
+                                    <td>
+                                        {% if log.content %}
+                                        <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="showDetail('{{ log.content|escapejs }}')">详情</button>
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" style="text-align: center; color: #999;">暂无数据</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+
+                        <!-- 分页 -->
+                        {% if page_obj.has_other_pages %}
+                        <div id="pagination"></div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['laypage', 'layer'], function(){
+            var laypage = layui.laypage;
+            var layer = layui.layer;
+            
+            // 初始化分页
+            {% if page_obj.has_other_pages %}
+            laypage.render({
+                elem: 'pagination',
+                count: {{ page_obj.paginator.count }},
+                curr: {{ page_obj.number }},
+                limit: 50,
+                layout: ['count', 'prev', 'page', 'next', 'limit', 'skip'],
+                jump: function(obj, first){
+                    if(!first){
+                        var url = new URL(window.location);
+                        url.searchParams.set('page', obj.curr);
+                        window.location.href = url.toString();
+                    }
+                }
+            });
+            {% endif %}
+            
+            // 初始化日志详情弹出函数
+            window.showDetail = function(content) {
+                layer.open({
+                    type: 1,
+                    title: '操作详情',
+                    area: ['75%', '100%'],
+                    offset: 'r',
+                    content: '<div style="padding: 20px;"><pre>' + content + '</pre></div>',
+                    btn: ['关闭'],
+                    shadeClose: true
+                });
+            };
+        });
+        
+        // 使用立即执行函数，确保图表初始化代码能独立执行
+        (function() {
+            // 添加延迟，确保DOM完全渲染
+            setTimeout(function() {
+                // 检查echarts是否加载成功
+                if (typeof echarts === 'undefined') {
+                    // 如果echarts未加载，尝试手动加载
+                    var script = document.createElement('script');
+                    script.src = 'https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js';
+                    script.onload = function() {
+                        initAllCharts();
+                    };
+                    document.head.appendChild(script);
+                } else {
+                    initAllCharts();
+                }
+            }, 100);
+            
+            // 初始化所有图表
+            function initAllCharts() {
+                // 初始化日志类型分布饼图
+                initLogTypeChart();
+                // 初始化日志数量趋势折线图
+                initLogTrendChart();
+                // 初始化操作模块分布柱状图
+                initLogModuleChart();
+                // 初始化操作人分布柱状图
+                initLogUserChart();
+            }
+            
+            // 1. 初始化日志类型分布饼图（优化小尺寸显示）
+            function initLogTypeChart() {
+                var chartDom = document.getElementById('log-type-chart');
+                if (!chartDom) return;
+                
+                var myChart = echarts.init(chartDom);
+                var option = {
+                    tooltip: {
+                        trigger: 'item',
+                        formatter: '{b}: {c}',
+                        textStyle: {
+                            fontSize: 9
+                        }
+                    },
+                    legend: {
+                        orient: 'horizontal',
+                        bottom: 0,
+                        textStyle: {
+                            fontSize: 7
+                        },
+                        itemWidth: 8,
+                        itemHeight: 6
+                    },
+                    series: [
+                        {
+                            name: '日志类型',
+                            type: 'pie',
+                            radius: ['45%', '75%'],
+                            center: ['50%', '45%'],
+                            avoidLabelOverlap: false,
+                            itemStyle: {
+                                borderRadius: 4,
+                                borderWidth: 1,
+                                borderColor: '#fff'
+                            },
+                            label: {
+                                show: false
+                            },
+                            emphasis: {
+                                label: {
+                                    show: true,
+                                    fontSize: 9,
+                                    fontWeight: 'bold'
+                                }
+                            },
+                            data: [
+                                {"name": "登录", "value": 120},
+                                {"name": "创建", "value": 80},
+                                {"name": "更新", "value": 150},
+                                {"name": "删除", "value": 50},
+                                {"name": "其他", "value": 30}
+                            ]
+                        }
+                    ]
+                };
+                myChart.setOption(option);
+                window.addEventListener('resize', function() { myChart.resize(); });
+            }
+            
+            // 2. 初始化日志数量趋势折线图（优化小尺寸显示）
+            function initLogTrendChart() {
+                var chartDom = document.getElementById('log-trend-chart');
+                if (!chartDom) return;
+                
+                var myChart = echarts.init(chartDom);
+                var option = {
+                    tooltip: {
+                        trigger: 'axis',
+                        textStyle: {
+                            fontSize: 9
+                        }
+                    },
+                    grid: {
+                        left: '5%',
+                        right: '3%',
+                        bottom: '20%',
+                        containLabel: true
+                    },
+                    xAxis: {
+                        type: 'category',
+                        boundaryGap: false,
+                        data: ['12-10', '12-11', '12-12', '12-13', '12-14', '12-15', '12-16'],
+                        axisLabel: {
+                            fontSize: 6,
+                            rotate: 45
+                        },
+                        axisLine: {
+                            lineStyle: {
+                                width: 1
+                            }
+                        }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        axisLabel: {
+                            fontSize: 7
+                        },
+                        axisLine: {
+                            show: false
+                        },
+                        splitLine: {
+                            lineStyle: {
+                                width: 0.5,
+                                type: 'dashed'
+                            }
+                        }
+                    },
+                    series: [
+                        {
+                            name: '日志数量',
+                            type: 'line',
+                            smooth: true,
+                            data: [80, 120, 90, 150, 110, 130, 100],
+                            itemStyle: {
+                                color: '#1890ff',
+                                borderWidth: 1
+                            },
+                            lineStyle: {
+                                width: 1.5
+                            },
+                            areaStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: 'rgba(24, 144, 255, 0.3)' },
+                                    { offset: 1, color: 'rgba(24, 144, 255, 0.05)' }
+                                ])
+                            },
+                            symbol: 'circle',
+                            symbolSize: 4
+                        }
+                    ]
+                };
+                myChart.setOption(option);
+                window.addEventListener('resize', function() { myChart.resize(); });
+            }
+            
+            // 3. 初始化操作模块分布柱状图（优化小尺寸显示）
+            function initLogModuleChart() {
+                var chartDom = document.getElementById('log-module-chart');
+                if (!chartDom) return;
+                
+                var myChart = echarts.init(chartDom);
+                var option = {
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'shadow'
+                        },
+                        textStyle: {
+                            fontSize: 9
+                        }
+                    },
+                    grid: {
+                        left: '5%',
+                        right: '3%',
+                        bottom: '25%',
+                        containLabel: true
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: ['用户管理', '系统设置', '客户管理', '项目管理', '生产管理'],
+                        axisLabel: {
+                            fontSize: 6,
+                            rotate: 45
+                        },
+                        axisLine: {
+                            lineStyle: {
+                                width: 1
+                            }
+                        }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        axisLabel: {
+                            fontSize: 7
+                        },
+                        axisLine: {
+                            show: false
+                        },
+                        splitLine: {
+                            lineStyle: {
+                                width: 0.5,
+                                type: 'dashed'
+                            }
+                        }
+                    },
+                    series: [
+                        {
+                            name: '操作次数',
+                            type: 'bar',
+                            data: [120, 90, 150, 80, 60],
+                            itemStyle: {
+                                color: '#52c41a'
+                            },
+                            barWidth: '65%'
+                        }
+                    ]
+                };
+                myChart.setOption(option);
+                window.addEventListener('resize', function() { myChart.resize(); });
+            }
+            
+            // 4. 初始化操作人分布柱状图（优化小尺寸显示）
+            function initLogUserChart() {
+                var chartDom = document.getElementById('log-user-chart');
+                if (!chartDom) return;
+                
+                var myChart = echarts.init(chartDom);
+                var option = {
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'shadow'
+                        },
+                        textStyle: {
+                            fontSize: 9
+                        }
+                    },
+                    grid: {
+                        left: '5%',
+                        right: '3%',
+                        bottom: '25%',
+                        containLabel: true
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: ['管理员', '张三', '李四', '王五', '赵六'],
+                        axisLabel: {
+                            fontSize: 6,
+                            rotate: 45
+                        },
+                        axisLine: {
+                            lineStyle: {
+                                width: 1
+                            }
+                        }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        axisLabel: {
+                            fontSize: 7
+                        },
+                        axisLine: {
+                            show: false
+                        },
+                        splitLine: {
+                            lineStyle: {
+                                width: 0.5,
+                                type: 'dashed'
+                            }
+                        }
+                    },
+                    series: [
+                        {
+                            name: '操作次数',
+                            type: 'bar',
+                            data: [180, 120, 90, 70, 50],
+                            itemStyle: {
+                                color: '#fa8c16'
+                            },
+                            barWidth: '65%'
+                        }
+                    ]
+                };
+                myChart.setOption(option);
+                window.addEventListener('resize', function() { myChart.resize(); });
+            }
+        })();
+
+        function searchData() {
+            var search = document.querySelector('input[name="search"]').value;
+            var log_type = document.querySelector('select[name="log_type"]').value;
+            var url = new URL(window.location);
+            
+            if (search) {
+                url.searchParams.set('search', search);
+            } else {
+                url.searchParams.delete('search');
+            }
+            
+            if (log_type) {
+                url.searchParams.set('log_type', log_type);
+            } else {
+                url.searchParams.delete('log_type');
+            }
+            
+            url.searchParams.delete('page');
+            window.location.href = url.toString();
+        }
+
+        // 回车搜索
+        document.querySelector('input[name="search"]').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchData();
+            }
+        });
+    </script>
+</body>
+</html>

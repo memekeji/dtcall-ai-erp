@@ -1,0 +1,431 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>财务大屏 - DTCall管理系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <style>
+        .card-gradient {
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 1));
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans text-gray-800 min-h-screen">
+    <!-- 顶部导航 -->
+    <header class="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-6">
+                <h1 class="text-xl font-bold text-blue-600">财务数据大屏</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="text-sm text-gray-500">数据更新时间: {{ last_updated|date:"Y-m-d H:i:s" }}</span>
+                <a href="/dashboard/" class="text-blue-600 hover:text-blue-800">返回总览</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="flex-1 p-6 overflow-auto">
+        <!-- 核心财务指标 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            <!-- 营业收入 -->
+            <div class="card-gradient rounded-xl p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-gray-500 text-sm">本月营业收入</p>
+                        <h3 class="text-3xl font-bold mt-1 text-green-600">¥{{ revenue|default:0|floatformat:2 }}</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
+                        <i class="fa fa-line-chart text-green-600 text-xl"></i>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <span class="{% if revenue_growth >= 0 %}text-green-600{% else %}text-red-600{% endif %} flex items-center text-sm">
+                        <i class="fa fa-{% if revenue_growth >= 0 %}arrow-up{% else %}arrow-down{% endif %} mr-1"></i> {{ revenue_growth|default:0|floatformat:1 }}%
+                    </span>
+                    <span class="text-gray-500 text-sm ml-2">较上月</span>
+                </div>
+            </div>
+
+            <!-- 毛利 -->
+            <div class="card-gradient rounded-xl p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-gray-500 text-sm">本月毛利</p>
+                        <h3 class="text-3xl font-bold mt-1 text-blue-600">¥{{ gross_profit|default:0|floatformat:2 }}</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
+                        <i class="fa fa-bar-chart text-blue-600 text-xl"></i>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <span class="{% if gross_profit_growth >= 0 %}text-green-600{% else %}text-red-600{% endif %} flex items-center text-sm">
+                        <i class="fa fa-{% if gross_profit_growth >= 0 %}arrow-up{% else %}arrow-down{% endif %} mr-1"></i> {{ gross_profit_growth|default:0|floatformat:1 }}%
+                    </span>
+                    <span class="text-gray-500 text-sm ml-2">较上月</span>
+                </div>
+            </div>
+
+            <!-- 费用 -->
+            <div class="card-gradient rounded-xl p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-gray-500 text-sm">本月费用</p>
+                        <h3 class="text-3xl font-bold mt-1 text-orange-600">¥{{ expense|default:0|floatformat:2 }}</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-lg bg-orange-100 flex items-center justify-center">
+                        <i class="fa fa-pie-chart text-orange-600 text-xl"></i>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <span class="{% if expense_growth >= 0 %}text-red-600{% else %}text-green-600{% endif %} flex items-center text-sm">
+                        <i class="fa fa-{% if expense_growth >= 0 %}arrow-up{% else %}arrow-down{% endif %} mr-1"></i> {{ expense_growth|default:0|floatformat:1 }}%
+                    </span>
+                    <span class="text-gray-500 text-sm ml-2">较上月</span>
+                </div>
+            </div>
+
+            <!-- 净利润 -->
+            <div class="card-gradient rounded-xl p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-gray-500 text-sm">本月净利润</p>
+                        <h3 class="text-3xl font-bold mt-1 text-purple-600">¥{{ net_profit|default:0|floatformat:2 }}</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
+                        <i class="fa fa-bank text-purple-600 text-xl"></i>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <span class="{% if net_profit_growth >= 0 %}text-green-600{% else %}text-red-600{% endif %} flex items-center text-sm">
+                        <i class="fa fa-{% if net_profit_growth >= 0 %}arrow-up{% else %}arrow-down{% endif %} mr-1"></i> {{ net_profit_growth|default:0|floatformat:1 }}%
+                    </span>
+                    <span class="text-gray-500 text-sm ml-2">较上月</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 财务趋势图表 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- 收支趋势 -->
+            <div class="card-gradient rounded-xl p-6 shadow-lg">
+                <h3 class="font-semibold text-lg mb-4">收支趋势</h3>
+                <div class="h-[280px]">
+                    <canvas id="incomeExpenseChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 利润趋势 -->
+            <div class="card-gradient rounded-xl p-6 shadow-lg">
+                <h3 class="font-semibold text-lg mb-4">利润趋势</h3>
+                <div class="h-[280px]">
+                    <canvas id="profitChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 第二行 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- 收入分类 -->
+            <div class="card-gradient rounded-xl p-6 shadow-lg">
+                <h3 class="font-semibold text-lg mb-4">收入分类</h3>
+                <div class="h-[250px]">
+                    <canvas id="revenueCategoryChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 费用分类 -->
+            <div class="card-gradient rounded-xl p-6 shadow-lg">
+                <h3 class="font-semibold text-lg mb-4">费用分类</h3>
+                <div class="h-[250px]">
+                    <canvas id="expenseCategoryChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 回款统计 -->
+            <div class="card-gradient rounded-xl p-6 shadow-lg">
+                <h3 class="font-semibold text-lg mb-4">本月回款统计</h3>
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                        <div>
+                            <p class="text-sm font-medium text-blue-800">已回款</p>
+                            <p class="text-xs text-blue-600">Received</p>
+                        </div>
+                        <span class="text-xl font-bold text-blue-600">¥{{ received_amount|default:0|floatformat:2 }}</span>
+                    </div>
+
+                    <div class="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
+                        <div>
+                            <p class="text-sm font-medium text-yellow-800">待回款</p>
+                            <p class="text-xs text-yellow-600">Pending</p>
+                        </div>
+                        <span class="text-xl font-bold text-yellow-600">¥{{ pending_amount|default:0|floatformat:2 }}</span>
+                    </div>
+
+                    <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                        <div>
+                            <p class="text-sm font-medium text-red-800">逾期金额</p>
+                            <p class="text-xs text-red-600">Overdue</p>
+                        </div>
+                        <span class="text-xl font-bold text-red-600">¥{{ overdue_amount|default:0|floatformat:2 }}</span>
+                    </div>
+
+                    <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                        <div>
+                            <p class="text-sm font-medium text-green-800">回款率</p>
+                            <p class="text-xs text-green-600">Collection Rate</p>
+                        </div>
+                        <span class="text-xl font-bold text-green-600">{{ collection_rate|default:0|floatformat:1 }}%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 财务详细数据 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- 应收账款 -->
+            <div class="card-gradient rounded-xl p-6 shadow-lg">
+                <h3 class="font-semibold text-lg mb-4">应收账款TOP5</h3>
+                <div class="space-y-3">
+                    {% for item in accounts_receivable %}
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <span class="text-sm">{{ item.customer_name }}</span>
+                        <span class="font-medium text-red-600">¥{{ item.amount|floatformat:0 }}</span>
+                    </div>
+                    {% empty %}
+                    <div class="text-center text-gray-500 py-4">暂无应收账款</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- 费用分析 -->
+            <div class="card-gradient rounded-xl p-6 shadow-lg">
+                <h3 class="font-semibold text-lg mb-4">本月费用分析</h3>
+                <div class="h-[200px]">
+                    <canvas id="expenseChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 财务预警 -->
+            <div class="card-gradient rounded-xl p-6 shadow-lg">
+                <h3 class="font-semibold text-lg mb-4">财务预警</h3>
+                <div class="space-y-3">
+                    {% for warning in finance_warnings %}
+                    <div class="flex items-center p-3 {% if warning.level == 'danger' %}bg-red-50 border-l-4 border-red-400{% elif warning.level == 'warning' %}bg-yellow-50 border-l-4 border-yellow-400{% else %}bg-blue-50 border-l-4 border-blue-400{% endif %} rounded">
+                        <i class="fa {% if warning.level == 'danger' %}fa-times-circle text-red-600{% elif warning.level == 'warning' %}fa-exclamation-triangle text-yellow-600{% else %}fa-info-circle text-blue-600{% endif %} mr-3"></i>
+                        <div>
+                            <p class="text-sm font-medium">{{ warning.title }}</p>
+                            <p class="text-xs text-gray-600">{{ warning.description }}</p>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center text-gray-500 py-4">暂无预警</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 收支趋势图
+            const incomeExpenseCtx = document.getElementById('incomeExpenseChart').getContext('2d');
+            new Chart(incomeExpenseCtx, {
+                type: 'line',
+                data: {
+                    labels: {{ income_expense_trend.labels|safe }},
+                    datasets: [
+                        {
+                            label: '收入',
+                            data: {{ income_expense_trend.income|safe }},
+                            borderColor: '#10B981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                        },
+                        {
+                            label: '支出',
+                            data: {{ income_expense_trend.expense|safe }},
+                            borderColor: '#EF4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '¥' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 利润趋势图
+            const profitCtx = document.getElementById('profitChart').getContext('2d');
+            new Chart(profitCtx, {
+                type: 'line',
+                data: {
+                    labels: {{ profit_trend.labels|safe }},
+                    datasets: [{
+                        label: '净利润',
+                        data: {{ profit_trend.net_profit|safe }},
+                        borderColor: '#8B5CF6',
+                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '¥' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 收入分类图
+            const revenueCategoryCtx = document.getElementById('revenueCategoryChart').getContext('2d');
+            new Chart(revenueCategoryCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: {{ revenue_category.labels|safe }},
+                    datasets: [{
+                        data: {{ revenue_category.data|safe }},
+                        backgroundColor: [
+                            '#3B82F6',
+                            '#10B981',
+                            '#F59E0B',
+                            '#EF4444',
+                            '#8B5CF6',
+                            '#06B6D4'
+                        ],
+                        borderWidth: 0,
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                boxWidth: 12,
+                                padding: 8,
+                                usePointStyle: true
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 费用分类图
+            const expenseCategoryCtx = document.getElementById('expenseCategoryChart').getContext('2d');
+            new Chart(expenseCategoryCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: {{ expense_category.labels|safe }},
+                    datasets: [{
+                        data: {{ expense_category.data|safe }},
+                        backgroundColor: [
+                            '#F87171',
+                            '#FBBF24',
+                            '#34D399',
+                            '#60A5FA',
+                            '#A78BFA',
+                            '#F472B6'
+                        ],
+                        borderWidth: 0,
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                boxWidth: 12,
+                                padding: 8,
+                                usePointStyle: true
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 费用分析饼图
+            const expenseCtx = document.getElementById('expenseChart').getContext('2d');
+            new Chart(expenseCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: {{ expense_analysis.labels|safe }},
+                    datasets: [{
+                        data: {{ expense_analysis.data|safe }},
+                        backgroundColor: [
+                            '#3B82F6',
+                            '#10B981',
+                            '#F59E0B',
+                            '#EF4444',
+                            '#8B5CF6'
+                        ],
+                        borderWidth: 0,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                boxWidth: 12,
+                                padding: 10
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

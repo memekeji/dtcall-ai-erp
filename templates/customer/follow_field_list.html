@@ -1,0 +1,38 @@
+{% extends "customer/_base_list.html" %}
+
+{% block table_headers %}
+<th>字段名称</th>
+<th>字段标识</th>
+<th>字段类型</th>
+<th>必填</th>
+<th>排序</th>
+<th>状态</th>
+<th>创建时间</th>
+<th>操作</th>
+{% endblock %}
+
+{% block table_row %}
+<td>{{ item.name }}</td>
+<td>{{ item.field_name }}</td>
+<td>{{ item.get_field_type_display }}</td>
+<td>
+    {% if item.is_required %}
+        <span class="layui-badge layui-bg-red">必填</span>
+    {% else %}
+        <span class="layui-badge layui-bg-gray">可选</span>
+    {% endif %}
+</td>
+<td>{{ item.sort_order }}</td>
+<td>
+    {% if item.is_active %}
+        <span class="layui-badge layui-bg-green">启用</span>
+    {% else %}
+        <span class="layui-badge">禁用</span>
+    {% endif %}
+</td>
+<td>{{ item.created_at|date:"Y-m-d H:i" }}</td>
+<td>
+    <button class="layui-btn layui-btn-xs" onclick="editItem({{ item.pk }})">编辑</button>
+    <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteItem({{ item.pk }})">删除</button>
+</td>
+{% endblock %}

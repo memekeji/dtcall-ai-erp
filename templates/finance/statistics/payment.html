@@ -1,0 +1,118 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>付款统计</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .stat-card {
+            background: #fff;
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .stat-item {
+            display: inline-block;
+            width: 24%;
+            text-align: center;
+            padding: 15px 0;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #009688;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header">付款统计分析</div>
+            <div class="layui-card-body">
+                <!-- 统计卡片 -->
+                <div class="stat-card">
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalPayments">0</div>
+                        <div class="stat-label">总付款笔数</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalAmount">¥0.00</div>
+                        <div class="stat-label">总付款金额</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="thisMonthAmount">¥0.00</div>
+                        <div class="stat-label">本月付款</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="avgAmount">¥0.00</div>
+                        <div class="stat-label">平均付款</div>
+                    </div>
+                </div>
+
+                <!-- 详细数据表格 -->
+                <div class="layui-card">
+                    <div class="layui-card-header">付款明细</div>
+                    <div class="layui-card-body">
+                        <table id="paymentDetailTable" class="layui-table" lay-filter="paymentDetailTable"></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['table', 'layer'], function() {
+            var table = layui.table;
+            var layer = layui.layer;
+
+            // 加载统计数据
+            function loadStatistics() {
+                // 从后端API获取统计数据
+                $.ajax({
+                    url: '/adm/finance/payment/statistics/',
+                    method: 'GET',
+                    dataType: 'json',
+                    success: function(data) {
+                        $('#totalPayments').text(data.total_payments || 0);
+                        $('#totalAmount').text('¥' + (data.total_amount || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2}));
+                        $('#thisMonthAmount').text('¥' + (data.this_month_amount || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2}));
+                        $('#avgAmount').text('¥' + (data.avg_amount || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2}));
+                    },
+                    error: function() {
+                        console.error('获取付款统计数据失败');
+                    }
+                });
+            }
+
+            // 初始化详细数据表格
+            table.render({
+                elem: '#paymentDetailTable',
+                url: '/adm/finance/payment/datalist/',
+                cols: [[
+                    {field: 'expense_code', title: '关联报销', width: 150},
+                    {field: 'amount', title: '付款金额', width: 120},
+                    {field: 'payment_date', title: '付款日期', width: 120},
+                    {field: 'remark', title: '备注', width: 200},
+                    {field: 'create_time', title: '创建时间', width: 180}
+                ]],
+                page: true,
+                limit: 10,
+                height: 400
+            });
+
+            // 页面加载时获取统计数据
+            loadStatistics();
+        });
+    </script>
+</body>
+</html>

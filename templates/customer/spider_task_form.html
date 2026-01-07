@@ -1,0 +1,513 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>添加爬虫任务</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .form-container { width: 100%; height: 100%; margin: 0; background: #fff; padding: 25px; overflow-y: auto; scroll-behavior: smooth; }
+        .layui-form-item { margin-bottom: 20px; }
+        .industry-tag { display: inline-block; background: #e6e6e6; padding: 2px 8px; border-radius: 12px; margin-right: 5px; margin-bottom: 5px; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <form class="layui-form" id="taskForm">
+            {% csrf_token %}
+            <input type="hidden" name="id" value="{{ form.id.value|default:'' }}">
+            <input type="hidden" name="status" value="2">
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">任务名称</label>
+                <div class="layui-input-block">
+                    <input type="text" name="task_name" placeholder="请输入任务名称" class="layui-input" value="{{ form.task_name.value|default:'' }}">
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">创建时间</label>
+                <div class="layui-input-block">
+                    <input type="text" name="create_time" value="{% now 'Y-m-d H:i:s' %}" disabled class="layui-input">
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">爬虫关键词</label>
+                <div class="layui-input-block">
+                    <input type="text" name="spider_keywords" placeholder="请输入爬虫关键词，多个关键词用逗号分隔" class="layui-input" value="{{ form.spider_keywords.value|default:'' }}">
+                </div>
+            </div>
+
+
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">行业限制</label>
+                <div class="layui-input-block">
+                    <!-- 树形选择器容器 -->
+                    <div id="industryTree" style="width: 300px; border: 1px solid #e6e6e6; border-radius: 4px;"></div>
+                    <!-- 隐藏字段存储选中值 -->
+                    <input type="hidden" name="industry_limit" id="industryValue">
+                    <!-- 选择结果显示区域 -->
+                    <div id="selectedIndustries" style="margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 4px; display: none;">
+                        <strong>已选择:</strong>
+                        <div id="selectedItems"></div>
+                    </div>
+                    <div id="industryDebug" style="margin-top:10px; padding:10px; background:#f5f5f5; display:none;">
+                        <h4>行业数据解析结果:</h4>
+                        <pre id="industryDataPre"></pre>
+                        <h4>生成的选项HTML:</h4>
+                        <pre id="optionsHtmlPre"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">省份地区</label>
+                <div class="layui-input-block">
+                    <!-- 树形选择器容器 -->
+                    <div id="regionTree" style="width: 300px; border: 1px solid #e6e6e6; border-radius: 4px;"></div>
+                    <!-- 隐藏字段存储选中值 -->
+                    <input type="hidden" name="province" id="regionValue">
+<input type="hidden" name="data_region" id="dataRegionValue">
+                    <!-- 选择结果显示区域 -->
+                    <div id="selectedRegions" style="margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 4px; display: none;">
+                        <strong>已选择:</strong>
+                        <div id="selectedRegionItems"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">参保人数</label>
+                <div class="layui-input-block">
+                    <select name="insured_count">
+                        <option value="">请选择参保人数</option>
+                        <option value="不限" {% if form.insured_count.value == '不限' %}selected{% endif %}>不限</option>
+                        <option value="0" {% if form.insured_count.value == '0' %}selected{% endif %}>0</option>
+                        <option value="1-49" {% if form.insured_count.value == '1-49' %}selected{% endif %}>1-49</option>
+                        <option value="50-99" {% if form.insured_count.value == '50-99' %}selected{% endif %}>50-99</option>
+                        <option value="100-999" {% if form.insured_count.value == '100-999' %}selected{% endif %}>100-999</option>
+                        <option value="1000-4999" {% if form.insured_count.value == '1000-4999' %}selected{% endif %}>1000-4999</option>
+                        <option value="5000以上" {% if form.insured_count.value == '5000以上' %}selected{% endif %}>5000以上</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">联系电话</label>
+                <div class="layui-input-block">
+                    <select name="contact_phone">
+                        <option value="">请选择联系电话类型</option>
+                        <option value="不限" {% if form.contact_phone.value == '不限' %}selected{% endif %}>不限</option>
+                        <option value="有有效手机号" {% if form.contact_phone.value == '有有效手机号' %}selected{% endif %}>有有效手机号</option>
+                        <option value="有固定电话" {% if form.contact_phone.value == '有固定电话' %}selected{% endif %}>有固定电话</option>
+                        <option value="有400/800电话" {% if form.contact_phone.value == '有400/800电话' %}selected{% endif %}>有400/800电话</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="layui-form-item" style="text-align: center; margin-top: 30px;">
+                <button class="layui-btn" lay-submit lay-filter="formSubmit"><i class="layui-icon">&#xe605;</i> 提交</button>
+                <button type="button" class="layui-btn layui-btn-primary" onclick="parent.layer.closeAll()"><i class="layui-icon">&#xe60a;</i> 取消</button>
+            </div>
+        </form>
+    </div>
+
+    <script src="{% static 'layui/layui.js' %}"></script>
+<script>
+        // 获取CSRF token
+        function getCookie(name) {
+            var cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        var csrftoken = getCookie('csrftoken');
+
+        // 设置AJAX默认请求头
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                    xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                }
+            }
+        });
+
+        // 检查layui是否加载
+        if (typeof layui !== 'undefined') {
+            layui.use(['form', 'layer', 'tree', 'jquery'], function() {
+                // 检查每个模块是否加载成功
+                var form = layui.form;
+                var layer = layui.layer;
+                var $ = layui.jquery;
+                var tree = layui.tree;
+
+                // 初始化表单，添加安全检查
+                if (form && typeof form.render === 'function') {
+                    form.render('select'); // 显式渲染select元素
+                    console.log('LayUI select渲染完成');
+                } else {
+                    console.warn('form模块未加载或render方法不存在');
+                }
+
+            // 加载行业数据并渲染树形结构
+            function loadIndustryData() {
+                $.ajax({
+                    url: '{% static "json/industry_categories.json" %}',
+                    dataType: 'json',
+                    success: function(data) {
+                        console.log('行业数据加载成功', data);
+
+                        // 转换数据格式为Layui Tree所需格式
+                        function convertToTreeFormat(data) {
+                            return data.map(function(item) {
+                                return {
+                                    title: item.name,
+                                    id: item.code,
+                                    children: item.children && item.children.length ? convertToTreeFormat(item.children) : []
+                                };
+                            });
+                        }
+
+                        // 渲染树形组件
+                        layui.tree.render({
+                            elem: '#industryTree',
+                            filter: 'industryTree', // 添加filter属性
+                            data: convertToTreeFormat(data), // 根节点作为第一级
+                            showLine: true,  // 显示连接线
+                            showCheckbox: true,  // 启用复选框，支持多选
+                            onlyIconControl: true, // 仅允许点击图标展开
+                            checkStrictly: true, // 取消父子关联选择
+                            oncheck: function(obj) {
+                                handleIndustryCheck(obj);
+                            }
+                        });
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('加载行业数据失败:', error);
+                        layer.msg('行业数据加载失败，请刷新页面重试', {icon: 5});
+                    }
+                });
+            }
+
+            // 加载地区数据
+            function loadRegionData() {
+                var regionUrl = '{% static "json/全国省市区.json" %}';
+                console.log('地区数据请求URL:', regionUrl);
+                $.ajax({
+                    url: regionUrl,
+                    dataType: 'json',
+                    success: function(data) {
+                        try {
+                            // 尝试解析数据，处理可能的编码问题
+                            var parsedData = typeof data === 'string' ? JSON.parse(data) : data;
+                            var treeData = convertRegionDataToTree(parsedData);
+                            layui.tree.render({
+                                elem: '#regionTree',
+                                filter: 'regionTree', // 添加filter属性
+                                data: treeData,
+                                showLine: true,
+                                showCheckbox: true,
+                                onlyIconControl: true,
+                                checkStrictly: true,
+                                oncheck: function(obj) {
+                                    handleRegionCheck(obj);
+                                }
+                            });
+                        } catch (parseError) {
+                            console.error('地区数据解析失败:', parseError);
+                            layer.msg('地区数据格式错误，请联系管理员', {icon: 5});
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        // 添加页面错误信息显示
+                        var errorDetails = '地区数据加载失败详情:\n状态码: ' + xhr.status + '\n错误信息: ' + error + '\n请求URL: ' + regionUrl;
+                        var regionErrorDiv = document.createElement('div');
+                        regionErrorDiv.style.color = 'red';
+                        regionErrorDiv.style.marginTop = '10px';
+                        regionErrorDiv.textContent = errorDetails;
+                        document.querySelector('#regionTree').parentNode.appendChild(regionErrorDiv);
+                    }
+                });
+            }
+
+            // 将地区数据转换为树形结构
+            function convertRegionDataToTree(regionData) {
+                var tree = [];
+                // 添加全国根节点
+                tree.push({
+                    id: '00',
+                    title: '全国',
+                    spread: true,
+                    children: []
+                });
+                
+                // 获取省份数据
+                var provinces = regionData['00'];
+                
+                // 遍历省份
+                for (var code in provinces) {
+                    if (provinces.hasOwnProperty(code)) {
+                        var provinceName = provinces[code];
+                        var provinceNode = {
+                            id: code,
+                            title: provinceName,
+                            spread: false,
+                            children: []
+                        };
+                        
+                        // 获取城市数据
+                        var cities = regionData[code];
+                        if (cities) {
+                            for (var cityCode in cities) {
+                                if (cities.hasOwnProperty(cityCode)) {
+                                    provinceNode.children.push({
+                                        id: cityCode,
+                                        title: cities[cityCode],
+                                        spread: false
+                                    });
+                                }
+                            }
+                        }
+                        
+                        tree[0].children.push(provinceNode);
+                    }
+                }
+                
+                return tree;
+            }
+
+            // 处理地区选择逻辑
+            function handleRegionCheck(obj) {
+                var checkedData = layui.tree.getChecked('regionTree'); // 获取所有选中节点
+                
+                // 提取选中的ID和名称
+                var selectedIds = [];
+                var selectedNames = [];
+                
+                // 递归处理选中节点
+                function processCheckedNodes(nodes) {
+                    nodes.forEach(function(node) {
+                        // 如果是叶子节点（没有子节点），直接添加
+                        // 无论是否有子节点，只要选中就添加当前节点ID
+                        if (node.checked) {
+                            selectedIds.push(node.id);
+                            selectedNames.push(node.title);
+                        }
+                        // 递归处理子节点
+                        if (node.children && node.children.length > 0) {
+                            processCheckedNodes(node.children);
+                        }
+                    });
+                }
+                
+                processCheckedNodes(checkedData);
+                
+                // 去重处理
+                selectedIds = Array.from(new Set(selectedIds));
+                selectedNames = Array.from(new Set(selectedNames));
+                
+                // 设置隐藏字段值
+                var regionValue = selectedIds.join(',');
+                $('#regionValue').val(regionValue);
+                console.log('地区隐藏字段值已设置:', regionValue);
+                console.log('地区隐藏字段DOM值:', $('#regionValue').val());
+                
+                // 显示选择结果
+                var selectedItems = $('#selectedRegionItems');
+                var selectedRegions = $('#selectedRegions');
+                
+                if (selectedNames.length > 0) {
+                    selectedItems.html(selectedNames.map(function(name) {
+                        return '<span class="industry-tag">' + name + '</span>';
+                    }).join(' '));
+                    selectedRegions.show();
+                } else {
+                    selectedItems.html('');
+                    selectedRegions.hide();
+                }
+            }
+
+            // 页面加载完成后加载数据
+            $(document).ready(function() {
+                loadIndustryData();
+                loadRegionData();
+            });
+
+            // 处理行业选择逻辑
+            function handleIndustryCheck(obj) {
+                var checkedData = layui.tree.getChecked('industryTree'); // 获取所有选中节点
+                
+                // 提取选中的ID和名称
+                var selectedIds = [];
+                var selectedNames = [];
+                
+                // 递归处理选中节点
+                function processCheckedNodes(nodes) {
+                    nodes.forEach(function(node) {
+                        // 如果是叶子节点（没有子节点），直接添加
+                        // 无论是否有子节点，只要选中就添加当前节点ID
+                        if (node.checked) {
+                            selectedIds.push(node.id);
+                            selectedNames.push(node.title);
+                        }
+                        // 递归处理子节点
+                        if (node.children && node.children.length > 0) {
+                            processCheckedNodes(node.children);
+                        }
+                    });
+                }
+                
+                processCheckedNodes(checkedData);
+                
+                // 去重处理
+                selectedIds = Array.from(new Set(selectedIds));
+                selectedNames = Array.from(new Set(selectedNames));
+                
+                // 设置隐藏字段值
+                var industryValue = selectedIds.join(',');
+                $('#industryValue').val(industryValue);
+                console.log('行业隐藏字段值已设置:', industryValue);
+                console.log('行业隐藏字段DOM值:', $('#industryValue').val());
+                
+                // 显示选择结果
+                var selectedItems = $('#selectedItems');
+                var selectedIndustries = $('#selectedIndustries');
+                
+                if (selectedNames.length > 0) {
+                    selectedItems.html(selectedNames.map(function(name) {
+                        return '<span class="industry-tag">' + name + '</span>';
+                    }).join(' '));
+                    selectedIndustries.show();
+                } else {
+                    selectedItems.html('');
+                    selectedIndustries.hide();
+                }
+            }
+
+            form.on('submit(formSubmit)', function(data) {
+                // 显式获取隐藏字段值
+                var industryValue = $('#industryValue').val();
+                var regionValue = $('#regionValue').val();
+                
+                // 添加调试信息
+                console.log('表单提交前调试信息:');
+                console.log('industryValue:', industryValue);
+                console.log('regionValue:', regionValue);
+                console.log('所有表单字段:', data.field);
+                
+                // 全面验证所有必填字段
+                // 仅验证模型中真正必填的字段
+                var requiredFields = [
+                    {name: 'task_name', label: '任务名称', value: data.field.task_name},
+                    {name: 'spider_keywords', label: '爬虫关键词', value: data.field.spider_keywords},
+                    {name: 'insured_count', label: '参保人数', value: data.field.insured_count},
+                    {name: 'contact_phone', label: '联系电话', value: data.field.contact_phone}
+                ];
+                
+                // 添加详细日志输出以诊断必填项问题
+                console.log('开始验证必填字段:');
+                requiredFields.forEach(function(field) {
+                    console.log('字段: ' + field.label + ', 值: [' + field.value + '], 是否为空: ' + (!field.value || field.value.trim() === ''));
+                });
+                var missingFields = requiredFields.filter(function(field) {
+                    return !field.value || field.value.trim() === '';
+                });
+                if (missingFields.length > 0) {
+                    var errorMsg = '以下必填项未填写：\n';
+                    missingFields.forEach(function(field) {
+                        errorMsg += '- ' + field.label + '\n';
+                    });
+                    layer.msg(errorMsg, {icon: 2, time: 5000});
+                    return false;
+                }
+                
+                // 构造提交数据
+                var postData = Object.assign({}, data.field, {
+                    industry_limit: industryValue,
+                    province: regionValue,
+                    data_region: regionValue
+                });
+                
+                // 额外验证隐藏字段在DOM中的实际值
+                console.log('提交前DOM中的industryValue:', $('#industryValue').val());
+                console.log('提交前DOM中的regionValue:', $('#regionValue').val());
+                
+                // 验证postData中的值
+                console.log('postData.industry:', postData.industry);
+                console.log('postData.province:', postData.province);
+                console.log('完整提交数据:', JSON.stringify(postData, null, 2));
+                
+                // 确保隐藏字段在表单数据中
+                // 行业和地区字段为非必填，移除强制验证
+                console.log('行业/地区字段可选，跳过非空验证');
+                
+                // 打印提交数据详情
+                console.log('最终提交数据:', postData);
+                console.log('提交URL:', '{% url "customer:spider_task_create" %}');
+                
+                $.ajax({
+                    url: '{% url "customer:spider_task_create" %}',
+                    type: 'post',
+                    data: postData,
+                    success: function(res) {
+                        console.log('服务器响应:', res);
+                        if (res.status === 'success') {
+                            parent.layer.msg('任务创建成功', {icon: 1});
+                            parent.layui.table.reload('spiderTaskTable');
+                            parent.layer.closeAll();
+                        } else {
+                            // 显示后端返回的具体错误信息
+                            var errorMsg = res.msg || '创建失败';
+                            if (res.errors) {
+                                // 如果有字段错误详情，拼接显示
+                                errorMsg += '\n';
+                                for (var field in res.errors) {
+                                    errorMsg += '- ' + res.errors[field] + '\n';
+                                }
+                            }
+                            layer.msg(errorMsg, {icon: 2, time: 5000});
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('表单提交失败:', error);
+                        console.error('响应状态:', xhr.status);
+                        console.error('响应文本:', xhr.responseText);
+                        
+                        // 显示HTTP错误详情
+                        var errorDetails = '服务器错误: ' + xhr.status + ' ' + xhr.statusText;
+                        try {
+                            var errorResponse = JSON.parse(xhr.responseText);
+                            if (errorResponse.msg) errorDetails += '\n' + errorResponse.msg;
+                            if (errorResponse.errors) {
+                                for (var field in errorResponse.errors) {
+                                    errorDetails += '\n- ' + errorResponse.errors[field];
+                                }
+                            }
+                        } catch (e) {
+                            errorDetails += '\n响应内容: ' + xhr.responseText;
+                        }
+                        layer.msg(errorDetails, {icon: 2, time: 15000});
+                        console.error('AJAX错误详情:', xhr);
+                    }
+                });
+                return false;
+            });
+        });
+    } else {
+        console.warn('layui框架未加载，部分功能可能无法使用');
+    }
+    </script>
+</body>
+</html>

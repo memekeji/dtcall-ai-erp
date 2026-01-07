@@ -1,0 +1,131 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>收入管理</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <div class="layui-btn-group">
+                    <button class="layui-btn layui-btn-sm" onclick="addIncome()">
+                        <i class="layui-icon layui-icon-add-1"></i> 新增收入
+                    </button>
+                    <button class="layui-btn layui-btn-sm layui-btn-normal" onclick="exportData()">
+                        <i class="layui-icon layui-icon-export"></i> 导出数据
+                    </button>
+                </div>
+            </div>
+            <div class="layui-card-body">
+                <table id="incomeTable" class="layui-table" lay-filter="incomeTable"></table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['table', 'layer'], function() {
+            var table = layui.table;
+            var layer = layui.layer;
+
+            // 初始化表格
+            table.render({
+                elem: '#incomeTable',
+                url: '/adm/finance/paymentreceive/datalist/',
+                cols: [[
+                    {field: 'id', title: 'ID', width: 80},
+                    {field: 'invoice_code', title: '关联发票', width: 150},
+                    {field: 'amount', title: '收入金额', width: 120},
+                    {field: 'income_date', title: '收入日期', width: 120},
+                    {field: 'contract_info', title: '关联合同', width: 200, templet: function(d) {
+                        if (d.contract_info && d.contract_info.contract_code) {
+                            return d.contract_info.contract_code + ' - ' + d.contract_info.contract_name;
+                        } else {
+                            return '无关联合同';
+                        }
+                    }},
+                    {field: 'remark', title: '备注', width: 200},
+                    {field: 'create_time', title: '创建时间', width: 180},
+                    {title: '操作', width: 200, toolbar: '#incomeToolBar'}
+                ]],
+                page: true,
+                limit: 20,
+                height: 'full-200'
+            });
+
+            // 监听工具条
+            table.on('tool(incomeTable)', function(obj) {
+                var data = obj.data;
+                var layEvent = obj.event;
+
+                if (layEvent === 'view') {
+                    layer.open({
+                        type: 2,
+                        title: '收入详情',
+                        content: '/adm/finance/paymentreceive/view/' + data.id + '/',
+                        area: ['800px', '600px']
+                    });
+                } else if (layEvent === 'edit') {
+                    layer.open({
+                        type: 2,
+                        title: '编辑收入',
+                        content: '/adm/finance/paymentreceive/edit/' + data.id + '/',
+                        area: ['700px', '500px'],
+                        end: function() {
+                            table.reload('incomeTable');
+                        }
+                    });
+                } else if (layEvent === 'delete') {
+                    layer.confirm('确定删除这条收入记录吗？', function(index) {
+                        $.ajax({
+                            url: '/adm/finance/paymentreceive/del/',
+                            type: 'POST',
+                            data: JSON.stringify({id: data.id}),
+                            contentType: 'application/json',
+                            success: function(response) {
+                                if (response.code === 0) {
+                                    layer.msg('删除成功', {icon: 1});
+                                    table.reload('incomeTable');
+                                } else {
+                                    layer.msg(response.msg, {icon: 2});
+                                }
+                            }
+                        });
+                        layer.close(index);
+                    });
+                }
+            });
+        });
+
+        // 新增收入
+        function addIncome() {
+            layer.open({
+                type: 2,
+                title: '新增收入',
+                content: '/adm/finance/paymentreceive/add/',
+                area: ['700px', '500px'],
+                end: function() {
+                    layui.table.reload('incomeTable');
+                }
+            });
+        }
+
+        // 导出数据
+        function exportData() {
+            layer.msg('导出功能开发中...', {icon: 1});
+        }
+    </script>
+
+    <!-- 工具栏模板 -->
+    <script type="text/html" id="incomeToolBar">
+        <a class="layui-btn layui-btn-xs" lay-event="view">查看</a>
+        <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
+        <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
+    </script>
+</body>
+</html>

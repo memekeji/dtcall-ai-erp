@@ -1,0 +1,75 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{% if seal %}编辑印章{% else %}新增印章{% endif %}{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>{% if seal %}编辑印章{% else %}新增印章{% endif %}</h3>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form" method="post">
+            {% csrf_token %}
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">印章名称 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.name }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">印章类型</label>
+                        <div class="layui-input-block">
+                            {{ form.seal_type }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">保管人</label>
+                        <div class="layui-input-block">
+                            {{ form.keeper }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">存放位置</label>
+                        <div class="layui-input-block">
+                            {{ form.location }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">备注</label>
+                <div class="layui-input-block">
+                    {{ form.description }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">状态</label>
+                <div class="layui-input-block">
+                    <input type="checkbox" name="is_active" {% if seal.is_active %}checked{% endif %} lay-skin="switch" lay-text="启用|禁用">
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" type="submit">保存</button>
+                    <a href="{% url 'system:admin_office:seal_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

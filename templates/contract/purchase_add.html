@@ -1,0 +1,207 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新增采购合同</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <form class="layui-form" lay-filter="purchaseForm">
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">采购编号</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="code" placeholder="请输入采购编号" class="layui-input" lay-verify="required">
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">采购名称</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="name" placeholder="请输入采购名称" class="layui-input" lay-verify="required">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">采购分类</label>
+                        <div class="layui-input-block">
+                            <select name="cate_id" lay-verify="required">
+                                <option value="">请选择采购分类</option>
+                                <option value="1">设备采购</option>
+                                <option value="2">服务采购</option>
+                                <option value="3">材料采购</option>
+                                <option value="4">其他采购</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">采购金额</label>
+                        <div class="layui-input-block">
+                            <input type="number" name="amount" placeholder="请输入采购金额" class="layui-input" lay-verify="required|number" step="0.01">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">签订时间</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="sign_time" placeholder="请选择签订时间" class="layui-input" id="signTime" lay-verify="required">
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">开始时间</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="start_time" placeholder="请选择开始时间" class="layui-input" id="startTime" lay-verify="required">
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">结束时间</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="end_time" placeholder="请选择结束时间" class="layui-input" id="endTime" lay-verify="required">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">采购类型</label>
+                        <div class="layui-input-block">
+                            <select name="types" lay-verify="required">
+                                <option value="">请选择采购类型</option>
+                                <option value="0">一般采购</option>
+                                <option value="1">紧急采购</option>
+                                <option value="2">集中采购</option>
+                                <option value="3">分散采购</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">编制人</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="prepared_uid" placeholder="请输入编制人" class="layui-input">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">签订人</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="sign_uid" placeholder="请输入签订人" class="layui-input">
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">保管人</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="keeper_uid" placeholder="请输入保管人" class="layui-input">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">备注信息</label>
+                <div class="layui-input-block">
+                    <textarea name="remark" placeholder="请输入备注信息" class="layui-textarea"></textarea>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" lay-submit lay-filter="submitPurchase">立即提交</button>
+                    <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['form', 'laydate', 'layer'], function() {
+            var form = layui.form;
+            var laydate = layui.laydate;
+            var layer = layui.layer;
+
+            // 设置弹窗层级
+            layer.config({
+                zIndex: 2147483646
+            });
+
+            // 初始化日期选择器
+            laydate.render({
+                elem: '#signTime',
+                format: 'yyyy-MM-dd'
+            });
+
+            laydate.render({
+                elem: '#startTime',
+                format: 'yyyy-MM-dd'
+            });
+
+            laydate.render({
+                elem: '#endTime',
+                format: 'yyyy-MM-dd'
+            });
+
+            // 监听提交
+            form.on('submit(submitPurchase)', function(data) {
+                var formData = data.field;
+                
+                // 验证结束时间大于开始时间
+                if (formData.end_time <= formData.start_time) {
+                    layer.msg('结束时间必须大于开始时间', {icon: 2});
+                    return false;
+                }
+
+                $.ajax({
+                    url: '/adm/contract/purchase/add/',
+                    type: 'POST',
+                    data: formData,
+                    success: function(response) {
+                        if (response.code === 0) {
+                            layer.msg('添加成功', {icon: 1}, function() {
+                                var index = parent.layer.getFrameIndex(window.name);
+                                parent.layer.close(index);
+                            });
+                        } else {
+                            layer.msg(response.msg, {icon: 2});
+                        }
+                    },
+                    error: function() {
+                        layer.msg('网络错误，请重试', {icon: 2});
+                    }
+                });
+                
+                return false;
+            });
+        });
+    </script>
+</body>
+</html>

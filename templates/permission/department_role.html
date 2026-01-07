@@ -1,0 +1,465 @@
+{% load static %}
+
+<style>
+    /* 部门角色分配卡片 */
+    .department-role-card {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        margin-bottom: 24px;
+        border-left: 4px solid #10b981;
+    }
+
+    .department-info-card {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        margin-bottom: 24px;
+        border-left: 4px solid #3b82f6;
+    }
+
+    .department-info {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+
+    .department-info-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .department-info-label {
+        font-weight: 500;
+        color: #6b7280;
+        font-size: 14px;
+    }
+
+    .department-info-value {
+        font-size: 16px;
+        color: #1f2937;
+    }
+
+    /* 角色列表容器 */
+    .role-selection-container {
+        margin: 16px 0;
+    }
+
+    .role-selection-title {
+        font-weight: 600;
+        margin-bottom: 12px;
+        color: #374151;
+        font-size: 14px;
+    }
+
+    .role-selection-list {
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 8px;
+        margin-bottom: 16px;
+    }
+
+    .role-selection-item {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .role-selection-item:hover {
+        background-color: #f9fafb;
+    }
+
+    .role-selection-item input[type="checkbox"] {
+        margin-right: 12px;
+        width: 18px;
+        height: 18px;
+    }
+
+    .role-selection-item label {
+        flex: 1;
+        cursor: pointer;
+    }
+
+    /* 操作按钮 */
+    .action-buttons {
+        display: flex;
+        gap: 12px;
+    }
+
+    .btn-primary {
+        background-color: #3b82f6;
+        color: white;
+        border: none;
+        padding: 8px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary:hover {
+        background-color: #2563eb;
+    }
+
+    /* 表格容器 */
+    .table-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        overflow: hidden;
+    }
+
+    /* 自定义表格样式 */
+    .layui-table {
+        margin: 0;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .layui-table th {
+        background-color: #f9fafb;
+        font-weight: 600;
+        color: #374151;
+        padding: 12px 16px;
+        border-bottom: 1px solid #e5e7eb;
+        text-align: left;
+    }
+
+    .layui-table td {
+        padding: 10px 16px;
+        border-bottom: 1px solid #e5e7eb;
+        transition: all 0.3s ease;
+    }
+
+    .layui-table tbody tr:hover {
+        background-color: #f9fafb;
+    }
+
+    /* 员工操作按钮组 */
+    .staff-action-buttons {
+        display: flex;
+        gap: 6px;
+        justify-content: flex-end;
+    }
+
+    .staff-action-btn {
+        padding: 4px 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .btn-staff-assign { 
+        background-color: #dbeafe; 
+        color: #3b82f6; 
+    }
+    .btn-staff-assign:hover { 
+        background-color: #bfdbfe; 
+    }
+
+    /* 角色分配弹窗 */
+    .role-assign-form {
+        padding: 20px;
+    }
+
+    .role-list {
+        max-height: 400px;
+        overflow-y: auto;
+        margin: 16px 0;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 8px;
+    }
+
+    .role-item {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .role-item:hover {
+        background-color: #f9fafb;
+    }
+
+    .role-item input[type="checkbox"] {
+        margin-right: 12px;
+        width: 18px;
+        height: 18px;
+    }
+
+    .role-item label {
+        flex: 1;
+        cursor: pointer;
+    }
+
+    /* 空状态 */
+    .empty-state {
+        padding: 60px 20px;
+        text-align: center;
+        color: #6b7280;
+    }
+
+    .empty-state i {
+        font-size: 48px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+</style>
+
+<!-- 部门信息卡片 -->
+{% if error %}
+<div class="department-info-card">
+    <div class="department-info">
+        <div class="department-info-item">
+            <span class="department-info-label" style="color: #ef4444;">错误信息：</span>
+            <span class="department-info-value" style="color: #ef4444;">{{ error }}</span>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="department-info-card">
+    <div class="department-info">
+        <div class="department-info-item">
+            <span class="department-info-label">部门名称：</span>
+            <span class="department-info-value">{{ department.name }}</span>
+        </div>
+        <div class="department-info-item">
+            <span class="department-info-label">部门员工数：</span>
+            <span class="department-info-value">{{ staff_count }}</span>
+        </div>
+    </div>
+</div>
+
+<!-- 部门角色分配卡片 -->
+<div class="department-role-card">
+    <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 18px; font-weight: 600; color: #1f2937;">
+        部门角色分配
+    </h3>
+    <form id="departmentRoleForm">
+        {% csrf_token %}
+        <div class="role-selection-container">
+            <div class="role-selection-title">选择要分配给该部门的角色：</div>
+            <div class="role-selection-list" id="departmentRoleList">
+                    {% for role in roles %}
+                    <div class="role-selection-item">
+                        <input type="checkbox" name="department_role_ids[]" value="{{ role.id }}" id="role_{{ role.id }}" lay-skin="primary" {% if role.id in department_role_ids %}checked{% endif %}>
+                        <label for="role_{{ role.id }}" style="margin-left: 12px;">{{ role.name }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+        </div>
+        <div class="action-buttons">
+            <button type="button" class="btn-primary" onclick="saveDepartmentRoles()">
+                <i class="layui-icon layui-icon-save"></i> 保存部门角色分配
+            </button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<!-- 员工角色列表 -->
+<div class="table-container">
+    <table class="layui-table" id="user-role-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>用户名</th>
+                <th>姓名</th>
+                <th>角色</th>
+                <th>状态</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user_role in user_roles %}
+            <tr>
+                <td>{{ user_role.user.id }}</td>
+                <td>{{ user_role.user.username }}</td>
+                <td>{{ user_role.user.name }}</td>
+                <td>
+                    {% if user_role.roles %}
+                    {% for role in user_role.roles %}
+                    <span class="layui-badge layui-bg-blue">{{ role.name }}</span>
+                    {% endfor %}
+                    {% else %}
+                    <span class="layui-badge layui-bg-gray">未分配</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if user_role.user.is_active %}
+                    <span class="layui-badge layui-bg-green">启用</span>
+                    {% else %}
+                    <span class="layui-badge layui-bg-red">禁用</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="staff-action-buttons">
+                        <button class="staff-action-btn btn-staff-assign" onclick="assignRoles({{ user_role.user.id }}, '{{ user_role.user.name }}')">
+                            <i class="layui-icon layui-icon-set"></i> 分配角色
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="empty-state">
+                    <i class="layui-icon layui-icon-face-cry"></i>
+                    <p>暂无员工数据</p>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- 角色分配弹窗 -->
+<div id="roleAssignForm" style="display: none; padding: 20px;">
+    <form class="role-assign-form" id="roleAssignFormContent">
+        {% csrf_token %}
+        <input type="hidden" name="user_id" id="assignUserId">
+        <div class="layui-form-item">
+            <label class="layui-form-label">用户名</label>
+            <div class="layui-input-block">
+                <input type="text" id="assignUserName" readonly class="layui-input layui-bg-gray">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">分配角色</label>
+            <div class="layui-input-block">
+                <div class="role-list" id="roleList">
+                    {% for role in roles %}
+                    <div class="role-item">
+                        <input type="checkbox" name="role_ids[]" value="{{ role.id }}" lay-skin="primary" title="{{ role.name }}">
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+layui.use(['form', 'layer', 'jquery'], function(){
+    var form = layui.form;
+    var layer = layui.layer;
+    var $ = layui.jquery;
+    
+    // 设置全局AJAX请求携带CSRF token
+    $.ajaxSetup({
+        headers: {
+            'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
+        }
+    });
+    
+    // 保存部门角色分配
+    window.saveDepartmentRoles = function() {
+        // 获取选中的角色ID
+        var selectedRoles = $('#departmentRoleForm').serialize();
+        
+        // 使用新的user应用URL
+        var departmentId = {{ department.id }};
+        var correctUrl = '/user/department/' + departmentId + '/roles/';
+        
+        // 提交表单
+        $.ajax({
+            url: correctUrl,
+            type: 'POST',
+            data: selectedRoles,
+            success: function(res) {
+                if(res.code === 200) {
+                    layer.msg('部门角色分配成功');
+                    // 刷新右侧面板内容
+                    $('#slidePanelContent').load(correctUrl);
+                } else {
+                    layer.msg(res.msg || '部门角色分配失败');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('AJAX请求错误:', error);
+                console.error('请求URL:', correctUrl);
+                console.error('请求数据:', selectedRoles);
+                layer.msg('网络错误，请重试');
+            }
+        });
+    };
+    
+    // 分配角色给单个员工
+    window.assignRoles = function(userId, userName) {
+        $('#assignUserId').val(userId);
+        $('#assignUserName').val(userName);
+        
+        // 重置所有复选框
+        $('#roleList input[type="checkbox"]').prop('checked', false);
+        
+        // 获取用户当前角色
+        $.ajax({
+            url: '/system/permission/user/' + userId + '/roles/',
+            type: 'GET',
+            success: function(res) {
+                if(res.code === 200) {
+                    // 选中用户已有角色
+                    var userRoles = res.data;
+                    for(var i = 0; i < userRoles.length; i++) {
+                        $('#roleList input[type="checkbox"][value="' + userRoles[i].id + '"]').prop('checked', true);
+                    }
+                    form.render();
+                }
+                
+                // 打开弹窗
+                layer.open({
+                    type: 1,
+                    title: '分配角色 - ' + userName,
+                    area: ['500px', '500px'],
+                    content: $('#roleAssignForm'),
+                    shade: 0.3,
+                    btn: ['保存', '取消'],
+                    yes: function(index, layero) {
+                        // 提交表单
+                        $.ajax({
+                            url: '/system/permission/user-role-assignment/',
+                            type: 'POST',
+                            data: $('#roleAssignFormContent').serialize(),
+                            success: function(res) {
+                                if(res.code === 200) {
+                                    layer.msg('角色分配成功');
+                                    layer.close(index);
+                                    // 刷新右侧面板内容
+                                    $('#slidePanelContent').load(window.location.href);
+                                } else {
+                                    layer.msg(res.msg || '角色分配失败');
+                                }
+                            },
+                            error: function() {
+                                layer.msg('网络错误，请重试');
+                            }
+                        });
+                    },
+                    btn2: function(index) {
+                        layer.close(index);
+                    }
+                });
+            },
+            error: function() {
+                layer.msg('获取用户角色失败');
+            }
+        });
+    };
+    
+    // 初始化表单
+    form.render();
+});
+</script>

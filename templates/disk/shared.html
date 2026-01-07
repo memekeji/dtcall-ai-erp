@@ -1,0 +1,430 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>共享文件 - 知识网盘</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .shared-section {
+            margin-bottom: 30px;
+        }
+
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .file-card {
+            border: 1px solid #e6e6e6;
+            border-radius: 6px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .file-card:hover {
+            border-color: #1E9FFF;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .file-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .folder-icon {
+            color: #FFB800;
+        }
+
+        .document-icon {
+            color: #1E9FFF;
+        }
+
+        .image-icon {
+            color: #5FB878;
+        }
+
+        .video-icon {
+            color: #FF5722;
+        }
+
+        .audio-icon {
+            color: #FFB800;
+        }
+
+        .archive-icon {
+            color: #9C27B0;
+        }
+
+        .other-icon {
+            color: #999;
+        }
+
+        .file-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+            word-break: break-all;
+        }
+
+        .file-meta {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 10px;
+        }
+
+        .file-owner {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .file-actions {
+            margin-top: 10px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px;
+            color: #999;
+        }
+
+        .empty-state i {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <!-- 共享文件夹 -->
+        <div class="shared-section">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <h3 style="margin: 0;">共享文件夹 ({{ shared_folders.count }})</h3>
+                </div>
+                <div class="layui-card-body">
+                    {% if shared_folders %}
+                    <div class="file-grid">
+                        {% for folder in shared_folders %}
+                        <div class="file-card" ondblclick="enterFolder('{{ folder.id }}')">
+                            <div class="file-icon folder-icon">
+                                <i class="layui-icon layui-icon-file"></i>
+                            </div>
+                            <div class="file-name">{{ folder.name }}</div>
+                            <div class="file-owner">所有者: {{ folder.owner.username }}</div>
+                            <div class="file-meta">{{ folder.create_time|date:"Y-m-d H:i" }}</div>
+                            <div class="file-actions">
+                                <button class="layui-btn layui-btn-xs"
+                                    onclick="enterFolder('{{ folder.id }}')">打开</button>
+                                {% if folder.permission_level >= 2 %}
+                                <button class="layui-btn layui-btn-xs layui-btn-primary"
+                                    onclick="shareFolder('{{ folder.id }}')">分享</button>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="empty-state">
+                        <i class="layui-icon layui-icon-file"></i>
+                        <p>暂无共享文件夹</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 共享文件 -->
+        <div class="shared-section">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <h3 style="margin: 0;">共享文件 ({{ shared_files.count }})</h3>
+                </div>
+                <div class="layui-card-body">
+                    {% if shared_files %}
+                    <div class="file-grid">
+                        {% for file in shared_files %}
+                        <div class="file-card">
+                            <div class="file-icon {{ file.file_type }}-icon">
+                                {% if file.file_type == 'document' %}
+                                <i class="layui-icon layui-icon-file"></i>
+                                {% elif file.file_type == 'image' %}
+                                <i class="layui-icon layui-icon-picture"></i>
+                                {% elif file.file_type == 'video' %}
+                                <i class="layui-icon layui-icon-video"></i>
+                                {% elif file.file_type == 'audio' %}
+                                <i class="layui-icon layui-icon-voice"></i>
+                                {% elif file.file_type == 'archive' %}
+                                <i class="layui-icon layui-icon-file"></i>
+                                {% else %}
+                                <i class="layui-icon layui-icon-file"></i>
+                                {% endif %}
+                            </div>
+                            <div class="file-name">{{ file.name }}</div>
+                            <div class="file-owner">所有者: {{ file.owner.username }}</div>
+                            <div class="file-meta">{{ file.get_size_display }} · {{ file.update_time|date:"Y-m-d H:i" }}
+                            </div>
+                            <div class="file-actions">
+                                <button class="layui-btn layui-btn-xs"
+                                    onclick="previewFile('{{ file.id }}')"><i class="layui-icon layui-icon-read"></i> 预览</button>
+                                <button class="layui-btn layui-btn-xs layui-btn-primary"
+                                    onclick="downloadFile('{{ file.id }}')">下载</button>
+                                <button class="layui-btn layui-btn-xs layui-btn-primary"
+                                    onclick="shareFile('{{ file.id }}')">分享</button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="empty-state">
+                        <i class="layui-icon layui-icon-share"></i>
+                        <p>暂无共享文件</p>
+                        <p>其他用户分享给您的文件将显示在这里</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https:    <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/office_preview.js' %}"></script>
+    <script>
+        layui.use(['layer'], function () {
+            var layer = layui.layer;
+        });        function enterFolder(folderId) {            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.msg('进入共享文件夹功能开发中...', { icon: 0 });
+            });
+        }        function downloadFile(fileId) {
+            window.open('/adm/disk/download/' + fileId + '/', '_blank');
+        }        function shareFile(fileId) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: '分享文件',
+                    shadeClose: true,
+                    shade: 0.3,
+                    area: ['600px', '500px'],
+                    content: '/adm/disk/share/create/?type=file&id=' + fileId
+                });
+            });
+        }        function shareFolder(folderId) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: '分享文件夹',
+                    shadeClose: true,
+                    shade: 0.3,
+                    area: ['600px', '500px'],
+                    content: '/adm/disk/share/create/?type=folder&id=' + folderId
+                });
+            });
+        }        function previewFile(fileId) {
+            layui.use('layer', function() {
+                var layer = layui.layer;                var previewUrl = '/adm/disk/preview/?file_id=' + fileId;
+                
+                layer.open({
+                    type: 2,
+                    title: '文件预览',
+                    area: ['90%', '90%'],
+                    content: previewUrl,
+                    maxmin: true,
+                    btn: ['下载', '关闭'],
+                    btn1: function(index) {
+                        downloadFile(fileId);
+                        return false;
+                    }
+                });
+            });
+        }                        });                        setTimeout(function() {
+                            var actualImg = document.getElementById(imgId);
+                            if (actualImg) {                                var scale = 1;
+                                var isDragging = false;
+                                var startX = 0;
+                                var startY = 0;
+                                var offsetX = 0;
+                                var offsetY = 0;                                actualImg.addEventListener('wheel', function(e) {
+                                    e.preventDefault();                                    var rect = actualImg.getBoundingClientRect();
+                                    var centerX = e.clientX - rect.left;
+                                    var centerY = e.clientY - rect.top;                                    var delta = e.deltaY > 0 ? 0.9 : 1.1;
+                                    var newScale = Math.max(0.1, Math.min(10, scale * delta));                                    var scaleDiff = newScale - scale;
+                                    offsetX += centerX * scaleDiff / scale;
+                                    offsetY += centerY * scaleDiff / scale;
+                                    
+                                    scale = newScale;                                    actualImg.style.transform = 'scale(' + scale + ') translate(' + offsetX + 'px, ' + offsetY + 'px)';
+                                });                                actualImg.addEventListener('mousedown', function(e) {
+                                    if (e.button === 0) {                                        isDragging = true;
+                                        startX = e.clientX;
+                                        startY = e.clientY;
+                                        actualImg.style.cursor = 'grabbing';
+                                    }
+                                });
+                                
+                                document.addEventListener('mousemove', function(e) {
+                                    if (isDragging) {
+                                        var deltaX = e.clientX - startX;
+                                        var deltaY = e.clientY - startY;
+                                        
+                                        offsetX += deltaX;
+                                        offsetY += deltaY;
+                                        
+                                        actualImg.style.transform = 'scale(' + scale + ') translate(' + offsetX + 'px, ' + offsetY + 'px)';
+                                        
+                                        startX = e.clientX;
+                                        startY = e.clientY;
+                                    }
+                                });
+                                
+                                document.addEventListener('mouseup', function(e) {
+                                    if (e.button === 0) {
+                                        isDragging = false;
+                                        actualImg.style.cursor = 'move';
+                                    }
+                                });                                actualImg.addEventListener('contextmenu', function(e) {
+                                    e.preventDefault();
+                                });
+                            }
+                        }, 100);                        break;
+                    case 'pdf':
+                    case 'pdf_enhanced':
+                        var pdfContent = showPdfPreview(data);
+                        layer.open({
+                            type: 1,
+                            title: data.filename || 'PDF预览',
+                            shadeClose: true,
+                            shade: 0.8,
+                            area: ['90%', '90%'],
+                            content: pdfContent,
+                            btn: ['下载', '关闭'],
+                            btn1: function(index) {
+                                downloadFile(data.file_id || data.id);
+                                layer.close(index);
+                            }
+                        });
+                        break;
+                    case 'office_enhanced':                        standardOfficePreview(data);
+                        break;
+                    case 'audio':
+                        var audioContent = showAudioPreview(data);
+                        layer.open({
+                            type: 1,
+                            title: data.filename || '音频预览',
+                            shadeClose: true,
+                            shade: 0.8,
+                            area: ['600px', '200px'],
+                            content: audioContent,
+                            btn: ['下载', '关闭'],
+                            btn1: function(index) {
+                                downloadFile(data.file_id || data.id);
+                                layer.close(index);
+                            }
+                        });
+                        break;
+                    case 'video':
+                        var videoContent = showVideoPreview(data);
+                        layer.open({
+                            type: 1,
+                            title: data.filename || '视频预览',
+                            shadeClose: true,
+                            shade: 0.8,
+                            area: ['80%', '80%'],
+                            content: videoContent,
+                            btn: ['下载', '关闭'],
+                            btn1: function(index) {
+                                downloadFile(data.file_id || data.id);
+                                layer.close(index);
+                            }
+                        });
+                        break;
+                    default:                        layer.open({
+                            type: 1,
+                            title: data.filename || '文件预览',
+                            shadeClose: true,
+                            shade: 0.8,
+                            area: ['600px', '400px'],
+                            content: `
+                                <div style="height: 100%; display: flex; align-items: center; justify-content: center;">
+                                    <div style="text-align: center; padding: 20px;">
+                                        <p>不支持的文件类型预览: ${data.type || '未知类型'}</p>
+                                        <button class="layui-btn layui-btn-primary" onclick="downloadFile(${data.file_id || '0'})"><i class="layui-icon layui-icon-download"></i> 下载原文件</button>
+                                    </div>
+                                </div>
+                            `
+                        });
+                }
+            });
+        }                var textContent = data.content || '无内容';                if (typeof textContent !== 'string') {
+                    try {
+                        textContent = String(textContent);
+                    } catch (e) {
+                        textContent = '[内容无法正确转换为文本]';
+                    }
+                }                try {                    textContent = textContent.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+                } catch (e) {
+                    console.error('文本处理异常:', e);
+                    textContent = '[内容处理失败]';
+                }                var escapedContent = escapeHtml(textContent);                var filename = data.filename || '未知文件';
+                var fileId = data.file_id || data.id || 0;                layer.open({
+                    type: 1,
+                    title: filename,
+                    shadeClose: true,
+                    shade: 0.8,
+                    area: ['80%', '80%'],
+                    content: `
+                        <div style="height: 100%; display: flex; flex-direction: column;">
+                            <div style="padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                                <div style="font-weight: 500;">文本预览</div>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span style="color: #999; font-size: 12px;">${data.encoding || 'UTF-8'}</span>
+                                    <button id="download-text-btn" class="layui-btn layui-btn-sm layui-btn-primary" onclick="downloadFile(${fileId})"><i class="layui-icon layui-icon-download"></i> 下载</button>
+                                    <button id="copy-text-btn" class="layui-btn layui-btn-sm layui-btn-primary"><i class="layui-icon layui-icon-copy"></i> 复制内容</button>
+                                </div>
+                            </div>
+                            <div style="flex: 1; overflow: auto; padding: 20px; background: #f8f8f8; font-family: 'Courier New', monospace; font-size: 14px; line-height: 1.6;">
+                                <pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0;">${escapedContent}</pre>
+                            </div>
+                        </div>
+                    `,
+                    maxmin: true,
+                    success: function() {                        document.getElementById('copy-text-btn').onclick = function() {
+                            navigator.clipboard.writeText(textContent).then(function() {
+                                layer.msg('复制成功', {icon: 1});
+                            }).catch(function() {
+                                layer.msg('复制失败，请手动复制', {icon: 2});
+                            });
+                        };
+                    }
+                });
+            });
+        }                        </div>
+                    </div>
+                    <div style="flex: 1; overflow: hidden;">
+                        <iframe src="${data.url}" style="width: 100%; height: 100%; border: none;" frameborder="0"></iframe>
+                    </div>
+                </div>
+            `;
+        }            }            text = text.replace(/[\x00-\x1F\x7F-\x9F]/g, function(match) {                if (['\n', '\r', '\t'].includes(match)) {
+                    return match;
+                }
+                return '';            });            var map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+    </script>
+</body>
+
+</html>

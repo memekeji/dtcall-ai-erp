@@ -1,0 +1,115 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>添加客户跟进记录</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+<body>
+    <div class="layui-container" style="margin-top: 20px;">
+        <div class="layui-card">
+            <div class="layui-card-header">添加客户跟进记录</div>
+            <div class="layui-card-body">
+                <form class="layui-form" id="followForm">
+                    <input type="hidden" name="customer_id" value="{{ customer_id }}">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">跟进类型</label>
+                        <div class="layui-input-block">
+                            <select name="follow_type" lay-verify="required">
+                                <option value="phone">电话沟通</option>
+                                <option value="visit">上门拜访</option>
+                                <option value="email">邮件联系</option>
+                                <option value="meeting">会议洽谈</option>
+                                <option value="other">其他</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">跟进内容</label>
+                        <div class="layui-input-block">
+                            <textarea name="content" placeholder="请输入跟进内容" class="layui-textarea" lay-verify="required"></textarea>
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">下次跟进时间</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="next_follow_time" placeholder="请选择下次跟进时间" class="layui-input" id="nextFollowTime">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <div class="layui-input-block">
+                            <button class="layui-btn" lay-submit lay-filter="submitFollow">提交</button>
+                            <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/jquery.min.js' %}"></script>
+    <script>
+        // 获取URL参数
+        function getUrlParam(name) {
+            var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)");
+            var r = window.location.search.substr(1).match(reg);
+            if (r != null) return unescape(r[2]);
+            return null;
+        }
+
+        layui.use(['form', 'laydate'], function() {
+            var form = layui.form;
+            var laydate = layui.laydate;
+            var layer = layui.layer;
+
+            // 初始化日期选择器
+            laydate.render({
+                elem: '#nextFollowTime',
+                type: 'datetime'
+            });
+
+            // 填充客户ID
+            var customerId = getUrlParam('customer_id');
+            if (customerId) {
+                $('input[name="customer_id"]').val(customerId);
+            } else {
+                layer.msg('客户ID参数缺失', {icon: 2});
+            }
+
+            // 表单提交
+            form.on('submit(submitFollow)', function(data) {
+                $.ajax({
+                    url: '/adm/customer/add_follow/',
+                    type: 'POST',
+                    data: data.field,
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    success: function(res) {
+                        if (res.code === 0) {
+                            layer.msg('添加成功', {icon: 1},
+                                function() {
+                                    // 关闭当前弹窗
+                                    var index = parent.layer.getFrameIndex(window.name);
+                                    parent.layer.close(index);
+                                    // 刷新父页面的表格
+                                    parent.layui.table.reload('followTable');
+                                });
+                        } else {
+                            layer.msg(res.msg || '添加失败', {icon: 2});
+                        }
+                    },
+                    error: function(xhr) {
+                        layer.msg('服务器错误', {icon: 2});
+                        console.error(xhr);
+                    }
+                });
+                return false;
+            });
+        });
+    </script>
+</body>
+</html>

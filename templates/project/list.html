@@ -1,0 +1,458 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>任务管理</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .task-stats {
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin-bottom: 10px;
+        }
+
+        .stat-card.success {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .stat-card.warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .stat-card.info {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+
+        .stat-number {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .status-badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status-1 {
+            background: #f0f0f0;
+            color: #666;
+        }
+
+        .status-2 {
+            background: #e6f7ff;
+            color: #1890ff;
+        }
+
+        .status-3 {
+            background: #f6ffed;
+            color: #52c41a;
+        }
+
+        .status-4 {
+            background: #fff1f0;
+            color: #ff4d4f;
+        }
+
+        .status-5 {
+            background: #fff2e8;
+            color: #fa8c16;
+        }
+
+        .priority-badge {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
+        .priority-1 {
+            background: #f0f0f0;
+            color: #666;
+        }
+
+        .priority-2 {
+            background: #e6f7ff;
+            color: #1890ff;
+        }
+
+        .priority-3 {
+            background: #fff2e8;
+            color: #fa8c16;
+        }
+
+        .priority-4 {
+            background: #fff1f0;
+            color: #ff4d4f;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: #f0f0f0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 2px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #1890ff, #52c41a);
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layui-fluid">
+        <!-- 统计卡片 -->
+        <div class="layui-row layui-col-space15 task-stats">
+            <div class="layui-col-md3">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalTasks">0</div>
+                    <div class="stat-label">总任务数</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="stat-card success">
+                    <div class="stat-number" id="inProgressTasks">0</div>
+                    <div class="stat-label">进行中任务</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="stat-card info">
+                    <div class="stat-number" id="completedTasks">0</div>
+                    <div class="stat-label">已完成任务</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="stat-card warning">
+                    <div class="stat-number" id="overdueTasks">0</div>
+                    <div class="stat-label">逾期任务</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <!-- 选项卡区域 -->
+                <div class="layui-tab layui-tab-brief" lay-filter="taskTabs">
+                    <ul class="layui-tab-title">
+                        <li class="layui-this" lay-id="all">全部任务</li>
+                        <li lay-id="my">我创建的</li>
+                        <li lay-id="assigned">分配给我的</li>
+                        <li lay-id="participate">我参与的</li>
+                        <li lay-id="overdue">逾期任务</li>
+                    </ul>
+                </div>
+
+                <!-- 按钮和搜索区域 -->
+                <div class="layui-row layui-col-space10" style="margin-top: 15px; position: relative; z-index: 10;">
+                    <div class="layui-col-md6">
+                        <!-- 操作按钮区域 -->
+                        <button type="button" class="layui-btn layui-btn-normal layui-btn-sm" id="addTaskBtn" style="position: relative; z-index: 100;">
+                            <i class="layui-icon layui-icon-add-1"></i> 新建任务
+                        </button>
+                        <button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="exportTaskBtn"
+                            style="margin-left: 8px; position: relative; z-index: 100;">
+                            <i class="layui-icon layui-icon-export"></i> 导出
+                        </button>
+                    </div>
+                    <div class="layui-col-md6" style="text-align: right;">
+                        <!-- 搜索区域 -->
+                        <div class="layui-inline">
+                            <select id="searchStatus" lay-filter="searchStatus">
+                                <option value="">任务状态</option>
+                                <option value="1">未开始</option>
+                                <option value="2">进行中</option>
+                                <option value="3">已完成</option>
+                                <option value="4">已延期</option>
+                                <option value="5">已取消</option>
+                            </select>
+                        </div>
+                        <div class="layui-inline">
+                            <select id="searchPriority" lay-filter="searchPriority">
+                                <option value="">优先级</option>
+                                <option value="1">低</option>
+                                <option value="2">中</option>
+                                <option value="3">高</option>
+                                <option value="4">紧急</option>
+                            </select>
+                        </div>
+                        <div class="layui-inline">
+                            <select id="searchProject" lay-filter="searchProject">
+                                <option value="">所属项目</option>
+                                {% for project in projects %}
+                                <option value="{{ project.id }}">{{ project.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="layui-inline">
+                            <input type="text" id="searchKeywords" placeholder="任务标题" class="layui-input"
+                                style="width: 120px;">
+                        </div>
+                        <div class="layui-inline">
+                            <button type="button" class="layui-btn layui-btn-sm" onclick="searchTask()">
+                                <i class="layui-icon layui-icon-search"></i> 搜索
+                            </button>
+                            <button type="button" class="layui-btn layui-btn-sm layui-btn-primary"
+                                onclick="resetSearch()">
+                                <i class="layui-icon layui-icon-refresh"></i> 重置
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-card-body">
+                <table id="taskTable" class="layui-table" lay-filter="taskTable"></table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['element', 'table', 'layer', 'form'], function () {
+            var element = layui.element;
+            var table = layui.table;
+            var layer = layui.layer;
+            var form = layui.form;
+
+            // 初始化表格
+            function initTable(tab = '0') {
+                var url = '/adm/task/datalist/';
+                if (tab !== '0') {
+                    url += '?tab=' + tab;
+                }
+
+                table.render({
+                    elem: '#taskTable',
+                    url: url,
+                    cols: [[
+                        { field: 'id', title: 'ID', width: 80, align: 'center' },
+                        { field: 'title', title: '任务标题', width: 200 },
+                        {
+                            field: 'status_display', title: '状态', width: 100, align: 'center', templet: function (d) {
+                                var statusClass = 'status-' + d.status;
+                                return '<span class="status-badge ' + statusClass + '">' + d.status_display + '</span>';
+                            }
+                        },
+                        {
+                            field: 'priority_display', title: '优先级', width: 80, align: 'center', templet: function (d) {
+                                var priorityClass = 'priority-' + d.priority;
+                                return '<span class="priority-badge ' + priorityClass + '">' + d.priority_display + '</span>';
+                            }
+                        },
+                        {
+                            field: 'progress', title: '进度', width: 120, align: 'center', templet: function (d) {
+                                return '<div class="progress-bar"><div class="progress-fill" style="width: ' + d.progress + '%"></div></div>' + d.progress + '%';
+                            }
+                        },
+                        { field: 'project_name', title: '所属项目', width: 150 },
+                        { field: 'assignee_name', title: '负责人', width: 100, align: 'center' },
+                        { field: 'creator_name', title: '创建人', width: 100, align: 'center' },
+                        { field: 'start_date', title: '开始日期', width: 110, align: 'center' },
+                        { field: 'end_date', title: '结束日期', width: 110, align: 'center' },
+                        {
+                            field: 'estimated_hours', title: '预估工时', width: 100, align: 'center', templet: function (d) {
+                                return d.estimated_hours + 'h';
+                            }
+                        },
+                        {
+                            field: 'actual_hours', title: '实际工时', width: 100, align: 'center', templet: function (d) {
+                                return d.actual_hours + 'h';
+                            }
+                        },
+                        {
+                            field: 'is_overdue', title: '状态', width: 80, align: 'center', templet: function (d) {
+                                if (d.is_overdue) {
+                                    return '<span style="color: #ff4d4f;">已逾期</span>';
+                                } else {
+                                    return '<span style="color: #52c41a;">正常</span>';
+                                }
+                            }
+                        },
+                        { field: 'create_time', title: '创建时间', width: 150, align: 'center' },
+                        { title: '操作', width: 200, toolbar: '#taskToolBar', fixed: 'right' }
+                    ]],
+                    page: true,
+                    limit: 20,
+                    height: 'full-300',
+                    done: function (res) {
+                        updateStats(res.data);
+                    }
+                });
+            }
+
+            // 更新统计数据
+            function updateStats(data) {
+                var total = data.length;
+                var inProgress = data.filter(item => item.status == 2).length;
+                var completed = data.filter(item => item.status == 3).length;
+                var overdue = data.filter(item => item.is_overdue).length;
+
+                $('#totalTasks').text(total);
+                $('#inProgressTasks').text(inProgress);
+                $('#completedTasks').text(completed);
+                $('#overdueTasks').text(overdue);
+            }
+
+            // 初始化表格
+            initTable();
+
+            // 绑定按钮事件
+            $('#addTaskBtn').on('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                addTask();
+            });
+
+            $('#exportTaskBtn').on('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                exportTask();
+            });
+
+            // 监听选项卡切换
+            element.on('tab(taskTabs)', function (data) {
+                var layId = $(this).attr('lay-id');
+                var tabMap = {
+                    'all': '0',
+                    'my': '1',
+                    'assigned': '2',
+                    'participate': '3',
+                    'overdue': '4'
+                };
+                initTable(tabMap[layId]);
+            });
+
+            // 监听工具条
+            table.on('tool(taskTable)', function (obj) {
+                var data = obj.data;
+                var layEvent = obj.event;
+
+                if (layEvent === 'view') {
+                    layer.open({
+                        type: 2,
+                        title: '任务详情',
+                        shadeClose: true,
+                        shade: 0.3,
+                        area: ['75%', '90%'],
+                        offset: 'r',
+                        content: '/adm/task/detail/' + data.id + '/'
+                    });
+                } else if (layEvent === 'edit') {
+                    layer.open({
+                        type: 2,
+                        title: '编辑任务',
+                        shadeClose: true,
+                        shade: 0.3,
+                        area: ['75%', '90%'],
+                        offset: 'r',
+                        content: '/adm/task/edit/' + data.id + '/',
+                        end: function () {
+                            table.reload('taskTable');
+                        }
+                    });
+                } else if (layEvent === 'delete') {
+                    layer.confirm('确定删除这个任务吗？', function (index) {
+                        // 这里添加删除逻辑
+                        layer.msg('删除功能开发中...', { icon: 0 });
+                        layer.close(index);
+                    });
+                }
+            });
+        });
+
+        // 新建任务
+        function addTask() {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+
+                layer.open({
+                    type: 2,
+                    title: '新建任务',
+                    shadeClose: true,
+                    shade: 0.3,
+                    area: ['75%', '90%'],
+                    offset: 'r',
+                    content: '/adm/task/add/',
+                    end: function () {
+                        layui.table.reload('taskTable');
+                    }
+                });
+            });
+        }
+
+        // 导出任务
+        function exportTask() {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.msg('导出功能开发中...', { icon: 0 });
+            });
+        }
+
+        // 搜索任务
+        function searchTask() {
+            layui.use(['table'], function () {
+                var table = layui.table;
+                var status = $('#searchStatus').val();
+                var priority = $('#searchPriority').val();
+                var project = $('#searchProject').val();
+                var keywords = $('#searchKeywords').val();
+                var params = {};
+
+                if (status) params.status = status;
+                if (priority) params.priority = priority;
+                if (project) params.project_id = project;
+                if (keywords) params.keywords = keywords;
+
+                table.reload('taskTable', {
+                    where: params
+                });
+            });
+        }
+
+        // 重置搜索
+        function resetSearch() {
+            layui.use(['table', 'form'], function () {
+                var table = layui.table;
+                var form = layui.form;
+
+                $('#searchStatus').val('');
+                $('#searchPriority').val('');
+                $('#searchProject').val('');
+                $('#searchKeywords').val('');
+                form.render('select');
+
+                table.reload('taskTable', {
+                    where: {}
+                });
+            });
+        }
+    </script>
+
+    <!-- 工具栏模板 -->
+    <script type="text/html" id="taskToolBar">
+        <a class="layui-btn layui-btn-xs" lay-event="view">详情</a>
+        <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
+        <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
+    </script>
+</body>
+
+</html>

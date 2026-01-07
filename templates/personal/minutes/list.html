@@ -1,0 +1,151 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}会议纪要{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <h3>会议纪要</h3>
+            </div>
+            <div class="layui-col-md6" style="text-align: right;">
+                <a href="{% url 'personal:minutes_add' %}" class="layui-btn layui-btn-normal">
+                    <i class="layui-icon layui-icon-add-1"></i> 新建会议纪要
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <!-- 搜索表单 -->
+        <form class="layui-form" method="get" action="{% url 'personal:minutes_list' %}">
+            <div class="layui-row layui-col-space10">
+                <div class="layui-col-md3">
+                    <div class="layui-form-item">
+                        <input type="text" name="search" placeholder="搜索会议主题或内容" autocomplete="off" class="layui-input" value="{{ search }}">
+                    </div>
+                </div>
+                <div class="layui-col-md2">
+                    <div class="layui-form-item">
+                        <select name="meeting_type">
+                            <option value="">全部类型</option>
+                            {% for type_value, type_name in meeting_types %}
+                                <option value="{{ type_value }}" {% if meeting_type == type_value %}selected{% endif %}>{{ type_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="layui-col-md2">
+                    <div class="layui-form-item">
+                        <input type="date" name="date_from" placeholder="开始日期" autocomplete="off" class="layui-input" value="{{ date_from }}">
+                    </div>
+                </div>
+                <div class="layui-col-md2">
+                    <div class="layui-form-item">
+                        <input type="date" name="date_to" placeholder="结束日期" autocomplete="off" class="layui-input" value="{{ date_to }}">
+                    </div>
+                </div>
+                <div class="layui-col-md3">
+                    <div class="layui-form-item">
+                        <button class="layui-btn" lay-submit>搜索</button>
+                        <a href="{% url 'personal:minutes_list' %}" class="layui-btn layui-btn-primary">重置</a>
+                    </div>
+                </div>
+            </div>
+        </form>
+        
+        <!-- 会议纪要列表 -->
+        {% if page_obj %}
+            {% for minute in page_obj %}
+            <div class="layui-panel" style="margin-bottom: 15px; padding: 15px;">
+                <div class="layui-row">
+                    <div class="layui-col-md8">
+                        <h3>
+                            <a href="{% url 'personal:minutes_detail' minute.pk %}" style="color: #333;">
+                                {{ minute.title }}
+                            </a>
+                        </h3>
+                    </div>
+                    <div class="layui-col-md4" style="text-align: right;">
+                        <span class="layui-badge layui-bg-blue">{{ minute.get_meeting_type_display }}</span>
+                        {% if not minute.is_public %}
+                            <span class="layui-badge layui-bg-orange">非公开</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div style="margin: 10px 0;">
+                    <p>{{ minute.content|truncatechars:200 }}</p>
+                </div>
+                <div style="color: #999; font-size: 13px;">
+                    <div class="layui-row">
+                        <div class="layui-col-md8">
+                            会议时间: {{ minute.meeting_date|date:"Y-m-d H:i" }} | 
+                            地点: {{ minute.location|default:"未指定" }} | 
+                            主持人: {{ minute.host|default:"未指定" }} | 
+                            记录人: {{ minute.recorder.name }}
+                        </div>
+                        <div class="layui-col-md4" style="text-align: right;">
+                            {% if minute.user == request.user %}
+                                <a href="{% url 'personal:minutes_edit' minute.pk %}" class="layui-btn layui-btn-xs">
+                                    <i class="layui-icon layui-icon-edit"></i> 编辑
+                                </a>
+                                <a href="{% url 'personal:minutes_delete' minute.pk %}" class="layui-btn layui-btn-xs layui-btn-danger">
+                                    <i class="layui-icon layui-icon-delete"></i> 删除
+                                </a>
+                            {% endif %}
+                            <a href="{% url 'personal:minutes_detail' minute.pk %}" class="layui-btn layui-btn-xs layui-btn-primary">
+                                <i class="layui-icon layui-icon-read"></i> 查看
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            
+            <!-- 分页 -->
+            {% if page_obj.has_other_pages %}
+            <div class="layui-row" style="margin-top: 20px;">
+                <div class="layui-col-md12">
+                    <div id="page"></div>
+                </div>
+            </div>
+            <script>
+                layui.use('laypage', function(){
+                    var laypage = layui.laypage;
+                    laypage.render({
+                        elem: 'page',
+                        count: {{ page_obj.paginator.count }},
+                        curr: {{ page_obj.number }},
+                        limit: {{ page_obj.paginator.per_page }},
+                        layout: ['count', 'prev', 'page', 'next', 'skip'],
+                        jump: function(obj, first){
+                            if(!first){
+                                var url = window.location.href;
+                                var re = /[&?]page=\d+/;
+                                if(re.test(url)){
+                                    url = url.replace(re, '');
+                                }
+                                if(url.indexOf('?') > -1){
+                                    window.location.href = url + '&page=' + obj.curr;
+                                } else {
+                                    window.location.href = url + '?page=' + obj.curr;
+                                }
+                            }
+                        }
+                    });
+                });
+            </script>
+            {% endif %}
+        {% else %}
+            <div style="text-align: center; padding: 50px; color: #999;">
+                <i class="layui-icon layui-icon-file" style="font-size: 48px; display: block; margin-bottom: 15px;"></i>
+                <p>暂无会议纪要</p>
+                <a href="{% url 'personal:minutes_add' %}" class="layui-btn layui-btn-normal" style="margin-top: 15px;">
+                    <i class="layui-icon layui-icon-add-1"></i> 新建会议纪要
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

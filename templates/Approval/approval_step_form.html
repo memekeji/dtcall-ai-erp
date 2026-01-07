@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{{ page_title }} - {{ flow.name }}</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <h3>{{ page_title }} - {{ flow.name }}</h3>
+                    </div>
+                    <div class="layui-card-body">
+        <form class="layui-form" method="post">
+            {% csrf_token %}
+            
+            <!-- 基本信息 -->
+            <fieldset class="layui-elem-field layui-field-title">
+                <legend>基本信息</legend>
+            </fieldset>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">步骤名称 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.step_name }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">步骤顺序 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.step_order }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">步骤类型 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.step_type }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">操作类型 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.action_type }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">步骤说明</label>
+                <div class="layui-input-block">
+                    {{ form.description }}
+                </div>
+            </div>
+            
+            <!-- 审批人配置 -->
+            <fieldset class="layui-elem-field layui-field-title">
+                <legend>审批人配置</legend>
+            </fieldset>
+            
+            <!-- 审批人类型选择 -->
+            <div class="layui-form-item">
+                <label class="layui-form-label">审批人类型 <span style="color: red;">*</span></label>
+                <div class="layui-input-block">
+                    <input type="radio" name="approver_type" value="user" title="指定用户" lay-filter="approver_type">
+                    <input type="radio" name="approver_type" value="role" title="指定角色" lay-filter="approver_type">
+                    <input type="radio" name="approver_type" value="department" title="指定部门" lay-filter="approver_type">
+                    <input type="radio" name="approver_type" value="department_head" title="当前部门负责人" lay-filter="approver_type">
+                    <input type="radio" name="approver_type" value="level" title="指定级别" lay-filter="approver_type">
+                </div>
+            </div>
+            
+            <!-- 指定用户配置 -->
+            <div class="layui-form-item" id="approver_user_config" style="display: none;">
+                <label class="layui-form-label">指定审批人</label>
+                <div class="layui-input-block">
+                    {{ form.approver }}
+                    <div class="layui-form-mid layui-word-aux">选择具体的审批人员</div>
+                </div>
+            </div>
+            
+            <!-- 指定角色配置 -->
+            <div class="layui-form-item" id="approver_role_config" style="display: none;">
+                <label class="layui-form-label">审批角色</label>
+                <div class="layui-input-block">
+                    {{ form.approver_role }}
+                    <div class="layui-form-mid layui-word-aux">选择具有该角色的用户进行审批</div>
+                </div>
+            </div>
+            
+            <!-- 指定部门配置 -->
+            <div class="layui-form-item" id="approver_department_config" style="display: none;">
+                <div class="layui-row layui-col-space15">
+                    <div class="layui-col-md6">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">审批部门</label>
+                            <div class="layui-input-block">
+                                {{ form.approver_department }}
+                                <div class="layui-form-mid layui-word-aux">选择部门</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="layui-col-md6">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">部门内角色</label>
+                            <div class="layui-input-block">
+                                <select name="department_role">
+                                    <option value="">请选择角色</option>
+                                    <option value="manager">部门经理</option>
+                                    <option value="deputy">副经理</option>
+                                    <option value="supervisor">主管</option>
+                                    <option value="any">任意成员</option>
+                                </select>
+                                <div class="layui-form-mid layui-word-aux">选择部门内的特定角色</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 当前部门负责人配置 -->
+            <div class="layui-form-item" id="approver_department_head_config" style="display: none;">
+                <div class="layui-input-block">
+                    <div class="layui-form-mid layui-word-aux" style="color: #009688;">
+                        <i class="layui-icon layui-icon-tips"></i> 
+                        自动选择申请人所在部门的负责人作为审批人
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 指定级别配置 -->
+            <div class="layui-form-item" id="approver_level_config" style="display: none;">
+                <label class="layui-form-label">审批级别</label>
+                <div class="layui-input-block">
+                    {{ form.approver_level }}
+                    <div class="layui-form-mid layui-word-aux">选择具有该级别的用户进行审批</div>
+                </div>
+            </div>
+            
+            <!-- 流程控制 -->
+            <fieldset class="layui-elem-field layui-field-title">
+                <legend>流程控制</legend>
+            </fieldset>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">通过后下一步</label>
+                        <div class="layui-input-block">
+                            {{ form.next_step_success }}
+                            <div class="layui-form-mid layui-word-aux">不选择表示流程结束</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">拒绝后下一步</label>
+                        <div class="layui-input-block">
+                            {{ form.next_step_reject }}
+                            <div class="layui-form-mid layui-word-aux">不选择表示流程结束</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 抄送配置 -->
+            <fieldset class="layui-elem-field layui-field-title">
+                <legend>抄送配置</legend>
+            </fieldset>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">抄送用户</label>
+                <div class="layui-input-block">
+                    {{ form.cc_users }}
+                    <div class="layui-form-mid layui-word-aux">可选择多个用户</div>
+                </div>
+            </div>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">抄送角色</label>
+                        <div class="layui-input-block">
+                            {{ form.cc_roles }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">抄送部门</label>
+                        <div class="layui-input-block">
+                            {{ form.cc_departments }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 条件配置 -->
+            <fieldset class="layui-elem-field layui-field-title">
+                <legend>条件配置</legend>
+            </fieldset>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">条件字段</label>
+                        <div class="layui-input-block">
+                            {{ form.condition_field }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">条件操作符</label>
+                        <div class="layui-input-block">
+                            {{ form.condition_operator }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">条件值</label>
+                        <div class="layui-input-block">
+                            {{ form.condition_value }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 时限配置 -->
+            <fieldset class="layui-elem-field layui-field-title">
+                <legend>时限配置</legend>
+            </fieldset>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">处理时限</label>
+                        <div class="layui-input-block">
+                            {{ form.time_limit_hours }}
+                            <div class="layui-form-mid layui-word-aux">小时，不填表示无时限</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">超时自动通过</label>
+                        <div class="layui-input-block">
+                            <input type="checkbox" name="auto_approve_on_timeout" {% if form.auto_approve_on_timeout.value %}checked{% endif %} lay-skin="switch" lay-text="是|否">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 其他配置 -->
+            <fieldset class="layui-elem-field layui-field-title">
+                <legend>其他配置</legend>
+            </fieldset>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md3">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">是否必须</label>
+                        <div class="layui-input-block">
+                            <input type="checkbox" name="is_required" {% if form.is_required.value %}checked{% endif %} lay-skin="switch" lay-text="是|否">
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md3">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">并行处理</label>
+                        <div class="layui-input-block">
+                            <input type="checkbox" name="is_parallel" {% if form.is_parallel.value %}checked{% endif %} lay-skin="switch" lay-text="是|否">
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md3">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">允许委托</label>
+                        <div class="layui-input-block">
+                            <input type="checkbox" name="allow_delegate" {% if form.allow_delegate.value %}checked{% endif %} lay-skin="switch" lay-text="是|否">
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md3">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">允许跳过</label>
+                        <div class="layui-input-block">
+                            <input type="checkbox" name="allow_skip" {% if form.allow_skip.value %}checked{% endif %} lay-skin="switch" lay-text="是|否">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" type="submit">保存</button>
+                    <a href="{% url 'approval:approval_flow_steps' flow.pk %}" class="layui-btn layui-btn-primary">返回</a>
+                </div>
+            </div>
+        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script src="/static/layui/layui.js"></script>
+<script>
+layui.use(['form'], function(){
+    var form = layui.form;
+    form.render();
+    
+    // 监听审批人类型变化
+    form.on('radio(approver_type)', function(data){
+        var approverType = data.value;
+        hideAllApproverConfigs();
+        
+        switch(approverType) {
+            case 'user':
+                document.getElementById('approver_user_config').style.display = 'block';
+                break;
+            case 'role':
+                document.getElementById('approver_role_config').style.display = 'block';
+                break;
+            case 'department':
+                document.getElementById('approver_department_config').style.display = 'block';
+                break;
+            case 'department_head':
+                document.getElementById('approver_department_head_config').style.display = 'block';
+                break;
+            case 'level':
+                document.getElementById('approver_level_config').style.display = 'block';
+                break;
+        }
+        form.render();
+    });
+    
+    // 隐藏所有审批人配置
+    function hideAllApproverConfigs() {
+        document.getElementById('approver_user_config').style.display = 'none';
+        document.getElementById('approver_role_config').style.display = 'none';
+        document.getElementById('approver_department_config').style.display = 'none';
+        document.getElementById('approver_department_head_config').style.display = 'none';
+        document.getElementById('approver_level_config').style.display = 'none';
+    }
+    
+    // 页面加载时根据已选择的类型显示对应配置
+    var checkedRadio = document.querySelector('input[name="approver_type"]:checked');
+    if (checkedRadio) {
+        var event = { value: checkedRadio.value };
+        form.on('radio(approver_type)', function(data){
+            // 触发一次以显示正确的配置
+        });
+    }
+});
+</script>
+</body>
+</html>

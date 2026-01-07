@@ -1,0 +1,406 @@
+{% extends 'home/base.html' %}
+
+{% block title %}订单详情 - DTCall系统{% endblock %}
+
+{% block css %}
+<style>
+    .layui-card {
+        margin-bottom: 20px;
+        border-radius: 4px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+    .layui-card-header {
+        font-weight: 600;
+        background-color: #f8f8f8;
+        padding: 12px 20px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .layui-card-body {
+        padding: 20px;
+    }
+    .detail-container {
+        background: #fff;
+        padding: 20px;
+    }
+    .detail-section {
+        margin-bottom: 25px;
+    }
+    .section-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 15px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 15px 30px;
+    }
+    .info-item {
+        display: flex;
+        align-items: flex-start;
+        min-height: 36px;
+    }
+    .info-label {
+        width: 100px;
+        color: #666;
+        font-weight: 500;
+        padding-right: 15px;
+        flex-shrink: 0;
+    }
+    .info-value {
+        flex: 1;
+        word-break: break-all;
+        color: #333;
+    }
+    .amount-value {
+        font-size: 18px;
+        font-weight: 600;
+        color: #1aa094;
+    }
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+    .btn-group {
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #f0f0f0;
+        display: flex;
+        gap: 10px;
+    }
+    .btn-group .layui-btn {
+        padding: 0 20px;
+        height: 36px;
+    }
+    .info-label.required::after {
+        content: "*";
+        color: #ff4d4f;
+        margin-left: 4px;
+    }
+    @media (max-width: 768px) {
+        .info-grid {
+            grid-template-columns: 1fr;
+        }
+        .btn-group {
+            flex-wrap: wrap;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-flex">
+            <div class="layui-left">
+                <span class="layui-breadcrumb">
+                    <a href="{% url 'customer:customer_list' %}">客户管理</a>
+                    <a href="{% url 'customer:customer_order_list' %}">订单列表</a>
+                    <a><cite>订单详情</cite></a>
+                </span>
+            </div>
+            <div class="layui-right">
+                <span class="layui-badge-rim">订单号: {{ order.order_number }}</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="layui-card-body">
+        <div class="detail-container">
+            <!-- 基本信息 -->
+            <div class="detail-section">
+                <h3 class="section-title">基本信息</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">订单编号：</div>
+                        <div class="info-value">{{ order.order_number }}</div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="info-label">客户名称：</div>
+                        <div class="info-value"><a href="{% url 'customer:customer_detail' order.customer.id %}" class="layui-text-primary">{{ order.customer.name }}</a></div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="info-label">产品名称：</div>
+                        <div class="info-value">{{ order.product_name }}</div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="info-label">订单金额：</div>
+                        <div class="info-value amount-value">¥{{ order.amount|default:0 }}</div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="info-label">订单日期：</div>
+                        <div class="info-value">{{ order.order_date|date:'Y-m-d' }}</div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="info-label">订单状态：</div>
+                        <div class="info-value">
+                            {% if order.status == 0 %}<span class="status-badge" style="background-color: #faad14; color: #fff;">待处理</span>{% endif %}
+                            {% if order.status == 1 %}<span class="status-badge" style="background-color: #1890ff; color: #fff;">进行中</span>{% endif %}
+                            {% if order.status == 2 %}<span class="status-badge" style="background-color: #52c41a; color: #fff;">已完成</span>{% endif %}
+                            {% if order.status == 3 %}<span class="status-badge" style="background-color: #f5222d; color: #fff;">已取消</span>{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 其他信息 -->
+            <div class="detail-section">
+                <h3 class="section-title">其他信息</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">描述：</div>
+                        <div class="info-value">{{ order.description|default:'<span class="layui-text-muted">无</span>'|safe }}</div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="info-label">备注：</div>
+                        <div class="info-value">{{ order.remark|default:'<span class="layui-text-muted">无</span>'|safe }}</div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="info-label">创建人：</div>
+                        <div class="info-value">{{ order.create_user|default:'系统' }}</div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="info-label">创建时间：</div>
+                        <div class="info-value">{{ order.create_time|date:'Y-m-d H:i:s' }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 操作按钮 -->
+            <div class="btn-group">
+                <a href="/customer/orders/{{ order.id }}/edit/" class="layui-btn layui-btn-normal">
+                    <i class="layui-icon layui-icon-edit"></i> 编辑订单
+                </a>
+                <button class="layui-btn layui-btn-warm" data-order-id="{{ order.id }}" id="paymentBtn">
+                    <i class="layui-icon layui-icon-rmb"></i> 收款操作
+                </button>
+                <button class="layui-btn layui-btn-danger" data-order-id="{{ order.id }}" id="deleteBtn">
+                    <i class="layui-icon layui-icon-delete"></i> 删除订单
+                </button>
+                <a href="{% url 'customer:customer_order_list' %}" class="layui-btn">
+                    <i class="layui-icon layui-icon-return"></i> 返回列表
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+    // 检查layui是否加载
+    if (typeof layui !== 'undefined') {
+        layui.use(['layer', 'form'], function() {
+            // 检查每个模块是否加载成功
+            var layer = layui.layer;
+            var form = layui.form;
+            var $ = layui.jquery || window.jQuery || window.$;
+            
+            // 添加事件监听器
+            if (typeof $ !== 'undefined') {
+                // 收款按钮点击事件
+                $('#paymentBtn').click(function() {
+                    var orderId = $(this).data('order-id');
+                    showPaymentDialog(orderId);
+                });
+                
+                // 删除按钮点击事件
+                $('#deleteBtn').click(function() {
+                    var orderId = $(this).data('order-id');
+                    deleteOrder(orderId);
+                });
+            }
+            
+            // 删除订单
+            function deleteOrder(id) {
+                if (layer && typeof layer.confirm === 'function' && typeof layer.msg === 'function' && typeof layer.close === 'function') {
+                    layer.confirm('确定要删除该订单吗？删除后无法恢复。', {
+                        icon: 3,
+                        title: '删除确认',
+                        btn: ['确定删除', '取消']
+                    }, function(index) {
+                        if (typeof $ !== 'undefined' && typeof $.ajax === 'function') {
+                            $.ajax({
+                                url: '/customer/orders/' + id + '/delete/',
+                                type: 'POST',
+                                dataType: 'json',
+                                data: {},
+                                headers: {
+                                    'X-CSRFToken': '{{ csrf_token }}'
+                                },
+                                beforeSend: function() {
+                                    // 显示加载提示
+                                    if (layer && typeof layer.load === 'function') {
+                                        layer.load(2);
+                                    }
+                                },
+                                success: function(res) {
+                                    if (layer && typeof layer.closeAll === 'function') {
+                                        layer.closeAll('loading');
+                                    }
+                                    if (res && res.status === 'success') {
+                                        if (layer && typeof layer.msg === 'function' && window && typeof window.location !== 'undefined') {
+                                            layer.msg(res.message || '删除成功', {icon: 1, time: 1500}, function() {
+                                                window.location.href = '/customer/orders/';
+                                            });
+                                        }
+                                    } else {
+                                        if (layer && typeof layer.msg === 'function') {
+                                            layer.msg(res && res.message || '操作失败', {icon: 2});
+                                        }
+                                    }
+                                },
+                                error: function() {
+                                    if (layer && typeof layer.closeAll === 'function' && typeof layer.msg === 'function') {
+                                        layer.closeAll('loading');
+                                        layer.msg('网络错误，请稍后重试', {icon: 2});
+                                    }
+                                }
+                            });
+                        }
+                        layer.close(index);
+                    }, function(index) {
+                        layer.close(index);
+                    });
+                }
+            };
+            
+            // 收款对话框
+            function showPaymentDialog(orderId) {
+                if (layer && typeof layer.open === 'function') {
+                    layer.open({
+                        type: 1,
+                        title: '订单收款',
+                        area: ['500px', '400px'],
+                        shade: 0.3,
+                        content: '<div class="layui-form" style="padding: 20px;">' +
+                            '<div class="layui-form-item">' +
+                                '<label class="layui-form-label">收款金额</label>' +
+                                '<div class="layui-input-block">' +
+                                    '<input type="number" name="amount" placeholder="请输入收款金额" ' +
+                                           'class="layui-input" min="0" step="0.01" required lay-verify="required|number">' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="layui-form-item">' +
+                                '<label class="layui-form-label">收款方式</label>' +
+                                '<div class="layui-input-block">' +
+                                    '<select name="payment_method" lay-verify="required">' +
+                                        '<option value="">请选择收款方式</option>' +
+                                        '<option value="alipay">支付宝</option>' +
+                                        '<option value="wechat">微信支付</option>' +
+                                        '<option value="bank">银行转账</option>' +
+                                        '<option value="cash">现金</option>' +
+                                    '</select>' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="layui-form-item">' +
+                                '<label class="layui-form-label">收款日期</label>' +
+                                '<div class="layui-input-block">' +
+                                    '<input type="text" name="payment_date" class="layui-input" ' +
+                                           'lay-verify="required" readonly placeholder="请选择收款日期">' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="layui-form-item">' +
+                                '<label class="layui-form-label">备注</label>' +
+                                '<div class="layui-input-block">' +
+                                    '<textarea name="remark" placeholder="请输入收款备注" ' +
+                                              'class="layui-textarea"></textarea>' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="layui-form-item" style="text-align: center; margin-top: 30px;">' +
+                                '<button class="layui-btn layui-btn-normal" lay-submit lay-filter="submitPayment">确认收款</button>' +
+                                '<button type="button" class="layui-btn layui-btn-primary" onclick="if(typeof layer !== \'undefined\' && layer.closeAll) layer.closeAll()">取消</button>' +
+                            '</div>' +
+                        '</div>',
+                        success: function(layero, index) {
+                            // 加载日期选择器（如果项目有集成）
+                            try {
+                                if (typeof layui !== 'undefined') {
+                                    layui.use('laydate', function() {
+                                        var laydate = layui.laydate;
+                                        if (laydate && typeof laydate.render === 'function' && layero && layero.find) {
+                                            laydate.render({
+                                                elem: layero.find('[name="payment_date"]')[0],
+                                                type: 'date',
+                                                value: new Date().toISOString().split('T')[0]
+                                            });
+                                        }
+                                    });
+                                }
+                            } catch (e) {
+                                console.log('日期选择器未加载:', e);
+                            }
+                            
+                            // 表单提交
+                            if (form && typeof form.on === 'function') {
+                                form.on('submit(submitPayment)', function(data) {
+                                    // 显示加载提示
+                                    var loadIndex;
+                                    if (layer && typeof layer.load === 'function') {
+                                        loadIndex = layer.load(1);
+                                    }
+                                    
+                                    // 构建请求数据
+                                    var postData = Object.assign({}, data && data.field || {}, {
+                                        csrfmiddlewaretoken: '{{ csrf_token }}'
+                                    });
+                                    
+                                    // 发送AJAX请求到后端处理收款
+                                    if (typeof $ !== 'undefined' && typeof $.ajax === 'function') {
+                                        $.ajax({
+                                            url: '/customer/orders/' + orderId + '/payment/',
+                                            type: 'post',
+                                            data: postData,
+                                            dataType: 'json',
+                                            success: function(res) {
+                                                if (layer && typeof layer.close === 'function') {
+                                                    layer.close(loadIndex);
+                                                }
+                                                if (res && res.status === 'success') {
+                                                    if (layer && typeof layer.msg === 'function' && typeof layer.close === 'function' && window && typeof window.location !== 'undefined') {
+                                                        layer.msg(res.message || '收款操作成功！', {icon: 1}, function() {
+                                                            layer.close(index);
+                                                            // 刷新页面以显示最新数据
+                                                            window.location.reload();
+                                                        });
+                                                    }
+                                                }
+                                            },
+                                            error: function() {
+                                                if (layer && typeof layer.close === 'function' && typeof layer.msg === 'function') {
+                                                    layer.close(loadIndex);
+                                                    layer.msg('收款请求失败，请稍后重试', {icon: 2});
+                                                }
+                                            }
+                                        });
+                                    }
+                                    return false;
+                                });
+                                
+                                if (typeof form.render === 'function') {
+                                    form.render();
+                                }
+                            }
+                        }
+                    });
+                }
+            };
+        });
+    } else {
+        console.warn('layui框架未加载，部分功能可能无法使用');
+    }
+</script>
+{% endblock %}

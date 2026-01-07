@@ -1,0 +1,136 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{% if record %}编辑工作记录{% else %}新增工作记录{% endif %}{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>{% if record %}编辑工作记录{% else %}新增工作记录{% endif %}</h3>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form" method="post">
+            {% csrf_token %}
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md8">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">工作标题 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.title }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">工作类型</label>
+                        <div class="layui-input-block">
+                            {{ form.work_type }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">工作日期 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.work_date }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">开始时间</label>
+                        <div class="layui-input-block">
+                            {{ form.start_time }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">结束时间</label>
+                        <div class="layui-input-block">
+                            {{ form.end_time }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">工作时长(小时)</label>
+                        <div class="layui-input-block">
+                            {{ form.duration }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">完成进度(%)</label>
+                        <div class="layui-input-block">
+                            {{ form.progress }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">难度系数(1-5)</label>
+                        <div class="layui-input-block">
+                            {{ form.difficulty }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">工作内容 <span style="color: red;">*</span></label>
+                <div class="layui-input-block">
+                    {{ form.content }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">工作成果</label>
+                <div class="layui-input-block">
+                    {{ form.result }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">遇到问题</label>
+                <div class="layui-input-block">
+                    {{ form.problem }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">下步计划</label>
+                <div class="layui-input-block">
+                    {{ form.next_plan }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" lay-submit>保存</button>
+                    <button type="button" class="layui-btn layui-btn-primary" onclick="history.back()">返回</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+layui.use(['form', 'laydate'], function(){
+    var form = layui.form;
+    var laydate = layui.laydate;
+    
+    // 渲染日期选择器
+    laydate.render({
+        elem: '#id_work_date'
+    });
+});
+</script>
+{% endblock %}

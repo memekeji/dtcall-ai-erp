@@ -1,0 +1,91 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{% if object %}编辑费用类型{% else %}新增费用类型{% endif %}</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <h3>{% if object %}编辑费用类型{% else %}新增费用类型{% endif %}</h3>
+                    </div>
+                    <div class="layui-card-body">
+        <form class="layui-form" method="post">
+            {% csrf_token %}
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">费用类型名称 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.name }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">费用代码 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.code }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">上级类型</label>
+                <div class="layui-input-block">
+                    {{ form.parent }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">费用描述</label>
+                <div class="layui-input-block">
+                    {{ form.description }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">预算控制</label>
+                <div class="layui-input-block">
+                    <input type="checkbox" name="budget_control" {% if object.budget_control %}checked{% endif %} lay-skin="switch" lay-text="启用|禁用">
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">状态</label>
+                <div class="layui-input-block">
+                    <input type="checkbox" name="is_active" {% if object.is_active %}checked{% endif %} lay-skin="switch" lay-text="启用|禁用">
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" type="submit">保存</button>
+                    <a href="{% url 'finance:expense_type_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                </div>
+            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['form'], function(){
+            var form = layui.form;
+            form.render();
+        });
+    </script>
+</body>
+</html>

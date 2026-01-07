@@ -1,0 +1,124 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{% if document %}编辑公文{% else %}新增公文{% endif %}{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>{% if document %}编辑公文{% else %}新增公文{% endif %}</h3>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form" method="post">
+            {% csrf_token %}
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md8">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">公文标题 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            <input type="text" name="title" value="{{ document.title|default:'' }}" placeholder="请输入公文标题" class="layui-input" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">公文编号 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            <input type="text" name="document_number" value="{{ document.document_number|default:'' }}" placeholder="请输入公文编号" class="layui-input" required>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">公文分类 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            <select name="category" class="layui-input" required>
+                                <option value="">请选择分类</option>
+                                {% for cat in categories %}
+                                <option value="{{ cat.pk }}" {% if document.category_id == cat.pk %}selected{% endif %}>{{ cat.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">紧急程度</label>
+                        <div class="layui-input-block">
+                            <select name="urgency" class="layui-input">
+                                <option value="normal" {% if document.urgency == 'normal' %}selected{% endif %}>普通</option>
+                                <option value="urgent" {% if document.urgency == 'urgent' %}selected{% endif %}>紧急</option>
+                                <option value="very_urgent" {% if document.urgency == 'very_urgent' %}selected{% endif %}>特急</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">密级</label>
+                        <div class="layui-input-block">
+                            <select name="security_level" class="layui-input">
+                                <option value="public" {% if document.security_level == 'public' %}selected{% endif %}>公开</option>
+                                <option value="internal" {% if document.security_level == 'internal' %}selected{% endif %}>内部</option>
+                                <option value="confidential" {% if document.security_level == 'confidential' %}selected{% endif %}>机密</option>
+                                <option value="secret" {% if document.security_level == 'secret' %}selected{% endif %}>秘密</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">公文摘要</label>
+                <div class="layui-input-block">
+                    <textarea name="summary" placeholder="请输入公文摘要" class="layui-textarea" rows="3">{{ document.summary|default:'' }}</textarea>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">公文内容 <span style="color: red;">*</span></label>
+                <div class="layui-input-block">
+                    <textarea name="content" placeholder="请输入公文内容" class="layui-textarea" rows="10" required>{{ document.content|default:'' }}</textarea>
+                </div>
+            </div>
+
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">生效时间</label>
+                        <div class="layui-input-block">
+                            <input type="datetime-local" name="effective_time" value="{{ document.effective_time|date:'Y-m-d\TH:i'|default:'' }}" class="layui-input">
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">失效时间</label>
+                        <div class="layui-input-block">
+                            <input type="datetime-local" name="expire_time" value="{{ document.expire_time|date:'Y-m-d\TH:i'|default:'' }}" class="layui-input">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">附件信息</label>
+                <div class="layui-input-block">
+                    <textarea name="attachments" placeholder="请输入附件信息" class="layui-textarea" rows="2">{{ document.attachments|default:'' }}</textarea>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" type="submit" name="action" value="save">保存草稿</button>
+                    <button class="layui-btn layui-btn-normal" type="submit" name="action" value="submit">提交审核</button>
+                    <a href="{% url 'system:admin_office:document_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

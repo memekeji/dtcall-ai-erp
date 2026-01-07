@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{% if object %}编辑审批流程{% else %}新增审批流程{% endif %}</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <h3>{% if object %}编辑审批流程{% else %}新增审批流程{% endif %}</h3>
+                    </div>
+                    <div class="layui-card-body">
+        <form class="layui-form" method="post">
+            {% csrf_token %}
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">流程名称 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.name }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">流程代码 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.code }}
+                            <div class="layui-form-mid layui-word-aux">建议格式：FLOW_001、LEAVE_FLOW_001等</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">审批类型 <span style="color: red;">*</span></label>
+                <div class="layui-input-block">
+                    {{ form.approval_type }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">流程描述</label>
+                <div class="layui-input-block">
+                    {{ form.description }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">状态</label>
+                <div class="layui-input-block">
+                    <input type="checkbox" name="is_active" {% if object.is_active %}checked{% endif %} lay-skin="switch" lay-text="启用|禁用">
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" type="submit">保存</button>
+                    <a href="{% url 'approval:approval_flow_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                </div>
+            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['form'], function(){
+            var form = layui.form;
+            form.render();
+        });
+    </script>
+</body>
+</html>

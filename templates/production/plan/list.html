@@ -1,0 +1,191 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生产计划管理</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .search-form {
+            margin-bottom: 15px;
+        }
+        .table-toolbar {
+            margin-bottom: 15px;
+        }
+        .status-pending {
+            color: #FFB800;
+        }
+        .status-approved {
+            color: #1E9FFF;
+        }
+        .status-active {
+            color: #5FB878;
+        }
+        .status-completed {
+            color: #2F4056;
+        }
+        .status-cancelled {
+            color: #FF5722;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <!-- 页面标题 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <h2 style="margin-bottom: 20px;">生产计划管理</h2>
+            </div>
+        </div>
+
+        <!-- 工具栏 -->
+        <div class="layui-row table-toolbar">
+            <div class="layui-col-md6">
+                <button class="layui-btn" onclick="location.href='{% url 'production:production_plan_add' %}'">
+                    <i class="layui-icon layui-icon-add-1"></i> 新建计划
+                </button>
+                <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:production_task_index' %}'">
+                    <i class="layui-icon layui-icon-return"></i> 返回
+                </button>
+            </div>
+            <div class="layui-col-md6" style="text-align: right;">
+                <form method="get" class="layui-form layui-form-pane" style="display: inline-block;">
+                    <div class="layui-input-group">
+                        <select name="status" lay-search>
+                            <option value="">全部状态</option>
+                            {% for value, label in status_choices %}
+                                <option value="{{ value }}" {% if status == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <input type="text" name="search" value="{{ search }}" placeholder="搜索计划名称或编号" class="layui-input" style="width: 200px; display: inline-block;">
+                        <div class="layui-input-split layui-input-suffix">
+                            <button class="layui-btn" type="submit">
+                                <i class="layui-icon layui-icon-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 数据表格 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-body" style="padding: 0;">
+                        <table class="layui-table" lay-skin="line">
+                            <thead>
+                                <tr>
+                                    <th>计划编号</th>
+                                    <th>计划名称</th>
+                                    <th>生产产品</th>
+                                    <th>计划数量</th>
+                                    <th>计划日期</th>
+                                    <th>负责人</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for plan in page_obj %}
+                                <tr>
+                                    <td>{{ plan.code }}</td>
+                                    <td>{{ plan.name }}</td>
+                                    <td>{{ plan.product.name|default:"-" }}</td>
+                                    <td>{{ plan.quantity }} {{ plan.unit }}</td>
+                                    <td>{{ plan.plan_start_date }} ~ {{ plan.plan_end_date }}</td>
+                                    <td>{{ plan.manager.username|default:"-" }}</td>
+                                    <td>
+                                        {% if plan.status == 1 %}
+                                            <span class="status-pending">待审核</span>
+                                        {% elif plan.status == 2 %}
+                                            <span class="status-approved">已审核</span>
+                                        {% elif plan.status == 3 %}
+                                            <span class="status-active">执行中</span>
+                                        {% elif plan.status == 4 %}
+                                            <span class="status-completed">已完成</span>
+                                        {% elif plan.status == 5 %}
+                                            <span class="status-cancelled">已取消</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="location.href='{% url 'production:production_plan_detail' plan.pk %}'">
+                                            <i class="layui-icon layui-icon-search"></i> 详情
+                                        </button>
+                                        <button class="layui-btn layui-btn-xs" onclick="location.href='{% url 'production:production_plan_edit' plan.pk %}'">
+                                            <i class="layui-icon layui-icon-edit"></i> 编辑
+                                        </button>
+                                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deletePlan({{ plan.pk }}, '{{ plan.name }}')">
+                                            <i class="layui-icon layui-icon-delete"></i> 删除
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" style="text-align: center; padding: 40px; color: #999;">
+                                        暂无数据
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分页 -->
+        {% if page_obj.has_other_pages %}
+        <div class="layui-row" style="margin-top: 20px;">
+            <div class="layui-col-md12" style="text-align: center;">
+                <div id="pagination"></div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['layer', 'laypage', 'form'], function () {
+            var layer = layui.layer;
+            var laypage = layui.laypage;
+            var form = layui.form;
+
+            {% if page_obj.has_other_pages %}
+            // 分页
+            laypage.render({
+                elem: 'pagination',
+                count: {{ page_obj.paginator.count }},
+                limit: 20,
+                curr: {{ page_obj.number }},
+                jump: function(obj, first) {
+                    if (!first) {
+                        var url = new URL(window.location);
+                        url.searchParams.set('page', obj.curr);
+                        window.location.href = url.toString();
+                    }
+                }
+            });
+            {% endif %}
+        });
+
+        function deletePlan(id, name) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.confirm('确定要删除生产计划 "' + name + '" 吗？', {
+                    icon: 3,
+                    title: '确认删除'
+                }, function(index) {
+                    window.location.href = '/adm/production/task/plan/delete/' + id + '/';
+                    layer.close(index);
+                });
+            });
+        }
+    </script>
+</body>
+
+</html>

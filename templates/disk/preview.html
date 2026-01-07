@@ -1,0 +1,1101 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件预览</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Microsoft YaHei', sans-serif;
+            background-color: #f5f7fa;
+        }
+        .preview-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .preview-header {
+            background: #fff;
+            padding: 15px 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .preview-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+        .preview-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .preview-loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 500px;
+            font-size: 18px;
+            color: #666;
+        }
+        .preview-error {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 500px;
+            font-size: 18px;
+            color: #f56c6c;
+        }
+        .preview-error button {
+            margin-top: 20px;
+        }
+        /* 图片预览样式 */
+        .image-preview-container {
+            position: relative;
+            width: 100%;
+            height: 600px;
+            overflow: hidden;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .image-preview-container img {
+            max-width: 100%;
+            max-height: 100%;
+            cursor: move;
+            transition: transform 0.1s ease;
+        }
+        /* 视频预览样式 */
+        .video-preview-container {
+            position: relative;
+            width: 100%;
+            height: 600px;
+            overflow: hidden;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .video-preview-container video {
+            max-width: 100%;
+            max-height: 100%;
+            cursor: move;
+            transition: transform 0.1s ease;
+        }
+        /* 音频预览样式 */
+        .audio-preview-container {
+            position: relative;
+            width: 100%;
+            height: 100px;
+            overflow: hidden;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .audio-preview-container audio {
+            width: 80%;
+            cursor: move;
+            transition: transform 0.1s ease;
+        }
+        /* 文本预览样式 */
+        .text-preview-container {
+            width: 100%;
+            height: 600px;
+            overflow: auto;
+        }
+        .text-preview-container pre {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin: 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+        }
+        /* PDF预览样式 */
+        .pdf-preview-container {
+            width: 100%;
+            height: 600px;
+            overflow: hidden;
+        }
+        .pdf-preview-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        /* Office预览样式 */
+        .office-preview-container {
+            width: 100%;
+            height: 600px;
+            overflow: hidden;
+        }
+        .office-preview-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="preview-container">
+
+            <div id="previewLoading" class="preview-loading">
+                <i class="layui-icon layui-icon-loading layui-icon layui-anim layui-anim-rotate layui-anim-loop"></i>
+                <span style="margin-left: 10px;">正在加载预览...</span>
+            </div>
+            
+            <div id="previewError" class="preview-error" style="display: none;">
+                <i class="layui-icon layui-icon-face-cry" style="font-size: 48px; margin-bottom: 10px;"></i>
+                <div id="errorMessage">预览加载失败</div>
+                <button class="layui-btn layui-btn-primary" onclick="downloadFile()">
+                    <i class="layui-icon layui-icon-download"></i> 下载原文件
+                </button>
+            </div>
+            
+            <!-- 不同类型文件的预览容器 -->
+            <div id="imagePreview" class="image-preview-container" style="display: none;"></div>
+            <div id="videoPreview" class="video-preview-container" style="display: none;"></div>
+            <div id="audioPreview" class="audio-preview-container" style="display: none;"></div>
+            <div id="textPreview" class="text-preview-container" style="display: none;"></div>
+            <div id="pdfPreview" class="pdf-preview-container" style="display: none;"></div>
+            <div id="officePreview" class="office-preview-container" style="display: none;"></div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/office_preview.js' %}"></script>
+    <script>
+        // 使用立即执行函数表达式(IIFE)封装预览功能，避免与父页面的同名函数冲突
+        (function() {
+            // 预览数据
+            var previewData = null;
+            var fileId = null;
+            var fileName = null;
+            var fileType = null;
+            var fileUrl = null;
+            
+            // 初始化预览
+            function initPreview() {
+                // 从URL获取参数
+                var url = window.location.href;
+                console.log('完整URL:', url);
+                
+                // 增强：使用多种方式提取file_id参数，确保能正确获取
+                var urlFileId = null;
+                var urlFileName = null;
+                var urlFileType = null;
+                
+                // 方式1：使用URLSearchParams（现代浏览器支持）
+                try {
+                    var params = new URLSearchParams(window.location.search);
+                    urlFileId = params.get('file_id');
+                    urlFileName = params.get('file_name');
+                    urlFileType = params.get('file_type');
+                    console.log('URLSearchParams提取:', { file_id: urlFileId, file_name: urlFileName, file_type: urlFileType });
+                } catch (e) {
+                    console.error('URLSearchParams解析失败:', e);
+                }
+                
+                // 方式2：使用正则表达式（兼容性好）
+                if (!urlFileId) {
+                    var fileIdMatch = url.match(/[?&]file_id=([^&]+)/);
+                    var fileNameMatch = url.match(/[?&]file_name=([^&]+)/);
+                    var fileTypeMatch = url.match(/[?&]file_type=([^&]+)/);
+                    
+                    urlFileId = fileIdMatch ? decodeURIComponent(fileIdMatch[1]) : null;
+                    urlFileName = fileNameMatch ? decodeURIComponent(fileNameMatch[1]) : null;
+                    urlFileType = fileTypeMatch ? decodeURIComponent(fileTypeMatch[1]) : null;
+                    console.log('正则表达式提取:', { file_id: urlFileId, file_name: urlFileName, file_type: urlFileType });
+                }
+                
+                // 方式3：直接从location.search字符串中查找（最原始的方式）
+                if (!urlFileId) {
+                    var searchStr = window.location.search;
+                    if (searchStr.includes('file_id=')) {
+                        var fileIdStart = searchStr.indexOf('file_id=') + 8;
+                        var fileIdEnd = searchStr.indexOf('&', fileIdStart);
+                        if (fileIdEnd === -1) fileIdEnd = searchStr.length;
+                        urlFileId = decodeURIComponent(searchStr.substring(fileIdStart, fileIdEnd));
+                    }
+                    console.log('字符串查找提取:', { file_id: urlFileId });
+                }
+                
+                // 从模板上下文获取参数（作为备用）
+                var templateFileId = '{{ file_id }}';
+                var templateFileName = '{{ file_name }}';
+                var templateFileType = '{{ file_type }}';
+                
+                // 合并参数：优先使用URL参数，如果没有则使用模板上下文参数
+                fileId = urlFileId || (templateFileId !== '{{ file_id }}' ? templateFileId : null);
+                fileName = urlFileName || (templateFileName !== '{{ file_name }}' ? templateFileName : '未知文件');
+                fileType = urlFileType || (templateFileType !== '{{ file_type }}' ? templateFileType : 'unknown');
+                
+                // 调试：打印合并后的参数
+                console.log('合并后的参数:', { fileId: fileId, fileName: fileName, fileType: fileType });
+                
+                // 修复：确保fileId是字符串类型，并且不为空
+                if (!fileId || fileId === 'None' || fileId === 'null' || fileId === '' || typeof fileId !== 'string') {
+                    // 尝试从window.location.href中直接提取数字ID（针对特殊情况）
+                    var numericId = url.match(/\d+/);
+                    if (numericId) {
+                        fileId = numericId[0];
+                        console.log('从URL中提取到数字ID:', fileId);
+                    } else {
+                        showError('缺少文件ID参数');
+                        return;
+                    }
+                }
+                
+                // 获取文件扩展名
+                function getFileExtension(filename) {
+                    return filename ? filename.slice((filename.lastIndexOf('.') - 1 >>> 0) + 2).toLowerCase() : '';
+                }
+                
+                var extension = getFileExtension(fileName);
+                
+                // 直接构建文件下载URL，移除adm前缀以匹配后端实际URL
+                fileUrl = '/disk/download/' + fileId + '/';
+                
+                // 获取预览数据
+                getPreviewData(fileId, fileName, fileType, extension, fileUrl);
+            }
+            
+            // 获取预览数据
+            function getPreviewData(fileId, fileName, fileType, extension, fileUrl) {
+                // 检查fileId是否有效
+                if (!fileId || fileId === 'None' || fileId === 'null') {
+                    showError('无效的文件ID');
+                    return;
+                }
+                
+                // 对于图片、视频、音频，直接使用URL预览
+                if (fileType === 'image' || ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(extension)) {
+                    previewData = {
+                        id: fileId,
+                        name: fileName,
+                        type: 'image',
+                        url: fileUrl
+                    };
+                    showImagePreview(previewData);
+                } else if (fileType === 'video' || ['mp4', 'webm', 'ogg', 'avi'].includes(extension)) {
+                    previewData = {
+                        id: fileId,
+                        name: fileName,
+                        type: 'video',
+                        url: fileUrl
+                    };
+                    showVideoPreview(previewData);
+                } else if (fileType === 'audio' || ['mp3', 'wav', 'ogg', 'flac'].includes(extension)) {
+                    previewData = {
+                        id: fileId,
+                        name: fileName,
+                        type: 'audio',
+                        url: fileUrl
+                    };
+                    showAudioPreview(previewData);
+                } else {
+                    // 对于其他文件类型，调用预览接口
+                    var previewApiUrl = '/disk/file/preview/' + fileId + '/';
+                    
+                    $.get(previewApiUrl, function(response) {
+                        // 调试：打印完整的后端返回数据
+                        console.log('后端返回完整数据:', response);
+                        console.log('后端返回数据类型:', typeof response);
+                        console.log('后端返回数据结构:', Object.keys(response));
+                        
+                        if (response.code === 0) {
+                            // 调试：打印后端返回的data字段
+                            console.log('后端返回data字段:', response.data);
+                            console.log('后端返回data字段类型:', typeof response.data);
+                            console.log('后端返回data字段结构:', Object.keys(response.data));
+                            
+                            response.data.fileId = fileId;
+                            response.data.name = fileName;
+                            response.data.url = fileUrl;
+                            previewData = response.data;
+                            showPreview(previewData);
+                        } else {
+                            // 如果预览失败，显示下载选项
+                            showError('预览加载失败，您可以选择下载原文件');
+                        }
+                    }).fail(function(xhr, status, error) {
+                        // 如果请求失败，显示下载选项
+                        console.error('预览请求失败:', status, error);
+                        showError('预览请求失败，请稍后重试或下载原文件');
+                    });
+                }
+            }
+            
+            // 显示预览
+            function showPreview(data) {
+                hideAllPreviews();
+                hideLoading();
+                
+                switch(data.type) {
+                    case 'text':
+                        showTextPreview(data);
+                        break;
+                    case 'image':
+                        showImagePreview(data);
+                        break;
+                    case 'pdf':
+                    case 'pdf_enhanced':
+                        showPdfPreview(data);
+                        break;
+                    case 'office_enhanced':
+                        showOfficePreview(data);
+                        break;
+                    case 'audio':
+                        showAudioPreview(data);
+                        break;
+                    case 'video':
+                        showVideoPreview(data);
+                        break;
+                    default:
+                        showError('不支持的文件格式预览: ' + (data.type || '未知'));
+                        break;
+                }
+            }
+            
+            // 隐藏所有预览容器
+            function hideAllPreviews() {
+                document.getElementById('imagePreview').style.display = 'none';
+                document.getElementById('videoPreview').style.display = 'none';
+                document.getElementById('audioPreview').style.display = 'none';
+                document.getElementById('textPreview').style.display = 'none';
+                document.getElementById('pdfPreview').style.display = 'none';
+                document.getElementById('officePreview').style.display = 'none';
+            }
+            
+            // 隐藏加载状态
+            function hideLoading() {
+                document.getElementById('previewLoading').style.display = 'none';
+            }
+            
+            // 显示错误信息
+            function showError(message) {
+                hideLoading();
+                hideAllPreviews();
+                document.getElementById('errorMessage').textContent = message;
+                document.getElementById('previewError').style.display = 'flex';
+            }
+            
+            // 显示图片预览
+            function showImagePreview(data) {
+                var container = document.getElementById('imagePreview');
+                container.innerHTML = '';
+                
+                var img = document.createElement('img');
+                img.src = data.url;
+                img.alt = data.name;
+                img.id = 'preview-image-' + data.id;
+                
+                container.appendChild(img);
+                container.style.display = 'flex';
+                hideLoading();
+                
+                // 实现鼠标滚轮缩放和鼠标左键拖动
+                var scale = 1;
+                var isDragging = false;
+                var startX = 0;
+                var startY = 0;
+                var offsetX = 0;
+                var offsetY = 0;
+                
+                // 鼠标滚轮缩放
+                img.addEventListener('wheel', function(e) {
+                    e.preventDefault();
+                    
+                    // 计算缩放中心
+                    var rect = img.getBoundingClientRect();
+                    var centerX = e.clientX - rect.left;
+                    var centerY = e.clientY - rect.top;
+                    
+                    // 计算缩放比例
+                    var delta = e.deltaY > 0 ? 0.9 : 1.1;
+                    var newScale = Math.max(0.1, Math.min(10, scale * delta));
+                    
+                    // 计算偏移量，使缩放中心保持不变
+                    var scaleDiff = newScale - scale;
+                    offsetX += centerX * scaleDiff / scale;
+                    offsetY += centerY * scaleDiff / scale;
+                    
+                    scale = newScale;
+                    
+                    // 应用变换
+                    img.style.transform = 'scale(' + scale + ') translate(' + offsetX + 'px, ' + offsetY + 'px)';
+                });
+                
+                // 鼠标左键拖动
+                img.addEventListener('mousedown', function(e) {
+                    if (e.button === 0) { // 左键
+                        isDragging = true;
+                        startX = e.clientX;
+                        startY = e.clientY;
+                        img.style.cursor = 'grabbing';
+                    }
+                });
+                
+                document.addEventListener('mousemove', function(e) {
+                    if (isDragging) {
+                        var deltaX = e.clientX - startX;
+                        var deltaY = e.clientY - startY;
+                        
+                        offsetX += deltaX;
+                        offsetY += deltaY;
+                        
+                        img.style.transform = 'scale(' + scale + ') translate(' + offsetX + 'px, ' + offsetY + 'px)';
+                        
+                        startX = e.clientX;
+                        startY = e.clientY;
+                    }
+                });
+                
+                document.addEventListener('mouseup', function(e) {
+                    if (e.button === 0) {
+                        isDragging = false;
+                        img.style.cursor = 'move';
+                    }
+                });
+                
+                // 阻止右键菜单
+                img.addEventListener('contextmenu', function(e) {
+                    e.preventDefault();
+                });
+            }
+            
+            // 显示视频预览
+            function showVideoPreview(data) {
+                var container = document.getElementById('videoPreview');
+                container.innerHTML = '';
+                
+                var video = document.createElement('video');
+                video.controls = true;
+                video.id = 'preview-video-' + data.id;
+                
+                // 为常见视频格式添加source
+                if (data.name.endsWith('.mp4')) {
+                    var mp3Source = document.createElement('source');
+                    mp3Source.src = data.url;
+                    mp3Source.type = 'video/mp4';
+                    video.appendChild(mp3Source);
+                } else if (data.name.endsWith('.webm')) {
+                    var webmSource = document.createElement('source');
+                    webmSource.src = data.url;
+                    webmSource.type = 'video/webm';
+                    video.appendChild(webmSource);
+                } else if (data.name.endsWith('.ogg')) {
+                    var oggSource = document.createElement('source');
+                    oggSource.src = data.url;
+                    oggSource.type = 'video/ogg';
+                    video.appendChild(oggSource);
+                } else if (data.name.endsWith('.avi')) {
+                    var aviSource = document.createElement('source');
+                    aviSource.src = data.url;
+                    aviSource.type = 'video/avi';
+                    video.appendChild(aviSource);
+                }
+                
+                // 添加通用source作为后备
+                var fallbackSource = document.createElement('source');
+                fallbackSource.src = data.url;
+                video.appendChild(fallbackSource);
+                
+                // 添加不支持播放的提示
+                var noSupportText = document.createElement('div');
+                noSupportText.innerHTML = '您的浏览器不支持视频播放<br>' +
+                                         '<a href="' + data.url + '" target="_blank">点击此处直接播放</a>';
+                video.appendChild(noSupportText);
+                
+                container.appendChild(video);
+                container.style.display = 'flex';
+                hideLoading();
+                
+                // 实现鼠标滚轮缩放和鼠标左键拖动
+                var scale = 1;
+                var isDragging = false;
+                var startX = 0;
+                var startY = 0;
+                var offsetX = 0;
+                var offsetY = 0;
+                
+                // 鼠标滚轮缩放
+                video.addEventListener('wheel', function(e) {
+                    e.preventDefault();
+                    
+                    // 计算缩放中心
+                    var rect = video.getBoundingClientRect();
+                    var centerX = e.clientX - rect.left;
+                    var centerY = e.clientY - rect.top;
+                    
+                    // 计算缩放比例
+                    var delta = e.deltaY > 0 ? 0.9 : 1.1;
+                    var newScale = Math.max(0.1, Math.min(10, scale * delta));
+                    
+                    // 计算偏移量，使缩放中心保持不变
+                    var scaleDiff = newScale - scale;
+                    offsetX += centerX * scaleDiff / scale;
+                    offsetY += centerY * scaleDiff / scale;
+                    
+                    scale = newScale;
+                    
+                    // 应用变换
+                    video.style.transform = 'scale(' + scale + ') translate(' + offsetX + 'px, ' + offsetY + 'px)';
+                });
+                
+                // 鼠标左键拖动
+                video.addEventListener('mousedown', function(e) {
+                    if (e.button === 0) { // 左键
+                        isDragging = true;
+                        startX = e.clientX;
+                        startY = e.clientY;
+                        video.style.cursor = 'grabbing';
+                    }
+                });
+                
+                document.addEventListener('mousemove', function(e) {
+                    if (isDragging) {
+                        var deltaX = e.clientX - startX;
+                        var deltaY = e.clientY - startY;
+                        
+                        offsetX += deltaX;
+                        offsetY += deltaY;
+                        
+                        video.style.transform = 'scale(' + scale + ') translate(' + offsetX + 'px, ' + offsetY + 'px)';
+                        
+                        startX = e.clientX;
+                        startY = e.clientY;
+                    }
+                });
+                
+                document.addEventListener('mouseup', function(e) {
+                    if (e.button === 0) {
+                        isDragging = false;
+                        video.style.cursor = 'move';
+                    }
+                });
+                
+                // 阻止右键菜单
+                video.addEventListener('contextmenu', function(e) {
+                    e.preventDefault();
+                });
+            }
+            
+            // 显示音频预览
+            function showAudioPreview(data) {
+                var container = document.getElementById('audioPreview');
+                container.innerHTML = '';
+                
+                var audio = document.createElement('audio');
+                audio.controls = true;
+                audio.id = 'preview-audio-' + data.id;
+                
+                // 为常见音频格式添加source
+                if (data.name.endsWith('.mp3')) {
+                    var mp3Source = document.createElement('source');
+                    mp3Source.src = data.url;
+                    mp3Source.type = 'audio/mpeg';
+                    audio.appendChild(mp3Source);
+                } else if (data.name.endsWith('.wav')) {
+                    var wavSource = document.createElement('source');
+                    wavSource.src = data.url;
+                    wavSource.type = 'audio/wav';
+                    audio.appendChild(wavSource);
+                } else if (data.name.endsWith('.ogg')) {
+                    var oggSource = document.createElement('source');
+                    oggSource.src = data.url;
+                    oggSource.type = 'audio/ogg';
+                    audio.appendChild(oggSource);
+                } else if (data.name.endsWith('.flac')) {
+                    var flacSource = document.createElement('source');
+                    flacSource.src = data.url;
+                    flacSource.type = 'audio/flac';
+                    audio.appendChild(flacSource);
+                }
+                
+                // 添加通用source作为后备
+                var fallbackSource = document.createElement('source');
+                fallbackSource.src = data.url;
+                audio.appendChild(fallbackSource);
+                
+                // 添加不支持播放的提示
+                var noSupportText = document.createElement('div');
+                noSupportText.innerHTML = '您的浏览器不支持音频播放<br>' +
+                                         '<a href="' + data.url + '" target="_blank">点击此处直接播放</a>';
+                audio.appendChild(noSupportText);
+                
+                container.appendChild(audio);
+                container.style.display = 'flex';
+                hideLoading();
+                
+                // 实现鼠标滚轮缩放和鼠标左键拖动
+                var scale = 1;
+                var isDragging = false;
+                var startX = 0;
+                var startY = 0;
+                var offsetX = 0;
+                var offsetY = 0;
+                
+                // 鼠标滚轮缩放
+                audio.addEventListener('wheel', function(e) {
+                    e.preventDefault();
+                    
+                    // 计算缩放中心
+                    var rect = audio.getBoundingClientRect();
+                    var centerX = e.clientX - rect.left;
+                    var centerY = e.clientY - rect.top;
+                    
+                    // 计算缩放比例
+                    var delta = e.deltaY > 0 ? 0.9 : 1.1;
+                    var newScale = Math.max(0.5, Math.min(3, scale * delta));
+                    
+                    // 计算偏移量，使缩放中心保持不变
+                    var scaleDiff = newScale - scale;
+                    offsetX += centerX * scaleDiff / scale;
+                    offsetY += centerY * scaleDiff / scale;
+                    
+                    scale = newScale;
+                    
+                    // 应用变换
+                    audio.style.transform = 'scale(' + scale + ') translate(' + offsetX + 'px, ' + offsetY + 'px)';
+                });
+                
+                // 鼠标左键拖动
+                audio.addEventListener('mousedown', function(e) {
+                    if (e.button === 0) { // 左键
+                        isDragging = true;
+                        startX = e.clientX;
+                        startY = e.clientY;
+                        audio.style.cursor = 'grabbing';
+                    }
+                });
+                
+                document.addEventListener('mousemove', function(e) {
+                    if (isDragging) {
+                        var deltaX = e.clientX - startX;
+                        var deltaY = e.clientY - startY;
+                        
+                        offsetX += deltaX;
+                        offsetY += deltaY;
+                        
+                        audio.style.transform = 'scale(' + scale + ') translate(' + offsetX + 'px, ' + offsetY + 'px)';
+                        
+                        startX = e.clientX;
+                        startY = e.clientY;
+                    }
+                });
+                
+                document.addEventListener('mouseup', function(e) {
+                    if (e.button === 0) {
+                        isDragging = false;
+                        audio.style.cursor = 'move';
+                    }
+                });
+                
+                // 阻止右键菜单
+                audio.addEventListener('contextmenu', function(e) {
+                    e.preventDefault();
+                });
+            }
+            
+            // 显示文本预览
+            function showTextPreview(data) {
+                var container = document.getElementById('textPreview');
+                container.innerHTML = '';
+                
+                var infoText = '';
+                if (data.truncated) {
+                    infoText += '<div style="color:#f56c6c;margin-bottom:10px;padding:10px;background:#fff3cd;border:1px solid #ffeaa7;border-radius:4px;">⚠️ 文件内容过长，已截断显示</div>';
+                }
+                if (data.encoding) {
+                    infoText += '<div style="color:#67c23a;margin-bottom:10px;padding:10px;background:#f0f9ff;border:1px solid #e0f2fe;border-radius:4px;">编码: ' + escapeHtml(data.encoding) + '</div>';
+                }
+                
+                // 确保文本内容是字符串类型，避免编码问题
+                var textContent = data.content || '无内容';
+                if (typeof textContent !== 'string') {
+                    try {
+                        textContent = String(textContent);
+                    } catch (e) {
+                        textContent = '内容无法正确显示';
+                    }
+                }
+
+                // 更高效的文本内容处理，确保正确显示中文和特殊字符
+                var contentToShow = textContent;
+                try {
+                    // 使用更高效的正则表达式移除所有ASCII控制字符(0-31, 127)但保留换行符
+                    contentToShow = contentToShow.replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/g, '');
+                    
+                    // 确保内容不为空
+                    if (!contentToShow.trim()) {
+                        contentToShow = '[文件内容为空或仅包含无法显示的字符]';
+                    }
+                } catch (e) {
+                    console.error('文本处理出错:', e);
+                    contentToShow = "[内容无法正确显示]";
+                }
+                
+                var pre = document.createElement('pre');
+                pre.innerHTML = infoText + escapeHtml(contentToShow);
+                container.appendChild(pre);
+                container.style.display = 'block';
+                hideLoading();
+            }
+            
+            // 显示PDF预览
+            function showPdfPreview(data) {
+                var container = document.getElementById('pdfPreview');
+                container.innerHTML = '';
+                
+                var iframe = document.createElement('iframe');
+                iframe.src = data.url;
+                iframe.frameBorder = '0';
+                
+                container.appendChild(iframe);
+                container.style.display = 'block';
+                hideLoading();
+                
+                // 实现鼠标滚轮缩放和鼠标左键拖动
+                addZoomAndDragSupport(iframe);
+            }
+            
+            // 显示Office预览
+            function showOfficePreview(data) {
+                // 首先隐藏所有其他预览容器
+                hideAllPreviews();
+                
+                var container = document.getElementById('officePreview');
+                container.innerHTML = '';
+                
+                // 修复：确保hideLoading函数在所有情况下都被调用
+                hideLoading();
+                
+                // 调试：打印Office预览数据
+                console.log('Office预览数据:', data);
+                console.log('数据类型:', typeof data);
+                console.log('数据结构:', Object.keys(data));
+                
+                // 检查后端返回的数据结构
+                if (data.preview_options && Array.isArray(data.preview_options)) {
+                    // 如果有preview_options字段，生成HTML表格来显示内容
+                    console.log('显示后端返回的preview_options内容');
+                    
+                    // 创建预览容器
+                    var previewContent = document.createElement('div');
+                    previewContent.style.padding = '20px';
+                    previewContent.style.overflow = 'auto';
+                    previewContent.style.maxHeight = '600px';
+                    
+                    // 遍历preview_options数组
+                    data.preview_options.forEach(function(option, index) {
+                        // 创建工作表标题
+                        var sheetTitle = document.createElement('h3');
+                        sheetTitle.textContent = option.name || '工作表 ' + (index + 1);
+                        sheetTitle.style.marginTop = '20px';
+                        sheetTitle.style.marginBottom = '10px';
+                        previewContent.appendChild(sheetTitle);
+                        
+                        // 处理不同类型的preview_options
+                        if (option.type === 'table' && option.content) {
+                            // 如果是表格类型，生成HTML表格
+                            console.log('显示表格类型内容');
+                            
+                            // 创建表格容器
+                            var tableContainer = document.createElement('div');
+                            tableContainer.style.overflow = 'auto';
+                            tableContainer.style.marginBottom = '20px';
+                            
+                            // 创建表格
+                            var table = document.createElement('table');
+                            table.style.borderCollapse = 'collapse';
+                            table.style.width = '100%';
+                            table.style.border = '1px solid #e9ecef';
+                            
+                            // 添加表头
+                            if (option.content.headers && Array.isArray(option.content.headers)) {
+                                var thead = document.createElement('thead');
+                                var headerRow = document.createElement('tr');
+                                headerRow.style.background = '#f8f9fa';
+                                headerRow.style.borderBottom = '2px solid #e9ecef';
+                                
+                                option.content.headers.forEach(function(header) {
+                                    var th = document.createElement('th');
+                                    th.textContent = header || '';
+                                    th.style.padding = '8px';
+                                    th.style.border = '1px solid #e9ecef';
+                                    th.style.textAlign = 'left';
+                                    th.style.fontWeight = 'bold';
+                                    headerRow.appendChild(th);
+                                });
+                                
+                                thead.appendChild(headerRow);
+                                table.appendChild(thead);
+                            }
+                            
+                            // 添加表体
+                            if (option.content.data && Array.isArray(option.content.data)) {
+                                var tbody = document.createElement('tbody');
+                                
+                                option.content.data.forEach(function(row) {
+                                    var tr = document.createElement('tr');
+                                    tr.style.borderBottom = '1px solid #e9ecef';
+                                    
+                                    row.forEach(function(cell) {
+                                        var td = document.createElement('td');
+                                        td.textContent = cell || '';
+                                        td.style.padding = '8px';
+                                        td.style.border = '1px solid #e9ecef';
+                                        td.style.textAlign = 'left';
+                                        tr.appendChild(td);
+                                    });
+                                    
+                                    tbody.appendChild(tr);
+                                });
+                                
+                                table.appendChild(tbody);
+                            }
+                            
+                            tableContainer.appendChild(table);
+                            previewContent.appendChild(tableContainer);
+                        } else if (option.type === 'text' && option.content) {
+                            // 如果是文本类型，直接显示文本内容
+                            console.log('显示文本类型内容');
+                            
+                            // 创建文本容器
+                            var textContainer = document.createElement('div');
+                            textContainer.style.padding = '10px';
+                            textContainer.style.background = '#f8f9fa';
+                            textContainer.style.border = '1px solid #e9ecef';
+                            textContainer.style.borderRadius = '4px';
+                            textContainer.style.marginBottom = '20px';
+                            
+                            // 显示文本内容
+                            textContainer.textContent = option.content;
+                            previewContent.appendChild(textContainer);
+                        } else if (option.type === 'slides' && option.content) {
+                            // 如果是幻灯片类型，显示幻灯片内容
+                            console.log('显示幻灯片类型内容');
+                            
+                            // 创建幻灯片容器
+                            var slidesContainer = document.createElement('div');
+                            slidesContainer.style.marginBottom = '20px';
+                            
+                            // 遍历幻灯片内容
+                            if (Array.isArray(option.content)) {
+                                option.content.forEach(function(slide, slideIndex) {
+                                    // 创建幻灯片标题
+                                    var slideTitle = document.createElement('h4');
+                                    slideTitle.textContent = '幻灯片 ' + (slideIndex + 1);
+                                    slideTitle.style.marginTop = '10px';
+                                    slideTitle.style.marginBottom = '5px';
+                                    slidesContainer.appendChild(slideTitle);
+                                    
+                                    // 创建幻灯片内容容器
+                                    var slideContent = document.createElement('div');
+                                    slideContent.style.padding = '10px';
+                                    slideContent.style.background = '#f8f9fa';
+                                    slideContent.style.border = '1px solid #e9ecef';
+                                    slideContent.style.borderRadius = '4px';
+                                    slideContent.style.marginBottom = '10px';
+                                    
+                                    // 显示幻灯片内容
+                                    slideContent.textContent = JSON.stringify(slide, null, 2);
+                                    slidesContainer.appendChild(slideContent);
+                                });
+                            } else {
+                                // 如果幻灯片内容不是数组，直接显示
+                                slidesContainer.innerHTML = '<pre style="background: #f8f9fa; padding: 10px; border: 1px solid #e9ecef; border-radius: 4px;">' + escapeHtml(JSON.stringify(option.content, null, 2)) + '</pre>';
+                            }
+                            
+                            previewContent.appendChild(slidesContainer);
+                        } else {
+                            // 如果是其他类型，直接显示内容
+                            console.log('显示其他类型内容，类型:', option.type);
+                            
+                            // 创建内容容器
+                            var contentContainer = document.createElement('div');
+                            contentContainer.style.padding = '10px';
+                            contentContainer.style.background = '#f8f9fa';
+                            contentContainer.style.border = '1px solid #e9ecef';
+                            contentContainer.style.borderRadius = '4px';
+                            contentContainer.style.marginBottom = '20px';
+                            
+                            // 显示内容
+                            contentContainer.innerHTML = '<pre>' + escapeHtml(JSON.stringify(option.content, null, 2)) + '</pre>';
+                            previewContent.appendChild(contentContainer);
+                        }
+                    });
+                    
+                    container.appendChild(previewContent);
+                    container.style.display = 'block';
+                } else if (data.text) {
+                    // 如果有text字段，直接显示文本内容
+                    console.log('显示后端返回的text内容');
+                    
+                    // 创建文本容器
+                    var textContainer = document.createElement('div');
+                    textContainer.style.padding = '20px';
+                    textContainer.style.background = '#f8f9fa';
+                    textContainer.style.border = '1px solid #e9ecef';
+                    textContainer.style.borderRadius = '4px';
+                    
+                    // 显示文本内容
+                    textContainer.innerHTML = '<pre>' + escapeHtml(data.text) + '</pre>';
+                    container.appendChild(textContainer);
+                    container.style.display = 'block';
+                } else if (data.content) {
+                    // 如果有content字段，直接显示内容
+                    console.log('显示后端返回的content内容');
+                    
+                    // 创建内容容器
+                    var contentContainer = document.createElement('div');
+                    contentContainer.style.padding = '20px';
+                    contentContainer.style.background = '#f8f9fa';
+                    contentContainer.style.border = '1px solid #e9ecef';
+                    contentContainer.style.borderRadius = '4px';
+                    
+                    // 显示内容
+                    contentContainer.innerHTML = '<pre>' + escapeHtml(JSON.stringify(data.content, null, 2)) + '</pre>';
+                    container.appendChild(contentContainer);
+                    container.style.display = 'block';
+                } else {
+                    // 如果没有preview_options字段，显示下载选项
+                    console.log('显示下载选项，数据结构:', Object.keys(data));
+                    showError('Office文件预览失败，您可以选择下载原文件');
+                }
+            }
+            
+            // 添加缩放和拖动支持的通用函数
+            function addZoomAndDragSupport(element) {
+                var scale = 1;
+                var isDragging = false;
+                var startX = 0;
+                var startY = 0;
+                var offsetX = 0;
+                var offsetY = 0;
+                
+                // 鼠标滚轮缩放
+                element.addEventListener('wheel', function(e) {
+                    e.preventDefault();
+                    
+                    // 计算缩放中心
+                    var rect = element.getBoundingClientRect();
+                    var centerX = e.clientX - rect.left;
+                    var centerY = e.clientY - rect.top;
+                    
+                    // 计算缩放比例
+                    var delta = e.deltaY > 0 ? 0.9 : 1.1;
+                    var newScale = Math.max(0.1, Math.min(10, scale * delta));
+                    
+                    // 计算偏移量，使缩放中心保持不变
+                    var scaleDiff = newScale - scale;
+                    offsetX += centerX * scaleDiff / scale;
+                    offsetY += centerY * scaleDiff / scale;
+                    
+                    scale = newScale;
+                    
+                    // 应用变换
+                    element.style.transform = 'scale(' + scale + ') translate(' + offsetX + 'px, ' + offsetY + 'px)';
+                });
+                
+                // 鼠标左键拖动
+                element.addEventListener('mousedown', function(e) {
+                    if (e.button === 0) { // 左键
+                        isDragging = true;
+                        startX = e.clientX;
+                        startY = e.clientY;
+                        element.style.cursor = 'grabbing';
+                    }
+                });
+                
+                document.addEventListener('mousemove', function(e) {
+                    if (isDragging) {
+                        var deltaX = e.clientX - startX;
+                        var deltaY = e.clientY - startY;
+                        
+                        offsetX += deltaX;
+                        offsetY += deltaY;
+                        
+                        element.style.transform = 'scale(' + scale + ') translate(' + offsetX + 'px, ' + offsetY + 'px)';
+                        
+                        startX = e.clientX;
+                        startY = e.clientY;
+                    }
+                });
+                
+                document.addEventListener('mouseup', function(e) {
+                    if (e.button === 0) {
+                        isDragging = false;
+                        element.style.cursor = 'move';
+                    }
+                });
+                
+                // 阻止右键菜单
+                element.addEventListener('contextmenu', function(e) {
+                    e.preventDefault();
+                });
+            }
+            
+            // 下载文件
+            function downloadFile() {
+                if (fileId) {
+                    var a = document.createElement('a');
+                    a.href = '/disk/download/' + fileId + '/';
+                    a.download = ''; // 空字符串表示使用默认文件名
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                }
+            }
+            
+            // 关闭预览
+            function closePreview() {
+                // 如果是在layer弹窗中打开的，关闭弹窗
+                if (window.parent && window.parent.layer) {
+                    var index = parent.layer.getFrameIndex(window.name);
+                    if (index > 0) {
+                        parent.layer.close(index);
+                        return;
+                    }
+                }
+                
+                // 否则返回上一页
+                window.history.back();
+            }
+            
+            // HTML转义函数
+            function escapeHtml(text) {
+                var map = {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                };
+                return text.replace(/[&<>'"]/g, function(m) { return map[m]; });
+            }
+            
+            // 页面加载完成后初始化预览
+            window.onload = function() {
+                initPreview();
+            };
+        })();
+    </script>
+</body>
+
+</html>

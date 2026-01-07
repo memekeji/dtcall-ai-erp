@@ -1,0 +1,85 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{% if notice %}编辑公告{% else %}新增公告{% endif %}{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>{% if notice %}编辑公告{% else %}新增公告{% endif %}</h3>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form" method="post">
+            {% csrf_token %}
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md8">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">公告标题 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.title }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">公告类型</label>
+                        <div class="layui-input-block">
+                            {{ form.notice_type }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">公告内容 <span style="color: red;">*</span></label>
+                <div class="layui-input-block">
+                    {{ form.content }}
+                </div>
+            </div>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">过期时间</label>
+                        <div class="layui-input-block">
+                            {{ form.expire_time }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">设置</label>
+                        <div class="layui-input-block">
+                            <input type="checkbox" name="is_top" {% if notice.is_top %}checked{% endif %} title="置顶">
+                            <input type="checkbox" name="is_published" {% if notice.is_published %}checked{% endif %} title="发布">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">目标部门</label>
+                <div class="layui-input-block">
+                    {{ form.target_departments }}
+                    <div class="layui-form-mid layui-word-aux">不选择则发送给所有部门</div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">目标用户</label>
+                <div class="layui-input-block">
+                    {{ form.target_users }}
+                    <div class="layui-form-mid layui-word-aux">不选择则发送给所有用户</div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" type="submit">保存</button>
+                    <a href="{% url 'system:admin_office:notice_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>客户等级管理</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <style>
+        /* 自适应样式优化 */
+        @media screen and (max-width: 768px) {
+            .layui-col-xs12 {
+                margin-bottom: 10px;
+            }
+            .search-form {
+                text-align: left !important;
+            }
+            .search-input {
+                width: 100% !important;
+                margin-bottom: 10px;
+            }
+            .search-btn {
+                width: 100%;
+            }
+        }
+        
+        @media screen and (min-width: 769px) {
+            .search-form {
+                text-align: right;
+            }
+            .search-input {
+                width: 200px;
+            }
+        }
+        
+        /* 工具栏按钮样式 */
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        @media screen and (max-width: 768px) {
+            .toolbar-right {
+                justify-content: flex-start;
+                margin-top: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <h3>客户等级管理</h3>
+                    </div>
+                    <div class="layui-card-body">
+                        <!-- 工具栏和搜索表单 -->
+                        <div class="layui-row layui-col-space10" style="margin-bottom: 15px;">
+                            <!-- 左侧工具栏 -->
+                            <div class="layui-col-xs12 layui-col-sm6 layui-col-md4">
+                                <div class="toolbar-left">
+                                    <a href="{% url 'customer:customer_grade_form' %}" class="layui-btn layui-btn-sm">
+                                        <i class="layui-icon layui-icon-add-1"></i> 添加等级
+                                    </a>
+                                </div>
+                            </div>
+                            <!-- 右侧搜索表单 -->
+                            <div class="layui-col-xs12 layui-col-sm6 layui-col-md8">
+                                <div class="toolbar-right">
+                                    <form class="layui-form search-form" id="searchForm">
+                                        {% csrf_token %}
+                                        <div class="layui-inline">
+                                            <input type="text" name="search" placeholder="等级名称" class="layui-input search-input">
+                                        </div>
+                                        <div class="layui-inline">
+                                            <button type="submit" class="layui-btn search-btn">
+                                                <i class="layui-icon layui-icon-search"></i> 搜索
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 数据表格 -->
+                        <table class="layui-hide" id="gradeTable" lay-filter="gradeTable"></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 行工具栏模板 -->
+    <script type="text/html" id="barDemo">
+        <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
+        <a class="layui-btn layui-btn-xs" lay-event="toggle">切换状态</a>
+        <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="del">删除</a>
+    </script>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['table', 'form', 'layer'], function(){
+            var table = layui.table;
+            var form = layui.form;
+            var layer = layui.layer;
+            
+            // 初始化表格
+            table.render({
+                elem: '#gradeTable',
+                url: '{% url "customer:customer_grade_list_data" %}',
+                cols: [[
+                    {field: 'id', title: 'ID', width: 80},
+                    {field: 'title', title: '等级名称', width: 200},
+                    {field: 'sort', title: '排序', width: 100},
+                    {field: 'status', title: '状态', width: 100, templet: function(d) {
+                        return d.status ? '<span style="color: #5FB878;">启用</span>' : '<span style="color: #FF5722;">禁用</span>';
+                    }},
+                    {field: 'create_time', title: '创建时间', width: 160},
+                    {title: '操作', width: 180, fixed: 'right', align: 'center', toolbar: '#barDemo'}
+                ]],
+                page: true,
+                limits: [10, 20, 50],
+                limit: 20,
+                loading: true,
+                text: {
+                    none: '暂无相关数据'
+                },
+                parseData: function(res) {
+                    return {
+                        "code": res.code,
+                        "msg": res.msg,
+                        "count": res.count,
+                        "data": res.data
+                    };
+                }
+            });
+            
+            // 搜索表单提交
+            form.on('submit()', function(data) {
+                table.reload('gradeTable', {
+                    where: data.field,
+                    page: {curr: 1}
+                });
+                return false;
+            });
+            
+            // 行工具栏事件
+            table.on('tool(gradeTable)', function(obj) {
+                var data = obj.data;
+                switch(obj.event) {
+                    case 'edit':
+                        window.location.href = '{% url "customer:customer_grade_form_edit" 0 %}'.replace('0', data.id);
+                        break;
+                    case 'toggle':
+                        toggleGradeStatus(data.id);
+                        break;
+                    case 'del':
+                        layer.confirm('确定删除该等级吗？', function(index) {
+                            deleteGrade(data.id);
+                            layer.close(index);
+                        });
+                        break;
+                }
+            });
+            
+            // 切换状态
+            function toggleGradeStatus(id) {
+                $.post('{% url "customer:customer_grade_toggle" 0 %}'.replace('0', id), {
+                    csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+                }, function(res) {
+                    if (res.code === 0) {
+                        layer.msg(res.msg);
+                        table.reload('gradeTable');
+                    } else {
+                        layer.msg(res.msg || '操作失败');
+                    }
+                });
+            }
+            
+            // 删除等级
+            function deleteGrade(id) {
+                $.post('{% url "customer:customer_grade_delete" 0 %}'.replace('0', id), {
+                    csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+                }, function(res) {
+                    if (res.code === 0) {
+                        layer.msg('删除成功');
+                        table.reload('gradeTable');
+                    } else {
+                        layer.msg(res.msg || '删除失败');
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

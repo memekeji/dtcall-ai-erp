@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}DTCALL管理后台{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="icon" href="{% static 'img/favicon.ico' %}" type="image/x-icon">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="layui-container" style="padding: 20px;">
+        {% block content %}
+        {% endblock %}
+    </div>
+    
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/jquery.min.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

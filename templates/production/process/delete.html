@@ -1,0 +1,55 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>删除工艺路线</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <!-- 页面标题 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <h2 style="margin-bottom: 20px;">删除工艺路线</h2>
+            </div>
+        </div>
+
+        <!-- 确认信息 -->
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <div class="layui-card">
+                    <div class="layui-card-body">
+                        <div style="text-align: center; padding: 20px;">
+                            <i class="layui-icon layui-icon-close-fill" style="font-size: 60px; color: #FF5722;"></i>
+                            <h3 style="margin: 20px 0;">确认删除</h3>
+                            <p style="color: #666; margin-bottom: 30px;">
+                                您确定要删除工艺路线 <strong>"{{ process_route.name }}"</strong> 吗？<br>
+                                工艺路线编码：{{ process_route.code }}<br>
+                                此操作不可撤销！
+                            </p>
+                            
+                            <form method="post" style="display: inline-block;">
+                                {% csrf_token %}
+                                <button type="submit" class="layui-btn layui-btn-danger">
+                                    <i class="layui-icon layui-icon-delete"></i> 确认删除
+                                </button>
+                                <button type="button" class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:process_route_list' %}'">
+                                    <i class="layui-icon layui-icon-return"></i> 取消
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+</body>
+
+</html>

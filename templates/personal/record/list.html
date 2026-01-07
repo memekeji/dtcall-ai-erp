@@ -1,0 +1,132 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}工作记录{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <h3>工作记录</h3>
+            </div>
+            <div class="layui-col-md6" style="text-align: right;">
+                <a href="{% url 'personal:work_record_add' %}" class="layui-btn layui-btn-sm">
+                    <i class="layui-icon layui-icon-add-1"></i> 新增记录
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <!-- 搜索表单 -->
+        <form class="layui-form" method="get">
+            <div class="layui-row layui-col-space10">
+                <div class="layui-col-md3">
+                    <input type="text" name="search" value="{{ search }}" placeholder="搜索标题或内容" class="layui-input">
+                </div>
+                <div class="layui-col-md2">
+                    <select name="work_type" class="layui-input">
+                        <option value="">全部类型</option>
+                        {% for value, label in work_types %}
+                        <option value="{{ value }}" {% if work_type == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="layui-col-md2">
+                    <input type="date" name="date_from" value="{{ date_from }}" placeholder="开始日期" class="layui-input">
+                </div>
+                <div class="layui-col-md2">
+                    <input type="date" name="date_to" value="{{ date_to }}" placeholder="结束日期" class="layui-input">
+                </div>
+                <div class="layui-col-md3">
+                    <button class="layui-btn" type="submit">搜索</button>
+                    <a href="{% url 'personal:work_record_list' %}" class="layui-btn layui-btn-primary">重置</a>
+                </div>
+            </div>
+        </form>
+        
+        <!-- 数据表格 -->
+        <table class="layui-table" lay-skin="line">
+            <thead>
+                <tr>
+                    <th>工作标题</th>
+                    <th>工作类型</th>
+                    <th>工作日期</th>
+                    <th>工作时长</th>
+                    <th>完成进度</th>
+                    <th>难度系数</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in page_obj %}
+                <tr>
+                    <td>{{ record.title }}</td>
+                    <td>{{ record.work_type_display }}</td>
+                    <td>{{ record.work_date }}</td>
+                    <td>{{ record.duration }}小时</td>
+                    <td>
+                        <div class="layui-progress" lay-showpercent="true">
+                            <div class="layui-progress-bar" lay-percent="{{ record.progress }}%"></div>
+                        </div>
+                    </td>
+                    <td>
+                        {% for i in "12345" %}
+                            {% if forloop.counter <= record.difficulty %}
+                                <i class="layui-icon layui-icon-star-fill" style="color: #FFB800;"></i>
+                            {% else %}
+                                <i class="layui-icon layui-icon-star" style="color: #c2c2c2;"></i>
+                            {% endif %}
+                        {% endfor %}
+                    </td>
+                    <td>
+                        <a href="{% url 'personal:work_record_edit' record.pk %}" class="layui-btn layui-btn-xs">编辑</a>
+                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteRecord({{ record.pk }})">删除</button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; color: #999;">暂无数据</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <!-- 分页 -->
+        {% if page_obj.has_other_pages %}
+        <div class="layui-box layui-laypage layui-laypage-default">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}&work_type={{ work_type }}&date_from={{ date_from }}&date_to={{ date_to }}" class="layui-laypage-prev">上一页</a>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <span class="layui-laypage-curr"><em>{{ num }}</em></span>
+                {% else %}
+                    <a href="?page={{ num }}&search={{ search }}&work_type={{ work_type }}&date_from={{ date_from }}&date_to={{ date_to }}">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&search={{ search }}&work_type={{ work_type }}&date_from={{ date_from }}&date_to={{ date_to }}" class="layui-laypage-next">下一页</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+layui.use(['element'], function(){
+    var element = layui.element;
+});
+
+function deleteRecord(id) {
+    layer.confirm('确定要删除这条工作记录吗？', {
+        btn: ['确定', '取消']
+    }, function(){
+        // 这里应该发送删除请求
+        layer.msg('删除功能待实现');
+    });
+}
+</script>
+{% endblock %}

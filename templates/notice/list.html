@@ -1,0 +1,126 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}公告管理{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <h3>公告管理</h3>
+            </div>
+            <div class="layui-col-md6" style="text-align: right;">
+                <a href="{% url 'system:admin_office:notice_create' %}" class="layui-btn layui-btn-sm">
+                    <i class="layui-icon layui-icon-add-1"></i> 新增公告
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <!-- 搜索表单 -->
+        <form class="layui-form" method="get">
+            <div class="layui-row layui-col-space10">
+                <div class="layui-col-md3">
+                    <input type="text" name="search" value="{{ search }}" placeholder="搜索公告标题" class="layui-input">
+                </div>
+                <div class="layui-col-md2">
+                    <select name="type" class="layui-input">
+                        <option value="">全部类型</option>
+                        {% for value, label in type_choices %}
+                        <option value="{{ value }}" {% if notice_type == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="layui-col-md3">
+                    <button class="layui-btn" type="submit">搜索</button>
+                    <a href="{% url 'system:admin_office:notice_list' %}" class="layui-btn layui-btn-primary">重置</a>
+                </div>
+            </div>
+        </form>
+        
+        <!-- 数据表格 -->
+        <table class="layui-table" lay-skin="line">
+            <thead>
+                <tr>
+                    <th>公告标题</th>
+                    <th>公告类型</th>
+                    <th>发布人</th>
+                    <th>发布时间</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for notice in page_obj %}
+                <tr>
+                    <td>
+                        {% if notice.is_top %}
+                            <i class="layui-icon layui-icon-top" style="color: red;"></i>
+                        {% endif %}
+                        {{ notice.title }}
+                    </td>
+                    <td>
+                        {% if notice.notice_type == 'urgent' %}
+                            <span class="layui-badge layui-bg-red">{{ notice.get_notice_type_display }}</span>
+                        {% elif notice.notice_type == 'system' %}
+                            <span class="layui-badge layui-bg-blue">{{ notice.get_notice_type_display }}</span>
+                        {% else %}
+                            <span class="layui-badge layui-bg-green">{{ notice.get_notice_type_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ notice.author.name }}</td>
+                    <td>{{ notice.publish_time|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        {% if notice.is_published %}
+                            <span class="layui-badge layui-bg-green">已发布</span>
+                        {% else %}
+                            <span class="layui-badge">草稿</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'system:admin_office:notice_update' notice.pk %}" class="layui-btn layui-btn-xs">编辑</a>
+                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteNotice({{ notice.pk }})">删除</button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center; color: #999;">暂无数据</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <!-- 分页 -->
+        {% if page_obj.has_other_pages %}
+        <div class="layui-box layui-laypage layui-laypage-default">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}&type={{ notice_type }}" class="layui-laypage-prev">上一页</a>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <span class="layui-laypage-curr"><em>{{ num }}</em></span>
+                {% else %}
+                    <a href="?page={{ num }}&search={{ search }}&type={{ notice_type }}">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&search={{ search }}&type={{ notice_type }}" class="layui-laypage-next">下一页</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function deleteNotice(id) {
+    layer.confirm('确定要删除这条公告吗？', {
+        btn: ['确定', '取消']
+    }, function(){
+        layer.msg('删除功能待实现');
+    });
+}
+</script>
+{% endblock %}

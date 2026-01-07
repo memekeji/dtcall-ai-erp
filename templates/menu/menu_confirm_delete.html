@@ -1,0 +1,87 @@
+{% extends 'include/common.html' %}
+
+{% block title %}删除确认 - DTCALL管理后台{% endblock %}
+
+{% block content %}
+<div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-col-md12">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <h3>删除确认</h3>
+                </div>
+                <div class="layui-card-body">
+                    
+                    <!-- 警告信息 -->
+                    <div class="layui-alert layui-bg-red" style="margin-bottom: 20px;">
+                        <i class="layui-icon layui-icon-face-cry" style="font-size: 20px; color: #fff;"></i>
+                        <strong style="color: #fff; margin-left: 5px;">警告：</strong>
+                        <span style="color: #fff;">您确定要删除菜单 <strong>{{ object.title }}</strong> 吗？</span>
+                        <div style="margin-top: 10px; color: #fff;">
+                            <i class="layui-icon layui-icon-warning" style="font-size: 16px;"></i>
+                            <span><strong>删除后将无法恢复，请谨慎操作！</strong></span>
+                        </div>
+                        {% if object.submenus.exists %}
+                            <div style="margin-top: 10px; color: #fff;">
+                                <i class="layui-icon layui-icon-help" style="font-size: 16px;"></i>
+                                <span>此菜单包含 <strong>{{ object.submenus.count }}</strong> 个子菜单，删除后这些子菜单也将被删除！</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- 菜单信息预览 -->
+                    <div class="layui-form-item layui-form-text" style="margin-bottom: 25px;">
+                        <label class="layui-form-label">菜单信息</label>
+                        <div class="layui-input-block">
+                            <table class="layui-table" lay-even>
+                                <tbody>
+                                    <tr>
+                                        <td>菜单名称</td>
+                                        <td>{{ object.title }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>图标</td>
+                                        <td>{% if object.icon %}<i class="layui-icon">{{ object.icon }}</i>{% else %}-{% endif %}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>链接</td>
+                                        <td>{{ object.src }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>排序</td>
+                                        <td>{{ object.sort }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 操作按钮 -->
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="layui-form-item" style="text-align: center; margin-top: 30px;">
+                            <button type="submit" class="layui-btn layui-btn-danger">
+                                <i class="layui-icon layui-icon-delete"></i> 确定删除
+                            </button>
+                            <a href="{% url 'system:menu:menu_list' %}" class="layui-btn layui-btn-primary" style="margin-left: 20px;">
+                                <i class="layui-icon layui-icon-left"></i> 返回菜单列表
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    layui.use(['form', 'layer'], function() {
+        var form = layui.form;
+        var layer = layui.layer;
+        
+        // 表单验证和其他逻辑可以在这里添加
+    });
+</script>
+{% endblock %}
+{% endblock %}

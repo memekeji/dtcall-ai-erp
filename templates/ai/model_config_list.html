@@ -1,0 +1,210 @@
+{% extends 'home/iframe_base.html' %}
+
+{% block title %}AI模型配置管理{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md8">AI模型配置管理</div>
+            <div class="layui-col-md4 layui-right">
+                <button id="add-config-btn" class="layui-btn layui-btn-sm layui-btn-normal">
+                    <i class="layui-icon layui-icon-add-circle"></i> 添加配置
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <table class="layui-table" lay-filter="modelConfigTable">
+            <thead>
+                <tr>
+                    <th width="80">ID</th>
+                    <th width="200">模型名称</th>
+                    <th width="120">模型类型</th>
+                    <th width="300">API地址</th>
+                    <th width="100">是否激活</th>
+                    <th width="180">创建时间</th>
+                    <th width="150" align="center">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if model_configs.object_list %}
+                {% for config in model_configs.object_list %}
+                <tr>
+                    <td>{{ config.id }}</td>
+                    <td>{{ config.name }}</td>
+                    <td>{{ config.get_model_type_display }}</td>
+                    <td>{{ config.api_base }}</td>
+                    <td>
+                        {% if config.is_active %}
+                        <span class="layui-badge layui-bg-green">是</span>
+                        {% else %}
+                        <span class="layui-badge">否</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ config.created_at|date:"Y-m-d H:i:s" }}</td>
+                    <td>
+                        <a href="{% url 'ai:ai_model_config_detail' pk=config.id %}" class="layui-btn layui-btn-xs">查看</a>
+                        <a href="{% url 'ai:model_config_update' pk=config.id %}" class="layui-btn layui-btn-xs layui-btn-normal">编辑</a>
+                        <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="validateModelConfig({{ config.id }})">验证</button>
+                        <a href="{% url 'ai:ai_model_config_delete' pk=config.id %}" class="layui-btn layui-btn-xs layui-btn-danger">删除</a>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% elif model_configs %}
+                {% for config in model_configs %}
+                <tr>
+                    <td>{{ config.id }}</td>
+                    <td>{{ config.name }}</td>
+                    <td>{{ config.get_model_type_display }}</td>
+                    <td>{{ config.api_base }}</td>
+                    <td>
+                        {% if config.is_active %}
+                        <span class="layui-badge layui-bg-green">是</span>
+                        {% else %}
+                        <span class="layui-badge">否</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ config.created_at|date:"Y-m-d H:i:s" }}</td>
+                    <td>
+                        <a href="{% url 'ai:ai_model_config_detail' pk=config.id %}" class="layui-btn layui-btn-xs">查看</a>
+                        <a href="{% url 'ai:model_config_update' pk=config.id %}" class="layui-btn layui-btn-xs layui-btn-normal">编辑</a>
+                        <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="validateModelConfig({{ config.id }})">验证</button>
+                        <a href="{% url 'ai:ai_model_config_delete' pk=config.id %}" class="layui-btn layui-btn-xs layui-btn-danger">删除</a>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 20px;">暂无模型配置</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+        
+        <!-- 分页控件 -->
+        {% if model_configs.paginator.num_pages > 1 %}
+        <div class="layui-box layui-laypage layui-laypage-default">
+            <div class="layui-laypage-main">
+                <!-- 上一页 -->
+                {% if model_configs.has_previous %}
+                <a href="?page={{ model_configs.previous_page_number }}" class="layui-laypage-prev">上一页</a>
+                {% else %}
+                <span class="layui-laypage-prev layui-disabled">上一页</span>
+                {% endif %}
+                
+                <!-- 页码 -->
+                {% for page_num in model_configs.paginator.page_range %}
+                {% if page_num == model_configs.number %}
+                <span class="layui-laypage-curr"><em class="layui-laypage-em"></em><em>{{ page_num }}</em></span>
+                {% else %}
+                <a href="?page={{ page_num }}">{{ page_num }}</a>
+                {% endif %}
+                {% endfor %}
+                
+                <!-- 下一页 -->
+                {% if model_configs.has_next %}
+                <a href="?page={{ model_configs.next_page_number }}" class="layui-laypage-next">下一页</a>
+                {% else %}
+                <span class="layui-laypage-next layui-disabled">下一页</span>
+                {% endif %}
+                
+                <!-- 总页数 -->
+                <span class="layui-laypage-count">共 {{ model_configs.paginator.num_pages }} 页</span>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="text/javascript">
+// 初始化添加配置按钮
+function initAddConfigBtn() {
+    // 获取按钮元素
+    var addBtn = document.getElementById('add-config-btn');
+    
+    if (addBtn) {
+        // 添加点击事件
+        addBtn.onclick = function() {
+            // 检查layui是否可用
+            if (typeof layui !== 'undefined') {
+                // 使用layui的layer模块
+                layui.use(['layer'], function() {
+                    var layer = layui.layer;
+                    
+                    // 打开右侧弹窗
+                    layer.open({
+                        type: 2,  // iframe层
+                        title: '添加AI模型配置',
+                        area: ['75%', '100%'],  // 宽度75%，高度100%
+                        offset: 'r',  // 右侧弹出
+                        content: '{% url 'ai:ai_model_config_create' %}',  // 弹窗内容为添加配置页面
+                        maxmin: true,
+                        shadeClose: true,
+                        end: function() {
+                            // 弹窗关闭后刷新页面
+                            location.reload();
+                        }
+                    });
+                });
+            } else {
+                // 备选方案：使用window.open
+                window.open('{% url 'ai:ai_model_config_create' %}', '_blank', 'width=800,height=600');
+            }
+        };
+    }
+}
+
+// 验证模型配置函数
+function validateModelConfig(configId) {
+    layui.use(['layer', 'jquery'], function() {
+        var layer = layui.layer;
+        var $ = layui.jquery;
+        
+        // 显示加载层
+        var loadIndex = layer.load(1, {
+            shade: [0.1, '#fff']
+        });
+        
+        // 发送验证请求
+        $.ajax({
+            url: '/ai/model-config/validate/' + configId + '/',
+            type: 'POST',
+            dataType: 'json',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                layer.close(loadIndex);
+                
+                if (response.status === 'success') {
+                    layer.msg('✅ 验证成功：' + response.result, {
+                        icon: 1,
+                        time: 3000
+                    });
+                } else {
+                    layer.msg('❌ 验证失败：' + response.message, {
+                        icon: 2,
+                        time: 5000
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                layer.close(loadIndex);
+                layer.msg('❌ 验证请求失败：' + error, {
+                    icon: 2,
+                    time: 5000
+                });
+            }
+        });
+    });
+}
+
+// 页面加载完成后初始化
+window.onload = function() {
+    initAddConfigBtn();
+};
+</script>
+{% endblock %}

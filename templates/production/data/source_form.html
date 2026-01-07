@@ -1,0 +1,354 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{% if data_source %}编辑数据源{% else %}新增数据源{% endif %}{% endblock %}
+
+{% block content %}
+<div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-col-md12">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <h3>{% if data_source %}编辑数据源{% else %}新增数据源{% endif %}</h3>
+                </div>
+                <div class="layui-card-body">
+                    <form class="layui-form" method="post">
+                        {% csrf_token %}
+                        
+                        <div class="layui-tab">
+                            <ul class="layui-tab-title">
+                                <li class="layui-this">基本信息</li>
+                                <li>连接配置</li>
+                                <li>认证设置</li>
+                                <li>请求配置</li>
+                                <li>采集设置</li>
+                            </ul>
+                            <div class="layui-tab-content">
+                                <!-- 基本信息 -->
+                                <div class="layui-tab-item layui-show">
+                                    <div class="layui-row layui-col-space15">
+                                        <div class="layui-col-md6">
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">数据源名称 <span style="color: red;">*</span></label>
+                                                <div class="layui-input-block">
+                                                    <input type="text" name="name" value="{{ data_source.name|default:'' }}" 
+                                                           placeholder="请输入数据源名称" class="layui-input" required>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="layui-col-md6">
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">数据源编码 <span style="color: red;">*</span></label>
+                                                <div class="layui-input-block">
+                                                    <input type="text" name="code" value="{{ data_source.code|default:'' }}" 
+                                                           placeholder="请输入数据源编码" class="layui-input" required>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">数据源类型 <span style="color: red;">*</span></label>
+                                        <div class="layui-input-block">
+                                            <select name="source_type" lay-filter="sourceType" required>
+                                                <option value="">请选择数据源类型</option>
+                                                {% for value, label in source_types %}
+                                                <option value="{{ value }}" {% if data_source.source_type == value %}selected{% endif %}>{{ label }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">描述</label>
+                                        <div class="layui-input-block">
+                                            <textarea name="description" placeholder="请输入数据源描述" 
+                                                      class="layui-textarea">{{ data_source.description|default:'' }}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 连接配置 -->
+                                <div class="layui-tab-item">
+                                    <div id="apiConfig" style="display: none;">
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">接口地址 <span style="color: red;">*</span></label>
+                                            <div class="layui-input-block">
+                                                <input type="url" name="endpoint_url" value="{{ data_source.endpoint_url|default:'' }}" 
+                                                       placeholder="https://api.example.com/data" class="layui-input">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div id="hostConfig" style="display: none;">
+                                        <div class="layui-row layui-col-space15">
+                                            <div class="layui-col-md8">
+                                                <div class="layui-form-item">
+                                                    <label class="layui-form-label">主机地址 <span style="color: red;">*</span></label>
+                                                    <div class="layui-input-block">
+                                                        <input type="text" name="host" value="{{ data_source.host|default:'' }}" 
+                                                               placeholder="192.168.1.100" class="layui-input">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="layui-col-md4">
+                                                <div class="layui-form-item">
+                                                    <label class="layui-form-label">端口</label>
+                                                    <div class="layui-input-block">
+                                                        <input type="number" name="port" value="{{ data_source.port|default:'' }}" 
+                                                               placeholder="8080" class="layui-input">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="layui-row layui-col-space15">
+                                        <div class="layui-col-md6">
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">超时时间(秒)</label>
+                                                <div class="layui-input-block">
+                                                    <input type="number" name="timeout" value="{{ data_source.timeout|default:30 }}" 
+                                                           min="1" max="300" class="layui-input">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="layui-col-md6">
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">重试次数</label>
+                                                <div class="layui-input-block">
+                                                    <input type="number" name="retry_count" value="{{ data_source.retry_count|default:3 }}" 
+                                                           min="0" max="10" class="layui-input">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 认证设置 -->
+                                <div class="layui-tab-item">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">认证类型</label>
+                                        <div class="layui-input-block">
+                                            <select name="auth_type" lay-filter="authType">
+                                                {% for value, label in auth_types %}
+                                                <option value="{{ value }}" {% if data_source.auth_type == value %}selected{% endif %}>{{ label }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <div id="basicAuth" style="display: none;">
+                                        <div class="layui-row layui-col-space15">
+                                            <div class="layui-col-md6">
+                                                <div class="layui-form-item">
+                                                    <label class="layui-form-label">用户名</label>
+                                                    <div class="layui-input-block">
+                                                        <input type="text" name="username" value="{{ data_source.username|default:'' }}" 
+                                                               placeholder="请输入用户名" class="layui-input">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="layui-col-md6">
+                                                <div class="layui-form-item">
+                                                    <label class="layui-form-label">密码</label>
+                                                    <div class="layui-input-block">
+                                                        <input type="password" name="password" value="{{ data_source.password|default:'' }}" 
+                                                               placeholder="请输入密码" class="layui-input">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div id="apiKeyAuth" style="display: none;">
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">API密钥</label>
+                                            <div class="layui-input-block">
+                                                <input type="text" name="api_key" value="{{ data_source.api_key|default:'' }}" 
+                                                       placeholder="请输入API密钥" class="layui-input">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div id="bearerAuth" style="display: none;">
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">访问令牌</label>
+                                            <div class="layui-input-block">
+                                                <textarea name="token" placeholder="请输入访问令牌" 
+                                                          class="layui-textarea">{{ data_source.token|default:'' }}</textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 请求配置 -->
+                                <div class="layui-tab-item">
+                                    <div id="requestConfig" style="display: none;">
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">请求方法</label>
+                                            <div class="layui-input-block">
+                                                <select name="request_method">
+                                                    <option value="GET" {% if data_source.request_method == 'GET' %}selected{% endif %}>GET</option>
+                                                    <option value="POST" {% if data_source.request_method == 'POST' %}selected{% endif %}>POST</option>
+                                                    <option value="PUT" {% if data_source.request_method == 'PUT' %}selected{% endif %}>PUT</option>
+                                                    <option value="DELETE" {% if data_source.request_method == 'DELETE' %}selected{% endif %}>DELETE</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">请求头</label>
+                                            <div class="layui-input-block">
+                                                <textarea name="request_headers" placeholder='{"Content-Type": "application/json"}' 
+                                                          class="layui-textarea">{{ data_source.request_headers|default:'{}'|safe }}</textarea>
+                                                <div class="layui-form-mid layui-word-aux">JSON格式，例如：{"Content-Type": "application/json"}</div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">请求参数</label>
+                                            <div class="layui-input-block">
+                                                <textarea name="request_params" placeholder='{"param1": "value1", "param2": "value2"}' 
+                                                          class="layui-textarea">{{ data_source.request_params|default:'{}'|safe }}</textarea>
+                                                <div class="layui-form-mid layui-word-aux">JSON格式，例如：{"param1": "value1"}</div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">请求体</label>
+                                            <div class="layui-input-block">
+                                                <textarea name="request_body" placeholder="POST/PUT请求的请求体内容" 
+                                                          class="layui-textarea">{{ data_source.request_body|default:'' }}</textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div id="protocolConfig" style="display: none;">
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">协议配置</label>
+                                            <div class="layui-input-block">
+                                                <textarea name="request_params" placeholder='{"registers": [{"address": 0, "count": 10, "function": "holding"}]}' 
+                                                          class="layui-textarea">{{ data_source.request_params|default:'{}'|safe }}</textarea>
+                                                <div class="layui-form-mid layui-word-aux">
+                                                    协议相关配置，JSON格式<br>
+                                                    Modbus示例：{"registers": [{"address": 0, "count": 10, "function": "holding"}]}<br>
+                                                    MQTT示例：{"topics": ["sensor/temperature", "sensor/humidity"]}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 采集设置 -->
+                                <div class="layui-tab-item">
+                                    <div class="layui-row layui-col-space15">
+                                        <div class="layui-col-md6">
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">采集间隔(秒)</label>
+                                                <div class="layui-input-block">
+                                                    <input type="number" name="collection_interval" value="{{ data_source.collection_interval|default:60 }}" 
+                                                           min="1" max="86400" class="layui-input">
+                                                    <div class="layui-form-mid layui-word-aux">定时采集的间隔时间</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="layui-col-md6">
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">启用状态</label>
+                                                <div class="layui-input-block">
+                                                    <input type="checkbox" name="is_active" lay-skin="switch" lay-text="启用|停用" 
+                                                           {% if data_source.is_active or not data_source %}checked{% endif %}>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="layui-form-item">
+                                        <div class="layui-input-block">
+
+                                            <button type="button" class="layui-btn layui-btn-normal" onclick="previewData()">
+                                                <i class="layui-icon layui-icon-search"></i> 预览数据
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="layui-form-item" style="margin-top: 30px;">
+                            <div class="layui-input-block">
+                                <button type="submit" class="layui-btn">
+                                    <i class="layui-icon layui-icon-ok"></i> 保存
+                                </button>
+                                <a href="{% url 'production:data_source_list' %}" class="layui-btn layui-btn-primary">
+                                    <i class="layui-icon layui-icon-return"></i> 返回
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+layui.use(['form', 'element'], function(){
+    var form = layui.form;
+    var element = layui.element;
+    
+    // 监听数据源类型变化
+    form.on('select(sourceType)', function(data){
+        var sourceType = data.value;
+        showConfigByType(sourceType);
+    });
+    
+    // 监听认证类型变化
+    form.on('select(authType)', function(data){
+        var authType = data.value;
+        showAuthConfig(authType);
+    });
+    
+    // 初始化显示
+    var initialSourceType = $('select[name="source_type"]').val();
+    var initialAuthType = $('select[name="auth_type"]').val();
+    showConfigByType(initialSourceType);
+    showAuthConfig(initialAuthType);
+});
+
+function showConfigByType(sourceType) {
+    // 隐藏所有配置
+    $('#apiConfig, #hostConfig, #requestConfig, #protocolConfig').hide();
+    
+    if (sourceType === 'api') {
+        $('#apiConfig, #requestConfig').show();
+    } else if (['iot', 'mqtt', 'modbus'].includes(sourceType)) {
+        $('#hostConfig, #protocolConfig').show();
+    }
+}
+
+function showAuthConfig(authType) {
+    // 隐藏所有认证配置
+    $('#basicAuth, #apiKeyAuth, #bearerAuth').hide();
+    
+    if (authType === 'basic') {
+        $('#basicAuth').show();
+    } else if (authType === 'api_key') {
+        $('#apiKeyAuth').show();
+    } else if (authType === 'bearer') {
+        $('#bearerAuth').show();
+    }
+}
+
+
+
+function previewData() {
+    // 获取表单数据进行数据预览
+    layui.use('layer', function(){
+        var layer = layui.layer;
+        layer.msg('请先保存数据源后再预览数据', {icon: 0});
+    });
+}
+</script>
+{% endblock %}

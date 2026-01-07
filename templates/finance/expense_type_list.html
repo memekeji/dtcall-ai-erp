@@ -1,0 +1,59 @@
+{% extends "customer/_base_list.html" %}
+
+{% block toolbar %}
+<div class="layui-btn-container">
+    <button type="button" class="layui-btn layui-btn-sm" onclick="addItem()">
+        <i class="layui-icon layui-icon-add-1"></i> 添加费用类型
+    </button>
+</div>
+{% endblock %}
+
+{% block table_columns_config %}
+var tableColumns = [
+    {field: 'name', title: '费用类型', width: 150},
+    {field: 'code', title: '费用代码', width: 120},
+    {field: 'parent_name', title: '上级类型', width: 150, templet: function(d){
+        return d.parent_name || '-';
+    }},
+    {field: 'budget_control', title: '预算控制', width: 100, templet: function(d){
+        if(d.budget_control){
+            return '<span class="layui-badge layui-bg-orange">启用</span>';
+        }else{
+            return '<span class="layui-badge layui-bg-gray">禁用</span>';
+        }
+    }},
+    {field: 'description', title: '描述', width: 200, templet: function(d){
+        return d.description ? (d.description.substring(0, 50) + (d.description.length > 50 ? '...' : '')) : '-';
+    }},
+    {field: 'is_active', title: '状态', width: 100, templet: function(d){
+        if(d.is_active){
+            return '<span class="layui-badge layui-bg-green">启用</span>';
+        }else{
+            return '<span class="layui-badge">禁用</span>';
+        }
+    }},
+    {field: 'created_at', title: '创建时间', width: 160},
+    {field: 'right', title: '操作', width: 120, templet: '#operationBar'}
+];
+{% endblock %}
+
+{% block search_form %}
+<div class="layui-inline">
+    <input type="text" name="search" placeholder="搜索费用类型名称或代码" class="layui-input" style="width: 200px;">
+</div>
+{% endblock %}
+
+{% block extra_js %}
+// 覆盖addItem函数
+window.addItem = function() {
+    layer.open({
+        type: 2,
+        title: '新增费用类型',
+        content: '/finance/expense_type/add/',
+        area: ['80%', '80%'],
+        end: function() {
+            refreshTable();
+        }
+    });
+};
+{% endblock %}

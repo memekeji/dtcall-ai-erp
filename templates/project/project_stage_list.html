@@ -1,0 +1,30 @@
+{% extends "project/_base_list.html" %}
+
+{% block table_headers %}
+<th>阶段名称</th>
+<th>阶段代码</th>
+<th>描述</th>
+<th>排序</th>
+<th>状态</th>
+<th>创建时间</th>
+<th>操作</th>
+{% endblock %}
+
+{% block table_row %}
+<td>{{ item.name }}</td>
+<td>{{ item.code }}</td>
+<td>{{ item.description|truncatechars:50|default:"-" }}</td>
+<td>{{ item.sort_order }}</td>
+<td>
+    {% if item.is_active %}
+        <span class="layui-badge layui-bg-green">启用</span>
+    {% else %}
+        <span class="layui-badge">禁用</span>
+    {% endif %}
+</td>
+<td>{{ item.created_at|date:"Y-m-d H:i" }}</td>
+<td>
+    <button class="layui-btn layui-btn-xs" onclick="editItem({{ item.pk }})">编辑</button>
+    <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteItem({{ item.pk }})">删除</button>
+</td>
+{% endblock %}

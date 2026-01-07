@@ -1,0 +1,250 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ equipment.name }} - 设备详情</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .info-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .info-label {
+            font-weight: bold;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .info-value {
+            color: #333;
+        }
+        .status-normal {
+            color: #5FB878;
+        }
+        .status-maintenance {
+            color: #FFB800;
+        }
+        .status-stopped {
+            color: #FF5722;
+        }
+        .status-scrapped {
+            color: #9E9E9E;
+        }
+        .data-item {
+            padding: 8px;
+            margin: 5px 0;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            border-left: 3px solid #1E9FFF;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <!-- 页面标题 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <h2 style="margin-bottom: 20px;">{{ equipment.name }} - 设备详情</h2>
+            </div>
+        </div>
+
+        <!-- 设备基本信息 -->
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md8">
+                <div class="layui-card">
+                    <div class="layui-card-header">基本信息</div>
+                    <div class="layui-card-body">
+                        <div class="layui-row layui-col-space15">
+                            <div class="layui-col-md6">
+                                <div class="info-item">
+                                    <div class="info-label">设备编号</div>
+                                    <div class="info-value">{{ equipment.code }}</div>
+                                </div>
+                            </div>
+                            <div class="layui-col-md6">
+                                <div class="info-item">
+                                    <div class="info-label">设备名称</div>
+                                    <div class="info-value">{{ equipment.name }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="layui-row layui-col-space15">
+                            <div class="layui-col-md6">
+                                <div class="info-item">
+                                    <div class="info-label">设备型号</div>
+                                    <div class="info-value">{{ equipment.model|default:"-" }}</div>
+                                </div>
+                            </div>
+                            <div class="layui-col-md6">
+                                <div class="info-item">
+                                    <div class="info-label">制造商</div>
+                                    <div class="info-value">{{ equipment.manufacturer|default:"-" }}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="layui-row layui-col-space15">
+                            <div class="layui-col-md6">
+                                <div class="info-item">
+                                    <div class="info-label">所属部门</div>
+                                    <div class="info-value">{{ equipment.department.name|default:"-" }}</div>
+                                </div>
+                            </div>
+                            <div class="layui-col-md6">
+                                <div class="info-item">
+                                    <div class="info-label">设备位置</div>
+                                    <div class="info-value">{{ equipment.location|default:"-" }}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="layui-row layui-col-space15">
+                            <div class="layui-col-md6">
+                                <div class="info-item">
+                                    <div class="info-label">负责人</div>
+                                    <div class="info-value">{{ equipment.responsible_person.username|default:"-" }}</div>
+                                </div>
+                            </div>
+                            <div class="layui-col-md6">
+                                <div class="info-item">
+                                    <div class="info-label">设备状态</div>
+                                    <div class="info-value">
+                                        {% if equipment.status == 1 %}
+                                            <span class="status-normal">正常</span>
+                                        {% elif equipment.status == 2 %}
+                                            <span class="status-maintenance">维修中</span>
+                                        {% elif equipment.status == 3 %}
+                                            <span class="status-stopped">停用</span>
+                                        {% elif equipment.status == 4 %}
+                                            <span class="status-scrapped">报废</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if equipment.description %}
+                        <div class="info-item">
+                            <div class="info-label">设备描述</div>
+                            <div class="info-value">{{ equipment.description }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-col-md4">
+                <div class="layui-card">
+                    <div class="layui-card-header">维护信息</div>
+                    <div class="layui-card-body">
+                        <div class="info-item">
+                            <div class="info-label">维护周期</div>
+                            <div class="info-value">{{ equipment.maintenance_cycle }} 天</div>
+                        </div>
+                        
+                        {% if equipment.last_maintenance %}
+                        <div class="info-item">
+                            <div class="info-label">上次维护</div>
+                            <div class="info-value">{{ equipment.last_maintenance }}</div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if equipment.next_maintenance %}
+                        <div class="info-item">
+                            <div class="info-label">下次维护</div>
+                            <div class="info-value">{{ equipment.next_maintenance }}</div>
+                        </div>
+                        {% endif %}
+
+                        {% if equipment.purchase_date %}
+                        <div class="info-item">
+                            <div class="info-label">采购日期</div>
+                            <div class="info-value">{{ equipment.purchase_date }}</div>
+                        </div>
+                        {% endif %}
+
+                        {% if equipment.purchase_cost %}
+                        <div class="info-item">
+                            <div class="info-label">采购成本</div>
+                            <div class="info-value">￥{{ equipment.purchase_cost }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最近数据采集 -->
+        <div class="layui-row" style="margin-top: 20px;">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">最近数据采集记录</div>
+                    <div class="layui-card-body">
+                        {% if recent_data %}
+                            {% for data in recent_data %}
+                            <div class="data-item">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <strong>{{ data.parameter_name }}:</strong> 
+                                        {{ data.parameter_value }} {{ data.unit }}
+                                        {% if not data.is_normal %}
+                                            <span style="color: #FF5722; margin-left: 10px;">[异常]</span>
+                                        {% endif %}
+                                    </div>
+                                    <div style="font-size: 12px; color: #666;">
+                                        {{ data.collect_time|date:"m-d H:i" }}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            
+                            <div style="text-align: center; margin-top: 15px;">
+                                <button class="layui-btn layui-btn-primary layui-btn-sm" onclick="location.href='{% url 'production:data_collection_list' %}?equipment={{ equipment.pk }}'">
+                                    查看全部数据
+                                </button>
+                                <button class="layui-btn layui-btn-primary layui-btn-sm" onclick="location.href='{% url 'production:data_chart' equipment.pk %}'">
+                                    数据图表
+                                </button>
+                            </div>
+                        {% else %}
+                            <div style="text-align: center; padding: 40px; color: #999;">
+                                暂无数据采集记录
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="layui-row" style="margin-top: 20px;">
+            <div class="layui-col-md12">
+                <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:equipment_list' %}'">
+                    <i class="layui-icon layui-icon-return"></i> 返回列表
+                </button>
+                <button class="layui-btn" onclick="location.href='{% url 'production:equipment_edit' equipment.pk %}'">
+                    <i class="layui-icon layui-icon-edit"></i> 编辑设备
+                </button>
+                <button class="layui-btn layui-btn-normal" onclick="location.href='{% url 'production:data_collection_add' %}'">
+                    <i class="layui-icon layui-icon-add-1"></i> 添加数据
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['layer'], function () {
+            var layer = layui.layer;
+        });
+    </script>
+</body>
+
+</html>

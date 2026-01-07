@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>客户详情 - {{ customer.name }}</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <style>
+        .customer-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+        .customer-name {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .customer-info {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .status-normal { color: #5FB878; }
+        .status-disabled { color: #FF5722; }
+        .status-pending { color: #FFB800; }
+        .section-title {
+            border-left: 4px solid #1E9FFF;
+            padding-left: 10px;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        .contact-card {
+            border: 1px solid #e6e6e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+            position: relative;
+        }
+        .contact-card.primary {
+            border-color: #5FB878;
+            background-color: #f8fff8;
+        }
+        .primary-badge {
+            position: absolute;
+            top: -8px;
+            right: 10px;
+            background: #5FB878;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+        .custom-field-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        .custom-field-item {
+            background: #f8f8f8;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .custom-field-label {
+            font-weight: bold;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .custom-field-value {
+            color: #333;
+        }
+        .action-buttons {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 999;
+        }
+        .timeline-item {
+            border-left: 2px solid #e6e6e6;
+            padding-left: 15px;
+            margin-bottom: 15px;
+            position: relative;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -6px;
+            top: 0;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #1E9FFF;
+        }
+        .timeline-time {
+            color: #999;
+            font-size: 12px;
+        }
+        .timeline-content {
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <form method="post" style="display: none;">{% csrf_token %}</form>
+    <div class="layui-fluid">
+        <!-- 客户基本信息头部 -->
+        <div class="customer-header">
+            <div class="customer-name">{{ customer.name }}</div>
+            <div class="customer-info">
+                <div class="info-item">
+                    <i class="layui-icon layui-icon-username"></i>
+                    <span>{{ customer.contacts.first.contact_person|default:"未设置联系人" }}</span>
+                </div>
+                <div class="info-item">
+                    <i class="layui-icon layui-icon-cellphone"></i>
+                    <span>{{ customer.contacts.first.phone|default:"未设置电话" }}</span>
+                    {% if customer.contacts.first.phone %}
+                    <img src="/static/img/icon/拨号-copy.svg" alt="拨号" style="cursor: pointer; width: 20px; height: 20px; margin-left: 5px;" onclick="makeSipCall('{{ customer.contacts.first.phone }}', '{{ customer.id }}', '{{ customer.name }}')">
+                    {% endif %}
+                </div>
+                <div class="info-item">
+                    <i class="layui-icon layui-icon-location"></i>
+                    <span>{{ customer.address|default:"未设置地址" }}</span>
+                </div>
+                <div class="info-item">
+                    <i class="layui-icon layui-icon-time"></i>
+                    <span>{{ customer.create_time|date:"Y-m-d H:i" }}</span>
+                </div>
+                <div class="info-item">
+                    <i class="layui-icon layui-icon-flag"></i>
+                    <span class="{% if customer.customer_status == 0 %}status-normal{% elif customer.customer_status == 1 %}status-disabled{% else %}status-pending{% endif %}">
+                        {{ customer.get_customer_status_display }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="layui-row layui-col-space15">
+            <!-- 左侧信息 -->
+            <div class="layui-col-md8">
+                <!-- 基本信息 -->
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <div class="section-title">基本信息</div>
+                    </div>
+                    <div class="layui-card-body">
+                        <div class="layui-row layui-col-space15">
+                            <div class="layui-col-md6">
+                                <table class="layui-table" lay-size="sm">
+                                    <tbody>
+                                        <tr>
+                                            <td width="100"><strong>客户名称</strong></td>
+                                            <td>{{ customer.name }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>客户来源</strong></td>
+                                            <td>{{ customer.customer_source.title|default:"未设置" }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>所属行业</strong></td>
+                                            <td>{{ customer.industry_id|default:"未设置" }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>客户等级</strong></td>
+                                            <td>{{ customer_grade.title|default:"未设置" }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>客户意向</strong></td>
+                                            <td>{{ customer_intent.name|default:"未设置" }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="layui-col-md6">
+                                <table class="layui-table" lay-size="sm">
+                                    <tbody>
+                                        <tr>
+                                            <td width="100"><strong>省份</strong></td>
+                                            <td>{{ customer.province|default:"未设置" }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>城市</strong></td>
+                                            <td>{{ customer.city|default:"未设置" }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>区县</strong></td>
+                                            <td>{{ customer.district|default:"未设置" }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>详细地址</strong></td>
+                                            <td>{{ customer.address|default:"未设置" }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        {% if customer.content or customer.market or customer.remark %}
+                        <div class="layui-row layui-col-space15" style="margin-top: 15px;">
+                            {% if customer.content %}
+                            <div class="layui-col-md12">
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label"><strong>客户描述</strong></label>
+                                    <div class="layui-input-block">
+                                        <div style="padding: 8px; background: #f8f8f8; border-radius: 4px;">
+                                            {{ customer.content }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            {% if customer.market %}
+                            <div class="layui-col-md12">
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label"><strong>主要经营业务</strong></label>
+                                    <div class="layui-input-block">
+                                        <div style="padding: 8px; background: #f8f8f8; border-radius: 4px;">
+                                            {{ customer.market }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            {% if customer.remark %}
+                            <div class="layui-col-md12">
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label"><strong>备注信息</strong></label>
+                                    <div class="layui-input-block">
+                                        <div style="padding: 8px; background: #f8f8f8; border-radius: 4px;">
+                                            {{ customer.remark }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 自定义字段 -->
+                {% if custom_field_values %}
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <div class="section-title">自定义字段</div>
+                    </div>
+                    <div class="layui-card-body">
+                        <div class="custom-field-grid">
+                            {% for field_name, field_value in custom_field_values.items %}
+                            <div class="custom-field-item">
+                                <div class="custom-field-label">{{ field_name }}</div>
+                                <div class="custom-field-value">{{ field_value|default:"未设置" }}</div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- 联系人信息 -->
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <div class="section-title">联系人信息</div>
+                    </div>
+                    <div class="layui-card-body">
+                        {% for contact in contacts %}
+                        <div class="contact-card {% if contact.is_primary %}primary{% endif %}">
+                            {% if contact.is_primary %}
+                            <div class="primary-badge">主要联系人</div>
+                            {% endif %}
+                            
+                            <div class="layui-row layui-col-space15">
+                                <div class="layui-col-md3">
+                                    <strong>姓名：</strong>{{ contact.contact_person }}
+                                </div>
+                                <div class="layui-col-md3">
+                                    <strong>电话：</strong>{{ contact.phone }}
+                                    <img src="/static/img/icon/拨号-copy.svg" alt="拨号" style="cursor: pointer; width: 18px; height: 18px; margin-left: 5px;" onclick="makeSipCall('{{ contact.phone }}', '{{ customer.id }}', '{{ customer.name }}')">
+                                </div>
+                                <div class="layui-col-md3">
+                                    <strong>职位：</strong>{{ contact.position|default:"未设置" }}
+                                </div>
+                                <div class="layui-col-md3">
+                                    <strong>邮箱：</strong>{{ contact.email|default:"未设置" }}
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p style="text-align: center; color: #999; padding: 20px;">暂无联系人信息</p>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- 税务信息 -->
+                {% if customer.tax_bank or customer.tax_banksn or customer.tax_num or customer.tax_mobile or customer.tax_address %}
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <div class="section-title">税务信息</div>
+                    </div>
+                    <div class="layui-card-body">
+                        <div class="layui-row layui-col-space15">
+                            <div class="layui-col-md6">
+                                <table class="layui-table" lay-size="sm">
+                                    <tbody>
+                                        <tr>
+                                            <td width="120"><strong>开户银行</strong></td>
+                                            <td>{{ customer.tax_bank|default:"未设置" }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>银行账号</strong></td>
+                                            <td>{{ customer.tax_banksn|default:"未设置" }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>纳税人识别号</strong></td>
+                                            <td>{{ customer.tax_num|default:"未设置" }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="layui-col-md6">
+                                <table class="layui-table" lay-size="sm">
+                                    <tbody>
+                                        <tr>
+                                            <td width="120"><strong>税务联系电话</strong></td>
+                                            <td>{{ customer.tax_mobile|default:"未设置" }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>税务地址</strong></td>
+                                            <td>{{ customer.tax_address|default:"未设置" }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td></td>
+                                            <td></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- 右侧信息 -->
+            <div class="layui-col-md4">
+                <!-- 最近跟进记录 -->
+                <div class="layui-card">
+                    <div class="layui-card-header" style="position: relative; overflow: hidden;">
+                        <div class="section-title" style="float: left;">最近跟进记录</div>
+                        <div style="float: right; position: relative; z-index: 10;">
+                            <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="addFollowRecord()" style="pointer-events: auto;">
+                                <i class="layui-icon layui-icon-add-1"></i> 添加跟进
+                            </button>
+                        </div>
+                        <div style="clear: both;"></div>
+                    </div>
+                    <div class="layui-card-body">
+                        {% for record in follow_records %}
+                        <div class="timeline-item">
+                            <div class="timeline-time">{{ record.follow_time|date:"m-d H:i" }}</div>
+                            <div class="timeline-content">
+                                <div><strong>{{ record.get_follow_type_display }}</strong></div>
+                                <div style="margin-top: 5px; color: #666;">{{ record.content|truncatechars:50 }}</div>
+                                <div style="margin-top: 5px; font-size: 12px; color: #999;">
+                                    跟进人：{{ record.follow_user.username }}
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p style="text-align: center; color: #999; padding: 20px;">暂无跟进记录</p>
+                        {% endfor %}
+                        
+                        {% if follow_records %}
+                        <div style="text-align: center; margin-top: 15px;">
+                            <a href="{% url 'contract:contract_sales' %}?customer_id={{ customer.id }}" class="layui-btn layui-btn-xs layui-btn-primary">查看更多</a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 最近订单 -->
+                <div class="layui-card">
+                    <div class="layui-card-header" style="position: relative; overflow: hidden;">
+                        <div class="section-title" style="float: left;">最近订单</div>
+                        <div style="float: right; position: relative; z-index: 10;">
+                            <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="addOrder()" style="pointer-events: auto;">
+                                <i class="layui-icon layui-icon-add-1"></i> 添加订单
+                            </button>
+                        </div>
+                        <div style="clear: both;"></div>
+                    </div>
+                    <div class="layui-card-body">
+                        {% for order in orders %}
+                        <div style="border-bottom: 1px solid #f0f0f0; padding: 10px 0;">
+                            <div><strong>{{ order.order_number }}</strong></div>
+                            <div style="color: #666; margin-top: 5px;">{{ order.product_name }}</div>
+                            <div style="margin-top: 5px;">
+                                <span style="color: #FF5722; font-weight: bold;">￥{{ order.amount }}</span>
+                                <span style="float: right; color: #999; font-size: 12px;">{{ order.order_date|date:"m-d" }}</span>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p style="text-align: center; color: #999; padding: 20px;">暂无订单记录</p>
+                        {% endfor %}
+                        
+                        {% if orders %}
+                        <div style="text-align: center; margin-top: 15px;">
+                            <a href="#" class="layui-btn layui-btn-xs layui-btn-primary">查看更多</a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 最近合同 -->
+                <div class="layui-card">
+                    <div class="layui-card-header" style="position: relative; overflow: hidden;">
+                        <div class="section-title" style="float: left;">最近合同</div>
+                        <div style="float: right; position: relative; z-index: 10;">
+                            <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="addContract()" style="pointer-events: auto;">
+                                <i class="layui-icon layui-icon-add-1"></i> 添加合同
+                            </button>
+                        </div>
+                        <div style="clear: both;"></div>
+                    </div>
+                    <div class="layui-card-body">
+                        {% for contract in contracts %}
+                        <div style="border-bottom: 1px solid #f0f0f0; padding: 10px 0;">
+                            <div><strong>{{ contract.code }}</strong></div>
+                            <div style="color: #666; margin-top: 5px;">{{ contract.name }}</div>
+                            <div style="margin-top: 5px;">
+                                <span style="color: #5FB878; font-weight: bold;">￥{{ contract.cost }}</span>
+                                <span style="float: right; color: #999; font-size: 12px;">{{ contract.sign_time|date:"m-d" }}</span>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p style="text-align: center; color: #999; padding: 20px;">暂无合同记录</p>
+                        {% endfor %}
+                        
+                        {% if contracts %}
+                        <div style="text-align: center; margin-top: 15px;">
+                            <a href="{% url 'contract:contract_sales' %}?customer_id={{ customer.id }}" class="layui-btn layui-btn-xs layui-btn-primary">查看更多</a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 发票记录 -->
+                <div class="layui-card">
+                    <div class="layui-card-header" style="position: relative; overflow: hidden;">
+                        <div class="section-title" style="float: left;">发票记录</div>
+                        <div style="float: right; position: relative; z-index: 10;">
+                            <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="addInvoice()" style="pointer-events: auto;">
+                                <i class="layui-icon layui-icon-add-1"></i> 添加发票
+                            </button>
+                        </div>
+                        <div style="clear: both;"></div>
+                    </div>
+                    <div class="layui-card-body">
+                        {% if invoices %}
+                            <ul class="layui-timeline">
+                                {% for invoice in invoices %}
+                                    <li class="layui-timeline-item">
+                                        <i class="layui-icon layui-timeline-axis"></i>
+                                        <div class="layui-timeline-content layui-text">
+                                            <h3 class="layui-timeline-title">发票号：{{ invoice.code }}</h3>
+                                            <p>发票金额：¥{{ invoice.amount }}</p>
+                                            <p>发票类型：{% if invoice.invoice_type == 1 %}增值税专用发票{% elif invoice.invoice_type == 2 %}普通发票{% else %}专用发票{% endif %}</p>
+                                            <p>开票状态：{% if invoice.open_status == 1 %}已开票{% else %}未开票{% endif %}</p>
+                                            <p>开票时间：{% if invoice.open_time %}{{ invoice.open_time|date:"Y-m-d" }}{% else %}未开票{% endif %}</p>
+                                        </div>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <div class="layui-text-center" style="padding: 20px;">
+                                <i class="layui-icon layui-icon-face-cry" style="font-size: 30px; color: #ccc;"></i>
+                                <p style="margin-top: 10px; color: #999;">暂无发票记录</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 财务往来记录（增强版） -->
+                <div class="layui-card">
+                    <div class="layui-card-header" style="position: relative; overflow: hidden;">
+                        <div class="section-title" style="float: left;">财务往来记录</div>
+                        <div style="float: right; position: relative; z-index: 10;">
+                            <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="addFinancialRecord()" style="pointer-events: auto;">
+                                <i class="layui-icon layui-icon-add-1"></i> 添加记录
+                            </button>
+                        </div>
+                        <div style="clear: both;"></div>
+                    </div>
+                    <div class="layui-card-body">
+                        {% if financial_records %}
+                            <ul class="layui-timeline">
+                                {% for record in financial_records %}
+                                    <li class="layui-timeline-item">
+                                        <i class="layui-icon layui-timeline-axis"></i>
+                                        <div class="layui-timeline-content layui-text">
+                                            {% if record.type == 'income' %}
+                                                <h3 class="layui-timeline-title">
+                                                    <span class="layui-badge layui-bg-green" style="margin-right: 10px;">收款</span>
+                                                    收款记录
+                                                </h3>
+                                                {% if record.code %}
+                                                <p>发票号码：{{ record.code }}</p>
+                                                {% else %}
+                                                <p>发票号码：暂无</p>
+                                                {% endif %}
+                                                <p>收款金额：<span style="color: #5FB878; font-weight: bold;">¥{{ record.amount }}</span></p>
+                                                {% if record.date %}
+                                                <p>收款时间：{{ record.date|date:"Y-m-d" }}</p>
+                                                {% endif %}
+                                                {% if record.record.invoice_type == 1 %}
+                                                <p>发票类型：增值税专用发票</p>
+                                                {% elif record.record.invoice_type == 2 %}
+                                                <p>发票类型：普通发票</p>
+                                                {% endif %}
+                                            {% elif record.type == 'payment' %}
+                                                <h3 class="layui-timeline-title">
+                                                    <span class="layui-badge layui-bg-orange" style="margin-right: 10px;">付款</span>
+                                                    付款记录
+                                                </h3>
+                                                {% if record.code %}
+                                                <p>报销编号：{{ record.code }}</p>
+                                                {% else %}
+                                                <p>报销编号：暂无</p>
+                                                {% endif %}
+                                                <p>付款金额：<span style="color: #FF5722; font-weight: bold;">¥{{ record.amount }}</span></p>
+                                                {% if record.date %}
+                                                <p>付款时间：{{ record.date|date:"Y-m-d" }}</p>
+                                                {% endif %}
+                                                {% if record.record.expense_time %}
+                                                <p>入账月份：{{ record.date|date:"Y-m" }}</p>
+                                                {% endif %}
+                                            {% elif record.type == 'invoice' %}
+                                                <h3 class="layui-timeline-title">
+                                                    <span class="layui-badge layui-bg-blue" style="margin-right: 10px;">发票</span>
+                                                    发票记录
+                                                </h3>
+                                                {% if record.code %}
+                                                <p>发票号码：{{ record.code }}</p>
+                                                {% else %}
+                                                <p>发票号码：暂无</p>
+                                                {% endif %}
+                                                <p>发票金额：<span style="color: #1E9FFF; font-weight: bold;">¥{{ record.amount }}</span></p>
+                                                {% if record.date %}
+                                                <p>开票时间：{{ record.date|date:"Y-m-d" }}</p>
+                                                {% endif %}
+                                                {% if record.invoice_type == 1 %}
+                                                <p>发票类型：增值税专用发票</p>
+                                                {% elif record.invoice_type == 2 %}
+                                                <p>发票类型：普通发票</p>
+                                                {% endif %}
+                                                <p>发票状态：{{ record.get_status_display }}</p>
+                                            {% endif %}
+                                        </div>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <div class="layui-text-center" style="padding: 20px;">
+                                <i class="layui-icon layui-icon-face-cry" style="font-size: 30px; color: #ccc;"></i>
+                                <p style="margin-top: 10px; color: #999;">暂无财务往来记录</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                    </div>
+                </div>
+
+                <!-- 项目列表 -->
+                <div class="layui-card">
+                    <div class="layui-card-header" style="position: relative; overflow: hidden;">
+                        <div class="section-title" style="float: left;">项目列表</div>
+                        <div style="float: right; position: relative; z-index: 10;">
+                            <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="addProject()" style="pointer-events: auto;">
+                                <i class="layui-icon layui-icon-add-1"></i> 添加项目
+                            </button>
+                        </div>
+                        <div style="clear: both;"></div>
+                    </div>
+                    <div class="layui-card-body">
+                        {% if projects %}
+                            {% for project in projects %}
+                            <div style="border-bottom: 1px solid #f0f0f0; padding: 10px 0;">
+                                <div><strong>{{ project.name }}</strong></div>
+                                <div style="color: #666; margin-top: 5px;">编号：{{ project.code }}</div>
+                                <div style="margin-top: 5px;">
+                                    <span style="color: #1E9FFF; font-weight: bold;">{{ project.get_status_display }}</span>
+                                    <span style="float: right; color: #999; font-size: 12px;">{{ project.start_date|date:"m-d" }}</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="layui-text-center" style="padding: 20px;">
+                                <i class="layui-icon layui-icon-face-cry" style="font-size: 30px; color: #ccc;"></i>
+                                <p style="margin-top: 10px; color: #999;">暂无项目记录</p>
+                            </div>
+                        {% endif %}
+                        
+                        {% if projects %}
+                        <div style="text-align: center; margin-top: 15px;">
+                            <a href="{% url 'project:project_list' %}?customer_id={{ customer.id }}" class="layui-btn layui-btn-xs layui-btn-primary">查看更多</a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <script src="/static/js/jquery.min.js"></script>
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        // SIP拨号函数 - 定义在全局作用域，确保HTML加载时函数已经存在
+        window.makeSipCall = function(phone, customerId, customerName) {
+            if (!phone) {
+                alert('电话号码不能为空');
+                return;
+            }
+            
+            // 检查jQuery是否可用
+            if (typeof $ === 'undefined') {
+                alert('jQuery未加载，无法进行拨号');
+                return;
+            }
+            
+            // 创建请求数据
+            var requestData = {
+                csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val(),
+                phone: phone,
+                customer_id: customerId,
+                customer_name: customerName
+            };
+            
+            // 使用jQuery的AJAX
+            $.ajax({
+                url: '{% url "customer:sip_call" %}',
+                type: 'POST',
+                data: requestData,
+                success: function(res) {
+                    // 检查layer是否可用
+                    if (typeof layer !== 'undefined' && typeof layer.msg === 'function') {
+                        if (res.code === 0) {
+                            layer.msg('呼叫成功');
+                        } else {
+                            layer.msg(res.msg);
+                        }
+                    } else {
+                        // 如果layer不可用，使用alert
+                        if (res.code === 0) {
+                            alert('呼叫成功');
+                        } else {
+                            alert(res.msg);
+                        }
+                    }
+                },
+                error: function(xhr, status, error) {
+                    // 检查layer是否可用
+                    if (typeof layer !== 'undefined' && typeof layer.msg === 'function') {
+                        layer.msg('拨号失败，请稍后重试');
+                    } else {
+                        alert('拨号失败，请稍后重试');
+                    }
+                    console.error('拨号失败:', error);
+                }
+            });
+        };
+        
+        // 检查layui是否存在
+        if (typeof layui !== 'undefined') {
+            layui.use(['layer', 'jquery'], function(){
+                var layer = layui.layer;
+                var $ = layui.jquery;
+                
+                // 编辑客户
+                window.editCustomer = function() {
+                    if (window && window.location) {
+                        window.location.href = '{% url "customer:customer_edit" customer.id %}';
+                    }
+                };
+                
+                // 添加跟进记录
+                window.addFollowRecord = function() {
+                    if (!layer || typeof layer.open !== 'function') {
+                        console.warn('Layui layer module not properly loaded');
+                        return;
+                    }
+                    
+                    layer.open({
+                        type: 2,
+                        title: '添加跟进记录',
+                        shadeClose: false,
+                        shade: 0.3,
+                        maxmin: true,
+                        area: ['80%', '90%'],
+                        offset: 'r',
+                        anim: 2,
+                        content: '{% url "customer:follow_record_create" %}?customer_id={{ customer.id }}',
+                        success: function(layero, index) {
+                            if (layero && layero.css) {
+                                layero.css({
+                                    'right': '0',
+                                    'top': '0',
+                                    'height': '100%'
+                                });
+                            }
+                        },
+                        end: function() {
+                            if (typeof location !== 'undefined' && location.reload) {
+                                location.reload();
+                            }
+                        }
+                    });
+                };
+                
+                // 添加订单
+                window.addOrder = function() {
+                    if (!layer || typeof layer.open !== 'function') {
+                        console.warn('Layui layer module not properly loaded');
+                        return;
+                    }
+                    
+                    layer.open({
+                        type: 2,
+                        title: '添加客户订单',
+                        shadeClose: false,
+                        shade: 0.3,
+                        maxmin: true,
+                        area: ['80%', '90%'],
+                        offset: 'r',
+                        anim: 2,
+                        content: '{% url "customer:customer_order_create" %}?customer_id={{ customer.id }}',
+                        success: function(layero, index) {
+                            if (layero && layero.css) {
+                                layero.css({
+                                    'right': '0',
+                                    'top': '0',
+                                    'height': '100%'
+                                });
+                            }
+                        },
+                        end: function() {
+                            if (typeof location !== 'undefined' && location.reload) {
+                                location.reload();
+                            }
+                        }
+                    });
+                };
+                
+                // 添加合同 - 直接使用项目标准合同模块
+                window.addContract = function() {
+                    if (!layer || typeof layer.open !== 'function') {
+                        console.warn('Layui layer module not properly loaded');
+                        return;
+                    }
+                    
+                    layer.open({
+                        type: 2,
+                        title: '添加销售合同',
+                        shadeClose: false,
+                        shade: 0.3,
+                        maxmin: true,
+                        area: ['80%', '90%'],
+                        offset: 'r',
+                        anim: 2,
+                        content: '{% url "contract:contract_sales_add" %}?customer_id={{ customer.id }}',
+                        success: function(layero, index) {
+                            if (layero && layero.css) {
+                                layero.css({
+                                    'right': '0',
+                                    'top': '0',
+                                    'height': '100%'
+                                });
+                            }
+                        },
+                        end: function() {
+                            // 使用AJAX局部刷新合同列表，而不是全页面刷新
+                            refreshContractList();
+                        }
+                    });
+                };
+                
+                // 刷新合同列表
+                window.refreshContractList = function() {
+                    if (typeof $ !== 'undefined') {
+                        $.ajax({
+                            url: '{% url "customer:customer_contract_list" customer.id %}',
+                            type: 'GET',
+                            success: function(data) {
+                                // 找到合同列表容器并更新内容
+                                var contractContainer = $('.layui-card:has(.section-title:contains("最近合同")) .layui-card-body');
+                                if (contractContainer.length > 0) {
+                                    contractContainer.html(data);
+                                    layer.msg('合同列表已更新', {icon: 1, time: 2000});
+                                }
+                            },
+                            error: function() {
+                                // 如果AJAX失败，降级到全页面刷新
+                                if (typeof location !== 'undefined' && location.reload) {
+                                    location.reload();
+                                }
+                            }
+                        });
+                    } else {
+                        // 如果jQuery不可用，降级到全页面刷新
+                        if (typeof location !== 'undefined' && location.reload) {
+                            location.reload();
+                        }
+                    }
+                };
+                
+                // 添加发票记录
+                window.addInvoice = function() {
+                    if (!layer || typeof layer.open !== 'function') {
+                        console.warn('Layui layer module not properly loaded');
+                        return;
+                    }
+                    
+                    layer.open({
+                        type: 2,
+                        title: '添加发票记录',
+                        shadeClose: false,
+                        shade: 0.3,
+                        maxmin: true,
+                        area: ['80%', '90%'],
+                        offset: 'r',
+                        anim: 2,
+                        content: '{% url "finance:invoice_add" %}?customer_id={{ customer.id }}',
+                        success: function(layero, index) {
+                            if (layero && layero.css) {
+                                layero.css({
+                                    'right': '0',
+                                    'top': '0',
+                                    'height': '100%'
+                                });
+                            }
+                        },
+                        end: function() {
+                            if (typeof location !== 'undefined' && location.reload) {
+                                location.reload();
+                            }
+                        }
+                    });
+                };
+                
+                // 添加财务往来记录
+                window.addFinancialRecord = function() {
+                    if (!layer || typeof layer.open !== 'function') {
+                        console.warn('Layui layer module not properly loaded');
+                        return;
+                    }
+                    
+                    layer.open({
+                        type: 2,
+                        title: '添加财务往来记录',
+                        shadeClose: false,
+                        shade: 0.3,
+                        maxmin: true,
+                        area: ['80%', '90%'],
+                        offset: 'r',
+                        anim: 2,
+                        content: '{% url "finance:paymentreceive_create" %}?customer_id={{ customer.id }}',
+                        success: function(layero, index) {
+                            if (layero && layero.css) {
+                                layero.css({
+                                    'right': '0',
+                                    'top': '0',
+                                    'height': '100%'
+                                });
+                            }
+                        },
+                        end: function() {
+                            if (typeof location !== 'undefined' && location.reload) {
+                                location.reload();
+                            }
+                        }
+                    });
+                };
+                
+                // 回款管理功能已集成到财务往来记录模块中，无需单独的回款管理页面
+
+                // 添加项目
+                window.addProject = function() {
+                    if (!layer || typeof layer.open !== 'function') {
+                        console.warn('Layui layer module not properly loaded');
+                        return;
+                    }
+                    
+                    layer.open({
+                        type: 2,
+                        title: '添加项目',
+                        shadeClose: false,
+                        shade: 0.3,
+                        maxmin: true,
+                        area: ['80%', '90%'],
+                        offset: 'r',
+                        anim: 2,
+                        content: '{% url "project:project_add" %}?customer_id={{ customer.id }}',
+                        success: function(layero, index) {
+                            if (layero && layero.css) {
+                                layero.css({
+                                    'right': '0',
+                                    'top': '0',
+                                    'height': '100%'
+                                });
+                            }
+                        },
+                        end: function() {
+                            if (typeof location !== 'undefined' && location.reload) {
+                                location.reload();
+                            }
+                        }
+                    });
+                };
+            });
+        } else {
+            console.warn('Layui is not loaded. Some functionality may be limited.');
+            // 提供基础的降级处理
+            window.editCustomer = function() {
+                if (window && window.location) {
+                    window.location.href = '{% url "customer:customer_edit" customer.id %}';
+                }
+            };
+            window.addFollowRecord = window.addOrder = window.addContract = function() {
+                alert('功能暂时不可用，请刷新页面重试');
+            };
+            
+            // 降级版SIP拨号函数
+            window.makeSipCall = function(phone, customerId, customerName) {
+                if (!phone) {
+                    alert('电话号码不能为空');
+                    return;
+                }
+                
+                // 使用原生AJAX
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', '{% url "customer:sip_call" %}', true);
+                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+                xhr.setRequestHeader('X-CSRFToken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+                
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4) {
+                        try {
+                            var res = JSON.parse(xhr.responseText);
+                            if (res.code === 0) {
+                                alert('呼叫成功');
+                            } else {
+                                alert(res.msg);
+                            }
+                        } catch (e) {
+                            alert('拨号失败，请稍后重试');
+                            console.error('拨号失败:', e);
+                        }
+                    }
+                };
+                
+                xhr.onerror = function() {
+                    alert('拨号失败，请稍后重试');
+                    console.error('拨号失败: 网络错误');
+                };
+                
+                // 发送请求
+                xhr.send('csrfmiddlewaretoken=' + encodeURIComponent(document.querySelector('[name=csrfmiddlewaretoken]').value) +
+                         '&phone=' + encodeURIComponent(phone) +
+                         '&customer_id=' + encodeURIComponent(customerId) +
+                         '&customer_name=' + encodeURIComponent(customerName));
+            };
+        }
+    </script>
+</body>
+</html>

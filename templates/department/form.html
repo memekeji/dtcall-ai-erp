@@ -1,0 +1,435 @@
+{% extends 'home/base.html' %}
+{% block title %}{% endblock %}
+{% block content %}
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/common.css' %}">
+<style>
+    .form-container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+    .layui-card-header { background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; border-radius: 12px 12px 0 0; padding: 15px 20px; }
+    .layui-form-label { font-weight: 600; color: #333; width: 120px; }
+    .layui-input, .layui-textarea, .layui-select { border-radius: 8px; border: 1px solid #ddd; padding: 10px 15px; transition: all 0.3s ease; }
+    .layui-input:focus, .layui-textarea:focus, .layui-select:focus { border-color: #007bff; box-shadow: 0 0 0 3px rgba(0,123,255,0.1); }
+    .layui-btn-primary { background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); border: none; padding: 0px 20px; border-radius: 8px; transition: transform 0.2s; color: white; }
+    .layui-btn-primary:hover { transform: translateY(-2px); }
+    .layui-btn-normal { border-radius: 8px; padding: 0px 20px; }
+    html, body { height: 100%; margin: 0; }
+    .layui-card { height: 100%; }
+    .form-container { flex: 1; }
+    .layui-form-item .errorlist { color: #ff4d4f; font-size: 0.875rem; margin-top: 5px; list-style: none; padding-left: 0; display: flex; align-items: center; }
+    .layui-form-item .errorlist::before { content: '\f071'; font-family: 'layui-icon'; margin-right: 5px; }
+    .layui-card-body { display: flex; flex-direction: column; height: 100%; }
+    .form-loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.8); z-index: 9999; display: none; justify-content: center; align-items: center; }
+    #departmentForm { display: flex; flex-direction: column; min-height: 80vh; flex: 1; }
+    .button-container { margin-top: auto; padding-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
+</style>
+<div class="form-container">
+    <div class="layui-card">
+        <div class="layui-card-body">
+            <form id="departmentForm" class="layui-form" method="post">
+                {% csrf_token %}
+                <div class="layui-form-item">
+                    <h3 class="layui-bg-gray layui-padding layui-margin-0">基本信息</h3>
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md6 layui-col-sm12">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">{{ form.name.label }} <span style="color: red;">*</span></label>
+                                <div class="layui-input-block">
+                                    {{ form.name }}
+                                    {{ form.name.errors }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6 layui-col-sm12">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">{{ form.code.label }}</label>
+                                <div class="layui-input-block">
+                                    {{ form.code }}
+                                    {{ form.code.errors }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md6 layui-col-sm12">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">{{ form.pid.label }}</label>
+                                <div class="layui-input-block">
+                                    {{ form.pid }}
+                                    {{ form.pid.errors }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md6 layui-col-sm12">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">{{ form.manager.label }}</label>
+                                <div class="layui-input-block">
+                                    {{ form.manager }}
+                                    {{ form.manager.errors }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6 layui-col-sm12">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">{{ form.phone.label }}</label>
+                                <div class="layui-input-block">
+                                    {{ form.phone }}
+                                    {{ form.phone.errors }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 隐藏的leader_ids字段，用于向后兼容 -->
+                    {{ form.leader_ids }}
+
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md6 layui-col-sm12">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">{{ form.sort.label }}</label>
+                                <div class="layui-input-block">
+                                    {{ form.sort }}
+                                    {{ form.sort.errors }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6 layui-col-sm12">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">{{ form.status.label }} <span style="color: red;">*</span></label>
+                                <div class="layui-input-block">
+                                    {{ form.status }}
+                                    {{ form.status.errors }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">{{ form.remark.label }}</label>
+                        <div class="layui-input-block">
+                            {{ form.remark }}
+                            {{ form.remark.errors }}
+                        </div>
+                        {{ form.remark.errors }}
+                    </div>
+                </div>
+                <div class="layui-form-item button-container">
+                    <button type="button" class="layui-btn layui-btn-normal" onclick="window.location.href='/system/department/'">
+                        <i class="layui-icon layui-icon-return"></i> 取消
+                    </button>
+                    <button type="submit" class="layui-btn layui-btn-primary" lay-submit lay-filter="submitBtn">
+                        <i class="layui-icon layui-icon-ok"></i> 保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="form-loading" id="formLoading">
+    <div class="layui-spinner layui-icon layui-icon-loading layui-anim-spin" style="font-size: 50px;"></div>
+</div>
+
+<script>
+layui.use(['form', 'layer'], function() {
+    var form = layui.form;
+    var layer = layui.layer;
+    var $ = layui.$;
+    
+    // 核心函数：同步manager和leader_ids字段
+    function syncManagerAndLeaderIds() {
+        var managerId = $('select[name="manager"]').val();
+        var currentLeaderIds = $('#id_leader_ids').val();
+        
+        if (managerId) {
+            // 如果当前leader_ids为空或与managerId不同，则设置
+            if (!currentLeaderIds || currentLeaderIds === '' || currentLeaderIds === '[]') {
+                $('#id_leader_ids').val(managerId);
+            } else if (currentLeaderIds && currentLeaderIds !== managerId) {
+                // 如果当前有值但不同，检查是否包含managerId
+                var leaderIdsArray = currentLeaderIds.split(',').map(id => id.trim()).filter(id => id);
+                if (!leaderIdsArray.includes(managerId)) {
+                    leaderIdsArray.push(managerId);
+                    $('#id_leader_ids').val(leaderIdsArray.join(','));
+                }
+            }
+            // console.log('同步负责人ID:', managerId, 'leader_ids值:', $('#id_leader_ids').val());
+        } else {
+            // 如果没有选择负责人，清空leader_ids
+            $('#id_leader_ids').val('');
+            // console.log('清空负责人ID', 'leader_ids值:', $('#id_leader_ids').val());
+        }
+    }
+    
+    // 根据上级部门筛选负责人
+    function filterManagersByDepartment() {
+        var pid = $('select[name="pid"]').val();
+        // console.log('上级部门变更:', pid);
+        
+        if (pid && pid !== '0') {
+            // 显示加载中状态
+            var managerSelect = $('select[name="manager"]');
+            managerSelect.empty().append('<option value="">加载中..</option>');
+            form.render('select');
+            
+            // 发送AJAX请求获取用户列表
+            $.ajax({
+                url: '/system/department/get_managers/',
+                type: 'GET',
+                data: {pid: pid},
+                dataType: 'json',
+                timeout: 5000,
+                success: function(data) {
+                    // console.log('获取用户列表成功:', data);
+                    managerSelect.empty().append('<option value="">请选择负责人</option>');
+                    
+                    if (data && data.code === 0 && data.data && data.data.length > 0) {
+                        $.each(data.data, function(index, user) {
+                            var option = $('<option></option>')
+                                .val(user.id)
+                                .text(user.name);
+                            managerSelect.append(option);
+                        });
+                    } else {
+                        managerSelect.append('<option value="">该部门暂无可用人员</option>');
+                    }
+                    
+                    form.render('select');
+                    syncManagerAndLeaderIds();
+                    updateManagerPhone();
+                },
+                error: function(xhr, status, error) {
+                    console.error('获取用户列表失败:', error);
+                    managerSelect.empty().append('<option value="">获取失败，请重试</option>');
+                    form.render('select');
+                }
+            });
+        } else {
+            $('select[name="manager"]').val('');
+            $('#id_leader_ids').val('');
+            $('input[name="phone"]').val('');
+            form.render('select');
+        }
+    }
+    
+    // 更新负责人电话信息
+    function updateManagerPhone() {
+        var managerId = $('select[name="manager"]').val();
+        if (!managerId) {
+            $('input[name="phone"]').val('');
+            return;
+        }
+        
+        // 发送AJAX请求获取负责人电话信息
+        $.ajax({
+            url: '/system/department/get_manager_phone/',
+            type: 'GET',
+            data: {manager_id: managerId},
+            dataType: 'json',
+            timeout: 5000,
+            success: function(data) {
+                    if (data && data.code === 0 && data.data) {
+                        $('input[name="phone"]').val(data.data);
+                        // console.log('更新负责人电话:', data.data);
+                    }
+            },
+            error: function(xhr, status, error) {
+                console.error('获取负责人电话失败:', error);
+            }
+        });
+    }
+    
+    // 表单验证
+    form.verify({
+        name: function(value) {
+            if (value.length === 0) {
+                return '部门名称不能为空';
+            }
+        },
+        sort: function(value) {
+            if (value.length > 0 && !/^\d+$/.test(value)) {
+                return '排序必须是数字';
+            }
+        }
+    });
+    
+    // 添加表单验证属性
+    $('input[name="name"]').attr({'lay-verify': 'required', 'lay-reqtext': '请输入部门名称'});
+    $('select[name="status"]').attr({'lay-verify': 'required', 'lay-reqtext': '请选择状态'});
+    $('input[name="phone"]').attr('lay-verify', 'phone');
+    $('input[name="sort"]').attr('lay-verify', 'number');
+    $('select[name="manager"]').attr('lay-verify', 'required');
+    
+    // 初始化表单
+    form.render();
+    
+    // 页面加载完成后初始化
+    $(function() {
+        // console.log('页面初始化开始，leader_ids初始值:', $('#id_leader_ids').val());
+        
+        // 立即执行一次同步
+        syncManagerAndLeaderIds();
+        
+        // 初始化负责人列表
+        filterManagersByDepartment();
+        
+        // 更新负责人电话
+        updateManagerPhone();
+        
+        // 初始化上级部门选择（如果有初始值）
+        {% if form.pid.value %}
+        var initialPid = '{{ form.pid.value }}';
+        if (initialPid && initialPid !== '0' && initialPid !== '') {
+            $('select[name="pid"]').val(initialPid);
+        }
+        {% endif %}
+        
+        // 重新渲染表单，确保下拉框正确显示
+        form.render('select');
+        
+        // console.log('页面初始化完成，leader_ids最终值:', $('#id_leader_ids').val());
+    });
+    
+    // 上级部门变更事件
+    $(document).on('change', 'select[name="pid"]', function() {
+        // console.log('上级部门变更:', $(this).val());
+        $('select[name="manager"]').val('');
+        $('#id_leader_ids').val('');
+        $('input[name="phone"]').val('');
+        form.render('select');
+        filterManagersByDepartment();
+    });
+    
+    // 负责人变更事件
+    $(document).on('change', 'select[name="manager"]', function() {
+        // console.log('负责人变更:', $(this).val());
+        syncManagerAndLeaderIds();
+        updateManagerPhone();
+    });
+    
+    // 选择负责人函数 - 定义为全局函数
+    window.selectManager = function() {
+        layer.open({
+            type: 2,
+            title: '选择负责人',
+            content: '/system/department/manager_select/',
+            area: ['800px', '600px'],
+            btn: ['确定', '取消'],
+            yes: function(index, layero) {
+                var iframeWin = window[layero.find('iframe')[0]['name']];
+                var selectedData = iframeWin.getSelectedData();
+                if (selectedData && selectedData.id) {
+                    // 设置负责人ID到隐藏字段
+                    $('#id_leader_ids').val(selectedData.id);
+                    // 更新负责人显示名称
+                    $('input[name="manager"]').val(selectedData.name);
+                    // 获取并设置负责人电话
+                    $.get('/system/department/get_manager_phone/', {manager_id: selectedData.id}, function(res) {
+                        if (res && res.code === 0) {
+                            $('input[name="phone"]').val(res.data || '');
+                        }
+                    });
+                    layer.close(index);
+                } else {
+                    layer.msg('请选择负责人', {icon: 2});
+                }
+            }
+        });
+    };
+    
+    // 表单提交事件
+    form.on('submit(submitBtn)', function(data) {
+        // console.log('表单提交前，leader_ids值:', $('#id_leader_ids').val());
+        
+        // 确保在提交前同步leader_ids
+        syncManagerAndLeaderIds();
+        
+        // console.log('表单提交同步后，leader_ids值:', $('#id_leader_ids').val());
+        
+        // 确保leader_ids字段的值是字符串格式，而不是数组
+        var leaderIdsValue = $('#id_leader_ids').val();
+        var processedLeaderIds = '';
+        
+        if (leaderIdsValue === '' || leaderIdsValue === null || leaderIdsValue === undefined) {
+            // 如果为空，设置为空字符串
+            processedLeaderIds = '';
+        } else if (Array.isArray(leaderIdsValue)) {
+            // 如果是数组，转换为逗号分隔的字符串
+            processedLeaderIds = leaderIdsValue.join(',');
+        } else if (typeof leaderIdsValue === 'string' && leaderIdsValue.startsWith('[') && leaderIdsValue.endsWith(']')) {
+            // 如果是字符串形式的数组，解析并转换为逗号分隔的字符串
+            try {
+                var parsedArray = JSON.parse(leaderIdsValue);
+                if (Array.isArray(parsedArray)) {
+                    processedLeaderIds = parsedArray.join(',');
+                }
+            } catch (e) {
+                // 解析失败，保持原值
+                processedLeaderIds = leaderIdsValue;
+            }
+        } else if (typeof leaderIdsValue === 'string') {
+            // 如果是字符串，确保是逗号分隔的格式
+            // 清理可能的无效字符
+            processedLeaderIds = leaderIdsValue.replace(/[\[\]\s]/g, '').replace(/,+/g, ',').replace(/^,|,$/g, '');
+        } else {
+            // 其他情况，直接使用原值
+            processedLeaderIds = leaderIdsValue;
+        }
+        
+        // 更新实际的表单字段值
+        $('#id_leader_ids').val(processedLeaderIds);
+        data.field.leader_ids = processedLeaderIds;
+        
+        // console.log('表单提交处理后的leader_ids值:', processedLeaderIds);
+        
+        // 清除之前的错误提示
+        $('.layui-form-danger').removeClass('layui-form-danger');
+        layer.closeAll('tips');
+
+        // 显示加载状态
+        $('#formLoading').css('display', 'flex');
+
+        // 提交表单
+        $.ajax({
+            url: '{% if object %}{% url 'department_update' object.id %}{% else %}{% url 'department_add' %}{% endif %}',  // 使用正确的URL
+            type: 'POST',
+            data: data.field,
+            dataType: 'json',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function(res) {
+                $('#formLoading').css('display', 'none');
+                if (res && res.code === 0) {
+                    layer.msg('保存成功', {icon: 1}, function() {
+                        window.location.href = '{% url 'department_list' %}';
+                    });
+                } else {
+                    layer.msg(res && res.msg || '保存失败', {icon: 2});
+                    // 显示表单错误
+                    if (res && res.errors) {
+                        for (var field in res.errors) {
+                            var $elem = $('[name="' + field + '"]');
+                            $elem.addClass('layui-form-danger');
+                            layer.tips(res.errors[field][0], $elem, {
+                                tips: [1, '#ff4d4f'],
+                                time: 3000
+                            });
+                        }
+                    }
+                }
+            },
+            error: function(xhr, status, error) {
+                $('#formLoading').css('display', 'none');
+                console.error('AJAX请求错误:', error, '状态:', status, '响应:', xhr.responseText);
+                layer.msg('网络错误，请重试', {icon: 2});
+            }
+        });
+        return false;
+    });
+});
+</script>
+{% endblock %}

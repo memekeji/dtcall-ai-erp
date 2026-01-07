@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <style>
+        .layui-fluid {
+            padding: 15px;
+        }
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        @media screen and (max-width: 768px) {
+            .toolbar-right {
+                justify-content: flex-start;
+                margin-top: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-body">
+                        <!-- 工具栏和搜索表单 -->
+                        <div class="layui-row layui-col-space10" style="margin-bottom: 15px;">
+                            <!-- 左侧工具栏 -->
+                            <div class="layui-col-xs12 layui-col-sm6 layui-col-md4">
+                                <div class="toolbar-left">
+                                    <button class="layui-btn layui-btn-sm" onclick="showPolicyForm()">
+                                        <i class="layui-icon layui-icon-add-1"></i> 新建策略
+                                    </button>
+                                    <button class="layui-btn layui-btn-sm layui-btn-danger" onclick="batchDeletePolicies()" id="batchDeleteBtn" disabled>
+                                        <i class="layui-icon layui-icon-delete"></i> 批量删除
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- 右侧搜索表单 -->
+                            <div class="layui-col-xs12 layui-col-sm6 layui-col-md8">
+                                <div class="toolbar-right">
+                                    <form method="get" class="layui-form">
+                                        <div class="layui-inline">
+                                            <input type="text" name="search" placeholder="搜索策略名称或描述" 
+                                                   autocomplete="off" class="layui-input" value="{{ search }}" style="width: 300px;">
+                                        </div>
+                                        <div class="layui-inline">
+                                            <button type="submit" class="layui-btn">
+                                                <i class="layui-icon layui-icon-search"></i> 搜索
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CSRF令牌 -->
+                        {% csrf_token %}
+                        
+                        <!-- 数据表格 -->
+                        <table class="layui-table">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" id="checkAll" lay-skin="primary" onclick="checkAllPolicies()"></th>
+                                    <th>策略名称</th>
+                                    <th>状态</th>
+                                    <th>执行周期</th>
+                                    <th>执行时间</th>
+                                    <th>保留份数</th>
+                                    <th>备份类型</th>
+                                    <th>创建者</th>
+                                    <th>创建时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for policy in page_obj %}
+                                <tr>
+                                    <td><input type="checkbox" name="policyIds" value="{{ policy.id }}" lay-skin="primary" onclick="updateBatchDeleteBtn()"></td>
+                                    <td>{{ policy.name }}</td>
+                                    <td>
+                                        {% if policy.is_active %}
+                                        <span class="layui-badge layui-bg-green">启用</span>
+                                        {% else %}
+                                        <span class="layui-badge">禁用</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ policy.get_interval_display }}</td>
+                                    <td>
+                                        {% if policy.interval == 'daily' %}
+                                        每天 {{ policy.hour|stringformat:"02d" }}:{{ policy.minute|stringformat:"02d" }}
+                                        {% elif policy.interval == 'weekly' %}
+                                        每周 {% if policy.week_day == 0 %}日{% elif policy.week_day == 1 %}一{% elif policy.week_day == 2 %}二{% elif policy.week_day == 3 %}三{% elif policy.week_day == 4 %}四{% elif policy.week_day == 5 %}五{% elif policy.week_day == 6 %}六{% endif %} {{ policy.hour|stringformat:"02d" }}:{{ policy.minute|stringformat:"02d" }}
+                                        {% elif policy.interval == 'monthly' %}
+                                        每月 {{ policy.month_day }}日 {{ policy.hour|stringformat:"02d" }}:{{ policy.minute|stringformat:"02d" }}
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ policy.keep_count }}份</td>
+                                    <td>{{ policy.get_backup_type_display }}</td>
+                                    <td>{{ policy.creator.username|default:'系统' }}</td>
+                                    <td>{{ policy.created_at|date:'Y-m-d H:i' }}</td>
+                                    <td>
+                                        <button class="layui-btn layui-btn-xs" onclick="showPolicyForm({{ policy.id }})">编辑</button>
+                                        <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="togglePolicyStatus({{ policy.id }}, {{ policy.is_active|lower }})">
+                                            {% if policy.is_active %}禁用{% else %}启用{% endif %}
+                                        </button>
+                                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deletePolicy({{ policy.id }})">删除</button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="10" style="text-align: center; color: #999;">暂无数据</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+
+                        <!-- 分页 -->
+                        {% if page_obj.has_other_pages %}
+                        <div id="pagination"></div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['laypage', 'form', 'layer'], function(){
+            var laypage = layui.laypage;
+            var form = layui.form;
+            var layer = layui.layer;
+            
+            {% if page_obj.has_other_pages %}
+            laypage.render({
+                elem: 'pagination',
+                count: {{ page_obj.paginator.count }},
+                curr: {{ page_obj.number }},
+                limit: 20,
+                layout: ['count', 'prev', 'page', 'next', 'limit', 'skip'],
+                jump: function(obj, first){
+                    if(!first){
+                        var url = new URL(window.location);
+                        url.searchParams.set('page', obj.curr);
+                        window.location.href = url.toString();
+                    }
+                }
+            });
+            {% endif %}
+        });
+
+        function deletePolicy(id) {
+            layui.use(['layer', 'jquery'], function(){
+                var layer = layui.layer;
+                var $ = layui.jquery;
+                
+                layer.confirm('确定要删除这个自动备份策略吗？删除后无法恢复！', {icon: 3, title:'提示'}, function(index){
+                    // 发送删除请求
+                    $.ajax({
+                        url: '/system/backup/policy/' + id + '/delete/',
+                        type: 'POST',
+                        data: {csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()},
+                        success: function(result){
+                            if (result.success) {
+                                layer.msg(result.message, {icon: 1});
+                                // 刷新页面
+                                window.location.reload();
+                            } else {
+                                layer.msg(result.message, {icon: 2});
+                            }
+                        },
+                        error: function(){
+                            layer.msg('删除失败，请稍后重试', {icon: 2});
+                        }
+                    });
+                    layer.close(index);
+                });
+            });
+        }
+        
+        function showPolicyForm(id) {
+            layui.use('layer', function(){
+                var layer = layui.layer;
+                var url = id ? '/system/backup/policy/' + id + '/edit/' : '/system/backup/policy/add/';
+                layer.open({
+                    type: 2,
+                    title: id ? '编辑自动备份策略' : '新建自动备份策略',
+                    area: ['75%', '100%'],
+                    fixed: false,
+                    maxmin: false,
+                    offset: 'r',
+                    shadeClose: true,
+                    content: url,
+                    success: function(layero, index){
+                        // 设置弹出层样式，使其紧贴右侧
+                        layero.css({'right': '0', 'top': '0', 'left': 'auto', 'bottom': 'auto'});
+                    },
+                    end: function(){
+                        // 弹出层关闭后刷新页面
+                        window.location.reload();
+                    }
+                });
+            });
+        }
+        
+        // 全选/取消全选
+        function checkAllPolicies() {
+            layui.use('form', function(){
+                var form = layui.form;
+                var isChecked = document.getElementById('checkAll').checked;
+                var checkboxes = document.getElementsByName('policyIds');
+                
+                for (var i = 0; i < checkboxes.length; i++) {
+                    checkboxes[i].checked = isChecked;
+                }
+                
+                // 更新表单渲染
+                form.render('checkbox');
+                // 更新批量删除按钮状态
+                updateBatchDeleteBtn();
+            });
+        }
+        
+        // 更新批量删除按钮状态
+        function updateBatchDeleteBtn() {
+            var checkboxes = document.getElementsByName('policyIds');
+            var checkedCount = 0;
+            
+            for (var i = 0; i < checkboxes.length; i++) {
+                if (checkboxes[i].checked) {
+                    checkedCount++;
+                }
+            }
+            
+            var batchDeleteBtn = document.getElementById('batchDeleteBtn');
+            batchDeleteBtn.disabled = checkedCount === 0;
+        }
+        
+        // 切换策略状态
+        function togglePolicyStatus(id, isActive) {
+            layui.use(['layer', 'jquery'], function(){
+                var layer = layui.layer;
+                var $ = layui.jquery;
+                
+                var action = isActive ? '禁用' : '启用';
+                var confirmMsg = '确定要' + action + '这个自动备份策略吗？';
+                
+                layer.confirm(confirmMsg, {icon: 3, title:'提示'}, function(index){
+                    // 发送状态切换请求
+                    $.ajax({
+                        url: '/system/backup/policy/' + id + '/toggle/',
+                        type: 'POST',
+                        data: {csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()},
+                        success: function(result){
+                            if (result.success) {
+                                layer.msg(result.message, {icon: 1});
+                                // 刷新页面
+                                window.location.reload();
+                            } else {
+                                layer.msg(result.message, {icon: 2});
+                            }
+                        },
+                        error: function(){
+                            layer.msg(action + '失败，请稍后重试', {icon: 2});
+                        }
+                    });
+                    layer.close(index);
+                });
+            });
+        }
+        
+        // 批量删除策略
+        function batchDeletePolicies() {
+            layui.use(['layer', 'jquery'], function(){
+                var layer = layui.layer;
+                var $ = layui.jquery;
+                
+                // 获取选中的策略ID
+                var checkedIds = [];
+                var checkboxes = document.getElementsByName('policyIds');
+                
+                for (var i = 0; i < checkboxes.length; i++) {
+                    if (checkboxes[i].checked) {
+                        checkedIds.push(checkboxes[i].value);
+                    }
+                }
+                
+                if (checkedIds.length === 0) {
+                    layer.msg('请选择要删除的策略', {icon: 2});
+                    return;
+                }
+                
+                layer.confirm('确定要删除选中的 ' + checkedIds.length + ' 个自动备份策略吗？删除后无法恢复！', {icon: 3, title:'提示'}, function(index){
+                    // 发送删除请求
+                    $.ajax({
+                        url: '/system/backup/policy/batch-delete/',
+                        type: 'POST',
+                        data: {
+                            csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val(),
+                            policy_ids: checkedIds
+                        },
+                        success: function(result){
+                            if (result.success) {
+                                layer.msg(result.message, {icon: 1});
+                                // 刷新页面
+                                window.location.reload();
+                            } else {
+                                layer.msg(result.message, {icon: 2});
+                            }
+                        },
+                        error: function(){
+                            layer.msg('批量删除失败，请稍后重试', {icon: 2});
+                        }
+                    });
+                    layer.close(index);
+                });
+            });
+        }
+    </script>
+</body>
+</html>

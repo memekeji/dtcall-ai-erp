@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}会议纪要 - DTCALL管理后台{% endblock %}
+
+{% block content %}
+<style>
+    .layui-fluid {
+        padding: 15px;
+    }
+    .minutes-container {
+        background: #fff;
+        padding: 20px;
+        border-radius: 4px;
+    }
+    .minutes-title {
+        font-size: 18px;
+        font-weight: bold;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #e6e6e6;
+    }
+    .meeting-info {
+        margin-bottom: 20px;
+        padding: 15px;
+        background-color: #f5f5f5;
+        border-radius: 4px;
+    }
+    .info-row {
+        margin-bottom: 10px;
+    }
+    .info-label {
+        display: inline-block;
+        width: 100px;
+        font-weight: bold;
+        color: #666;
+    }
+    .info-value {
+        color: #333;
+    }
+    .audio-preview {
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid #e6e6e6;
+    }
+    .edit-button {
+        float: right;
+        margin-top: -5px;
+    }
+    .item-list {
+        margin-top: 10px;
+        padding-left: 20px;
+    }
+    .item-list li {
+        margin-bottom: 5px;
+        list-style-type: disc;
+    }
+</style>
+
+<div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-col-md12">
+            <div class="layui-card">
+                <div class="layui-card-body">
+                        <div class="minutes-container">
+                            <div class="minutes-title">
+                                <i class="layui-icon layui-icon-folder"></i> 会议纪要
+                                <button type="button" class="layui-btn layui-btn-sm layui-btn-normal edit-button" id="editMinutesBtn">
+                                    <i class="layui-icon layui-icon-edit"></i> 编辑纪要
+                                </button>
+                            </div>
+                            
+                            <!-- 会议基本信息 -->
+                            <div class="meeting-info">
+                                <div class="info-row">
+                                    <span class="info-label">会议主题：</span>
+                                    <span class="info-value" id="meetingTitle"></span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">会议时间：</span>
+                                    <span class="info-value" id="meetingDate"></span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">主持人：</span>
+                                    <span class="info-value" id="meetingAnchor"></span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">记录人：</span>
+                                    <span class="info-value" id="meetingRecorder"></span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">会议室：</span>
+                                    <span class="info-value" id="meetingRoom"></span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">参会人员：</span>
+                                    <span class="info-value" id="meetingParticipants"></span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">签到人员：</span>
+                                    <span class="info-value" id="meetingSigners"></span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">会议内容：</span>
+                                    <span class="info-value" id="meetingContent"></span>
+                                </div>
+                            </div>
+                            
+                            <!-- 会议录音 -->
+                            <div class="audio-preview" id="audioPreviewSection">
+                                <div class="info-row">
+                                    <span class="info-label">会议录音：</span>
+                                    <audio id="meetingAudio" controls></audio>
+                                </div>
+                            </div>
+                            
+                            <!-- 会议纪要内容 -->
+                            <div class="layui-form-item">
+                                <h3 style="margin-bottom: 10px; font-size: 16px; color: #333;">
+                                    <i class="layui-icon layui-icon-file-text"></i> 会议纪要内容
+                                </h3>
+                                <div id="meetingSummary" class="layui-form-text" style="min-height: 200px; padding: 10px; background-color: #f9f9f9; border-radius: 4px;">
+                                    <!-- 会议纪要内容将通过JavaScript动态加载 -->
+                                </div>
+                            </div>
+                            
+                            <!-- 会议决议 -->
+                            <div class="layui-form-item" style="margin-top: 20px;">
+                                <h3 style="margin-bottom: 10px; font-size: 16px; color: #333;">
+                                    <i class="layui-icon layui-icon-ok-circle"></i> 会议决议
+                                </h3>
+                                <div id="meetingResolution" class="layui-form-text" style="min-height: 100px; padding: 10px; background-color: #f9f9f9; border-radius: 4px;">
+                                    <!-- 会议决议内容将通过JavaScript动态加载 -->
+                                </div>
+                            </div>
+                            
+                            <!-- 任务项 -->
+                            <div class="layui-form-item" style="margin-top: 20px;">
+                                <h3 style="margin-bottom: 10px; font-size: 16px; color: #333;">
+                                    <i class="layui-icon layui-icon-list"></i> 任务项
+                                </h3>
+                                <div id="actionItems" class="layui-form-text">
+                                    <!-- 任务项内容将通过JavaScript动态加载 -->
+                                </div>
+                            </div>
+                            
+                            <!-- 操作按钮 -->
+                            <div class="layui-form-item" style="margin-top: 30px;">
+                                <div class="layui-input-block">
+                                    <button type="button" class="layui-btn layui-btn-primary" id="backToList">
+                                        <i class="layui-icon layui-icon-left"></i> 返回列表
+                                    </button>
+                                    <button type="button" class="layui-btn layui-btn-warm" id="generateSummaryBtn">
+                                        <i class="layui-icon layui-icon-refresh"></i> 重新生成纪要
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}  <!-- 编辑会议纪要弹窗 -->
+    <div id="editSummaryDialog" style="display: none;">
+        <div class="layui-form">
+            <div class="layui-form-item">
+                <label class="layui-form-label">会议纪要</label>
+                <div class="layui-input-block">
+                    <textarea id="editMeetingSummary" class="layui-textarea" rows="10"></textarea>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">会议决议</label>
+                <div class="layui-input-block">
+                    <textarea id="editMeetingResolution" class="layui-textarea" rows="5"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        // 获取CSRF token
+        function getCookie(name) {
+            var cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        
+        var csrftoken = getCookie('csrftoken');
+        
+        // 设置AJAX默认请求头
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                    xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                }
+            }
+        });
+        
+        layui.use(['form', 'layer', 'jquery'], function() {
+            var form = layui.form;
+            var layer = layui.layer;
+            var $ = layui.jquery;
+            var meetingId = getUrlParam('id');
+            
+            // 从URL获取参数
+            function getUrlParam(name) {
+                var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)");
+                var r = window.location.search.substr(1).match(reg);
+                if (r != null) return decodeURIComponent(r[2]);
+                return null;
+            }
+            
+            // 加载会议信息
+            function loadMeetingInfo() {
+                if (!meetingId) {
+                    layer.msg('会议ID无效', {icon: 2});
+                    return;
+                }
+                
+                $.ajax({
+                    url: '/oa/meeting/get_info/' + meetingId + '/',
+                    type: 'GET',
+                    success: function(res) {
+                        if (res.code === 0) {
+                            var meeting = res.data;
+                            
+                            // 填充会议基本信息
+                            $('#meetingTitle').text(meeting.title);
+                            $('#meetingDate').text(meeting.meeting_date);
+                            $('#meetingAnchor').text(meeting.host_name);
+                            $('#meetingRecorder').text(meeting.recorder_name);
+                            $('#meetingRoom').text(meeting.room);
+                            $('#meetingParticipants').text(meeting.join_names);
+                            $('#meetingSigners').text(meeting.sign_names || '暂无签到记录');
+                            $('#meetingContent').text(meeting.content || '暂无会议内容');
+                            
+                            // 填充会议录音（如果有）
+                            if (meeting.audio_file) {
+                                $('#meetingAudio').attr('src', meeting.audio_file);
+                                $('#audioPreviewSection').show();
+                            } else {
+                                $('#audioPreviewSection').hide();
+                            }
+                            
+                            // 填充会议纪要和决议
+                            $('#meetingSummary').text(meeting.summary || '暂无会议纪要');
+                            $('#meetingResolution').text(meeting.resolution || '暂无会议决议');
+                            
+                            // 填充任务项
+                            if (meeting.action_items && meeting.action_items.length > 0) {
+                                var itemsHtml = '<ul class="item-list">';
+                                meeting.action_items.forEach(function(item, index) {
+                                    itemsHtml += '<li>' + (index + 1) + '. ' + item + '</li>';
+                                });
+                                itemsHtml += '</ul>';
+                                $('#actionItems').html(itemsHtml);
+                            } else {
+                                $('#actionItems').html('<div style="padding: 10px; color: #999;">暂无任务项</div>');
+                            }
+                        } else {
+                            layer.msg('加载会议信息失败：' + res.msg, {icon: 2});
+                        }
+                    },
+                    error: function() {
+                        layer.msg('加载会议信息失败，请重试', {icon: 2});
+                    }
+                });
+            }
+            
+            // 编辑会议纪要
+            $('#editMinutesBtn').click(function() {
+                // 填充编辑弹窗内容
+                $('#editMeetingSummary').val($('#meetingSummary').text());
+                $('#editMeetingResolution').val($('#meetingResolution').text());
+                
+                // 打开编辑弹窗
+                layer.open({
+                    type: 1,
+                    title: '编辑会议纪要',
+                    content: $('#editSummaryDialog'),
+                    area: ['800px', '500px'],
+                    btn: ['保存', '取消'],
+                    yes: function(index) {
+                        // 保存编辑后的会议纪要
+                        $.ajax({
+                            url: '/oa/meeting/update_summary/',
+                            type: 'POST',
+                            data: {
+                                meeting_id: meetingId,
+                                summary: $('#editMeetingSummary').val(),
+                                resolution: $('#editMeetingResolution').val()
+                            },
+                            success: function(res) {
+                                if (res.code === 0) {
+                                    // 更新页面显示
+                                    $('#meetingSummary').text($('#editMeetingSummary').val());
+                                    $('#meetingResolution').text($('#editMeetingResolution').val());
+                                    
+                                    layer.msg('会议纪要更新成功');
+                                    layer.close(index);
+                                } else {
+                                    layer.msg('保存失败：' + res.msg, {icon: 2});
+                                }
+                            },
+                            error: function() {
+                                layer.msg('保存失败，请重试', {icon: 2});
+                            }
+                        });
+                    }
+                });
+            });
+            
+            // 重新生成会议纪要
+            $('#generateSummaryBtn').click(function() {
+                if (!meetingId) {
+                    layer.msg('会议ID无效', {icon: 2});
+                    return;
+                }
+                
+                // 确认对话框
+                layer.confirm('确定要重新生成会议纪要吗？当前的会议纪要将会被覆盖。', {
+                    btn: ['确定', '取消']
+                }, function() {
+                    layer.load(2);
+                    
+                    // 调用AI重新生成会议纪要
+                    $.ajax({
+                        url: '/oa/ai/meeting-summary/' + meetingId + '/',
+                        type: 'GET',
+                        success: function(res) {
+                            layer.closeAll('loading');
+                            
+                            if (res.code === 0) {
+                                // 更新会议纪要内容
+                                $('#meetingSummary').text(res.data.summary || '');
+                                $('#meetingResolution').text(res.data.resolutions || '');
+                                
+                                // 调用AI重新提取任务项
+                                $.ajax({
+                                    url: '/oa/ai/meeting-action-items/' + meetingId + '/',
+                                    type: 'GET',
+                                    success: function(res2) {
+                                        if (res2.code === 0 && res2.data.items && res2.data.items.length > 0) {
+                                            var itemsHtml = '<ul class="item-list">';
+                                            res2.data.items.forEach(function(item, index) {
+                                                itemsHtml += '<li>' + (index + 1) + '. ' + item + '</li>';
+                                            });
+                                            itemsHtml += '</ul>';
+                                            $('#actionItems').html(itemsHtml);
+                                        } else {
+                                            $('#actionItems').html('<div style="padding: 10px; color: #999;">暂无任务项</div>');
+                                        }
+                                    }
+                                });
+                                
+                                layer.msg('会议纪要重新生成成功');
+                            } else {
+                                layer.msg('会议纪要生成失败：' + res.msg, {icon: 2});
+                            }
+                        },
+                        error: function() {
+                            layer.closeAll('loading');
+                            layer.msg('生成失败，请重试', {icon: 2});
+                        }
+                    });
+                });
+            });
+            
+            // 返回列表按钮
+            $('#backToList').click(function() {
+                window.location.href = '/oa/meeting/datalist/';
+            });
+            
+            // 初始化加载会议信息
+            loadMeetingInfo();
+        });
+    </script>
+{% endblock %}

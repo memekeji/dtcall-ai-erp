@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+	<head>
+    {% load static %}
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<meta name="renderer" content="webkit" />
+		<meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+		<title>{% if web_title %}{{ web_title }}{% else %}DTcall{% endif %}</title>
+		{% load static %}
+		<link rel="stylesheet" href="{% static 'layui/css/layui.css' %}" media="all">
+		<script type="text/javascript">
+			// 检测页面是否在iframe中加载
+			if (window !== window.top) {
+				// 如果在iframe中，强制在顶层窗口重定向到登录页面
+				var loginUrl = window.location.href;
+				window.top.location.href = loginUrl;
+			}
+		</script>
+		<style type="text/css">
+			html,body {width: 100%;height: 100%;background: #EAF3FF;}
+			canvas{display:block;width:100%;height:100%; position: fixed; top: 0;left: 0;}
+			input:-webkit-autofill {
+				-webkit-box-shadow: 0 0 0px 1000px white inset;
+			}
+			#container {width: 100%;height: 100%;position: fixed;top: 0;left: 0;z-index: 99;background: url("{% static 'img/bg.png' %}");background-size: cover;}
+			.login-wrap {position: relative;overflow: hidden; background-color:#ffffff00; width:800px; height: 448px; position: absolute;top: 50%;left: 50%;margin-top: -240px;margin-left: -400px; border-radius: 12px; display: flex;box-shadow: 0 0 16px rgba(31, 84, 167, 0.2);}
+
+			.login-side {width:400px; height:440px; padding:4px}
+			.login-side .side-img{border-radius: 8px; width:100%; height:100%; background: url("{% static 'img/login.png' %}");background-size: cover;}
+			
+			.login-box{width: 392px;height: 404px;}
+			.login-box .top {width: 392px; padding:36px 0; text-align:center; border-bottom:1px solid #eee;}
+			.login-box .bottom {padding:32px;}
+			.layui-input,.layui-textarea {height: 44px;border: 1px solid #ddd;}
+			.captcha_img img{width:150px; height:44px; cursor:pointer;}
+			.layui-btn {height: 45px;font-size: 16px;margin-top: 6px;}
+			#login-submit {
+				background-color: #1E9FFF !important;
+				transition: all 0.3s ease;
+				border-radius: 4px;
+				font-weight: bold;
+			}
+			#login-submit:hover {
+				background-color: #0081FF !important;
+				transform: translateY(-2px);
+				box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+			}
+			#login-submit:active {
+				transform: translateY(0);
+				box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+			}
+			.foot {position: absolute; font-size: 12px; bottom: 24px;text-align: center;width: 100%;color: #458BF3;}
+		</style>
+	</head>
+	<body>
+		<div id="container">
+			<canvas id="canvas"></canvas>
+			<div class="login-wrap">
+				<div class="login-side"><div class="side-img"></div></div>
+				<div class="login-box">
+					<div class="top">
+						<img src="{% if web_logo %}{{ web_logo }}{% else %}{% static 'img/logo.png' %}{% endif %}" style="height: 66px;">
+					</div>
+					<div class="bottom">
+						<form class="layui-form" id="gougu-login" method="post" action="{% url 'user:login-submit' %}">
+							{% csrf_token %}
+							<!-- 隐藏的next参数，用于登录后重定向 -->
+							{% if request.GET.next %}
+							<input type="hidden" name="next" value="{{ request.GET.next }}">
+							{% endif %}
+							<div class="layui-form-item">
+								<input type="text" name="username" lay-verify="required" value="" placeholder="请输入账户或手机号码" lay-reqText="请输入账户或手机号码" autocomplete="off" class="layui-input">
+							</div>
+							<div class="layui-form-item">
+								<input type="password" name="password" lay-verify="required" value="" placeholder="请输入密码" lay-reqText="请输入密码" autocomplete="off" class="layui-input">
+							</div>
+							<div class="layui-form-item">
+							<div class="layui-input-inline" style="width:168px;">
+								<input type="text" name="captcha" lay-verify="required|number" placeholder="验证码（仅可输入3位数字）" lay-reqText="请输入验证码" autocomplete="off" class="layui-input" maxlength="3" oninput="this.value=this.value.replace(/[^\d]/g,'');" onfocus="this.placeholder='请输入3位数字验证码'" onblur="this.placeholder='验证码（仅可输入3位数字）'">
+							</div>
+							<div class="layui-input-inline captcha_img" style="width:142px; height:44px; margin-left:5px; margin-right:0">
+								<img src="{% url 'captcha-image' key=captcha_key %}" alt="captcha" id="captcha-img">
+<input type="hidden" name="captcha_key" value="{{ captcha_key }}"/>
+							</div>
+						</div>
+								
+							<button id="login-submit" class="layui-btn layui-btn-fluid layui-bg-cyan" lay-submit lay-filter="login-submit">登入系统</button>
+						</form>
+					</div>
+				</div>
+			</div>
+			<div class="foot">
+				Copyright © 2022-2024 米姆DTcall - {% if cms_version %}{{ cms_version }}{% endif %}  ，Powered by MEME，<a href="https://beian.miit.gov.cn/" target="_blank" rel="nofollow" style="color:#458BF3">{% if icp %}{{ icp }}{% endif %}</a><a target="_blank" rel="nofollow" style="margin-left: 15px;color:#458BF3" href="http://www.beian.gov.cn/portal/registerSystemInfo"> {% if beian %}{{ beian }}{% endif %}</a>
+			</div>
+		</div>
+		<script src="{% static 'layui/layui.js' %}"></script>
+		<script src="{% static 'js/jquery.min.js' %}"></script>
+		<script type="text/javascript">
+var canvas=document.querySelector("#canvas"),ctx=canvas.getContext("2d");canvas.width=window.innerWidth,canvas.height=window.innerHeight,ctx.lineWidth=.3,ctx.strokeStyle=new Color(150).style;var movePos={x:30*canvas.width/100,y:30*canvas.height/100},dots={nb:250,distance:100,d_radius:150,array:[]};
+function colorValue(t){return Math.floor(255*Math.random()+t)}function createColorStyle(t,o,i){return"rgba("+t+","+o+","+i+", 0.618)"}function mixComponents(t,o,i,a){return(t*o+i*a)/(o+a)}function averageColorStyles(t,o){var i=t.color,a=o.color,s=mixComponents(i.r,t.radius,a.r,o.radius),n=mixComponents(i.g,t.radius,a.g,o.radius),e=mixComponents(i.b,t.radius,a.b,o.radius);return createColorStyle(Math.floor(s),Math.floor(n),Math.floor(e))}function Color(t){t=t||0,this.r=colorValue(t),this.g=colorValue(t),this.b=colorValue(t),this.style=createColorStyle(this.r,this.g,this.b)}function Dot(){this.x=Math.random()*canvas.width,this.y=Math.random()*canvas.height,this.vx=-.5+Math.random(),this.vy=-.5+Math.random(),this.radius=3*Math.random(),this.color=new Color}function createDots(){for(i=0;i<dots.nb;i++)dots.array.push(new Dot)}function moveDots(){for(i=0;i<dots.nb;i++){var t=dots.array[i];t.y<0||t.y>canvas.height?(t.vx=t.vx,t.vy=-t.vy):(t.x<0||t.x>canvas.width)&&(t.vx=-t.vx,t.vy=t.vy),t.x+=t.vx,t.y+=t.vy}}function connectDots(){for(i=0;i<dots.nb;i++)for(j=0;j<dots.nb;j++)i_dot=dots.array[i],j_dot=dots.array[j],i_dot.x-j_dot.x<dots.distance&&i_dot.y-j_dot.y<dots.distance&&i_dot.x-j_dot.x>-dots.distance&&i_dot.y-j_dot.y>-dots.distance&&i_dot.x-movePos.x<dots.d_radius&&i_dot.y-movePos.y<dots.d_radius&&i_dot.x-movePos.x>-dots.d_radius&&i_dot.y-movePos.y>-dots.d_radius&&(ctx.beginPath(),ctx.strokeStyle=averageColorStyles(i_dot,j_dot),ctx.moveTo(i_dot.x,i_dot.y),ctx.lineTo(j_dot.x,j_dot.y),ctx.stroke(),ctx.closePath())}function drawDots(){for(i=0;i<dots.nb;i++){dots.array[i].draw()}}function runDots(){ctx.clearRect(0,0,canvas.width,canvas.height),moveDots(),connectDots(),drawDots(),requestAnimationFrame(runDots)}Dot.prototype={draw:function(){ctx.beginPath(),ctx.fillStyle=this.color.style,ctx.arc(this.x,this.y,this.radius,0,3*Math.PI,!1),ctx.fill()}};var can=document.querySelector("#canvas");can.addEventListener("mousemove",function(t){movePos.x=t.pageX,movePos.y=t.pageY}),can.addEventListener("mouseleave",function(t){movePos.x=canvas.width/2,movePos.y=canvas.height/2}),createDots(),requestAnimationFrame(runDots);
+
+layui.use(['form'], function() {
+    var form = layui.form,
+        $ = layui.$,
+        layer = layui.layer;
+    form.on('submit(login-submit)', function(data) {
+        // 使用Django推荐的CSRF token处理方式
+        var csrfToken = $('input[name="csrfmiddlewaretoken"]').val();
+        var formData = $('#gougu-login').serialize();
+        
+        $.ajax({
+            url: "/user/login-submit/",
+            data: formData,
+            type: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': csrfToken
+            },
+            beforeSend: function(xhr) {
+                xhr.setRequestHeader("X-CSRFToken", csrfToken);
+            },
+            success: function(res, status, xhr) {
+                console.log('登录响应数据:', res);
+                if (res.code === 0) {
+                    // 强制在顶层窗口重定向，确保页面不嵌套
+                    window.top.location.href = res.data.redirect_url;
+                } else {
+                    layer.msg(res.msg || '登录失败，请检查信息', {icon: 2, time: 2000});
+                    // 刷新验证码
+                    $.ajax({
+                        url: "/get-new-captcha/",
+                        type: 'GET',
+                        dataType: 'json',
+                        success: function(data) {
+                            var newUrl = "/captcha/image/__key__/".replace('__key__', data.key);
+                            $('#captcha-img').attr('src', newUrl + '?t=' + Math.random());
+                            $('input[name="captcha_key"]').val(data.key);
+                        }
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                console.log('Error:', xhr.responseText);
+                console.log('Status:', status);
+                console.log('Error:', error);
+                console.log('CSRF Token:', $('input[name="csrfmiddlewaretoken"]').val());
+                console.log('Request Headers:', xhr.getAllResponseHeaders());
+                
+                if (xhr.status === 403 && xhr.responseText.includes('CSRF')) {
+                    layer.msg('CSRF验证失败，请刷新页面重试', {icon: 2, time: 2000});
+                    // 强制刷新页面
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    layer.msg('请求失败: ' + xhr.status + ' ' + error, {icon: 2, time: 2000});
+                }
+            }
+        });
+        return false;
+    });
+});
+
+// 验证码点击刷新事件（移至DOM加载完成后）
+$(document).ready(function() {
+    $('#captcha-img').click(function() {
+        $.ajax({
+            url: "/get-new-captcha/",
+            type: 'GET',
+            dataType: 'json',
+            success: function(data) {
+                var newUrl = "/captcha/image/__key__/".replace('__key__', data.key);
+                $('#captcha-img').attr('src', newUrl + '?t=' + Math.random());
+                $('input[name="captcha_key"]').val(data.key);
+            }
+        });
+    });
+});
+</script>
+	</body>
+</html>

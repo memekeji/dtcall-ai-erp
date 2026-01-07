@@ -1,0 +1,82 @@
+{% load static %}
+{% if contracts %}
+<div class="layui-table" style="margin: 0;">
+    <table style="width: 100%;">
+        <thead>
+            <tr>
+                <th style="width: 15%;">合同编号</th>
+                <th style="width: 25%;">合同名称</th>
+                <th style="width: 12%;">合同金额</th>
+                <th style="width: 12%;">合同类型</th>
+                <th style="width: 15%;">签订时间</th>
+                <th style="width: 10%;">状态</th>
+                <th style="width: 11%;">操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for contract in contracts %}
+            <tr>
+                <td>{{ contract.code }}</td>
+                <td>{{ contract.name }}</td>
+                <td>¥{{ contract.cost|floatformat:2 }}</td>
+                <td>
+                    {% if contract.types == 1 %}
+                    <span class="layui-badge">普通合同</span>
+                    {% elif contract.types == 2 %}
+                    <span class="layui-badge layui-bg-blue">商品合同</span>
+                    {% elif contract.types == 3 %}
+                    <span class="layui-badge layui-bg-green">服务合同</span>
+                    {% else %}
+                    <span class="layui-badge">{{ contract.types }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ contract.sign_time|date:"Y-m-d" }}</td>
+                <td>
+                    {% if contract.check_status == 0 %}
+                    <span class="layui-btn layui-btn-xs layui-bg-orange">待审核</span>
+                    {% elif contract.check_status == 1 %}
+                    <span class="layui-btn layui-btn-xs layui-bg-blue">审核中</span>
+                    {% elif contract.check_status == 2 %}
+                    <span class="layui-btn layui-btn-xs layui-bg-green">已通过</span>
+                    {% elif contract.check_status == 3 %}
+                    <span class="layui-btn layui-btn-xs layui-bg-red">已拒绝</span>
+                    {% else %}
+                    <span class="layui-btn layui-btn-xs">{{ contract.check_status }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="viewContract({{ contract.id }})">
+                        <i class="layui-icon layui-icon-about"></i> 查看
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div style="text-align: center; color: #999; padding: 30px;">
+    <i class="layui-icon layui-icon-file" style="font-size: 40px; color: #ddd;"></i>
+    <p style="margin-top: 10px;">暂无合同记录</p>
+</div>
+{% endif %}
+
+<script>
+// 查看合同详情
+function viewContract(contractId) {
+    layui.use(['layer'], function() {
+        var layer = layui.layer;
+        
+        layer.open({
+            type: 2,
+            title: '合同详情',
+            area: ['900px', '700px'],
+            content: '/contract/sales/view/' + contractId + '/',
+            zIndex: 2147483646,
+            success: function(layero, index) {
+                layer.setTop(layero);
+            }
+        });
+    });
+}
+</script>

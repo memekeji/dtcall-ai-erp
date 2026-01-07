@@ -1,0 +1,257 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件上传</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .upload-container {
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .upload-area {
+            border: 2px dashed #d9d9d9;
+            border-radius: 6px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .upload-area:hover {
+            border-color: #1E9FFF;
+            background: #f0f9ff;
+        }
+        .upload-area.dragover {
+            border-color: #1E9FFF;
+            background: #e6f7ff;
+        }
+        
+        /* 上传列表样式 */
+        .layui-upload-list {
+            margin-top: 20px;
+        }
+        
+        .layui-table {
+            margin: 0;
+        }
+        
+        .upload-item {
+            transition: all 0.3s;
+        }
+        
+        .upload-item:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .status-container {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .status-text {
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .layui-progress {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="upload-container">
+        <h2 style="text-align: center; margin-bottom: 30px;">文件上传</h2>
+        
+        <!-- 拖拽上传区域 -->
+        <div class="upload-area" id="uploadArea">
+            <i class="layui-icon layui-icon-upload-drag" style="font-size: 48px; color: #999; margin-bottom: 15px;"></i>
+            <h3>拖拽文件到此处上传</h3>
+            <p>或点击选择文件上传</p>
+        </div>
+        
+        <!-- 上传进度列表 -->
+        <div class="layui-upload-list" id="uploadList">
+            <table class="layui-table">
+                <thead>
+                    <tr>
+                        <th>文件名</th>
+                        <th>大小</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="uploadListBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['upload', 'layer', 'element'], function () {
+            var upload = layui.upload;
+            var layer = layui.layer;
+            var element = layui.element;
+            
+            // 文件计数器，用于生成唯一ID
+            var fileCounter = 0;
+            // 存储文件ID与上传索引的映射
+            var fileIdMap = {};
+            
+            // 初始化文件上传
+            var uploadInst = upload.render({
+                elem: '#uploadArea',
+                url: '/disk/upload/',
+                data: {
+                    csrfmiddlewaretoken: '{{ csrf_token }}'
+                },
+                multiple: true,
+                drag: true,
+                auto: true, // 自动上传
+                accept: 'file',
+                choose: function(obj) {
+                    // 显示文件选择状态
+                    layer.msg('文件已选择，正在添加到上传列表...', {icon: 0});
+                    
+                    // 预读本地文件并显示上传列表
+                    obj.preview(function(index, file) {
+                        // 使用自定义计数器生成唯一ID
+                        var fileId = 'file-' + (++fileCounter);
+                        // 保存映射关系
+                        fileIdMap[index] = fileId;
+                        
+                        // 创建文件行
+                        var tr = '<tr id="' + fileId + '" class="upload-item">';
+                        tr += '<td>' + file.name + '</td>';
+                        tr += '<td>' + (file.size / 1024).toFixed(1) + 'kb</td>';
+                        tr += '<td><div class="status-container">';
+                        tr += '<span class="status-text">待上传</span>';
+                        tr += '<div class="layui-progress layui-progress-big" lay-showpercent="yes"><div class="layui-progress-bar" lay-percent="0%"></div></div>';
+                        tr += '</div></td>';
+                        tr += '<td><button class="layui-btn layui-btn-xs layui-btn-danger" onclick="removeFile(\'' + fileId + '\')">删除</button></td>';
+                        tr += '</tr>';
+                        
+                        // 添加到列表
+                        $('#uploadListBody').append(tr);
+                        element.render('progress');
+                    });
+                },
+                before: function(obj) {
+                    // 显示上传进度
+                    layer.load(1, {shade: [0.1, '#fff']});
+                },
+                done: function(res, index, upload) {
+                    layer.closeAll('loading');
+                    
+                    // 获取当前文件行
+                    var fileId = fileIdMap[index];
+                    var $tr = $('#' + fileId);
+                    
+                    if (res.code === 0) {
+                        // 上传成功
+                        $tr.find('.status-text').text('上传成功').css('color', '#5FB878');
+                        $tr.find('.layui-progress').hide();
+                        $tr.find('td:nth-child(4)').html('<button class="layui-btn layui-btn-xs layui-btn-primary" onclick="removeFile(\'' + fileId + '\')">删除</button>');
+                        layer.msg('文件上传成功', {icon: 1});
+                    } else if (res.code === 2) {
+                        // 文件已存在，显示处理方式选择弹窗
+                        $tr.find('.status-text').text('文件已存在').css('color', '#FFB800');
+                        $tr.find('.layui-progress').hide();
+                        
+                        layer.open({
+                            type: 1,
+                            title: '文件已存在',
+                            area: ['400px', '250px'],
+                            content: '<div style="padding: 20px;">' +
+                                '<p>文件名 "' + res.data.file_name + '" 已存在，您可以选择以下操作：</p>' +
+                                '<div style="margin-top: 20px;">' +
+                                '<button class="layui-btn layui-btn-primary" id="cancelUploadBtn">取消</button>' +
+                                '<button class="layui-btn" id="overwriteUploadBtn">覆盖</button>' +
+                                '<button class="layui-btn layui-btn-normal" id="renameUploadBtn">重命名</button>' +
+                                '</div>' +
+                                '</div>',
+                            success: function(layero) {
+                                // 取消上传
+                                layero.find('#cancelUploadBtn').on('click', function() {
+                                    layer.closeAll();
+                                });
+                                
+                                // 覆盖已有文件
+                                layero.find('#overwriteUploadBtn').on('click', function() {
+                                    layer.closeAll();
+                                    $tr.find('.status-text').text('正在覆盖...').css('color', '#1E9FFF');
+                                    $tr.find('.layui-progress').show();
+                                    $tr.find('.layui-progress-bar').attr('lay-percent', '0%');
+                                    element.render('progress');
+                                    
+                                    // 这里需要实现覆盖逻辑
+                                    layer.msg('覆盖功能需要进一步实现', {icon: 0});
+                                });
+                                
+                                // 重命名上传
+                                layero.find('#renameUploadBtn').on('click', function() {
+                                    layer.closeAll();
+                                    $tr.find('.status-text').text('正在重命名...').css('color', '#1E9FFF');
+                                    $tr.find('.layui-progress').show();
+                                    $tr.find('.layui-progress-bar').attr('lay-percent', '0%');
+                                    element.render('progress');
+                                    
+                                    // 这里需要实现重命名逻辑
+                                    layer.msg('重命名功能需要进一步实现', {icon: 0});
+                                });
+                            }
+                        });
+                    } else {
+                        // 上传失败
+                        $tr.find('.status-text').text('上传失败').css('color', '#f56c6c');
+                        $tr.find('.layui-progress').hide();
+                        $tr.find('td:nth-child(4)').html('<button class="layui-btn layui-btn-xs layui-btn-primary" onclick="retryUpload(\'' + fileId + '\')">重试</button> <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="removeFile(\'' + fileId + '\')">删除</button>');
+                        layer.msg('文件上传失败: ' + res.msg, {icon: 2});
+                    }
+                },
+                error: function(index, upload) {
+                    layer.closeAll('loading');
+                    
+                    // 获取当前文件行
+                    var fileId = fileIdMap[index];
+                    var $tr = $('#' + fileId);
+                    
+                    // 请求异常
+                    $tr.find('.status-text').text('请求异常').css('color', '#f56c6c');
+                    $tr.find('.layui-progress').hide();
+                    $tr.find('td:nth-child(4)').html('<button class="layui-btn layui-btn-xs layui-btn-primary" onclick="retryUpload(\'' + fileId + '\')">重试</button> <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="removeFile(\'' + fileId + '\')">删除</button>');
+                    layer.msg('上传请求异常', {icon: 2});
+                },
+                progress: function(n, elem, e, index) {
+                    // 获取当前文件行
+                    var fileId = fileIdMap[index];
+                    var $tr = $('#' + fileId);
+                    
+                    // 更新进度条和状态
+                    $tr.find('.status-text').text('上传中').css('color', '#1E9FFF');
+                    var percent = n + '%';
+                    $tr.find('.layui-progress-bar').attr('lay-percent', percent);
+                    element.render('progress');
+                }
+            });
+        });
+        
+        // 删除文件（从列表中移除）
+        function removeFile(fileId) {
+            $('#' + fileId).remove();
+            layer.msg('文件已从列表中删除', {icon: 1});
+        }
+        
+        // 重试上传
+        function retryUpload(fileId) {
+            // 重新触发上传
+            $('#uploadArea').click();
+        }
+    </script>
+</body>
+</html>

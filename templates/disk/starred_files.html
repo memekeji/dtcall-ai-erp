@@ -1,0 +1,801 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>收藏文件</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .disk-container {
+            padding: 20px;
+        }
+        
+        .toolbar {
+            background: #fff;
+            padding: 15px 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .breadcrumb {
+            background: #f8f9fa;
+            padding: 10px 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .breadcrumb a {
+            color: #1E9FFF;
+            text-decoration: none;
+            margin-right: 5px;
+        }
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        .breadcrumb .current {
+            color: #666;
+            font-weight: bold;
+        }
+        /* 网格布局样式 */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .grid-item {
+            background: #fff;
+            border: 1px solid #e6e6e6;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        .grid-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+        }
+        
+        /* 上传方块样式 */
+        .upload-grid-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed #d9d9d9;
+            padding: 20px;
+            text-align: center;
+            min-height: 200px;
+        }
+        
+        .upload-grid-item:hover {
+            border-color: #1E9FFF;
+            background: #f0f9ff;
+        }
+        
+        /* 文件方块样式 */
+        .file-grid-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* 文件内容预览区域 */
+        .file-preview {
+            width: 100%;
+            height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+            overflow: hidden;
+        }
+        
+        .file-preview img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        .file-preview .icon {
+            font-size: 48px;
+            color: #999;
+        }
+        
+        /* 文件信息区域 */
+        .file-info {
+            padding: 12px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .file-name {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: center;
+        }
+        
+        /* 文件操作按钮区域 */
+        .file-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            justify-content: center;
+        }
+        
+        .file-actions .layui-btn {
+            margin: 0;
+            font-size: 12px;
+            padding: 4px 8px;
+            height: auto;
+            line-height: normal;
+        }
+        
+        /* 隐藏列表视图相关样式 */
+        .file-list {
+            display: none;
+        }
+        
+        .file-header {
+            display: none;
+        }
+        
+        .file-item {
+            display: none;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        .empty-state i {
+            font-size: 64px;
+            margin-bottom: 20px;
+            display: block;
+        }
+        .upload-area {
+            border: 2px dashed #d9d9d9;
+            border-radius: 6px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .upload-area:hover {
+            border-color: #1E9FFF;
+            background: #f0f9ff;
+        }
+        .upload-area.dragover {
+            border-color: #1E9FFF;
+            background: #e6f7ff;
+        }
+        .batch-actions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 10px 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .view-toggle {
+            display: flex;
+            border: 1px solid #e6e6e6;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .view-toggle button {
+            border: none;
+            background: #fff;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .view-toggle button.active {
+            background: #1E9FFF;
+            color: white;
+        }
+        .search-box {
+            position: relative;
+        }
+        .search-box input {
+            padding-right: 35px;
+        }
+        .search-box .search-btn {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            border: none;
+            background: none;
+            color: #999;
+            cursor: pointer;
+        }
+        .context-menu {
+            position: fixed;
+            background: white;
+            border: 1px solid #e6e6e6;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 9999;
+            display: none;
+            min-width: 150px;
+        }
+        .context-menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: transparent;
+            z-index: 9998;
+            display: none;
+        }
+        .context-menu-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: all 0.3s;
+        }
+        .context-menu-item:hover {
+            background: #f8f9fa;
+        }
+        .context-menu-item:last-child {
+            border-bottom: none;
+        }
+        .context-menu-item i {
+            margin-right: 8px;
+            width: 16px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="disk-container">
+        <!-- 工具栏 -->
+        <div class="toolbar">
+            <div class="toolbar-left">
+                <button class="layui-btn layui-btn-primary" onclick="goBack()">
+                    <i class="layui-icon layui-icon-return"></i> 返回
+                </button>
+                <button class="layui-btn layui-btn-warm" onclick="refreshList()">
+                    <i class="layui-icon layui-icon-refresh"></i> 刷新
+                </button>
+            </div>
+            <div class="toolbar-right">
+                <div class="search-box">
+                    <input type="text" class="layui-input" placeholder="搜索收藏文件..." id="searchInput" style="width: 200px;">
+                    <button class="search-btn" onclick="searchFiles()">
+                        <i class="layui-icon layui-icon-search"></i>
+                    </button>
+                </div>
+                <div class="view-toggle">
+                    <button class="active" onclick="switchView('list')">
+                        <i class="layui-icon layui-icon-list"></i>
+                    </button>
+                    <button onclick="switchView('grid')">
+                        <i class="layui-icon layui-icon-template-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 面包屑导航 -->
+        <div class="breadcrumb">
+            <a href="javascript:void(0)" onclick="navigateToFolder('')">
+                <i class="layui-icon layui-icon-home"></i> 根目录
+            </a>
+            <span>/</span>
+            <span class="current">收藏文件</span>
+        </div>
+        <!-- 批量操作栏 -->
+        <div class="batch-actions" id="batchActions">
+            <span id="selectedCount">已选择 0 项</span>
+            <div style="float: right;">
+                <button class="layui-btn layui-btn-xs" onclick="batchDownload()">
+                    <i class="layui-icon layui-icon-download-circle"></i> 下载
+                </button>
+                <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="batchShare()">
+                    <i class="layui-icon layui-icon-share"></i> 分享
+                </button>
+                <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="batchDelete()">
+                    <i class="layui-icon layui-icon-delete"></i> 删除
+                </button>
+                <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="clearSelection()">
+                    <i class="layui-icon layui-icon-close"></i> 取消选择
+                </button>
+            </div>
+            <div style="clear: both;"></div>
+        </div>
+
+        <!-- 网格布局容器 -->
+        <div class="grid-container">
+            <!-- 文件 -->
+            {% for file in starred_files %}
+            <div class="grid-item file-grid-item" data-type="file" data-id="{{ file.id }}" oncontextmenu="showContextMenu(event, 'file', '{{ file.id }}')" onclick="if (!event.target.closest('.file-actions')) { toggleItemSelection('file', '{{ file.id }}'); } (window.event || event).stopPropagation();" ondblclick="previewFile('{{ file.id }}', '{{ file.name }}', '{{ file.file_type }}'); (window.event || event).stopPropagation();">
+                <div class="file-preview">
+                    {% if file.file_type == 'image' %}
+                    <img src="/disk/download/{{ file.id }}/" alt="{{ file.name }}" style="pointer-events: none;">
+                    {% else %}
+                    <i class="layui-icon 
+                        {% if file.file_type == 'document' %}layui-icon-file{% elif file.file_type == 'video' %}layui-icon-video{% elif file.file_type == 'audio' %}layui-icon-voice{% elif file.file_type == 'archive' %}layui-icon-file{% else %}layui-icon-file{% endif %} 
+                        icon" 
+                        style="color: 
+                            {% if file.file_type == 'document' %}#1E9FFF{% elif file.file_type == 'image' %}#5FB878{% elif file.file_type == 'video' %}#FF5722{% elif file.file_type == 'audio' %}#FFB800{% elif file.file_type == 'archive' %}#9C27B0{% else %}#999{% endif %}">
+                    </i>
+                    {% endif %}
+                </div>
+                <div class="file-info">
+                    <div class="file-name">{{ file.name }}</div>
+                    <div class="file-actions">
+                        <!-- 预览按钮 -->
+                        <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="previewFile('{{ file.id }}', '{{ file.name }}', '{{ file.file_type }}'); (window.event || event).stopPropagation();">
+                            <i class="layui-icon layui-icon-read"></i>
+                        </button>
+                        <!-- 下载按钮 -->
+                        <button class="layui-btn layui-btn-xs" onclick="downloadFile('{{ file.id }}'); (window.event || event).stopPropagation();">
+                            <i class="layui-icon layui-icon-download-circle"></i>
+                        </button>
+                        <!-- 外链分享按钮 -->
+                        <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="shareItem('file', '{{ file.id }}'); (window.event || event).stopPropagation();">
+                            <i class="layui-icon layui-icon-share"></i>
+                        </button>
+                        <!-- 内部共享按钮 -->
+                        <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="shareToUserOrDept('file', '{{ file.id }}'); (window.event || event).stopPropagation();">
+                            <i class="layui-icon layui-icon-group"></i>
+                        </button>
+                        <!-- 收藏按钮 -->
+                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="toggleStar('{{ file.id }}', this); (window.event || event).stopPropagation();">
+                            <i class="layui-icon layui-icon-star-fill" style="color: #FFB800;"></i>
+                        </button>
+                        <!-- 删除按钮 -->
+                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteFile('{{ file.id }}'); (window.event || event).stopPropagation();">
+                            <i class="layui-icon layui-icon-delete"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- 空状态 -->
+        {% if not starred_files %}
+        <div class="empty-state">
+            <i class="layui-icon layui-icon-star"></i>
+            <h3>暂无收藏文件</h3>
+            <p>您可以在个人网盘中收藏文件，方便快速访问</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 右键菜单 -->
+    <div class="context-menu" id="contextMenu">
+        <div class="context-menu-item" onclick="contextAction('open')">
+            <i class="layui-icon layui-icon-search"></i> 打开
+        </div>
+        <div class="context-menu-item" onclick="contextAction('download')">
+            <i class="layui-icon layui-icon-download-circle"></i> 下载
+        </div>
+        <div class="context-menu-item" onclick="contextAction('share')">
+            <i class="layui-icon layui-icon-share"></i> 分享
+        </div>
+        <div class="context-menu-item" onclick="contextAction('permission')">
+            <i class="layui-icon layui-icon-set"></i> 权限管理
+        </div>
+        <div class="context-menu-item" onclick="contextAction('star')">
+            <i class="layui-icon layui-icon-star-fill" style="color: #FFB800;"></i> 取消收藏
+        </div>
+        <div class="context-menu-item" onclick="contextAction('rename')">
+            <i class="layui-icon layui-icon-edit"></i> 重命名
+        </div>
+        <div class="context-menu-item" onclick="contextAction('delete')" style="color: #ff4757;">
+            <i class="layui-icon layui-icon-delete"></i> 删除
+        </div>
+    </div>
+
+    <div class="context-menu-overlay" id="contextMenuOverlay"></div>
+    <!-- 引入jQuery库 -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/office_preview.js' %}"></script>
+    <script>
+        layui.use(['layer', 'upload'], function () {
+            var layer = layui.layer;
+            var upload = layui.upload;
+        });
+
+        let selectedItems = [];
+        let contextMenuTarget = null;
+        let contextMenuType = null;
+        let contextMenuId = null;
+        
+        function showContextMenu(event, type, id) {
+            event.preventDefault();
+            contextMenuTarget = event.target.closest('.grid-item');
+            contextMenuType = type;
+            contextMenuId = id;
+            
+            const menu = document.getElementById('contextMenu');
+            const overlay = document.getElementById('contextMenuOverlay');
+            
+            menu.style.left = event.clientX + 'px';
+            menu.style.top = event.clientY + 'px';
+            menu.style.display = 'block';
+            overlay.style.display = 'block';
+        }
+        
+        function hideContextMenu() {
+            document.getElementById('contextMenu').style.display = 'none';
+            document.getElementById('contextMenuOverlay').style.display = 'none';
+            contextMenuTarget = null;
+            contextMenuType = null;
+            contextMenuId = null;
+        }
+        
+        document.getElementById('contextMenuOverlay').addEventListener('click', hideContextMenu);
+        
+        function contextAction(action) {
+            if (!contextMenuType || !contextMenuId) return;
+            
+            switch (action) {
+                case 'open':
+                    if (contextMenuType === 'folder') {
+                        navigateToFolder(contextMenuId);
+                    } else {
+                        const fileName = contextMenuTarget.querySelector('.file-name')?.textContent || '未知文件';
+                        const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
+                        previewFile(contextMenuId, fileName, fileExtension);
+                    }
+                    break;
+                case 'download':
+                    downloadFile(contextMenuId);
+                    break;
+                case 'share':
+                    shareItem(contextMenuType, contextMenuId);
+                    break;
+                case 'permission':
+                    layui.use('layer', function() {
+                        var layer = layui.layer;
+                        layer.open({
+                            type: 2,
+                            title: '权限管理',
+                            shade: 0.8,
+                            area: ['800px', '600px'],
+                            content: '/disk/permission/?type=' + contextMenuType + '&id=' + contextMenuId
+                        });
+                    });
+                    break;
+                case 'star':
+                    layui.use('layer', function() {
+                        var layer = layui.layer;
+                        $.post('/disk/file/star/' + contextMenuId + '/', {
+                            csrfmiddlewaretoken: '{{ csrf_token }}'
+                        }, function(response) {
+                            if (response.code === 0) {
+                                layer.msg('取消收藏成功', {icon: 1});
+                                refreshList();
+                            } else {
+                                layer.msg(response.msg, {icon: 2});
+                            }
+                        });
+                    });
+                    break;
+                case 'rename':
+                    layui.use('layer', function() {
+                        var layer = layui.layer;
+                        var currentName = contextMenuTarget.querySelector('.file-name')?.textContent || '';
+                        
+                        layer.prompt({
+                            title: '重命名',
+                            formType: 0,
+                            value: currentName,
+                            maxlength: 50
+                        }, function(value, index) {
+                            if (!value.trim()) {
+                                layer.msg('名称不能为空', {icon: 2});
+                                return;
+                            }
+                            
+                            // 重命名功能暂时使用占位符
+                            layer.msg('重命名功能开发中...', {icon: 0});
+                            layer.close(index);
+                        });
+                    });
+                    break;
+                case 'delete':
+                    layui.use('layer', function() {
+                        var layer = layui.layer;
+                        layer.confirm('确定要删除' + (contextMenuType === 'folder' ? '此文件夹' : '此文件') + '吗？', {
+                            icon: 3,
+                            title: '确认删除'
+                        }, function(index) {
+                            var url = contextMenuType === 'folder' ? 
+                                '/disk/folder/delete/' + contextMenuId + '/' : 
+                                '/disk/file/delete/' + contextMenuId + '/';
+                            
+                            $.post(url, {
+                                csrfmiddlewaretoken: '{{ csrf_token }}'
+                            }, function(response) {
+                                if (response.code === 0) {
+                                    layer.close(index);
+                                    layer.msg('删除成功', {icon: 1});
+                                    refreshList();
+                                } else {
+                                    layer.msg(response.msg, {icon: 2});
+                                }
+                            });
+                        });
+                    });
+                    break;
+            }
+            
+            hideContextMenu();
+        }
+        
+        function managePermission(type, id) {
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: '权限管理',
+                    shade: 0.8,
+                    area: ['800px', '600px'],
+                    content: '/disk/permission/?type=' + type + '&id=' + id
+                });
+            });
+        }
+        
+        function navigateToFolder(folderId) {
+            var url = '/disk/personal/';
+            if (folderId) {
+                url += '?folder_id=' + folderId;
+            }
+            window.location.href = url;
+        }
+        
+        function goBack() {
+            window.location.href = '/disk/personal/';
+        }
+        
+        // 视图切换功能
+        function switchView(viewType) {
+            // 切换按钮状态
+            document.querySelectorAll('.view-toggle button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // 视图切换功能暂时使用占位符
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                layer.msg('视图切换功能开发中...', {icon: 0});
+            });
+        }
+        
+        function refreshList() {
+            location.reload();
+        }
+        
+        function previewFile(fileId, fileName, fileType) {
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                // 确保fileId是字符串类型
+                var strFileId = String(fileId);
+                // 调试：打印传递的参数
+                console.log('预览参数:', { fileId: strFileId, fileName: fileName, fileType: fileType });
+                // 修复：使用正确的URL格式，移除adm前缀
+                var previewUrl = '/disk/preview/?file_id=' + strFileId + '&file_name=' + encodeURIComponent(fileName) + '&file_type=' + fileType;
+                
+                layer.open({
+                    type: 2,
+                    title: '文件预览 - ' + fileName,
+                    area: ['90%', '90%'],
+                    content: previewUrl,
+                    maxmin: true,
+                    btn: ['下载', '关闭'],
+                    btn1: function(index) {
+                        downloadFile(strFileId);
+                        return false;
+                    }
+                });
+            });
+        }
+        
+        function downloadFile(fileId) {
+            var a = document.createElement('a');
+            a.href = '/disk/download/' + fileId + '/';
+            a.download = '';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+        
+        function shareItem(type, id) {
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: '创建分享',
+                    area: ['500px', '400px'],
+                    content: '/disk/share/create/?type=' + type + '&id=' + id
+                });
+            });
+        }
+        
+        function shareToUserOrDept(type, id) {
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: '共享给用户或部门',
+                    area: ['800px', '600px'],
+                    content: '/disk/permission/?type=' + type + '&id=' + id
+                });
+            });
+        }
+        
+        function toggleStar(fileId, button) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                $.ajax({
+                    url: '/disk/file/star/' + fileId + '/',
+                    type: 'POST',
+                    data: {
+                        csrfmiddlewaretoken: '{{ csrf_token }}'
+                    },
+                    success: function (res) {
+                        if (res.code === 0) {
+                            layer.msg(res.msg, { icon: 1 });
+                            refreshList();
+                        } else {
+                            layer.msg(res.msg, { icon: 2 });
+                        }
+                    },
+                    error: function () {
+                        layer.msg('网络错误', { icon: 2 });
+                    }
+                });
+            });
+        }
+        
+        function deleteFile(fileId) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.confirm('确定要删除这个文件吗？', {
+                    btn: ['确定删除', '取消'],
+                    btn1: function (index) {
+                        $.ajax({
+                            url: '/disk/file/delete/' + fileId + '/',
+                            type: 'POST',
+                            data: {
+                                csrfmiddlewaretoken: '{{ csrf_token }}'
+                            },
+                            success: function (res) {
+                                if (res.code === 0) {
+                                    layer.msg(res.msg, { icon: 1 });
+                                    setTimeout(() => location.reload(), 1000);
+                                } else {
+                                    layer.msg(res.msg, { icon: 2 });
+                                }
+                            },
+                            error: function () {
+                                layer.msg('网络错误', { icon: 2 });
+                            }
+                        });
+                        layer.close(index);
+                    }
+                });
+            });
+        }
+        
+        // 搜索功能
+        function searchFiles() {
+            var searchTerm = document.getElementById('searchInput').value.trim();
+            var url = new URL(window.location.href);
+            if (searchTerm) {
+                url.searchParams.set('search', searchTerm);
+            } else {
+                url.searchParams.delete('search');
+            }
+            window.location.href = url.toString();
+        }
+        
+        // 监听搜索框回车事件
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchFiles();
+            }
+        });
+        
+        // 批量操作功能
+        function updateBatchActions() {
+            const batchActions = document.getElementById('batchActions');
+            const selectedCount = document.getElementById('selectedCount');
+            
+            selectedCount.textContent = `已选择 ${selectedItems.length} 项`;
+            
+            if (selectedItems.length > 0) {
+                batchActions.style.display = 'block';
+            } else {
+                batchActions.style.display = 'none';
+            }
+        }
+        
+        function toggleItemSelection(type, id) {
+            const index = selectedItems.findIndex(item => item.type === type && item.id === id);
+            
+            if (index > -1) {
+                selectedItems.splice(index, 1);
+            } else {
+                selectedItems.push({ type, id });
+            }
+            
+            updateBatchActions();
+        }
+        
+        function batchDownload() {
+            if (selectedItems.length === 0) return;
+            
+            // 实现批量下载逻辑
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                layer.msg('批量下载功能开发中', {icon: 0});
+            });
+        }
+        
+        function batchShare() {
+            if (selectedItems.length === 0) return;
+            
+            // 实现批量分享逻辑
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                layer.msg('批量分享功能开发中', {icon: 0});
+            });
+        }
+        
+        function batchDelete() {
+            if (selectedItems.length === 0) return;
+            
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                layer.confirm('确定要删除选中的' + selectedItems.length + '项吗？', {
+                    icon: 3,
+                    title: '确认删除'
+                }, function(index) {
+                    // 实现批量删除逻辑
+                    layer.msg('批量删除功能开发中', {icon: 0});
+                    layer.close(index);
+                });
+            });
+        }
+        
+        function clearSelection() {
+            selectedItems = [];
+            updateBatchActions();
+        }
+    </script>
+</body>
+
+</html>

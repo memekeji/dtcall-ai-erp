@@ -1,0 +1,46 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}删除会议纪要{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>删除会议纪要</h3>
+    </div>
+    <div class="layui-card-body">
+        <div class="layui-panel" style="padding: 20px; background-color: #fff2f0; border: 1px solid #ffccc7;">
+            <p style="color: #ff4d4f; font-size: 16px; margin-bottom: 15px;">
+                <i class="layui-icon layui-icon-close-fill" style="font-size: 18px;"></i>
+                确定要删除以下会议纪要吗？
+            </p>
+            <div style="background-color: white; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+                <h4>{{ minute.title }}</h4>
+                <p style="color: #666; margin: 10px 0;">
+                    会议时间：{{ minute.meeting_date|date:"Y-m-d H:i" }}<br>
+                    会议地点：{{ minute.location|default:"未指定" }}<br>
+                    记录人：{{ minute.recorder.name }}
+                </p>
+                <p style="color: #999;">{{ minute.content|truncatechars:100 }}</p>
+            </div>
+            <p style="color: #ff4d4f; font-weight: bold;">
+                注意：删除后将无法恢复，请谨慎操作！
+            </p>
+        </div>
+        
+        <form method="post" style="margin-top: 20px;">
+            {% csrf_token %}
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button type="submit" class="layui-btn layui-btn-danger">
+                        <i class="layui-icon layui-icon-delete"></i> 确认删除
+                    </button>
+                    <a href="{% url 'personal:minutes_detail' minute.pk %}" class="layui-btn layui-btn-primary">
+                        <i class="layui-icon layui-icon-return"></i> 取消
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

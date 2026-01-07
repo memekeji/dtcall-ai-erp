@@ -1,0 +1,118 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>收票统计</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .stat-card {
+            background: #fff;
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .stat-item {
+            display: inline-block;
+            width: 24%;
+            text-align: center;
+            padding: 15px 0;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #009688;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header">收票统计分析</div>
+            <div class="layui-card-body">
+                <!-- 统计卡片 -->
+                <div class="stat-card">
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalReceiveInvoices">0</div>
+                        <div class="stat-label">总收票数量</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalAmount">¥0.00</div>
+                        <div class="stat-label">总收票金额</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="processedAmount">¥0.00</div>
+                        <div class="stat-label">已处理金额</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="pendingAmount">¥0.00</div>
+                        <div class="stat-label">待处理金额</div>
+                    </div>
+                </div>
+
+                <!-- 详细数据表格 -->
+                <div class="layui-card">
+                    <div class="layui-card-header">收票明细</div>
+                    <div class="layui-card-body">
+                        <table id="receiveInvoiceDetailTable" class="layui-table" lay-filter="receiveInvoiceDetailTable"></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['table', 'layer'], function() {
+            var table = layui.table;
+            var layer = layui.layer;
+
+            // 加载统计数据
+            function loadStatistics() {
+                // 从后端API获取统计数据
+                $.ajax({
+                    url: '/adm/finance/receiveinvoice/statistics/',
+                    method: 'GET',
+                    dataType: 'json',
+                    success: function(data) {
+                        $('#totalReceiveInvoices').text(data.total_receive_invoices || 0);
+                        $('#totalAmount').text('¥' + (data.total_amount || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2}));
+                        $('#processedAmount').text('¥' + (data.processed_amount || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2}));
+                        $('#pendingAmount').text('¥' + (data.pending_amount || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2}));
+                    },
+                    error: function() {
+                        console.error('获取收票统计数据失败');
+                    }
+                });
+            }
+
+            // 初始化详细数据表格
+            table.render({
+                elem: '#receiveInvoiceDetailTable',
+                url: '/adm/finance/receiveinvoice/datalist/',
+                cols: [[
+                    {field: 'code', title: '发票号码', width: 150},
+                    {field: 'amount', title: '发票金额', width: 120},
+                    {field: 'invoice_title', title: '开票抬头', width: 200},
+                    {field: 'open_time', title: '开票时间', width: 180},
+                    {field: 'enter_status', title: '处理状态', width: 100}
+                ]],
+                page: true,
+                limit: 10,
+                height: 400
+            });
+
+            // 页面加载时获取统计数据
+            loadStatistics();
+        });
+    </script>
+</body>
+</html>

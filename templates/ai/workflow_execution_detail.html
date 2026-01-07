@@ -1,0 +1,222 @@
+{% extends 'home/base.html' %}
+{% load static %}
+
+{% block title %}AI任务详情 - {{ execution.id }} - DTCALL管理后台{% endblock %}
+
+{% block content %}
+<div class="layui-fluid">
+    <div class="layui-card">
+        <div class="layui-card-header">
+            <div class="layui-row">
+                <div class="layui-col-md8">
+                    <h2>AI任务详情</h2>
+                </div>
+                <div class="layui-col-md4 text-right">
+                    <a href="{% url 'ai:ai_task_list' %}" class="layui-btn layui-btn-primary">
+                        <i class="layui-icon layui-icon-left"></i> 返回列表
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="layui-card-body">
+            <!-- 基本信息 -->
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md12">
+                    <div class="layui-card">
+                        <div class="layui-card-header">
+                            <h3>基本信息</h3>
+                        </div>
+                        <div class="layui-card-body">
+                            <div class="layui-row">
+                                <div class="layui-col-md4">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">任务ID：</label>
+                                        <div class="layui-input-block">
+                                            <span class="layui-form-text">{{ execution.id }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="layui-col-md4">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">所属工作流：</label>
+                                        <div class="layui-input-block">
+                                            <span class="layui-form-text">
+                                                <a href="{% url 'ai:workflow_detail' execution.workflow.id %}">{{ execution.workflow.name }}</a>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="layui-col-md4">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">执行状态：</label>
+                                        <div class="layui-input-block">
+                                            <span class="layui-form-text">
+                                                {% if execution.status == 'running' %}
+                                                <span class="layui-badge layui-bg-green">执行中</span>
+                                                {% elif execution.status == 'completed' %}
+                                                <span class="layui-badge layui-bg-blue">已完成</span>
+                                                {% elif execution.status == 'failed' %}
+                                                <span class="layui-badge layui-bg-red">执行失败</span>
+                                                {% elif execution.status == 'cancelled' %}
+                                                <span class="layui-badge layui-bg-gray">已取消</span>
+                                                {% else %}
+                                                <span class="layui-badge layui-bg-orange">待执行</span>
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="layui-row">
+                                <div class="layui-col-md4">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">开始时间：</label>
+                                        <div class="layui-input-block">
+                                            <span class="layui-form-text">{{ execution.started_at|date:'Y-m-d H:i:s' }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="layui-col-md4">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">完成时间：</label>
+                                        <div class="layui-input-block">
+                                            <span class="layui-form-text">
+                                                {% if execution.completed_at %}
+                                                {{ execution.completed_at|date:'Y-m-d H:i:s' }}
+                                                {% else %}
+                                                -尚未完成-
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="layui-col-md4">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">执行时长：</label>
+                                        <div class="layui-input-block">
+                                            <span class="layui-form-text">
+                                                {% if execution.completed_at %}
+                                                {% with duration=execution.completed_at|timeuntil:execution.started_at %}
+                                                {{ duration }}
+                                                {% endwith %}
+                                                {% else %}
+                                                -执行中-
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 输入输出数据 -->
+            <div class="layui-row layui-col-space15" style="margin-top: 20px;">
+                <div class="layui-col-md6">
+                    <div class="layui-card">
+                        <div class="layui-card-header">
+                            <h3>输入数据</h3>
+                        </div>
+                        <div class="layui-card-body">
+                            {% if execution.input_data %}
+                            <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">{{ execution.input_data|pprint }}</pre>
+                            {% else %}
+                            <div class="text-center" style="color: #999; padding: 20px;">暂无输入数据</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-card">
+                        <div class="layui-card-header">
+                            <h3>输出数据</h3>
+                        </div>
+                        <div class="layui-card-body">
+                            {% if execution.output_data %}
+                            <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">{{ execution.output_data|pprint }}</pre>
+                            {% else %}
+                            <div class="text-center" style="color: #999; padding: 20px;">
+                                {% if execution.status == 'completed' %}
+                                执行完成，但无输出数据
+                                {% else %}
+                                任务尚未完成或执行失败
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 错误信息 -->
+            {% if execution.status == 'failed' and execution.error_message %}
+            <div class="layui-row layui-col-space15" style="margin-top: 20px;">
+                <div class="layui-col-md12">
+                    <div class="layui-card layui-bg-red">
+                        <div class="layui-card-header">
+                            <h3 style="color: white;">错误信息</h3>
+                        </div>
+                        <div class="layui-card-body">
+                            <pre style="background-color: rgba(0,0,0,0.1); padding: 10px; border-radius: 4px; overflow-x: auto; color: white;">{{ execution.error_message }}</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 操作按钮 -->
+            <div class="layui-row" style="margin-top: 20px;">
+                <div class="layui-col-md12 text-center">
+                    <div class="layui-btn-group">
+                        {% if execution.status == 'running' %}
+                        <button class="layui-btn layui-btn-danger" onclick="cancelExecution('{{ execution.id }}')">
+                            <i class="layui-icon layui-icon-close"></i> 取消执行
+                        </button>
+                        {% elif execution.status == 'failed' %}
+                        <button class="layui-btn layui-btn-normal" onclick="retryExecution('{{ execution.id }}')">
+                            <i class="layui-icon layui-icon-refresh"></i> 重试执行
+                        </button>
+                        {% endif %}
+                        <a href="{% url 'ai:ai_task_list' %}" class="layui-btn layui-btn-primary">
+                            <i class="layui-icon layui-icon-list"></i> 返回列表
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+layui.use(['layer'], function() {
+    var layer = layui.layer;
+    
+    // 取消执行
+    window.cancelExecution = function(executionId) {
+        layer.confirm('确定要取消这个执行任务吗？', {
+            title: '取消确认',
+            btn: ['确定取消', '取消']
+        }, function(index) {
+            // TODO: 实现取消执行逻辑
+            layer.msg('取消执行功能尚未实现', {icon: 2});
+            layer.close(index);
+        });
+    };
+    
+    // 重试执行
+    window.retryExecution = function(executionId) {
+        layer.confirm('确定要重试这个执行任务吗？', {
+            title: '重试确认',
+            btn: ['确定重试', '取消']
+        }, function(index) {
+            // TODO: 实现重试执行逻辑
+            layer.msg('重试执行功能尚未实现', {icon: 2});
+            layer.close(index);
+        });
+    };
+});
+</script>
+{% endblock %}

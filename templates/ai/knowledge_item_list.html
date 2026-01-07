@@ -1,0 +1,172 @@
+{% extends 'home/iframe_base.html' %}
+{% load static %}
+
+{% block title %}知识条目列表{% endblock %}
+
+{% block content %}
+<div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-col-md12">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3><i class="layui-icon layui-icon-file"></i> 知识条目列表</h3>
+                        <div>
+                            <div class="layui-inline">
+                                <select name="knowledge_base" lay-verify="" lay-filter="knowledgeBaseFilter">
+                                    <option value="">所有知识库</option>
+                                    {% for knowledge_base in knowledge_bases %}
+                                    <option value="{{ knowledge_base.id }}" {% if request.GET.knowledge_base == knowledge_base.id|stringformat:"s" %}selected{% endif %}>{{ knowledge_base.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <a href="{% url 'ai:knowledge_item_create' %}" class="layui-btn layui-btn-normal">
+                                <i class="layui-icon layui-icon-add-circle"></i> 新建知识条目
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-card-body">
+                    <div class="layui-form layui-border-box layui-table-view" lay-filter="knowledgeItemTable">
+                        <table class="layui-table" lay-data="{url: '{% url 'ai:knowledge_item_list' %}', page: true, id: 'knowledgeItemTable'}">
+                            <thead>
+                                <tr>
+                                    <th lay-data="{field: 'title', width: 250, title: '标题'}"></th>
+                                    <th lay-data="{field: 'knowledge_type', width: 100, title: '类型', templet: '#typeTpl'}"></th>
+                                    <th lay-data="{field: 'status', width: 100, title: '状态', templet: '#statusTpl'}"></th>
+                                    <th lay-data="{field: 'file_name', width: 200, title: '文件', templet: '#fileTpl'}"></th>
+                                    <th lay-data="{field: 'knowledge_base__name', width: 200, title: '所属知识库'}"></th>
+                                    <th lay-data="{field: 'creator__name', width: 100, title: '创建人'}"></th>
+                                    <th lay-data="{field: 'created_at', width: 180, title: '创建时间'}"></th>
+                                    <th lay-data="{fixed: 'right', width: 180, toolbar: '#barDemo', title: '操作'}"></th>
+                                </tr>
+                            </thead>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 类型模板 -->
+<script type="text/html" id="typeTpl">
+    {% verbatim %}
+    {{#  if(d.knowledge_type === 'document') { return '文档'; }
+    else if(d.knowledge_type === 'faq') { return '常见问题'; }
+    else if(d.knowledge_type === 'product') { return '产品信息'; }
+    else if(d.knowledge_type === 'policy') { return '政策法规'; }
+    else if(d.knowledge_type === 'sales') { return '销售话术'; }
+    else { return '其他'; } }}
+    {% endverbatim %}
+</script>
+
+<!-- 状态模板 -->
+<script type="text/html" id="statusTpl">
+    {% verbatim %}
+    {{#  if(d.status === 'published') {
+        return '<span class="layui-badge layui-bg-green">已发布</span>';
+    } else if(d.status === 'draft') {
+        return '<span class="layui-badge">草稿</span>';
+    } else {
+        return '<span class="layui-badge layui-bg-gray">已归档</span>';
+    } }}
+    {% endverbatim %}
+</script>
+
+<!-- 文件模板 -->
+<script type="text/html" id="fileTpl">
+    {% verbatim %}
+    {{#  if(d.has_file) {
+        return '<span class="layui-badge layui-badge-normal"><i class="layui-icon layui-icon-file"></i> ' + d.file_name + '</span>';
+    } else {
+        return '<span class="layui-badge layui-badge-gray">无文件</span>';
+    } }}
+    {% endverbatim %}
+</script>
+
+<!-- 操作栏模板 -->
+<script type="text/html" id="barDemo">
+    <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
+    <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="detail">详情</a>
+    <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
+</script>
+{% endblock %}
+
+{% block script %}
+<script>
+    layui.use(['table', 'form'], function() {
+        var table = layui.table;
+        var form = layui.form;
+        
+        // 渲染表格
+        table.render({
+            elem: '#knowledgeItemTable',
+            url: '{% url 'ai:knowledge_item_list' %}',
+            page: true,
+            parseData: function(res) {
+                return {
+                    "code": 0,
+                    "msg": "",
+                    "count": res.count,
+                    "data": res.data
+                };
+            },
+            cols: [[
+                {field: 'title', width: 250, title: '标题'},
+                {field: 'knowledge_type', width: 100, title: '类型', templet: '#typeTpl'},
+                {field: 'status', width: 100, title: '状态', templet: '#statusTpl'},
+                {field: 'file_name', width: 200, title: '文件', templet: '#fileTpl'},
+                {field: 'knowledge_base__name', width: 200, title: '所属知识库'},
+                {field: 'creator__name', width: 100, title: '创建人'},
+                {field: 'created_at', width: 180, title: '创建时间'},
+                {fixed: 'right', width: 180, title: '操作', toolbar: '#barDemo'}
+            ]]
+        });
+        
+        // 监听工具条
+        table.on('tool(knowledgeItemTable)', function(obj) {
+            var data = obj.data;
+            if(obj.event === 'edit'){
+                window.location.href = '{% url 'ai:knowledge_item_update' 0 %}'.replace('0', data.id);
+            } else if(obj.event === 'detail'){
+                window.location.href = '{% url 'ai:knowledge_item_detail' 0 %}'.replace('0', data.id);
+            } else if(obj.event === 'delete'){
+                layer.confirm('确定要删除这个知识条目吗？', function(index) {
+                    layer.close(index);
+                    $.ajax({
+                        url: '{% url 'ai:knowledge_item_delete' 0 %}'.replace('0', data.id),
+                        type: 'POST',
+                        data: {csrfmiddlewaretoken: '{{ csrf_token }}'},
+                        success: function(res){
+                            if(res.status === 'success'){
+                                layer.msg('删除成功', {icon: 1});
+                                obj.del();
+                            } else {
+                                layer.msg(res.message || '删除失败', {icon: 2});
+                            }
+                        },
+                        error: function(){
+                            layer.msg('删除失败', {icon: 2});
+                        }
+                    });
+                });
+            }
+        });
+        
+        // 监听知识库选择
+        form.on('select(knowledgeBaseFilter)', function(data) {
+            var knowledge_base_id = data.value;
+            // 重新加载表格数据
+            table.reload('knowledgeItemTable', {
+                where: {
+                    knowledge_base: knowledge_base_id
+                },
+                page: {
+                    curr: 1 // 重新从第1页开始
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

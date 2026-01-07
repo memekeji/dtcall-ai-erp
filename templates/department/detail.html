@@ -1,0 +1,142 @@
+{% load static %}
+<style>
+.detail-container { padding: 20px; }
+.detail-header { border-bottom: 1px solid #e6e6e6; padding-bottom: 15px; margin-bottom: 20px; }
+.detail-header h3 { margin: 0; color: #333; font-size: 18px; font-weight: 600; }
+.detail-content { display: flex; flex-direction: column; gap: 20px; }
+.detail-section { background: #f8f9fa; border-radius: 8px; padding: 15px; }
+.detail-section h4 { margin: 0 0 10px 0; color: #495057; font-size: 16px; font-weight: 600; }
+.detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+.detail-item { display: flex; flex-direction: column; }
+.detail-label { font-weight: 600; color: #6c757d; font-size: 14px; margin-bottom: 5px; }
+.detail-value { color: #333; font-size: 14px; }
+.detail-path { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; }
+.detail-path-item { color: #007bff; font-size: 14px; }
+.detail-path-separator { color: #6c757d; font-size: 14px; }
+.detail-status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+.status-active { background: #d4edda; color: #155724; }
+.status-inactive { background: #f8d7da; color: #721c24; }
+.detail-children { display: flex; flex-direction: column; gap: 10px; }
+.detail-child-item { background: white; border: 1px solid #e6e6e6; border-radius: 6px; padding: 10px; display: flex; justify-content: space-between; align-items: center; }
+.detail-child-name { font-weight: 600; color: #333; }
+.detail-child-status { font-size: 12px; }
+.no-data { text-align: center; color: #6c757d; font-style: italic; padding: 20px; }
+</style>
+
+<div class="detail-container">
+    <div class="detail-header">
+        <h3>部门详情</h3>
+    </div>
+    
+    <div class="detail-content">
+        <!-- 基本信息 -->
+        <div class="detail-section">
+            <h4>基本信息</h4>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <span class="detail-label">部门名称</span>
+                    <span class="detail-value">{{ department.name }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">部门编码</span>
+                    <span class="detail-value">{{ department.code|default:"未设置" }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">排序</span>
+                    <span class="detail-value">{{ department.sort }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">状态</span>
+                    <span class="detail-value">
+                        <span class="detail-status {% if department.status %}status-active{% else %}status-inactive{% endif %}">
+                            {% if department.status %}启用{% else %}禁用{% endif %}
+                        </span>
+                    </span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">联系电话</span>
+                    <span class="detail-value">{{ department.phone|default:"未设置" }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">备注</span>
+                    <span class="detail-value">{{ department.remark|default:"无" }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 部门层级路径 -->
+        {% if department_path %}
+        <div class="detail-section">
+            <h4>部门层级</h4>
+            <div class="detail-path">
+                {% for path_item in department_path %}
+                    {% if not forloop.first %}
+                        <span class="detail-path-separator">/</span>
+                    {% endif %}
+                    <span class="detail-path-item">{{ path_item.name }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- 上级部门 -->
+        {% if parent_department %}
+        <div class="detail-section">
+            <h4>上级部门</h4>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <span class="detail-label">部门名称</span>
+                    <span class="detail-value">{{ parent_department.name }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">部门编码</span>
+                    <span class="detail-value">{{ parent_department.code|default:"未设置" }}</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- 负责人信息 -->
+        {% if manager_info %}
+        <div class="detail-section">
+            <h4>负责人信息</h4>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <span class="detail-label">负责人姓名</span>
+                    <span class="detail-value">{{ manager_info.name }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">联系电话</span>
+                    <span class="detail-value">{{ manager_info.mobile }}</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- 子部门 -->
+        <div class="detail-section">
+            <h4>子部门列表</h4>
+            {% if children_departments %}
+                <div class="detail-children">
+                    {% for child in children_departments %}
+                        <div class="detail-child-item">
+                            <span class="detail-child-name">{{ child.name }}</span>
+                            <span class="detail-child-status">
+                                <span class="detail-status {% if child.status %}status-active{% else %}status-inactive{% endif %}">
+                                    {% if child.status %}启用{% else %}禁用{% endif %}
+                                </span>
+                            </span>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="no-data">暂无子部门</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+// 详情页面不需要复杂的JavaScript逻辑，主要展示信息
+console.log('部门详情页面加载完成');
+</script>

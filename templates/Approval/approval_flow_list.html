@@ -1,0 +1,30 @@
+{% extends "customer/_base_list.html" %}
+{% block table_headers %}
+<th>流程名称</th>
+<th>审批类型</th>
+<th>描述</th>
+<th>状态</th>
+<th>创建人</th>
+<th>创建时间</th>
+<th>操作</th>
+{% endblock %}
+
+{% block table_row %}
+<td>{{ item.name }}</td>
+<td>{{ item.approval_type.name }}</td>
+<td>{{ item.description|default:"-" }}</td>
+<td>
+    {% if item.is_active %}
+        <span class="layui-badge layui-bg-green">启用</span>
+    {% else %}
+        <span class="layui-badge">禁用</span>
+    {% endif %}
+</td>
+<td>{% if item.created_by %}{{ item.created_by.get_full_name|default:item.created_by.username }}{% else %}-{% endif %}</td>
+<td>{{ item.created_at|date:"Y-m-d H:i" }}</td>
+<td>
+    <button class="layui-btn layui-btn-xs" onclick="editItem({{ item.pk }})">编辑</button>
+    <a href="{% url 'approval:approval_flow_steps' item.pk %}" class="layui-btn layui-btn-xs layui-btn-normal">步骤</a>
+    <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteItem({{ item.pk }})">删除</button>
+</td>
+{% endblock %}

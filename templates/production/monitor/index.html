@@ -1,0 +1,227 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>设备监控</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .equipment-card {
+            margin-bottom: 15px;
+        }
+        .equipment-status {
+            padding: 20px;
+            border-radius: 8px;
+            color: white;
+            text-align: center;
+        }
+        .status-normal {
+            background: linear-gradient(135deg, #5FB878 0%, #009688 100%);
+        }
+        .status-maintenance {
+            background: linear-gradient(135deg, #FFB800 0%, #FF9800 100%);
+        }
+        .status-stopped {
+            background: linear-gradient(135deg, #FF5722 0%, #E91E63 100%);
+        }
+        .status-scrapped {
+            background: linear-gradient(135deg, #9E9E9E 0%, #607D8B 100%);
+        }
+        .equipment-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .equipment-code {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        .task-info {
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+        .data-info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        .data-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        .data-unit {
+            font-size: 14px;
+            color: #666;
+            margin-left: 5px;
+        }
+        .data-time {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        .refresh-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 999;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <!-- 页面标题 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <h2 style="margin-bottom: 20px;">设备监控</h2>
+            </div>
+        </div>
+
+        <!-- 设备状态卡片 -->
+        <div class="layui-row layui-col-space15">
+            {% for equipment_info in equipment_status %}
+            <div class="layui-col-md4">
+                <div class="layui-card equipment-card">
+                    <div class="equipment-status 
+                        {% if equipment_info.equipment.status == 1 %}status-normal
+                        {% elif equipment_info.equipment.status == 2 %}status-maintenance
+                        {% elif equipment_info.equipment.status == 3 %}status-stopped
+                        {% elif equipment_info.equipment.status == 4 %}status-scrapped
+                        {% endif %}">
+                        <div class="equipment-name">{{ equipment_info.equipment.name }}</div>
+                        <div class="equipment-code">{{ equipment_info.equipment.code }}</div>
+                        
+                        {% if equipment_info.current_task %}
+                        <div class="task-info">
+                            <strong>当前任务:</strong> {{ equipment_info.current_task.name }}<br>
+                            <strong>执行人:</strong> {{ equipment_info.current_task.assignee.username|default:"-" }}
+                        </div>
+                        {% else %}
+                        <div class="task-info">
+                            设备空闲
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if equipment_info.latest_data %}
+                    <div class="data-info">
+                        <div>
+                            <span class="data-value">{{ equipment_info.latest_data.parameter_value }}</span>
+                            <span class="data-unit">{{ equipment_info.latest_data.unit }}</span>
+                        </div>
+                        <div style="font-weight: bold; margin-top: 5px;">{{ equipment_info.latest_data.parameter_name }}</div>
+                        <div class="data-time">
+                            最后更新: {{ equipment_info.latest_data.collect_time|date:"m-d H:i" }}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="data-info">
+                        <div style="text-align: center; color: #999;">
+                            暂无数据采集记录
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="layui-card-body" style="text-align: center;">
+                        <button class="layui-btn layui-btn-sm layui-btn-primary" onclick="location.href='{% url 'production:equipment_detail' equipment_info.equipment.pk %}'">
+                            查看详情
+                        </button>
+                        {% if equipment_info.equipment.status == 1 %}
+                        <button class="layui-btn layui-btn-sm layui-btn-normal" onclick="location.href='{% url 'production:data_chart' equipment_info.equipment.pk %}'">
+                            数据图表
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-body no-data">
+                        <h3 style="color: #999;">暂无设备数据</h3>
+                        <p style="color: #999;">请先添加设备信息</p>
+                        <button class="layui-btn" onclick="location.href='{% url 'production:equipment_add' %}'">
+                            <i class="layui-icon layui-icon-add-1"></i> 添加设备
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- 设备统计 -->
+        {% if equipment_status %}
+        <div class="layui-row layui-col-space15" style="margin-top: 30px;">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">设备状态统计</div>
+                    <div class="layui-card-body">
+                        <div class="layui-row layui-col-space15">
+                            <div class="layui-col-md3" style="text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #5FB878;">
+                                    {{ equipment_status|length }}
+                                </div>
+                                <div style="color: #666;">设备总数</div>
+                            </div>
+                            <div class="layui-col-md3" style="text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #5FB878;">
+                                    {% widthratio equipment_status|length 1 1 %}
+                                </div>
+                                <div style="color: #666;">正常运行</div>
+                            </div>
+                            <div class="layui-col-md3" style="text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #FFB800;">
+                                    0
+                                </div>
+                                <div style="color: #666;">维修中</div>
+                            </div>
+                            <div class="layui-col-md3" style="text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #FF5722;">
+                                    0
+                                </div>
+                                <div style="color: #666;">故障停机</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 刷新按钮 -->
+    <button class="layui-btn layui-btn-primary layui-btn-radius refresh-btn" onclick="refreshPage()">
+        <i class="layui-icon layui-icon-refresh"></i>
+    </button>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['layer'], function () {
+            var layer = layui.layer;
+        });
+
+        function refreshPage() {
+            location.reload();
+        }
+
+        // 自动刷新页面数据
+        setTimeout(function() {
+            location.reload();
+        }, 30000); // 30秒刷新一次
+    </script>
+</body>
+
+</html>

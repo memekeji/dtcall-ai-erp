@@ -1,0 +1,244 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{% if object %}编辑跟进字段{% else %}新增跟进字段{% endif %}</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <h3>{% if object %}编辑跟进字段{% else %}新增跟进字段{% endif %}</h3>
+                    </div>
+                    <div class="layui-card-body">
+        <form class="layui-form" method="post">
+            {% csrf_token %}
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">字段名称 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            <input type="text" name="name" id="id_name" placeholder="请输入字段名称" class="layui-input" value="{% if object %}{{ object.name }}{% endif %}" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">字段标识 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            <input type="text" name="field_name" placeholder="自动生成，不可修改" class="layui-input" {% if object %}readonly{% endif %} value="{% if object %}{{ object.field_name }}{% endif %}">
+                            <div class="layui-form-mid layui-word-aux">自动生成，不可修改</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">字段类型 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.field_type }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">排序</label>
+                        <div class="layui-input-block">
+                            {{ form.sort_order }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">选项值</label>
+                <div class="layui-input-block">
+                    {{ form.options }}
+                    <div class="layui-form-mid layui-word-aux">下拉选择、单选、复选框类型需要填写，每行一个选项</div>
+                </div>
+            </div>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">必填</label>
+                        <div class="layui-input-block">
+                            <input type="checkbox" name="is_required" {% if object.is_required %}checked{% endif %} lay-skin="switch" lay-text="是|否">
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">列表显示</label>
+                        <div class="layui-input-block">
+                            <input type="checkbox" name="is_list_display" {% if object.is_list_display %}checked{% endif %} lay-skin="switch" lay-text="是|否">
+                            <div class="layui-form-mid layui-word-aux">是否在跟进记录中显示</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">状态</label>
+                        <div class="layui-input-block">
+                            <input type="checkbox" name="is_active" {% if object.is_active %}checked{% endif %} lay-skin="switch" lay-text="启用|禁用">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" type="submit">保存</button>
+                    <a href="{% url 'customer:follow_field_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                </div>
+            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['form'], function(){
+            var form = layui.form;
+            form.render();
+            
+            // 字段名称输入监听，自动生成字段标识
+            var nameInput = document.querySelector('input[name="name"]') || document.querySelector('#id_name');
+            var fieldNameInput = document.querySelector('input[name="field_name"]');
+            
+            if (nameInput && fieldNameInput) {
+                // 新增时才自动生成，编辑时不生成
+                if (!fieldNameInput.readOnly) {
+                    nameInput.addEventListener('input', function() {
+                        var name = this.value.trim();
+                        if (name) {
+                            // 生成字段标识
+                            var fieldName = generateFieldName(name);
+                            fieldNameInput.value = fieldName;
+                        }
+                    });
+                }
+            }
+            
+            // 设置默认选中状态
+            if (!document.querySelector('input[name="is_required"]').checked && !{{ object|yesno:"true,false" }}) {
+                document.querySelector('input[name="is_required"]').checked = true;
+            }
+            if (!document.querySelector('input[name="is_list_display"]').checked && !{{ object|yesno:"true,false" }}) {
+                document.querySelector('input[name="is_list_display"]').checked = true;
+            }
+            if (!document.querySelector('input[name="is_active"]').checked && !{{ object|yesno:"true,false" }}) {
+                document.querySelector('input[name="is_active"]').checked = true;
+            }
+            
+            // 重新渲染表单
+            form.render();
+        });
+        
+        // 生成字段标识的函数
+        function generateFieldName(name) {
+            // 跟进字段相关的中文转拼音映射表
+            var pinyinMap = {
+                '跟进': 'follow',
+                '联系': 'contact',
+                '沟通': 'communicate',
+                '拜访': 'visit',
+                '电话': 'phone',
+                '邮件': 'email',
+                '微信': 'wechat',
+                '会议': 'meeting',
+                '方式': 'method',
+                '类型': 'type',
+                '内容': 'content',
+                '结果': 'result',
+                '状态': 'status',
+                '时间': 'time',
+                '日期': 'date',
+                '地点': 'location',
+                '人员': 'person',
+                '客户': 'customer',
+                '反馈': 'feedback',
+                '意见': 'opinion',
+                '建议': 'suggestion',
+                '问题': 'issue',
+                '解决': 'solve',
+                '进展': 'progress',
+                '计划': 'plan',
+                '下次': 'next',
+                '备注': 'remark',
+                '描述': 'description',
+                '记录': 'record',
+                '详情': 'detail',
+                '摘要': 'summary',
+                '主题': 'subject',
+                '标题': 'title',
+                '重要': 'important',
+                '紧急': 'urgent',
+                '优先': 'priority',
+                '级别': 'level',
+                '评分': 'score',
+                '评价': 'evaluation'
+            };
+            
+            var result = '';
+            
+            // 先尝试直接匹配常用词汇
+            for (var key in pinyinMap) {
+                if (name.includes(key)) {
+                    result += pinyinMap[key] + '_';
+                    name = name.replace(key, '');
+                }
+            }
+            
+            // 处理剩余的中文字符
+            if (name.trim()) {
+                result += convertToPinyin(name.trim());
+            }
+            
+            // 清理结果
+            result = result.replace(/[^a-zA-Z0-9_]/g, '_')
+                          .replace(/_+/g, '_')
+                          .replace(/^_|_$/g, '')
+                          .toLowerCase();
+            
+            return result || 'follow_field';
+        }
+        
+        // 简化的拼音转换函数
+        function convertToPinyin(text) {
+            var pinyinMap = {
+                '一': 'yi', '二': 'er', '三': 'san', '四': 'si', '五': 'wu',
+                '六': 'liu', '七': 'qi', '八': 'ba', '九': 'jiu', '十': 'shi',
+                '上': 'shang', '下': 'xia', '前': 'qian', '后': 'hou',
+                '新': 'xin', '旧': 'jiu', '好': 'hao', '坏': 'huai',
+                '大': 'da', '小': 'xiao', '高': 'gao', '低': 'di'
+            };
+            
+            var result = '';
+            for (var i = 0; i < text.length; i++) {
+                var char = text[i];
+                if (pinyinMap[char]) {
+                    result += pinyinMap[char];
+                } else if (/[a-zA-Z0-9]/.test(char)) {
+                    result += char;
+                } else {
+                    result += 'x';
+                }
+            }
+            return result;
+        }
+    </script>
+</body>
+</html>

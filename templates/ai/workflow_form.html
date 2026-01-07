@@ -1,0 +1,204 @@
+{% extends 'home/iframe_base.html' %}
+{% load static %}
+
+{% block title %}{% if object %}编辑工作流{% else %}创建工作流{% endif %} - DTCALL管理后台{% endblock %}
+
+{% block css %}
+<style>
+    .form-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    .form-header {
+        margin-bottom: 30px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .form-title {
+        font-size: 20px;
+        font-weight: bold;
+        color: #333;
+    }
+    .form-description {
+        font-size: 14px;
+        color: #666;
+        margin-top: 5px;
+    }
+    .form-group {
+        margin-bottom: 20px;
+    }
+    .form-label {
+        display: block;
+        font-size: 14px;
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 8px;
+    }
+    .form-hint {
+        font-size: 12px;
+        color: #999;
+        margin-top: 5px;
+    }
+    .layui-btn-normal {
+        background-color: #00f2fe;
+    }
+    .layui-btn-normal:hover {
+        background-color: #00d4dc;
+    }
+    .layui-form-item {
+        margin-bottom: 25px;
+    }
+    .layui-form-label {
+        width: 100px;
+        font-weight: 500;
+    }
+    .layui-input-block {
+        margin-left: 130px;
+    }
+    .form-actions {
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #f0f0f0;
+        text-align: center;
+    }
+    .layui-form-text .layui-textarea {
+        min-height: 100px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-body">
+        <div class="form-container">
+            <div class="form-header">
+                <h2 class="form-title">{% if object %}编辑工作流{% else %}创建新工作流{% endif %}</h2>
+                <p class="form-description">{% if object %}修改工作流的基本信息{% else %}填写工作流的基本信息，创建后可以在设计器中进行详细配置{% endif %}</p>
+            </div>
+
+            <form id="workflow-form" class="layui-form" action="" method="post">
+                {% csrf_token %}
+                
+                <!-- 工作流名称 -->
+                <div class="layui-form-item">
+                    <label class="layui-form-label">工作流名称</label>
+                    <div class="layui-input-block">
+                        <input type="text" name="name" value="{{ form.name.value|default:'' }}" 
+                               lay-verify="required" placeholder="请输入工作流名称" 
+                               class="layui-input">
+                        {% if form.name.errors %}
+                            <div class="layui-form-mid layui-word-aux" style="color: #f5222d;">
+                                {{ form.name.errors.0 }}
+                            </div>
+                        {% endif %}
+                        <div class="form-hint">请输入清晰的工作流名称，便于识别和管理</div>
+                    </div>
+                </div>
+
+                <!-- 工作流描述 -->
+                <div class="layui-form-item layui-form-text">
+                    <label class="layui-form-label">工作流描述</label>
+                    <div class="layui-input-block">
+                        <textarea name="description" placeholder="请输入工作流描述" 
+                                  class="layui-textarea">{{ form.description.value|default:'' }}</textarea>
+                        {% if form.description.errors %}
+                            <div class="layui-form-mid layui-word-aux" style="color: #f5222d;">
+                                {{ form.description.errors.0 }}
+                            </div>
+                        {% endif %}
+                        <div class="form-hint">描述工作流的功能、用途和预期效果</div>
+                    </div>
+                </div>
+
+                <!-- 工作流状态 -->
+                <div class="layui-form-item">
+                    <label class="layui-form-label">工作流状态</label>
+                    <div class="layui-input-block">
+                        <select name="status" lay-verify="required">
+                            <option value="draft" {% if form.status.value == 'draft' or not form.status.value %}selected{% endif %}>草稿</option>
+                            <option value="published" {% if form.status.value == 'published' %}selected{% endif %}>已发布</option>
+                            <option value="archived" {% if form.status.value == 'archived' %}selected{% endif %}>已归档</option>
+                        </select>
+                        {% if form.status.errors %}
+                            <div class="layui-form-mid layui-word-aux" style="color: #f5222d;">
+                                {{ form.status.errors.0 }}
+                            </div>
+                        {% endif %}
+                        <div class="form-hint">草稿状态的工作流只能编辑，已发布状态的工作流可以执行</div>
+                    </div>
+                </div>
+
+                <!-- 表单操作按钮 -->
+                <div class="form-actions">
+                    <button type="submit" class="layui-btn layui-btn-normal" lay-submit lay-filter="submit-form">
+                        <i class="layui-icon layui-icon-ok"></i> 保存
+                    </button>
+                    <button type="button" class="layui-btn layui-btn-primary" id="cancel-btn">
+                        <i class="layui-icon layui-icon-close"></i> 取消
+                    </button>
+                    {% if object %}
+                        <a href="{% url 'ai:workflow_designer' object.id %}" class="layui-btn layui-btn-warm">
+                            <i class="layui-icon layui-icon-edit"></i> 前往设计器
+                        </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+    layui.use(['layer', 'form'], function() {
+        var layer = layui.layer;
+        var form = layui.form;
+        
+        // 表单验证
+        form.verify({
+            name: function(value) {
+                if (!value) {
+                    return '请输入工作流名称';
+                }
+                if (value.length > 200) {
+                    return '工作流名称不能超过200个字符';
+                }
+            },
+            description: function(value) {
+                if (value && value.length > 1000) {
+                    return '工作流描述不能超过1000个字符';
+                }
+            }
+        });
+        
+        // 表单提交
+        form.on('submit(submit-form)', function(data) {
+            // 这里可以添加额外的验证逻辑
+            return true; // 允许表单提交
+        });
+        
+        // 取消按钮
+        $('#cancel-btn').on('click', function() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = '{% url 'ai:workflow_list' %}';
+            }
+        });
+        
+        // 页面加载完成后的初始化
+        $(function() {
+            // 如果有表单错误，显示提示
+            {% if form.errors %}
+                layer.msg('表单数据有误，请检查并修正', {
+                    icon: 5,
+                    time: 2000
+                });
+            {% endif %}
+            
+            // 设置表单自动填充
+            form.render();
+        });
+    });
+</script>
+{% endblock %}

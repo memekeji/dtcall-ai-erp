@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <style>
+        .layui-fluid {
+            padding: 15px;
+        }
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        @media screen and (max-width: 768px) {
+            .toolbar-right {
+                justify-content: flex-start;
+                margin-top: 10px;
+            }
+        }
+        .cron-expression {
+            font-family: 'Courier New', monospace;
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-body">
+                        <!-- 工具栏和搜索表单 -->
+                        <div class="layui-row layui-col-space10" style="margin-bottom: 15px;">
+                            <!-- 左侧工具栏 -->
+                            <div class="layui-col-xs12 layui-col-sm6 layui-col-md4">
+                                <div class="toolbar-left">
+                                    <a href="{% url 'system:task_add' %}" class="layui-btn layui-btn-sm">
+                                        <i class="layui-icon layui-icon-add-1"></i> 新建任务
+                                    </a>
+                                </div>
+                            </div>
+                            <!-- 右侧搜索表单 -->
+                            <div class="layui-col-xs12 layui-col-sm6 layui-col-md8">
+                                <div class="toolbar-right">
+                                    <form method="get" class="layui-form">
+                                        <div class="layui-inline">
+                                            <select name="status">
+                                                <option value="">全部状态</option>
+                                                {% for status_key, status_name in status_choices %}
+                                                <option value="{{ status_key }}" {% if status == status_key %}selected{% endif %}>{{ status_name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="layui-inline">
+                                            <input type="text" name="search" placeholder="搜索任务名称" 
+                                                   autocomplete="off" class="layui-input" value="{{ search }}" style="width: 200px;">
+                                        </div>
+                                        <div class="layui-inline">
+                                            <button type="submit" class="layui-btn">
+                                                <i class="layui-icon layui-icon-search"></i> 搜索
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 数据表格 -->
+                        <table class="layui-table">
+                            <thead>
+                                <tr>
+                                    <th>任务名称</th>
+                                    <th>Cron表达式</th>
+                                    <th>状态</th>
+                                    <th>执行次数</th>
+                                    <th>错误次数</th>
+                                    <th>最后执行时间</th>
+                                    <th>下次执行时间</th>
+                                    <th>创建者</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for task in page_obj %}
+                                <tr>
+                                    <td>{{ task.name }}</td>
+                                    <td><span class="cron-expression">{{ task.cron_expression }}</span></td>
+                                    <td>
+                                        {% if task.status == 'active' %}
+                                            <span class="layui-badge layui-bg-green">{{ task.get_status_display }}</span>
+                                        {% elif task.status == 'inactive' %}
+                                            <span class="layui-badge">{{ task.get_status_display }}</span>
+                                        {% elif task.status == 'running' %}
+                                            <span class="layui-badge layui-bg-blue">{{ task.get_status_display }}</span>
+                                        {% else %}
+                                            <span class="layui-badge layui-bg-red">{{ task.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ task.run_count }}</td>
+                                    <td>
+                                        {% if task.error_count > 0 %}
+                                            <span style="color: red;">{{ task.error_count }}</span>
+                                        {% else %}
+                                            {{ task.error_count }}
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ task.last_run_time|date:'Y-m-d H:i:s'|default:'未执行' }}</td>
+                                    <td>{{ task.next_run_time|date:'Y-m-d H:i:s'|default:'未设置' }}</td>
+                                    <td>{{ task.creator.username|default:'系统' }}</td>
+                                    <td>
+                                        <a href="{% url 'system:task_edit' task.id %}" class="layui-btn layui-btn-xs">编辑</a>
+                                        {% if task.status == 'active' %}
+                                            <button class="layui-btn layui-btn-warm layui-btn-xs" onclick="toggleTask({{ task.id|default:'' }}, 'inactive')">禁用</button>
+                                        {% else %}
+                                            <button class="layui-btn layui-btn-normal layui-btn-xs" onclick="toggleTask({{ task.id|default:'' }}, 'active')">启用</button>
+                                        {% endif %}
+                                        <button class="layui-btn layui-btn-danger layui-btn-xs" onclick="deleteTask({{ task.id|default:'' }})">删除</button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" style="text-align: center; color: #999;">暂无数据</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+
+                        <!-- 分页 -->
+                        {% if page_obj.has_other_pages %}
+                        <div id="pagination"></div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['laypage', 'form', 'layer'], function(){
+            var laypage = layui.laypage;
+            var form = layui.form;
+            var layer = layui.layer;
+            
+            {% if page_obj.has_other_pages %}
+            laypage.render({
+                elem: 'pagination',
+                count: {{ page_obj.paginator.count }},
+                curr: {{ page_obj.number }},
+                limit: 20,
+                layout: ['count', 'prev', 'page', 'next', 'limit', 'skip'],
+                jump: function(obj, first){
+                    if(!first){
+                        var url = new URL(window.location);
+                        url.searchParams.set('page', obj.curr);
+                        window.location.href = url.toString();
+                    }
+                }
+            });
+            {% endif %}
+        });
+
+        // 获取CSRF令牌
+        function getCookie(name) {
+            var cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        function toggleTask(id, action) {
+            layui.use('layer', function(){
+                var layer = layui.layer;
+                var actionText = action === 'active' ? '启用' : '禁用';
+                
+                layer.confirm('确定要' + actionText + '这个任务吗？', {icon: 3, title:'提示'}, function(index){
+                    // 使用XHR替代fetch以避免语法问题
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('POST', '{% url "system:task_toggle" 0 %}'.replace('0', id));
+                    xhr.setRequestHeader('X-CSRFToken', getCookie('csrftoken'));
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+                    xhr.onload = function() {
+                        if (xhr.status === 200) {
+                            try {
+                                var data = JSON.parse(xhr.responseText);
+                                if(data.success) {
+                                    layer.msg(data.message, {icon: 1}, function(){
+                                        location.reload();
+                                    });
+                                } else {
+                                    layer.msg(data.message, {icon: 2});
+                                }
+                            } catch (e) {
+                                layer.msg('操作失败：解析响应失败', {icon: 2});
+                            }
+                        } else {
+                            layer.msg('操作失败：网络错误', {icon: 2});
+                        }
+                    };
+                    xhr.onerror = function() {
+                        layer.msg('操作失败：网络错误', {icon: 2});
+                    };
+                    xhr.send(JSON.stringify({action: action}));
+                    layer.close(index);
+                });
+            });
+        }
+
+        function deleteTask(id) {
+            layui.use('layer', function(){
+                var layer = layui.layer;
+                layer.confirm('确定要删除这个任务吗？', {icon: 3, title:'提示'}, function(index){
+                    // 这里应该发送删除请求
+                    layer.msg('删除功能待实现', {icon: 1});
+                    layer.close(index);
+                });
+            });
+        }
+    </script>
+</body>
+</html>

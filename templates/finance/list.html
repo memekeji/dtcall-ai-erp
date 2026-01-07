@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>发票列表</title>
+</head>
+<body>
+    <h1>发票列表</h1>
+    <table>
+        <tr>
+            <th>发票号码</th>
+            <th>关联客户</th>
+            <th>金额</th>
+            <th>开票状态</th>
+            <th>操作</th>
+        </tr>
+        {% for invoice in invoices %}
+        <tr>
+            <td>{{ invoice.code }}</td>
+            <td>{{ invoice.customer_id }}</td>
+            <td>{{ invoice.amount }}</td>
+            <td>{{ invoice.get_open_status_display }}</td>
+            <td>
+                <a href="{% url 'invoice_view' invoice.id %}">查看</a>
+                <a href="{% url 'invoice_edit' invoice.id %}">编辑</a>
+                <a href="{% url 'invoice_delete' invoice.id %}">删除</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    <a href="{% url 'invoice_add' %}">新增发票</a>
+</body>
+</html>

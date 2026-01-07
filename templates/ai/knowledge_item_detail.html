@@ -1,0 +1,181 @@
+{% extends 'home/iframe_base.html' %}
+{% load static %}
+
+{% block title %}{{ knowledge_item.title }} - 知识条目详情{% endblock %}
+
+{% block content %}
+<div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-col-md12">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3><i class="layui-icon layui-icon-file"></i> {{ knowledge_item.title }} - 知识条目详情</h3>
+                        <div>
+                            <a href="{% url 'ai:knowledge_item_update' knowledge_item.id %}" class="layui-btn layui-btn-normal">
+                                <i class="layui-icon layui-icon-edit"></i> 编辑
+                            </a>
+                            <a href="{% url 'ai:knowledge_item_list' %}?knowledge_base={{ knowledge_item.knowledge_base.id }}" class="layui-btn layui-btn-primary">
+                                <i class="layui-icon layui-icon-return"></i> 返回列表
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-card-body">
+                    <div class="layui-row">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">所属知识库</label>
+                                <div class="layui-input-block">
+                                    <input type="text" readonly class="layui-input layui-bg-gray" value="{{ knowledge_item.knowledge_base.name }}">
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">标题</label>
+                                <div class="layui-input-block">
+                                    <input type="text" readonly class="layui-input layui-bg-gray" value="{{ knowledge_item.title }}">
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">知识类型</label>
+                                <div class="layui-input-block">
+                                    <input type="text" readonly class="layui-input layui-bg-gray" value="{{ knowledge_item.get_knowledge_type_display }}">
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">状态</label>
+                                <div class="layui-input-block">
+                                    <input type="text" readonly class="layui-input layui-bg-gray" value="{{ knowledge_item.get_status_display }}">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">创建人</label>
+                                <div class="layui-input-block">
+                                    <input type="text" readonly class="layui-input layui-bg-gray" value="{% if knowledge_item.creator %}{{ knowledge_item.creator.name }}{% else %}{% endif %}">
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">创建时间</label>
+                                <div class="layui-input-block">
+                                    <input type="text" readonly class="layui-input layui-bg-gray" value="{{ knowledge_item.created_at|date:"Y-m-d H:i:s" }}">
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">更新时间</label>
+                                <div class="layui-input-block">
+                                    <input type="text" readonly class="layui-input layui-bg-gray" value="{{ knowledge_item.updated_at|date:"Y-m-d H:i:s" }}">
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">标签</label>
+                                <div class="layui-input-block">
+                                    <input type="text" readonly class="layui-input layui-bg-gray" value="{% if knowledge_item.tags %}{{ knowledge_item.tags|join:', ' }}{% else %}{{ '' }}{% endif %}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- RAG向量化信息 -->
+    <div class="layui-row layui-col-space15">
+        <div class="layui-col-md12">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <h3><i class="layui-icon layui-icon-fonts-code"></i> RAG向量化信息</h3>
+                </div>
+                <div class="layui-card-body">
+                    <div class="layui-row">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">向量状态</label>
+                                <div class="layui-input-block">
+                                    {% if vector_info.exists %}
+                                        <input type="text" readonly class="layui-input layui-bg-green" value="已生成">
+                                    {% else %}
+                                        <input type="text" readonly class="layui-input layui-bg-red" value="未生成">
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if vector_info.exists %}
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label">向量维度</label>
+                                    <div class="layui-input-block">
+                                        <input type="text" readonly class="layui-input layui-bg-gray" value="{{ vector_info.dimension }}">
+                                    </div>
+                                </div>
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label">向量大小</label>
+                                    <div class="layui-input-block">
+                                        <input type="text" readonly class="layui-input layui-bg-gray" value="{{ vector_info.vector_size }} 字节">
+                                    </div>
+                                </div>
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label">生成时间</label>
+                                    <div class="layui-input-block">
+                                        <input type="text" readonly class="layui-input layui-bg-gray" value="{{ vector_info.created_at|date:"Y-m-d H:i:s" }}">
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="layui-col-md6">
+                            {% if vector_info.exists %}
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label">更新时间</label>
+                                    <div class="layui-input-block">
+                                        <input type="text" readonly class="layui-input layui-bg-gray" value="{{ vector_info.updated_at|date:"Y-m-d H:i:s" }}">
+                                    </div>
+                                </div>
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label">向量状态</label>
+                                    <div class="layui-input-block">
+                                        <span class="layui-badge layui-bg-green">可用</span>
+                                    </div>
+                                </div>
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label">使用场景</label>
+                                    <div class="layui-input-block">
+                                        <span class="layui-badge">知识库检索</span>
+                                        <span class="layui-badge layui-bg-blue">RAG生成</span>
+                                        <span class="layui-badge layui-bg-orange">相似度匹配</span>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="layui-form-item layui-form-text">
+                                    <label class="layui-form-label">提示信息</label>
+                                    <div class="layui-input-block">
+                                        <div class="layui-bg-gray" style="padding: 10px; border-radius: 4px; line-height: 1.6;">知识条目尚未生成向量，该条目将不会被包含在RAG检索中。请确保条目状态为"已发布"，系统将自动生成向量。</div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 内容 -->
+    <div class="layui-row layui-col-space15">
+        <div class="layui-col-md12">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <h3><i class="layui-icon layui-icon-file-text"></i> 内容</h3>
+                </div>
+                <div class="layui-card-body">
+                    <div class="layui-form-item layui-form-text">
+                        <label class="layui-form-label">内容</label>
+                        <div class="layui-input-block">
+                            <div class="layui-bg-gray" style="padding: 10px; border-radius: 4px; line-height: 1.6; white-space: pre-wrap;">{{ knowledge_item.content }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

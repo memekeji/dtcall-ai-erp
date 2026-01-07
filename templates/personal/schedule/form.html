@@ -1,0 +1,103 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{% if schedule %}编辑日程{% else %}新增日程{% endif %}{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>{% if schedule %}编辑日程{% else %}新增日程{% endif %}</h3>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form" method="post">
+            {% csrf_token %}
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">日程标题 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.title }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">优先级</label>
+                        <div class="layui-input-block">
+                            {{ form.priority }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">开始时间 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.start_time }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">结束时间 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.end_time }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">地点</label>
+                        <div class="layui-input-block">
+                            {{ form.location }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">状态</label>
+                        <div class="layui-input-block">
+                            {{ form.status }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">提醒时间</label>
+                <div class="layui-input-block">
+                    {{ form.reminder_time }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">日程内容</label>
+                <div class="layui-input-block">
+                    {{ form.content }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    {{ form.is_all_day }}
+                    <label for="{{ form.is_all_day.id_for_label }}" style="margin-right: 20px;">全天事件</label>
+                    {{ form.is_private }}
+                    <label for="{{ form.is_private.id_for_label }}">私人事件</label>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" type="submit">保存</button>
+                    <a href="{% url 'personal:schedule_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

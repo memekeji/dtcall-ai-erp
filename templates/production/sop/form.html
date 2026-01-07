@@ -1,0 +1,166 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if sop %}编辑标准操作流程{% else %}添加标准操作流程{% endif %}</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <!-- 页面标题 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <h2 style="margin-bottom: 20px;">
+                    {% if sop %}编辑标准操作流程{% else %}添加标准操作流程{% endif %}
+                </h2>
+            </div>
+        </div>
+
+        <!-- 表单 -->
+        <div class="layui-row">
+            <div class="layui-col-md10">
+                <div class="layui-card">
+                    <div class="layui-card-body">
+                        <form class="layui-form" method="post">
+                            {% csrf_token %}
+                             
+                            <div class="layui-form-item">
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">SOP编号 <span style="color: red;">*</span></label>
+                                    <div class="layui-input-inline" style="width: 200px;">
+                                        {{ form.code }}
+                                        {% if form.code.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.code.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">流程名称 <span style="color: red;">*</span></label>
+                                    <div class="layui-input-inline" style="width: 250px;">
+                                        {{ form.name }}
+                                        {% if form.name.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.name.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">版本号 <span style="color: red;">*</span></label>
+                                    <div class="layui-input-inline" style="width: 120px;">
+                                        {{ form.version }}
+                                        {% if form.version.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.version.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">生效日期 <span style="color: red;">*</span></label>
+                                    <div class="layui-input-inline" style="width: 150px;">
+                                        {{ form.effective_date }}
+                                        {% if form.effective_date.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.effective_date.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">所属部门</label>
+                                    <div class="layui-input-inline" style="width: 150px;">
+                                        {{ form.department }}
+                                        {% if form.department.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.department.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">负责人</label>
+                                    <div class="layui-input-inline" style="width: 150px;">
+                                        {{ form.responsible_person }}
+                                        {% if form.responsible_person.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.responsible_person.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">适用产品</label>
+                                    <div class="layui-input-inline" style="width: 200px;">
+                                        {{ form.applicable_product }}
+                                        {% if form.applicable_product.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.applicable_product.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">状态</label>
+                                    <div class="layui-input-inline" style="width: 120px;">
+                                        {{ form.status }}
+                                        {% if form.status.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.status.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">流程描述</label>
+                                <div class="layui-input-block">
+                                    {{ form.description }}
+                                    {% if form.description.errors %}
+                                        <div style="color: red; margin-top: 5px;">{{ form.description.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">详细步骤</label>
+                                <div class="layui-input-block">
+                                    {{ form.steps }}
+                                    {% if form.steps.errors %}
+                                        <div style="color: red; margin-top: 5px;">{{ form.steps.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <div class="layui-input-block">
+                                    <button type="submit" class="layui-btn layui-btn-normal">保存</button>
+                                    <a href="{% url 'production:sop_list' %}" class="layui-btn layui-btn-primary">返回列表</a>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['form', 'laydate'], function() {
+            var form = layui.form;
+            var laydate = layui.laydate;
+            
+            // 日期选择器
+            laydate.render({
+                elem: '#id_effective_date',
+                format: 'yyyy-MM-dd'
+            });
+            
+            // 渲染表单
+            form.render();
+        });
+    </script>
+</body>
+
+</html>

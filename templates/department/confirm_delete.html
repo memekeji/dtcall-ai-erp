@@ -1,0 +1,16 @@
+{% block title %}确认删除{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">确认删除部门</h3>
+    </div>
+    <div class="card-body">
+        <p>确定要删除部门 "{{ object.title }}" 吗？此操作不可撤销。</p>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">确认删除</button>
+            <a href="{% url 'department_list' %}" class="btn btn-outline-secondary">取消</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

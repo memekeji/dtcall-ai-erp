@@ -1,0 +1,141 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}用章申请{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <h3>用章申请</h3>
+            </div>
+            <div class="layui-col-md6" style="text-align: right;">
+                <a href="{% url 'system:admin_office:seal_application_create' %}" class="layui-btn layui-btn-sm">
+                    <i class="layui-icon layui-icon-add-1"></i> 新增申请
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <!-- 搜索表单 -->
+        <form class="layui-form" method="get">
+            <div class="layui-row layui-col-space10">
+                <div class="layui-col-md3">
+                    <select name="status" class="layui-input">
+                        <option value="">全部状态</option>
+                        {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="layui-col-md3">
+                    <button class="layui-btn" type="submit">搜索</button>
+                    <a href="{% url 'system:admin_office:seal_application_list' %}" class="layui-btn layui-btn-primary">重置</a>
+                </div>
+            </div>
+        </form>
+        
+        <!-- 数据表格 -->
+        <table class="layui-table" lay-skin="line">
+            <thead>
+                <tr>
+                    <th>印章名称</th>
+                    <th>文件标题</th>
+                    <th>申请人</th>
+                    <th>用章日期</th>
+                    <th>份数</th>
+                    <th>状态</th>
+                    <th>申请时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for application in page_obj %}
+                <tr>
+                    <td>{{ application.seal.name }}</td>
+                    <td>{{ application.document_title }}</td>
+                    <td>{{ application.applicant.name }}</td>
+                    <td>{{ application.use_date }}</td>
+                    <td>{{ application.copies }}</td>
+                    <td>
+                        {% if application.status == 'pending' %}
+                            <span class="layui-badge layui-bg-orange">{{ application.get_status_display }}</span>
+                        {% elif application.status == 'approved' %}
+                            <span class="layui-badge layui-bg-green">{{ application.get_status_display }}</span>
+                        {% elif application.status == 'rejected' %}
+                            <span class="layui-badge layui-bg-red">{{ application.get_status_display }}</span>
+                        {% elif application.status == 'used' %}
+                            <span class="layui-badge layui-bg-blue">{{ application.get_status_display }}</span>
+                        {% else %}
+                            <span class="layui-badge">{{ application.get_status_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ application.created_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        <a href="{% url 'system:admin_office:seal_application_update' application.pk %}" class="layui-btn layui-btn-xs">编辑</a>
+                        {% if application.status == 'pending' %}
+                            <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="approveApplication({{ application.pk }})">审批</button>
+                        {% endif %}
+                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteApplication({{ application.pk }})">删除</button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align: center; color: #999;">暂无数据</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <!-- 分页 -->
+        {% if page_obj.has_other_pages %}
+        <div class="layui-box layui-laypage layui-laypage-default">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}&status={{ status }}" class="layui-laypage-prev">上一页</a>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <span class="layui-laypage-curr"><em>{{ num }}</em></span>
+                {% else %}
+                    <a href="?page={{ num }}&status={{ status }}">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&status={{ status }}" class="layui-laypage-next">下一页</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function approveApplication(id) {
+    layer.prompt({
+        title: '审批意见',
+        formType: 2
+    }, function(value, index){
+        layer.close(index);
+        layer.confirm('确定通过这个申请吗？', {
+            btn: ['通过', '拒绝', '取消']
+        }, function(){
+            // 发送审批请求
+            layer.msg('审批功能待实现');
+        }, function(){
+            // 拒绝申请
+            layer.msg('审批功能待实现');
+        });
+    });
+}
+
+function deleteApplication(id) {
+    layer.confirm('确定要删除这个申请吗？', {
+        btn: ['确定', '取消']
+    }, function(){
+        layer.msg('删除功能待实现');
+    });
+}
+</script>
+{% endblock %}

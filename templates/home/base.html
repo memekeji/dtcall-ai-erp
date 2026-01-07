@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}DTCALL管理后台{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="icon" href="{% static 'img/favicon.ico' %}" type="image/x-icon">
+    <style>
+        /* 全局高度控制 - 确保页面铺满屏幕 */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        
+        /* 如果在iframe中，调整样式 */
+        .iframe-content {
+            padding: 20px;
+            height: 100%;
+            overflow-y: auto;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <script>
+        // 检测页面是否在iframe中加载
+        var isInIframe = window !== window.top;
+        
+        // 如果在iframe中，添加标识类
+        if (isInIframe) {
+            document.body.className += ' iframe-body';
+        }
+        
+        // 根据是否在iframe中控制数字人和水印的显示
+        document.addEventListener('DOMContentLoaded', function() {
+            // 控制数字人容器显示
+            var digitalHumanContainer = document.getElementById('digitalHumanContainer');
+            if (digitalHumanContainer) {
+                digitalHumanContainer.style.display = isInIframe ? 'none' : 'flex';
+            }
+            
+            // 控制水印显示
+            var watermarkBg = document.getElementById('watermarkBg');
+            if (watermarkBg) {
+                watermarkBg.style.display = isInIframe ? 'none' : 'block';
+            }
+        });
+    </script>
+    
+    <!-- 引入主要的JavaScript文件 -->
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/home.js' %}"></script>
+    
+    {% block content %}
+    {% if isInIframe %}
+    <!-- 在iframe中，只显示内容区域 -->
+    <div class="iframe-content">
+        <!-- 消息框架输出 -->
+        {% if messages %}
+        <div class="layui-elem-field layui-field-title" style="margin-bottom: 20px;">
+            <div class="layui-field-box">
+                {% for message in messages %}
+                <div class="layui-alert layui-bg-{{ message.tags }}" style="margin: 10px 0;">{{ message }}</div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% block iframe_content %}{% endblock %}
+    </div>
+    {% else %}
+    <!-- 不在iframe中，显示完整布局 -->
+    <div class="layui-layout layui-layout-admin">
+    <!-- 顶部导航 - 修复版 -->
+    <div class="layui-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e6e6e6;">
+        <!-- 左侧Logo/标题 -->
+        <div class="layui-logo" style="display: flex; align-items: center; padding: 0 20px; height: 100%;">
+            <img src="{% static 'img/logo.png' %}" alt="DTCALL" style="height: 60px; margin-right: 0px;">
+          </div>
+        
+        <!-- 右侧用户区域 -->
+        <div class="user-menu-container" style="position: absolute; right: 20px; top: 0; height: 60px; display: flex; align-items: center; z-index: 1003;">
+            <div class="user-avatar" style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; border: 2px solid rgba(0,242,254,0.5); cursor: pointer; transition: all 0.3s; background-color: #f5f5f5;">
+                <img src="{% if request.user.avatar %}{{ request.user.avatar.url }}{% else %}{% static 'img/user-avatar.png' %}{% endif %}" style="width: 100%; height: 100%; object-fit: cover;">
+            </div>
+            <div class="user-dropdown" style="position: absolute; top: 65px; right: 0; width: 180px; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); display: none; z-index: 1002;">
+                <ul class="layui-nav" style="background: transparent; width: 100%;">
+                    <li class="layui-nav-item"><a href="/user/center/" style="color: #333; padding: 12px 20px;"><i class="layui-icon layui-icon-user" style="margin-right: 8px;"></i> 个人中心</a></li>
+                    <li class="layui-nav-item"><a href="/logout/" style="color: #333; padding: 12px 20px;"><i class="layui-icon layui-icon-logout" style="margin-right: 8px;"></i> 退出登录</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <script>
+            // 用户头像点击事件 - 显示/隐藏下拉菜单
+            document.querySelector('.user-avatar').addEventListener('click', function(e) {
+                e.stopPropagation();
+                const dropdown = document.querySelector('.user-dropdown');
+                dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+            });
+            
+            // 点击页面其他位置隐藏下拉菜单
+            document.addEventListener('click', function() {
+                document.querySelector('.user-dropdown').style.display = 'none';
+            });
+            
+            // 阻止下拉菜单内部点击事件冒泡
+            document.querySelector('.user-dropdown').addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+        </script>
+    </div>
+
+    <!-- 左侧菜单 - 简化容器版本 -->
+      <div class="layui-side" style="display:block !important; width: 160px;">
+          <script>
+          function getMenuIconUrl(iconName) {
+              var iconPath = '/static/img/icon/' + iconName + '.png';
+              var availableIcons = [
+                  '工作台', '系统管理', '人事管理', '行政办公', '个人办公', '财务管理', 
+                  '客户管理', '合同管理', '项目管理', '生产管理', 'AI智能中心', '企业网盘',
+                  '部门架构', '企业员工', '固定资产', '公文管理', '共同模板'
+              ];
+              if (availableIcons.indexOf(iconName) === -1) {
+                  return '/static/img/icon/功能节点.png';
+              }
+              return iconPath;
+          }
+          </script>
+          <!-- 从数据库渲染菜单 - 直接在layui-side中渲染，移除多余的layui-side-scroll容器 -->
+          <ul class="layui-nav layui-nav-tree" lay-filter="main-menu" lay-accordion style="height: 100%; overflow-y: auto;">
+              {% for menu in database_menus %}
+              <li class="layui-nav-item">
+                  <a href="{% if menu.submenus_list %}javascript:;{% else %}{{ menu.src }}{% endif %}">
+                    <img src="" data-src="{% static 'img/icon/'|add:menu.title|add:'.png' %}" class="menu-icon lazy-icon" style="width: 16px; height: 16px; margin-right: 8px; vertical-align: middle;">
+                    {{ menu.title }}
+                  </a>
+                  {% if menu.submenus_list %}
+                  <dl class="layui-nav-child">
+                      {% for submenu in menu.submenus_list|dictsort:'sort' %}
+                      {% if submenu.submenus_list %}
+<dd class="layui-nav-item"><a href="{% if submenu.submenus_list %}javascript:;{% else %}{{ submenu.src }}{% endif %}">
+  <img src="" data-src="{% static 'img/icon/'|add:submenu.title|add:'.png' %}" class="menu-icon lazy-icon" style="width: 16px; height: 16px; margin-right: 8px; vertical-align: middle;">
+  {{ submenu.title }}
+</a>
+  <dl class="layui-nav-child">
+    {% for thirdmenu in submenu.submenus_list|dictsort:'sort' %}
+    <dd class="{% if thirdmenu.submenus_list %}layui-nav-item{% endif %}"><a href="{% if thirdmenu.submenus_list %}javascript:;{% else %}{{ thirdmenu.src }}{% endif %}">
+  <img src="" data-src="{% static 'img/icon/'|add:thirdmenu.title|add:'.png' %}" class="menu-icon lazy-icon" style="width: 16px; height: 16px; margin-right: 8px; vertical-align: middle;">
+  {{ thirdmenu.title }}
+</a>{% if thirdmenu.submenus_list %}<dl class="layui-nav-child">{% for fourthmenu in thirdmenu.submenus_list|dictsort:'sort' %}<dd><a href="{{ fourthmenu.src }}">
+  <img src="" data-src="{% static 'img/icon/'|add:fourthmenu.title|add:'.png' %}" class="menu-icon lazy-icon" style="width: 16px; height: 16px; margin-right: 8px; vertical-align: middle;">
+  {{ fourthmenu.title }}
+</a></dd>{% endfor %}</dl>{% endif %}</dd>
+    {% endfor %}
+  </dl>
+</dd>
+{% else %}
+<dd><a href="{% if submenu.submenus_list %}javascript:;{% else %}{{ submenu.src }}{% endif %}">
+  <img src="" data-src="{% static 'img/icon/'|add:submenu.title|add:'.png' %}" class="menu-icon lazy-icon" style="width: 16px; height: 16px; margin-right: 8px; vertical-align: middle;">
+  {{ submenu.title }}
+</a></dd>
+{% endif %}
+                      {% endfor %}
+                  </dl>
+                  {% endif %}
+              </li>
+              {% endfor %}
+          </ul>
+          <script>
+          document.addEventListener('DOMContentLoaded', function() {
+              var lazyIcons = document.querySelectorAll('.lazy-icon');
+              var availableIcons = [
+                  '工作台', '系统管理', '人事管理', '行政办公', '个人办公', '财务管理', 
+                  '客户管理', '合同管理', '项目管理', '生产管理', 'AI智能中心', '企业网盘',
+                  '部门架构', '企业员工', '固定资产', '公文管理', '共同模板', '功能节点',
+                  '工序集', '基本工序', 'BOM管理', 'SOP管理', '质量管理', '数据采集',
+                  '设备管理', '设备监控', '资源调度', '性能分析', '生产计划', '生产任务'
+              ];
+              lazyIcons.forEach(function(img) {
+                  var iconName = img.getAttribute('data-src').replace('/static/img/icon/', '').replace('.png', '');
+                  if (availableIcons.indexOf(iconName) === -1) {
+                      img.src = '/static/img/icon/功能节点.png';
+                  } else {
+                      img.src = img.getAttribute('data-src');
+                  }
+              });
+          });
+          </script>
+      </div>
+
+    <style>
+        /* 菜单基础样式 */
+        .layui-nav-tree .layui-nav-item > a {
+            color: #000000;
+        }
+        
+        .layui-nav-tree .layui-nav-child dd > a {
+            color: #000000;
+        }
+        
+        /* 菜单项激活效果 */
+        .layui-nav-tree .layui-nav-itemed > a,
+        .layui-nav-tree .layui-this > a {
+            background: rgba(62, 215, 223, 0.1);
+            border-left-color: #00f2fe;
+        }
+        
+        /* 菜单图标动画 */
+        .menu-icon {
+            transition: all 0.3s;
+        }
+        
+        /* 鼠标悬停时图标动画 */
+        .layui-nav-item:hover .menu-icon {
+            transform: scale(1.1);
+        }
+        
+        /* 三级菜单样式 */
+        .layui-nav-tree .layui-nav-child .layui-nav-child > .layui-nav-item {
+            border-left: 3px solid #8a6d3b;
+        }
+        
+        .layui-nav-tree .layui-nav-child .layui-nav-child > .layui-nav-item > a {
+            color: #000000;
+            padding-left: 75px;
+        }
+        
+        .layui-nav-tree .layui-nav-child .layui-nav-child > .layui-nav-item:hover {
+            background: rgba(204, 0, 0, 0.1);
+        }
+        
+        /* 四级菜单样式 */
+        .layui-nav-tree .layui-nav-child .layui-nav-child .layui-nav-child > .layui-nav-item {
+            border-left: 3px solid #9d50bb;
+        }
+        
+        .layui-nav-tree .layui-nav-child .layui-nav-child .layui-nav-child > .layui-nav-item > a {
+            color: #000000;
+            padding-left: 90px;
+        }
+        
+        .layui-nav-tree .layui-nav-child .layui-nav-child .layui-nav-child > .layui-nav-item:hover {
+            background: rgba(204, 0, 0, 0.1);
+        }
+        
+        /* 标签页样式 */
+        .layui-tab {
+            position: relative;
+            height: 100%;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .layui-tab-title {
+            position: relative;
+            z-index: 10;
+            padding-left: 15px;
+            box-sizing: border-box;
+        }
+        
+        .layui-tab-content {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .main-tab-content {
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .layui-tab-item {
+            height: 100%;/* 标签页内容区域高度，现在父容器已正确设置高度 */
+            overflow-y: auto;
+            overflow-x: hidden;
+            box-sizing: border-box;
+            /* 隐藏滚动条但保持滚动功能 */
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE and Edge */
+        }
+        
+        /* 隐藏WebKit浏览器（Chrome, Safari）的滚动条 */
+        .layui-tab-item::-webkit-scrollbar {
+            display: none;
+        }
+
+    </style>
+
+    <!-- 右侧内容 使用标签页 -->
+    <div class="layui-body" style="position: fixed; top: 60px; bottom: 0; left: 160px; width: calc(100% - 160px); overflow: hidden;">
+        <div class="layui-tab" lay-filter="main-tab" lay-allowClose="true" style="height: 100%;">
+            <ul class="layui-tab-title" id="main-tab-title"></ul>
+            <div class="layui-tab-content main-tab-content"></div>
+        </div>
+        <!-- 标签页右键菜单 -->
+        <div class="tab-contextmenu" id="tab-contextmenu" style="display: none; position: fixed; z-index: 1005; background: white; border-radius: 4px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); padding: 5px 0;">
+            <div class="menu-item" id="refresh-tab" style="padding: 8px 15px; cursor: pointer;"><i class="layui-icon layui-icon-refresh"></i>刷新当前页面</div>
+            <div class="menu-item" id="close-tab" style="padding: 8px 15px; cursor: pointer;"><i class="layui-icon layui-icon-close"></i>关闭当前标签</div>
+            <div class="menu-divider" style="height: 1px; margin: 5px 0; background: #eee;"></div>
+            <div class="menu-item" id="close-other-tabs" style="padding: 8px 15px; cursor: pointer;"><i class="layui-icon layui-icon-shrink-right"></i>关闭其他标签</div>
+            <div class="menu-item" id="close-all-tabs" style="padding: 8px 15px; cursor: pointer;"><i class="layui-icon layui-icon-close-fill"></i>关闭所有标签</div>
+        </div>
+    </div>
+    {% endif %}
+    {% endblock %}
+    
+    <!-- 数字人功能实现 - 使用JavaScript控制显示 -->
+    <div class="digital-human-container" id="digitalHumanContainer" style="position: fixed; right: 10px; bottom: 30px; z-index: 1004; display: none; gap: 10px; flex-direction: row-reverse; align-items: flex-end;">
+        <!-- 折叠状态的小图标 -->
+        <div class="digital-human-toggle" style="width: 60px; height: 60px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 5px 15px rgba(0,0,0,0.2); cursor: pointer; transition: all 0.3s ease; z-index: 1005;">
+            <div style="width: 30px; height: 30px; background: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 20px; font-weight: bold; color: #667eea;">
+                AI
+            </div>
+        </div>
+        
+        <!-- 数字人显示区域 -->
+        <div class="digital-human-wrapper" style="display: none; margin-bottom: 15px;">
+            <div class="digital-human" style="width: 200px; height: 300px; background: transparent; border-radius: 20px; display: flex; justify-content: center; align-items: center; box-shadow: none; overflow: hidden; position: relative;">
+                <!-- 使用单张图片显示数字人形象 -->
+                <div class="character" style="width: 160px; height: 260px; position: relative; animation: float 3s ease-in-out infinite, walk 8s ease-in-out infinite, head-turn 6s ease-in-out infinite;">
+                    <img src="{% static 'images/Digital human/character1/shuziren.png' %}" alt="数字人" style="width: 100%; height: 100%; object-fit: contain; transition: transform 0.3s ease;">
+                    <!-- 添加眼睛和嘴巴的独立动画层 -->
+                    <div class="character-eyes" style="position: absolute; top: 35%; left: 30%; width: 40%; height: 10%; pointer-events: none;"></div>
+                    <div class="character-mouth" style="position: absolute; top: 50%; left: 45%; width: 10%; height: 5%; pointer-events: none;"></div>
+                    <!-- 为图片添加眼睛和嘴巴的动画效果 -->
+                    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
+                        <div style="position: absolute; top: 35%; left: 30%; width: 40%; height: 10%; pointer-events: none; animation: blink 3s ease-in-out infinite;"></div>
+                        <div style="position: absolute; top: 50%; left: 45%; width: 10%; height: 5%; pointer-events: none; animation: smile 2s ease-in-out infinite;"></div>
+                        <div style="position: absolute; top: 40%; left: 0; width: 100%; height: 30%; pointer-events: none; animation: arm-swing 4s ease-in-out infinite;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 对话历史列表 -->
+        <div class="chat-history-list" style="width: 200px; background: white; border-radius: 15px 0 0 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); margin-top: 15px; overflow: hidden; transition: all 0.3s ease; max-height: 400px; display: none; border-right: 1px solid #e6e6e6;">
+            <!-- 历史列表标题 -->
+            <div class="chat-history-header" style="padding: 15px; border-bottom: 1px solid #e6e6e6; font-weight: bold; font-size: 14px; background: #fafafa;">
+                会话历史
+            </div>
+            <!-- 历史列表内容 -->
+            <div class="chat-history-content" style="padding: 10px; overflow-y: auto; max-height: calc(400px - 80px);">
+                <!-- 新建对话按钮 -->
+                <div class="chat-history-item new-chat" style="padding: 10px; border-radius: 8px; cursor: pointer; margin-bottom: 8px; background: #e6f7ff; color: #1890ff; font-weight: bold; text-align: center; border: 1px dashed #91d5ff;">
+                    <i class="layui-icon layui-icon-add-1"></i> 新建对话
+                </div>
+                <!-- 历史会话列表 -->
+                <div class="chat-history-items" id="chat-history-items">
+                    <!-- 历史会话将通过JavaScript动态加载 -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- 对话框 -->
+        <div class="dialog-box" style="width: 300px; background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); margin-top: 15px; overflow: hidden; transition: all 0.3s ease; max-height: 50px; min-height: 50px; display: none;">
+            <!-- 对话内容区域 -->
+            <div class="dialog-content" style="padding: 15px; max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
+                <!-- 默认欢迎消息 -->
+                <div class="message ai-message" style="background: #f0f4f8; padding: 10px 15px; border-radius: 15px 15px 15px 5px; align-self: flex-start; max-width: 85%; font-size: 14px; color: #333;">
+                    您好！我是您的智能助手，有什么可以帮助您的吗？
+                </div>
+            </div>
+            
+            <!-- 输入区域 -->
+            <div class="input-area" style="display: none; padding: 15px; border-top: 1px solid #e6e6e6;">
+                <div style="display: flex; gap: 10px; align-items: flex-end;">
+                    <textarea class="user-input" placeholder="请输入您的问题..." style="flex: 1; border: 1px solid #e6e6e6; border-radius: 10px; padding: 10px; resize: none; font-size: 14px; min-height: 40px; max-height: 100px; outline: none; transition: border-color 0.3s;"></textarea>
+                    <button class="send-btn" style="background: #667eea; color: white; border: none; border-radius: 10px; padding: 10px 20px; cursor: pointer; font-size: 14px; transition: background 0.3s;">发送</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 数字人相关CSS动画 -->
+        <style>
+            @keyframes float {
+                0%, 100% { transform: translateY(0px); }
+                50% { transform: translateY(-10px); }
+            }
+            
+            /* 眨眼动画 - 更真实的眼睛眨动效果 */
+            @keyframes blink {
+                0%, 90%, 100% { transform: scaleY(1); opacity: 1; }
+                95% { transform: scaleY(0.1); opacity: 0.5; }
+            }
+            
+            /* 微笑动画 - 嘴巴的微笑效果 */
+            @keyframes smile {
+                0%, 100% { transform: scale(1); }
+                50% { transform: scale(1.2) translateY(2px); }
+            }
+            
+            /* 手臂挥动动画 - 真实的挥手效果 */
+            @keyframes wave-arms {
+                0%, 100% { transform: rotate(0deg); }
+                25% { transform: rotate(20deg); }
+                75% { transform: rotate(-20deg); }
+            }
+            
+            /* 走路动画 - 身体的摆动效果 */
+            @keyframes walk {
+                0%, 100% { transform: translateX(0px) rotate(0deg); }
+                25% { transform: translateX(-5px) rotate(1deg); }
+                50% { transform: translateX(0px) rotate(0deg); }
+                75% { transform: translateX(5px) rotate(-1deg); }
+            }
+            
+            /* 头部转动动画 - 左右转动头部 */
+            @keyframes head-turn {
+                0%, 100% { transform: rotateY(0deg); }
+                25% { transform: rotateY(-5deg); }
+                75% { transform: rotateY(5deg); }
+            }
+            
+            /* 手臂摆动动画 - 自然的手臂摆动 */
+            @keyframes arm-swing {
+                0%, 100% { transform: rotate(0deg); }
+                25% { transform: rotate(10deg); }
+                75% { transform: rotate(-10deg); }
+            }
+            
+            /* 滚动条样式 */
+            .dialog-content::-webkit-scrollbar {
+                width: 6px;
+            }
+            
+            .dialog-content::-webkit-scrollbar-track {
+                background: #f1f1f1;
+                border-radius: 3px;
+            }
+            
+            .dialog-content::-webkit-scrollbar-thumb {
+                background: #c1c1c1;
+                border-radius: 3px;
+            }
+            
+            .dialog-content::-webkit-scrollbar-thumb:hover {
+                background: #a8a8a8;
+            }
+            
+            /* 消息样式 */
+            .message.user-message {
+                background: #667eea;
+                color: white;
+                padding: 10px 15px;
+                border-radius: 15px 15px 5px 15px;
+                align-self: flex-end;
+                max-width: 85%;
+                font-size: 14px;
+            }
+            
+            /* 输入框聚焦样式 */
+            .user-input:focus {
+                border-color: #667eea;
+            }
+            
+            /* 发送按钮悬停效果 */
+            .send-btn:hover {
+                background: #5a6fd8;
+            }
+            
+            /* 发送按钮点击效果 */
+            .send-btn:active {
+                transform: scale(0.95);
+            }
+            
+            /* 历史会话列表项样式 */
+            .chat-history-item {
+                padding: 10px;
+                border-radius: 8px;
+                cursor: pointer;
+                margin-bottom: 8px;
+                background: #ffffff;
+                border: 1px solid #f0f0f0;
+                transition: all 0.3s;
+                position: relative;
+                overflow: hidden;
+            }
+            
+            .chat-history-item:hover {
+                background: #f5f7fa;
+                border-color: #e6e6e6;
+                transform: translateX(5px);
+            }
+            
+            .chat-history-item.active {
+                background: #e6f7ff;
+                border-color: #91d5ff;
+                color: #1890ff;
+            }
+            
+            .chat-history-item-title {
+                font-weight: bold;
+                font-size: 14px;
+                margin-bottom: 4px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            
+            .chat-history-item-time {
+                font-size: 12px;
+                color: #999;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            
+            /* 右键菜单样式 */
+            .chat-history-contextmenu {
+                position: fixed;
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+                z-index: 1006;
+                padding: 5px 0;
+                min-width: 120px;
+                display: none;
+            }
+            
+            .chat-history-contextmenu-item {
+                padding: 8px 15px;
+                cursor: pointer;
+                font-size: 14px;
+                transition: background-color 0.2s;
+            }
+            
+            .chat-history-contextmenu-item:hover {
+                background-color: #f5f7fa;
+            }
+            
+            /* 滚动条样式 */
+            .chat-history-content::-webkit-scrollbar {
+                width: 6px;
+            }
+            
+            .chat-history-content::-webkit-scrollbar-track {
+                background: #f1f1f1;
+                border-radius: 3px;
+            }
+            
+            .chat-history-content::-webkit-scrollbar-thumb {
+                background: #c1c1c1;
+                border-radius: 3px;
+            }
+            
+            .chat-history-content::-webkit-scrollbar-thumb:hover {
+                background: #a8a8a8;
+            }
+        </style>
+        
+        <script>
+        // 数字人交互逻辑
+        // 获取DOM元素
+        const dialogBox = document.querySelector('.dialog-box');
+        const dialogContent = document.querySelector('.dialog-content');
+        const inputArea = document.querySelector('.input-area');
+        const userInput = document.querySelector('.user-input');
+        const sendBtn = document.querySelector('.send-btn');
+        const digitalHuman = document.querySelector('.digital-human');
+        const digitalHumanToggle = document.querySelector('.digital-human-toggle');
+        const digitalHumanWrapper = document.querySelector('.digital-human-wrapper');
+        const character = document.querySelector('.character');
+        const chatHistoryList = document.querySelector('.chat-history-list');
+        const chatHistoryItems = document.getElementById('chat-history-items');
+        const newChatItem = document.querySelector('.chat-history-item.new-chat');
+        
+        // 当前活动的聊天会话ID
+        let currentChatId = null;
+        
+        // 创建右键菜单
+        const chatHistoryContextMenu = document.createElement('div');
+        chatHistoryContextMenu.className = 'chat-history-contextmenu';
+        chatHistoryContextMenu.innerHTML = `
+            <div class="chat-history-contextmenu-item delete-chat">删除会话</div>
+        `;
+        document.body.appendChild(chatHistoryContextMenu);
+        
+        // 当前右键点击的聊天项
+        let currentRightClickedChatItem = null;
+        
+        // 对话框状态管理
+        let isDialogExpanded = false;
+        let isDigitalHumanVisible = false;
+        
+        // 当前数字人形象索引
+        let currentCharacterIndex = 1;
+        const characterCount = 3;
+        
+        // 创建右键菜单
+        const contextMenu = document.createElement('div');
+        contextMenu.className = 'digital-human-context-menu';
+        contextMenu.innerHTML = `
+            <div class="context-menu-item" data-character="1">切换到数字人1</div>
+            <div class="context-menu-item" data-character="2">切换到数字人2</div>
+            <div class="context-menu-item" data-character="3">切换到数字人3</div>
+        `;
+        contextMenu.style.cssText = `
+            position: fixed;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            z-index: 1006;
+            display: none;
+            padding: 10px 0;
+            min-width: 150px;
+        `;
+        document.body.appendChild(contextMenu);
+        
+        // 为右键菜单项添加样式
+        const style = document.createElement('style');
+        style.textContent = `
+            .context-menu-item {
+                padding: 8px 15px;
+                cursor: pointer;
+                transition: background-color 0.2s;
+                font-size: 14px;
+                color: #333;
+            }
+            .context-menu-item:hover {
+                background-color: #f0f4f8;
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // 加载历史会话列表
+        async function loadChatHistory() {
+            try {
+                const response = await fetch('/ai/chat/', {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                if (!response.ok) {
+                    throw new Error('Failed to load chat history');
+                }
+                const chatHistory = await response.json();
+                
+                // 清空历史列表
+                chatHistoryItems.innerHTML = '';
+                
+                // 渲染历史会话
+                chatHistory.forEach(chat => {
+                    const chatItem = document.createElement('div');
+                    chatItem.className = 'chat-history-item';
+                    chatItem.dataset.chatId = chat.id;
+                    chatItem.innerHTML = `
+                        <div class="chat-history-item-title">${chat.title || '新对话'}</div>
+                        <div class="chat-history-item-time">${new Date(chat.updated_at).toLocaleString()}</div>
+                    `;
+                    
+                    // 点击事件
+                    chatItem.addEventListener('click', () => {
+                        loadChatMessages(chat.id, chat.title);
+                    });
+                    
+                    // 右键菜单事件
+                    chatItem.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        currentRightClickedChatItem = chatItem;
+                        chatHistoryContextMenu.style.display = 'block';
+                        chatHistoryContextMenu.style.left = e.clientX + 'px';
+                        chatHistoryContextMenu.style.top = e.clientY + 'px';
+                    });
+                    
+                    chatHistoryItems.appendChild(chatItem);
+                });
+            } catch (error) {
+                console.error('加载历史会话失败:', error);
+            }
+        }
+        
+        // 加载特定聊天会话的消息
+        async function loadChatMessages(chatId, chatTitle) {
+            try {
+                const response = await fetch(`/ai/chat/${chatId}/`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                if (!response.ok) {
+                    throw new Error('Failed to load chat messages');
+                }
+                const chatData = await response.json();
+                
+                // 更新当前活动的聊天会话ID
+                currentChatId = chatId;
+                
+                // 清空对话内容
+                dialogContent.innerHTML = '';
+                
+                // 渲染消息
+                chatData.messages.forEach(message => {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = `message ${message.role}-message`;
+                    messageDiv.textContent = message.content;
+                    dialogContent.appendChild(messageDiv);
+                });
+                
+                // 滚动到底部
+                dialogContent.scrollTop = dialogContent.scrollHeight;
+                
+                // 更新历史会话项的活动状态
+                document.querySelectorAll('.chat-history-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                document.querySelector(`[data-chat-id="${chatId}"]`).classList.add('active');
+            } catch (error) {
+                console.error('加载聊天消息失败:', error);
+            }
+        }
+        
+        // 新建对话
+        function createNewChat() {
+            // 清空对话内容
+            dialogContent.innerHTML = '';
+            // 添加默认欢迎消息
+            const welcomeMessage = document.createElement('div');
+            welcomeMessage.className = 'message ai-message';
+            welcomeMessage.textContent = '您好！我是您的智能助手，有什么可以帮助您的吗？';
+            dialogContent.appendChild(welcomeMessage);
+            
+            // 清空当前聊天ID
+            currentChatId = null;
+            
+            // 更新历史会话项的活动状态
+            document.querySelectorAll('.chat-history-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // 聚焦输入框
+            userInput.focus();
+        }
+        
+        // 删除聊天会话
+        async function deleteChat(chatId) {
+            try {
+                const response = await fetch(`/ai/chat/${chatId}/delete/`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to delete chat');
+                }
+                
+                // 重新加载历史会话列表
+                loadChatHistory();
+                
+                // 如果删除的是当前活动的会话，创建新对话
+                if (currentChatId === chatId) {
+                    createNewChat();
+                }
+            } catch (error) {
+                console.error('删除聊天会话失败:', error);
+                alert('删除聊天会话失败: ' + error.message);
+            }
+        }
+        
+        // 点击小图标显示/隐藏数字人和对话框
+        digitalHumanToggle.addEventListener('click', function() {
+            if (isDigitalHumanVisible) {
+                // 隐藏数字人和对话框
+                digitalHumanWrapper.style.display = 'none';
+                dialogBox.style.display = 'none';
+                chatHistoryList.style.display = 'none';
+            } else {
+                // 显示数字人和对话框
+                digitalHumanWrapper.style.display = 'block';
+                dialogBox.style.display = 'block';
+                chatHistoryList.style.display = 'block';
+                // 展开对话框
+                dialogBox.style.maxHeight = '350px';
+                inputArea.style.display = 'block';
+                userInput.focus();
+                
+                // 加载历史会话列表
+                loadChatHistory();
+            }
+            isDigitalHumanVisible = !isDigitalHumanVisible;
+            isDialogExpanded = isDigitalHumanVisible;
+        });
+        
+        // 点击页面其他地方隐藏右键菜单
+        document.addEventListener('click', function() {
+            chatHistoryContextMenu.style.display = 'none';
+        });
+        
+        // 右键菜单删除功能
+        chatHistoryContextMenu.querySelector('.delete-chat').addEventListener('click', function() {
+            if (currentRightClickedChatItem) {
+                const chatId = currentRightClickedChatItem.dataset.chatId;
+                // 二次确认
+                if (confirm('确定要删除这个会话吗？')) {
+                    deleteChat(chatId);
+                }
+                chatHistoryContextMenu.style.display = 'none';
+            }
+        });
+        
+        // 新建对话点击事件
+        newChatItem.addEventListener('click', createNewChat);
+        
+        // 点击数字人展开/收起对话框
+        digitalHuman.addEventListener('click', function() {
+            if (isDialogExpanded) {
+                // 收起对话框
+                dialogBox.style.maxHeight = '50px';
+                inputArea.style.display = 'none';
+            } else {
+                // 展开对话框
+                dialogBox.style.maxHeight = '350px';
+                inputArea.style.display = 'block';
+                userInput.focus();
+            }
+            isDialogExpanded = !isDialogExpanded;
+        });
+        
+        // 数字人右键菜单
+        digitalHuman.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            
+            // 显示右键菜单
+            contextMenu.style.display = 'block';
+            contextMenu.style.left = e.clientX + 'px';
+            contextMenu.style.top = e.clientY + 'px';
+        });
+        
+        // 点击页面其他地方隐藏右键菜单
+        document.addEventListener('click', function() {
+            contextMenu.style.display = 'none';
+        });
+        
+        // 右键菜单项点击事件
+        contextMenu.addEventListener('click', function(e) {
+            if (e.target.classList.contains('context-menu-item')) {
+                const characterIndex = parseInt(e.target.dataset.character);
+                switchCharacter(characterIndex);
+                contextMenu.style.display = 'none';
+            }
+        });
+        
+        // 切换数字人形象
+        function switchCharacter(index) {
+            currentCharacterIndex = index;
+            
+            // 根据索引切换不同的数字人形象图片
+            character.querySelector('img').src = `{% static 'images/Digital human/character1/shuziren.png' %}`;
+            
+            // 随机添加一个动作效果组合
+            const animationCombinations = [
+                'float 3s ease-in-out infinite, walk 8s ease-in-out infinite, head-turn 6s ease-in-out infinite',
+                'float 3s ease-in-out infinite, wave-arms 4s ease-in-out infinite, blink 3s ease-in-out infinite',
+                'float 3s ease-in-out infinite, walk 8s ease-in-out infinite, smile 2s ease-in-out infinite'
+            ];
+            const randomCombination = animationCombinations[Math.floor(Math.random() * animationCombinations.length)];
+            character.style.animation = randomCombination;
+        }
+        
+        // 发送消息
+        function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message) return;
+            
+            // 数字人做出反应动作
+            const characterElement = character;
+            const animations = ['wave-arms 1s ease-in-out', 'head-turn 1s ease-in-out', 'walk 1s ease-in-out'];
+            const randomAnimation = animations[Math.floor(Math.random() * animations.length)];
+            characterElement.style.animation = randomAnimation;
+            
+            // 2秒后恢复默认动画组合
+            setTimeout(() => {
+                characterElement.style.animation = 'float 3s ease-in-out infinite, walk 8s ease-in-out infinite, head-turn 6s ease-in-out infinite';
+            }, 2000);
+            
+            // 添加用户消息到对话
+            const userMessageDiv = document.createElement('div');
+            userMessageDiv.className = 'message user-message';
+            userMessageDiv.textContent = message;
+            dialogContent.appendChild(userMessageDiv);
+            
+            // 清空输入框
+            userInput.value = '';
+            
+            // 滚动到底部
+            dialogContent.scrollTop = dialogContent.scrollHeight;
+            
+            // 添加AI正在输入的状态
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'message ai-message';
+            typingDiv.innerHTML = '<span style="display: inline-block; width: 20px; height: 20px;"><i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i></span>';
+            dialogContent.appendChild(typingDiv);
+            dialogContent.scrollTop = dialogContent.scrollHeight;
+            
+            // 添加AI回复容器
+            const aiMessageDiv = document.createElement('div');
+            aiMessageDiv.className = 'message ai-message';
+            
+            // 调用AI API获取流式回复，传递当前聊天ID
+            callAIApiStream(message, typingDiv, aiMessageDiv, currentChatId);
+        }
+        
+        // 调用AI API（流式）
+        async function callAIApiStream(message, typingDiv, aiMessageDiv, chatId) {
+            try {
+                const response = await fetch('/ai/chat/stream/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        chat_id: chatId,
+                        context: {
+                            user_id: '{{ request.user.id }}',
+                            username: '{{ request.user.username }}',
+                            user_role: '{{ request.user.role }}'
+                        }
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('API请求失败');
+                }
+                
+                // 移除正在输入状态
+                typingDiv.remove();
+                
+                // 添加AI回复容器到对话
+                dialogContent.appendChild(aiMessageDiv);
+                
+                // 处理流式响应
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let accumulatedText = '';
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    // 解码新的文本块
+                    const chunk = decoder.decode(value, { stream: true });
+                    accumulatedText += chunk;
+                    
+                    // 更新AI回复
+                    aiMessageDiv.textContent = accumulatedText;
+                    
+                    // 滚动到底部
+                    dialogContent.scrollTop = dialogContent.scrollHeight;
+                }
+                
+            } catch (error) {
+                // 移除正在输入状态
+                typingDiv.remove();
+                
+                // 添加错误消息
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'message ai-message';
+                errorDiv.style.color = '#ff6b6b';
+                errorDiv.textContent = '抱歉，我暂时无法回答您的问题，请稍后再试。';
+                dialogContent.appendChild(errorDiv);
+                
+                // 滚动到底部
+                dialogContent.scrollTop = dialogContent.scrollHeight;
+                
+                console.error('AI API调用失败:', error);
+            }
+        }
+        
+        // 发送按钮点击事件
+        sendBtn.addEventListener('click', sendMessage);
+        
+        // 回车键发送消息（Shift+Enter换行）
+        userInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        
+        // 调用AI API
+        async function callAIApi(message) {
+            try {
+                const response = await fetch('/ai/chat/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        context: {
+                            user_id: '{{ request.user.id }}',
+                            username: '{{ request.user.username }}',
+                            user_role: '{{ request.user.role }}'
+                        }
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('API请求失败');
+                }
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('AI API调用失败:', error);
+                throw error;
+            }
+        }
+        
+        // 获取CSRF Token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    // Does this cookie string begin with the name we want?
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        
+        // 数字人动画效果 - 鼠标悬停时的互动
+        digitalHuman.addEventListener('mouseenter', function() {
+            this.style.transform = 'scale(1.05)';
+            this.style.transition = 'transform 0.3s ease';
+        });
+        
+        digitalHuman.addEventListener('mouseleave', function() {
+            this.style.transform = 'scale(1)';
+        });
+        
+        // 自动调整输入框高度
+        userInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+        });
+        
+        // 初始展开对话框（可选）
+        // setTimeout(() => {
+        //     digitalHuman.click();
+        // }, 2000);
+        </script>
+        
+        <!-- 水印功能实现 - 动态读取配置 -->
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 从配置中获取水印开关状态
+            const watermarkEnabled = {% if configs.watermark_enabled and configs.watermark_enabled.value == 'true' %}true{% else %}false{% endif %};
+            
+            if (watermarkEnabled) {
+                // 创建水印背景容器
+                const watermarkBg = document.createElement('div');
+                watermarkBg.id = 'watermarkBg';
+                watermarkBg.style.position = 'fixed';
+                watermarkBg.style.top = '0';
+                watermarkBg.style.left = '0';
+                watermarkBg.style.width = '100%';
+                watermarkBg.style.height = '100%';
+                watermarkBg.style.pointerEvents = 'none';
+                watermarkBg.style.zIndex = '10'; // 确保在内容之下
+                document.body.appendChild(watermarkBg);
+            
+                // 更新水印内容
+                function updateWatermark() {
+                    const username = '{{ request.user.username }}';
+                    const now = new Date();
+                    const timeStr = now.toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    const watermarkText = `${username}\n${timeStr}`;
+            
+                    // 创建canvas
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = 200; // 水印块宽度
+                    canvas.height = 200; // 水印块高度
+            
+                    // 设置字体和样式
+                    ctx.font = '14px Arial, sans-serif';
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)'; // 透明度0.1
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+            
+                    // 旋转文本
+                    ctx.translate(canvas.width / 2, canvas.height / 2);
+                    ctx.rotate(-45 * Math.PI / 180);
+                    ctx.fillText(watermarkText, 0, 0);
+            
+                    // 将canvas转换为data URL
+                    const dataUrl = canvas.toDataURL('image/png');
+            
+                    // 设置背景
+                    watermarkBg.style.backgroundImage = `url(${dataUrl})`;
+                    watermarkBg.style.backgroundRepeat = 'repeat';
+                    watermarkBg.style.backgroundSize = '200px 200px'; // 控制水印大小和间距
+                }
+                
+                // 初始创建水印
+                updateWatermark();
+                // 每5秒更新时间
+                setInterval(updateWatermark, 5000);
+            }
+        });
+        </script>
+    {% block extra_js %}{% endblock %}
+    </body>
+</html>

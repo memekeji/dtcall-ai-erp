@@ -1,0 +1,77 @@
+{% extends 'home/iframe_base.html' %}
+{% load static %}
+
+{% block title %}{% if object %}编辑AI知识库{% else %}新建AI知识库{% endif %}{% endblock %}
+
+{% block content %}
+<div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-col-md12">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <h3><i class="layui-icon layui-icon-book"></i> {% if object %}编辑AI知识库{% else %}新建AI知识库{% endif %}</h3>
+                </div>
+                <div class="layui-card-body">
+                    <form class="layui-form" action="" method="post">
+                        {% csrf_token %}
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">知识库名称</label>
+                            <div class="layui-input-block">
+                                <input type="text" name="name" required lay-verify="required" placeholder="请输入知识库名称" autocomplete="off" class="layui-input" value="{{ object.name|default:'' }}">
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">描述</label>
+                            <div class="layui-input-block">
+                                <textarea name="description" placeholder="请输入知识库描述" class="layui-textarea">{{ object.description|default:'' }}</textarea>
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">状态</label>
+                            <div class="layui-input-block">
+                                <select name="status" lay-verify="required">
+                                    <option value="draft" {% if object.status == 'draft' or not object %}selected{% endif %}>草稿</option>
+                                    <option value="published" {% if object.status == 'published' %}selected{% endif %}>已发布</option>
+                                    <option value="archived" {% if object.status == 'archived' %}selected{% endif %}>已归档</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <div class="layui-input-block">
+                                <button class="layui-btn" lay-submit lay-filter="knowledgeBaseForm">保存</button>
+                                <a href="{% url 'ai:knowledge_base_list' %}" class="layui-btn layui-btn-primary">取消</a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    layui.use(['form'], function(){
+        var form = layui.form;
+        
+        // 表单验证
+        form.verify({
+            name: function(value, item){
+                if(value.length < 1){
+                    return '知识库名称不能为空';
+                }
+                if(value.length > 100){
+                    return '知识库名称不能超过100个字符';
+                }
+            }
+        });
+        
+        // 表单提交
+        form.on('submit(knowledgeBaseForm)', function(data){
+            // 表单数据会自动提交，不需要手动处理
+            return true;
+        });
+    });
+</script>
+{% endblock %}

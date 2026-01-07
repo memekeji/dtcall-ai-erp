@@ -1,0 +1,21 @@
+<li>
+    <div class="department-item">
+        <span class="department-title">{{ department.name }}</span>
+        {% if department.status == 1 %}
+            <span class="department-status status-active">启用</span>
+        {% else %}
+            <span class="department-status status-inactive">禁用</span>
+        {% endif %}
+        <div class="department-actions">
+            <a href="{% url 'department_edit' department.id %}" class="btn btn-sm btn-outline-primary btn-action">编辑</a>
+            <a href="{% url 'department_delete' department.id %}" class="btn btn-sm btn-outline-danger btn-action">删除</a>
+        </div>
+    </div>
+    {% if department.children.all %}
+    <ul>
+        {% for child in department.children.all %}
+            {% include 'system/department/department_item.html' with department=child %}
+        {% endfor %}
+    </ul>
+    {% endif %}
+</li>

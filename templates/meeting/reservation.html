@@ -1,0 +1,151 @@
+{% extends 'include/common.html' %}
+
+{% block title %}会议室预约管理{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <span class="layui-breadcrumb">
+                    <a href="javascript:;">会议室管理</a>
+                    <a><cite>会议室预约</cite></a>
+                </span>
+            </div>
+            <div class="layui-col-md6 text-right">
+                <button class="layui-btn layui-btn-normal" id="addBtn">添加预约</button>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <div class="layui-form">
+            <div class="layui-form-item">
+                <div class="layui-inline">
+                    <label class="layui-form-label">会议室</label>
+                    <div class="layui-input-inline">
+                        <select name="room_id" lay-filter="room_id">
+                            <option value="">全部会议室</option>
+                            {% for room in rooms %}
+                            <option value="{{ room.id }}">{{ room.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="layui-inline">
+                    <label class="layui-form-label">时间范围</label>
+                    <div class="layui-input-inline">
+                        <input type="text" name="time_range" placeholder="请选择时间范围" class="layui-input" id="timeRange">
+                    </div>
+                </div>
+                <div class="layui-inline">
+                    <button class="layui-btn" id="searchBtn">搜索</button>
+                    <button class="layui-btn layui-btn-primary" id="resetBtn">重置</button>
+                </div>
+            </div>
+        </div>
+        <table id="dataTable" lay-filter="dataTable"></table>
+    </div>
+</div>
+
+<script>
+layui.use(['table', 'form', 'laydate', 'jquery'], function(){
+    var table = layui.table;
+    var $ = layui.jquery;
+    var form = layui.form;
+    var laydate = layui.laydate;
+    
+    // 初始化时间范围选择
+    laydate.render({
+        elem: '#timeRange',
+        range: true,
+        format: 'yyyy-MM-dd'
+    });
+    
+    // 初始化表格
+    table.render({
+        elem: '#dataTable',
+        url: '{% url "adm_meeting_reservation" %}',
+        method: 'post',
+        page: true,
+        cols: [[
+            {field: 'id', title: 'ID', width: 80},
+            {field: 'room_title', title: '会议室'},
+            {field: 'title', title: '会议主题'},
+            {field: 'user_name', title: '预约人'},
+            {field: 'start_time', title: '开始时间'},
+            {field: 'end_time', title: '结束时间'},
+            {field: 'status', title: '状态'},
+            {fixed: 'right', title: '操作', toolbar: '#actionBar', width: 200}
+        ]]
+    });
+    
+    // 搜索按钮点击事件
+    $('#searchBtn').on('click', function(){
+        var room_id = $('select[name="room_id"]').val();
+        var time_range = $('input[name="time_range"]').val();
+        
+        table.reload('dataTable', {
+            where: {
+                room_id: room_id,
+                time_range: time_range
+            }
+        });
+    });
+    
+    // 重置按钮点击事件
+    $('#resetBtn').on('click', function(){
+        $('select[name="room_id"]').val('');
+        $('input[name="time_range"]').val('');
+        form.render();
+        
+        table.reload('dataTable', {
+            where: {
+                room_id: '',
+                time_range: ''
+            }
+        });
+    });
+    
+    // 添加按钮点击事件
+    $('#addBtn').on('click', function(){
+        layer.open({
+            type: 2,
+            title: '添加会议室预约',
+            content: '{% url "adm_meeting_reservation_add" %}',
+            area: ['800px', '500px'],
+            end: function(){
+                table.reload('dataTable');
+            }
+        });
+    });
+    
+    // 表格工具条事件
+    table.on('tool(dataTable)', function(obj){
+        var data = obj.data;
+        if(obj.event === 'edit'){
+            layer.open({
+                type: 2,
+                title: '编辑会议室预约',
+                content: '{% url "adm_meeting_reservation_edit" %}?id=' + data.id,
+                area: ['800px', '500px'],
+                end: function(){
+                    table.reload('dataTable');
+                }
+            });
+        } else if(obj.event === 'view'){
+            layer.open({
+                type: 2,
+                title: '查看预约详情',
+                content: '{% url "adm_meeting_reservation_view" %}?id=' + data.id,
+                area: ['800px', '500px'],
+            });
+        }
+    });
+});
+</script>
+
+<script type="text/html" id="actionBar">
+    <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
+    <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="view">查看</a>
+</script>
+{% endblock %}

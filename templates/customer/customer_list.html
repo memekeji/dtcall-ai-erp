@@ -1,0 +1,2510 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>客户管理</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <style>
+        .layui-table-cell {
+            height: 40px !important;
+            line-height: 40px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        /* 确保表格行高一致 */
+        .layui-table tr {
+            height: 40px !important;
+        }
+        
+        /* 顶部工具栏样式 */
+        .toolbar-container {
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 10px 15px;
+            margin: 0 -15px 15px -15px;
+        }
+        
+        /* 筛选区域样式 */
+        .layui-card:nth-child(2) {
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 0 -15px 15px -15px;
+        }
+        
+        /* 使用flex布局确保整个页面铺满 */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* 调整卡片视图的外层容器，确保内容自然流动 */
+        .layui-card-body {
+            display: flex;
+            flex-direction: column;
+            padding: 0 15px !important;
+            margin: 0 !important;
+            box-sizing: border-box;
+            min-height: 120px;
+        }
+        
+        /* 调整视图容器，确保内容自然流动 */
+        #viewContainer {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        
+        /* 调整表格容器样式 */
+        #tableView {
+            margin-top: 0 !important;
+            padding: 0 !important;
+        }
+        
+        /* 确保表格内容区域滚动时表头固定 */
+        .layui-table-view {
+            margin-top: 0 !important;
+            padding: 0 !important;
+        }
+        
+        /* 表格容器设置 */
+        .layui-table-view {
+            position: relative;
+        }
+        
+        /* 表格表头固定 */
+        .layui-table-header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: white;
+        }
+        
+        /* 确保表格主体内容正常滚动 */
+        .layui-table-body {
+            overflow: auto;
+        }
+        
+        /* 确保表格容器自适应内容高度 */
+        .layui-table-box {
+            height: auto !important;
+        }
+        
+        /* 确保表格内容正常显示 */
+        .layui-table-view .layui-table {
+            margin-bottom: 0 !important;
+        }
+        
+        /* 调整卡片视图样式，确保铺满整个工作区 */
+        #cardView {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        
+        /* 调整卡片视图容器的整体样式 - 简化嵌套结构 */
+        .card-view-container {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        
+        /* 卡片视图头部样式 */
+        .card-view-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px 0;
+            margin: 0 !important;
+            height: auto;
+            min-height: 30px;
+        }
+        
+        /* 卡片视图计数样式 */
+        .card-view-count {
+            font-size: 14px;
+            color: #666;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        
+        /* 调整外部列标题容器 */
+        #externalColumnHeaders {
+            display: flex;
+            gap: 15px;
+            overflow-x: auto;
+            padding-right: 15px;
+            flex-shrink: 0;
+            margin: 5px 0 0 0 !important;
+            height: auto;
+        }
+        
+        /* 调整卡片列容器，确保铺满剩余高度 - 解决底部空白问题 */
+        #cardViewColumns {
+            display: flex;
+            gap: 15px;
+            overflow-x: auto;
+            padding-right: 15px;
+            flex: 1 !important;
+            overflow-y: visible !important;
+            margin: 0 !important;
+        }
+        
+        /* 调整单个卡片列，确保能滚动 */
+        .card-column {
+            flex: 0 0 280px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            overflow: hidden;
+            /* 移除固定高度，让卡片列自适应内容 */
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #c1c1c1 #f0f0f0;
+            position: relative;
+        }
+        
+        /* 卡片列滚动条样式 */
+        .card-column::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .card-column::-webkit-scrollbar-track {
+            background: #f0f0f0;
+            border-radius: 3px;
+        }
+        
+        .card-column::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+        
+        .card-column::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+        
+        /* 移除所有可能导致空白的默认margin */
+        .card-view-header,
+        .card-view-controls,
+        .card-view-count,
+        .external-column-header {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        
+        /* 确保卡片视图头部区域没有空白 */
+        .card-view-header {
+            min-height: 30px;
+            box-sizing: border-box;
+        }
+        
+        /* 调整卡片视图外部列标题样式，减小字体大小和高度 */
+        .external-column-header {
+            font-size: 14px;
+            font-weight: 600;
+            padding: 8px 15px !important;
+            background: #f5f5f5;
+            border-bottom: 1px solid #e6e6e6;
+            height: 36px;
+            line-height: 18px;
+            box-sizing: border-box;
+        }
+        .action-buttons {
+            white-space: nowrap;
+        }
+        .status-normal { color: #5FB878; }
+        .status-disabled { color: #FF5722; }
+        .status-pending { color: #FFB800; }
+        
+        .toolbar-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: nowrap;
+            margin-bottom: 15px;
+        }
+        
+        .button-group {
+            flex-shrink: 0;
+            margin-right: 15px;
+        }
+        
+        .search-group {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .search-inputs {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .search-inputs .layui-input {
+            flex: 1;
+            min-width: 80px;
+        }
+        
+        .search-inputs .search-btn {
+            flex-shrink: 0;
+        }
+        
+        @media (max-width: 768px) {
+            .toolbar-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .button-group {
+                margin-right: 0;
+                margin-bottom: 10px;
+            }
+            
+            .search-inputs {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-body">
+                        <!-- 操作按钮和搜索表单 -->
+                        <div class="toolbar-container">
+                            <!-- 操作按钮区域 -->
+                            <div class="button-group">
+                                <div class="layui-btn-group">
+                                    <button type="button" class="layui-btn layui-btn-sm" id="addCustomer">
+                                        <i class="layui-icon layui-icon-add-1"></i> 添加客户
+                                    </button>
+                                    <button type="button" class="layui-btn layui-btn-sm layui-btn-normal" id="batchImport">
+                                        <i class="layui-icon layui-icon-upload"></i> 批量导入
+                                    </button>
+                                    <button type="button" class="layui-btn layui-btn-sm layui-btn-danger" id="batchDelete">
+                                        <i class="layui-icon layui-icon-delete"></i> 批量删除
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- 搜索区域 -->
+                            <div class="search-group">
+                                <form class="layui-form" id="searchForm" lay-filter="searchForm">
+                                    <div class="search-inputs">
+                                        <input type="text" name="customer_name" placeholder="客户名称" class="layui-input">
+                                        <input type="text" name="contact_name" placeholder="联系人" class="layui-input">
+                                        <input type="text" name="phone" placeholder="电话" class="layui-input">
+                                        <button type="submit" class="layui-btn layui-btn-sm search-btn">
+                                            <i class="layui-icon layui-icon-search"></i> 搜索
+                                        </button>
+                                        <button type="reset" class="layui-btn layui-btn-sm layui-btn-primary search-btn">
+                                            <i class="layui-icon layui-icon-refresh"></i> 重置
+                                        </button>
+                                        <button type="button" class="layui-btn layui-btn-sm layui-btn-primary search-btn" id="toggleView" title="切换视图">
+                                            <i class="layui-icon layui-icon-table"></i>
+                                        </button>
+                                        <button type="button" class="layui-btn layui-btn-sm layui-btn-primary search-btn" id="toggleFilter" title="高级筛选">
+                                            <i class="layui-icon layui-icon-down"></i>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        <!-- 筛选区域 -->
+                        <div class="layui-card" style="margin-bottom:15px; display: none;">
+                            <div class="layui-card-body" id="filterContainer">
+                                <form class="layui-form" id="filterForm" lay-filter="filterForm">
+                                    <div class="layui-form-item">
+                                        <div class="layui-inline">
+                                            <label class="layui-form-label">客户等级</label>
+                                            <div class="layui-input-inline">
+                                                <select name="customer_grade" lay-search>
+                                                    <option value="">全部</option>
+                                                    {% for grade in grades %}
+                                                    <option value="{{ grade.title }}">{{ grade.title }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="layui-inline">
+                                            <label class="layui-form-label">客户来源</label>
+                                            <div class="layui-input-inline">
+                                                <select name="customer_source" lay-search>
+                                                    <option value="">全部</option>
+                                                    {% for source in sources %}
+                                                    <option value="{{ source.title }}">{{ source.title }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="layui-inline">
+                                            <label class="layui-form-label">客户意向</label>
+                                            <div class="layui-input-inline">
+                                                <select name="customer_intent" lay-search>
+                                                    <option value="">全部</option>
+                                                    {% for intent in intents %}
+                                                    <option value="{{ intent.name }}">{{ intent.name }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="layui-inline">
+                                            <label class="layui-form-label">省份</label>
+                                            <div class="layui-input-inline">
+                                                <select name="province" lay-filter="provinceSelect" lay-search>
+                                                    <option value="">全部</option>
+                                                    {% for province in provinces %}
+                                                    <option value="{{ province }}">{{ province }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="layui-inline">
+                                            <label class="layui-form-label">城市</label>
+                                            <div class="layui-input-inline">
+                                                <select name="city" lay-search>
+                                                    <option value="">全部</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="layui-form-item">
+                                        {% if custom_fields %}
+                                        <!-- 动态添加自定义字段筛选 -->
+                                        {% for field in custom_fields %}
+                                        {% if field.filterable %}
+                                        <div class="layui-inline">
+                                            <label class="layui-form-label">{{ field.title }}</label>
+                                            <div class="layui-input-inline">
+                                                <select name="custom_filter_{{ field.id }}" lay-search>
+                                                    <option value="">全部</option>
+                                                    {% for option in field.options %}
+                                                    <option value="{{ option }}">{{ option }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                        {% endfor %}
+                                        {% endif %}
+                                        <div class="layui-inline">
+                                            <button type="submit" class="layui-btn layui-btn-sm">
+                                                <i class="layui-icon layui-icon-search"></i> 应用筛选
+                                            </button>
+                                            <button type="reset" class="layui-btn layui-btn-sm layui-btn-primary">
+                                                <i class="layui-icon layui-icon-refresh"></i> 重置筛选
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- 视图容器 -->
+                        <div id="viewContainer">
+                            <!-- 数据表格视图 -->
+                            <div id="tableView" class="view-section">
+                                <table class="layui-hide" id="customerTable" lay-filter="customerTable"></table>
+                            </div>
+                            
+                            <!-- 卡片视图容器 -->
+                        <div id="cardView" class="view-section card-view-container" style="display: none;">
+                            <div class="card-view-header">
+                                <div class="card-view-controls">
+                                    <span class="card-view-count">共 <span id="cardCount">0</span> 个客户</span>
+                                </div>
+                            </div>
+                            <div class="external-column-headers" id="externalColumnHeaders">
+                                <!-- 外部列标题将在这里动态显示 -->
+                            </div>
+                            <div id="cardViewColumns" class="card-view-columns">
+                                <!-- 动态生成的列将在这里显示 -->
+                            </div>
+                        </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 行工具栏模板 -->
+    <script type="text/html" id="barDemo">
+        <div class="action-buttons">
+            <a class="layui-btn layui-btn-xs" lay-event="detail">详情</a>
+            <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
+            <a class="layui-btn layui-btn-xs layui-btn-warm" lay-event="follow">跟进</a>
+            <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="del">删除</a>
+        </div>
+    </script>
+
+    <script src="/static/js/jquery.min.js"></script>
+    <script src="/static/layui/layui.js"></script>
+    {% csrf_token %}
+    <script>
+    //<![CDATA[
+        // 添加layui存在性检查
+        if (typeof layui === 'undefined') {
+            console.warn('layui框架未加载，部分功能可能无法正常使用');
+            // 降级处理：提供基本的替代功能
+            window.showError = function(msg) {
+                alert(msg || '系统功能暂不可用，请刷新页面重试');
+            };
+        } else {
+            layui.use(['table', 'form', 'layer'], function(){
+            var table = layui.table;
+            var form = layui.form;
+            var layer = layui.layer;
+            
+            // 检查必要模块是否加载
+            if (!table || !form || !layer) {
+                console.warn('layui核心模块加载不完整，可能影响功能使用');
+                return;
+            }
+            
+            // 省市数据映射 - 使用后端传递的数据
+            var provinceCityMap = {};
+            
+            // 从后端传递的城市数据构建映射关系
+            {% if cities %}
+                {% for province, city_list in cities.items %}
+                    provinceCityMap["{{ province }}"] = [{% for city in city_list %}"{{ city }}"{% if not forloop.last %}, {% endif %}{% endfor %}];
+                {% endfor %}
+            {% endif %}
+            
+
+            
+            // 监听省份选择事件
+            form.on('select(provinceSelect)', function(data) {
+                var province = data.value;
+                var citySelect = document.querySelector('select[name="city"]');
+                
+                if (!citySelect) {
+                    console.warn('城市下拉框未找到');
+                    return;
+                }
+                
+                // 清空城市下拉框
+                citySelect.innerHTML = '<option value="">请选择城市</option>';
+                
+                // 根据选中的省份加载对应的城市
+                if (province && provinceCityMap[province]) {
+                    provinceCityMap[province].forEach(function(city) {
+                        var option = document.createElement('option');
+                        option.value = city;
+                        option.textContent = city;
+                        citySelect.appendChild(option);
+                    });
+                }
+                
+                // 重新渲染表单
+                form.render('select');
+            });
+            
+            // 基础列配置
+            var baseColumns = [
+                {type: 'checkbox', fixed: 'left'},
+                {field: 'id', title: 'ID', width: 80, fixed: 'left', sort: true},
+                {field: 'name', title: '客户名称', width: 150, fixed: 'left', sort: true},
+                {field: 'contact_name', title: '联系人', width: 120, sort: true},
+                {field: 'phone', title: '联系电话', width: 150, templet: function(d) {
+                    if (d.phone) {
+                        return '<div style="display: flex; align-items: center; gap: 5px;">' + 
+                               '<span>' + d.phone + '</span>' +
+                               '<img src="/static/img/icon/拨号-copy.svg" alt="拨号" style="cursor: pointer; width: 20px; height: 20px;" onclick="makeSipCall(\'' + d.phone + '\', \'' + d.id + '\', \'' + d.name + '\')">' +
+                               '</div>';
+                    } else {
+                        return '未设置电话';
+                    }
+                }},
+                {field: 'email', title: '邮箱', width: 150},
+                {field: 'customer_source', title: '客户来源', width: 120},
+                {field: 'customer_grade', title: '客户等级', width: 120},
+                {field: 'customer_intent', title: '客户意向', width: 120},
+                {field: 'address', title: '地址', width: 200},
+                {field: 'create_time', title: '创建时间', width: 160, sort: true}
+            ];
+            
+            // 仅管理员可见的客户归属列
+            {% if is_superuser %}
+                // 在客户来源列之后插入客户归属列
+                baseColumns.splice(8, 0, {
+                    field: 'customer_owner', 
+                    title: '客户归属', 
+                    width: 120, 
+                    sort: true,
+                    templet: function(d) {
+                        if (d.customer_owner === '公海客户') {
+                            return '<span style="color: #909399;">' + d.customer_owner + '</span>';
+                        } else {
+                            return '<span style="color: #67C23A;">' + d.customer_owner + '</span>';
+                        }
+                    }
+                });
+            {% endif %}
+            
+            // 动态添加自定义字段列 - 使用服务器提供的自定义字段数据
+            var customFieldColumns = [];
+            
+            // 初始化自定义字段列（从Django上下文获取）
+            {% if custom_fields %}
+                var customFieldsData = [{% for field in custom_fields %}{
+                    id: {{ field.id|default:0 }},
+                    title: '{{ field.title|escapejs }}',
+                    name: '{{ field.name|escapejs }}',
+                    width: {{ field.width|default:120 }}
+                }{% if not forloop.last %},{% endif %}{% endfor %}];
+                
+                // 构建自定义字段列配置
+                customFieldsData.forEach(function(field) {
+                    customFieldColumns.push({
+                        field: 'custom_' + field.id,
+                        title: field.title,
+                        width: field.width,
+                        align: 'center',
+                        templet: function(d) {
+                            var value = d['custom_' + field.id];
+                            return value !== undefined && value !== null ? value : '';
+                        }
+                    });
+                });
+            {% endif %}
+            
+            // 合并所有列
+            var columns = baseColumns.concat(customFieldColumns);
+            
+            // 添加操作列
+            columns.push({
+                title: '操作', 
+                width: 200, 
+                fixed: 'right', 
+                align: 'center', 
+                toolbar: '#barDemo'
+            });
+            
+            // 初始化表格
+            function initTable() {
+                if (!table || typeof table.render !== 'function') {
+                    console.warn('表格初始化失败：table模块不可用');
+                    return;
+                }
+                
+                // 表格初始化
+            table.render({
+                elem: '#customerTable',
+                url: '/customer/list/data/',
+                method: 'get',
+                cols: [columns],
+                page: true,
+                limits: [10, 20, 50, 100],
+                limit: 20,
+                loading: true,
+                even: true,
+                text: {
+                    none: '暂无相关数据'
+                },
+                // 移除固定高度，让表格自适应内容
+                page: true,
+                    // 添加请求前回调，动态构建URL
+                    request: {
+                        pageName: 'page',
+                        limitName: 'limit',
+                        paramsName: 'where'  // 指定搜索参数的名称
+                    },
+                    // 添加请求头，确保包含CSRF token
+                    headers: {
+                        'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+                    },
+                    // 初始化时不带搜索参数
+                    where: {}
+                });
+            }
+            
+            // 初始化表格
+            initTable();
+            
+            // 渲染表单，确保搜索表单正确绑定事件
+            if (form && typeof form.render === 'function') {
+                form.render();
+            }
+            
+            // 视图状态管理
+            // 从localStorage读取上次的视图设置，默认表格视图
+            var currentView = localStorage.getItem('customerViewPreference') || 'table';
+            
+            // 卡片视图数据加载状态管理
+            var cardViewData = {
+                pageSize: 20,
+                isLoading: false,
+                concurrentRequests: 0,
+                maxConcurrentRequests: 3,
+                // 按客户意向分组的列数据状态
+                columns: {},
+                // 已获取的意向类型列表
+                intents: [],
+                // 初始加载完成标志
+                initialLoaded: false
+            };
+            
+            // 切换视图按钮事件
+            if (typeof $ === 'function') {
+                $('#toggleView').click(function() {
+                    toggleView();
+                });
+            }
+            
+            // 页面加载时应用保存的视图设置
+            function applySavedView() {
+                var toggleBtn = $('#toggleView');
+                var icon = toggleBtn.find('i');
+                
+                if (currentView === 'card') {
+                    // 应用卡片视图
+                    icon.removeClass('layui-icon-table').addClass('layui-icon-list');
+                    toggleBtn.attr('title', '切换到列表视图');
+                    $('#tableView').hide();
+                    $('#cardView').show();
+                    loadCardView();
+                } else {
+                    // 应用表格视图
+                    icon.removeClass('layui-icon-list').addClass('layui-icon-table');
+                    toggleBtn.attr('title', '切换到卡片视图');
+                    $('#tableView').show();
+                    $('#cardView').hide();
+                }
+            }
+            
+            // SIP拨号函数 - 绑定到window对象，确保全局可用
+            window.makeSipCall = function(phone, customerId, customerName) {
+                if (!phone) {
+                    alert('电话号码不能为空');
+                    return;
+                }
+                
+                $.ajax({
+                    url: '{% url "customer:sip_call" %}',
+                    type: 'POST',
+                    data: {
+                        csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val(),
+                        phone: phone,
+                        customer_id: customerId,
+                        customer_name: customerName
+                    },
+                    success: function(res) {
+                        if (res.code === 0) {
+                            layer.msg('呼叫成功');
+                        } else {
+                            layer.msg(res.msg);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        layer.msg('拨号失败，请稍后重试');
+                        console.error('拨号失败:', error);
+                    }
+                });
+            }
+            
+            // 页面加载完成后应用保存的视图
+            $(document).ready(function() {
+                applySavedView();
+            });
+            
+            // 切换视图函数
+            function toggleView() {
+                var toggleBtn = $('#toggleView');
+                var icon = toggleBtn.find('i');
+                
+                if (currentView === 'table') {
+                    // 切换到卡片视图
+                    currentView = 'card';
+                    icon.removeClass('layui-icon-table').addClass('layui-icon-list');
+                    toggleBtn.attr('title', '切换到列表视图');
+                    
+                    // 隐藏表格视图，显示卡片视图 - 确保视图独占显示
+                    $('#tableView').hide();
+                    $('#cardView').show();
+                    
+                    // 重置卡片视图加载状态
+                    cardViewData.isLoading = false;
+                    cardViewData.columns = {};
+                    
+                    // 加载卡片视图数据
+                    loadCardView();
+                } else {
+                    // 切换到表格视图
+                    currentView = 'table';
+                    icon.removeClass('layui-icon-list').addClass('layui-icon-table');
+                    toggleBtn.attr('title', '切换到卡片视图');
+                    
+                    // 显示表格视图，隐藏卡片视图 - 确保视图独占显示
+                    $('#tableView').show();
+                    $('#cardView').hide();
+                }
+                
+                // 保存视图偏好到localStorage
+                localStorage.setItem('customerViewPreference', currentView);
+            }
+            
+            // 加载卡片视图数据 - 每列独立加载20条
+            function loadCardView() {
+                if (cardViewData.isLoading) return;
+                
+                cardViewData.isLoading = true;
+                cardViewData.concurrentRequests = 0;
+                cardViewData.columns = {};
+                cardViewData.intents = [];
+                cardViewData.initialLoaded = false;
+                
+                showLoadingState();
+                
+                console.log('开始加载卡片视图数据');
+                
+                // 1. 首先获取用户设置的客户意向字段及其排序信息
+                $.ajax({
+                    url: '/customer/intent/list/data/',
+                    type: 'GET',
+                    data: {
+                        page: 1,
+                        limit: 100
+                    },
+                    success: function(intentRes) {
+                        if (intentRes.code === 0 && intentRes.data) {
+                            console.log('成功获取客户意向设置:', intentRes.data);
+                            
+                            // 从响应中提取客户意向字段，并按排序值升序排列
+                            var userIntents = intentRes.data;
+                            userIntents.sort(function(a, b) {
+                                return (a.sort || 0) - (b.sort || 0);
+                            });
+                            
+                            // 提取客户意向名称，不包括未分类
+                            cardViewData.intents = userIntents.map(function(intent) {
+                                return intent.name;
+                            }).filter(function(intent) {
+                                return intent && intent.trim() !== '';
+                            });
+                            
+                            console.log('按排序获取到的客户意向类型:', cardViewData.intents);
+                            
+                            // 如果没有设置客户意向，显示提示信息
+                            if (cardViewData.intents.length === 0) {
+                                $('#cardViewColumns').html('<div class="no-data">暂无客户意向设置，请先在系统管理中设置客户意向阶段</div>');
+                                cardViewData.isLoading = false;
+                                hideLoadingState();
+                                return;
+                            }
+                            
+                            // 2. 获取所有客户数据，用于计算总数
+                            var params = getCombinedParams();
+                            params.page = 1;
+                            params.limit = 1000;
+                            params.view_type = 'card';
+                            
+                            $.ajax({
+                                url: '/customer/list/data/',
+                                type: 'GET',
+                                data: params,
+                                success: function(res) {
+                                    if (res.code === 0) {
+                                        // 更新卡片数量显示
+                                        var totalCount = res.count || res.data.length;
+                                        $('#cardCount').text(totalCount);
+                                        
+                                        // 3. 为每种客户意向类型独立请求数据，每列初始加载20条
+                                        cardViewData.intents.forEach(function(intent) {
+                                            loadColumnData(intent, 1);
+                                        });
+                                    } else {
+                                        layer.msg('获取客户数据失败：' + res.msg);
+                                        cardViewData.isLoading = false;
+                                        hideLoadingState();
+                                    }
+                                },
+                                error: function(xhr, status, error) {
+                                    layer.msg('获取客户数据失败，请重试');
+                                    console.error('获取客户数据失败:', error);
+                                    cardViewData.isLoading = false;
+                                    hideLoadingState();
+                                }
+                            });
+                        } else {
+                            layer.msg('获取客户意向设置失败：' + (intentRes.msg || '未知错误'));
+                            cardViewData.isLoading = false;
+                            hideLoadingState();
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        layer.msg('获取客户意向设置失败，请重试');
+                        console.error('获取客户意向设置失败:', error);
+                        cardViewData.isLoading = false;
+                        hideLoadingState();
+                        
+                        // 错误重试机制：3秒后重试
+                        setTimeout(function() {
+                            loadCardView();
+                        }, 3000);
+                    }
+                });
+            }
+            
+            // 加载指定列的数据
+            function loadColumnData(intent, page) {
+                // 检查并发请求限制
+                if (cardViewData.concurrentRequests >= cardViewData.maxConcurrentRequests) {
+                    // 延迟重试
+                    setTimeout(function() {
+                        loadColumnData(intent, page);
+                    }, 200);
+                    return;
+                }
+                
+                cardViewData.concurrentRequests++;
+                
+                // 初始化列数据状态
+                if (!cardViewData.columns[intent]) {
+                    cardViewData.columns[intent] = {
+                        currentPage: page,
+                        loadedData: [],
+                        totalCount: 0,
+                        hasMore: false,
+                        isLoading: true
+                    };
+                } else {
+                    cardViewData.columns[intent].isLoading = true;
+                }
+                
+                // 保存当前可见区域顶部的卡片索引（仅当不是首次加载时）
+                var $column = $('.card-column[data-intent="' + intent + '"]');
+                var topCardIndex = -1;
+                var cardHeight = 0;
+                if (page > 1 && $column.length > 0) {
+                    // 获取当前可见区域顶部的卡片索引
+                    var cards = $column.find('.customer-card');
+                    if (cards.length > 0) {
+                        // 获取卡片高度
+                        cardHeight = cards.first().outerHeight(true);
+                        
+                        // 计算可见区域顶部的卡片索引
+                        var scrollTop = $column.scrollTop();
+                        topCardIndex = Math.floor(scrollTop / cardHeight);
+                        console.log('保存顶部卡片索引:', intent, '卡片高度:', cardHeight, '滚动位置:', scrollTop, '顶部卡片索引:', topCardIndex);
+                    }
+                }
+                
+                // 构建请求参数
+                var params = getCombinedParams();
+                params.page = page;
+                params.limit = cardViewData.pageSize;
+                params.customer_intent = intent;
+                params.view_type = 'card';
+                
+                console.log('加载列数据:', intent, '页码:', page, '限制:', cardViewData.pageSize);
+                
+                $.ajax({
+                    url: '/customer/list/data/',
+                    type: 'GET',
+                    data: params,
+                    success: function(res) {
+                        console.log('成功加载列数据:', intent, '页码:', page, '数据量:', res.data ? res.data.length : 0);
+                        
+                        if (res.code === 0) {
+                            var columnData = cardViewData.columns[intent];
+                            
+                            // 保存当前数据长度，用于计算新增数据
+                            var prevDataLength = columnData.loadedData.length;
+                            
+                            // 更新列数据
+                            if (page === 1) {
+                                // 首次加载，替换现有数据
+                                columnData.loadedData = res.data || [];
+                                // 首次加载，渲染整个视图
+                                renderCardView();
+                            } else {
+                                // 后续加载，追加数据
+                                columnData.loadedData = columnData.loadedData.concat(res.data || []);
+                                // 后续加载，只更新该列，并保持浏览位置
+                                appendColumnData(intent, prevDataLength, topCardIndex, cardHeight);
+                                // 重新渲染外部列标题，确保客户数量正确
+                                renderExternalColumnHeaders();
+                            }
+                            
+                            // 更新页码和总计数
+                            columnData.currentPage = page;
+                            columnData.totalCount = res.count || 0;
+                            
+                            // 检查是否还有更多数据
+                            columnData.hasMore = columnData.loadedData.length < columnData.totalCount;
+                            console.log('列数据更新:', intent, '总计数:', columnData.totalCount, '已加载:', columnData.loadedData.length, '是否有更多:', columnData.hasMore);
+                            
+                            // 初始化滚动监听
+                            initScrollListener();
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('加载列数据失败:', intent, error);
+                        
+                        // 错误处理：如果是首次加载失败，标记为无数据
+                        if (!cardViewData.columns[intent]) {
+                            cardViewData.columns[intent] = {
+                                currentPage: page,
+                                loadedData: [],
+                                totalCount: 0,
+                                hasMore: false,
+                                isLoading: false
+                            };
+                            
+                            // 渲染卡片视图
+                            renderCardView();
+                        }
+                    },
+                    complete: function() {
+                        cardViewData.concurrentRequests--;
+                        
+                        // 更新加载状态
+                        if (cardViewData.columns[intent]) {
+                            cardViewData.columns[intent].isLoading = false;
+                        }
+                        
+                        // 检查是否所有列都已加载完成
+                        checkAllColumnsLoaded();
+                    }
+                });
+            }
+            
+            // 追加列数据，不重新渲染整个视图，并保持浏览位置
+            function appendColumnData(intent, prevDataLength, topCardIndex, cardHeight) {
+                var columnData = cardViewData.columns[intent];
+                var $column = $('.card-column[data-intent="' + intent + '"]');
+                if ($column.length === 0) return;
+                
+                // 移除旧的加载更多按钮
+                $column.find('.load-more-container').remove();
+                
+                // 生成新增的客户卡片
+                var newCardsHtml = '';
+                for (var i = prevDataLength; i < columnData.loadedData.length; i++) {
+                    newCardsHtml += generateCustomerCard(columnData.loadedData[i]);
+                }
+                
+                // 追加新卡片到列末尾
+                $column.append(newCardsHtml);
+                
+                // 如果还有更多数据，添加新的加载更多按钮
+                if (columnData.hasMore) {
+                    var remainingCount = columnData.totalCount - columnData.loadedData.length;
+                    var loadMoreHtml = '<div class="load-more-container">';
+                    loadMoreHtml += '<button class="load-more-btn" data-intent="' + intent + '">';
+                    loadMoreHtml += '<span class="load-more-text">加载更多 (' + remainingCount + ')</span>';
+                    loadMoreHtml += '<span class="load-more-spinner" style="display:none;">加载中...</span>';
+                    loadMoreHtml += '</button>';
+                    loadMoreHtml += '</div>';
+                    $column.append(loadMoreHtml);
+                    
+                    // 重新绑定加载更多按钮事件
+                    $column.find('.load-more-btn').click(function() {
+                        var $btn = $(this);
+                        var intent = $btn.data('intent');
+                        
+                        // 防止重复点击
+                        if ($btn.hasClass('loading')) return;
+                        
+                        // 显示加载状态
+                        $btn.addClass('loading');
+                        $btn.find('.load-more-text').hide();
+                        $btn.find('.load-more-spinner').show();
+                        
+                        loadMoreColumnData(intent);
+                    });
+                }
+                
+                // 保持浏览位置：将原来的顶部卡片滚动到可见区域顶部
+                if (topCardIndex >= 0 && cardHeight > 0) {
+                    // 使用setTimeout确保DOM已更新
+                    setTimeout(function() {
+                        // 获取更新后的卡片
+                        var cards = $column.find('.customer-card');
+                        if (cards.length > topCardIndex) {
+                            // 找到原来的顶部卡片
+                            var topCard = cards.eq(topCardIndex);
+                            if (topCard.length > 0) {
+                                // 计算该卡片的位置
+                                var scrollToPos = topCard.position().top + $column.scrollTop();
+                                console.log('恢复浏览位置:', intent, '顶部卡片索引:', topCardIndex, '卡片位置:', scrollToPos);
+                                
+                                // 将该卡片滚动到可见区域顶部
+                                $column.scrollTop(scrollToPos);
+                            }
+                        }
+                    }, 50);
+                }
+            }
+            
+            // 检查是否所有列都已加载完成
+            function checkAllColumnsLoaded() {
+                // 如果还有并发请求，说明还有列在加载
+                if (cardViewData.concurrentRequests > 0) {
+                    return;
+                }
+                
+                // 检查所有意向类型是否都已加载
+                var allLoaded = cardViewData.intents.every(function(intent) {
+                    return cardViewData.columns[intent] !== undefined;
+                });
+                
+                if (allLoaded && !cardViewData.initialLoaded) {
+                    console.log('所有列数据加载完成');
+                    cardViewData.initialLoaded = true;
+                    cardViewData.isLoading = false;
+                    hideLoadingState();
+                }
+            }
+            
+            // 显示加载状态
+            function showLoadingState() {
+                var loadingHtml = '<div class="loading-container"><div class="loading-spinner"></div><div class="loading-text">加载中...</div></div>';
+                if (cardViewData.currentPage === 1) {
+                    $('#cardViewColumns').html(loadingHtml);
+                } else {
+                    $('.card-column').each(function() {
+                        $(this).append('<div class="column-loading">加载中...</div>');
+                    });
+                }
+            }
+            
+            // 隐藏加载状态
+            function hideLoadingState() {
+                $('.loading-container, .column-loading').remove();
+            }
+            
+            // 初始化滚动监听
+            function initScrollListener() {
+                // 为每个列容器添加滚动监听
+                $('.card-column').each(function() {
+                    var $column = $(this);
+                    
+                    // 移除现有的滚动事件监听，避免重复绑定
+                    $column.off('scroll');
+                    
+                    // 添加调试信息，确认滚动监听被绑定
+                    console.log('为列', $column.data('intent'), '绑定滚动监听');
+                    
+                    // 直接绑定滚动事件，确保滚动事件被正确触发
+                    $column.on('scroll', function() {
+                        checkColumnScroll($column);
+                    });
+                });
+            }
+            
+            // 检查列滚动是否到达底部
+            function checkColumnScroll($column) {
+                var intent = $column.data('intent');
+                var columnData = cardViewData.columns[intent];
+                
+                if (!columnData || columnData.isLoading || !columnData.hasMore) {
+                    console.log('跳过加载:', intent, '原因:', !columnData ? '无列数据' : columnData.isLoading ? '正在加载' : '无更多数据');
+                    return;
+                }
+                
+                // 获取滚动和高度信息
+                var scrollTop = $column.scrollTop();
+                var scrollHeight = $column[0].scrollHeight;
+                var clientHeight = $column[0].clientHeight;
+                
+                // 调试信息：显示滚动位置
+                console.log('Intent:', intent, 'ScrollTop:', scrollTop, 'ScrollHeight:', scrollHeight, 'ClientHeight:', clientHeight);
+                
+                // 计算距离底部的距离
+                var distanceToBottom = scrollHeight - scrollTop - clientHeight;
+                var triggerThreshold = 100; // 距离底部100px时触发
+                
+                console.log('Intent:', intent, '距离底部:', distanceToBottom, '触发阈值:', triggerThreshold);
+                
+                // 只有当滚动到距离底部100px范围内时触发加载
+                // 允许微小的负距离，以处理不同浏览器的计算差异
+                if (distanceToBottom <= triggerThreshold && distanceToBottom >= -100) {
+                    // 添加防重复触发机制
+                    var lastTriggerTime = $column.data('lastTriggerTime') || 0;
+                    var currentTime = Date.now();
+                    
+                    if (currentTime - lastTriggerTime > 1000) { // 至少间隔1秒
+                        console.log('触发加载更多数据:', intent);
+                        $column.data('lastTriggerTime', currentTime);
+                        loadMoreColumnData(intent);
+                    } else {
+                        console.log('跳过触发，距离上次触发时间过短:', currentTime - lastTriggerTime, 'ms');
+                    }
+                }
+            }
+            
+            // 加载指定列的更多数据
+            function loadMoreColumnData(intent) {
+                var columnData = cardViewData.columns[intent];
+                if (!columnData || columnData.isLoading || !columnData.hasMore) {
+                    console.log('跳过加载更多:', intent, '原因:', !columnData ? '无列数据' : columnData.isLoading ? '正在加载' : '无更多数据');
+                    return;
+                }
+                
+                // 加载下一页数据
+                var nextPage = columnData.currentPage + 1;
+                console.log('触发加载更多数据:', intent, '当前页码:', columnData.currentPage, '下一页:', nextPage);
+                
+                // 调用新的列数据加载函数
+                loadColumnData(intent, nextPage);
+            }
+            
+            // 修复：渲染外部列标题 - 严格按照用户设置的排序渲染
+            function renderExternalColumnHeaders() {
+                var $externalHeaders = $('#externalColumnHeaders');
+                $externalHeaders.empty();
+                
+                // 严格按照用户设置的客户意向排序渲染外部列标题
+                cardViewData.intents.forEach(function(intent) {
+                    var columnData = cardViewData.columns[intent];
+                    if (columnData) {
+                        var headerHtml = '<div class="external-column-header">' + intent + ' (' + columnData.totalCount + ')</div>';
+                        $externalHeaders.append(headerHtml);
+                    }
+                });
+            }
+            
+            // 重新渲染指定列（移除内部列标题）
+            function renderColumn(intent) {
+                var columnData = cardViewData.columns[intent];
+                if (!columnData) return;
+                
+                var $column = $('.card-column[data-intent="' + intent + '"]');
+                if ($column.length === 0) return;
+                
+                var columnHtml = ''; // 移除内部列标题
+                
+                // 生成该列的所有客户卡片
+                columnData.loadedData.forEach(function(customer) {
+                    columnHtml += generateCustomerCard(customer);
+                });
+                
+                // 如果还有更多数据，添加加载更多按钮
+                if (columnData.hasMore) {
+                    var remainingCount = columnData.totalCount - columnData.loadedData.length;
+                    columnHtml += '<div class="load-more-container">';
+                    columnHtml += '<button class="load-more-btn" data-intent="' + intent + '">';
+                    columnHtml += '<span class="load-more-text">加载更多 (' + remainingCount + ')</span>';
+                    columnHtml += '<span class="load-more-spinner" style="display:none;">加载中...</span>';
+                    columnHtml += '</button>';
+                    columnHtml += '</div>';
+                }
+                
+                $column.html(columnHtml);
+                
+                // 重新绑定加载更多按钮事件
+                $column.find('.load-more-btn').click(function() {
+                    var $btn = $(this);
+                    var intent = $btn.data('intent');
+                    
+                    // 防止重复点击
+                    if ($btn.hasClass('loading')) return;
+                    
+                    // 显示加载状态
+                    $btn.addClass('loading');
+                    $btn.find('.load-more-text').hide();
+                    $btn.find('.load-more-spinner').show();
+                    
+                    loadMoreColumnData(intent);
+                });
+            }
+            
+            // 渲染卡片视图
+            function renderCardView() {
+                // 清空容器
+                $('#cardViewColumns').empty();
+                
+                // 检查是否有数据
+                var hasData = Object.keys(cardViewData.columns).length > 0;
+                if (!hasData) {
+                    $('#cardViewColumns').html('<div class="no-data">暂无客户数据</div>');
+                    $('#cardCount').text('0');
+                    return;
+                }
+                
+                // 渲染外部列标题
+                renderExternalColumnHeaders();
+                
+                // 动态生成列，严格按照用户设置的客户意向排序
+                // cardViewData.intents已经是按用户设置的排序值升序排列的
+                cardViewData.intents.forEach(function(intent) {
+                    var columnData = cardViewData.columns[intent];
+                    if (!columnData) return;
+                    
+                    var columnHtml = '<div class="card-column" data-intent="' + intent + '">';
+                    
+                    // 生成该列的所有客户卡片
+                    columnData.loadedData.forEach(function(customer) {
+                        columnHtml += generateCustomerCard(customer);
+                    });
+                    
+                    // 如果还有更多数据，添加加载更多按钮
+                    if (columnData.hasMore) {
+                        columnHtml += '<div class="load-more-container">';
+                        columnHtml += '<button class="load-more-btn" data-intent="' + intent + '">';
+                        columnHtml += '<span class="load-more-text">加载更多 (' + (columnData.totalCount - columnData.loadedData.length) + ')</span>';
+                        columnHtml += '<span class="load-more-spinner" style="display:none;">加载中...</span>';
+                        columnHtml += '</button>';
+                        columnHtml += '</div>';
+                    }
+                    
+                    columnHtml += '</div>';
+                    $('#cardViewColumns').append(columnHtml);
+                });
+                
+                // 绑定加载更多按钮事件
+                $('.load-more-btn').click(function() {
+                    var $btn = $(this);
+                    var intent = $btn.data('intent');
+                    
+                    // 防止重复点击
+                    if ($btn.hasClass('loading')) return;
+                    
+                    // 显示加载状态
+                    $btn.addClass('loading');
+                    $btn.find('.load-more-text').hide();
+                    $btn.find('.load-more-spinner').show();
+                    
+                    loadMoreColumnData(intent);
+                });
+                
+                // 重新初始化滚动监听，为新生成的卡片列绑定滚动事件
+                initScrollListener();
+            }
+            
+            // 显示实体标记详情对话框 - 绑定到window对象，确保全局可用
+        window.showEntityDialog = function(entityType, customerId) {
+            if (!customerId || !entityType) {
+                return;
+            }
+            
+            if (!window.layer || typeof window.layer.open !== 'function') {
+                console.warn('Layui layer module not properly loaded');
+                return;
+            }
+            
+            // 根据实体类型确定标题和URL
+            var title = '';
+            var url = '';
+            
+            switch(entityType) {
+                case 'order':
+                    title = '客户订单详情';
+                    url = '/customer/orders/?customer_id=' + customerId;
+                    break;
+                case 'contract':
+                    title = '客户合同详情';
+                    url = '/contract/sales/?customer_id=' + customerId;
+                    break;
+                case 'project':
+                    title = '客户项目详情';
+                    url = '/project/?customer_id=' + customerId;
+                    break;
+                case 'invoice':
+                    title = '客户发票详情';
+                    url = '/customer/detail/' + customerId + '/';
+                    break;
+                case 'payment':
+                    title = '客户付款详情';
+                    url = '/customer/detail/' + customerId + '/';
+                    break;
+                default:
+                    title = '客户业务详情';
+                    url = '/customer/detail/' + customerId + '/';
+            }
+            
+            // 从右侧弹出页面
+            window.layer.open({
+                type: 2,
+                title: title,
+                shadeClose: false,
+                shade: 0.3,
+                maxmin: true,
+                area: ['80%', '90%'],
+                offset: 'r',
+                anim: 2,
+                content: url,
+                success: function(layero, index) {
+                    if (layero && typeof layero.css === 'function') {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    }
+                }
+            });
+        }
+            
+            // 生成单个客户卡片
+            function generateCustomerCard(customer) {
+                var cardHtml = '<div class="customer-card" onclick="showCustomerDialog(\'detail\', ' + customer.id + ')">';
+                
+                // 客户名称
+                cardHtml += '<div class="customer-name">' + (customer.name || '未知客户') + '</div>';
+                
+                // 最新跟进记录
+                var followupText = customer.latest_followup || '暂无跟进记录';
+                cardHtml += '<div class="customer-followup">' + followupText + '</div>';
+                
+                // 联系人信息
+                var contactInfo = '';
+                if (customer.contact_name) {
+                    contactInfo += customer.contact_name;
+                }
+                if (customer.phone) {
+                    contactInfo += (contactInfo ? ' | ' : '') + '<span>' + customer.phone + '</span><img src="/static/img/icon/拨号-copy.svg" alt="拨号" style="cursor: pointer; width: 18px; height: 18px; margin-left: 5px;" onclick="event.stopPropagation(); makeSipCall(\'' + customer.phone + '\', \'' + customer.id + '\', \'' + customer.name + '\')">';
+                }
+                if (!contactInfo) {
+                    contactInfo = '暂无联系人信息';
+                }
+                cardHtml += '<div class="customer-contact">' + contactInfo + '</div>';
+                
+                // 水平分割线
+                cardHtml += '<div class="card-divider"></div>';
+                
+                // 业务实体状态标识
+                cardHtml += '<div class="entity-status-container">';
+                
+                // 实体标记配置
+                var entities = [
+                    {type: 'order', text: '单', label: '订单', countField: 'order_count'},
+                    {type: 'contract', text: '合', label: '合同', countField: 'contract_count'},
+                    {type: 'project', text: '项', label: '项目', countField: 'project_count'},
+                    {type: 'invoice', text: '票', label: '发票', countField: 'invoice_count'},
+                    {type: 'payment', text: '款', label: '款项', countField: 'payment_count'} // 重新添加付款标记
+                ];
+                
+                // 仅显示客户实际拥有的实体标记
+                entities.forEach(function(entity) {
+                    // 检查客户是否拥有该实体（通过后端返回的计数字段）
+                    var count = customer[entity.countField] || 0;
+                    
+                    // 对于付款标记，我们可以通过其他方式判断，或者总是显示
+                    // 这里我们总是显示付款标记，因为它对用户很有用
+                    if (entity.type === 'payment' || count > 0) {
+                        // 为每个标记项添加独立的点击事件，从右侧弹出详情页
+                        cardHtml += '<div class="entity-status entity-' + entity.type + '" title="' + entity.label + '" onclick="event.stopPropagation(); showEntityDialog(\'' + entity.type + '\', ' + customer.id + ')">' + entity.text + '</div>';
+                    }
+                });
+                
+                cardHtml += '</div>'; // 结束entity-status-container
+                cardHtml += '</div>'; // 结束customer-card
+                
+                return cardHtml;
+            }
+            
+            // 获取搜索参数
+            function getSearchParams() {
+                var params = {};
+                $('#searchForm').serializeArray().forEach(function(item) {
+                    if (item.value) {
+                        params[item.name] = item.value;
+                    }
+                });
+                return params;
+            }
+            
+            // 获取筛选参数
+            function getFilterParams() {
+                var params = {};
+                $('#filterForm').serializeArray().forEach(function(item) {
+                    if (item.value) {
+                        params[item.name] = item.value;
+                    }
+                });
+                return params;
+            }
+            
+            // 合并搜索和筛选参数
+            function getCombinedParams() {
+                var searchParams = getSearchParams();
+                var filterParams = getFilterParams();
+                return {...searchParams, ...filterParams};
+            }
+            
+            // 筛选表单提交
+            if (form && typeof form.on === 'function') {
+                form.on('submit(filterForm)', function(data) {
+                    var combinedParams = getCombinedParams();
+                    console.log('筛选参数:', combinedParams);
+                    
+                    if (table && typeof table.reload === 'function') {
+                        table.reload('customerTable', {
+                            url: '/customer/list/data/',
+                            where: combinedParams,
+                            page: {curr: 1}
+                        });
+                    }
+                    return false;
+                });
+            }
+            
+            // 切换筛选面板显示状态
+            if (typeof $ === 'function') {
+                $('#toggleFilter').click(function() {
+                    var container = $('.layui-card').eq(1); // 第二个layui-card就是筛选区域
+                    var icon = $(this).find('i');
+                    
+                    if (container.is(':visible')) {
+                        container.hide();
+                        icon.removeClass('layui-icon-up').addClass('layui-icon-down');
+                    } else {
+                        container.show();
+                        icon.removeClass('layui-icon-down').addClass('layui-icon-up');
+                    }
+                });
+                
+                // 初始化图标状态 - 默认显示收起箭头（向下箭头）
+                $(document).ready(function() {
+                    var container = $('.layui-card').eq(1);
+                    var icon = $('#toggleFilter').find('i');
+                    
+                    if (container.is(':visible')) {
+                        icon.removeClass('layui-icon-filter').addClass('layui-icon-up');
+                    } else {
+                        icon.removeClass('layui-icon-filter').addClass('layui-icon-down');
+                    }
+                });
+                
+                // 重置筛选
+                $('#filterForm button[type="reset"]').click(function() {
+                    $('#filterForm')[0].reset();
+                    if (form && typeof form.render === 'function') {
+                        form.render();
+                    }
+                    if (table && typeof table.reload === 'function') {
+                        var searchParams = getSearchParams();
+                        table.reload('customerTable', {
+                            where: searchParams,
+                            page: {curr: 1}
+                        });
+                    }
+                    return false;
+                });
+            }
+            
+            // 搜索表单提交
+            if (form && typeof form.on === 'function') {
+                form.on('submit(searchForm)', function(data) {
+                    var combinedParams = getCombinedParams();
+                    console.log('搜索参数:', combinedParams);
+                    
+                    if (table && typeof table.reload === 'function') {
+                        // 使用新的请求配置，确保搜索参数正确传递
+                        table.reload('customerTable', {
+                            url: '/customer/list/data/',
+                            where: combinedParams,
+                            page: {curr: 1}
+                        });
+                    }
+                    return false;
+                });
+            }
+            
+            // 重置表单
+            if (typeof $ === 'function') {
+                $('#searchForm button[type="reset"]').click(function() {
+                    $('#searchForm')[0].reset();
+                    if (table && typeof table.reload === 'function') {
+                        // 只重置搜索表单，保留筛选条件
+                        var filterParams = getFilterParams();
+                        table.reload('customerTable', {
+                            where: filterParams,
+                            page: {curr: 1}
+                        });
+                    }
+                    return false;
+                });
+            }
+            
+            // 头工具栏事件
+            if (table && typeof table.on === 'function') {
+                table.on('toolbar(customerTable)', function(obj) {
+                    var checkStatus = table.checkStatus(obj.config.id);
+                    switch(obj.event) {
+                        case 'add':
+                            if (typeof window !== 'undefined' && typeof window.location !== 'undefined') {
+                                window.location.href = '/customer/create/';
+                            } else {
+                                console.warn('无法执行页面跳转：window对象不可用');
+                            }
+                            break;
+                        case 'import':
+                            if (typeof showImportDialog === 'function') {
+                                showImportDialog();
+                            } else {
+                                console.warn('无法打开导入对话框：函数未定义');
+                            }
+                            break;
+                        case 'batchDelete':
+                            var data = checkStatus && checkStatus.data ? checkStatus.data : [];
+                            if (data.length === 0) {
+                                if (layer && typeof layer.msg === 'function') {
+                                    layer.msg('请选择要删除的数据');
+                                }
+                                return;
+                            }
+                            if (typeof batchDelete === 'function') {
+                                batchDelete(data);
+                            } else {
+                                console.warn('无法执行批量删除：函数未定义');
+                            }
+                            break;
+                    }
+                });
+            }
+            
+            // 行工具栏事件
+            if (table && typeof table.on === 'function') {
+                table.on('tool(customerTable)', function(obj) {
+                    var data = obj.data;
+                    switch(obj.event) {
+                        case 'detail':
+                            if (typeof showCustomerDialog === 'function') {
+                                showCustomerDialog('detail', data && data.id ? data.id : '');
+                            } else {
+                                console.warn('无法打开客户详情：函数未定义');
+                            }
+                            break;
+                        case 'edit':
+                            if (typeof showCustomerDialog === 'function') {
+                                showCustomerDialog('edit', data && data.id ? data.id : '');
+                            } else {
+                                console.warn('无法打开客户编辑：函数未定义');
+                            }
+                            break;
+                        case 'follow':
+                            if (typeof showFollowDialog === 'function') {
+                                showFollowDialog(data && data.id ? data.id : '');
+                            } else {
+                                console.warn('无法打开跟进对话框：函数未定义');
+                            }
+                            break;
+                        case 'del':
+                            if (layer && typeof layer.confirm === 'function') {
+                                layer.confirm('确定删除该客户吗？', function(index) {
+                                    if (typeof deleteCustomer === 'function') {
+                                        deleteCustomer(data && data.id ? data.id : '');
+                                    }
+                                    if (typeof layer.close === 'function') {
+                                        layer.close(index);
+                                    }
+                                });
+                            }
+                            break;
+                    }
+                });
+            }
+            
+            // 删除客户
+            function deleteCustomer(id) {
+                if (!id) {
+                    return;
+                }
+                if (typeof $ !== 'function' || typeof $.post !== 'function') {
+                    return;
+                }
+                $.post('/customer/delete/' + id + '/', {
+                    csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+                }, function(res) {
+                    if (res && res.status === 'success') {
+                        if (layer && typeof layer.msg === 'function') {
+                            layer.msg('删除成功');
+                        }
+                        if (table && typeof table.reload === 'function') {
+                            table.reload('customerTable');
+                        }
+                    } else {
+                        if (layer && typeof layer.msg === 'function') {
+                            layer.msg(res && res.msg ? res.msg : '删除失败');
+                        }
+                    }
+                });
+            }
+            
+            // 批量删除
+            function batchDelete(data) {
+                if (!data || !Array.isArray(data)) {
+                    return;
+                }
+                var ids = data.map(function(item) {
+                    return item.id;
+                });
+                
+                if (layer && typeof layer.confirm === 'function') {
+                    layer.confirm('确定删除选中的 ' + ids.length + ' 个客户吗？', {
+                        btn: ['确定', '取消']
+                    }, function(index) {
+                        if (typeof $ !== 'function' || typeof $.ajax !== 'function') {
+                            if (typeof layer.close === 'function') {
+                                layer.close(index);
+                            }
+                            return;
+                        }
+                        $.ajax({
+                            url: '/customer/batch/delete/',
+                            type: 'POST',
+                            contentType: 'application/json',
+                            data: JSON.stringify({ids: ids}),
+                            headers: {
+                                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                            },
+                            success: function(res) {
+                                if (res && res.status === 'success') {
+                                    if (layer && typeof layer.msg === 'function') {
+                                        layer.msg('批量删除成功');
+                                    }
+                                    if (table && typeof table.reload === 'function') {
+                                        table.reload('customerTable');
+                                    }
+                                } else {
+                                    if (layer && typeof layer.msg === 'function') {
+                                        layer.msg(res && res.message ? res.message : '批量删除失败');
+                                    }
+                                }
+                            },
+                            error: function() {
+                                if (layer && typeof layer.msg === 'function') {
+                                    layer.msg('网络错误，请稍后重试');
+                                }
+                            }
+                        });
+                        layer.close(index);
+                    }, function(index){
+                        // 取消按钮回调
+                        layer.close(index);
+                    });
+                }
+            }
+            
+            // 显示导入对话框
+            function showImportDialog() {
+                if (!layer || typeof layer.open !== 'function') {
+                    return;
+                }
+                layer.open({
+                    type: 2,
+                    title: '批量导入客户',
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '90%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: '/customer/batch/import/',
+                    success: function(layero, index) {
+                        if (layero && typeof layero.css === 'function') {
+                            layero.css({
+                                'right': '0',
+                                'top': '0',
+                                'height': '100%'
+                            });
+                        }
+                    },
+                    end: function() {
+                        if (table && typeof table.reload === 'function') {
+                            table.reload('customerTable');
+                        }
+                    }
+                });
+            }
+            
+            // 显示跟进对话框
+            function showFollowDialog(customerId) {
+                if (!customerId) {
+                    return;
+                }
+                if (!layer || typeof layer.open !== 'function') {
+                    console.warn('Layui layer module not properly loaded');
+                    return;
+                }
+                
+                layer.open({
+                    type: 2,
+                    title: '添加跟进记录',
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '90%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: '/customer/followup/create/?customer_id=' + customerId,
+                    success: function(layero, index) {
+                        if (layero && layero.css) {
+                            layero.css({
+                                'right': '0',
+                                'top': '0',
+                                'height': '100%'
+                            });
+                        }
+                    },
+                    end: function() {
+                        if (table && typeof table.reload === 'function') {
+                            table.reload('customerTable');
+                        }
+                    }
+                });
+            }
+            
+            // 页面按钮事件处理
+            if (typeof $ === 'function') {
+                $('#batchImport').click(function() {
+                    if (typeof showImportDialog === 'function') {
+                        showImportDialog();
+                    }
+                });
+            
+                $('#addCustomer').click(function() {
+                    if (typeof showCustomerDialog === 'function') {
+                        showCustomerDialog('add');
+                    }
+                });
+            
+                $('#batchDelete').click(function() {
+                    if (!table || typeof table.checkStatus !== 'function') {
+                        return;
+                    }
+                    var checkStatus = table.checkStatus('customerTable');
+                    var data = checkStatus && checkStatus.data ? checkStatus.data : [];
+                    if (data.length === 0) {
+                        if (layer && typeof layer.msg === 'function') {
+                            layer.msg('请选择要删除的数据');
+                        }
+                        return;
+                    }
+                    if (typeof batchDelete === 'function') {
+                        batchDelete(data);
+                    }
+                });
+            }
+            
+            // 查看客户详情
+            function viewCustomerDetail(customerId) {
+                window.location.href = '/customer/detail/' + customerId + '/';
+            }
+        });
+    }
+    
+    // 显示客户对话框（全局函数）
+    // 将showCustomerDialog绑定到window对象，确保全局可用
+    window.showCustomerDialog = function(action, customerId) {
+        if (!action) {
+            return;
+        }
+        var title = '';
+        var url = '';
+        
+        switch(action) {
+            case 'add':
+                title = '添加客户';
+                url = '/customer/create/';
+                break;
+            case 'edit':
+                title = '编辑客户';
+                url = '/customer/edit/' + customerId + '/';
+                break;
+            case 'detail':
+                title = '客户详情';
+                url = '/customer/detail/' + customerId + '/';
+                break;
+        }
+        
+        window.layer.open({
+            type: 2,
+            title: title,
+            shadeClose: false,
+            shade: 0.3,
+            maxmin: true,
+            area: ['80%', '90%'],
+            offset: 'r',
+            anim: 2,
+            content: url,
+            success: function(layero, index) {
+                // 设置弹窗从右侧滑入
+                if (layero && typeof layero.css === 'function') {
+                    layero.css({
+                        'right': '0',
+                        'top': '0',
+                        'height': '100%'
+                    });
+                }
+            },
+            end: function() {
+                // 关闭后刷新表格
+                if (table && typeof table.reload === 'function') {
+                    table.reload('customerTable');
+                }
+            }
+        });
+    }
+//]]>
+    </script>
+    
+    <!-- 卡片视图样式 -->
+    <style>
+    .card-view-container {
+        margin-top: 20px;
+        background: #fff;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .card-view-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 20px;
+        border-bottom: 1px solid #f6f6f6;
+        background: #fafafa;
+    }
+    
+    .card-view-title {
+        font-size: 16px;
+        font-weight: bold;
+        color: #333;
+    }
+    
+    .card-view-controls {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    .card-view-count {
+        color: #666;
+        font-size: 14px;
+    }
+    
+    .card-view-columns {
+        display: flex;
+        gap: 12px;
+        padding: 15px;
+        overflow-x: auto;
+        overflow-y: visible !important;
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+        scrollbar-width: thin;
+        scrollbar-color: #c1c1c1 #f0f0f0;
+    }
+    
+    .card-view-columns::-webkit-scrollbar {
+        height: 8px;
+    }
+    
+    .card-view-columns::-webkit-scrollbar-track {
+        background: #f0f0f0;
+        border-radius: 4px;
+    }
+    
+    .card-view-columns::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+    
+    .card-view-columns::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+    
+    .card-column {
+        flex: 0 0 280px;
+        width: 280px;
+        background: #f9f9f9;
+        border-radius: 6px;
+        padding: 12px;
+        overflow-y: auto;
+        height: 100% !important;
+        scrollbar-width: thin;
+        scrollbar-color: #c1c1c1 #f0f0f0;
+        min-height: 300px;
+    }
+    
+    .card-column::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .card-column::-webkit-scrollbar-track {
+        background: #f0f0f0;
+        border-radius: 3px;
+    }
+    
+    .card-column::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 3px;
+    }
+    
+    .card-column::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+    
+    /* 加载状态样式 */
+    .loading-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+        color: #666;
+    }
+    
+    .loading-spinner {
+        width: 30px;
+        height: 30px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #1E9FFF;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 10px;
+    }
+    
+    .loading-text {
+        font-size: 14px;
+    }
+    
+    .column-loading {
+        text-align: center;
+        padding: 10px;
+        color: #666;
+        font-size: 12px;
+        border-top: 1px solid #f0f0f0;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .column-header {
+        font-size: 16px;
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #e8e8e8;
+    }
+    
+    .customer-card {
+        background: #fff;
+        border: 1px solid #e8e8e8;
+        border-radius: 4px;
+        padding: 10px;
+        margin-bottom: 10px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    
+    .customer-card:hover {
+        box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+        transform: translateY(-1px);
+        border-color: #1E9FFF;
+        background-color: #f8faff;
+    }
+    
+    .customer-card:active {
+        transform: translateY(0);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+        background-color: #f0f7ff;
+    }
+    
+    .customer-name {
+        font-size: 14px;
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 6px;
+        line-height: 1.2;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    .customer-followup {
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 6px;
+        line-height: 1.3;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        max-height: 2.6em;
+    }
+    
+    .customer-contact {
+        font-size: 12px;
+        color: #888;
+        margin-bottom: 8px;
+        line-height: 1.3;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    .card-divider {
+        height: 1px;
+        background: #e8e8e8;
+        margin: 8px 0;
+    }
+    
+    /* 加载更多按钮样式 */
+    .load-more-container {
+        text-align: center;
+        padding: 15px 0;
+        border-top: 1px solid #f0f0f0;
+        margin-top: 10px;
+    }
+    
+    .load-more-btn {
+        display: inline-block;
+        padding: 8px 16px;
+        background: #1E9FFF;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+    }
+    
+    .load-more-btn:hover {
+        background: #0d8bf2;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .load-more-btn:active {
+        transform: translateY(0);
+        box-shadow: none;
+    }
+    
+    .load-more-btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+    
+    .load-more-btn.loading {
+        background: #ccc;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+    
+    .load-more-btn .load-more-spinner {
+        display: none;
+    }
+    
+    .load-more-btn.loading .load-more-spinner {
+        display: inline;
+    }
+    
+    .load-more-btn.loading .load-more-text {
+        display: none;
+    }
+    
+    .entity-status-container {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+    
+    .entity-status {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 800px;
+        font-size: 10px;
+        font-weight: bold;
+        color: white;
+        text-align: center;
+        line-height: 1;
+    }
+    
+    .entity-order {
+        background: #ff6b6b;
+    }
+    
+    .entity-contract {
+        background: #4ecdc4;
+    }
+    
+    .entity-project {
+        background: #45b7d1;
+    }
+    
+    .entity-invoice {
+        background: #96ceb4;
+    }
+    
+    .entity-payment {
+        background: #feca57;
+    }
+    
+    /* 响应式设计 */
+    @media (max-width: 1600px) {
+        .card-column {
+            width: 260px;
+        }
+        
+        .external-column-headers {
+            padding: 0 10px;
+        }
+        
+        .external-column-header {
+            margin: 0 3px;
+            font-size: 15px;
+            padding: 10px;
+        }
+    }
+    
+    @media (max-width: 1400px) {
+        .card-column {
+            width: 240px;
+        }
+        
+        .external-column-headers {
+            padding: 0 8px;
+        }
+        
+        .external-column-header {
+            margin: 0 2px;
+            font-size: 14px;
+            padding: 8px;
+        }
+    }
+    
+    @media (max-width: 1200px) {
+        .card-column {
+            width: 220px;
+        }
+        
+        .card-view-columns {
+            gap: 10px;
+            padding: 0 10px 10px 10px;
+        }
+        
+        .external-column-headers {
+            padding: 0 6px;
+        }
+        
+        .external-column-header {
+            margin: 0 2px;
+            font-size: 13px;
+            padding: 6px;
+        }
+    }
+    
+    @media (max-width: 992px) {
+        .card-column {
+            width: 200px;
+        }
+        
+        .card-view-columns {
+            gap: 8px;
+            padding: 0 8px 8px 8px;
+        }
+        
+        .external-column-headers {
+            flex-wrap: wrap;
+            padding: 0 4px;
+            gap: 5px;
+        }
+        
+        .external-column-header {
+            margin: 0;
+            font-size: 12px;
+            padding: 6px;
+            min-width: 120px;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .card-view-columns {
+            flex-direction: column;
+            gap: 12px;
+            padding: 0 8px 8px 8px;
+            overflow-x: hidden;
+            overflow-y: auto;
+            white-space: normal;
+        }
+        
+        .card-column {
+            width: 100%;
+            height: 100% !important;
+            min-height: auto;
+        }
+        
+        .card-view-header {
+            flex-direction: column;
+            gap: 8px;
+            align-items: flex-start;
+            padding: 0 4px;
+        }
+        
+        .customer-card {
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .customer-name {
+            font-size: 15px;
+        }
+        
+        .customer-followup, .customer-contact {
+            font-size: 12px;
+        }
+        
+        .entity-status {
+            width: 24px;
+            height: 24px;
+            font-size: 10px;
+        }
+        
+        .external-column-headers {
+            flex-direction: column;
+            padding: 0 4px;
+            gap: 8px;
+        }
+        
+        .external-column-header {
+            text-align: left;
+            margin: 0;
+            font-size: 14px;
+            padding: 8px;
+        }
+        
+        .card-view-header .card-view-controls {
+            text-align: left;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .card-view-header {
+            padding: 10px 12px;
+        }
+        
+        .card-view-title {
+            font-size: 15px;
+        }
+        
+        .card-view-count {
+            font-size: 13px;
+        }
+        
+        .customer-card {
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .customer-name {
+            font-size: 14px;
+            margin-bottom: 6px;
+        }
+        
+        .customer-followup, .customer-contact {
+            font-size: 11px;
+            margin-bottom: 6px;
+        }
+        
+        .card-divider {
+            margin: 8px 0;
+        }
+        
+        .entity-status {
+            width: 24px;
+            height: 24px;
+            font-size: 10px;
+        }
+    }
+    
+    /* 修复：外部列标题容器 - 与卡片列容器完全一致的样式 */
+    .external-column-headers {
+        display: flex !important;
+        align-items: flex-start !important;
+        gap: 15px !important;
+        margin-bottom: 0 !important;
+        padding: 0 15px 0 15px !important; /* 与卡片列容器完全一致的padding */
+        overflow-x: auto !important;
+        overflow-y: visible !important;
+        flex-shrink: 0 !important;
+        white-space: nowrap !important;
+        scrollbar-width: thin !important;
+        scrollbar-color: #c1c1c1 #f0f0f0 !important;
+        box-sizing: border-box !important;
+    }
+    
+    /* 修复：外部列标题 - 与卡片列完全一致的宽度 */
+    .external-column-header {
+        flex: 0 0 280px !important; /* 与卡片列完全一致的宽度 */
+        width: 280px !important; /* 明确设置宽度 */
+        text-align: center !important;
+        font-size: 14px !important;
+        font-weight: bold !important;
+        color: #333 !important;
+        padding: 8px 15px !important; /* 添加左右padding，与卡片内容保持一致 */
+        background: linear-gradient(135deg, #f8f8f8 0%, #e8e8e8 100%) !important;
+        border-left: 4px solid #1E9FFF !important;
+        border-radius: 4px !important;
+        margin: 0 !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        height: auto !important;
+        min-height: 30px !important;
+        line-height: 18px !important;
+        box-sizing: border-box !important;
+    }
+    
+    /* 修复：卡片列区域 - 与外部列标题容器完全一致的样式 */
+    #cardViewColumns {
+        display: flex !important;
+        align-items: flex-start !important;
+        gap: 15px !important;
+        padding: 0 15px 15px 15px !important;
+        margin: 0 !important;
+        overflow-x: auto !important;
+        overflow-y: visible !important;
+        flex: 1 !important;
+        scrollbar-width: thin !important;
+        scrollbar-color: #c1c1c1 #f0f0f0 !important;
+        box-sizing: border-box !important;
+    }
+    
+    /* 修复：卡片列 - 与外部列标题完全一致的宽度 */
+    .card-column {
+        flex: 0 0 280px !important;
+        width: 280px !important;
+        background: #f5f5f5 !important;
+        border-radius: 4px !important;
+        overflow: hidden !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        height: calc(100vh - 230px) !important;
+        overflow-y: auto !important;
+        scrollbar-width: thin !important;
+        scrollbar-color: #c1c1c1 #f0f0f0 !important;
+        position: relative !important;
+    }
+    
+    /* 统一卡片视图容器样式 */
+    .card-view-container {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* 确保卡片视图填满可用空间 */
+    #cardView {
+        display: none;
+        flex-direction: column;
+        flex: 1;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* 修复：卡片列区域 - 添加底部padding，确保加载更多按钮可见 */
+    #cardViewColumns {
+        flex: 1;
+        overflow: auto;
+        display: flex;
+        align-items: flex-start;
+        gap: 15px;
+        padding: 0 15px 15px 15px; /* 添加底部padding */
+        margin: 0;
+    }
+
+    /* 修复：单个卡片列高度 - 确保不会超出屏幕 */
+    .card-column {
+        flex: 0 0 280px;
+        background: #f5f5f5;
+        border-radius: 4px;
+        overflow: hidden;
+        /* 精确计算高度，确保加载更多按钮可见 */
+        height: calc(100vh - 230px);
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #c1c1c1 #f0f0f0;
+        position: relative;
+    }
+
+    /* 平滑过渡效果 */
+    .view-section {
+        transition: opacity 0.3s ease-in-out;
+    }
+
+    /* 加载状态 */
+    .card-loading {
+        text-align: center;
+        padding: 40px;
+        color: #999;
+        font-size: 14px;
+    }
+
+    /* 无数据状态 */
+    .no-data {
+        text-align: center;
+        padding: 40px;
+        color: #999;
+        font-size: 14px;
+    }
+
+    /* 隐藏内部列标题 */
+    .column-header {
+        display: none !important;
+    }
+    
+    /* 确保加载更多按钮可见 */
+    .load-more-container {
+        text-align: center !important;
+        padding: 10px 0 !important;
+        margin: 0 !important;
+    }
+    
+    .load-more-btn {
+        width: calc(100% - 20px) !important;
+        margin: 10px auto !important;
+        padding: 8px !important;
+        background: white !important;
+        border: 1px solid #e6e6e6 !important;
+        border-radius: 4px !important;
+        color: #666 !important;
+        cursor: pointer !important;
+        display: block !important;
+        transition: all 0.2s ease !important;
+        font-size: 13px !important;
+    }
+    
+    /* 确保视图容器填满可用空间 */
+    #viewContainer {
+        display: flex !important;
+        flex-direction: column !important;
+        flex: 1 !important;
+        overflow: hidden !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    </style>
+</body>
+</html>

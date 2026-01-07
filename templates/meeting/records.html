@@ -1,0 +1,280 @@
+{% extends 'include/common.html' %}
+
+{% block title %}会议记录管理{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <span class="layui-breadcrumb">
+                    <a href="javascript:;">会议管理</a>
+                    <a><cite>会议记录列表</cite></a>
+                </span>
+            </div>
+            <div class="layui-col-md6 text-right">
+                <button class="layui-btn layui-btn-normal" id="addBtn">添加会议记录</button>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <div class="layui-form">
+            <div class="layui-form-item">
+                <div class="layui-inline">
+                    <label class="layui-form-label">关键词</label>
+                    <div class="layui-input-inline">
+                        <input type="text" name="keywords" placeholder="请输入关键词" class="layui-input">
+                    </div>
+                </div>
+                <div class="layui-inline">
+                    <label class="layui-form-label">日期范围</label>
+                    <div class="layui-input-inline">
+                        <input type="text" name="diff_time" class="layui-input" id="diffTime" placeholder="请选择日期范围">
+                    </div>
+                </div>
+                <div class="layui-inline">
+                    <button class="layui-btn" id="searchBtn">搜索</button>
+                    <button class="layui-btn layui-btn-primary" id="resetBtn">重置</button>
+                </div>
+            </div>
+        </div>
+        <table id="dataTable" lay-filter="dataTable"></table>
+    </div>
+</div>
+
+<!-- 操作按钮栏模板 -->
+<script type="text/html" id="actionBar">
+    <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
+    <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="view">查看</a>
+    <a class="layui-btn layui-btn-xs layui-btn-warm" lay-event="create_minutes">创建纪要</a>
+    <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
+</script>
+
+<script>
+// 获取CSRF token
+function getCookie(name) {
+    var cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        var cookies = document.cookie.split(';');
+        for (var i = 0; i < cookies.length; i++) {
+            var cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+var csrftoken = getCookie('csrftoken');
+
+// 设置AJAX默认请求头
+$.ajaxSetup({
+    beforeSend: function(xhr, settings) {
+        if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+            xhr.setRequestHeader("X-CSRFToken", csrftoken);
+        }
+    }
+});
+
+layui.use(['table', 'form', 'jquery', 'laydate', 'layer'], function(){
+    var table = layui.table;
+    var $ = layui.jquery;
+    var form = layui.form;
+    var laydate = layui.laydate;
+    var layer = layui.layer;
+    
+    // 初始化日期范围选择
+    laydate.render({
+        elem: '#diffTime',
+        range: true,
+        format: 'yyyy-MM-dd'
+    });
+    
+    // 获取CSRF令牌
+    var csrfToken = $('meta[name="csrf-token"]').attr('content');
+    
+    // 初始化表格
+    table.render({
+        elem: '#dataTable',
+        url: '{% url "adm_meeting_records" %}',
+        method: 'post',
+        headers: {
+            'X-CSRFToken': csrfToken
+        },
+        page: true,
+        cols: [[
+            {field: 'id', title: 'ID', width: 80},
+            {field: 'title', title: '会议标题'},
+            {field: 'meeting_date', title: '会议日期'},
+            {field: 'admin_name', title: '记录人'},
+            {field: 'create_time', title: '创建时间'},
+            {fixed: 'right', title: '操作', toolbar: '#actionBar', width: 200}
+        ]]
+    });
+    
+    // 搜索按钮点击事件
+    $('#searchBtn').on('click', function(){
+        var keywords = $('input[name="keywords"]').val();
+        var diff_time = $('input[name="diff_time"]').val();
+        table.reload('dataTable', {
+            where: {
+                keywords: keywords,
+                diff_time: diff_time
+            }
+        });
+    });
+    
+    // 重置按钮点击事件
+    $('#resetBtn').on('click', function(){
+        $('input[name="keywords"]').val('');
+        $('input[name="diff_time"]').val('');
+        table.reload('dataTable', {
+            where: {
+                keywords: '',
+                diff_time: ''
+            }
+        });
+    });
+    
+    // 添加按钮点击事件
+    $('#addBtn').on('click', function(){
+        layer.open({
+            type: 2,
+            title: '添加会议记录',
+            content: '{% url "adm_meeting_records_add" %}',
+            area: ['800px', '500px'],
+            end: function(){
+                table.reload('dataTable');
+            }
+        });
+    });
+    
+    // 表格工具条事件
+    table.on('tool(dataTable)', function(obj){
+        var data = obj.data;
+        if(obj.event === 'edit'){
+            layer.open({
+                type: 2,
+                title: '编辑会议记录',
+                content: '{% url "adm_meeting_records_edit" %}?id=' + data.id,
+                area: ['800px', '500px'],
+                end: function(){
+                    table.reload('dataTable');
+                }
+            });
+        } else if(obj.event === 'view'){
+            layer.open({
+                type: 2,
+                title: '查看会议记录',
+                content: '{% url "adm_meeting_records_view" %}' + data.id + '/',
+                area: ['800px', '500px'],
+                position: 'rb',
+                zIndex: 9999,
+                scrollbar: true,
+                moveOut: true,
+                shadeClose: false,
+                success: function(layero, index) {
+                    console.log('会议记录详情弹窗创建成功，应用定位样式和确保iframe内容可交互');
+                    
+                    // 强制设置弹窗样式，确保正确定位
+                    layero.css({
+                        'position': 'fixed',
+                        'top': 'auto',
+                        'right': '20px',
+                        'bottom': '20px',
+                        'left': 'auto',
+                        'margin': '0'
+                    });
+                    
+                    // 获取iframe元素
+                    var iframe = layero.find('iframe')[0];
+                    if (iframe) {
+                        // 设置iframe属性确保可交互
+                        iframe.style.pointerEvents = 'auto';
+                        iframe.style.touchAction = 'auto';
+                        
+                        // 监听iframe加载完成事件
+                        iframe.onload = function() {
+                            try {
+                                // 获取iframe内部文档
+                                var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                                console.log('成功获取iframe文档');
+                                
+                                // 为iframe内部所有元素设置交互属性
+                                $(iframeDoc.body).find('*').css({
+                                    'pointerEvents': 'auto',
+                                    'touchAction': 'auto',
+                                    'userSelect': 'auto',
+                                    'userDrag': 'auto'
+                                });
+                                
+                                // 特别处理表单元素，确保可编辑
+                                $(iframeDoc.body).find('input, select, textarea, button').prop('disabled', false);
+                                console.log('已为iframe内部元素设置交互属性');
+                                
+                                // 向iframe发送消息，请求确保交互性
+                                setTimeout(function() {
+                                    if (iframe.contentWindow && iframe.contentWindow.postMessage) {
+                                        console.log('向iframe发送交互请求消息');
+                                        iframe.contentWindow.postMessage('iframe_request_interaction', '*');
+                                    }
+                                }, 100);
+                            } catch (e) {
+                                console.error('处理iframe内容时出错:', e);
+                            }
+                        };
+                        
+                        // 如果iframe已经加载完成，直接处理
+                        if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
+                            var event = new Event('load');
+                            iframe.dispatchEvent(event);
+                        }
+                    } else {
+                        console.warn('未找到iframe元素');
+                    }
+                    
+                    // 延迟一段时间再次应用样式，确保覆盖任何可能的动态样式修改
+                    setTimeout(function() {
+                        layero.css({
+                            'position': 'fixed',
+                            'top': 'auto',
+                            'right': '20px',
+                            'bottom': '20px',
+                            'left': 'auto',
+                            'margin': '0'
+                        });
+                    }, 300);
+                }
+            });
+        } else if(obj.event === 'create_minutes'){
+            layer.open({
+                type: 2,
+                title: '创建会议纪要',
+                content: '{% url "personal:minutes_add" %}?meeting_id=' + data.id,
+                area: ['800px', '600px'],
+            });
+        } else if(obj.event === 'delete'){
+            layer.confirm('确定要删除该会议记录吗？', function(index){
+                $.ajax({
+                    url: '{% url "adm_meeting_records_delete" %}',
+                    type: 'post',
+                    data: {id: data.id},
+                    success: function(res){
+                        if(res.code === 0){
+                            layer.msg('删除成功');
+                            table.reload('dataTable');
+                        } else {
+                            layer.msg(res.msg);
+                        }
+                    }
+                });
+                layer.close(index);
+            });
+        }
+    });
+});
+</script>
+
+{% endblock %}

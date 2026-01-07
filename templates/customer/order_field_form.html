@@ -1,0 +1,273 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{% if object %}编辑订单字段{% else %}新增订单字段{% endif %}</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <h3>{% if object %}编辑订单字段{% else %}新增订单字段{% endif %}</h3>
+                    </div>
+                    <div class="layui-card-body">
+        <form class="layui-form" method="post">
+            {% csrf_token %}
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">字段名称 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            <input type="text" name="name" id="id_name" placeholder="请输入字段名称" class="layui-input" value="{% if object %}{{ object.name }}{% endif %}" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">字段标识 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            <input type="text" name="field_name" placeholder="自动生成，不可修改" class="layui-input" {% if object %}readonly{% endif %} value="{% if object %}{{ object.field_name }}{% endif %}">
+                            <div class="layui-form-mid layui-word-aux">自动生成，不可修改</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">字段类型 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.field_type }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">排序</label>
+                        <div class="layui-input-block">
+                            {{ form.sort_order }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">选项值</label>
+                <div class="layui-input-block">
+                    {{ form.options }}
+                    <div class="layui-form-mid layui-word-aux">下拉选择、单选、复选框类型需要填写，每行一个选项</div>
+                </div>
+            </div>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md3">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">必填</label>
+                        <div class="layui-input-block">
+                            <input type="checkbox" name="is_required" {% if object.is_required %}checked{% endif %} lay-skin="switch" lay-text="是|否">
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md3">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">统计字段</label>
+                        <div class="layui-input-block">
+                            <input type="checkbox" name="is_summary" {% if object.is_summary %}checked{% endif %} lay-skin="switch" lay-text="是|否">
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md3">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">列表显示</label>
+                        <div class="layui-input-block">
+                            <input type="checkbox" name="is_list_display" {% if object.is_list_display %}checked{% endif %} lay-skin="switch" lay-text="是|否">
+                            <div class="layui-form-mid layui-word-aux">是否在订单列表中显示</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md3">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">状态</label>
+                        <div class="layui-input-block">
+                            <input type="checkbox" name="is_active" {% if object.is_active %}checked{% endif %} lay-skin="switch" lay-text="启用|禁用">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" type="submit">保存</button>
+                    <a href="{% url 'customer:order_field_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                </div>
+            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['form'], function(){
+            var form = layui.form;
+            form.render();
+            
+            // 字段名称输入监听，自动生成字段标识
+            var nameInput = document.querySelector('input[name="name"]') || document.querySelector('#id_name');
+            var fieldNameInput = document.querySelector('input[name="field_name"]');
+            
+            if (nameInput && fieldNameInput) {
+                // 新增时才自动生成，编辑时不生成
+                if (!fieldNameInput.readOnly) {
+                    nameInput.addEventListener('input', function() {
+                        var name = this.value.trim();
+                        if (name) {
+                            // 生成字段标识
+                            var fieldName = generateFieldName(name);
+                            fieldNameInput.value = fieldName;
+                        }
+                    });
+                }
+            }
+            
+            // 设置默认选中状态
+            if (!document.querySelector('input[name="is_required"]').checked && !{{ object|yesno:"true,false" }}) {
+                document.querySelector('input[name="is_required"]').checked = true;
+            }
+            if (!document.querySelector('input[name="is_list_display"]').checked && !{{ object|yesno:"true,false" }}) {
+                document.querySelector('input[name="is_list_display"]').checked = true;
+            }
+            if (!document.querySelector('input[name="is_active"]').checked && !{{ object|yesno:"true,false" }}) {
+                document.querySelector('input[name="is_active"]').checked = true;
+            }
+            
+            // 重新渲染表单
+            form.render();
+        });
+        
+        // 生成字段标识的函数
+        function generateFieldName(name) {
+            // 订单字段相关的中文转拼音映射表
+            var pinyinMap = {
+                '订单': 'order',
+                '合同': 'contract',
+                '产品': 'product',
+                '服务': 'service',
+                '商品': 'goods',
+                '数量': 'quantity',
+                '单价': 'price',
+                '金额': 'amount',
+                '总价': 'total',
+                '折扣': 'discount',
+                '优惠': 'discount',
+                '税率': 'tax_rate',
+                '税额': 'tax_amount',
+                '客户': 'customer',
+                '销售': 'sales',
+                '业务员': 'salesman',
+                '日期': 'date',
+                '时间': 'time',
+                '交付': 'delivery',
+                '发货': 'shipment',
+                '收货': 'receipt',
+                '地址': 'address',
+                '联系人': 'contact',
+                '电话': 'phone',
+                '状态': 'status',
+                '类型': 'type',
+                '来源': 'source',
+                '渠道': 'channel',
+                '支付': 'payment',
+                '付款': 'payment',
+                '收款': 'collection',
+                '发票': 'invoice',
+                '备注': 'remark',
+                '描述': 'description',
+                '说明': 'description',
+                '规格': 'specification',
+                '型号': 'model',
+                '品牌': 'brand',
+                '分类': 'category',
+                '编号': 'number',
+                '代码': 'code',
+                '名称': 'name',
+                '标题': 'title',
+                '主题': 'subject',
+                '内容': 'content',
+                '详情': 'detail',
+                '摘要': 'summary',
+                '重要': 'important',
+                '紧急': 'urgent',
+                '优先': 'priority',
+                '级别': 'level',
+                '评分': 'score',
+                '评价': 'evaluation',
+                '审核': 'audit',
+                '审批': 'approval',
+                '确认': 'confirm',
+                '完成': 'complete',
+                '取消': 'cancel',
+                '退货': 'return',
+                '换货': 'exchange'
+            };
+            
+            var result = '';
+            
+            // 先尝试直接匹配常用词汇
+            for (var key in pinyinMap) {
+                if (name.includes(key)) {
+                    result += pinyinMap[key] + '_';
+                    name = name.replace(key, '');
+                }
+            }
+            
+            // 处理剩余的中文字符
+            if (name.trim()) {
+                result += convertToPinyin(name.trim());
+            }
+            
+            // 清理结果
+            result = result.replace(/[^a-zA-Z0-9_]/g, '_')
+                          .replace(/_+/g, '_')
+                          .replace(/^_|_$/g, '')
+                          .toLowerCase();
+            
+            return result || 'order_field';
+        }
+        
+        // 简化的拼音转换函数
+        function convertToPinyin(text) {
+            var pinyinMap = {
+                '一': 'yi', '二': 'er', '三': 'san', '四': 'si', '五': 'wu',
+                '六': 'liu', '七': 'qi', '八': 'ba', '九': 'jiu', '十': 'shi',
+                '上': 'shang', '下': 'xia', '前': 'qian', '后': 'hou',
+                '新': 'xin', '旧': 'jiu', '好': 'hao', '坏': 'huai',
+                '大': 'da', '小': 'xiao', '高': 'gao', '低': 'di'
+            };
+            
+            var result = '';
+            for (var i = 0; i < text.length; i++) {
+                var char = text[i];
+                if (pinyinMap[char]) {
+                    result += pinyinMap[char];
+                } else if (/[a-zA-Z0-9]/.test(char)) {
+                    result += char;
+                } else {
+                    result += 'x';
+                }
+            }
+            return result;
+        }
+    </script>
+</body>
+</html>

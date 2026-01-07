@@ -1,0 +1,117 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>订单财务记录</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <div class="layui-form layui-form-pane">
+                    <div class="layui-form-item">
+                        <div class="layui-inline">
+                            <label class="layui-form-label">付款状态</label>
+                            <div class="layui-input-inline">
+                                <select name="status" id="statusFilter">
+                                    <option value="">全部状态</option>
+                                    <option value="pending">待付款</option>
+                                    <option value="partial">部分付款</option>
+                                    <option value="paid">已付款</option>
+                                    <option value="overdue">逾期</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="layui-inline">
+                            <button class="layui-btn" id="searchBtn">搜索</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-card-body">
+                <table id="financeTable" class="layui-table" lay-filter="financeTable"></table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['form', 'table', 'layer'], function() {
+            var form = layui.form;
+            var table = layui.table;
+            var layer = layui.layer;
+
+            // 初始化表格
+            function initTable(status = '') {
+                table.render({
+                    elem: '#financeTable',
+                    url: '/adm/finance/order-finance/list/?status=' + status,
+                    cols: [[
+                        {field: 'id', title: 'ID', width: 80},
+                        {field: 'order_number', title: '订单编号', width: 150},
+                        {field: 'customer_name', title: '客户名称', width: 200},
+                        {field: 'total_amount', title: '订单总金额', width: 120},
+                        {field: 'paid_amount', title: '已付金额', width: 120},
+                        {field: 'unpaid_amount', title: '待付金额', width: 120},
+                        {field: 'payment_status', title: '付款状态', width: 100},
+                        {field: 'due_date', title: '到期日期', width: 120},
+                        {field: 'create_time', title: '创建时间', width: 180},
+                        {title: '操作', width: 150, toolbar: '#financeToolBar'}
+                    ]],
+                    page: true,
+                    limit: 20,
+                    height: 'full-200'
+                });
+            }
+
+            // 初始化表格
+            initTable();
+
+            // 搜索按钮点击事件
+            $('#searchBtn').click(function() {
+                var status = $('#statusFilter').val();
+                initTable(status);
+            });
+
+            // 监听工具条
+            table.on('tool(financeTable)', function(obj) {
+                var data = obj.data;
+                var layEvent = obj.event;
+
+                if (layEvent === 'view') {
+                    // 查看详情
+                    layer.open({
+                        type: 2,
+                        title: '财务记录详情',
+                        content: '/adm/finance/order-finance/detail/' + data.id + '/',
+                        area: ['800px', '600px']
+                    });
+                } else if (layEvent === 'payment') {
+                    // 记录付款
+                    layer.open({
+                        type: 2,
+                        title: '记录付款',
+                        content: '/adm/finance/order-finance/payment/' + data.id + '/',
+                        area: ['600px', '400px'],
+                        end: function() {
+                            table.reload('financeTable');
+                        }
+                    });
+                }
+            });
+        });
+    </script>
+
+    <!-- 工具栏模板 -->
+    <script type="text/html" id="financeToolBar">
+        <a class="layui-btn layui-btn-xs" lay-event="view">查看</a>
+        {{# if(d.payment_status !== '已付款') { }}
+        <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="payment">记录付款</a>
+        {{# } }}
+    </script>
+</body>
+</html>

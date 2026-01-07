@@ -1,0 +1,80 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}用章分类管理{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <h3>用章分类管理</h3>
+            </div>
+            <div class="layui-col-md6" style="text-align: right;">
+                <button class="layui-btn layui-btn-sm" onclick="addCategory()">
+                    <i class="layui-icon layui-icon-add-1"></i> 新增分类
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <table class="layui-table" lay-skin="line">
+            <thead>
+                <tr>
+                    <th>印章类型</th>
+                    <th>印章数量</th>
+                    <th>描述</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>公司公章</td>
+                    <td>1</td>
+                    <td>公司对外正式文件使用</td>
+                    <td>
+                        <button class="layui-btn layui-btn-xs" onclick="editCategory(1)">编辑</button>
+                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteCategory(1)">删除</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td>合同专用章</td>
+                    <td>1</td>
+                    <td>合同签署专用</td>
+                    <td>
+                        <button class="layui-btn layui-btn-xs" onclick="editCategory(2)">编辑</button>
+                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteCategory(2)">删除</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td>财务专用章</td>
+                    <td>1</td>
+                    <td>财务相关文件使用</td>
+                    <td>
+                        <button class="layui-btn layui-btn-xs" onclick="editCategory(3)">编辑</button>
+                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteCategory(3)">删除</button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function addCategory() {
+    layer.msg('新增分类功能待完善');
+}
+
+function editCategory(id) {
+    layer.msg('编辑分类功能待完善');
+}
+
+function deleteCategory(id) {
+    layer.confirm('确定要删除这个分类吗？', {
+        btn: ['确定', '取消']
+    }, function(){
+        layer.msg('删除功能待完善');
+    });
+}
+</script>
+{% endblock %}

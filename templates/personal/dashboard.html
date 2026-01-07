@@ -1,0 +1,228 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}个人办公{% endblock %}
+
+{% block content %}
+<div class="layui-row layui-col-space15">
+    <!-- 统计卡片 -->
+    <div class="layui-col-md3">
+        <div class="layui-card">
+            <div class="layui-card-body">
+                <div class="layui-row">
+                    <div class="layui-col-xs8">
+                        <div class="layui-card-header">
+                            <h3>{{ stats.total_tasks }}</h3>
+                            <p>总任务数</p>
+                        </div>
+                    </div>
+                    <div class="layui-col-xs4">
+                        <i class="layui-icon layui-icon-list" style="font-size: 30px; color: #1E9FFF;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="layui-col-md3">
+        <div class="layui-card">
+            <div class="layui-card-body">
+                <div class="layui-row">
+                    <div class="layui-col-xs8">
+                        <div class="layui-card-header">
+                            <h3>{{ stats.pending_tasks }}</h3>
+                            <p>待办任务</p>
+                        </div>
+                    </div>
+                    <div class="layui-col-xs4">
+                        <i class="layui-icon layui-icon-time" style="font-size: 30px; color: #FFB800;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="layui-col-md3">
+        <div class="layui-card">
+            <div class="layui-card-body">
+                <div class="layui-row">
+                    <div class="layui-col-xs8">
+                        <div class="layui-card-header">
+                            <h3>{{ stats.completed_tasks }}</h3>
+                            <p>已完成任务</p>
+                        </div>
+                    </div>
+                    <div class="layui-col-xs4">
+                        <i class="layui-icon layui-icon-ok" style="font-size: 30px; color: #5FB878;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="layui-col-md3">
+        <div class="layui-card">
+            <div class="layui-card-body">
+                <div class="layui-row">
+                    <div class="layui-col-xs8">
+                        <div class="layui-card-header">
+                            <h3>{{ stats.total_notes }}</h3>
+                            <p>笔记数量</p>
+                        </div>
+                    </div>
+                    <div class="layui-col-xs4">
+                        <i class="layui-icon layui-icon-note" style="font-size: 30px; color: #FF5722;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="layui-row layui-col-space15" style="margin-top: 15px;">
+    <!-- 今日日程 -->
+    <div class="layui-col-md6">
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <h3>今日日程</h3>
+                <a href="{% url 'personal:schedule_list' %}" class="layui-btn layui-btn-xs layui-btn-primary"
+                    style="float: right;">查看更多</a>
+            </div>
+            <div class="layui-card-body">
+                {% if today_schedules %}
+                {% for schedule in today_schedules %}
+                <div class="layui-timeline-item">
+                    <i class="layui-icon layui-timeline-axis">&#xe63f;</i>
+                    <div class="layui-timeline-content layui-text">
+                        <h3 class="layui-timeline-title">{{ schedule.start_time|time:"H:i" }} - {{ schedule.title }}
+                        </h3>
+                        <p>{{ schedule.content|truncatechars:50 }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <p style="text-align: center; color: #999; padding: 20px;">今日暂无日程安排</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 待办任务 -->
+    <div class="layui-col-md6">
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <h3>待办任务</h3>
+                <a href="{% url 'personal:task_list' %}" class="layui-btn layui-btn-xs layui-btn-primary"
+                    style="float: right;">查看更多</a>
+            </div>
+            <div class="layui-card-body">
+                {% if pending_tasks %}
+                {% for task in pending_tasks %}
+                <div class="layui-row" style="margin-bottom: 10px; padding: 10px; border-bottom: 1px solid #f0f0f0;">
+                    <div class="layui-col-md8">
+                        <h4>{{ task.title }}</h4>
+                        <p style="color: #999;">{{ task.description|truncatechars:30 }}</p>
+                    </div>
+                    <div class="layui-col-md4" style="text-align: right;">
+                        {% if task.priority == 4 %}
+                        <span class="layui-badge">紧急</span>
+                        {% elif task.priority == 3 %}
+                        <span class="layui-badge layui-bg-orange">高</span>
+                        {% endif %}
+                        {% if task.due_date %}
+                        <p style="color: #999; font-size: 12px;">{{ task.due_date|date:"m-d H:i" }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <p style="text-align: center; color: #999; padding: 20px;">暂无待办任务</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="layui-row layui-col-space15" style="margin-top: 15px;">
+    <!-- 最近笔记 -->
+    <div class="layui-col-md12">
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <h3>最近笔记</h3>
+                <a href="{% url 'personal:note_list' %}" class="layui-btn layui-btn-xs layui-btn-primary"
+                    style="float: right;">查看更多</a>
+            </div>
+            <div class="layui-card-body">
+                {% if recent_notes %}
+                <div class="layui-row">
+                    {% for note in recent_notes %}
+                    <div class="layui-col-md4" style="margin-bottom: 15px;">
+                        <div style="border: 1px solid #f0f0f0; padding: 15px; border-radius: 5px;">
+                            <h4>{{ note.title }}</h4>
+                            <p style="color: #999;">{{ note.content|truncatechars:50 }}</p>
+                            <div style="margin-top: 10px;">
+                                <span class="layui-badge layui-bg-gray">{{ note.get_category_display }}</span>
+                                {% if note.is_important %}
+                                <span class="layui-badge">重要</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p style="text-align: center; color: #999; padding: 20px;">暂无笔记</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 快捷操作 -->
+<div class="layui-row layui-col-space15" style="margin-top: 15px;">
+    <div class="layui-col-md12">
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <h3>快捷操作</h3>
+            </div>
+            <div class="layui-card-body">
+                <div class="layui-row">
+                    <div class="layui-col-md2">
+                        <a href="{% url 'personal:schedule_add' %}" class="layui-btn layui-btn-fluid">
+                            <i class="layui-icon layui-icon-add-1"></i> 新增日程
+                        </a>
+                    </div>
+                    <div class="layui-col-md2">
+                        <a href="{% url 'personal:task_add' %}" class="layui-btn layui-btn-fluid layui-btn-normal">
+                            <i class="layui-icon layui-icon-add-1"></i> 新增任务
+                        </a>
+                    </div>
+                    <div class="layui-col-md2">
+                        <a href="{% url 'personal:note_add' %}" class="layui-btn layui-btn-fluid layui-btn-warm">
+                            <i class="layui-icon layui-icon-add-1"></i> 写笔记
+                        </a>
+                    </div>
+                    <div class="layui-col-md2">
+                        <a href="{% url 'personal:work_record_add' %}"
+                            class="layui-btn layui-btn-fluid layui-btn-danger">
+                            <i class="layui-icon layui-icon-add-1"></i> 工作记录
+                        </a>
+                    </div>
+                    <div class="layui-col-md2">
+                        <a href="{% url 'personal:work_report_add' %}" class="layui-btn layui-btn-fluid"
+                            style="background-color: #2F4056;">
+                            <i class="layui-icon layui-icon-add-1"></i> 工作汇报
+                        </a>
+                    </div>
+                    <div class="layui-col-md2">
+                        <a href="{% url 'personal:contact_add' %}" class="layui-btn layui-btn-fluid"
+                            style="background-color: #009688;">
+                            <i class="layui-icon layui-icon-add-1"></i> 添加联系人
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,362 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>销售合同管理</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        /* 重置body样式，确保iframe兼容性 */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f2f2f2;
+        }
+        
+        /* 按钮样式 */
+        .contract-btn {
+            pointer-events: auto;
+            cursor: pointer;
+        }
+        
+        /* 确保所有按钮都可点击 */
+        .layui-btn {
+            pointer-events: auto;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <!-- 选项卡区域 -->
+                <div class="layui-tab layui-tab-brief" lay-filter="contractTabs">
+                    <ul class="layui-tab-title">
+                        <li class="layui-this" lay-id="all">全部合同</li>
+                        <li lay-id="my">我创建的</li>
+                        <li lay-id="pending">待我审核</li>
+                        <li lay-id="reviewed">我已审核</li>
+                        <li lay-id="copy">抄送给我</li>
+                    </ul>
+                </div>
+                
+                <!-- 按钮和搜索区域 -->
+                <div class="layui-row layui-col-space10" style="margin-top: 15px;">
+                    <div class="layui-col-md6 button-container">
+                        <!-- 操作按钮区域 -->
+                        <button class="layui-btn layui-btn-normal layui-btn-sm contract-btn" onclick="addContract()" style="position: relative; z-index: 10; pointer-events: auto; cursor: pointer;">
+                            <i class="layui-icon layui-icon-add-1"></i> 新增合同
+                        </button>
+                        <button class="layui-btn layui-btn-danger layui-btn-sm contract-btn" onclick="batchDelete()" style="margin-left: 8px; position: relative; z-index: 10; pointer-events: auto; cursor: pointer;">
+                            <i class="layui-icon layui-icon-delete"></i> 批量删除
+                        </button>
+                        <button class="layui-btn layui-btn-primary layui-btn-sm contract-btn" onclick="exportContract()" style="margin-left: 8px; position: relative; z-index: 10; pointer-events: auto; cursor: pointer;">
+                            <i class="layui-icon layui-icon-export"></i> 导出
+                        </button>
+                    </div>
+                    <div class="layui-col-md6 search-container" style="text-align: right;">
+                        <!-- 搜索区域 -->
+                        <div class="layui-inline">
+                            <input type="text" id="searchContractCode" placeholder="合同编号" class="layui-input" style="width: 120px; position: relative; z-index: 10;">
+                        </div>
+                        <div class="layui-inline" style="margin-left: 8px;">
+                            <select id="searchContractStatus" lay-filter="searchContractStatus" style="position: relative; z-index: 10;">
+                                <option value="">审核状态</option>
+                                <option value="0">待审核</option>
+                                <option value="1">审核中</option>
+                                <option value="2">审核通过</option>
+                                <option value="3">审核不通过</option>
+                            </select>
+                        </div>
+                        <div class="layui-inline" style="margin-left: 8px;">
+                            <button type="button" class="layui-btn layui-btn-sm contract-btn" onclick="searchContract()" style="position: relative; z-index: 10; pointer-events: auto; cursor: pointer;">
+                                <i class="layui-icon layui-icon-search"></i> 搜索
+                            </button>
+                            <button type="button" class="layui-btn layui-btn-sm layui-btn-primary contract-btn" onclick="resetSearch()" style="margin-left: 5px; position: relative; z-index: 10; pointer-events: auto; cursor: pointer;">
+                                <i class="layui-icon layui-icon-refresh"></i> 重置
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-card-body table-container">
+                {% csrf_token %}
+                <table id="contractTable" class="layui-table" lay-filter="contractTable"></table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        // 添加全局错误处理
+        window.addEventListener('error', function(e) {
+            console.error('Global error:', e.error);
+        });
+        
+        // 确保页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // console.log('销售合同页面加载完成');
+            
+            // 初始化layui
+            layui.use(['element', 'table', 'layer', 'form'], function() {
+                var element = layui.element;
+                var table = layui.table;
+                var layer = layui.layer;
+                var form = layui.form;
+
+                // 使用默认zIndex配置，避免全局覆盖
+
+                // 初始化表格
+                function initTable(tab = '0') {
+                    table.render({
+                        elem: '#contractTable',
+                        url: '/contract/sales/datalist/?tab=' + tab,
+                        cols: [[
+                            {type: 'checkbox', fixed: 'left'},
+                            {field: 'id', title: 'ID', width: 80},
+                            {field: 'code', title: '合同编号', width: 150},
+                            {field: 'name', title: '合同名称', width: 200},
+                            {field: 'customer', title: '客户名称', width: 150},
+                            {field: 'cost', title: '合同金额', width: 120},
+                            {field: 'check_status', title: '审核状态', width: 100, templet: function(d) {
+                                var statusMap = {0: '待审核', 1: '审核中', 2: '审核通过', 3: '审核不通过', 4: '撤销审核'};
+                                var colorMap = {0: 'orange', 1: 'blue', 2: 'green', 3: 'red', 4: 'gray'};
+                                return '<span style="color: ' + colorMap[d.check_status] + '">' + statusMap[d.check_status] + '</span>';
+                            }},
+                            {field: 'create_time', title: '创建时间', width: 180},
+                            {title: '操作', width: 250, toolbar: '#contractToolBar'}
+                        ]],
+                        page: true,
+                        limit: 20,
+                        height: 'full-200'
+                    });
+                }
+
+                // 初始化表格
+                initTable();
+
+                // 监听选项卡切换
+                element.on('tab(contractTabs)', function(data) {
+                    var layId = $(this).attr('lay-id');
+                    var tabMap = {
+                        'all': '0',
+                        'my': '1',
+                        'pending': '2',
+                        'reviewed': '3',
+                        'copy': '4'
+                    };
+                    initTable(tabMap[layId]);
+                });
+
+                // 监听工具条
+                table.on('tool(contractTable)', function(obj) {
+                    var data = obj.data;
+                    var layEvent = obj.event;
+
+                    if (layEvent === 'view') {
+                        layer.open({
+                    type: 2,
+                    title: '合同详情',
+                    content: '/contract/sales/view/' + data.id + '/',
+                    area: ['900px', '700px'],
+                    zIndex: 2147483646, // 设置合适的zIndex，作为父弹窗
+                    success: function(layero, index) {
+                        layer.setTop(layero);
+                    }
+                });
+                    } else if (layEvent === 'edit') {
+                        layer.open({
+                    type: 2,
+                    title: '编辑合同',
+                    content: '/contract/sales/edit/' + data.id + '/',
+                    area: ['900px', '700px'],
+                    zIndex: 2147483646, // 设置合适的zIndex，作为父弹窗
+                    success: function(layero, index) {
+                        layer.setTop(layero);
+                    },
+                    end: function() {
+                        table.reload('contractTable');
+                    }
+                });
+                    } else if (layEvent === 'delete') {
+                        layer.confirm('确定删除这条合同记录吗？', function(index) {
+                            // 获取CSRF token
+                            var csrfToken = $('input[name="csrfmiddlewaretoken"]').val();
+                            
+                            $.ajax({
+                                url: '/contract/sales/del/',
+                                type: 'POST',
+                                data: JSON.stringify({id: data.id}),
+                                contentType: 'application/json',
+                                headers: {
+                                    'X-CSRFToken': csrfToken
+                                },
+                                success: function(response) {
+                                    if (response.code === 0) {
+                                        layer.msg('删除成功', {icon: 1});
+                                        table.reload('contractTable');
+                                    } else {
+                                        layer.msg(response.msg, {icon: 2});
+                                    }
+                                }
+                            });
+                            layer.close(index);
+                        });
+                    }
+                });
+            });
+        });
+
+        // 新增合同
+        function addContract() {
+            // console.log('addContract function called - 按钮被点击');
+            layui.use(['layer', 'table'], function() {
+                var layer = layui.layer;
+                var table = layui.table;
+                
+
+                
+                layer.open({
+                    type: 2,
+                    title: '新增销售合同',
+                    content: '/contract/sales/add/',
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['75%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    zIndex: 2147483646, // 设置合适的zIndex，作为父弹窗
+                    success: function(layero, index) {
+                        // console.log('合同弹窗打开成功');
+                        layer.setTop(layero);
+                        // 设置弹窗从右侧滑入，占据75%宽度
+                        if (layero && typeof layero.css === 'function') {
+                            layero.css({
+                                'right': '0',
+                                'top': '0',
+                                'height': '100%'
+                            });
+                        }
+                    },
+                    end: function() {
+                        table.reload('contractTable');
+                    }
+                });
+            });
+        }
+        window.addContract = addContract;
+
+        // 导出合同
+        function exportContract() {
+            // console.log('exportContract function called');
+            layui.use(['layer'], function() {
+                var layer = layui.layer;
+                layer.msg('导出功能开发中...', {icon: 0});
+            });
+        }
+        window.exportContract = exportContract;
+
+        // 搜索合同
+        function searchContract() {
+            // console.log('searchContract function called');
+            layui.use(['table'], function() {
+                var table = layui.table;
+                var code = $('#searchContractCode').val();
+                var status = $('#searchContractStatus').val();
+                var params = {};
+                if(code) params.code = code;
+                if(status) params.status = status;
+                
+                table.reload('contractTable', {
+                    where: params
+                });
+            });
+        }
+        window.searchContract = searchContract;
+
+        // 重置搜索
+        function resetSearch() {
+            // console.log('resetSearch function called');
+            layui.use(['table', 'form'], function() {
+                var table = layui.table;
+                var form = layui.form;
+                
+                $('#searchContractCode').val('');
+                $('#searchContractStatus').val('');
+                form.render('select');
+                table.reload('contractTable', {
+                    where: {}
+                });
+            });
+        }
+        window.resetSearch = resetSearch;
+
+        // 批量删除
+        function batchDelete() {
+            // console.log('batchDelete function called');
+            layui.use(['table', 'layer'], function() {
+                var table = layui.table;
+                var layer = layui.layer;
+                
+                // 获取选中的数据
+                var checkStatus = table.checkStatus('contractTable');
+                var selectedData = checkStatus.data;
+                
+                // console.log('Selected data:', selectedData);
+                
+                if (selectedData.length === 0) {
+                    layer.msg('请选择要删除的合同', {icon: 2});
+                    return;
+                }
+                
+                layer.confirm('确定要删除选中的 ' + selectedData.length + ' 条合同记录吗？', function(index) {
+                    // 获取选中的合同ID列表
+                    var contractIds = selectedData.map(function(item) {
+                        return item.id;
+                    });
+                    
+                    // 获取CSRF token
+                    var csrfToken = $('input[name="csrfmiddlewaretoken"]').val();
+                    
+                    $.ajax({
+                        url: '/contract/sales/del/',
+                        type: 'POST',
+                        data: JSON.stringify({
+                            ids: contractIds,
+                            type: '0'  // 逻辑删除
+                        }),
+                        contentType: 'application/json',
+                        headers: {
+                            'X-CSRFToken': csrfToken
+                        },
+                        success: function(response) {
+                            if (response.code === 0) {
+                                layer.msg('批量删除成功', {icon: 1});
+                                table.reload('contractTable');
+                            } else {
+                                layer.msg(response.msg, {icon: 2});
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            layer.msg('删除失败：' + error, {icon: 2});
+                        }
+                    });
+                    layer.close(index);
+                });
+            });
+        }
+        window.batchDelete = batchDelete;
+    </script>
+
+    <!-- 工具栏模板 -->
+    <script type="text/html" id="contractToolBar">
+        <a class="layui-btn layui-btn-xs" lay-event="view">查看</a>
+        <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
+        <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
+    </script>
+</body>
+</html>

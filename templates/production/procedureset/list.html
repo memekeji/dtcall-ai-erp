@@ -1,0 +1,171 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工序集管理</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .search-form {
+            margin-bottom: 15px;
+        }
+
+        .table-toolbar {
+            margin-bottom: 15px;
+        }
+
+        .status-enabled {
+            color: #5FB878;
+        }
+
+        .status-disabled {
+            color: #FF5722;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <!-- 页面标题 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <h2 style="margin-bottom: 20px;">工序集管理</h2>
+            </div>
+        </div>
+
+        <!-- 工具栏 -->
+        <div class="layui-row table-toolbar">
+            <div class="layui-col-md6">
+                <button class="layui-btn" onclick="location.href='{% url 'production:procedureset_add' %}'">
+                    <i class="layui-icon layui-icon-add-1"></i> 添加工序集
+                </button>
+                <button class="layui-btn layui-btn-primary"
+                    onclick="location.href='{% url 'production:baseinfo_index' %}'">
+                    <i class="layui-icon layui-icon-return"></i> 返回
+                </button>
+            </div>
+            <div class="layui-col-md6" style="text-align: right;">
+                <form method="get" class="layui-form layui-form-pane" style="display: inline-block;">
+                    <div class="layui-input-group">
+                        <input type="text" name="search" value="{{ search }}" placeholder="搜索工序集名称或编码"
+                            class="layui-input" style="width: 200px; display: inline-block;">
+                        <div class="layui-input-split layui-input-suffix">
+                            <button class="layui-btn" type="submit">
+                                <i class="layui-icon layui-icon-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 数据表格 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-body" style="padding: 0;">
+                        <table class="layui-table" lay-skin="line">
+                            <thead>
+                                <tr>
+                                    <th>工序集编码</th>
+                                    <th>工序集名称</th>
+                                    <th>总工时</th>
+                                    <th>总成本</th>
+                                    <th>状态</th>
+                                    <th>创建时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for procedureset in page_obj %}
+                                <tr>
+                                    <td>{{ procedureset.code }}</td>
+                                    <td>{{ procedureset.name }}</td>
+                                    <td>{{ procedureset.total_time }}小时</td>
+                                    <td>￥{{ procedureset.total_cost }}</td>
+                                    <td>
+                                        {% if procedureset.status %}
+                                        <span class="status-enabled">启用</span>
+                                        {% else %}
+                                        <span class="status-disabled">禁用</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ procedureset.create_time|date:"Y-m-d H:i" }}</td>
+                                    <td>
+                                        <button class="layui-btn layui-btn-xs"
+                                            onclick="location.href='{% url 'production:procedureset_edit' procedureset.pk %}'">
+                                            <i class="layui-icon layui-icon-edit"></i> 编辑
+                                        </button>
+                                        <button class="layui-btn layui-btn-xs layui-btn-danger"
+                                            onclick="deleteProcedureSet({{ procedureset.pk }}, '{{ procedureset.name }}')">
+                                            <i class="layui-icon layui-icon-delete"></i> 删除
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" style="text-align: center; padding: 40px; color: #999;">
+                                        暂无数据
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分页 -->
+        {% if page_obj.has_other_pages %}
+        <div class="layui-row" style="margin-top: 20px;">
+            <div class="layui-col-md12" style="text-align: center;">
+                <div id="pagination"></div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['layer', 'laypage'], function () {
+            var layer = layui.layer;
+            var laypage = layui.laypage;
+
+            {% if page_obj.has_other_pages %}
+            // 分页
+            laypage.render({
+                elem: 'pagination',
+                count: {{ page_obj.paginator.count }},
+            limit: 20,
+            curr: {{ page_obj.number }},
+            jump: function (obj, first) {
+                if (!first) {
+                    var url = new URL(window.location);
+                    url.searchParams.set('page', obj.curr);
+                    window.location.href = url.toString();
+                }
+            }
+            });
+        {% endif %}
+        });
+
+        function deleteProcedureSet(id, name) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.confirm('确定要删除工序集 "' + name + '" 吗？', {
+                    icon: 3,
+                    title: '确认删除'
+                }, function (index) {
+                    window.location.href = '/adm/production/procedureset/delete/' + id + '/';
+                    layer.close(index);
+                });
+            });
+        }
+    </script>
+</body>
+
+</html>

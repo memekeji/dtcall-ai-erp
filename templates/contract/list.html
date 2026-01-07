@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <style>
+        /* 重置样式，确保iframe兼容性 */
+        body {
+            margin: 0;
+            padding: 15px;
+            background: #f2f2f2;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* 主容器 */
+        .main-container {
+            background: #fff;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: relative;
+            z-index: 10;
+        }
+        
+        /* 工具栏 */
+        .toolbar {
+            padding: 15px;
+            border-bottom: 1px solid #f6f6f6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            position: relative;
+            z-index: 20;
+        }
+        
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        /* 按钮样式 - 确保iframe中可点击 */
+        .contract-btn {
+            position: relative !important;
+            z-index: 10 !important;
+            pointer-events: auto !important;
+            cursor: pointer !important;
+        }
+        
+        .contract-btn:hover {
+            z-index: 11 !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+        }
+        
+        /* 搜索表单 */
+        .search-form {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        /* 表格容器 */
+        .table-container {
+            padding: 0 15px 15px;
+            position: relative;
+            z-index: 10;
+        }
+        
+        /* 分页 */
+        .pagination-container {
+            padding: 15px;
+            text-align: center;
+            border-top: 1px solid #f6f6f6;
+        }
+        
+        /* 响应式适配 */
+        @media (max-width: 768px) {
+            .toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .toolbar-right {
+                justify-content: flex-start;
+                margin-top: 10px;
+            }
+            
+            .search-form {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+        
+        .amount-cell {
+            font-weight: bold;
+            color: #e74c3c;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- 工具栏 -->
+        <div class="toolbar">
+            <div class="toolbar-left">
+                <button class="layui-btn layui-btn-sm contract-btn" onclick="addContract()">
+                    <i class="layui-icon layui-icon-add-1"></i> 新增合同
+                </button>
+            </div>
+            
+            <div class="toolbar-right">
+                <form method="get" class="search-form">
+                    <div class="layui-inline">
+                        <select name="check_status" class="layui-select">
+                            <option value="">全部状态</option>
+                            <option value="0" {% if check_status == '0' %}selected{% endif %}>草稿</option>
+                            <option value="1" {% if check_status == '1' %}selected{% endif %}>待审核</option>
+                            <option value="2" {% if check_status == '2' %}selected{% endif %}>已通过</option>
+                            <option value="3" {% if check_status == '3' %}selected{% endif %}>已拒绝</option>
+                        </select>
+                    </div>
+                    <div class="layui-inline">
+                        <input type="text" name="search" placeholder="请输入合同编号或合同名称" 
+                               autocomplete="off" class="layui-input" value="{{ search }}" style="width: 200px;">
+                    </div>
+                    <div class="layui-inline">
+                        <button type="submit" class="layui-btn contract-btn">
+                            <i class="layui-icon layui-icon-search"></i> 搜索
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 数据表格 -->
+        <div class="table-container">
+            <table class="layui-table" lay-skin="line">
+                <thead>
+                    <tr>
+                        <th>合同编号</th>
+                        <th>合同名称</th>
+                        <th>合同类型</th>
+                        <th>主体ID</th>
+                        <th>客户名称</th>
+                        <th>合同金额</th>
+                        <th>签署时间</th>
+                        <th>审核状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for contract in contracts %}
+                    <tr>
+                        <td>{{ contract.code|default:'-' }}</td>
+                        <td>{{ contract.name|default:'-' }}</td>
+                        <td>
+                            {% if contract.types == 1 %}普通合同
+                            {% elif contract.types == 2 %}商品合同
+                            {% elif contract.types == 3 %}服务合同
+                            {% else %}未知类型{% endif %}
+                        </td>
+                        <td>{{ contract.subject_id|default:'-' }}</td>
+                        <td>{{ contract.customer|default:'-' }}</td>
+                        <td class="amount-cell">¥{{ contract.cost|floatformat:2|default:'0.00' }}</td>
+                        <td>
+                            {% if contract.sign_time and contract.sign_time > 0 %}
+                                {{ contract.sign_time|date:'Y-m-d' }}
+                            {% else %}-{% endif %}
+                        </td>
+                        <td>
+                            {% if contract.check_status == 0 %}
+                                <span class="layui-badge">草稿</span>
+                            {% elif contract.check_status == 1 %}
+                                <span class="layui-badge layui-bg-orange">待审核</span>
+                            {% elif contract.check_status == 2 %}
+                                <span class="layui-badge layui-bg-green">已通过</span>
+                            {% elif contract.check_status == 3 %}
+                                <span class="layui-badge layui-bg-red">已拒绝</span>
+                            {% else %}
+                                <span class="layui-badge layui-bg-gray">未知状态</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="layui-btn layui-btn-xs contract-btn" onclick="viewContract({{ contract.id }})">查看</button>
+                            <button class="layui-btn layui-btn-xs contract-btn" onclick="editContract({{ contract.id }})">编辑</button>
+                            <button class="layui-btn layui-btn-danger layui-btn-xs contract-btn" onclick="deleteContract({{ contract.id }})">删除</button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" style="text-align: center; color: #999;">暂无数据</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 分页 -->
+        {% if page_obj.has_other_pages %}
+        <div class="pagination-container">
+            <div id="pagination"></div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        // 页面初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // console.log('合同列表页面加载完成');
+            
+            // 初始化分页
+            initPagination();
+            
+            // 绑定按钮事件
+            bindButtonEvents();
+        });
+        
+        // 初始化分页
+        function initPagination() {
+            {% if page_obj.has_other_pages %}
+            layui.use('laypage', function() {
+                var laypage = layui.laypage;
+                
+                laypage.render({
+                    elem: 'pagination',
+                    count: {{ page_obj.paginator.count }},
+                    curr: {{ page_obj.number }},
+                    limit: 20,
+                    layout: ['count', 'prev', 'page', 'next', 'limit', 'skip'],
+                    jump: function(obj, first) {
+                        if (!first) {
+                            var url = new URL(window.location);
+                            url.searchParams.set('page', obj.curr);
+                            window.location.href = url.toString();
+                        }
+                    }
+                });
+            });
+            {% endif %}
+        }
+        
+        // 绑定按钮事件
+        function bindButtonEvents() {
+            // 为所有按钮添加点击效果
+            var buttons = document.querySelectorAll('.contract-btn');
+            buttons.forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    // console.log('按钮被点击:', btn.textContent);
+                });
+            });
+            
+            // console.log('按钮事件绑定完成，共绑定', buttons.length, '个按钮');
+        }
+        
+        // 新增合同
+        function addContract() {
+            // console.log('新增合同按钮被点击');
+            
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                
+                layer.open({
+                    type: 2,
+                    title: '新增合同',
+                    content: '/contract/add/',
+                    area: ['900px', '700px'],
+                    maxmin: true,
+                    success: function(layero, index) {
+                        // console.log('新增合同弹窗打开成功');
+                    },
+                    end: function() {
+                        // 新增完成后刷新页面
+                        window.location.reload();
+                    }
+                });
+            });
+        }
+        
+        // 查看合同
+        function viewContract(id) {
+            // console.log('查看合同:', id);
+            
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                layer.msg('查看功能待实现 - 合同ID: ' + id, {icon: 1});
+            });
+        }
+        
+        // 编辑合同
+        function editContract(id) {
+            // console.log('编辑合同:', id);
+            
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                layer.msg('编辑功能待实现 - 合同ID: ' + id, {icon: 1});
+            });
+        }
+        
+        // 删除合同
+        function deleteContract(id) {
+            // console.log('删除合同:', id);
+            
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                layer.confirm('确定要删除这个合同吗？', {icon: 3, title:'提示'}, function(index) {
+                    layer.msg('删除功能待实现', {icon: 1});
+                    layer.close(index);
+                });
+            });
+        }
+        
+        // 全局错误处理
+        window.addEventListener('error', function(e) {
+            // console.error('页面错误:', e.error);
+        });
+    </script>
+</body>
+</html>

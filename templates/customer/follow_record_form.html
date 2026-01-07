@@ -1,0 +1,282 @@
+{% load customer_filters %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>添加跟进记录</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <style>
+        .customer-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .required-field::after {
+            content: " *";
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-body">
+                        <!-- 客户信息 -->
+                        <div class="customer-info">
+                            <p><strong>客户名称：</strong>{{ customer.name }}</p>
+                        </div>
+                        
+                        <form class="layui-form" method="post" id="followForm">
+                            {% csrf_token %}
+                            <input type="hidden" name="customer_id" value="{{ customer.id }}">
+                            
+                            <div class="layui-row layui-col-space15">
+                                <div class="layui-col-md6">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label required-field">跟进方式</label>
+                                        <div class="layui-input-block">
+                                            <select name="follow_type" lay-verify="required">
+                                                <option value="">请选择跟进方式</option>
+                                                <option value="phone">电话沟通</option>
+                                                <option value="visit">上门拜访</option>
+                                                <option value="email">邮件联系</option>
+                                                <option value="meeting">会议洽谈</option>
+                                                <option value="other">其他</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="layui-col-md6">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">跟进联系人</label>
+                                        <div class="layui-input-block">
+                                            <select name="contact_id">
+                                                <option value="">请选择联系人</option>
+                                                {% for contact in contacts %}
+                                                <option value="{{ contact.id }}">{{ contact.contact_person }} ({{ contact.phone }})</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item layui-form-text">
+                                <label class="layui-form-label required-field">跟进内容</label>
+                                <div class="layui-input-block">
+                                    <textarea name="content" placeholder="请输入跟进内容" 
+                                              class="layui-textarea" lay-verify="required" 
+                                              style="min-height: 120px;"></textarea>
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                <label class="layui-form-label">下次跟进时间</label>
+                <div class="layui-input-block">
+                    <input type="text" name="next_follow_time" 
+                           class="layui-input" id="nextFollowTime" 
+                           placeholder="请选择下次跟进时间">
+                </div>
+            </div>
+            
+            {% if follow_fields %}
+            <div class="layui-form-item layui-form-text">
+                <label class="layui-form-label"></label>
+                <div class="layui-input-block">
+                    <div style="color: #366092; font-weight: bold; margin-bottom: 10px;">自定义字段</div>
+                </div>
+            </div>
+            
+            {% for field in follow_fields %}
+            <div class="layui-form-item">
+                <label class="layui-form-label">{{ field.name }}{% if field.is_required %}<span style="color: red;">*</span>{% endif %}</label>
+                <div class="layui-input-block">
+                    {% with field_value=existing_values|get_item:field.id %}
+                    {% if field.field_type == 'text' %}
+                    <input type="text" name="custom_field_{{ field.id }}" placeholder="请输入{{ field.name }}" autocomplete="off" class="layui-input" {% if field.is_required %}lay-verify="required"{% endif %} value="{{ field_value|default:'' }}">
+                    
+                    {% elif field.field_type == 'textarea' %}
+                    <textarea name="custom_field_{{ field.id }}" placeholder="请输入{{ field.name }}" class="layui-textarea" {% if field.is_required %}lay-verify="required"{% endif %}>{{ field_value|default:'' }}</textarea>
+                    
+                    {% elif field.field_type == 'number' %}
+                    <input type="number" name="custom_field_{{ field.id }}" placeholder="请输入数字" autocomplete="off" class="layui-input" {% if field.is_required %}lay-verify="required|number"{% endif %} value="{{ field_value|default:'' }}">
+                    
+                    {% elif field.field_type == 'date' %}
+                    <input type="text" name="custom_field_{{ field.id }}" id="custom_date_{{ field.id }}" placeholder="请选择日期" autocomplete="off" class="layui-input" {% if field.is_required %}lay-verify="required"{% endif %} value="{{ field_value|default:'' }}">
+                    
+                    {% elif field.field_type == 'datetime' %}
+                    <input type="text" name="custom_field_{{ field.id }}" id="custom_datetime_{{ field.id }}" placeholder="请选择日期时间" autocomplete="off" class="layui-input" {% if field.is_required %}lay-verify="required"{% endif %} value="{{ field_value|default:'' }}">
+                    
+                    {% elif field.field_type == 'select' %}
+                    <select name="custom_field_{{ field.id }}" {% if field.is_required %}lay-verify="required"{% endif %}>
+                        <option value="">请选择{{ field.name }}</option>
+                        {% if field.options %}
+                            {% with options=field.options|parse_json %}
+                                {% for option in options %}
+                                <option value="{{ option.value }}" {% if field_value == option.value %}selected{% endif %}>{{ option.label }}</option>
+                                {% endfor %}
+                            {% endwith %}
+                        {% endif %}
+                    </select>
+                    
+                    {% elif field.field_type == 'radio' %}
+                    {% if field.options %}
+                        {% with options=field.options|parse_json %}
+                            {% for option in options %}
+                            <input type="radio" name="custom_field_{{ field.id }}" value="{{ option.value }}" title="{{ option.label }}" {% if field_value == option.value %}checked{% endif %}>
+                            {% endfor %}
+                        {% endwith %}
+                    {% endif %}
+                    
+                    {% elif field.field_type == 'checkbox' %}
+                    {% if field.options %}
+                        {% with options=field.options|parse_json %}
+                            {% for option in options %}
+                            <input type="checkbox" name="custom_field_{{ field.id }}" value="{{ option.value }}" title="{{ option.label }}" {% if field_value and option.value in field_value|split:',' %}checked{% endif %}>
+                            {% endfor %}
+                        {% endwith %}
+                    {% endif %}
+                    
+                    {% elif field.field_type == 'file' %}
+                    <button type="button" class="layui-btn" id="upload_file_{{ field.id }}">
+                        <i class="layui-icon">&#xe67c;</i>上传文件
+                    </button>
+                    <input type="hidden" name="custom_field_{{ field.id }}" id="file_path_{{ field.id }}" {% if field.is_required %}lay-verify="required"{% endif %} value="{{ field_value|default:'' }}">
+                    <div id="file_preview_{{ field.id }}" style="margin-top: 10px;">
+                        {% if field_value %}
+                        <a href="{{ field_value }}" target="_blank">{{ field_value|basename }}</a>
+                        {% endif %}
+                    </div>
+                    
+                    {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" lay-submit lay-filter="submitForm">
+                        <i class="layui-icon layui-icon-ok"></i> 保存跟进记录
+                    </button>
+                    <button type="button" class="layui-btn layui-btn-primary" onclick="parent.layer.closeAll()">
+                        <i class="layui-icon layui-icon-close"></i> 取消
+                    </button>
+                </div>
+            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        // 检查layui是否加载
+        if (typeof layui !== 'undefined') {
+            layui.use(['form', 'laydate', 'layer', 'upload'], function () {
+                // 检查每个模块是否加载成功
+                var form = layui.form;
+                var laydate = layui.laydate;
+                var layer = layui.layer;
+                var upload = layui.upload;
+                
+                // 日期选择器
+                if (laydate && typeof laydate.render === 'function') {
+                    laydate.render({
+                        elem: '#nextFollowTime'
+                        , type: 'datetime'
+                        , range: false
+                    });
+                } else {
+                    console.warn('laydate模块未加载或render方法不存在');
+                }
+
+                // 初始化自定义字段的日期选择器
+                // 自定义字段初始化通过服务器端渲染完成
+
+                // 表单提交
+                if (form && typeof form.on === 'function') {
+                    form.on('submit(submitForm)', function (data) {
+                        // 使用固定的跟进记录创建URL，避免路径问题
+                        var url = '/customer/followup/create/';
+                        
+                        if (typeof $ !== 'undefined' && typeof $.ajax === 'function') {
+                            $.ajax({
+                                type: 'POST',
+                                url: url,
+                                data: data && data.field ? data.field : {},
+                                beforeSend: function() {
+                                    // 显示加载动画
+                                    if (layer && typeof layer.load === 'function') {
+                                        layer.load(2);
+                                    }
+                                },
+                                success: function (res) {
+                                    // 关闭加载动画
+                                    if (layer && typeof layer.closeAll === 'function') {
+                                        layer.closeAll('loading');
+                                    }
+                                    
+                                    if (res && res.status == 'success') {
+                                        if (layer && typeof layer.msg === 'function') {
+                                            layer.msg(res.message || '保存成功', {icon: 1, time: 1000});
+                                        }
+                                        
+                                        setTimeout(function () {
+                                            if (window && window.parent) {
+                                                if (window.parent.layer && typeof window.parent.layer.closeAll === 'function') {
+                                                    window.parent.layer.closeAll();
+                                                }
+                                                if (window.parent.layui && window.parent.layui.table && typeof window.parent.layui.table.reload === 'function') {
+                                                    window.parent.layui.table.reload('followRecordTable');
+                                                }
+                                            }
+                                        }, 1000);
+                                    } else {
+                                        if (layer && typeof layer.msg === 'function') {
+                                            layer.msg(res && res.message || '保存失败', {icon: 5, time: 1000});
+                                        } else {
+                                            console.error(res && res.message || '保存失败');
+                                        }
+                                    }
+                                },
+                                error: function (jqXHR, textStatus, errorThrown) {
+                                    // 关闭加载动画
+                                    if (layer && typeof layer.closeAll === 'function') {
+                                        layer.closeAll('loading');
+                                    }
+                                    
+                                    if (layer && typeof layer.msg === 'function') {
+                                        layer.msg('操作失败: ' + textStatus, {icon: 5, time: 1000});
+                                    } else {
+                                        console.error('操作失败: ' + textStatus);
+                                    }
+                                }
+                            });
+                        }
+                        return false;
+                    });
+                }
+            });
+        } else {
+            console.warn('layui框架未加载，部分功能可能无法使用');
+            // 添加降级处理：表单正常提交
+            document.getElementById('followForm')?.addEventListener('submit', function(e) {
+                if (typeof layui === 'undefined') {
+                    // 允许表单正常提交作为降级方案
+                    return true;
+                }
+            });
+        }
+    </script>
+</body>
+</html>

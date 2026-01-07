@@ -1,0 +1,166 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BOM详情 - {{ bom.name }}</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .bom-header {
+            background-color: #f8f8f8;
+            padding: 20px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .bom-header h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .bom-info {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .bom-info-item {
+            width: 25%;
+            margin-bottom: 10px;
+        }
+        .bom-info-item label {
+            color: #999;
+            margin-right: 5px;
+        }
+        .bom-info-item span {
+            color: #333;
+        }
+        .status-enabled {
+            color: #5FB878;
+        }
+        .status-disabled {
+            color: #FF5722;
+        }
+        .items-table {
+            margin-top: 20px;
+        }
+        .items-table h4 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .total-cost {
+            text-align: right;
+            font-size: 16px;
+            color: #FF5722;
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f8f8;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <div style="padding: 20px;">
+        <!-- BOM基本信息 -->
+        <div class="bom-header">
+            <h3>BOM基本信息</h3>
+            <div class="bom-info">
+                <div class="bom-info-item">
+                    <label>BOM编码：</label>
+                    <span>{{ bom.code }}</span>
+                </div>
+                <div class="bom-info-item">
+                    <label>BOM名称：</label>
+                    <span>{{ bom.name }}</span>
+                </div>
+                <div class="bom-info-item">
+                    <label>关联产品：</label>
+                    <span>{{ bom.product.name|default:"-" }}</span>
+                </div>
+                <div class="bom-info-item">
+                    <label>版本号：</label>
+                    <span>{{ bom.version }}</span>
+                </div>
+                <div class="bom-info-item">
+                    <label>状态：</label>
+                    <span class="{% if bom.status %}status-enabled{% else %}status-disabled{% endif %}">
+                        {% if bom.status %}启用{% else %}禁用{% endif %}
+                    </span>
+                </div>
+                <div class="bom-info-item">
+                    <label>创建人：</label>
+                    <span>{{ bom.creator|default:"-"|escape }}</span>
+                </div>
+                <div class="bom-info-item">
+                    <label>创建时间：</label>
+                    <span>{{ bom.create_time|date:"Y-m-d H:i" }}</span>
+                </div>
+                <div class="bom-info-item">
+                    <label>更新时间：</label>
+                    <span>{{ bom.update_time|date:"Y-m-d H:i" }}</span>
+                </div>
+                <div class="bom-info-item" style="width: 100%;">
+                    <label>BOM描述：</label>
+                    <span>{{ bom.description|default:"-"|escape|linebreaksbr }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- BOM物料明细 -->
+        <div class="items-table">
+            <h4>物料明细</h4>
+            <div class="layui-card">
+                <div class="layui-card-body" style="padding: 0;">
+                    <table class="layui-table" lay-skin="line">
+                        <thead>
+                            <tr>
+                                <th>物料名称</th>
+                                <th>物料编码</th>
+                                <th>规格型号</th>
+                                <th>单位</th>
+                                <th>用量</th>
+                                <th>单价(元)</th>
+                                <th>总价(元)</th>
+                                <th>供应商</th>
+                                <th>备注</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
+                            <tr>
+                                <td>{{ item.material_name }}</td>
+                                <td>{{ item.material_code }}</td>
+                                <td>{{ item.specification|default:"-" }}</td>
+                                <td>{{ item.unit }}</td>
+                                <td>{{ item.quantity }}</td>
+                                <td>{{ item.unit_cost|floatformat:2 }}</td>
+                                <td>{{ item.total_cost|floatformat:2 }}</td>
+                                <td>{{ item.supplier|default:"-" }}</td>
+                                <td>{{ item.remark|default:"-" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="9" style="text-align: center; padding: 40px; color: #999;">
+                                    暂无物料明细
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 总价统计 -->
+            {% if items %}
+            <div class="total-cost">
+                物料总成本：¥ {{ total_cost|floatformat:2 }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+</body>
+
+</html>

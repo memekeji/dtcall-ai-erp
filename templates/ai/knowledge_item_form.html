@@ -1,0 +1,323 @@
+{% extends 'home/iframe_base.html' %}
+{% load static %}
+
+{% block title %}{% if object %}编辑知识条目{% else %}新建知识条目{% endif %}{% endblock %}
+
+{% block content %}
+<div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-col-md12">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <h3><i class="layui-icon layui-icon-file"></i> {% if object %}编辑知识条目{% else %}新建知识条目{% endif %}</h3>
+                </div>
+                <div class="layui-card-body">
+                    <form class="layui-form" action="" method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        {% if form.instance and form.instance.id %}
+                        <!-- 编辑页面：使用现有对象的知识库 -->
+                        <input type="hidden" name="knowledge_base" value="{{ form.instance.knowledge_base.id }}">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">所属知识库</label>
+                            <div class="layui-input-block">
+                                <div class="layui-input layui-bg-gray" style="pointer-events: none;">
+                                    {{ form.instance.knowledge_base.name }}
+                                </div>
+                            </div>
+                        </div>
+                        {% elif request.GET.knowledge_base %}
+                        <!-- 创建页面且有URL参数：使用URL中的知识库 -->
+                        <input type="hidden" name="knowledge_base" value="{{ request.GET.knowledge_base }}">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">所属知识库</label>
+                            <div class="layui-input-block">
+                                <div class="layui-input layui-bg-gray" style="pointer-events: none;">
+                                    {% for knowledge_base in knowledge_bases %}
+                                    {% if knowledge_base.id|stringformat:"s" == request.GET.knowledge_base %}{{ knowledge_base.name }}{% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <!-- 否则显示选择框 -->
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">所属知识库</label>
+                            <div class="layui-input-block">
+                                <select name="knowledge_base" required lay-verify="required">
+                                    <option value="">请选择知识库</option>
+                                    {% for knowledge_base in knowledge_bases %}
+                                    <option value="{{ knowledge_base.id }}">{{ knowledge_base.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        {% endif %}
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">标题</label>
+                            <div class="layui-input-block">
+                                <input type="text" name="title" required lay-verify="required" placeholder="请输入知识条目标题" autocomplete="off" class="layui-input" value="{{ form.instance.title|default:'' }}">
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">知识类型</label>
+                            <div class="layui-input-block">
+                                <select name="knowledge_type" required lay-verify="required">
+                                    <option value="document" {% if form.instance.knowledge_type == 'document' or not form.instance.id %}selected{% endif %}>文档</option>
+                                    <option value="faq" {% if form.instance.knowledge_type == 'faq' %}selected{% endif %}>常见问题</option>
+                                    <option value="product" {% if form.instance.knowledge_type == 'product' %}selected{% endif %}>产品信息</option>
+                                    <option value="policy" {% if form.instance.knowledge_type == 'policy' %}selected{% endif %}>政策法规</option>
+                                    <option value="sales" {% if form.instance.knowledge_type == 'sales' %}selected{% endif %}>销售话术</option>
+                                    <option value="other" {% if form.instance.knowledge_type == 'other' %}selected{% endif %}>其他</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="layui-form-item layui-form-text">
+                            <label class="layui-form-label">内容</label>
+                            <div class="layui-input-block">
+                                <!-- 富文本编辑器 -->
+                                <textarea name="content" required lay-verify="required" placeholder="请输入知识条目内容" id="contentEditor" class="layui-textarea" style="height: 300px;">{{ form.instance.content|default:'' }}</textarea>
+                                <!-- TinyMCE 富文本编辑器 -->
+                                <script src="https://cdn.jsdelivr.net/npm/tinymce@6.8.1/tinymce.min.js"></script>
+                                <script>
+                                    tinymce.init({
+                                        selector: '#contentEditor',
+                                        language: 'zh_CN',
+                                        height: 400,
+                                        plugins: [
+                                            'advlist autolink lists link image charmap preview anchor',
+                                            'searchreplace visualblocks code fullscreen',
+                                            'insertdatetime media table paste code help wordcount'
+                                        ],
+                                        toolbar: 'undo redo | formatselect | bold italic backcolor | 
+                                                alignleft aligncenter alignright alignjustify | 
+                                                bullist numlist outdent indent | removeformat | help',
+                                        content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }',
+                                        setup: function(editor) {
+                                            // 监听内容变化，更新textarea的值
+                                            editor.on('change', function() {
+                                                editor.save();
+                                            });
+                                        }
+                                    });
+                                </script>
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">上传文件</label>
+                            <div class="layui-input-block">
+                                <div class="layui-upload">
+                                    <button type="button" class="layui-btn" id="uploadFile">
+                                        <i class="layui-icon"></i> 选择文件
+                                    </button>
+                                    <div class="layui-upload-list">
+                                    <input type="file" name="file" id="fileInput" style="display: none;" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt">
+                                    <p id="fileTip">支持上传PDF、Word、Excel、PPT、TXT等文件</p>
+                                    {% if form.instance.file %}
+                                    <div class="layui-upload-file" style="margin-top: 10px;">
+                                        <i class="layui-icon layui-icon-file"></i>
+                                        <a href="{{ form.instance.file.url }}" target="_blank">{{ form.instance.file.name|cut:'knowledge_files/' }}</a>
+                                        <button type="button" class="layui-btn layui-btn-danger layui-btn-xs" onclick="deleteFile()">删除</button>
+                                        <input type="hidden" name="existing_file" value="{{ form.instance.file.name }}">
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">状态</label>
+                            <div class="layui-input-block">
+                                <select name="status" required lay-verify="required">
+                                    <option value="draft" {% if form.instance.status == 'draft' or not form.instance.id %}selected{% endif %}>草稿</option>
+                                    <option value="published" {% if form.instance.status == 'published' %}selected{% endif %}>已发布</option>
+                                    <option value="archived" {% if form.instance.status == 'archived' %}selected{% endif %}>已归档</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">标签</label>
+                            <div class="layui-input-block">
+                                <input type="text" name="tags" placeholder="请输入标签，多个标签用逗号分隔" autocomplete="off" class="layui-input" value="{% if form.instance.tags %}{{ form.instance.tags|join:', ' }}{% endif %}">
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <div class="layui-input-block">
+                                <button class="layui-btn" lay-submit lay-filter="knowledgeItemForm">保存</button>
+                                <a href="{% url 'ai:knowledge_item_list' %}" class="layui-btn layui-btn-primary">取消</a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+    layui.use(['form', 'upload'], function(){
+        var form = layui.form;
+        var upload = layui.upload;
+        
+        // 文件选择按钮点击事件
+        document.getElementById('uploadFile').addEventListener('click', function(){
+            document.getElementById('fileInput').click();
+        });
+        
+        // 文件选择事件
+        document.getElementById('fileInput').addEventListener('change', function(){
+            var file = this.files[0];
+            if(file){
+                var fileTip = document.getElementById('fileTip');
+                fileTip.innerHTML = '正在解析文件内容...';
+                fileTip.style.color = '#1890ff';
+                
+                // 创建FormData对象，准备上传文件
+                var formData = new FormData();
+                formData.append('file', file);
+                formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+                
+                // 发送AJAX请求，解析文件内容
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', '{% url 'ai:parse_file_content' %}', true);
+                xhr.onload = function() {
+                    if (xhr.status === 200) {
+                        var response = JSON.parse(xhr.responseText);
+                        if (response.status === 'success') {
+                            // 解析成功，将内容填充到富文本编辑器
+                            fileTip.innerHTML = '已选择文件: ' + file.name;
+                            fileTip.style.color = '#52c41a';
+                            
+                            // 填充到TinyMCE编辑器
+                            if (window.tinymce) {
+                                var editor = tinymce.get('contentEditor');
+                                if (editor) {
+                                    editor.setContent(response.content);
+                                    editor.save(); // 保存到textarea
+                                } else {
+                                    // 如果TinyMCE未加载，直接填充到textarea
+                                    document.getElementById('contentEditor').value = response.content;
+                                }
+                            } else {
+                                // 如果TinyMCE未加载，直接填充到textarea
+                                document.getElementById('contentEditor').value = response.content;
+                            }
+                        } else {
+                            fileTip.innerHTML = '文件解析失败: ' + response.message;
+                            fileTip.style.color = '#ff4d4f';
+                        }
+                    } else {
+                        fileTip.innerHTML = '文件上传失败，请重试';
+                        fileTip.style.color = '#ff4d4f';
+                    }
+                };
+                xhr.onerror = function() {
+                    fileTip.innerHTML = '网络错误，请重试';
+                    fileTip.style.color = '#ff4d4f';
+                };
+                xhr.send(formData);
+            }
+        });
+        
+        // 删除文件函数
+        window.deleteFile = function(){
+            var fileDiv = document.querySelector('.layui-upload-file');
+            if(fileDiv){
+                fileDiv.remove();
+                // 添加一个隐藏字段，表示要删除现有文件
+                var deleteInput = document.createElement('input');
+                deleteInput.type = 'hidden';
+                deleteInput.name = 'delete_file';
+                deleteInput.value = '1';
+                document.querySelector('form').appendChild(deleteInput);
+            }
+        };
+        
+        // 表单验证
+        form.verify({
+            title: function(value, item){
+                if(value.length < 1){
+                    return '标题不能为空';
+                }
+                if(value.length > 200){
+                    return '标题不能超过200个字符';
+                }
+            },
+            content: function(value, item){
+                if(value.length < 1){
+                    return '内容不能为空';
+                }
+            }
+        });
+        
+        // 表单提交
+        form.on('submit(knowledgeItemForm)', function(data){
+            // 处理标签，转换为数组
+            var tagsInput = document.querySelector('input[name="tags"]');
+            if(tagsInput.value){
+                var tags = tagsInput.value.split(',').map(tag => tag.trim()).filter(tag => tag);
+                tagsInput.value = JSON.stringify(tags);
+            }
+            
+            // 获取保存按钮
+            var saveBtn = data.elem.querySelector('.layui-btn[type="submit"]');
+            var originalBtnText = saveBtn.innerHTML;
+            
+            // 点击保存按钮后立即提供视觉反馈
+            saveBtn.innerHTML = '<i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 处理中...';
+            saveBtn.disabled = true;
+            
+            // 显示向量化处理状态
+            var loadingIndex = layer.msg('正在进行向量化处理...', {
+                icon: 16,
+                shade: 0.3,
+                time: 0 // 不自动关闭
+            });
+            
+            // 使用AJAX提交表单
+            $.ajax({
+                url: data.form.action,
+                type: 'POST',
+                data: $(data.form).serialize(),
+                success: function(res){
+                    layer.close(loadingIndex);
+                    saveBtn.innerHTML = originalBtnText;
+                    saveBtn.disabled = false;
+                    
+                    if(res.status === 'success'){
+                        // 保存成功，关闭当前弹出层
+                        var index = parent.layer.getFrameIndex(window.name);
+                        parent.layer.close(index);
+                        // 刷新父页面的表格
+                        parent.layui.table.reload('knowledgeItemTable');
+                        parent.layer.msg(res.message, {icon: 1});
+                    } else {
+                        // 显示失败提示信息，保持页面不关闭
+                        layer.msg(res.message || '操作失败', {icon: 2, time: 3000});
+                    }
+                },
+                error: function(xhr, status, error){
+                    layer.close(loadingIndex);
+                    saveBtn.innerHTML = originalBtnText;
+                    saveBtn.disabled = false;
+                    
+                    // 解析错误响应
+                    var errorMsg = '保存失败';
+                    try {
+                        var res = JSON.parse(xhr.responseText);
+                        errorMsg = res.message || errorMsg;
+                    } catch (e) {
+                        errorMsg = '请求失败，请检查网络连接';
+                    }
+                    
+                    // 显示失败提示，保持页面不关闭
+                    layer.msg(errorMsg, {icon: 2, time: 3000});
+                }
+            });
+            
+            return false; // 阻止表单默认提交
+        });
+    });
+</script>
+{% endblock %}

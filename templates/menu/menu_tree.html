@@ -1,0 +1,41 @@
+{% for menu in menus %}
+<tr class="menu-item menu-level-{{ level }} submenu-item draggable-row" data-id="{{ menu.id }}" data-parent-id="{{ parent_id }}">
+    <td>
+        {% for i in "1"|ljust:level %}
+        <span style="margin-right: 8px;">├─</span>
+        {% endfor %}
+        <i class="layui-icon layui-icon-rank" style="margin-right: 10px; cursor: move;"></i>
+        {% if menu.submenus.all %}
+        <i class="layui-icon toggle-icon" data-id="{{ menu.id }}"></i>
+        {% else %}
+        <span style="width: 16px; display: inline-block;"></span>
+        {% endif %}
+        <span class="menu-title" data-id="{{ menu.id }}">{{ menu.title }}</span>
+    </td>
+    <td>
+        {% if menu.icon %}
+        <i class="layui-icon">{{ menu.icon }}</i>
+        {% endif %}
+    </td>
+    <td>{{ menu.src }}</td>
+    <td class="sort-value">{{ menu.sort }}</td>
+    <td>
+        {% if menu.status == 1 %}
+        <span class="layui-badge layui-bg-green">正常</span>
+        {% else %}
+        <span class="layui-badge">禁用</span>
+        {% endif %}
+    </td>
+    <td>
+        <a class="layui-btn layui-btn-xs" href="{% url 'system:menu:menu_update' menu.id %}">编辑</a>
+        <a class="layui-btn layui-btn-xs layui-btn-danger" href="{% url 'system:menu:menu_delete' menu.id %}">删除</a>
+    </td>
+</tr>
+
+<!-- 递归显示下一级子菜单 -->
+{% if menu.submenus.all %}
+{% with new_level=level|add:1 new_parent_id=menu.id %}
+{% include 'menu/menu_tree.html' with menus=menu.submenus.all|dictsort:'sort' level=new_level parent_id=new_parent_id %}
+{% endwith %}
+{% endif %}
+{% endfor %}

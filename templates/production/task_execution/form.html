@@ -1,0 +1,188 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if task %}编辑生产任务{% else %}新建生产任务{% endif %}</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <!-- 页面标题 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <h2 style="margin-bottom: 20px;">
+                    {% if task %}编辑生产任务{% else %}新建生产任务{% endif %}
+                </h2>
+            </div>
+        </div>
+
+        <!-- 表单 -->
+        <div class="layui-row">
+            <div class="layui-col-md10">
+                <div class="layui-card">
+                    <div class="layui-card-body">
+                        <form class="layui-form" method="post">
+                            {% csrf_token %}
+                            
+                            <div class="layui-form-item">
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">任务名称 <span style="color: red;">*</span></label>
+                                    <div class="layui-input-inline" style="width: 250px;">
+                                        {{ form.name }}
+                                        {% if form.name.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.name.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">任务编号 <span style="color: red;">*</span></label>
+                                    <div class="layui-input-inline" style="width: 150px;">
+                                        {{ form.code }}
+                                        {% if form.code.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.code.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">所属计划</label>
+                                    <div class="layui-input-inline" style="width: 200px;">
+                                        {{ form.plan }}
+                                        {% if form.plan.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.plan.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">执行工序 <span style="color: red;">*</span></label>
+                                    <div class="layui-input-inline" style="width: 150px;">
+                                        {{ form.procedure }}
+                                        {% if form.procedure.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.procedure.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">使用设备</label>
+                                    <div class="layui-input-inline" style="width: 150px;">
+                                        {{ form.equipment }}
+                                        {% if form.equipment.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.equipment.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">任务数量 <span style="color: red;">*</span></label>
+                                    <div class="layui-input-inline" style="width: 120px;">
+                                        {{ form.quantity }}
+                                        {% if form.quantity.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.quantity.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">执行人</label>
+                                    <div class="layui-input-inline" style="width: 150px;">
+                                        {{ form.assignee }}
+                                        {% if form.assignee.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.assignee.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">计划开始时间 <span style="color: red;">*</span></label>
+                                    <div class="layui-input-inline" style="width: 180px;">
+                                        {{ form.plan_start_time }}
+                                        {% if form.plan_start_time.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.plan_start_time.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">计划结束时间 <span style="color: red;">*</span></label>
+                                    <div class="layui-input-inline" style="width: 180px;">
+                                        {{ form.plan_end_time }}
+                                        {% if form.plan_end_time.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.plan_end_time.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item layui-form-text">
+                                <label class="layui-form-label">任务描述</label>
+                                <div class="layui-input-block">
+                                    {{ form.description }}
+                                    {% if form.description.errors %}
+                                        <div style="color: red; margin-top: 5px;">{{ form.description.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item layui-form-text">
+                                <label class="layui-form-label">挂起原因</label>
+                                <div class="layui-input-block">
+                                    {{ form.suspend_reason }}
+                                    {% if form.suspend_reason.errors %}
+                                        <div style="color: red; margin-top: 5px;">{{ form.suspend_reason.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <div class="layui-input-block">
+                                    <button class="layui-btn" lay-submit lay-filter="formSubmit">
+                                        {% if task %}更新{% else %}保存{% endif %}
+                                    </button>
+                                    <button type="button" class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:production_task_list' %}'">
+                                        取消
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['form', 'layer', 'laydate'], function () {
+            var form = layui.form;
+            var layer = layui.layer;
+            var laydate = layui.laydate;
+
+            // 日期时间选择器
+            laydate.render({
+                elem: '#id_plan_start_time',
+                type: 'datetime'
+            });
+
+            laydate.render({
+                elem: '#id_plan_end_time',
+                type: 'datetime'
+            });
+
+            // 监听提交
+            form.on('submit(formSubmit)', function(data) {
+                return true; // 允许表单提交
+            });
+        });
+    </script>
+</body>
+
+</html>

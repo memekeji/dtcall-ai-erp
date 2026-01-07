@@ -1,0 +1,793 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>企业员工管理</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/common.css' %}">
+    <style>
+        .layui-container {
+            width: 100% !important;
+            max-width: none !important;
+            padding: 0;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow-x: hidden;
+        }
+        .layui-col-md12 {
+            display: flex;
+            position: relative;
+        }
+        .tree-box {
+            width: 160px;
+            height: auto;
+            min-height: calc(100vh - 120px);
+            border-right: 1px solid #eee;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+        .content-box {
+            flex-grow: 1;
+            padding: 20px;
+            margin-left: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            height: auto;
+            min-height: calc(100vh - 120px);
+        }
+        /* 右侧弹窗样式 - 优化版 */
+        #slidePanelWrapper {
+            position: fixed;
+            top: 0;
+            right: -75%;
+            width: 75%;
+            max-width: none;
+            height: 100vh;
+            background: #fff;
+            box-shadow: -5px 0 25px rgba(0,0,0,0.15);
+            border-radius: 8px 0 0 8px;
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform: translateX(0);
+            z-index: 999;
+            overflow-y: auto;
+        }
+        #slidePanelWrapper.active {
+            transform: translateX(-100%);
+        }
+        .slide-panel-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #2c3e50;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            border-radius: 8px 0 0 0;
+        }
+        .slide-panel-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+        }
+        .slide-panel-title::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 20px;
+            background: #3498db;
+            margin-right: 12px;
+            border-radius: 2px;
+        }
+        #slidePanelClose {
+            cursor: pointer;
+            font-size: 22px;
+            color: #ecf0f1;
+            transition: all 0.2s;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #slidePanelClose:hover {
+            color: #ffffff;
+            background: rgba(255,255,255,0.2);
+        }
+        .slide-panel-body {
+            padding: 30px;
+            min-height: calc(100vh - 64px);
+            width: 100%;
+            box-sizing: border-box;
+        }
+        #slidePanelContent .layui-container {
+            width: 100% !important;
+            padding: 0 15px;
+        }
+        /* 表单样式优化 */
+        .slide-panel-body .layui-form-item {
+            margin-bottom: 18px;
+        }
+        @media screen and (max-width: 768px) {
+            #slidePanelWrapper {
+                width: 95%;
+                right: -95%;
+            }
+            .slide-panel-body .layui-form-label {
+                width: 100px;
+            }
+            .slide-panel-body .layui-input-block {
+                margin-left: 130px;
+            }
+        }
+        .slide-panel-body .layui-form-label {
+            width: 120px;
+            font-weight: 500;
+            color: #555;
+        }
+        .slide-panel-body .layui-input-block {
+            margin-left: 150px;
+        }
+        .slide-panel-body .layui-btn {
+            padding: 0 24px;
+            height: 40px;
+            border-radius: 4px;
+        }
+        .slide-panel-body .layui-btn-primary:hover {
+            border-color: #3498db;
+            color: #3498db;
+        }
+        #slidePanelOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 998;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            backdrop-filter: blur(2px);
+        }
+        #slidePanelOverlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        /* 修复弹窗打开时的页面抖动 */
+        body.slide-panel-open {
+            position: fixed;
+            width: 100%;
+            overflow: hidden;
+            top: calc(-1 * var(--scroll-pos, 0px));
+            left: 0;
+            right: 0;
+        }
+        .search-bar {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .status-normal { background-color: #52c41a; }
+        .status-disabled { background-color: #faad14; }
+        .status-resigned { background-color: #ff4d4f; }
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .layui-table-cell {
+            height: auto !important;
+            white-space: normal;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-container">
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <div class="tree-box" id="departmentTree"></div>
+                <div class="content-box">
+                    <div class="layui-row">
+                    </div>
+
+                    <div class="search-bar">
+                        <div class="layui-form layui-form-item">
+                            <div class="layui-form-item">
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">员工状态</label>
+                                    <div class="layui-input-inline">
+                                        <select name="status" lay-filter="status">
+                                            <option value="">全部状态</option>
+                                            <option value="1">正常</option>
+                                            <option value="0">禁止登录</option>
+                                            <option value="2">离职</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">员工类型</label>
+                                    <div class="layui-input-inline">
+                                        <select name="employee_type" lay-filter="employee_type">
+                                            <option value="">全部类型</option>
+                                            <option value="正式员工">正式员工</option>
+                                            <option value="试用员工">试用员工</option>
+                                            <option value="实习员工">实习员工</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="layui-inline">
+                                    <div class="layui-input-inline" style="width: 200px;">
+                                        <input type="text" name="keyword" placeholder="关键字、ID、姓名、工号、账号、手机号、邮箱" class="layui-input">
+                                    </div>
+                                    <button class="layui-btn" id="searchBtn">搜索</button>
+                                    <div style="display: inline-block; margin-left: 200px;">
+                                    <button class="layui-btn" id="batchImportBtn">批量导入</button>
+                                    <button class="layui-btn" id="addBtn">添加员工</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <table class="layui-table" id="employeeTable" lay-filter="employeeTable"></table>
+                </div>
+            </div>
+        </div>
+    </div>
+        
+    <!-- 新版弹窗容器 - 完全独立DOM树 -->
+    <div id="slidePanelContainer">
+        <div id="slidePanelOverlay"></div>
+        <div id="slidePanelWrapper">
+            <div class="slide-panel-header">
+                <div class="slide-panel-title" id="panelTitle">添加员工</div>
+                <div class="slide-panel-close" id="slidePanelClose">×</div>
+            </div>
+            <div id="slidePanelContent">
+                <!-- 动态加载表单内容 -->
+            </div>
+        </div>
+    </div>
+
+    <script type="text/html" id="statusTpl">
+    {% verbatim %}
+        {{#  if(d.status == 1) { }}
+    <span class="layui-badge layui-bg-green">正常</span>
+{{#  } else if(d.status == 0) { }}
+    <span class="layui-badge layui-bg-orange">禁止登录</span>
+{{#  } else { }}
+    <span class="layui-badge layui-bg-red">离职</span>
+{{#  } }}
+    {% endverbatim %}
+    </script>
+
+    <script type="text/html" id="barTpl">
+    {% verbatim %}
+        <a class="layui-btn layui-btn-xs" lay-event="detail">查看</a>
+        <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
+        <a class="layui-btn layui-btn-xs layui-btn-warm" lay-event="resetPwd">重置密码</a>
+        {{#  if(d.status == 1) { }}
+            <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="disable">禁止登录</a>
+        {{#  } else if(d.status == 0) { }}
+            <a class="layui-btn layui-btn-xs layui-btn-success" lay-event="enable">恢复正常</a>
+        {{#  } }}
+        <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
+    {% endverbatim %}
+    </script>
+    <script src="{% static 'js/jquery.min.js' %}"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        // 获取CSRF令牌的辅助函数
+        function getCookie(name) {
+            var cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = jQuery.trim(cookies[i]);
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        
+        // 获取并设置CSRF令牌
+        var csrftoken = getCookie('csrftoken');
+        
+        // 为所有AJAX请求添加CSRF令牌
+        function addCsrfTokenToRequest(settings) {
+            if (!settings.crossDomain && csrftoken) {
+                settings.headers = settings.headers || {};
+                settings.headers['X-CSRFToken'] = csrftoken;
+            }
+            return settings;
+        }
+        
+        // 使用ajaxPrefilter确保所有AJAX请求都添加CSRF令牌
+        $.ajaxPrefilter(addCsrfTokenToRequest);
+        
+        // 同时设置全局AJAX配置，确保兼容性
+        $.ajaxSetup({
+            beforeSend: function(xhr) {
+                if (csrftoken) {
+                    xhr.setRequestHeader('X-CSRFToken', csrftoken);
+                }
+            }
+        });
+
+        layui.use(['tree', 'table', 'form', 'layer'], function() {
+            var tree = layui.tree;
+            var table = layui.table;
+            var form = layui.form;
+            var layer = layui.layer;
+            
+            // 配置layer弹窗默认参数，确保层级正确
+            layer.config({
+                shade: 0.6,
+                shadeClose: true,
+                zIndex: 999
+            });
+
+            // 渲染部门树形结构
+            // 使用后端传递的部门树形数据渲染
+            var departmentData = JSON.parse('{{ department_tree|safe|default:"[]" }}');
+            console.log('部门树形数据:', departmentData);
+            if (departmentData && departmentData.length > 0) {
+                tree.render({
+                    elem: '#departmentTree',
+                    data: departmentData,
+                    showLine: true,
+                    showCheckbox: false,
+                    id: 'departmentTreeId',
+                    click: function(obj) {
+                        console.log('点击部门节点:', obj.data);
+                        $('input[name=dept_id]').val(obj.data.id);
+                        table.reload('employeeTable', {
+                            where: { dept_id: obj.data.id },
+                            page: { curr: 1 }
+                        });
+                    }
+                });
+            } else {
+                $('#departmentTree').html('<div style="padding: 20px; text-align: center; color: #999;">暂无部门数据</div>');
+            }
+
+            // 渲染员工表格
+            table.render({
+                elem: '#employeeTable',
+                url: '/user/admin/list/',
+                page: true,
+                cols: [[
+                    { field: 'id', title: 'ID', width: 80 },
+                    { field: 'thumb', title: '头像', width: 80, templet: function(d) { return '<div><img src="' + (d.thumb || '/static/img/user-avatar.png') + '" class="avatar"></div>'; } },
+                    { field: 'name', title: '姓名', width: 100 },
+                    { field: 'job_number', title: '工号', width: 100 },
+                    { field: 'mobile', title: '手机号', width: 120 },
+                    { field: 'email', title: '邮箱', width: 180 },
+                    { field: 'department_name', title: '主部门', width: 120 },
+                    { field: 'position_name', title: '岗位职称', width: 120 },
+                    { field: 'type', title: '员工类型', width: 100 },
+                    { field: 'status', title: '状态', width: 70, templet: '#statusTpl' },
+                    { field: 'entry_time', title: '入职日期', width: 120 },
+                    { title: '操作', width: 320, toolbar: '#barTpl' }
+                ]]
+            });
+
+            // 监听工具条
+            table.on('tool(employeeTable)', function(obj) {
+                var data = obj.data;
+                if (obj.event === 'detail') {
+                    $('#panelTitle').text('员工详情 - ' + data.name);
+                    $('#slidePanelContent').load('/user/employee/detail/' + data.id + '/', function(response, status, xhr) {
+                        if (status === 'success') {
+                            // 提取表单内容
+                            var formContent = $(response).find('.detail-container').html();
+                            if (formContent) {
+                                $('#slidePanelContent').html(formContent);
+                            }
+                            layui.form.render();
+                            
+                            // 显示弹窗
+                            $('#slidePanelOverlay').addClass('active');
+                            $('#slidePanelWrapper').addClass('active');
+                            $('body').addClass('slide-panel-open');
+                        }
+                    });
+                } else if (obj.event === 'edit') {
+                    $('#panelTitle').text('编辑员工 - ' + data.name);
+                    $('#slidePanelContent').load('/user/employee/update/' + data.id + '/', function(response, status, xhr) {
+                        if (status === 'success') {
+                            // 提取表单内容 - 匹配form.html的实际结构
+                            var formContent = $(response).find('.employee-form-container').html();
+                            if (formContent) {
+                                $('#slidePanelContent').html(formContent);
+                            }
+                            
+                            // 显示弹窗
+                            $('#slidePanelOverlay').addClass('active');
+                            $('#slidePanelWrapper').addClass('active');
+                            $('body').addClass('slide-panel-open');
+                            
+                            // 等待DOM加载完成后初始化组件
+                            setTimeout(function() {
+                                // 重新初始化layui表单
+                                layui.form.render();
+                                // 初始化Select2组件
+                                if (window.initSelect2Components) {
+                                    window.initSelect2Components();
+                                } else {
+                                    // 如果函数未暴露，尝试直接调用
+                                    var iframe = document.createElement('iframe');
+                                    iframe.style.display = 'none';
+                                    document.body.appendChild(iframe);
+                                    iframe.contentWindow.$ = $;
+                                    iframe.contentWindow.jQuery = $;
+                                    iframe.contentWindow.layui = layui;
+                                    // 直接在当前窗口初始化Select2
+                                    $('select[name="did"], select[name="position_id"], select[name="pid"], select[name="secondary_departments"], select[name="type"], select[name="is_staff"], select[name="status"], select[name="sex"]').select2({
+                                        theme: 'bootstrap-5',
+                                        placeholder: '请选择',
+                                        allowClear: true,
+                                        width: '100%'
+                                    });
+                                    document.body.removeChild(iframe);
+                                }
+                                // 加载员工数据到主管选择框
+                                $.ajax({
+                                    url: '/user/admin/list/',
+                                    type: 'GET',
+                                    data: {
+                                        limit: 1000,
+                                        status: 1
+                                    },
+                                    success: function(response) {
+                                        if (response.code === 0 && response.data && response.data.length > 0) {
+                                            var managerSelect = $('select[name="pid"]');
+                                            managerSelect.html('');
+                                            managerSelect.append('<option value="">请选择上级主管</option>');
+                                            $.each(response.data, function(index, employee) {
+                                                var displayText = employee.name;
+                                                if (employee.job_number) {
+                                                    displayText += ' (' + employee.job_number + ')';
+                                                }
+                                                if (employee.department_name) {
+                                                    displayText += ' - ' + employee.department_name;
+                                                }
+                                                managerSelect.append('<option value="' + employee.id + '">' + displayText + '</option>');
+                                            });
+                                            // 重新初始化Select2
+                                            managerSelect.select2({
+                                                theme: 'bootstrap-5',
+                                                placeholder: '请选择上级主管',
+                                                allowClear: true,
+                                                width: '100%'
+                                            });
+                                        }
+                                    }
+                                });
+                            }, 200);
+                        }
+                    });
+                } else if (obj.event === 'resetPwd') {
+                    // 先关闭可能打开的侧边弹窗
+                    closePanel();
+                    layer.prompt({ 
+                        title: '输入新密码', 
+                        formType: 1,
+                        end: function() {
+                            // 弹窗关闭时移除所有遮罩层和限制
+                            $('.layui-layer-shade').remove();
+                            $('body').removeClass('slide-panel-open');
+                        },
+                        cancel: function() {
+                            // 点击取消按钮时移除所有遮罩层和限制
+                            $('.layui-layer-shade').remove();
+                            $('body').removeClass('slide-panel-open');
+                            return true;
+                        }
+                    }, function(pass, index) {
+                        $.post('/user/employee/' + data.id + '/reset-password/', { password: pass }, function(res) {
+                            if (res.code === 0) {
+                                layer.msg('密码重置成功');
+                                layer.close(index);
+                            } else {
+                                layer.msg(res.msg);
+                                layer.close(index);
+                            }
+                            // 确保所有遮罩层和限制都被移除
+                            $('.layui-layer-shade').remove();
+                            $('body').removeClass('slide-panel-open');
+                        });
+                    });
+                } else if (obj.event === 'disable') {
+                    // 先关闭可能打开的侧边弹窗
+                    closePanel();
+                    layer.confirm('确定要禁止该员工登录吗？', {
+                        end: function() {
+                            // 弹窗关闭时移除所有遮罩层和限制
+                            $('.layui-layer-shade').remove();
+                            $('body').removeClass('slide-panel-open');
+                        },
+                        cancel: function() {
+                            // 点击取消按钮时移除所有遮罩层和限制
+                            $('.layui-layer-shade').remove();
+                            $('body').removeClass('slide-panel-open');
+                            return true;
+                        }
+                    }, function(index) {
+                        $.post('/user/employee/' + data.id + '/change-status/', { status: 0 }, function(res) {
+                            if (res.code === 0) {
+                                obj.update({ status: 0 });
+                                layer.close(index);
+                            } else {
+                                layer.msg(res.msg);
+                                layer.close(index);
+                            }
+                            // 确保所有遮罩层和限制都被移除
+                            $('.layui-layer-shade').remove();
+                            $('body').removeClass('slide-panel-open');
+                        });
+                    });
+                } else if (obj.event === 'enable') {
+                    // 先关闭可能打开的侧边弹窗
+                    closePanel();
+                    layer.confirm('确定要恢复该员工登录吗？', {
+                        end: function() {
+                            // 弹窗关闭时移除所有遮罩层和限制
+                            $('.layui-layer-shade').remove();
+                            $('body').removeClass('slide-panel-open');
+                        },
+                        cancel: function() {
+                            // 点击取消按钮时移除所有遮罩层和限制
+                            $('.layui-layer-shade').remove();
+                            $('body').removeClass('slide-panel-open');
+                            return true;
+                        }
+                    }, function(index) {
+                        $.post('/user/employee/' + data.id + '/change-status/', { status: 1 }, function(res) {
+                            if (res.code === 0) {
+                                obj.update({ status: 1 });
+                                layer.close(index);
+                            } else {
+                                layer.msg(res.msg);
+                                layer.close(index);
+                            }
+                            // 确保所有遮罩层和限制都被移除
+                            $('.layui-layer-shade').remove();
+                            $('body').removeClass('slide-panel-open');
+                        });
+                    });
+                } else if (obj.event === 'delete') {
+                    // 先关闭可能打开的侧边弹窗
+                    closePanel();
+                    layer.confirm('确定要删除该员工吗？删除后无法恢复！', {
+                        end: function() {
+                            // 弹窗关闭时移除所有遮罩层和限制
+                            $('.layui-layer-shade').remove();
+                            $('body').removeClass('slide-panel-open');
+                        },
+                        cancel: function() {
+                            // 点击取消按钮时移除所有遮罩层和限制
+                            $('.layui-layer-shade').remove();
+                            $('body').removeClass('slide-panel-open');
+                            return true;
+                        }
+                    }, function(index) {
+                        $.post('/user/admin/delete/', { 'ids[]': data.id }, function(res) {
+                            if (res.code === 0) {
+                                // 删除成功，从表格中移除该行
+                                obj.del();
+                                layer.msg(res.msg);
+                                layer.close(index);
+                            } else {
+                                layer.msg(res.msg);
+                                layer.close(index);
+                            }
+                            // 确保所有遮罩层和限制都被移除
+                            $('.layui-layer-shade').remove();
+                            $('body').removeClass('slide-panel-open');
+                        });
+                    });
+                }
+            });
+
+            // 关闭弹窗函数
+        function closePanel() {
+            $('#slidePanelWrapper').removeClass('active');
+            $('#slidePanelOverlay').removeClass('active');
+            $('body').removeClass('slide-panel-open');
+            
+            // 恢复页面状态
+            setTimeout(function() {
+                layui.table.resize('employeeTable');
+                $(window).trigger('resize');
+            }, 300); // 等待动画完成
+        }
+        
+        // 绑定弹窗关闭事件
+        $('#slidePanelClose, #slidePanelOverlay').click(closePanel);
+        
+        // ESC键关闭弹窗
+        $(document).keyup(function(e) {
+            if (e.keyCode === 27) { // ESC键
+                closePanel();
+            }
+        });
+
+        // 加载员工编辑页面
+        function loadEmployeeEdit(employeeId) {
+            $.get('/user/employee/update/' + employeeId + '/', function(response) {
+                // 提取表单内容
+                var formContent = $(response).find('.layui-container > .layui-row').html();
+                if (formContent) {
+                    $('#slidePanelContent').html(formContent);
+                }
+                layui.form.render();
+            });
+        }
+        
+        // 暴露给子页面使用
+        window.loadEmployeeEdit = loadEmployeeEdit;
+        
+        // 添加员工按钮
+        $('#addBtn').click(function() {
+            $('#panelTitle').text('添加员工');
+            $('#slidePanelContent').load('/user/employee/create/', function(response, status, xhr) {
+                if (status === 'success') {
+                    // 提取表单内容 - 匹配form.html的实际结构
+                    var formContent = $(response).find('.employee-form-container').html();
+                    if (formContent) {
+                        $('#slidePanelContent').html(formContent);
+                    }
+                    
+                    // 显示弹窗
+                    $('#slidePanelOverlay').addClass('active');
+                    $('#slidePanelWrapper').addClass('active');
+                    $('body').addClass('slide-panel-open');
+                    
+                    // 等待DOM加载完成后初始化组件
+                    setTimeout(function() {
+                        // 重新初始化layui表单
+                        layui.form.render();
+                        // 初始化Select2组件
+                        if (window.initSelect2Components) {
+                            window.initSelect2Components();
+                        } else {
+                            // 如果函数未暴露，尝试直接调用
+                            var iframe = document.createElement('iframe');
+                            iframe.style.display = 'none';
+                            document.body.appendChild(iframe);
+                            iframe.contentWindow.$ = $;
+                            iframe.contentWindow.jQuery = $;
+                            iframe.contentWindow.layui = layui;
+                            // 直接在当前窗口初始化Select2
+                            $('select[name="did"], select[name="position_id"], select[name="pid"], select[name="secondary_departments"], select[name="type"], select[name="is_staff"], select[name="status"], select[name="sex"]').select2({
+                                theme: 'bootstrap-5',
+                                placeholder: '请选择',
+                                allowClear: true,
+                                width: '100%'
+                            });
+                            document.body.removeChild(iframe);
+                        }
+                        // 加载员工数据到主管选择框
+                        $.ajax({
+                            url: '/user/admin/list/',
+                            type: 'GET',
+                            data: {
+                                limit: 1000,
+                                status: 1
+                            },
+                            success: function(response) {
+                                if (response.code === 0 && response.data && response.data.length > 0) {
+                                    var managerSelect = $('select[name="pid"]');
+                                    managerSelect.html('');
+                                    managerSelect.append('<option value="">请选择上级主管</option>');
+                                    $.each(response.data, function(index, employee) {
+                                        var displayText = employee.name;
+                                        if (employee.job_number) {
+                                            displayText += ' (' + employee.job_number + ')';
+                                        }
+                                        if (employee.department_name) {
+                                            displayText += ' - ' + employee.department_name;
+                                        }
+                                        managerSelect.append('<option value="' + employee.id + '">' + displayText + '</option>');
+                                    });
+                                    // 重新初始化Select2
+                                    managerSelect.select2({
+                                        theme: 'bootstrap-5',
+                                        placeholder: '请选择上级主管',
+                                        allowClear: true,
+                                        width: '100%'
+                                    });
+                                }
+                            }
+                        });
+                    }, 200);
+                }
+            });
+        });
+
+            // 批量导入按钮
+            $('#batchImportBtn').click(function() {
+                // 先关闭可能打开的侧边弹窗
+                closePanel();
+                layer.open({
+                    type: 1,
+                    title: '批量导入员工',
+                    area: ['500px', '300px'],
+                    content: '<div style="padding: 20px;"><input type="file" id="importFile" accept=".xlsx,.xls"><p style="margin-top: 10px; color: #666;">请选择Excel文件进行导入</p></div>',
+                    btn: ['导入', '取消'],
+                    yes: function(index) {
+                        var file = $('#importFile')[0].files[0];
+                        if (!file) {
+                            layer.msg('请选择文件');
+                            return;
+                        }
+                        var formData = new FormData();
+                        formData.append('file', file);
+                        $.ajax({
+                            url: '/user/batch_import/',
+                            type: 'post',
+                            data: formData,
+                            contentType: false,
+                            processData: false,
+                            success: function(res) {
+                                if (res.code === 0) {
+                                    layer.msg('导入成功');
+                                    table.reload('employeeTable');
+                                    layer.close(index);
+                                } else {
+                                    layer.msg(res.msg);
+                                    layer.close(index);
+                                }
+                                // 确保所有遮罩层和限制都被移除
+                                $('.layui-layer-shade').remove();
+                                $('body').removeClass('slide-panel-open');
+                            }
+                        });
+                    },
+                    cancel: function() {
+                        // 关闭弹窗时确保所有遮罩层和限制都被移除
+                        $('.layui-layer-shade').remove();
+                        $('body').removeClass('slide-panel-open');
+                    },
+                    end: function() {
+                        // 弹窗关闭时确保所有遮罩层和限制都被移除
+                        $('.layui-layer-shade').remove();
+                        $('body').removeClass('slide-panel-open');
+                    }
+                });
+            });
+
+            // 搜索按钮
+            $('#searchBtn').click(function() {
+                var status = $('select[name="status"]').val();
+                var employee_type = $('select[name="employee_type"]').val();
+                var keyword = $('input[name="keyword"]').val();
+                table.reload('employeeTable', {
+                    where: {
+                        status: status,
+                        employee_type: employee_type,
+                        keyword: keyword
+                    },
+                    page: { curr: 1 }
+                });
+            });
+        });
+
+    </script>
+</body>
+</html>

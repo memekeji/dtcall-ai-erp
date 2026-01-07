@@ -1,0 +1,200 @@
+{% load static %}
+<style>
+    /* 确保所有样式只影响详情页面 */
+    .detail-container {
+        padding: 30px;
+        min-height: calc(100vh - 64px);
+        background-color: #fafafa;
+    }
+    .detail-container .detail-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 30px;
+        padding: 20px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+    }
+    .detail-container .avatar {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-right: 20px;
+        border: 3px solid #e8e8e8;
+    }
+    .detail-container .basic-info h2 {
+        margin-bottom: 10px;
+        font-size: 24px;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    .detail-container .basic-info p {
+        color: #666;
+        font-size: 14px;
+    }
+    .detail-container .info-section {
+        margin-bottom: 25px;
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+    }
+    .detail-container .info-section h3 {
+        margin-bottom: 15px;
+        padding-left: 12px;
+        border-left: 4px solid #3498db;
+        font-size: 18px;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    .detail-container .info-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+    }
+    .detail-container .info-table tr {
+        border-bottom: 1px solid #f2f2f2;
+        transition: background-color 0.2s;
+    }
+    .detail-container .info-table tr:hover {
+        background-color: #f9f9f9;
+    }
+    .detail-container .info-table td {
+        padding: 14px 15px;
+        font-size: 14px;
+    }
+    .detail-container .info-table td:first-child {
+        width: 180px;
+        background-color: #fafafa;
+        font-weight: 500;
+        color: #555;
+        border-right: 1px solid #f2f2f2;
+    }
+    .detail-container .info-table td:last-child {
+        color: #333;
+    }
+    .detail-container .status-normal { background-color: #52c41a; }
+    .detail-container .status-disabled { background-color: #faad14; }
+    .detail-container .status-resigned { background-color: #ff4d4f; }
+    .detail-container .badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        color: white;
+        font-size: 12px;
+        font-weight: 500;
+        margin-left: 10px;
+    }
+    .detail-container .action-buttons {
+        margin-top: 20px;
+        text-align: right;
+        padding: 20px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+    }
+    .detail-container .action-buttons .layui-btn {
+        margin-left: 10px;
+        padding: 0 24px;
+        height: 36px;
+        line-height: 36px;
+        border-radius: 4px;
+    }
+</style>
+
+<div class="detail-container">
+    <div class="detail-header">
+        <img src="{% if employee.thumb %}{{ employee.thumb }}{% else %}{% static 'img/user-avatar.png' %}{% endif %}" alt="{{ employee.name }}" class="avatar">
+        <div class="basic-info">
+            <h2>{{ employee.name }} <span class="badge {% if employee.status == 1 %}status-normal{% elif employee.status == 0 %}status-disabled{% else %}status-resigned{% endif %}">
+                {% if employee.status == 1 %}正常{% elif employee.status == 0 %}禁止登录{% else %}离职{% endif %}
+            </span></h2>
+            <p>工号: {{ employee.job_number }} | 岗位: {{ employee.position_name }} | 主部门: {{ employee.department.name }}</p>
+        </div>
+    </div>
+
+    <div class="action-buttons">
+        <a href="javascript:;" class="layui-btn layui-btn-normal edit-employee" data-id="{{ employee.id }}">编辑</a>
+        <a href="javascript:;" class="layui-btn layui-btn-primary close-panel">返回</a>
+    </div>
+
+    <div class="info-section">
+        <h3>基本信息</h3>
+        <table class="info-table">
+            <tr><td>登录账号</td><td>{{ employee.username }}</td></tr>
+            <tr><td>员工姓名</td><td>{{ employee.name }}</td></tr>
+            <tr><td>性别</td><td>{% if employee.sex == 1 %}男{% elif employee.sex == 2 %}女{% else %}未知{% endif %}</td></tr>
+            <tr><td>手机号码</td><td>{{ employee.mobile }}</td></tr>
+            <tr><td>电子邮箱</td><td>{{ employee.email }}</td></tr>
+            <tr><td>入职日期</td><td>{{ employee.entry_time|date:'Y-m-d' }}</td></tr>
+            <tr><td>最后登录时间</td><td>{{ employee.last_login_time|date:'Y-m-d H:i:s' }}</td></tr>
+        </table>
+    </div>
+
+    <div class="info-section">
+        <h3>组织信息</h3>
+        <table class="info-table">
+            <tr><td>主部门</td><td>{{ employee.department.name }}</td></tr>
+            <tr><td>次要部门</td><td>
+                {% for dept in secondary_departments %}
+                    {{ dept.name }}{% if not forloop.last %}, {% endif %}
+                {% empty %}
+                    无
+                {% endfor %}
+            </td></tr>
+            <tr><td>岗位职称</td><td>{{ employee.position_name }}</td></tr>
+            <tr><td>上级主管</td><td>{{ employee.pid.name|default:'无' }}</td></tr>
+            <tr><td>身份类型</td><td>
+                {% if employee.is_staff == 1 %}企业员工{% elif employee.is_staff == 2 %}劳务派遣{% else %}兼职员工{% endif %}
+            </td></tr>
+            <tr><td>员工类型</td><td>{{ employee.type }}</td></tr>
+        </table>
+    </div>
+    <div class="info-section">
+        <h3>其他信息</h3>
+        <table class="info-table">
+            <tr><td>SIP账号</td><td>{{ employee.sip_account|default:'-' }}</td></tr>
+            <tr><td>SIP密码</td><td>{{ employee.sip_password|default:'-' }}</td></tr>
+            <tr><td>数据权限</td><td>暂未配置</td></tr>
+            <tr><td>备注信息</td><td>{{ employee.desc|default:'-'|linebreaks }}</td></tr>
+        </table>
+    </div>
+</div>
+
+<script>
+    // 绑定编辑按钮事件
+    $('.edit-employee').click(function() {
+        var employeeId = $(this).data('id');
+        // 使用父页面的编辑逻辑
+        if (window.parent && window.parent.loadEmployeeEdit) {
+            window.parent.loadEmployeeEdit(employeeId);
+        } else {
+            // 如果没有父页面函数，直接加载编辑页面
+            $('#panelTitle').text('编辑员工');
+            $('#slidePanelContent').load('/user/employee/update/' + employeeId + '/', function(response, status, xhr) {
+                if (status === 'success') {
+                    // 提取表单内容
+                    var formContent = $(response).find('.layui-container > .layui-row').html();
+                    if (formContent) {
+                        $('#slidePanelContent').html(formContent);
+                    }
+                    layui.form.render();
+                }
+            });
+        }
+    });
+    
+    // 绑定关闭按钮事件
+    $('.close-panel').click(function() {
+        // 使用父页面的关闭逻辑
+        if (window.parent && window.parent.closePanel) {
+            window.parent.closePanel();
+        } else {
+            // 如果没有父页面函数，直接关闭
+            $('#slidePanelWrapper').removeClass('active');
+            $('#slidePanelOverlay').removeClass('active');
+            $('body').removeClass('slide-panel-open');
+        }
+    });
+</script>

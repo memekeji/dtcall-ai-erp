@@ -1,0 +1,108 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{% if task %}编辑任务{% else %}新增任务{% endif %}{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>{% if task %}编辑任务{% else %}新增任务{% endif %}</h3>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form" method="post">
+            {% csrf_token %}
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md8">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">任务标题 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.title }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">优先级</label>
+                        <div class="layui-input-block">
+                            {{ form.priority }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">状态</label>
+                        <div class="layui-input-block">
+                            {{ form.status }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">完成进度(%)</label>
+                        <div class="layui-input-block">
+                            {{ form.progress }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">截止时间</label>
+                        <div class="layui-input-block">
+                            {{ form.due_date }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">预估工时</label>
+                        <div class="layui-input-block">
+                            {{ form.estimated_hours }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">实际工时</label>
+                        <div class="layui-input-block">
+                            {{ form.actual_hours }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">任务描述</label>
+                <div class="layui-input-block">
+                    {{ form.description }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" lay-submit>保存</button>
+                    <button type="button" class="layui-btn layui-btn-primary" onclick="history.back()">返回</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+layui.use(['form', 'laydate'], function(){
+    var form = layui.form;
+    var laydate = layui.laydate;
+    
+    // 渲染日期时间选择器
+    laydate.render({
+        elem: '#id_due_date',
+        type: 'datetime'
+    });
+});
+</script>
+{% endblock %}

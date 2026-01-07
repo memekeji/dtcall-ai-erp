@@ -1,0 +1,78 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}公文分类管理{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <h3>公文分类管理</h3>
+            </div>
+            <div class="layui-col-md6" style="text-align: right;">
+                <button class="layui-btn layui-btn-sm" onclick="addCategory()">
+                    <i class="layui-icon layui-icon-add-1"></i> 新增分类
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <table class="layui-table" lay-skin="line">
+            <thead>
+                <tr>
+                    <th>分类编码</th>
+                    <th>分类名称</th>
+                    <th>描述</th>
+                    <th>状态</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for category in categories %}
+                <tr>
+                    <td>{{ category.code }}</td>
+                    <td>{{ category.name }}</td>
+                    <td>{{ category.description|truncatechars:50 }}</td>
+                    <td>
+                        {% if category.is_active %}
+                            <span class="layui-badge layui-bg-green">启用</span>
+                        {% else %}
+                            <span class="layui-badge">禁用</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ category.created_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        <button class="layui-btn layui-btn-xs" onclick="editCategory({{ category.pk }})">编辑</button>
+                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteCategory({{ category.pk }})">删除</button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center; color: #999;">暂无数据</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function addCategory() {
+    layer.msg('新增分类功能待完善');
+}
+
+function editCategory(id) {
+    layer.msg('编辑分类功能待完善');
+}
+
+function deleteCategory(id) {
+    layer.confirm('确定要删除这个分类吗？', {
+        btn: ['确定', '取消']
+    }, function(){
+        layer.msg('删除功能待完善');
+    });
+}
+</script>
+{% endblock %}

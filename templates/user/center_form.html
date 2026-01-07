@@ -1,0 +1,362 @@
+{% load static %}
+<style>
+/* 表单容器样式 - 使用唯一前缀避免冲突 */
+.employee-center-form {
+    padding: 20px;
+}
+
+/* 表单区域样式 */
+.employee-center-form .form-section {
+    margin-bottom: 25px;
+}
+
+.employee-center-form .form-section-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 15px;
+    padding-left: 10px;
+    border-left: 3px solid #3498db;
+}
+
+/* 表单行和列样式 */
+.employee-center-form .form-row {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0 -10px;
+    margin-bottom: 15px;
+}
+
+.employee-center-form .form-col {
+    flex: 1;
+    padding: 0 10px;
+    min-width: 280px;
+}
+
+/* 头像上传样式 */
+.employee-center-form .avatar-upload {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin: 0 auto 10px;
+    border: 2px dashed #e8e8e8;
+    position: relative;
+    background-color: #fafafa;
+}
+
+.employee-center-form .avatar-upload:hover {
+    border-color: #3498db;
+}
+
+.employee-center-form .avatar-upload img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.employee-center-form .avatar-upload input {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.employee-center-form .avatar-upload-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #999;
+    font-size: 12px;
+    text-align: center;
+}
+
+.employee-center-form .avatar-hint {
+    text-align: center;
+    color: #666;
+    font-size: 12px;
+}
+
+/* 表单操作按钮样式 */
+.employee-center-form .form-actions {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #f0f0f0;
+    text-align: right;
+}
+
+.employee-center-form .form-actions .layui-btn {
+    margin-left: 10px;
+}
+</style>
+
+<div class="employee-center-form">
+    <form id="employeeForm" class="layui-form" method="post" enctype="multipart/form-data" action="{{ request.path }}" novalidate autocomplete="off">
+        {% csrf_token %}
+        <input type="hidden" id="operationType" value="update">
+        <input type="hidden" id="employeeId" value="{{ form.instance.id }}">
+        
+        <!-- 基本信息 -->
+        <div class="form-section">
+            <h3 class="form-section-title">基本信息</h3>
+            <div class="form-row">
+                <!-- 头像上传 -->
+                <div class="form-col" style="display: flex; flex-direction: column; align-items: center;">
+                    <div class="avatar-upload">
+                        <img id="avatarPreview" src="{% if form.instance.thumb %}{{ form.instance.thumb }}{% else %}{% static 'img/user-avatar.png' %}{% endif %}" alt="头像">
+                        {% if not form.instance.thumb %}<div class="avatar-upload-text">点击上传</div>{% endif %}
+                        <input type="file" name="thumb" id="avatarUpload" accept="image/*">
+                    </div>
+                    <div class="avatar-hint">支持JPG、PNG格式，建议尺寸120x120px</div>
+                </div>
+                
+                <!-- 个人信息 -->
+                <div class="form-col" style="flex: 2;">
+                    <div class="form-row">
+                        <div class="form-col">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">员工姓名 <span style="color: red;">*</span></label>
+                                <div class="layui-input-block">
+                                    {{ form.name }}
+                                    {{ form.name.errors }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-col">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">性别</label>
+                                <div class="layui-input-block">
+                                    {{ form.sex }}
+                                    {{ form.sex.errors }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-col">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">手机号码 <span style="color: red;">*</span></label>
+                                <div class="layui-input-block">
+                                    {{ form.mobile }}
+                                    {{ form.mobile.errors }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-col">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">电子邮箱</label>
+                                <div class="layui-input-block">
+                                    {{ form.email }}
+                                    {{ form.email.errors }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-col">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">工号</label>
+                                <div class="layui-input-block">
+                                    {{ form.job_number }}
+                                    {{ form.job_number.errors }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-col">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">职位</label>
+                                <div class="layui-input-block">
+                                    {{ form.position_name }}
+                                    {{ form.position_name.errors }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 联系方式 -->
+        <div class="form-section">
+            <h3 class="form-section-title">联系方式</h3>
+            
+            <div class="form-row">
+                <div class="form-col">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">家庭地址</label>
+                        <div class="layui-input-block">
+                            {{ form.home_address }}
+                            {{ form.home_address.errors }}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-col">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">现居地址</label>
+                        <div class="layui-input-block">
+                            {{ form.current_address }}
+                            {{ form.current_address.errors }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-col">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">紧急联系人</label>
+                        <div class="layui-input-block">
+                            {{ form.contact }}
+                            {{ form.contact.errors }}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-col">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">紧急联系人电话</label>
+                        <div class="layui-input-block">
+                            {{ form.contact_mobile }}
+                            {{ form.contact_mobile.errors }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 其他信息 -->
+        <div class="form-section">
+            <h3 class="form-section-title">其他信息</h3>
+            
+            <div class="form-row">
+                <div class="form-col" style="min-width: 100%;">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">个人简介</label>
+                        <div class="layui-input-block">
+                            {{ form.desc }}
+                            {{ form.desc.errors }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 表单操作 -->
+        <div class="form-actions">
+            <button type="button" class="layui-btn layui-btn-primary" onclick="window.location.href='/user/center/'">
+                <i class="layui-icon layui-icon-return"></i> 返回
+            </button>
+            <button type="button" id="saveBtn" class="layui-btn">
+                <i class="layui-icon layui-icon-ok"></i> 保存
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    // 使用闭包避免全局变量冲突
+    (function() {
+        // 头像预览
+        document.getElementById('avatarUpload').addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (file) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('avatarPreview').src = e.target.result;
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        // 确保所有选择框都有正确的初始值
+        setTimeout(function() {
+            layui.use('form', function(form) {
+                form.render();
+            });
+        }, 500);
+        
+        // 绑定保存按钮的点击事件，完全自定义表单提交
+        document.getElementById('saveBtn').addEventListener('click', function() {
+            // 获取表单元素
+            var employeeForm = document.getElementById('employeeForm');
+            var submitUrl = employeeForm.action;
+            
+            // 构建FormData对象
+            var formData = new FormData(employeeForm);
+            
+            // 发送AJAX请求
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', submitUrl, true);
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            
+            // 获取CSRF令牌
+            var csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            xhr.setRequestHeader('X-CSRFToken', csrftoken);
+            
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    try {
+                        var res = JSON.parse(xhr.responseText);
+                        if (res.code === 0) {
+                            // 保存成功
+                            layui.use('layer', function(layer) {
+                                layer.msg('保存成功', {icon: 1}, function() {
+                                    window.location.href = '/user/center/';
+                                });
+                            });
+                        } else {
+                            // 保存失败
+                            layui.use('layer', function(layer) {
+                                layer.msg(res.msg || '保存失败', {icon: 2});
+                                // 显示表单错误
+                                if (res.form_errors) {
+                                    for (var field in res.form_errors) {
+                                        // 查找对应的输入元素
+                                        var inputElement = employeeForm.querySelector('[name="' + field + '"]');
+                                        if (inputElement) {
+                                            // 移除旧的错误样式
+                                            inputElement.classList.remove('layui-form-danger');
+                                            // 添加新的错误样式
+                                            inputElement.classList.add('layui-form-danger');
+                                            // 显示错误提示
+                                            var errorMsg = res.form_errors[field].join(', ');
+                                            layer.tips(errorMsg, inputElement, {tips: 1});
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    } catch (e) {
+                        // JSON解析错误
+                        layui.use('layer', function(layer) {
+                            layer.msg('服务器返回数据格式错误', {icon: 2});
+                        });
+                    }
+                } else {
+                    // 请求失败
+                    layui.use('layer', function(layer) {
+                        layer.msg('服务器错误: ' + xhr.status, {icon: 2});
+                    });
+                }
+            };
+            
+            xhr.onerror = function() {
+                layui.use('layer', function(layer) {
+                    layer.msg('网络错误', {icon: 2});
+                });
+            };
+            
+            xhr.send(formData);
+        });
+    })();
+</script>

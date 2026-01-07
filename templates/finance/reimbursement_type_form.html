@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{% if form.instance.pk %}编辑{% else %}新增{% endif %}报销类型</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <h3>{% if form.instance.pk %}编辑{% else %}新增{% endif %}报销类型</h3>
+                    </div>
+                    <div class="layui-card-body">
+                        <form class="layui-form" method="post">
+                            {% csrf_token %}
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">报销类型名称 <span style="color: red;">*</span></label>
+                                <div class="layui-input-block">
+                                    {{ form.name }}
+                                    {% if form.name.errors %}
+                                        <div class="layui-form-mid layui-word-aux" style="color: red;">{{ form.name.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">类型代码 <span style="color: red;">*</span></label>
+                                <div class="layui-input-block">
+                                    {{ form.code }}
+                                    {% if form.code.errors %}
+                                        <div class="layui-form-mid layui-word-aux" style="color: red;">{{ form.code.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">最大报销金额</label>
+                                <div class="layui-input-block">
+                                    {{ form.max_amount }}
+                                    <div class="layui-form-mid layui-word-aux">留空表示无限制</div>
+                                    {% if form.max_amount.errors %}
+                                        <div class="layui-form-mid layui-word-aux" style="color: red;">{{ form.max_amount.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label" style="width: 120px;">是否需要审批</label>
+                                <div class="layui-input-block" style="margin-left: 150px;">
+                                    <input type="checkbox" name="requires_approval" lay-skin="switch" lay-text="需要审批|无需审批" {% if form.instance.requires_approval %}checked{% endif %}>
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">审批流程</label>
+                                <div class="layui-input-block">
+                                    {{ form.approval_flow }}
+                                    {% if form.approval_flow.errors %}
+                                        <div class="layui-form-mid layui-word-aux" style="color: red;">{{ form.approval_flow.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item layui-form-text">
+                                <label class="layui-form-label">描述</label>
+                                <div class="layui-input-block">
+                                    {{ form.description }}
+                                    {% if form.description.errors %}
+                                        <div class="layui-form-mid layui-word-aux" style="color: red;">{{ form.description.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label" style="width: 120px;">是否启用</label>
+                                <div class="layui-input-block" style="margin-left: 150px;">
+                                    <input type="checkbox" name="is_active" lay-skin="switch" lay-text="启用|禁用" {% if form.instance.is_active %}checked{% endif %}>
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <div class="layui-input-block">
+                                    <button class="layui-btn" lay-submit lay-filter="formSubmit">保存</button>
+                                    <button type="button" class="layui-btn layui-btn-primary" onclick="history.back()">返回</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['form'], function(){
+            var form = layui.form;
+            
+            form.on('submit(formSubmit)', function(data){
+                return true;
+            });
+        });
+    </script>
+</body>
+</html>

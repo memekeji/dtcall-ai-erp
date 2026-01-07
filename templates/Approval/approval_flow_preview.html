@@ -1,0 +1,224 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>审批流程预览 - {{ flow.name }}</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md8">
+                <h3>审批流程预览 - {{ flow.name }}</h3>
+                <p class="layui-text">流程代码：{{ flow.code }} | 审批类型：{{ flow.approval_type.name }}</p>
+            </div>
+            <div class="layui-col-md4" style="text-align: right;">
+                <a href="{% url 'approval:approval_flow_steps' flow.pk %}" class="layui-btn layui-btn-primary">
+                    <i class="layui-icon layui-icon-return"></i> 返回步骤管理
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        {% if steps %}
+        <!-- 流程图容器 -->
+        <div id="flowChart" style="width: 100%; height: 600px; border: 1px solid #e6e6e6; margin-bottom: 20px;"></div>
+        
+        <!-- 流程详情表格 -->
+        <table class="layui-table">
+            <thead>
+                <tr>
+                    <th>步骤</th>
+                    <th>步骤名称</th>
+                    <th>类型</th>
+                    <th>操作</th>
+                    <th>审批人</th>
+                    <th>时限</th>
+                    <th>通过后</th>
+                    <th>拒绝后</th>
+                    <th>状态</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for step in steps %}
+                <tr>
+                    <td>{{ step.step_order }}</td>
+                    <td>{{ step.step_name }}</td>
+                    <td>
+                        <span class="layui-badge layui-bg-blue">{{ step.get_step_type_display }}</span>
+                    </td>
+                    <td>
+                        <span class="layui-badge layui-bg-green">{{ step.get_action_type_display }}</span>
+                    </td>
+                    <td>
+                        {% if step.approver %}
+                            {{ step.approver.get_full_name|default:step.approver.username }}
+                        {% elif step.approver_role %}
+                            角色：{{ step.approver_role }}
+                        {% elif step.approver_department %}
+                            部门：{{ step.approver_department }}
+                        {% elif step.approver_level %}
+                            级别：{{ step.approver_level }}
+                        {% else %}
+                            未设置
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if step.time_limit_hours %}
+                            {{ step.time_limit_hours }}小时
+                            {% if step.auto_approve_on_timeout %}
+                                <span class="layui-badge layui-bg-gray">超时自动通过</span>
+                            {% endif %}
+                        {% else %}
+                            无限制
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if step.next_step_success %}
+                            {{ step.next_step_success.step_name }}
+                        {% else %}
+                            <span class="layui-badge layui-bg-green">流程结束</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if step.next_step_reject %}
+                            {{ step.next_step_reject.step_name }}
+                        {% else %}
+                            <span class="layui-badge layui-bg-red">流程结束</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if step.is_required %}
+                            <span class="layui-badge layui-bg-blue">必须</span>
+                        {% else %}
+                            <span class="layui-badge layui-bg-gray">可选</span>
+                        {% endif %}
+                        {% if step.is_parallel %}
+                            <span class="layui-badge layui-bg-orange">并行</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="layui-empty">
+            <div class="layui-empty-icon">
+                <i class="layui-icon layui-icon-survey"></i>
+            </div>
+            <p class="layui-empty-text">暂无审批步骤，无法预览流程</p>
+            <div class="layui-empty-btn">
+                <a href="{% url 'approval:approval_step_add' flow.pk %}" class="layui-btn layui-btn-primary">立即添加步骤</a>
+            </div>
+        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 引入流程图库 -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['table'], function(){
+            var table = layui.table;
+        });
+
+        // 初始化流程图
+        {% if steps %}
+        document.addEventListener('DOMContentLoaded', function() {
+            // 使用Mermaid绘制流程图
+            // 将Django模板变量转换为JavaScript变量，避免语法错误
+            var flowData = {{ flow_data|safe }};
+            var mermaidCode = generateMermaidCode(flowData);
+            
+            // 设置Mermaid配置
+            mermaid.initialize({
+                startOnLoad: true,
+                theme: 'default',
+                flowchart: {
+                    useMaxWidth: true,
+                    htmlLabels: true
+                }
+            });
+            
+            // 渲染流程图
+            document.getElementById('flowChart').innerHTML = '<div class="mermaid">' + mermaidCode + '</div>';
+            mermaid.init();
+        });
+
+        function generateMermaidCode(flowData) {
+            var code = 'graph TD\n';
+            code += '    Start([开始]) --> ';
+            
+            // 添加第一个步骤
+            if (flowData.nodes.length > 0) {
+                var firstNode = flowData.nodes[0];
+                code += firstNode.id + '\n';
+                
+                // 添加所有节点
+                flowData.nodes.forEach(function(node) {
+                    var label = node.label + '\\n[' + node.type + ']';
+                    if (node.approver) {
+                        label += '\\n' + node.approver;
+                    }
+                    if (node.time_limit) {
+                        label += '\\n(' + node.time_limit + 'h)';
+                    }
+                    code += '    ' + node.id + '[' + label + ']\n';
+                });
+                
+                // 添加连线
+                flowData.edges.forEach(function(edge) {
+                    var style = edge.type === 'success' ? '-->|通过|' : '-->|拒绝|';
+                    code += '    ' + edge.source + ' ' + style + ' ' + edge.target + '\n';
+                });
+                
+                // 添加结束节点
+                code += '    End([结束])\n';
+                
+                // 连接到结束节点
+                flowData.nodes.forEach(function(node) {
+                    var hasSuccessNext = flowData.edges.some(e => e.source === node.id && e.type === 'success');
+                    var hasRejectNext = flowData.edges.some(e => e.source === node.id && e.type === 'reject');
+                    
+                    if (!hasSuccessNext) {
+                        code += '    ' + node.id + ' -->|通过| End\n';
+                    }
+                    if (!hasRejectNext) {
+                        code += '    ' + node.id + ' -->|拒绝| End\n';
+                    }
+                });
+            } else {
+                code += 'End([结束])\n';
+            }
+            
+            return code;
+        }
+        {% endif %}
+    </script>
+
+    <style>
+        .mermaid {
+            text-align: center;
+        }
+
+        .layui-table th, .layui-table td {
+            text-align: center;
+        }
+
+        .layui-badge {
+            margin: 2px;
+        }
+    </style>
+</body>
+</html>

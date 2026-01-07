@@ -1,0 +1,248 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>性能分析</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .stats-card {
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            color: white;
+            margin-bottom: 10px;
+        }
+        .stats-card.total {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .stats-card.completed {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        .stats-card.active {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+        .stats-card.week {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        .stat-number {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .stat-sub {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        .utilization-bar {
+            width: 100%;
+            height: 8px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+        .utilization-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        .utilization-high {
+            background-color: #5FB878;
+        }
+        .utilization-medium {
+            background-color: #FFB800;
+        }
+        .utilization-low {
+            background-color: #FF5722;
+        }
+        .status-normal {
+            color: #5FB878;
+        }
+        .status-maintenance {
+            color: #FFB800;
+        }
+        .status-stopped {
+            color: #FF5722;
+        }
+        .status-scrapped {
+            color: #9E9E9E;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <!-- 页面标题 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <h2 style="margin-bottom: 20px;">性能分析</h2>
+            </div>
+        </div>
+
+        <!-- 生产统计概览 -->
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md3">
+                <div class="stats-card total">
+                    <div class="stat-number">{{ production_stats.total_plans }}</div>
+                    <div class="stat-label">总计划数</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="stats-card completed">
+                    <div class="stat-number">{{ production_stats.completed_plans }}</div>
+                    <div class="stat-label">已完成</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="stats-card active">
+                    <div class="stat-number">{{ production_stats.active_plans }}</div>
+                    <div class="stat-label">进行中</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="stats-card week">
+                    <div class="stat-number">{{ production_stats.week_tasks }}</div>
+                    <div class="stat-label">本周任务</div>
+                    <div class="stat-sub">{{ production_stats.week_completed }} 已完成</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 设备利用率分析 -->
+        <div class="layui-row" style="margin-top: 30px;">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">设备利用率分析</div>
+                    <div class="layui-card-body" style="padding: 0;">
+                        <table class="layui-table" lay-skin="line">
+                            <thead>
+                                <tr>
+                                    <th>设备编号</th>
+                                    <th>设备名称</th>
+                                    <th>总任务数</th>
+                                    <th>已完成任务</th>
+                                    <th>利用率</th>
+                                    <th>状态</th>
+                                    <th>负责人</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stat in equipment_stats %}
+                                <tr>
+                                    <td>{{ stat.equipment.code }}</td>
+                                    <td>{{ stat.equipment.name }}</td>
+                                    <td>{{ stat.total_tasks }}</td>
+                                    <td>{{ stat.completed_tasks }}</td>
+                                    <td>
+                                        <div class="utilization-bar">
+                                            <div class="utilization-fill 
+                                                {% if stat.utilization_rate >= 80 %}utilization-high
+                                                {% elif stat.utilization_rate >= 60 %}utilization-medium
+                                                {% else %}utilization-low{% endif %}" 
+                                                style="width: {{ stat.utilization_rate }}%">
+                                            </div>
+                                        </div>
+                                        <small>{{ stat.utilization_rate }}%</small>
+                                    </td>
+                                    <td>
+                                        {% if stat.equipment.status == 1 %}
+                                            <span class="status-normal">正常</span>
+                                        {% elif stat.equipment.status == 2 %}
+                                            <span class="status-maintenance">维修中</span>
+                                        {% elif stat.equipment.status == 3 %}
+                                            <span class="status-stopped">停用</span>
+                                        {% elif stat.equipment.status == 4 %}
+                                            <span class="status-scrapped">报废</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ stat.equipment.responsible_person.username|default:"-" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" style="text-align: center; padding: 40px; color: #999;">
+                                        暂无设备数据
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 生产效率和设备状态图表 -->
+        <div class="layui-row layui-col-space15" style="margin-top: 30px;">
+            <div class="layui-col-md6">
+                <div class="layui-card">
+                    <div class="layui-card-header">生产效率趋势</div>
+                    <div class="layui-card-body">
+                        <div id="efficiency-chart" style="height: 300px; display: flex; align-items: center; justify-content: center; color: #999;">
+                            图表功能开发中...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-col-md6">
+                <div class="layui-card">
+                    <div class="layui-card-header">设备状态分布</div>
+                    <div class="layui-card-body">
+                        <div id="equipment-status-chart" style="height: 300px; display: flex; align-items: center; justify-content: center; color: #999;">
+                            图表功能开发中...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 快速操作 -->
+        <div class="layui-row" style="margin-top: 30px;">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">快速操作</div>
+                    <div class="layui-card-body">
+                        <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:equipment_monitor' %}'">
+                            <i class="layui-icon layui-icon-chart-screen"></i> 设备监控
+                        </button>
+                        <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:production_plan_list' %}'">
+                            <i class="layui-icon layui-icon-template-1"></i> 生产计划
+                        </button>
+                        <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:production_task_list' %}'">
+                            <i class="layui-icon layui-icon-list"></i> 生产任务
+                        </button>
+                        <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:quality_check_list' %}'">
+                            <i class="layui-icon layui-icon-ok-circle"></i> 质量管理
+                        </button>
+                        <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:data_collection_list' %}'">
+                            <i class="layui-icon layui-icon-chart"></i> 数据采集
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['layer'], function () {
+            var layer = layui.layer;
+        });
+
+        // 这里可以添加图表初始化代码
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('性能分析页面加载完成');
+            // 未来可以集成 ECharts 或其他图表库
+        });
+    </script>
+</body>
+
+</html>

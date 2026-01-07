@@ -1,0 +1,256 @@
+{% load static %}
+<style>
+    /* 确保所有样式只影响个人中心页面 */
+    .center-container {
+        padding: 30px;
+        min-height: calc(100vh - 64px);
+        background-color: #fafafa;
+    }
+    .center-container .center-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 30px;
+        padding: 20px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+    }
+    .center-container .avatar {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-right: 20px;
+        border: 3px solid #e8e8e8;
+    }
+    .center-container .basic-info h2 {
+        margin-bottom: 10px;
+        font-size: 24px;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    .center-container .basic-info p {
+        color: #666;
+        font-size: 14px;
+    }
+    .center-container .info-section {
+        margin-bottom: 25px;
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+    }
+    .center-container .info-section h3 {
+        margin-bottom: 15px;
+        padding-left: 12px;
+        border-left: 4px solid #3498db;
+        font-size: 18px;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    .center-container .info-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+    }
+    .center-container .info-table tr {
+        border-bottom: 1px solid #f2f2f2;
+        transition: background-color 0.2s;
+    }
+    .center-container .info-table tr:hover {
+        background-color: #f9f9f9;
+    }
+    .center-container .info-table td {
+        padding: 14px 15px;
+        font-size: 14px;
+    }
+    .center-container .info-table td:first-child {
+        width: 180px;
+        background-color: #fafafa;
+        font-weight: 500;
+        color: #555;
+        border-right: 1px solid #f2f2f2;
+    }
+    .center-container .info-table td:last-child {
+        color: #333;
+    }
+    .center-container .status-normal { background-color: #52c41a; }
+    .center-container .status-disabled { background-color: #faad14; }
+    .center-container .status-resigned { background-color: #ff4d4f; }
+    .center-container .badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        color: white;
+        font-size: 12px;
+        font-weight: 500;
+        margin-left: 10px;
+    }
+    .center-container .action-buttons {
+        margin-bottom: 30px;
+        text-align: right;
+        padding: 20px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+    }
+    .center-container .action-buttons .layui-btn {
+        margin-left: 10px;
+        padding: 0 24px;
+        height: 36px;
+        line-height: 36px;
+        border-radius: 4px;
+    }
+    .center-container .record-list {
+        margin-top: 15px;
+    }
+    .center-container .record-item {
+        padding: 15px;
+        border: 1px solid #f2f2f2;
+        border-radius: 4px;
+        margin-bottom: 10px;
+        background-color: #fafafa;
+    }
+    .center-container .record-item .record-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+    .center-container .record-item .record-title {
+        font-weight: 500;
+        color: #333;
+    }
+    .center-container .record-item .record-date {
+        font-size: 12px;
+        color: #999;
+    }
+    .center-container .record-item .record-content {
+        font-size: 14px;
+        color: #666;
+        line-height: 1.5;
+    }
+    .center-container .empty-msg {
+        text-align: center;
+        padding: 20px;
+        color: #999;
+        font-size: 14px;
+        background-color: #fafafa;
+        border-radius: 4px;
+    }
+</style>
+
+<div class="center-container">
+    <div class="center-header">
+        <img src="{% if employee.thumb %}{{ employee.thumb }}{% else %}{% static 'img/user-avatar.png' %}{% endif %}" alt="{{ employee.name }}" class="avatar">
+        <div class="basic-info">
+            <h2>{{ employee.name }} <span class="badge {% if employee.status == 1 %}status-normal{% elif employee.status == 0 %}status-disabled{% else %}status-resigned{% endif %}">
+                {% if employee.status == 1 %}正常{% elif employee.status == 0 %}禁止登录{% else %}离职{% endif %}
+            </span></h2>
+            <p>工号: {{ employee.job_number }} | 岗位: {{ employee.position_name }} | 主部门: {{ employee.department.name }}</p>
+        </div>
+    </div>
+
+    <div class="action-buttons">
+        <a href="/user/center/update/" class="layui-btn layui-btn-normal">编辑个人信息</a>
+    </div>
+
+    <div class="info-section">
+        <h3>基本信息</h3>
+        <table class="info-table">
+            <tr><td>登录账号</td><td>{{ employee.username }}</td></tr>
+            <tr><td>员工姓名</td><td>{{ employee.name }}</td></tr>
+            <tr><td>性别</td><td>{% if employee.sex == 1 %}男{% elif employee.sex == 2 %}女{% else %}未知{% endif %}</td></tr>
+            <tr><td>手机号码</td><td>{{ employee.mobile }}</td></tr>
+            <tr><td>电子邮箱</td><td>{{ employee.email }}</td></tr>
+            <tr><td>入职日期</td><td>{{ employee.entry_time|date:'Y-m-d' }}</td></tr>
+            <tr><td>最后登录时间</td><td>{{ employee.last_login_time|date:'Y-m-d H:i:s' }}</td></tr>
+        </table>
+    </div>
+
+    <div class="info-section">
+        <h3>组织信息</h3>
+        <table class="info-table">
+            <tr><td>主部门</td><td>{{ employee.department.name }}</td></tr>
+            <tr><td>次要部门</td><td>
+                {% for dept in employee.secondary_departments.all %}
+                    {{ dept.name }}{% if not forloop.last %}, {% endif %}
+                {% empty %}
+                    无
+                {% endfor %}
+            </td></tr>
+            <tr><td>岗位职称</td><td>{{ employee.position_name }}</td></tr>
+            <tr><td>上级主管</td><td>{{ employee.pid.name|default:'无' }}</td></tr>
+            <tr><td>身份类型</td><td>
+                {% if employee.is_staff == 1 %}企业员工{% elif employee.is_staff == 2 %}劳务派遣{% else %}兼职员工{% endif %}
+            </td></tr>
+            <tr><td>员工类型</td><td>{{ employee.type }}</td></tr>
+        </table>
+    </div>
+
+    {% if employee_file %}
+    <div class="info-section">
+        <h3>档案信息</h3>
+        <table class="info-table">
+            <tr><td>身份证号</td><td>{{ employee_file.id_card }}</td></tr>
+            <tr><td>出生日期</td><td>{{ employee_file.birth_date|date:'Y-m-d' }}</td></tr>
+            <tr><td>民族</td><td>{{ employee_file.nationality }}</td></tr>
+            <tr><td>籍贯</td><td>{{ employee_file.native_place }}</td></tr>
+            <tr><td>现住址</td><td>{{ employee_file.address }}</td></tr>
+            <tr><td>学历</td><td>{{ employee_file.get_education_display }}</td></tr>
+            <tr><td>毕业院校</td><td>{{ employee_file.graduate_school }}</td></tr>
+            <tr><td>专业</td><td>{{ employee_file.major }}</td></tr>
+            <tr><td>婚姻状况</td><td>{{ employee_file.get_marital_status_display }}</td></tr>
+        </table>
+    </div>
+    {% endif %}
+
+    <div class="info-section">
+        <h3>合同信息</h3>
+        <div class="record-list">
+            {% if contracts %}
+                {% for contract in contracts %}
+                <div class="record-item">
+                    <div class="record-header">
+                        <span class="record-title">{{ contract.contract_number }} - {{ contract.get_contract_type_display }}</span>
+                        <span class="badge {% if contract.status == 'active' %}status-normal{% elif contract.status == 'expired' %}status-disabled{% elif contract.status == 'terminated' %}status-resigned{% else %}status-normal{% endif %}">
+                            {{ contract.get_status_display }}
+                        </span>
+                    </div>
+                    <div class="record-content">
+                        <p>起止时间: {{ contract.start_date|date:'Y-m-d' }} 至 {{ contract.end_date|date:'Y-m-d' }}</p>
+                        <p>基本工资: {{ contract.salary }} 元</p>
+                        <p>职位: {{ contract.position }} | 部门: {{ contract.department.name }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-msg">暂无合同信息</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="info-section">
+        <h3>奖惩记录</h3>
+        <div class="record-list">
+            {% if reward_punishment_records %}
+                {% for record in reward_punishment_records %}
+                <div class="record-item">
+                    <div class="record-header">
+                        <span class="record-title">{{ record.get_type_display }} - {{ record.title }}</span>
+                        <span class="record-date">{{ record.created_at|date:'Y-m-d' }}</span>
+                    </div>
+                    <div class="record-content">
+                        <p>{{ record.reason }}</p>
+                        {% if record.amount %}
+                        <p>金额: {{ record.amount }} 元</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-msg">暂无奖惩记录</div>
+            {% endif %}
+        </div>
+    </div>
+</div>

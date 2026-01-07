@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>选择客户</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <style>
+        .layui-table-cell {
+            height: 40px !important;
+            line-height: 40px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .layui-table tr {
+            height: 40px !important;
+        }
+        
+        .select-btn {
+            background-color: #5FB878 !important;
+            border-color: #5FB878 !important;
+        }
+        
+        .select-btn:hover {
+            background-color: #4CAF50 !important;
+            border-color: #4CAF50 !important;
+        }
+        
+        .search-container {
+            margin-bottom: 15px;
+        }
+        
+        .search-inputs {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .search-inputs .layui-input {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .page-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <div class="page-title">选择客户</div>
+                    </div>
+                    <div class="layui-card-body">
+                        <!-- 搜索区域 -->
+                        <div class="search-container">
+                            <form class="layui-form" id="searchForm">
+                                <div class="search-inputs">
+                                    <input type="text" name="search" placeholder="请输入客户名称、联系人姓名或电话" class="layui-input">
+                                    <button type="submit" class="layui-btn layui-btn-sm">
+                                        <i class="layui-icon layui-icon-search"></i> 搜索
+                                    </button>
+                                    <button type="reset" class="layui-btn layui-btn-sm layui-btn-primary">
+                                        <i class="layui-icon layui-icon-refresh"></i> 重置
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                        
+                        <!-- 数据表格 -->
+                        <table class="layui-hide" id="customerTable" lay-filter="customerTable"></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 选择按钮模板 -->
+    <script type="text/html" id="selectBtn">
+        <a class="layui-btn layui-btn-xs select-btn" lay-event="select">选择</a>
+    </script>
+
+    <script src="/static/js/jquery.min.js"></script>
+    <script src="/static/layui/layui.js"></script>
+    {% csrf_token %}
+    <script>
+    layui.use(['table', 'form', 'layer'], function(){
+        var table = layui.table;
+        var form = layui.form;
+        var layer = layui.layer;
+        
+        // 设置全局弹窗层级，确保与主页面一致
+        layer.config({
+            zIndex: 2147483646
+        });
+        
+        // 初始化表格
+        table.render({
+            elem: '#customerTable',
+            url: '/customer/select/',
+            method: 'post',
+            headers: {
+                'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+            },
+            page: true,
+            limit: 10,
+            limits: [10, 20, 50],
+            cols: [[
+                {field: 'id', title: 'ID', width: 80, sort: true},
+                {field: 'name', title: '客户名称', width: 200, sort: true},
+                {field: 'contact_name', title: '联系人', width: 120},
+                {field: 'phone', title: '联系电话', width: 130},
+                {field: 'address', title: '地址', width: 200},
+                {field: 'create_time', title: '创建时间', width: 160, sort: true},
+                {fixed: 'right', title: '操作', width: 100, align:'center', toolbar: '#selectBtn'}
+            ]],
+            parseData: function(res) {
+                return {
+                    "code": res.code,
+                    "msg": res.msg,
+                    "count": res.count,
+                    "data": res.data
+                };
+            }
+        });
+        
+        // 搜索表单提交
+        form.on('submit(searchForm)', function(data){
+            var searchValue = data.field.search;
+            
+            // 重载表格数据
+            table.reload('customerTable', {
+                where: {
+                    search: searchValue
+                },
+                page: {
+                    curr: 1
+                }
+            });
+            return false;
+        });
+        
+        // 表格工具栏事件
+        table.on('tool(customerTable)', function(obj){
+            var data = obj.data;
+            
+            if (obj.event === 'select') {
+                // 选择客户
+                selectCustomer(data);
+            }
+        });
+        
+        // 选择客户函数
+        function selectCustomer(customerData) {
+            // 首先将选中的客户数据保存到localStorage
+            localStorage.setItem('selectedCustomer', JSON.stringify(customerData));
+            
+            // 尝试通过window.opener调用父页面的函数（适用于window.open方式）
+            if (window.opener && window.opener.setSelectedCustomer) {
+                window.opener.setSelectedCustomer(customerData);
+                window.close();
+            } else if (window.opener) {
+                // 如果父窗口存在但没有setSelectedCustomer函数，尝试直接设置值
+                try {
+                    // 设置客户ID和名称
+                    if (window.opener.document.getElementById('customer_id')) {
+                        window.opener.document.getElementById('customer_id').value = customerData.id;
+                    }
+                    if (window.opener.document.getElementById('customer_name')) {
+                        window.opener.document.getElementById('customer_name').value = customerData.name;
+                    }
+                    
+                    // 尝试设置联系信息
+                    if (window.opener.document.getElementById('contact_person')) {
+                        window.opener.document.getElementById('contact_person').value = customerData.contact_name || '';
+                    }
+                    if (window.opener.document.getElementById('contact_phone')) {
+                        window.opener.document.getElementById('contact_phone').value = customerData.phone || '';
+                    }
+                    
+                    layer.msg('客户选择成功', {icon: 1});
+                    setTimeout(function() {
+                        window.close();
+                    }, 1000);
+                } catch (e) {
+                    // 如果直接设置失败，使用localStorage
+                    layer.msg('客户选择成功，请返回原页面查看', {icon: 1});
+                    setTimeout(function() {
+                        window.close();
+                    }, 1500);
+                }
+            } else {
+                // 对于layer.open方式，数据已保存到localStorage，父页面会通过消息机制获取
+                layer.msg('客户选择成功，请点击确定按钮完成选择', {icon: 1});
+            }
+        }
+        
+        // 监听消息事件（用于与父页面通信）
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'getSelectedCustomer') {
+                // 检查是否有选中的客户数据
+                var selectedCustomer = localStorage.getItem('selectedCustomer');
+                if (selectedCustomer) {
+                    // 向父页面发送选中的客户数据
+                    event.source.postMessage({
+                        type: 'selectedCustomer',
+                        data: JSON.parse(selectedCustomer)
+                    }, event.origin);
+                } else {
+                    // 如果没有选中的客户，发送空数据
+                    event.source.postMessage({
+                        type: 'selectedCustomer',
+                        data: null
+                    }, event.origin);
+                }
+            }
+        });
+        
+        // 双击行选择
+        table.on('rowDouble(customerTable)', function(obj){
+            selectCustomer(obj.data);
+        });
+    });
+    </script>
+</body>
+</html>

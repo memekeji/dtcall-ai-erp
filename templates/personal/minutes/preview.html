@@ -1,0 +1,231 @@
+{% extends 'home/base.html' %}
+{% load static %}
+
+{% block title %}{{ minute.title }} - 会议纪要预览{% endblock %}
+
+{% block content %}
+<div class="layui-fluid">
+    <div class="layui-card">
+        <div class="layui-card-header">
+            <div class="layui-row">
+                <div class="layui-col-xs6 layui-col-sm6 layui-col-md6">
+                    <h3>{{ minute.title }} - 会议纪要预览</h3>
+                </div>
+                <div class="layui-col-xs6 layui-col-sm6 layui-col-md6 text-right">
+                    <a href="{% url 'personal:minutes_download' minute.pk %}" class="layui-btn layui-btn-primary">
+                        <i class="layui-icon layui-icon-download-circle"></i> 下载文档
+                    </a>
+                    <a href="{% url 'personal:minutes_detail' minute.pk %}" class="layui-btn">
+                        <i class="layui-icon layui-icon-left"></i> 返回详情
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="layui-card-body">
+            <!-- 预览内容区域 -->
+            <div id="preview-container" class="office-preview-content" style="background: white; padding: 20px; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); min-height: 300px;">
+                <!-- 文档信息区域 -->
+                <div style="margin-bottom:15px;padding:10px;background:#f5f7fa;border-radius:4px;">
+                    <div style="color:#606266;margin-bottom:5px;"><strong>文档信息</strong></div>
+                    <div style="color:#909399;font-size:12px;">
+                        文件名: {{ filename }} | 
+                        类型: {{ preview_data.office_type|default:'未知' }}
+                    </div>
+                </div>
+                
+                {% if preview_data.preview_options and preview_data.preview_options|length > 0 %}
+                    <!-- 动态渲染预览内容 -->
+                    <div id="dynamic-preview-content"></div>
+                {% elif preview_data.type == 'error' %}
+                    <div class="office-preview-empty">
+                        <div class="layui-icon layui-icon-face-cry" style="font-size: 48px; color: #FF5722;"></div>
+                        <p style="margin-top: 10px; color: #666;">{{ preview_data.message|default:'预览失败，请尝试下载查看' }}</p>
+                    </div>
+                {% else %}
+                    <div class="office-preview-empty">
+                        <div class="layui-icon layui-icon-file-word" style="font-size: 48px; color: #1E9FFF;"></div>
+                        <p style="margin-top: 10px; color: #666;">无法加载预览内容，请尝试下载查看。</p>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <!-- 备用下载选项 -->
+            <div class="text-center" style="margin-top: 20px;">
+                <a href="{% url 'personal:minutes_download' minute.pk %}" class="layui-btn layui-btn-primary">
+                    <i class="layui-icon layui-icon-download-circle"></i> 下载文档 - {{ filename }}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* 统一的Office文档预览样式 */
+.office-preview-content h3 {
+    color: #333;
+    font-size: 18px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #1E9FFF;
+    padding-bottom: 10px;
+}
+
+.word-content {
+    font-size: 14px;
+    line-height: 1.8;
+    color: #333;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    background: white;
+    padding: 20px;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.office-preview-empty {
+    text-align: center;
+    color: #999;
+    padding: 40px 20px;
+}
+
+/* 表格样式优化 */
+.office-preview-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+}
+
+.office-preview-content table th,
+.office-preview-content table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+.office-preview-content table th {
+    background-color: #f5f5f5;
+}
+
+/* 段落样式优化 */
+.office-preview-content p {
+    margin: 10px 0;
+    line-height: 1.6;
+}
+</style>
+{% endblock %}
+
+{% block javascript %}
+<script>
+// 页面加载完成后执行
+$(document).ready(function() {
+    // 预览数据
+    var previewData = {{ preview_data|safe }};
+    
+    // 渲染预览内容
+    if (previewData && previewData.preview_options && previewData.preview_options.length > 0) {
+        renderPreviewContent(previewData.preview_options[0]);
+    }
+    
+    // 渲染预览内容
+    function renderPreviewContent(previewOption) {
+        var contentHtml = '';
+        var container = $('#dynamic-preview-content');
+        
+        switch(previewOption.type) {
+            case 'text':
+                // 文本预览
+                contentHtml += '<div style="padding:15px;">' +
+                             '<div class="word-content">' + escapeHtml(previewOption.content || '') + '</div>' +
+                             '</div>';
+                break;
+                
+            case 'table':
+                // 表格预览
+                if (previewOption.content) {
+                    if (previewOption.content.headers && previewOption.content.data) {
+                        // 处理结构化表格数据
+                        contentHtml += renderStructuredTable(previewOption.content.headers, previewOption.content.data);
+                    } else if (previewOption.content.length > 0) {
+                        // 处理二维数组表格数据
+                        contentHtml += renderSimpleTable(previewOption.content);
+                    }
+                }
+                break;
+                
+            case 'html':
+                // HTML预览（保持向后兼容）
+                contentHtml += previewOption.html_content || '';
+                break;
+                
+            default:
+                contentHtml = '<div class="office-preview-empty">' +
+                             '<p>不支持的预览类型: ' + previewOption.type + '</p>' +
+                             '</div>';
+        }
+        
+        container.html(contentHtml);
+    }
+    
+    // 渲染结构化表格
+    function renderStructuredTable(headers, data) {
+        var html = '<div style="padding:15px;overflow:auto;max-height:400px;">' +
+                   '<table class="layui-table" style="margin:0;">';
+        
+        // 表头
+        if (headers && headers.length > 0) {
+            html += '<thead><tr>';
+            headers.forEach(function(header) {
+                html += '<th>' + escapeHtml(header || '') + '</th>';
+            });
+            html += '</tr></thead>';
+        }
+        
+        // 数据行
+        html += '<tbody>';
+        if (data && data.length > 0) {
+            data.forEach(function(row) {
+                html += '<tr>';
+                row.forEach(function(cell) {
+                    html += '<td>' + escapeHtml(cell || '') + '</td>';
+                });
+                html += '</tr>';
+            });
+        }
+        html += '</tbody></table></div>';
+        
+        return html;
+    }
+    
+    // 渲染简单表格
+    function renderSimpleTable(tableData) {
+        var html = '<div style="padding:15px;overflow:auto;max-height:400px;">' +
+                   '<table class="layui-table" style="margin:0;"><tbody>';
+        
+        tableData.forEach(function(row, rowIndex) {
+            html += '<tr>';
+            row.forEach(function(cell) {
+                html += '<td>' + escapeHtml(cell || '') + '</td>';
+            });
+            html += '</tr>';
+        });
+        
+        html += '</tbody></table></div>';
+        return html;
+    }
+    
+    // HTML转义函数
+    function escapeHtml(text) {
+        if (!text) return '';
+        var map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;',
+            '\n': '<br>'
+        };
+        return text.toString().replace(/[&<>"']|\n/g, function(m) { return map[m]; });
+    }
+});
+</script>
+{% endblock %}

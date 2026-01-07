@@ -1,0 +1,775 @@
+{% extends 'home/base.html' %}
+{% load static %}
+
+{% block title %}角色管理 - DTCall{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 全局样式 */
+    :root {
+        --primary: #3b82f6;
+        --primary-hover: #2563eb;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-300: #d1d5db;
+        --gray-400: #9ca3af;
+        --gray-500: #6b7280;
+        --gray-600: #4b5563;
+        --gray-700: #374151;
+        --gray-800: #1f2937;
+        --border-radius: 8px;
+        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        --transition: all 0.3s ease;
+    }
+
+    body {
+        background-color: var(--gray-50);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        color: var(--gray-800);
+    }
+
+    /* 页面容器 */
+    .position-container {
+        max-width: 100%;
+        margin: 0 auto;
+        padding: 24px;
+    }
+
+    /* 页面标题 */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+
+    .page-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin: 0;
+        display: flex;
+        align-items: center;
+    }
+
+    .page-title i {
+        margin-right: 8px;
+        color: var(--primary);
+        font-size: 28px;
+    }
+
+    /* 工具栏 */
+    .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: white;
+        padding: 16px 20px;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .search-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+        min-width: 300px;
+    }
+
+    .search-input {
+        position: relative;
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .search-input .layui-input {
+        padding-left: 40px;
+        height: 40px;
+        border-radius: var(--border-radius);
+        border: 1px solid var(--gray-300);
+        transition: var(--transition);
+    }
+
+    .search-input .layui-input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .search-input i {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--gray-400);
+    }
+
+    .status-filter {
+        width: 120px;
+    }
+
+    .status-filter .layui-select {
+        border-radius: var(--border-radius);
+        height: 40px;
+        border: 1px solid var(--gray-300);
+    }
+
+    .btn-add {
+        background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+        color: white;
+        border: none;
+        border-radius: var(--border-radius);
+        padding: 0 20px;
+        height: 40px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: var(--transition);
+        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .btn-add:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+        color: white;
+    }
+
+    /* 表格容器 */
+    .table-container {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-sm);
+        overflow: hidden;
+    }
+
+    /* 自定义表格样式 */
+    .layui-table {
+        margin: 0;
+        border-radius: var(--border-radius);
+        overflow: hidden;
+    }
+
+    .layui-table th {
+        background-color: var(--gray-50);
+        font-weight: 600;
+        color: var(--gray-700);
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--gray-200);
+        text-align: left;
+    }
+
+    .layui-table td {
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--gray-200);
+        transition: var(--transition);
+    }
+
+    .layui-table tbody tr:hover {
+        background-color: var(--gray-50);
+    }
+
+    /* 状态标签 */
+    .status-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 50px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .status-active { background-color: rgba(16, 185, 129, 0.1); color: var(--success); }
+    .status-inactive { background-color: rgba(107, 114, 128, 0.1); color: var(--gray-500); }
+
+    /* 操作按钮组 */
+    .action-buttons {
+        display: flex;
+        gap: 6px;
+        justify-content: flex-end;
+    }
+
+    .action-btn {
+        padding: 4px 12px;
+        border-radius: var(--border-radius);
+        font-size: 12px;
+        border: none;
+        cursor: pointer;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .btn-edit { background-color: #ecfdf5; color: var(--success); }
+    .btn-edit:hover { background-color: #d1fae5; }
+
+    .btn-permission { background-color: #fef3c7; color: var(--warning); }
+    .btn-permission:hover { background-color: #fde68a; }
+
+    .btn-disable { background-color: #fee2e2; color: var(--danger); }
+    .btn-disable:hover { background-color: #fecaca; }
+
+    .btn-enable { background-color: #dbeafe; color: var(--primary); }
+    .btn-enable:hover { background-color: #bfdbfe; }
+
+    .btn-delete { background-color: #fee2e2; color: var(--danger); }
+    .btn-delete:hover { background-color: #fecaca; }
+
+    /* 分页 */
+    .pagination-container {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        padding: 16px 20px;
+        background: white;
+        border-top: 1px solid var(--gray-200);
+    }
+
+    /* 空状态 */
+    .empty-state {
+        padding: 60px 20px;
+        text-align: center;
+        color: var(--gray-500);
+    }
+
+    .empty-state i {
+        font-size: 48px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+
+    .empty-state p {
+        margin: 0;
+        font-size: 14px;
+    }
+
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+        .position-container {
+            padding: 12px;
+        }
+
+        .toolbar {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .search-group {
+            min-width: auto;
+        }
+
+        .status-filter {
+            width: 100%;
+        }
+
+        .btn-add {
+            justify-content: center;
+        }
+
+        .action-buttons {
+            flex-direction: column;
+        }
+
+        .action-btn {
+            justify-content: center;
+        }
+
+        .layui-table-responsive {
+            margin-bottom: 0;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if isInIframe %}
+<!-- 在iframe中，使用iframe_content块 -->
+{% block iframe_content %}
+<div class="position-container">
+    <!-- 工具栏 -->
+    <div class="toolbar">
+        <form class="search-group" id="searchForm" method="get" lay-submit lay-filter="search">
+            <div class="search-input">
+                <i class="layui-icon layui-icon-search"></i>
+                <input type="text" name="name" placeholder="请输入角色名称" class="layui-input" value="{{ name|default:'' }}">
+            </div>
+            <div class="search-input">
+                <i class="layui-icon layui-icon-search"></i>
+                <input type="text" name="description" placeholder="请输入角色描述" class="layui-input" value="{{ description|default:'' }}">
+            </div>
+            <button type="submit" class="btn-add">
+                <i class="layui-icon layui-icon-search"></i> 搜索
+            </button>
+            <button type="button" class="btn-add" onclick="clearSearch()">
+                <i class="layui-icon layui-icon-refresh"></i> 重置
+            </button>
+        </form>
+        <div class="action-buttons">
+            <button class="btn-add" onclick="addRole()">
+                <i class="layui-icon layui-icon-add-1"></i> 添加角色
+            </button>
+            <button class="btn-add" onclick="refreshList()">
+                <i class="layui-icon layui-icon-refresh"></i> 刷新
+            </button>
+        </div>
+    </div>
+
+    <!-- 表格容器 -->
+    <div class="table-container">
+        <table class="layui-table" id="position-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>角色名称</th>
+                    <th>角色描述</th>
+                    <th>分配部门</th>
+                    <th>状态</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for role in roles %}
+                <tr>
+                    <td><strong>{{ role.id }}</strong></td>
+                    <td><strong style="color: var(--gray-900);">{{ role.name }}</strong></td>
+                    <td>{{ role.desc|default:"暂无描述" }}</td>
+                    <td>
+                        {% if role.departments %}
+                        {{ role.departments|join:', ' }}
+                        {% else %}
+                        未分配部门
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if role.status == 1 %}
+                        <span class="status-badge status-active">启用</span>
+                        {% else %}
+                        <span class="status-badge status-inactive">禁用</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if role.create_time %}
+                        {{ role.create_time|date:"Y-m-d H:i" }}
+                        {% else %}
+                        -  
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="action-btn btn-edit" onclick="editRole({{ role.id }})"><i class="layui-icon layui-icon-edit"></i>编辑</button>
+                            <button class="action-btn btn-permission" onclick="managePermissions({{ role.id }})"><i class="layui-icon layui-icon-set"></i>权限</button>
+                            {% if role.status == 1 %}
+                            <button class="action-btn btn-disable" onclick="disableRole({{ role.id }})"><i class="layui-icon layui-icon-close"></i>禁用</button>
+                            {% else %}
+                            <button class="action-btn btn-enable" onclick="enableRole({{ role.id }})"><i class="layui-icon layui-icon-ok"></i>启用</button>
+                            {% endif %}
+                            <button class="action-btn btn-delete" onclick="deleteRole({{ role.id }})"><i class="layui-icon layui-icon-delete"></i>删除</button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="empty-state">
+                        <i class="layui-icon layui-icon-face-cry"></i>
+                        <p>暂无角色数据</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- 分页 -->
+    {% if roles %}
+    <div class="pagination-container">
+        <div id="pagination"></div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+{% else %}
+<!-- 不在iframe中，直接显示内容 -->
+<div class="position-container">
+    <!-- 工具栏 -->
+    <div class="toolbar">
+        <form class="search-group" id="searchForm" method="get" lay-submit lay-filter="search">
+            <div class="search-input">
+                <i class="layui-icon layui-icon-search"></i>
+                <input type="text" name="name" placeholder="请输入角色名称" class="layui-input" value="{{ name|default:'' }}">
+            </div>
+            <div class="search-input">
+                <i class="layui-icon layui-icon-search"></i>
+                <input type="text" name="description" placeholder="请输入角色描述" class="layui-input" value="{{ description|default:'' }}">
+            </div>
+            <button type="submit" class="btn-add">
+                <i class="layui-icon layui-icon-search"></i> 搜索
+            </button>
+            <button type="button" class="btn-add" onclick="clearSearch()">
+                <i class="layui-icon layui-icon-refresh"></i> 重置
+            </button>
+        </form>
+        <div class="action-buttons">
+            <button class="btn-add" onclick="addRole()">
+                <i class="layui-icon layui-icon-add-1"></i> 添加角色
+            </button>
+            <button class="btn-add" onclick="refreshList()">
+                <i class="layui-icon layui-icon-refresh"></i> 刷新
+            </button>
+        </div>
+    </div>
+
+    <!-- 表格容器 -->
+    <div class="table-container">
+        <table class="layui-table" id="position-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>角色名称</th>
+                    <th>角色描述</th>
+                    <th>分配部门</th>
+                    <th>状态</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for role in roles %}
+                <tr>
+                    <td><strong>{{ role.id }}</strong></td>
+                    <td><strong style="color: var(--gray-900);">{{ role.name }}</strong></td>
+                    <td>{{ role.desc|default:"暂无描述" }}</td>
+                    <td>
+                        {% if role.departments %}
+                        {{ role.departments|join:', ' }}
+                        {% else %}
+                        未分配部门
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if role.status == 1 %}
+                        <span class="status-badge status-active">启用</span>
+                        {% else %}
+                        <span class="status-badge status-inactive">禁用</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if role.create_time %}
+                        {{ role.create_time|date:"Y-m-d H:i" }}
+                        {% else %}
+                        -  
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="action-btn btn-edit" onclick="editRole({{ role.id }})"><i class="layui-icon layui-icon-edit"></i>编辑</button>
+                            <button class="action-btn btn-permission" onclick="managePermissions({{ role.id }})"><i class="layui-icon layui-icon-set"></i>权限</button>
+                            {% if role.status == 1 %}
+                            <button class="action-btn btn-disable" onclick="disableRole({{ role.id }})"><i class="layui-icon layui-icon-close"></i>禁用</button>
+                            {% else %}
+                            <button class="action-btn btn-enable" onclick="enableRole({{ role.id }})"><i class="layui-icon layui-icon-ok"></i>启用</button>
+                            {% endif %}
+                            <button class="action-btn btn-delete" onclick="deleteRole({{ role.id }})"><i class="layui-icon layui-icon-delete"></i>删除</button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="empty-state">
+                        <i class="layui-icon layui-icon-face-cry"></i>
+                        <p>暂无角色数据</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- 分页 -->
+    {% if roles %}
+    <div class="pagination-container">
+        <div id="pagination"></div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- 添加/编辑角色表单 -->
+<div id="roleForm" style="display: none; padding: 20px;">
+    <form class="layui-form" id="roleFormContent">
+        {% csrf_token %}
+        <input type="hidden" name="id" id="roleId">
+        <div class="layui-form-item">
+            <label class="layui-form-label">角色名称</label>
+            <div class="layui-input-block">
+                <input type="text" name="name" required lay-verify="required" placeholder="请输入角色名称" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">角色描述</label>
+            <div class="layui-input-block">
+                <textarea name="description" placeholder="请输入角色描述" class="layui-textarea"></textarea>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">状态</label>
+            <div class="layui-input-block">
+                <input type="checkbox" name="status" lay-skin="switch" lay-text="启用|禁用" checked>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <div class="layui-input-block">
+                <button class="layui-btn" lay-submit lay-filter="roleFormSubmit">保存</button>
+                <button type="button" class="layui-btn layui-btn-primary" onclick="layer.closeAll()">取消</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+layui.use(['form', 'layer', 'laypage', 'jquery'], function(){
+    var form = layui.form;
+    var layer = layui.layer;
+    var laypage = layui.laypage;
+    var $ = layui.jquery;
+    
+    // 设置全局AJAX请求携带CSRF token
+    $.ajaxSetup({
+        headers: {
+            'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
+        }
+    });
+    
+    // 初始化分页
+    laypage.render({
+        elem: 'pagination',
+        count: {{ total_count|default:0 }},
+        curr: {{ page|default:1 }},
+        limit: {{ limit|default:20 }},
+        layout: ['count', 'prev', 'page', 'next', 'limit', 'skip'],
+        jump: function(obj, first){
+            if(!first){
+                window.location.href = '?page=' + obj.curr + '&limit=' + obj.limit;
+            }
+        }
+    });
+    
+    // 搜索表单提交
+    form.on('submit(search)', function(data){
+        var params = [];
+        if(data.field.name) params.push('name=' + encodeURIComponent(data.field.name));
+        if(data.field.description) params.push('description=' + encodeURIComponent(data.field.description));
+        window.location.href = window.location.pathname + '?' + params.join('&');
+        return false;
+    });
+    
+    // 添加角色
+    window.addRole = function() {
+        $('#roleFormContent')[0].reset();
+        $('#roleId').val('');
+        layer.open({
+            type: 1,
+            title: '添加角色',
+            area: ['500px', '350px'],
+            content: $('#roleForm'),
+            shade: 0.3,
+            success: function(layero, index) {
+                form.render();
+            }
+        });
+    };
+    
+    // 编辑角色
+        window.editRole = function(roleId) {
+            $.ajax({
+                url: '/user/group/' + roleId + '/',
+                type: 'GET',
+                success: function(res){
+                    if(res.code === 200){
+                        var role = res.data;
+                        $('#roleId').val(role.id);
+                        $('input[name="name"]').val(role.name);
+                        $('textarea[name="description"]').val(role.description || '');
+                        $('input[name="status"]').prop('checked', role.status === 1);
+                        form.render();
+                        
+                        layer.open({
+                            type: 1,
+                            title: '编辑角色',
+                            area: ['500px', '350px'],
+                            content: $('#roleForm'),
+                            shade: 0.3
+                        });
+                    } else {
+                        layer.msg(res.msg || '获取角色信息失败');
+                    }
+                },
+                error: function(){
+                    layer.msg('网络错误，请重试');
+                }
+            });
+        };
+        
+        // 角色表单提交
+        form.on('submit(roleFormSubmit)', function(data){
+            var roleId = $('#roleId').val();
+            var url = roleId ? '/user/group/' + roleId + '/update/' : '/user/group/create/';
+            var method = roleId ? 'POST' : 'POST';
+            
+            $.ajax({
+                url: url,
+                type: method,
+                data: data.field,
+                success: function(res){
+                    if(res.code === 200){
+                        layer.msg('保存成功');
+                        setTimeout(function() {
+                            window.location.reload();
+                        }, 1000);
+                    } else {
+                        layer.msg(res.msg || '保存失败');
+                    }
+                },
+                error: function(){
+                    layer.msg('网络错误，请重试');
+                }
+            });
+            return false;
+        });
+        
+        // 管理权限
+        window.managePermissions = function(roleId) {
+            // 从右侧弹出权限配置页面，占据80%宽度
+            layer.open({
+                type: 2,
+                title: '角色权限配置',
+                area: ['80%', '100%'],
+                offset: 'r',
+                content: '/user/group/' + roleId + '/permission/',
+                shade: 0.3,
+                maxmin: false,
+                btn: ['保存', '取消'],
+                yes: function(index, layero) {
+                    // 获取iframe中的表单
+                    var iframeWin = window[layero.find('iframe')[0]['name']];
+                    var form = iframeWin.document.getElementById('permissionForm');
+                    var formData = new FormData(form);
+                    
+                    // 提交表单
+                    $.ajax({
+                        url: '/user/group/' + roleId + '/permission/',
+                        type: 'POST',
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        success: function(res) {
+                            if (res.code === 200) {
+                                layer.msg('权限配置成功');
+                                layer.close(index);
+                                setTimeout(function() { window.location.reload(); }, 1000);
+                            } else {
+                                layer.msg(res.msg || '权限配置失败');
+                            }
+                        },
+                        error: function() {
+                            layer.msg('网络错误，请重试');
+                        }
+                    });
+                },
+                btn2: function(index) {
+                    layer.close(index);
+                }
+            });
+        };
+        
+        // 启用角色
+        window.enableRole = function(roleId) {
+            layer.confirm('确定要启用该角色吗？', function(index) {
+                $.ajax({
+                    url: '/user/group/' + roleId + '/toggle-status/',
+                    type: 'POST',
+                    success: function(res) {
+                        if(res.code === 200) {
+                            layer.msg('启用成功');
+                            setTimeout(function() { window.location.reload(); }, 1000);
+                        } else {
+                            layer.msg(res.msg || '启用失败');
+                        }
+                    },
+                    error: function() {
+                        layer.msg('网络错误，请重试');
+                    }
+                });
+                layer.close(index);
+            });
+        };
+        
+        // 禁用角色
+        window.disableRole = function(roleId) {
+            layer.confirm('确定要禁用该角色吗？', function(index) {
+                $.ajax({
+                    url: '/user/group/' + roleId + '/toggle-status/',
+                    type: 'POST',
+                    success: function(res) {
+                        if(res.code === 200) {
+                            layer.msg('禁用成功');
+                            setTimeout(function() { window.location.reload(); }, 1000);
+                        } else {
+                            layer.msg(res.msg || '禁用失败');
+                        }
+                    },
+                    error: function() {
+                        layer.msg('网络错误，请重试');
+                    }
+                });
+                layer.close(index);
+            });
+        };
+        
+        // 删除角色
+        window.deleteRole = function(roleId) {
+            layer.confirm('确定要删除该角色吗？删除后无法恢复！', function(index) {
+                $.ajax({
+                    url: '/user/group/' + roleId + '/',
+                    type: 'DELETE',
+                    success: function(res) {
+                        if(res.code === 200) {
+                            layer.msg('删除成功');
+                            setTimeout(function() { window.location.reload(); }, 1000);
+                        } else {
+                            layer.msg(res.msg || '删除失败');
+                        }
+                    },
+                    error: function() {
+                        layer.msg('网络错误，请重试');
+                    }
+                });
+                layer.close(index);
+            });
+        };
+    
+    // 刷新列表
+    window.refreshList = function() {
+        window.location.reload();
+    };
+    
+    // 清空搜索
+    window.clearSearch = function() {
+        window.location.href = window.location.pathname;
+    };
+});
+</script>
+{% endblock %}

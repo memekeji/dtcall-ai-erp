@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>拨号记录</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-body">
+                        <!-- 统计信息区域 -->
+                        <div class="layui-row layui-col-space15" style="margin-bottom: 15px;">
+                            <div class="layui-col-md2">
+                                <div class="layui-card" style="margin-bottom: 0;">
+                                    <div class="layui-card-body">
+                                        <div class="layui-row">
+                                            <div class="layui-col-md12" style="text-align: center; color: #999; font-size: 14px;">今日拨号总数量</div>
+                                            <div class="layui-col-md12" style="text-align: center; font-size: 24px; font-weight: bold; color: #1E9FFF;">0</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="layui-col-md2">
+                                <div class="layui-card" style="margin-bottom: 0;">
+                                    <div class="layui-card-body">
+                                        <div class="layui-row">
+                                            <div class="layui-col-md12" style="text-align: center; color: #999; font-size: 14px;">系统累计拨号总数量</div>
+                                            <div class="layui-col-md12" style="text-align: center; font-size: 24px; font-weight: bold; color: #5FB878;">0</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="layui-col-md2">
+                                <div class="layui-card" style="margin-bottom: 0;">
+                                    <div class="layui-card-body">
+                                        <div class="layui-row">
+                                            <div class="layui-col-md12" style="text-align: center; color: #999; font-size: 14px;">今日通话总时长</div>
+                                            <div class="layui-col-md12" style="text-align: center; font-size: 24px; font-weight: bold; color: #FFB800;">0</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="layui-col-md2">
+                                <div class="layui-card" style="margin-bottom: 0;">
+                                    <div class="layui-card-body">
+                                        <div class="layui-row">
+                                            <div class="layui-col-md12" style="text-align: center; color: #999; font-size: 14px;">系统累计通话总时长</div>
+                                            <div class="layui-col-md12" style="text-align: center; font-size: 24px; font-weight: bold; color: #FF7D00;">0</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="layui-col-md2">
+                                <div class="layui-card" style="margin-bottom: 0;">
+                                    <div class="layui-card-body">
+                                        <div class="layui-row">
+                                            <div class="layui-col-md12" style="text-align: center; color: #999; font-size: 14px;">今日沟通客户总数</div>
+                                            <div class="layui-col-md12" style="text-align: center; font-size: 24px; font-weight: bold; color: #9F5F9F;">0</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 搜索表单 -->
+                        <form class="layui-form" id="searchForm" style="margin-bottom: 15px;">
+                            {% csrf_token %}
+                            <div class="layui-row layui-col-space10">
+                                <div class="layui-col-md4">
+                                    <input type="text" name="search" placeholder="客户名称或电话号码" class="layui-input">
+                                </div>
+                                <div class="layui-col-md2">
+                                    <button type="submit" class="layui-btn">
+                                        <i class="layui-icon layui-icon-search"></i> 搜索
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                        
+                        <!-- 数据表格 -->
+                        <table class="layui-hide" id="callTable" lay-filter="callTable"></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['table', 'form', 'jquery'], function(){  // 明确加载所需模块
+            var table = layui.table;
+            var form = layui.form;
+            var $ = layui.jquery;  // 使用layui内置的jquery
+            
+            console.log('开始加载拨号记录页面...');
+            console.log('layui模块加载完成:', {table: typeof table !== 'undefined', form: typeof form !== 'undefined', jquery: typeof $ !== 'undefined'});
+            
+            // 更新统计信息
+            function updateStatistics(statistics) {
+                console.log('更新统计信息:', statistics);
+                if (!statistics) return;
+                
+                // 获取统计区域的卡片
+                var statCards = $('.layui-row.layui-col-space15').first().find('.layui-col-md2 .layui-card');
+                console.log('统计卡片数量:', statCards.length);
+                
+                // 今日拨号总数量
+                var todayCallCount = statistics.today_call_count || 0;
+                if (statCards.eq(0).length > 0) {
+                    statCards.eq(0).find('.layui-card-body .layui-row .layui-col-md12:nth-child(2)').text(todayCallCount);
+                    console.log('更新今日拨号总数量:', todayCallCount);
+                }
+                
+                // 系统累计拨号总数量
+                var totalCallCount = statistics.total_call_count || 0;
+                if (statCards.eq(1).length > 0) {
+                    statCards.eq(1).find('.layui-card-body .layui-row .layui-col-md12:nth-child(2)').text(totalCallCount);
+                    console.log('更新系统累计拨号总数量:', totalCallCount);
+                }
+                
+                // 今日通话总时长（秒转分:秒）
+                var todayDuration = statistics.today_duration || 0;
+                var todayMinutes = Math.floor(todayDuration / 60);
+                var todaySeconds = todayDuration % 60;
+                if (statCards.eq(2).length > 0) {
+                    statCards.eq(2).find('.layui-card-body .layui-row .layui-col-md12:nth-child(2)').text(todayMinutes + ':' + (todaySeconds < 10 ? '0' + todaySeconds : todaySeconds));
+                    console.log('更新今日通话总时长:', todayMinutes + ':' + (todaySeconds < 10 ? '0' + todaySeconds : todaySeconds));
+                }
+                
+                // 系统累计通话总时长（秒转分:秒）
+                var totalDuration = statistics.total_duration || 0;
+                var totalMinutes = Math.floor(totalDuration / 60);
+                var totalSeconds = totalDuration % 60;
+                if (statCards.eq(3).length > 0) {
+                    statCards.eq(3).find('.layui-card-body .layui-row .layui-col-md12:nth-child(2)').text(totalMinutes + ':' + (totalSeconds < 10 ? '0' + totalSeconds : totalSeconds));
+                    console.log('更新系统累计通话总时长:', totalMinutes + ':' + (totalSeconds < 10 ? '0' + totalSeconds : totalSeconds));
+                }
+                
+                // 今日沟通客户总数
+                var todayUniqueCustomers = statistics.today_unique_customers || 0;
+                if (statCards.eq(4).length > 0) {
+                    statCards.eq(4).find('.layui-card-body .layui-row .layui-col-md12:nth-child(2)').text(todayUniqueCustomers);
+                    console.log('更新今日沟通客户总数:', todayUniqueCustomers);
+                }
+            }
+            
+            // 初始化表格
+            if (table && table.render) {
+                console.log('table.render存在，开始渲染表格...');
+                
+                // 直接发起AJAX请求，查看后端返回的数据格式
+                console.log('直接发起AJAX请求，查看后端返回的数据格式...');
+                $.ajax({
+                    url: '{% url "customer:call_record_list_data" %}',
+                    type: 'GET',
+                    data: {limit: 20, page: 1},
+                    success: function(res) {
+                        console.log('直接AJAX请求返回的数据:', res);
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('直接AJAX请求失败:', error);
+                    }
+                });
+                
+                // 渲染表格
+                table.render({
+                    elem: '#callTable',
+                    url: '{% url "customer:call_record_list_data" %}',
+                    cols: [[
+                        {field: 'id', title: 'ID', width: 80},
+                        {field: 'customer_name', title: '客户名称', width: 150},
+                        {field: 'phone', title: '电话号码', width: 120},
+                        {field: 'call_count', title: '拨号次数', width: 100, align: 'center'},
+                        {field: 'call_time', title: '拨号时间', width: 160},
+                        {field: 'duration', title: '通话时长', width: 100},
+                        {field: 'status', title: '状态', width: 100, templet: function(d) {
+                            var statusMap = {
+                                0: '<span style="color: #FFB800;">未接通</span>',
+                                1: '<span style="color: #5FB878;">已通话</span>',
+                                2: '<span style="color: #FF5722;">呼叫失败</span>',
+                                3: '<span style="color: #1E9FFF;">通话中</span>',
+                                '未接通': '<span style="color: #FFB800;">未接通</span>',
+                                '已通话': '<span style="color: #5FB878;">已通话</span>',
+                                '呼叫失败': '<span style="color: #FF5722;">呼叫失败</span>',
+                                '通话中': '<span style="color: #1E9FFF;">通话中</span>'
+                            };
+                            return statusMap[d.status] || d.status;
+                        }},
+                        {field: 'remark', title: '备注', width: 200}
+                    ]],
+                    page: true,
+                    limits: [10, 20, 50],
+                    limit: 20,
+                    loading: true,
+                    text: {
+                        none: '暂无相关数据'
+                    },
+                    request: {
+                        pageName: 'page',
+                        limitName: 'limit'
+                    },
+                    response: {
+                        statusName: 'code',
+                        statusCode: 0,
+                        msgName: 'msg',
+                        countName: 'count',
+                        dataName: 'data'
+                    },
+                    parseData: function(res) {
+                        console.log('parseData接收到的数据:', res);
+                        if (res && res.code === 0) {
+                            // 更新统计信息
+                            updateStatistics(res.statistics);
+                            
+                            return {
+                                "code": res.code,
+                                "msg": res.msg,
+                                "count": res.count || 0,
+                                "data": res.data || []
+                            };
+                        }
+                        return {"code": 0, "msg": "", "count": 0, "data": []};
+                    },
+                    done: function(res) {
+                        console.log('表格渲染完成:', res);
+                    }
+                });
+            } else {
+                console.error('table.render不存在，无法渲染表格');
+            }
+            
+            // 搜索表单提交
+            if (form && form.on) {
+                form.on('submit()', function(data) {
+                    console.log('搜索表单提交:', data.field);
+                    if (table && table.reload) {
+                        table.reload('callTable', {
+                            where: data.field,
+                            page: {curr: 1}
+                        });
+                    } else {
+                        console.warn('表格重载失败：table模块未加载或数据无效');
+                    }
+                    return false;
+                });
+            } else {
+                console.warn('form模块未正确加载或form.on不存在');
+            }
+            
+            // 定时更新通话状态，提高更新频率
+            console.log('开始定时更新通话状态...');
+            setInterval(function() {
+                console.log('执行通话状态更新...');
+                $.ajax({
+                    url: '{% url "customer:update_call_status" %}',
+                    type: 'GET',
+                    success: function(res) {
+                        console.log('通话状态更新结果:', res);
+                        // 每次更新都刷新表格，确保状态实时更新
+                        console.log('刷新表格...');
+                        if (table && table.reload) {
+                            table.reload('callTable');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('更新通话状态失败:', error);
+                    }
+                });
+            }, 3000); // 每3秒更新一次，提高实时性
+        });
+    </script>
+</body>
+</html>

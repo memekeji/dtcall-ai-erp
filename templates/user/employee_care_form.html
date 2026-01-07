@@ -1,0 +1,237 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>{% if form.instance.id %}编辑员工关怀记录{% else %}新增员工关怀记录{% endif %}</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/common.css' %}">
+    <style>
+        .layui-container {
+            width: 100% !important;
+            max-width: none !important;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow-x: hidden;
+        }
+        .form-container {
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            height: 100%;
+            background-color: #fff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        .form-section {
+            background: #f8f8f8;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .form-section-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #2c3e50;
+            border-left: 4px solid #1E9FFF;
+            padding-left: 10px;
+        }
+        /* 修复表单元素样式 */
+        .layui-form-item {
+            margin-bottom: 20px;
+        }
+        .layui-form-label {
+            width: 100px;
+            padding: 9px 15px;
+            color: #333;
+            font-weight: 500;
+        }
+        .layui-input-block {
+            margin-left: 130px;
+        }
+        /* 增强表单元素可见性 */
+        .layui-input, .layui-select, .layui-textarea {
+            display: block;
+            width: 100%;
+            height: 38px;
+            padding: 0 10px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            color: #333;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .layui-input:focus, .layui-select:focus, .layui-textarea:focus {
+            border-color: #1E9FFF;
+            box-shadow: 0 0 0 2px rgba(30, 159, 255, 0.2);
+            outline: none;
+        }
+        .layui-textarea {
+            height: auto;
+            min-height: 80px;
+            padding: 6px 10px;
+        }
+        /* 确保按钮样式正确 */
+        .layui-btn {
+            display: inline-block;
+            height: 38px;
+            line-height: 38px;
+            padding: 0 18px;
+            background-color: #1E9FFF;
+            color: #fff;
+            white-space: nowrap;
+            text-align: center;
+            font-size: 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+        .layui-btn:hover {
+            background-color: #40a9ff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .layui-btn-primary {
+            background-color: #fff;
+            color: #666;
+            border: 1px solid #ddd;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        .layui-btn-primary:hover {
+            border-color: #1E9FFF;
+            color: #1E9FFF;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-container">
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <div class="form-container">
+                    <form class="layui-form" id="employeeCareForm">
+                        {% csrf_token %}
+                        
+                        <div class="form-section">
+                            <div class="form-section-title">基本信息</div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">员工</label>
+                                <div class="layui-input-block">
+                                    {{ form.employee }}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">关怀类型</label>
+                                <div class="layui-input-block">
+                                    {{ form.care_type }}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">关怀标题</label>
+                                <div class="layui-input-block">
+                                    {{ form.title }}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">关怀内容</label>
+                                <div class="layui-input-block">
+                                    {{ form.content }}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">关怀日期</label>
+                                <div class="layui-input-block">
+                                    {{ form.care_date }}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">关怀金额</label>
+                                <div class="layui-input-block">
+                                    {{ form.amount }}
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">备注</label>
+                                <div class="layui-input-block">
+                                    {{ form.remarks }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="layui-form-item">
+                            <div class="layui-input-block">
+                                <button type="submit" class="layui-btn layui-btn-normal" lay-submit lay-filter="formSubmit">提交</button>
+                                <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['form', 'laydate'], function(){
+            var form = layui.form;
+            var laydate = layui.laydate;
+            
+            // 初始化日期选择器
+            laydate.render({
+                elem: '#id_care_date',
+                type: 'date'
+            });
+            
+            // 表单提交
+            form.on('submit(formSubmit)', function(data){
+                var formData = new FormData(document.getElementById('employeeCareForm'));
+                
+                fetch('', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        layer.msg(result.message, {icon: 1}, function(){
+                            // 关闭当前弹窗并刷新父页面
+                            var index = parent.layer.getFrameIndex(window.name);
+                            parent.layer.close(index);
+                            if (parent.layui && parent.layui.table) {
+                                parent.layui.table.reload('employeeCareTable');
+                            }
+                        });
+                    } else {
+                        layer.msg(result.message || '操作失败', {icon: 2});
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    layer.msg('网络错误，请重试', {icon: 2});
+                });
+                
+                return false; // 阻止表单默认提交
+            });
+            
+            // 渲染表单
+            form.render();
+        });
+    </script>
+</body>
+</html>

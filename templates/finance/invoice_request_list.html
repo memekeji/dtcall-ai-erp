@@ -1,0 +1,158 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>开票申请管理</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <div class="layui-tab layui-tab-brief" lay-filter="requestTabs">
+                    <ul class="layui-tab-title">
+                        <li class="layui-this" lay-id="all">全部申请</li>
+                        <li lay-id="my">我的申请</li>
+                        <li lay-id="pending">待我审核</li>
+                        <li lay-id="reviewed">我已审核</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="layui-card-body">
+                <table id="requestTable" class="layui-table" lay-filter="requestTable"></table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['element', 'table', 'layer'], function () {
+            var element = layui.element;
+            var table = layui.table;
+            var layer = layui.layer;
+
+            // 初始化表格
+            function initTable(tab = '0') {
+                table.render({
+                    elem: '#requestTable',
+                    url: '/adm/finance/invoice-request/list/?tab=' + tab,
+                    cols: [[
+                        { field: 'id', title: 'ID', width: 80 },
+                        { field: 'order_number', title: '订单编号', width: 150 },
+                        { field: 'customer_name', title: '客户名称', width: 200 },
+                        { field: 'amount', title: '开票金额', width: 120 },
+                        { field: 'invoice_title', title: '开票抬头', width: 200 },
+                        { field: 'status', title: '申请状态', width: 100 },
+                        { field: 'applicant', title: '申请人', width: 100 },
+                        { field: 'create_time', title: '申请时间', width: 180 },
+                        { title: '操作', width: 200, toolbar: '#requestToolBar' }
+                    ]],
+                    page: true,
+                    limit: 20,
+                    height: 'full-200'
+                });
+            }
+
+            // 初始化表格
+            initTable();
+
+            // 监听选项卡切换
+            element.on('tab(requestTabs)', function (data) {
+                var layId = $(this).attr('lay-id');
+                var tabMap = {
+                    'all': '0',
+                    'my': '1',
+                    'pending': '2',
+                    'reviewed': '3'
+                };
+                initTable(tabMap[layId]);
+            });
+
+            // 监听工具条
+            table.on('tool(requestTable)', function (obj) {
+                var data = obj.data;
+                var layEvent = obj.event;
+
+                if (layEvent === 'view') {
+                    // 查看详情
+                    layer.open({
+                        type: 2,
+                        title: '开票申请详情',
+                        content: '/adm/finance/invoice-request/detail/' + data.id + '/',
+                        area: ['800px', '600px']
+                    });
+                } else if (layEvent === 'approve') {
+                    // 审批
+                    layer.prompt({
+                        title: '审批意见',
+                        formType: 2
+                    }, function (value, index) {
+                        $.ajax({
+                            url: '/adm/finance/invoice-request/approval/',
+                            type: 'POST',
+                            data: JSON.stringify({
+                                request_id: data.id,
+                                action: 'approved',
+                                comment: value
+                            }),
+                            contentType: 'application/json',
+                            success: function (response) {
+                                if (response.code === 0) {
+                                    layer.msg('审批成功', { icon: 1 });
+                                    table.reload('requestTable');
+                                } else {
+                                    layer.msg(response.msg, { icon: 2 });
+                                }
+                            }
+                        });
+                        layer.close(index);
+                    });
+                } else if (layEvent === 'reject') {
+                    // 拒绝
+                    layer.prompt({
+                        title: '拒绝理由',
+                        formType: 2
+                    }, function (value, index) {
+                        $.ajax({
+                            url: '/adm/finance/invoice-request/approval/',
+                            type: 'POST',
+                            data: JSON.stringify({
+                                request_id: data.id,
+                                action: 'rejected',
+                                comment: value
+                            }),
+                            contentType: 'application/json',
+                            success: function (response) {
+                                if (response.code === 0) {
+                                    layer.msg('操作成功', { icon: 1 });
+                                    table.reload('requestTable');
+                                } else {
+                                    layer.msg(response.msg, { icon: 2 });
+                                }
+                            }
+                        });
+                        layer.close(index);
+                    });
+                }
+            });
+        });
+    </script>
+
+    <!-- 工具栏模板 -->
+    <script type="text/html" id="requestToolBar">
+        <a class="layui-btn layui-btn-xs" lay-event="view">查看</a>
+        {% verbatim %}
+        {{# if(d.status === '待审核') { }}
+        <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="approve">批准</a>
+        <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="reject">拒绝</a>
+        {{# } }}
+        {% endverbatim %}
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,307 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}工作日历{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <h3>工作日历</h3>
+            </div>
+            <div class="layui-col-md6" style="text-align: right;">
+                <a href="{% url 'personal:work_record_add' %}" class="layui-btn layui-btn-sm">
+                    <i class="layui-icon layui-icon-add-1"></i> 新增工作记录
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <!-- 日历导航 -->
+        <div class="layui-row" style="margin-bottom: 15px;">
+            <div class="layui-col-md12" style="text-align: center;">
+                {% if month == 1 %}
+                    <a href="?year={{ year|add:'-1' }}&month=12" class="layui-btn layui-btn-sm">
+                {% else %}
+                    <a href="?year={{ year }}&month={{ month|add:'-1' }}" class="layui-btn layui-btn-sm">
+                {% endif %}
+                    <i class="layui-icon layui-icon-left"></i> 上月
+                </a>
+                <span style="margin: 0 20px; font-size: 18px; font-weight: bold;">
+                    {{ year }}年{{ month }}月工作记录
+                </span>
+                {% if month == 12 %}
+                    <a href="?year={{ year|add:'1' }}&month=1" class="layui-btn layui-btn-sm">
+                {% else %}
+                    <a href="?year={{ year }}&month={{ month|add:'1' }}" class="layui-btn layui-btn-sm">
+                {% endif %}
+                    下月 <i class="layui-icon layui-icon-right"></i>
+                </a>
+            </div>
+        </div>
+        
+        <!-- 工作日历视图 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <div id="work-calendar-container" style="background: white; border-radius: 4px; overflow: hidden;">
+                    <table class="layui-table" style="margin: 0; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background-color: #f8f9fa;">
+                                <th style="text-align: center; padding: 15px; color: #666; font-weight: bold; width: 14.28%;">周日</th>
+                                <th style="text-align: center; padding: 15px; color: #666; font-weight: bold; width: 14.28%;">周一</th>
+                                <th style="text-align: center; padding: 15px; color: #666; font-weight: bold; width: 14.28%;">周二</th>
+                                <th style="text-align: center; padding: 15px; color: #666; font-weight: bold; width: 14.28%;">周三</th>
+                                <th style="text-align: center; padding: 15px; color: #666; font-weight: bold; width: 14.28%;">周四</th>
+                                <th style="text-align: center; padding: 15px; color: #666; font-weight: bold; width: 14.28%;">周五</th>
+                                <th style="text-align: center; padding: 15px; color: #666; font-weight: bold; width: 14.28%;">周六</th>
+                            </tr>
+                        </thead>
+                        <tbody id="work-calendar-body">
+                            <!-- 日历内容将通过JavaScript生成 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 工作记录详情弹窗 -->
+<div id="work-detail" style="display: none; padding: 20px;">
+    <div id="work-content"></div>
+</div>
+
+<script>
+// 工作记录数据
+var workData = {};
+{% for record in records %}
+var dateKey = '{{ record.work_date|date:"Y-m-d" }}';
+if (!workData[dateKey]) {
+    workData[dateKey] = [];
+}
+workData[dateKey].push({
+    id: {{ record.pk }},
+    title: '{{ record.title|escapejs }}',
+    work_type: '{{ record.get_work_type_display|escapejs }}',
+    duration: {{ record.duration|default:0 }},
+    progress: {{ record.progress|default:0 }},
+    start_time: '{{ record.start_time|date:"H:i"|default:"" }}',
+    end_time: '{{ record.end_time|date:"H:i"|default:"" }}'
+});
+{% endfor %}
+
+// 生成工作日历
+function generateWorkCalendar(year, month) {
+    var firstDay = new Date(year, month - 1, 1);
+    var lastDay = new Date(year, month, 0);
+    var startDate = new Date(firstDay);
+    startDate.setDate(startDate.getDate() - firstDay.getDay());
+    
+    var calendarBody = document.getElementById('work-calendar-body');
+    calendarBody.innerHTML = '';
+    
+    var currentDate = new Date(startDate);
+    
+    for (var week = 0; week < 6; week++) {
+        var row = document.createElement('tr');
+        
+        for (var day = 0; day < 7; day++) {
+            var cell = document.createElement('td');
+            cell.style.height = '120px';
+            cell.style.verticalAlign = 'top';
+            cell.style.padding = '8px';
+            cell.style.border = '1px solid #e6e6e6';
+            cell.style.position = 'relative';
+            
+            var dateStr = currentDate.getFullYear() + '-' + 
+                         String(currentDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                         String(currentDate.getDate()).padStart(2, '0');
+            
+            // 日期数字
+            var dayDiv = document.createElement('div');
+            dayDiv.style.fontWeight = 'bold';
+            dayDiv.style.marginBottom = '5px';
+            dayDiv.style.fontSize = '14px';
+            
+            if (currentDate.getMonth() + 1 === month) {
+                dayDiv.textContent = currentDate.getDate();
+                dayDiv.style.color = '#333';
+                cell.style.backgroundColor = '#fff';
+                
+                // 工作日高亮（周一到周五）
+                if (currentDate.getDay() >= 1 && currentDate.getDay() <= 5) {
+                    cell.style.backgroundColor = '#fafbfc';
+                }
+            } else {
+                dayDiv.textContent = currentDate.getDate();
+                dayDiv.style.color = '#ccc';
+                cell.style.backgroundColor = '#f8f9fa';
+            }
+            
+            // 今天高亮
+            var today = new Date();
+            if (currentDate.toDateString() === today.toDateString()) {
+                dayDiv.style.color = '#1E9FFF';
+                dayDiv.style.fontWeight = 'bold';
+                cell.style.backgroundColor = '#f0f9ff';
+                cell.style.border = '2px solid #1E9FFF';
+            }
+            
+            cell.appendChild(dayDiv);
+            
+            // 添加工作记录
+            if (workData[dateStr]) {
+                var totalHours = 0;
+                var avgProgress = 0;
+                
+                workData[dateStr].forEach(function(work, index) {
+                    totalHours += work.duration;
+                    avgProgress += work.progress;
+                    
+                    if (index < 2) { // 最多显示2个工作记录
+                        var workDiv = document.createElement('div');
+                        workDiv.style.backgroundColor = getWorkColor(work.progress);
+                        workDiv.style.color = 'white';
+                        workDiv.style.padding = '2px 6px';
+                        workDiv.style.marginBottom = '2px';
+                        workDiv.style.borderRadius = '3px';
+                        workDiv.style.fontSize = '11px';
+                        workDiv.style.cursor = 'pointer';
+                        workDiv.style.overflow = 'hidden';
+                        workDiv.style.textOverflow = 'ellipsis';
+                        workDiv.style.whiteSpace = 'nowrap';
+                        workDiv.textContent = work.title + ' (' + work.duration + 'h)';
+                        workDiv.onclick = function() {
+                            showWorkDetail(work);
+                        };
+                        cell.appendChild(workDiv);
+                    }
+                });
+                
+                // 显示统计信息
+                avgProgress = Math.round(avgProgress / workData[dateStr].length);
+                var statsDiv = document.createElement('div');
+                statsDiv.style.position = 'absolute';
+                statsDiv.style.bottom = '4px';
+                statsDiv.style.right = '4px';
+                statsDiv.style.fontSize = '10px';
+                statsDiv.style.color = '#666';
+                statsDiv.style.backgroundColor = 'rgba(255,255,255,0.8)';
+                statsDiv.style.padding = '2px 4px';
+                statsDiv.style.borderRadius = '2px';
+                statsDiv.textContent = totalHours + 'h ' + avgProgress + '%';
+                cell.appendChild(statsDiv);
+                
+                // 如果有更多工作记录，显示省略号
+                if (workData[dateStr].length > 2) {
+                    var moreDiv = document.createElement('div');
+                    moreDiv.style.color = '#999';
+                    moreDiv.style.fontSize = '11px';
+                    moreDiv.style.textAlign = 'center';
+                    moreDiv.textContent = '还有' + (workData[dateStr].length - 2) + '个...';
+                    moreDiv.style.cursor = 'pointer';
+                    moreDiv.onclick = function() {
+                        showDayWorks(dateStr, workData[dateStr]);
+                    };
+                    cell.appendChild(moreDiv);
+                }
+            }
+            
+            // 双击添加工作记录
+            cell.ondblclick = function(date) {
+                return function() {
+                    window.location.href = '{% url "personal:work_record_add" %}?date=' + date;
+                };
+            }(dateStr);
+            
+            row.appendChild(cell);
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+        
+        calendarBody.appendChild(row);
+        
+        // 如果已经显示了下个月的日期，就停止
+        if (currentDate.getMonth() + 1 > month && week >= 4) {
+            break;
+        }
+    }
+}
+
+// 获取工作记录颜色（根据进度）
+function getWorkColor(progress) {
+    if (progress >= 90) return '#52c41a'; // 绿色 - 完成度高
+    if (progress >= 70) return '#1890ff'; // 蓝色 - 进展良好
+    if (progress >= 50) return '#fa8c16'; // 橙色 - 进展一般
+    if (progress >= 30) return '#faad14'; // 黄色 - 进展缓慢
+    return '#ff4d4f'; // 红色 - 进展很少
+}
+
+// 显示工作记录详情
+function showWorkDetail(work) {
+    var content = '<h3>' + work.title + '</h3>' +
+                  '<p><strong>工作类型：</strong>' + work.work_type + '</p>' +
+                  '<p><strong>工作时长：</strong>' + work.duration + ' 小时</p>' +
+                  '<p><strong>完成进度：</strong>' + work.progress + '%</p>';
+    
+    if (work.start_time && work.end_time) {
+        content += '<p><strong>工作时间：</strong>' + work.start_time + ' - ' + work.end_time + '</p>';
+    }
+    
+    content += '<div style="margin-top: 15px;">' +
+               '<a href="{% url "personal:work_record_edit" 0 %}".replace("0", work.id) class="layui-btn layui-btn-sm">编辑</a>' +
+               '</div>';
+    
+    document.getElementById('work-content').innerHTML = content;
+    
+    layer.open({
+        type: 1,
+        title: '工作记录详情',
+        content: $('#work-detail'),
+        area: ['500px', '350px']
+    });
+}
+
+// 显示某天的所有工作记录
+function showDayWorks(date, works) {
+    var content = '<h3>' + date + ' 的工作记录</h3><div style="max-height: 300px; overflow-y: auto;">';
+    var totalHours = 0;
+    var totalProgress = 0;
+    
+    works.forEach(function(work) {
+        totalHours += work.duration;
+        totalProgress += work.progress;
+        
+        content += '<div style="padding: 8px; border-bottom: 1px solid #eee;">' +
+                   '<div style="font-weight: bold;">' + work.title + '</div>' +
+                   '<div style="color: #666; font-size: 12px;">' + 
+                   work.work_type + ' | ' + work.duration + '小时 | 进度' + work.progress + '%</div>' +
+                   '</div>';
+    });
+    
+    var avgProgress = Math.round(totalProgress / works.length);
+    content += '</div><div style="margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 4px;">' +
+               '<strong>当日统计：</strong>总工时 ' + totalHours + ' 小时，平均进度 ' + avgProgress + '%</div>';
+    
+    layer.open({
+        type: 1,
+        title: '当日工作记录',
+        content: content,
+        area: ['450px', '400px']
+    });
+}
+
+function deleteRecord(id) {
+    layer.confirm('确定要删除这条工作记录吗？', {
+        btn: ['确定', '取消']
+    }, function(){
+        layer.msg('删除功能待实现');
+    });
+}
+
+// 页面加载完成后生成日历
+document.addEventListener('DOMContentLoaded', function() {
+    generateWorkCalendar({{ year }}, {{ month }});
+});
+</script>
+{% endblock %}

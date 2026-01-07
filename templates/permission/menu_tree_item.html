@@ -1,0 +1,21 @@
+{% load permission_tags %}
+{% get_menu_level menu_items as level %}
+{% for menu in menu_items %}
+<div class="menu-item level-{{ level|default:1 }}" data-menu-id="{{ menu.id }}" data-menu-title="{{ menu.title }}" data-menu-path="{{ menu.menu_path|default:'[]' }}" data-has-children="{% if menu.children %}true{% else %}false{% endif %}">
+    {% if menu.icon %}
+        <i class="layui-icon {{ menu.icon }}" aria-hidden="true"></i>
+    {% else %}
+        <i class="layui-icon layui-icon-file" aria-hidden="true"></i>
+    {% endif %}
+    <span>{{ menu.title }}</span>
+    {% if menu.children %}
+        <i class="layui-icon layui-icon-down menu-toggle{% if menu.expanded %} expanded{% else %} collapsed{% endif %}" aria-hidden="true"></i>
+    {% endif %}
+</div>
+{% if menu.children %}
+<div class="menu-children{% if menu.expanded %} show{% endif %}">
+    {% include 'permission/menu_tree_item.html' with menu_items=menu.children %}
+</div>
+{% endif %}
+{% endfor %}
+{% get_menu_level menu_items as current_level %}

@@ -1,0 +1,471 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>权限管理 - {{ item_name }}</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .permission-container {
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .item-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+        .item-icon {
+            font-size: 32px;
+            margin-right: 15px;
+        }
+        .item-details h3 {
+            margin: 0 0 5px 0;
+            font-size: 18px;
+        }
+        .item-details p {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .permission-section {
+            margin-bottom: 30px;
+        }
+        .section-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+            border-bottom: 2px solid #1E9FFF;
+            padding-bottom: 5px;
+        }
+        .permission-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            border: 1px solid #e6e6e6;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            background: #fff;
+        }
+        .permission-info {
+            display: flex;
+            align-items: center;
+        }
+        .permission-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #1E9FFF;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-weight: bold;
+        }
+        .permission-details h4 {
+            margin: 0 0 5px 0;
+            font-size: 14px;
+        }
+        .permission-details p {
+            margin: 0;
+            color: #666;
+            font-size: 12px;
+        }
+        .permission-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .permission-level {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .level-read {
+            background: #e6f7ff;
+            color: #1890ff;
+        }
+        .level-write {
+            background: #f6ffed;
+            color: #52c41a;
+        }
+        .level-admin {
+            background: #fff2e8;
+            color: #fa8c16;
+        }
+        .add-permission {
+            border: 2px dashed #d9d9d9;
+            background: #fafafa;
+            text-align: center;
+            padding: 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .add-permission:hover {
+            border-color: #1E9FFF;
+            background: #f0f9ff;
+        }
+        .add-permission i {
+            font-size: 24px;
+            color: #999;
+            margin-bottom: 10px;
+            display: block;
+        }
+        .public-setting {
+            background: #fff7e6;
+            border: 1px solid #ffd591;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .public-setting h4 {
+            margin: 0 0 10px 0;
+            color: #d46b08;
+        }
+        .inherit-setting {
+            background: #f0f9ff;
+            border: 1px solid #91d5ff;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .inherit-setting h4 {
+            margin: 0 0 10px 0;
+            color: #0050b3;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="permission-container">
+        <!-- 项目信息 -->
+        <div class="item-info">
+            <div class="item-icon">
+                {% if item_type == 'file' %}
+                    {% if item.file_type == 'document' %}
+                    <i class="layui-icon layui-icon-file" style="color: #1E9FFF;"></i>
+                    {% elif item.file_type == 'image' %}
+                    <i class="layui-icon layui-icon-picture" style="color: #5FB878;"></i>
+                    {% elif item.file_type == 'video' %}
+                    <i class="layui-icon layui-icon-video" style="color: #FF5722;"></i>
+                    {% elif item.file_type == 'audio' %}
+                    <i class="layui-icon layui-icon-voice" style="color: #FFB800;"></i>
+                    {% else %}
+                    <i class="layui-icon layui-icon-file" style="color: #999;"></i>
+                    {% endif %}
+                {% else %}
+                <i class="layui-icon layui-icon-file" style="color: #FFB800;"></i>
+                {% endif %}
+            </div>
+            <div class="item-details">
+                <h3>{{ item_name }}</h3>
+                <p>
+                    {% if item_type == 'file' %}
+                        文件 · {{ item.get_size_display }} · 创建于 {{ item.create_time|date:"Y-m-d H:i" }}
+                    {% else %}
+                        文件夹 · 创建于 {{ item.create_time|date:"Y-m-d H:i" }}
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <!-- 公开设置 -->
+        <div class="permission-section">
+            <div class="section-title">公开设置</div>
+            <div class="public-setting">
+                <h4>
+                    <input type="checkbox" id="isPublic" {% if item.is_public %}checked{% endif %} lay-skin="switch" lay-text="公开|私有">
+                    公开访问
+                </h4>
+                <p>开启后，组织内所有成员都可以访问此{{ item_type_name }}。</p>
+            </div>
+        </div>
+
+        <!-- 继承权限设置 -->
+        {% if item_type == 'file' and item.folder %}
+        <div class="permission-section">
+            <div class="section-title">继承权限</div>
+            <div class="inherit-setting">
+                <h4>
+                    <input type="checkbox" id="inheritPermission" checked lay-skin="switch" lay-text="继承|独立">
+                    继承父文件夹权限
+                </h4>
+                <p>开启后，此文件将继承父文件夹"{{ item.folder.name }}"的权限设置。</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 用户权限 -->
+        <div class="permission-section">
+            <div class="section-title">用户权限</div>
+            
+            <!-- 现有用户权限 -->
+            <div id="userPermissions">
+                {% for user in shared_users %}
+                <div class="permission-item" data-user-id="{{ user.id }}">
+                    <div class="permission-info">
+                        <div class="permission-avatar">{{ user.username|first|upper }}</div>
+                        <div class="permission-details">
+                            <h4>{{ user.username }}</h4>
+                            <p>{{ user.name|default:user.username }} · {{ user.department.title|default:"无部门" }}</p>
+                        </div>
+                    </div>
+                    <div class="permission-actions">
+                        <select class="layui-input" style="width: 100px;" onchange="updateUserPermission('{{ user.id }}', this.value)">
+                            <option value="1" {% if user.permission_level == 1 %}selected{% endif %}>只读</option>
+                            <option value="2" {% if user.permission_level == 2 %}selected{% endif %}>读写</option>
+                            <option value="3" {% if user.permission_level == 3 %}selected{% endif %}>管理</option>
+                        </select>
+                        <button class="layui-btn layui-btn-danger layui-btn-xs" onclick="removeUserPermission('{{ user.id }}')">
+                            <i class="layui-icon layui-icon-delete"></i>
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- 添加用户权限 -->
+            <div class="add-permission" onclick="showAddUserDialog()">
+                <i class="layui-icon layui-icon-add-1"></i>
+                <div>添加用户权限</div>
+            </div>
+        </div>
+
+        <!-- 部门权限 -->
+        <div class="permission-section">
+            <div class="section-title">部门权限</div>
+            
+            <!-- 现有部门权限 -->
+            <div id="departmentPermissions">
+                {% for dept in shared_departments %}
+                <div class="permission-item" data-dept-id="{{ dept.id }}">
+                    <div class="permission-info">
+                        <div class="permission-avatar" style="background: #52c41a;">{{ dept.title|first|upper }}</div>
+                        <div class="permission-details">
+                            <h4>{{ dept.title }}</h4>
+                            <p>部门 · {{ dept.users.count }}名成员</p>
+                        </div>
+                    </div>
+                    <div class="permission-actions">
+                        <select class="layui-input" style="width: 100px;" onchange="updateDeptPermission('{{ dept.id }}', this.value)">
+                            <option value="1" {% if dept.permission_level == 1 %}selected{% endif %}>只读</option>
+                            <option value="2" {% if dept.permission_level == 2 %}selected{% endif %}>读写</option>
+                            <option value="3" {% if dept.permission_level == 3 %}selected{% endif %}>管理</option>
+                        </select>
+                        <button class="layui-btn layui-btn-danger layui-btn-xs" onclick="removeDeptPermission('{{ dept.id }}')">
+                            <i class="layui-icon layui-icon-delete"></i>
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- 添加部门权限 -->
+            <div class="add-permission" onclick="showAddDeptDialog()">
+                <i class="layui-icon layui-icon-add-1"></i>
+                <div>添加部门权限</div>
+            </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div style="text-align: center; margin-top: 30px;">
+            <button class="layui-btn" onclick="savePermissions()">
+                <i class="layui-icon layui-icon-ok"></i> 保存设置
+            </button>
+            <button class="layui-btn layui-btn-primary" onclick="closeDialog()">
+                <i class="layui-icon layui-icon-close"></i> 取消
+            </button>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['layer', 'form', 'transfer'], function () {
+            var layer = layui.layer;
+            var form = layui.form;
+            var transfer = layui.transfer;
+            
+            // 监听开关
+            form.on('switch()', function(data){
+                console.log(data.elem.checked, data.value);
+            });
+        });
+
+        // 更新用户权限
+        function updateUserPermission(userId, level) {
+            $.post('/disk/permission/user/', {
+                item_type: '{{ item_type }}',
+                item_id: '{{ item.id }}',
+                user_id: userId,
+                permission_level: level,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            }, function(response) {
+                if (response.code === 0) {
+                    layui.use('layer', function() {
+                        var layer = layui.layer;
+                        layer.msg('权限更新成功', {icon: 1});
+                    });
+                } else {
+                    layui.use('layer', function() {
+                        var layer = layui.layer;
+                        layer.msg(response.msg, {icon: 2});
+                    });
+                }
+            });
+        }
+
+        // 移除用户权限
+        function removeUserPermission(userId) {
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                layer.confirm('确定要移除此用户的权限吗？', {
+                    icon: 3,
+                    title: '确认移除'
+                }, function(index) {
+                    $.post('/disk/permission/user/remove/', {
+                        item_type: '{{ item_type }}',
+                        item_id: '{{ item.id }}',
+                        user_id: userId,
+                        csrfmiddlewaretoken: '{{ csrf_token }}'
+                    }, function(response) {
+                        if (response.code === 0) {
+                            $('[data-user-id="' + userId + '"]').remove();
+                            layer.msg('权限移除成功', {icon: 1});
+                        } else {
+                            layer.msg(response.msg, {icon: 2});
+                        }
+                    });
+                    layer.close(index);
+                });
+            });
+        }
+
+        // 更新部门权限
+        function updateDeptPermission(deptId, level) {
+            $.post('/disk/permission/dept/', {
+                item_type: '{{ item_type }}',
+                item_id: '{{ item.id }}',
+                dept_id: deptId,
+                permission_level: level,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            }, function(response) {
+                if (response.code === 0) {
+                    layui.use('layer', function() {
+                        var layer = layui.layer;
+                        layer.msg('权限更新成功', {icon: 1});
+                    });
+                } else {
+                    layui.use('layer', function() {
+                        var layer = layui.layer;
+                        layer.msg(response.msg, {icon: 2});
+                    });
+                }
+            });
+        }
+
+        // 移除部门权限
+        function removeDeptPermission(deptId) {
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                layer.confirm('确定要移除此部门的权限吗？', {
+                    icon: 3,
+                    title: '确认移除'
+                }, function(index) {
+                    $.post('/disk/permission/dept/remove/', {
+                        item_type: '{{ item_type }}',
+                        item_id: '{{ item.id }}',
+                        dept_id: deptId,
+                        csrfmiddlewaretoken: '{{ csrf_token }}'
+                    }, function(response) {
+                        if (response.code === 0) {
+                            $('[data-dept-id="' + deptId + '"]').remove();
+                            layer.msg('权限移除成功', {icon: 1});
+                        } else {
+                            layer.msg(response.msg, {icon: 2});
+                        }
+                    });
+                    layer.close(index);
+                });
+            });
+        }
+
+        // 显示添加用户对话框
+        function showAddUserDialog() {
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: '添加用户权限',
+                    shadeClose: true,
+                    shade: 0.8,
+                    area: ['900px', '700px'],
+                    content: '/disk/permission/user/add/?item_type={{ item_type }}&item_id={{ item.id }}'
+                });
+            });
+        }
+
+        // 显示添加部门对话框
+        function showAddDeptDialog() {
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: '添加部门权限',
+                    shadeClose: true,
+                    shade: 0.8,
+                    area: ['900px', '700px'],
+                    content: '/disk/permission/dept/add/?item_type={{ item_type }}&item_id={{ item.id }}'
+                });
+            });
+        }
+
+        // 保存权限设置
+        function savePermissions() {
+            var isPublic = $('#isPublic').is(':checked');
+            var inheritPermission = $('#inheritPermission').is(':checked');
+            
+            $.post('/disk/permission/save/', {
+                item_type: '{{ item_type }}',
+                item_id: '{{ item.id }}',
+                is_public: isPublic,
+                inherit_permission: inheritPermission,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            }, function(response) {
+                if (response.code === 0) {
+                    layui.use('layer', function() {
+                        var layer = layui.layer;
+                        layer.msg('权限设置保存成功', {icon: 1});
+                        setTimeout(function() {
+                            closeDialog();
+                        }, 1500);
+                    });
+                } else {
+                    layui.use('layer', function() {
+                        var layer = layui.layer;
+                        layer.msg(response.msg, {icon: 2});
+                    });
+                }
+            });
+        }
+
+        // 关闭对话框
+        function closeDialog() {
+            var index = parent.layer.getFrameIndex(window.name);
+            parent.layer.close(index);
+        }
+    </script>
+</body>
+
+</html>

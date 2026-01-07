@@ -1,0 +1,57 @@
+{% extends 'include/common.html' %}
+
+{% block title %}会议室详情{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <span class="layui-breadcrumb">
+                    <a href="javascript:;">会议室管理</a>
+                    <a href="{% url 'adm_meeting_room' %}">会议室列表</a>
+                    <a><cite>会议室详情</cite></a>
+                </span>
+            </div>
+            <div class="layui-col-md6 text-right">
+                <button class="layui-btn layui-btn-primary" onclick="closeLayer()">关闭</button>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <div class="layui-form">
+            <div class="layui-form-item">
+                <label class="layui-form-label">会议室名称</label>
+                <div class="layui-input-block">
+                    <div class="layui-input">{{ detail.title }}</div>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">负责人</label>
+                <div class="layui-input-block">
+                    <div class="layui-input">{{ detail.keep_name|default:'未设置' }}</div>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">创建时间</label>
+                <div class="layui-input-block">
+                    <div class="layui-input">{{ detail.create_time }}</div>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">会议室描述</label>
+                <div class="layui-input-block">
+                    <div class="layui-textarea" style="min-height: 100px;">{{ detail.content }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function closeLayer() {
+    var index = parent.layer.getFrameIndex(window.name);
+    parent.layer.close(index);
+}
+</script>
+{% endblock %}

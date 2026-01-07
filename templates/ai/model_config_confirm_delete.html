@@ -1,0 +1,79 @@
+{% extends 'home/iframe_base.html' %}
+
+{% block title %}删除AI模型配置{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>删除AI模型配置</h3>
+    </div>
+    <div class="layui-card-body">
+        <div class="layui-alert layui-alert-danger">
+            <i class="layui-icon layui-icon-close-fill" style="font-size: 18px;"></i>
+            <strong>警告：</strong> 您确定要删除AI模型配置 <strong>"{{ object.name }}"</strong> 吗？
+        </div>
+        
+        <div class="layui-panel" style="padding: 15px; background-color: #f8f8f8; margin: 15px 0;">
+            <h4>配置信息</h4>
+            <table class="layui-table" style="margin: 0;">
+                <tbody>
+                    <tr>
+                        <td width="100">配置名称</td>
+                        <td>{{ object.name }}</td>
+                    </tr>
+                    <tr>
+                        <td>模型类型</td>
+                        <td>{{ object.model_type }}</td>
+                    </tr>
+                    <tr>
+                        <td>提供商</td>
+                        <td>{{ object.provider }}</td>
+                    </tr>
+                    <tr>
+                        <td>API地址</td>
+                        <td>{{ object.base_url|default:"未设置" }}</td>
+                    </tr>
+                    <tr>
+                        <td>状态</td>
+                        <td>
+                            {% if object.is_active %}
+                                <span class="layui-badge layui-bg-green">激活</span>
+                            {% else %}
+                                <span class="layui-badge">未激活</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="layui-alert layui-alert-warning">
+            <i class="layui-icon layui-icon-tips" style="font-size: 16px;"></i>
+            <strong>注意：</strong> 删除后该配置将无法恢复，所有使用此配置的AI功能将受到影响。
+        </div>
+        
+        <form method="post" style="margin-top: 20px;">
+            {% csrf_token %}
+            <div class="layui-form-item" style="text-align: center;">
+                <button type="submit" class="layui-btn layui-btn-danger">
+                    <i class="layui-icon layui-icon-delete"></i> 确认删除
+                </button>
+                <a href="{% url 'ai:ai_model_config_list' %}" class="layui-btn layui-btn-primary" style="margin-left: 20px;">
+                    <i class="layui-icon layui-icon-return"></i> 取消
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script type="text/javascript">
+layui.use(['layer'], function() {
+    var layer = layui.layer;
+    
+    // 添加表单提交确认
+    $('form').submit(function() {
+        return confirm('此操作不可逆，确定要删除该AI模型配置吗？');
+    });
+});
+</script>
+{% endblock %}

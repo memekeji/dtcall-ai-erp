@@ -1,0 +1,367 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{% if reservation %}编辑会议预约{% else %}新增会议预约{% endif %}{% endblock %}
+
+{% block extra_js %}
+<script>
+// 页面加载完成后初始化
+layui.use(['tree', 'form', 'layer'], function(){
+    var tree = layui.tree;
+    var form = layui.form;
+    var layer = layui.layer;
+    
+    // 从模板变量中获取数据
+    var departmentTree = {{ department_tree_json|safe }};
+    var userData = {{ user_data_json|safe }};
+    
+    // 存储当前选中的用户
+    var selectedUsers = [];
+    
+    // 初始化部门树形结构
+    tree.render({
+        elem: '#department_tree',
+        data: departmentTree,
+        showCheckbox: false,
+        accordion: true,
+        click: function(obj){
+            // 点击部门时显示该部门的人员
+            showUsersByDepartment(obj.data.id);
+        }
+    });
+    
+    // 根据部门ID显示人员
+    function showUsersByDepartment(departmentId) {
+        var filteredUsers = userData.filter(function(user) {
+            return user.department_id == departmentId;
+        });
+        
+        var userListHtml = '';
+        if (filteredUsers.length > 0) {
+            userListHtml = '<table class="layui-table">';
+            userListHtml += '<thead><tr><th width="40"><input type="checkbox" lay-skin="primary" lay-filter="checkAll"></th><th>姓名</th><th>工号</th><th>部门</th></tr></thead>';
+            userListHtml += '<tbody>';
+            
+            filteredUsers.forEach(function(user) {
+                var isSelected = selectedUsers.some(function(selected) {
+                    return selected.id == user.id;
+                });
+                
+                userListHtml += '<tr>';
+                userListHtml += '<td><input type="checkbox" name="user_checkbox" value="' + user.id + '" lay-skin="primary" ' + (isSelected ? 'checked' : '') + '></td>';
+                userListHtml += '<td>' + user.name + '</td>';
+                userListHtml += '<td>' + (user.employee_id || '') + '</td>';
+                userListHtml += '<td>' + user.department_name + '</td>';
+                userListHtml += '</tr>';
+            });
+            
+            userListHtml += '</tbody></table>';
+        } else {
+            userListHtml = '<div class="layui-text" style="text-align: center; padding: 100px 0; color: #999;">该部门暂无人员</div>';
+        }
+        
+        document.getElementById('user_list').innerHTML = userListHtml;
+        form.render('checkbox');
+        
+        // 绑定全选功能
+        form.on('checkbox(checkAll)', function(data){
+            var checkboxes = document.querySelectorAll('input[name="user_checkbox"]');
+            checkboxes.forEach(function(checkbox) {
+                checkbox.checked = data.elem.checked;
+                if (data.elem.checked) {
+                    addUserToSelection(parseInt(checkbox.value));
+                } else {
+                    removeUserFromSelection(parseInt(checkbox.value));
+                }
+            });
+            form.render('checkbox');
+        });
+        
+        // 绑定单个用户选择
+        form.on('checkbox', function(data){
+            var userId = parseInt(data.value);
+            if (data.elem.checked) {
+                addUserToSelection(userId);
+            } else {
+                removeUserFromSelection(userId);
+            }
+        });
+    }
+    
+    // 添加用户到选择列表
+    function addUserToSelection(userId) {
+        var user = userData.find(function(u) { return u.id == userId; });
+        if (user && !selectedUsers.some(function(u) { return u.id == userId; })) {
+            selectedUsers.push(user);
+            updateSelectedUsersDisplay();
+        }
+    }
+    
+    // 从选择列表中移除用户
+    function removeUserFromSelection(userId) {
+        selectedUsers = selectedUsers.filter(function(user) {
+            return user.id != userId;
+        });
+        updateSelectedUsersDisplay();
+    }
+    
+    // 更新已选择人员显示
+    function updateSelectedUsersDisplay() {
+        var selectedUsersDiv = document.getElementById('selected_users');
+        
+        // 更新Django表单的SelectMultiple字段
+        var userIds = selectedUsers.map(function(user) {
+            return user.id;
+        });
+        
+        // 获取Django表单的attendees字段（SelectMultiple）
+        var attendeesSelect = document.querySelector('select[name="attendees"]');
+        if (attendeesSelect) {
+            // 清除所有已选选项
+            for (var i = 0; i < attendeesSelect.options.length; i++) {
+                attendeesSelect.options[i].selected = false;
+            }
+            
+            // 设置选中的选项
+            userIds.forEach(function(userId) {
+                for (var i = 0; i < attendeesSelect.options.length; i++) {
+                    if (parseInt(attendeesSelect.options[i].value) === userId) {
+                        attendeesSelect.options[i].selected = true;
+                        break;
+                    }
+                }
+            });
+        }
+        
+        // 更新显示区域
+        if (selectedUsers.length > 0) {
+            var badgesHtml = '';
+            selectedUsers.forEach(function(user) {
+                badgesHtml += '<span class="layui-badge layui-bg-blue" style="margin: 2px; cursor: pointer;" onclick="removeSelectedUser(' + user.id + ')">';
+                badgesHtml += user.name + (user.employee_id ? ' (' + user.employee_id + ')' : '') + ' ×';
+                badgesHtml += '</span>';
+            });
+            selectedUsersDiv.innerHTML = badgesHtml;
+        } else {
+            selectedUsersDiv.innerHTML = '<span class="layui-text" style="color: #999;">暂未选择人员</span>';
+        }
+    }
+    
+    // 全局函数，用于从已选择列表中移除用户
+    window.removeSelectedUser = function(userId) {
+        removeUserFromSelection(userId);
+        
+        // 更新对应的复选框状态
+        var checkboxes = document.querySelectorAll('input[name="user_checkbox"]');
+        checkboxes.forEach(function(checkbox) {
+            if (parseInt(checkbox.value) == userId) {
+                checkbox.checked = false;
+            }
+        });
+        form.render('checkbox');
+    };
+    
+    // 搜索功能
+    document.getElementById('user_search').addEventListener('input', function(e) {
+        var searchText = e.target.value.toLowerCase();
+        if (searchText.trim() === '') {
+            // 清空搜索时显示提示
+            document.getElementById('user_list').innerHTML = '<div class="layui-text" style="text-align: center; padding: 100px 0; color: #999;">请选择部门查看人员</div>';
+            return;
+        }
+        
+        var filteredUsers = userData.filter(function(user) {
+            return user.name.toLowerCase().includes(searchText) || 
+                   (user.employee_id && user.employee_id.toLowerCase().includes(searchText));
+        });
+        
+        var userListHtml = '';
+        if (filteredUsers.length > 0) {
+            userListHtml = '<table class="layui-table">';
+            userListHtml += '<thead><tr><th width="40"><input type="checkbox" lay-skin="primary" lay-filter="checkAll"></th><th>姓名</th><th>工号</th><th>部门</th></tr></thead>';
+            userListHtml += '<tbody>';
+            
+            filteredUsers.forEach(function(user) {
+                var isSelected = selectedUsers.some(function(selected) {
+                    return selected.id == user.id;
+                });
+                
+                userListHtml += '<tr>';
+                userListHtml += '<td><input type="checkbox" name="user_checkbox" value="' + user.id + '" lay-skin="primary" ' + (isSelected ? 'checked' : '') + '></td>';
+                userListHtml += '<td>' + user.name + '</td>';
+                userListHtml += '<td>' + (user.employee_id || '') + '</td>';
+                userListHtml += '<td>' + user.department_name + '</td>';
+                userListHtml += '</tr>';
+            });
+            
+            userListHtml += '</tbody></table>';
+        } else {
+            userListHtml = '<div class="layui-text" style="text-align: center; padding: 100px 0; color: #999;">未找到匹配的人员</div>';
+        }
+        
+        document.getElementById('user_list').innerHTML = userListHtml;
+        form.render('checkbox');
+        
+        // 重新绑定事件
+        form.on('checkbox(checkAll)', function(data){
+            var checkboxes = document.querySelectorAll('input[name="user_checkbox"]');
+            checkboxes.forEach(function(checkbox) {
+                checkbox.checked = data.elem.checked;
+                if (data.elem.checked) {
+                    addUserToSelection(parseInt(checkbox.value));
+                } else {
+                    removeUserFromSelection(parseInt(checkbox.value));
+                }
+            });
+            form.render('checkbox');
+        });
+        
+        form.on('checkbox', function(data){
+            var userId = parseInt(data.value);
+            if (data.elem.checked) {
+                addUserToSelection(userId);
+            } else {
+                removeUserFromSelection(userId);
+            }
+        });
+    });
+    
+    // 表单提交前验证
+    document.querySelector('form').addEventListener('submit', function(e) {
+        // 确保Django表单的attendees字段有正确的值
+        updateSelectedUsersDisplay();
+    });
+    
+    // 如果是编辑页面，初始化已选择的人员
+    {% if reservation %}
+        var initialAttendees = [];
+        {% for attendee in reservation.attendees.all %}
+            initialAttendees.push({
+                id: {{ attendee.id }},
+                name: '{{ attendee.name|default:attendee.username|escapejs }}',
+                employee_id: '{{ attendee.employee_id|default:""|escapejs }}',
+                department_name: '{{ attendee.department.name|default:"未分配部门"|escapejs }}'
+            });
+        {% endfor %}
+        
+        selectedUsers = initialAttendees;
+        updateSelectedUsersDisplay();
+    {% endif %}
+});
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>{% if reservation %}编辑会议预约{% else %}新增会议预约{% endif %}</h3>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form" method="post">
+            {% csrf_token %}
+            <!-- Django表单的attendees字段（SelectMultiple） -->
+            <div id="django_attendees_field" style="display: none;">
+                {{ form.attendees }}
+            </div>
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">会议室 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.meeting_room }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">会议主题 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.title }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">开始时间 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.start_time }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">结束时间 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.end_time }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">参会人员</label>
+                <div class="layui-input-block">
+                    
+                    <!-- 组织架构树形选择器 -->
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md4">
+                            <div class="layui-card">
+                                <div class="layui-card-header">组织架构</div>
+                                <div class="layui-card-body">
+                                    <div id="department_tree" style="height: 300px; overflow-y: auto;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md8">
+                            <div class="layui-card">
+                                <div class="layui-card-header">
+                                    人员列表
+                                    <div class="layui-inline" style="float: right;">
+                                        <input type="text" id="user_search" placeholder="搜索人员" class="layui-input" style="width: 200px;">
+                                    </div>
+                                </div>
+                                <div class="layui-card-body">
+                                    <div id="user_list" style="height: 300px; overflow-y: auto;">
+                                        <div class="layui-text" style="text-align: center; padding: 100px 0; color: #999;">
+                                            请选择部门查看人员
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 已选择的人员显示区域 -->
+                    <div class="layui-card" style="margin-top: 15px;">
+                        <div class="layui-card-header">已选择人员</div>
+                        <div class="layui-card-body">
+                            <div id="selected_users" class="layui-badge-group">
+                                <!-- 已选择的人员标签将在这里显示 -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-mid layui-word-aux">点击部门查看人员，可多选参会人员</div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">会议描述</label>
+                <div class="layui-input-block">
+                    {{ form.description }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" type="submit">保存</button>
+                    <a href="{% url 'system:admin_office:meeting_reservation_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

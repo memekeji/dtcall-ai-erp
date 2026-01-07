@@ -1,0 +1,670 @@
+{% extends 'home/iframe_base.html' %}
+{% load static %}
+
+{% block title %}{% if form.instance.pk %}编辑数据访问权限{% else %}新建数据访问权限{% endif %} - DTCALL管理后台{% endblock %}
+
+{% block css %}
+<style>
+    .form-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    .page-header {
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .page-title {
+        font-size: 20px;
+        font-weight: bold;
+        color: #333;
+    }
+    .form-card {
+        background-color: #fff;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        padding: 25px;
+    }
+    .form-row {
+        margin-bottom: 20px;
+    }
+    .form-label {
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 8px;
+        display: block;
+    }
+    .form-description {
+        color: #999;
+        font-size: 13px;
+        margin-top: 5px;
+        line-height: 1.5;
+    }
+    .layui-form-item {
+        margin-bottom: 20px;
+    }
+    .layui-form-label {
+        width: 120px;
+    }
+    .layui-input-block {
+        margin-left: 150px;
+    }
+    .layui-form-checkbox {
+        margin-right: 15px;
+    }
+    .layui-input, .layui-select, .layui-textarea {
+        border-radius: 4px;
+    }
+    .access-type-section {
+        margin-top: 25px;
+        padding: 20px;
+        background-color: #fafafa;
+        border-radius: 4px;
+    }
+    .access-type-title {
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 15px;
+    }
+    .condition-row {
+        display: flex;
+        margin-bottom: 15px;
+        align-items: center;
+        padding: 15px;
+        background-color: #fff;
+        border-radius: 4px;
+        border-left: 3px solid #00f2fe;
+    }
+    .condition-row .layui-form-label {
+        width: 100px;
+        margin-bottom: 0;
+        padding: 9px 0;
+    }
+    .condition-row .layui-input-block {
+        margin-left: 120px;
+        margin-bottom: 0;
+    }
+    .condition-row .layui-form-item {
+        margin-bottom: 0;
+    }
+    .condition-buttons {
+        display: flex;
+        margin-left: 150px;
+        margin-top: 15px;
+    }
+    .add-condition-btn {
+        display: flex;
+        align-items: center;
+        color: #00f2fe;
+        cursor: pointer;
+    }
+    .add-condition-btn:hover {
+        color: #00d4dc;
+    }
+    .remove-condition-btn {
+        color: #f5222d;
+        cursor: pointer;
+        margin-left: 10px;
+    }
+    .remove-condition-btn:hover {
+        color: #cf1322;
+    }
+    .layui-btn-normal {
+        background-color: #00f2fe;
+    }
+    .layui-btn-normal:hover {
+        background-color: #00d4dc;
+    }
+    .form-action-buttons {
+        margin-top: 30px;
+        text-align: right;
+    }
+    .form-action-buttons .layui-btn {
+        margin-left: 10px;
+    }
+    .back-link {
+        margin-bottom: 20px;
+    }
+    .workflow-info {
+        background-color: #f0f9ff;
+        border-radius: 4px;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-left: 3px solid #1890ff;
+    }
+    .workflow-info-item {
+        display: flex;
+        margin-bottom: 10px;
+    }
+    .workflow-info-item:last-child {
+        margin-bottom: 0;
+    }
+    .workflow-info-label {
+        font-weight: 500;
+        color: #333;
+        width: 80px;
+    }
+    .workflow-info-value {
+        color: #666;
+        flex: 1;
+    }
+    .permission-note {
+        background-color: #fff7e6;
+        border-radius: 4px;
+        padding: 15px;
+        margin-top: 20px;
+        border-left: 3px solid #fa8c16;
+        font-size: 14px;
+        color: #8c8c8c;
+    }
+    .permission-note i {
+        color: #fa8c16;
+        margin-right: 5px;
+    }
+    
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+        .form-container {
+            padding: 0 15px;
+        }
+        .form-card {
+            padding: 15px;
+        }
+        .layui-form-label {
+            width: 100px;
+            padding: 9px 0;
+        }
+        .layui-input-block {
+            margin-left: 120px;
+        }
+        .condition-row {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .condition-row .layui-form-label {
+            width: 100%;
+        }
+        .condition-row .layui-input-block {
+            margin-left: 0;
+            margin-top: 10px;
+        }
+        .condition-buttons {
+            margin-left: 0;
+        }
+        .form-action-buttons {
+            text-align: center;
+        }
+        .form-action-buttons .layui-btn {
+            margin-left: 5px;
+            margin-right: 5px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <!-- 返回链接 -->
+    <div class="back-link">
+        <a href="{% url 'ai:workflow_data_access_list' %}" class="layui-btn layui-btn-primary layui-btn-sm">
+            <i class="layui-icon layui-icon-left"></i> 返回数据访问权限列表
+        </a>
+    </div>
+    
+    <!-- 页面标题 -->
+    <div class="page-header">
+        <h2 class="page-title">{% if form.instance.pk %}编辑数据访问权限{% else %}新建数据访问权限{% endif %}</h2>
+    </div>
+    
+    <!-- 表单卡片 -->
+    <div class="form-card">
+        <!-- 关联工作流信息 -->
+        {% if form.instance.workflow or form.initial.workflow %}
+        <div class="workflow-info">
+            <div class="workflow-info-item">
+                <span class="workflow-info-label">关联工作流:</span>
+                <span class="workflow-info-value">
+                    {% if form.instance.workflow %}{{ form.instance.workflow.name }}{% else %}{{ form.initial.workflow.name }}{% endif %}
+                </span>
+            </div>
+            <div class="workflow-info-item">
+                <span class="workflow-info-label">工作流ID:</span>
+                <span class="workflow-info-value">
+                    {% if form.instance.workflow %}{{ form.instance.workflow.id }}{% else %}{{ form.initial.workflow.id }}{% endif %}
+                </span>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- 表单 -->
+        <form class="layui-form" action="" method="post">
+            {% csrf_token %}
+            
+            <!-- 访问权限名称 -->
+            <div class="layui-form-item">
+                <label class="layui-form-label">权限名称</label>
+                <div class="layui-input-block">
+                    {{ form.name }}
+                    {% if form.name.errors %}
+                    <div class="layui-form-mid layui-word-aux" style="color: #f5222d;">
+                        {{ form.name.errors.0 }}
+                    </div>
+                    {% endif %}
+                    <div class="form-description">
+                        为该数据访问权限设置一个清晰的名称，用于识别其用途
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 描述 -->
+            <div class="layui-form-item">
+                <label class="layui-form-label">描述</label>
+                <div class="layui-input-block">
+                    {{ form.description }}
+                    {% if form.description.errors %}
+                    <div class="layui-form-mid layui-word-aux" style="color: #f5222d;">
+                        {{ form.description.errors.0 }}
+                    </div>
+                    {% endif %}
+                    <div class="form-description">
+                        详细描述该权限的用途和数据访问范围
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 关联工作流 -->
+            {% if not form.instance.pk and not form.initial.workflow %}
+            <div class="layui-form-item">
+                <label class="layui-form-label">工作流</label>
+                <div class="layui-input-block">
+                    {{ form.workflow }}
+                    {% if form.workflow.errors %}
+                    <div class="layui-form-mid layui-word-aux" style="color: #f5222d;">
+                        {{ form.workflow.errors.0 }}
+                    </div>
+                    {% endif %}
+                    <div class="form-description">
+                        选择要为其配置数据访问权限的工作流
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <input type="hidden" name="workflow" value="{% if form.instance.workflow %}{{ form.instance.workflow.id }}{% else %}{{ form.initial.workflow.id }}{% endif %}">
+            {% endif %}
+            
+            <!-- 访问类型 -->
+            <div class="access-type-section">
+                <div class="access-type-title">访问类型配置</div>
+                
+                <div class="layui-form-item">
+                    <label class="layui-form-label">访问类型</label>
+                    <div class="layui-input-block">
+                        {% for choice in form.access_type.field.choices %}
+                        <input type="radio" name="access_type" value="{{ choice.0 }}" 
+                               title="{{ choice.1 }}" 
+                               {% if form.instance.access_type == choice.0 or form.initial.access_type == choice.0 %}checked{% endif %}>
+                        {% endfor %}
+                        {% if form.access_type.errors %}
+                        <div class="layui-form-mid layui-word-aux" style="color: #f5222d;">
+                            {{ form.access_type.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- 用户选择器 - 当访问类型为特定用户时显示 -->
+                <div class="layui-form-item" id="user-select-container">
+                    <label class="layui-form-label">授权用户</label>
+                    <div class="layui-input-block">
+                        <select name="users" multiple lay-verify="required" lay-filter="user-select">
+                            {% for user in all_users %}
+                            <option value="{{ user.id }}" 
+                                    {% if user.id in selected_users %}selected{% endif %}>
+                                {{ user.username }}{% if user.get_full_name %} ({{ user.get_full_name }}){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-description">
+                            选择可以访问此工作流数据的用户，可多选
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 用户组选择器 - 当访问类型为特定用户组时显示 -->
+                <div class="layui-form-item" id="group-select-container" style="display: none;">
+                    <label class="layui-form-label">授权用户组</label>
+                    <div class="layui-input-block">
+                        <select name="groups" multiple lay-filter="group-select">
+                            {% for group in all_groups %}
+                            <option value="{{ group.id }}" 
+                                    {% if group.id in selected_groups %}selected{% endif %}>
+                                {{ group.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-description">
+                            选择可以访问此工作流数据的用户组，可多选
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 访问条件设置 -->
+                <div class="layui-form-item">
+                    <label class="layui-form-label">访问条件</label>
+                    <div class="layui-input-block">
+                        <div id="conditions-container">
+                            {% for condition in conditions %}
+                            <div class="condition-row">
+                                <div class="layui-form-item">
+                                    <select name="condition_fields[]" lay-verify="required">
+                                        <option value="">请选择字段</option>
+                                        {% for field in available_fields %}
+                                        <option value="{{ field.0 }}" 
+                                                {% if condition.field == field.0 %}selected{% endif %}>
+                                            {{ field.1 }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="layui-form-item">
+                                    <select name="condition_operators[]" lay-verify="required">
+                                        <option value="">请选择操作符</option>
+                                        {% for operator in available_operators %}
+                                        <option value="{{ operator.0 }}" 
+                                                {% if condition.operator == operator.0 %}selected{% endif %}>
+                                            {{ operator.1 }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="layui-form-item">
+                                    <input type="text" name="condition_values[]" 
+                                           value="{{ condition.value }}" 
+                                           placeholder="输入条件值" 
+                                           class="layui-input" 
+                                           lay-verify="required">
+                                </div>
+                                <span class="remove-condition-btn" onclick="removeCondition(this)">
+                                    <i class="layui-icon layui-icon-close"></i>
+                                </span>
+                            </div>
+                            {% empty %}
+                            <div class="condition-row">
+                                <div class="layui-form-item">
+                                    <select name="condition_fields[]" lay-verify="required">
+                                        <option value="">请选择字段</option>
+                                        {% for field in available_fields %}
+                                        <option value="{{ field.0 }}">{{ field.1 }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="layui-form-item">
+                                    <select name="condition_operators[]" lay-verify="required">
+                                        <option value="">请选择操作符</option>
+                                        {% for operator in available_operators %}
+                                        <option value="{{ operator.0 }}">{{ operator.1 }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="layui-form-item">
+                                    <input type="text" name="condition_values[]" 
+                                           placeholder="输入条件值" 
+                                           class="layui-input" 
+                                           lay-verify="required">
+                                </div>
+                                <span class="remove-condition-btn" onclick="removeCondition(this)">
+                                    <i class="layui-icon layui-icon-close"></i>
+                                </span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="condition-buttons">
+                            <span class="add-condition-btn" onclick="addCondition()">
+                                <i class="layui-icon layui-icon-add-circle"></i> 添加条件
+                            </span>
+                        </div>
+                        <div class="form-description">
+                            设置数据访问的筛选条件，只有满足所有条件的数据才允许访问
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 数据访问范围 -->
+                <div class="layui-form-item">
+                    <label class="layui-form-label">访问范围</label>
+                    <div class="layui-input-block">
+                        {% for choice in form.access_scope.field.choices %}
+                        <input type="radio" name="access_scope" value="{{ choice.0 }}" 
+                               title="{{ choice.1 }}" 
+                               {% if form.instance.access_scope == choice.0 or form.initial.access_scope == choice.0 %}checked{% endif %}>
+                        {% endfor %}
+                        {% if form.access_scope.errors %}
+                        <div class="layui-form-mid layui-word-aux" style="color: #f5222d;">
+                            {{ form.access_scope.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- 启用状态 -->
+                <div class="layui-form-item">
+                    <label class="layui-form-label">启用状态</label>
+                    <div class="layui-input-block">
+                        <div class="layui-form-switch">
+                            <input type="checkbox" name="is_active" 
+                                   lay-skin="switch" 
+                                   lay-text="启用|禁用" 
+                                   {% if form.instance.is_active or not form.instance.pk %}checked{% endif %}>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 权限说明 -->
+            <div class="permission-note">
+                <i class="layui-icon layui-icon-tips"></i>
+                <strong>注意：</strong>数据访问权限配置将严格控制用户对工作流数据的访问范围。请根据实际业务需求谨慎配置，确保数据安全。
+            </div>
+            
+            <!-- 表单操作按钮 -->
+            <div class="form-action-buttons">
+                <button type="button" class="layui-btn layui-btn-primary" onclick="window.history.back()">
+                    取消
+                </button>
+                <button type="submit" class="layui-btn layui-btn-normal" lay-submit lay-filter="submit-form">
+                    {% if form.instance.pk %}保存修改{% else %}创建权限{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+    layui.use(['layer', 'form', 'element'], function() {
+        var layer = layui.layer;
+        var form = layui.form;
+        var element = layui.element;
+        
+        // 根据访问类型显示对应的选择器
+        function toggleAccessTypeUI() {
+            var accessType = $(":radio[name='access_type']:checked").val();
+            
+            if (accessType === 'SPECIFIC_USERS') {
+                $('#user-select-container').show();
+                $('#group-select-container').hide();
+            } else if (accessType === 'SPECIFIC_GROUPS') {
+                $('#user-select-container').hide();
+                $('#group-select-container').show();
+            } else {
+                $('#user-select-container').hide();
+                $('#group-select-container').hide();
+            }
+        }
+        
+        // 初始化访问类型UI
+        toggleAccessTypeUI();
+        
+        // 监听访问类型变化
+        form.on('radio(access_type)', function(data) {
+            toggleAccessTypeUI();
+        });
+        
+        // 添加条件行
+        window.addCondition = function() {
+            var container = $('#conditions-container');
+            var newRow = $('<div class="condition-row">');
+            
+            // 字段选择器
+            var fieldHtml = '<div class="layui-form-item"><select name="condition_fields[]" lay-verify="required">';
+            fieldHtml += '<option value="">请选择字段</option>';
+            
+            // 可用字段数据
+            var availableFields = [];
+            {% for field in available_fields %}
+            availableFields.push({value: '{{ field.0 }}', text: '{{ field.1 }}'});
+            {% endfor %}
+            
+            // 动态添加选项
+            availableFields.forEach(function(field) {
+                fieldHtml += '<option value="' + field.value + '">' + field.text + '</option>';
+            });
+            
+            fieldHtml += '</select></div>';
+            
+            // 操作符选择器
+            var operatorHtml = '<div class="layui-form-item"><select name="condition_operators[]" lay-verify="required">';
+            operatorHtml += '<option value="">请选择操作符</option>';
+            
+            // 可用操作符数据
+            var availableOperators = [];
+            {% for operator in available_operators %}
+            availableOperators.push({value: '{{ operator.0 }}', text: '{{ operator.1 }}'});
+            {% endfor %}
+            
+            // 动态添加选项
+            availableOperators.forEach(function(operator) {
+                operatorHtml += '<option value="' + operator.value + '">' + operator.text + '</option>';
+            });
+            
+            operatorHtml += '</select></div>';
+            
+            // 值输入框
+            var valueHtml = '<div class="layui-form-item"><input type="text" name="condition_values[]" ' +
+                            'placeholder="输入条件值" class="layui-input" lay-verify="required"></div>';
+            
+            // 删除按钮
+            var deleteHtml = '<span class="remove-condition-btn" onclick="removeCondition(this)">' +
+                            '<i class="layui-icon layui-icon-close"></i></span>';
+            
+            // 组合并添加新行
+            newRow.html(fieldHtml + operatorHtml + valueHtml + deleteHtml);
+            container.append(newRow);
+            
+            // 重新渲染表单
+            form.render();
+        };
+        
+        // 删除条件行
+        window.removeCondition = function(element) {
+            var conditionRow = $(element).closest('.condition-row');
+            
+            // 确保至少保留一个条件行
+            if ($('.condition-row').length > 1) {
+                conditionRow.remove();
+            } else {
+                layer.msg('至少需要保留一个条件', {icon: 5});
+            }
+        };
+        
+        // 表单验证和提交
+        form.on('submit(submit-form)', function(data) {
+            var accessType = $(":radio[name='access_type']:checked").val();
+            
+            // 如果是特定用户访问类型，验证是否选择了用户
+            if (accessType === 'SPECIFIC_USERS') {
+                var selectedUsers = $(":selected", "[name='users']");
+                if (selectedUsers.length === 0) {
+                    layer.msg('请选择授权用户', {icon: 5});
+                    return false;
+                }
+            }
+            
+            // 如果是特定用户组访问类型，验证是否选择了用户组
+            if (accessType === 'SPECIFIC_GROUPS') {
+                var selectedGroups = $(":selected", "[name='groups']");
+                if (selectedGroups.length === 0) {
+                    layer.msg('请选择授权用户组', {icon: 5});
+                    return false;
+                }
+            }
+            
+            // 验证条件字段
+            var hasEmptyCondition = false;
+            $('.condition-row').each(function() {
+                var field = $(this).find("[name^='condition_fields']").val();
+                var operator = $(this).find("[name^='condition_operators']").val();
+                var value = $(this).find("[name^='condition_values']").val();
+                
+                if (!field || !operator || !value) {
+                    hasEmptyCondition = true;
+                    return false; // 退出each循环
+                }
+            });
+            
+            if (hasEmptyCondition) {
+                layer.msg('请完整填写所有条件字段', {icon: 5});
+                return false;
+            }
+            
+            // 显示加载中
+            var loadingIndex = layer.load(2);
+            
+            // 提交表单
+            $.ajax({
+                url: window.location.href,
+                type: 'POST',
+                data: data.field,
+                success: function(response) {
+                    layer.close(loadingIndex);
+                    
+                    if (response.success) {
+                        layer.msg(response.message || '保存成功', {icon: 1});
+                        // 跳转到列表页
+                        setTimeout(function() {
+                            window.location.href = "{% url 'ai:workflow_data_access_list' %}";
+                        }, 1000);
+                    } else {
+                        layer.msg(response.message || '保存失败', {icon: 5});
+                    }
+                },
+                error: function(xhr) {
+                    layer.close(loadingIndex);
+                    
+                    // 尝试解析响应中的错误信息
+                    try {
+                        var response = JSON.parse(xhr.responseText);
+                        if (response.errors) {
+                            var errorMsg = '';
+                            $.each(response.errors, function(field, messages) {
+                                errorMsg += field + ': ' + messages.join(', ') + '\n';
+                            });
+                            layer.alert(errorMsg, {icon: 5});
+                        } else {
+                            layer.msg('服务器错误，请稍后重试', {icon: 5});
+                        }
+                    } catch (e) {
+                        layer.msg('服务器错误，请稍后重试', {icon: 5});
+                    }
+                }
+            });
+            
+            return false; // 阻止表单默认提交
+        });
+        
+        // 表单渲染
+        form.render();
+    });
+</script>
+{% endblock %}

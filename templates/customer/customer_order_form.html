@@ -1,0 +1,403 @@
+{% load customer_filters %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{% if form.instance.pk %}编辑客户订单{% else %}添加客户订单{% endif %}</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <style>
+        .customer-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid #1e9fff;
+        }
+        .required-field::after {
+            content: " *";
+            color: red;
+        }
+        .layui-form-item .layui-input-inline {
+            width: 300px;
+        }
+        .layui-form-item .layui-textarea {
+            resize: vertical;
+        }
+        .error-message {
+            color: #FF5722;
+            font-size: 12px;
+            margin-top: 5px;
+            display: block;
+        }
+        .layui-card-header {
+            font-weight: bold;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <i class="layui-icon layui-icon-list"></i> {% if form.instance.pk %}编辑客户订单{% else %}添加客户订单{% endif %}
+                    </div>
+                    <div class="layui-card-body">
+                        <!-- 客户信息 -->
+                        <div class="customer-info">
+                            <p><strong>客户名称：</strong>{{ customer.name }}</p>
+                        </div>
+                        
+                        <form class="layui-form" method="post" id="orderForm">
+                            {% csrf_token %}
+                            <input type="hidden" name="customer_id" value="{{ customer.id }}">
+                            
+                            <!-- 错误提示区域 -->
+                            {% if form.errors %}
+                            <div class="layui-alert layui-bg-red layui-text-white" style="margin-bottom: 20px;">
+                                <ul>
+                                    {% for field in form %}
+                                        {% for error in field.errors %}
+                                            <li>{{ field.label }}: {{ error }}</li>
+                                        {% endfor %}
+                                    {% endfor %}
+                                    {% for error in form.non_field_errors %}
+                                        <li>{{ error }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            {% endif %}
+                            
+                            <div class="layui-row layui-col-space15">
+                                <div class="layui-col-md6">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label required-field">订单编号</label>
+                                        <div class="layui-input-block">
+                                            <input type="text" name="order_number" 
+                                                   value="{{ form.order_number.value|default:default_order_number }}"
+                                                   placeholder="请输入订单编号" 
+                                                   class="layui-input" lay-verify="required">
+                                            {% if form.order_number.errors %}
+                                                <span class="error-message">{{ form.order_number.errors.0 }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="layui-col-md6">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label required-field">产品名称</label>
+                                        <div class="layui-input-block">
+                                            <select name="product_id" id="productSelect" lay-verify="required" lay-search="">
+                                                <option value="">请选择产品</option>
+                                                {% for category in product_categories %}
+                                                <optgroup label="{{ category.name }}">
+                                                    {% for product in category.product_set.all %}
+                                                    <option value="{{ product.id }}" 
+                                                            {% if form.product_id.value == product.id|stringformat:'s' %}selected{% endif %}
+                                                            data-name="{{ product.name }}" 
+                                                            data-price="{{ product.price|default:0 }}">
+                                                        {{ product.name }} - ￥{{ product.price|default:0 }}
+                                                    </option>
+                                                    {% endfor %}
+                                                </optgroup>
+                                                {% endfor %}
+                                            </select>
+                                            <input type="hidden" name="product_name" id="productName" 
+                                                   value="{{ form.product_name.value|default:'' }}">
+                                            {% if form.product_id.errors %}
+                                                <span class="error-message">{{ form.product_id.errors.0 }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="layui-row layui-col-space15">
+                                <div class="layui-col-md6">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label required-field">订单金额</label>
+                                        <div class="layui-input-block">
+                                            <input type="number" name="amount" 
+                                                   value="{{ form.amount.value|default:'' }}"
+                                                   placeholder="请输入订单金额" 
+                                                   class="layui-input" lay-verify="required|number" 
+                                                   step="0.01" min="0">
+                                            {% if form.amount.errors %}
+                                                <span class="error-message">{{ form.amount.errors.0 }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="layui-col-md6">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">关联合同</label>
+                                        <div class="layui-input-block">
+                                            <select name="contract_id">
+                                                <option value="">请选择关联合同（可选）</option>
+                                                {% for contract in contracts %}
+                                                <option value="{{ contract.id }}" 
+                                                        {% if form.contract_id.value == contract.id|stringformat:'s' %}selected{% endif %}>
+                                                    {{ contract.name }} ({{ contract.contract_number }})
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                            {% if form.contract_id.errors %}
+                                                <span class="error-message">{{ form.contract_id.errors.0 }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="layui-row layui-col-space15">
+                                <div class="layui-col-md6">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label required-field">订单状态</label>
+                                        <div class="layui-input-block">
+                                            <select name="status" lay-verify="required">
+                                                <option value="">请选择订单状态</option>
+                                                <option value="pending" {% if form.status.value == 'pending' %}selected{% endif %}>待处理</option>
+                                                <option value="confirmed" {% if form.status.value == 'confirmed' %}selected{% endif %}>已确认</option>
+                                                <option value="processing" {% if form.status.value == 'processing' %}selected{% endif %}>处理中</option>
+                                                <option value="shipped" {% if form.status.value == 'shipped' %}selected{% endif %}>已发货</option>
+                                                <option value="delivered" {% if form.status.value == 'delivered' %}selected{% endif %}>已交付</option>
+                                                <option value="completed" {% if form.status.value == 'completed' %}selected{% endif %}>已完成</option>
+                                                <option value="cancelled" {% if form.status.value == 'cancelled' %}selected{% endif %}>已取消</option>
+                                            </select>
+                                            {% if form.status.errors %}
+                                                <span class="error-message">{{ form.status.errors.0 }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="layui-col-md6">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label required-field">订单日期</label>
+                                        <div class="layui-input-block">
+                                            <input type="text" name="order_date" 
+                                                   value="{{ form.order_date.value|date:'Y-m-d' }}"
+                                                   class="layui-input" id="orderDate" 
+                                                   placeholder="请选择订单日期" lay-verify="required">
+                                            {% if form.order_date.errors %}
+                                                <span class="error-message">{{ form.order_date.errors.0 }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item layui-form-text">
+                                <label class="layui-form-label">备注信息</label>
+                                <div class="layui-input-block">
+                                    <textarea name="remark" placeholder="请输入备注信息" 
+                                              class="layui-textarea" style="min-height: 100px;">{{ form.remark.value|default:'' }}</textarea>
+                                    {% if form.remark.errors %}
+                                        <span class="error-message">{{ form.remark.errors.0 }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            {% if order_fields %}
+                            <div class="layui-form-item layui-form-text">
+                                <label class="layui-form-label"></label>
+                                <div class="layui-input-block">
+                                    <div style="color: #366092; font-weight: bold; margin-bottom: 10px;">自定义字段</div>
+                                </div>
+                            </div>
+                            
+                            {% for field in order_fields %}
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">{{ field.name }}{% if field.is_required %}<span style="color: red;">*</span>{% endif %}</label>
+                                <div class="layui-input-block">
+                                    {% if field.field_type == 'text' %}
+                                    <input type="text" name="custom_field_{{ field.id }}" placeholder="请输入{{ field.name }}" autocomplete="off" class="layui-input" {% if field.is_required %}lay-verify="required"{% endif %}>
+                                    
+                                    {% elif field.field_type == 'textarea' %}
+                                    <textarea name="custom_field_{{ field.id }}" placeholder="请输入{{ field.name }}" class="layui-textarea" {% if field.is_required %}lay-verify="required"{% endif %}></textarea>
+                                    
+                                    {% elif field.field_type == 'number' %}
+                                    <input type="number" name="custom_field_{{ field.id }}" placeholder="请输入数字" autocomplete="off" class="layui-input" {% if field.is_required %}lay-verify="required|number"{% endif %}>
+                                    
+                                    {% elif field.field_type == 'decimal' %}
+                                    <input type="number" step="0.01" name="custom_field_{{ field.id }}" placeholder="请输入金额" autocomplete="off" class="layui-input" {% if field.is_required %}lay-verify="required|number"{% endif %}>
+                                    
+                                    {% elif field.field_type == 'date' %}
+                                    <input type="text" name="custom_field_{{ field.id }}" id="custom_date_{{ field.id }}" placeholder="请选择日期" autocomplete="off" class="layui-input" {% if field.is_required %}lay-verify="required"{% endif %}>
+                                    
+                                    {% elif field.field_type == 'datetime' %}
+                                    <input type="text" name="custom_field_{{ field.id }}" id="custom_datetime_{{ field.id }}" placeholder="请选择日期时间" autocomplete="off" class="layui-input" {% if field.is_required %}lay-verify="required"{% endif %}>
+                                    
+                                    {% elif field.field_type == 'select' %}
+                                    <select name="custom_field_{{ field.id }}" {% if field.is_required %}lay-verify="required"{% endif %}>
+                                        <option value="">请选择{{ field.name }}</option>
+                                        {% if field.options %}
+                                            {% with options=field.options|parse_json %}
+                                                {% for option in options %}
+                                                <option value="{{ option.value }}">{{ option.label }}</option>
+                                                {% endfor %}
+                                            {% endwith %}
+                                        {% endif %}
+                                    </select>
+                                    
+                                    {% elif field.field_type == 'radio' %}
+                                    {% if field.options %}
+                                        {% with options=field.options|parse_json %}
+                                            {% for option in options %}
+                                            <input type="radio" name="custom_field_{{ field.id }}" value="{{ option.value }}" title="{{ option.label }}">
+                                            {% endfor %}
+                                        {% endwith %}
+                                    {% endif %}
+                                    
+                                    {% elif field.field_type == 'checkbox' %}
+                                    {% if field.options %}
+                                        {% with options=field.options|parse_json %}
+                                            {% for option in options %}
+                                            <input type="checkbox" name="custom_field_{{ field.id }}" value="{{ option.value }}" title="{{ option.label }}">
+                                            {% endfor %}
+                                        {% endwith %}
+                                    {% endif %}
+                                    
+                                    {% elif field.field_type == 'file' %}
+                                    <button type="button" class="layui-btn" id="upload_file_{{ field.id }}">
+                                        <i class="layui-icon">&#xe67c;</i>上传文件
+                                    </button>
+                                    <input type="hidden" name="custom_field_{{ field.id }}" id="file_path_{{ field.id }}" {% if field.is_required %}lay-verify="required"{% endif %}>
+                                    <div id="file_preview_{{ field.id }}" style="margin-top: 10px;"></div>
+                                    
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% endif %}
+
+                            <div class="layui-form-item">
+                                <div class="layui-input-block" style="text-align: center;">
+                                    <button class="layui-btn layui-btn-normal" lay-submit lay-filter="submitForm">
+                                        <i class="layui-icon layui-icon-ok"></i> 保存订单
+                                    </button>
+                                    <button type="reset" class="layui-btn layui-btn-warm">
+                                        <i class="layui-icon layui-icon-refresh"></i> 重置
+                                    </button>
+                                    <button type="button" class="layui-btn layui-btn-primary" onclick="parent.layer.closeAll()">
+                                        <i class="layui-icon layui-icon-close"></i> 取消
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['form', 'laydate', 'layer', 'upload'], function(){
+            var form = layui.form;
+            var laydate = layui.laydate;
+            var layer = layui.layer;
+            var upload = layui.upload;
+            
+            // 日期选择器
+            laydate.render({
+                elem: '#orderDate',
+                type: 'date',
+                format: 'yyyy-MM-dd',
+                value: '{{ form.order_date.value|date:"Y-m-d"|default:now|date:"Y-m-d" }}'
+            });
+            
+            // 初始化自定义字段的日期选择器
+            // 自定义字段初始化通过服务器端渲染完成
+            
+            // 产品选择处理
+            form.on('select(productSelect)', function(data){
+                var selectedOption = $('#productSelect option:selected');
+                var productName = selectedOption.data('name');
+                var productPrice = selectedOption.data('price');
+                
+                if (productName) {
+                    $('#productName').val(productName);
+                    // 自动填充产品价格到订单金额
+                    if (productPrice && !$('input[name="amount"]').val()) {
+                        $('input[name="amount"]').val(productPrice);
+                    }
+                }
+            });
+            
+            // 表单验证
+            form.verify({
+                required: function(value, item) {
+                    if (value === '' || value === null || value === undefined) {
+                        return '此项为必填项';
+                    }
+                },
+                number: function(value, item) {
+                    if (value && !/^\d+(\.\d{1,2})?$/.test(value)) {
+                        return '请输入有效的金额（最多两位小数）';
+                    }
+                }
+            });
+            
+            // 表单提交
+            if (layui && layui.form) {
+                layui.form.on('submit(submitForm)', function(data) {
+                    // 确保产品名称被正确设置
+                    var selectedOption = $('#productSelect option:selected');
+                    if (selectedOption && selectedOption.val()) {
+                        data.field.product_name = selectedOption.data('name');
+                    } else {
+                        // 如果没有选择产品，确保product_name字段存在但为空
+                        data.field.product_name = '';
+                    }
+                    
+                    $.ajax({
+                        url: '',
+                        type: 'POST',
+                        data: data.field,
+                        dataType: 'json',
+                        beforeSend: function() {
+                            // 显示加载动画
+                            if (window.layer) layer.load(2);
+                        },
+                        success: function(res) {
+                            if (window.layer) layer.closeAll('loading'); // 关闭加载动画
+                            if (res && res.status === 'success') {
+                                if (window.parent && window.parent.layer) {
+                                    window.parent.layer.msg('订单{% if form.instance.pk %}更新{% else %}添加{% endif %}成功', {icon: 1}, function(){
+                                        if (window.parent) window.parent.location.reload(); // 刷新父页面
+                                    });
+                                    setTimeout(function(){
+                                        if (window.parent && window.parent.layer) {
+                                            window.parent.layer.closeAll();
+                                        }
+                                    }, 1000);
+                                }
+                            } else {
+                                if (window.layer) layer.msg(res && res.message || '添加失败', {icon: 2});
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            try {
+                                if (window.layer) layer.closeAll('loading'); // 关闭加载动画
+                                if (xhr && xhr.responseText) {
+                                    var res = JSON.parse(xhr.responseText);
+                                    if (window.layer) layer.msg(res && res.message || '添加失败', {icon: 2});
+                                } else {
+                                    if (window.layer) layer.msg('网络错误，请稍后重试', {icon: 2});
+                                }
+                            } catch(e) {
+                                if (window.layer) layer.msg('网络错误，请稍后重试', {icon: 2});
+                            }
+                        }
+                    });
+                    return false;
+                });
+            }
+        });
+    </script>
+</body>
+</html>

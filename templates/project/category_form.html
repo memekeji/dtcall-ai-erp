@@ -1,0 +1,105 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if category %}编辑分类{% else %}新建分类{% endif %}</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <form class="layui-form" lay-filter="categoryForm" onsubmit="return false;">
+            {% csrf_token %}
+            <div class="layui-form-item">
+                <label class="layui-form-label">分类名称</label>
+                <div class="layui-input-block">
+                    <input type="text" name="name" value="{% if category %}{{ category.name }}{% endif %}" 
+                           placeholder="请输入分类名称" class="layui-input" lay-verify="required">
+                </div>
+            </div>
+            
+            <div class="layui-form-item layui-form-text">
+                <label class="layui-form-label">分类描述</label>
+                <div class="layui-input-block">
+                    <textarea name="description" placeholder="请输入分类描述" 
+                              class="layui-textarea">{% if category %}{{ category.description }}{% endif %}</textarea>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">排序</label>
+                <div class="layui-input-block">
+                    <input type="number" name="sort" value="{% if category %}{{ category.sort }}{% else %}0{% endif %}" 
+                           placeholder="数字越小排序越靠前" class="layui-input">
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">状态</label>
+                <div class="layui-input-block">
+                    <input type="radio" name="status" value="1" title="启用" 
+                           {% if not category or category.is_active %}checked{% endif %}>
+                    <input type="radio" name="status" value="0" title="禁用" 
+                           {% if category and not category.is_active %}checked{% endif %}>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" lay-submit lay-filter="submitForm">提交</button>
+                    <button type="button" class="layui-btn layui-btn-primary" onclick="closeWindow()">取消</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['form', 'layer'], function () {
+            var form = layui.form;
+            var layer = layui.layer;
+
+            // 监听提交
+            form.on('submit(submitForm)', function (data) {
+                var url = '{% if category %}/adm/project/category/edit/{{ category.id }}/{% else %}/adm/project/category/add/{% endif %}';
+                
+                // 添加CSRF token
+                var formData = data.field;
+                formData.csrfmiddlewaretoken = $('[name=csrfmiddlewaretoken]').val();
+                
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    data: formData,
+                    success: function (res) {
+                        if (res.code === 0) {
+                            layer.msg(res.msg, { icon: 1 });
+                            setTimeout(function () {
+                                var index = parent.layer.getFrameIndex(window.name);
+                                parent.layer.close(index);
+                            }, 1000);
+                        } else {
+                            layer.msg(res.msg, { icon: 2 });
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        layer.msg('提交失败: ' + error, { icon: 2 });
+                    }
+                });
+                
+                return false;
+            });
+        });
+
+        function closeWindow() {
+            var index = parent.layer.getFrameIndex(window.name);
+            parent.layer.close(index);
+        }
+    </script>
+</body>
+
+</html>

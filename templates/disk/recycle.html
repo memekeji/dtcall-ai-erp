@@ -1,0 +1,376 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>回收站 - 知识网盘</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .recycle-section {
+            margin-bottom: 30px;
+        }
+        .toolbar {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .file-card {
+            border: 1px solid #e6e6e6;
+            border-radius: 6px;
+            padding: 15px;
+            text-align: center;
+            transition: all 0.3s;
+            opacity: 0.7;
+        }
+        .file-card:hover {
+            border-color: #FF5722;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            opacity: 1;
+        }
+        .file-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+            color: #999;
+        }
+        .folder-icon { color: #FFB800; }
+        .document-icon { color: #1E9FFF; }
+        .image-icon { color: #5FB878; }
+        .video-icon { color: #FF5722; }
+        .audio-icon { color: #FFB800; }
+        .archive-icon { color: #9C27B0; }
+        .file-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+            word-break: break-all;
+            color: #666;
+        }
+        .file-meta {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 5px;
+        }
+        .delete-time {
+            font-size: 12px;
+            color: #FF5722;
+            margin-bottom: 10px;
+        }
+        .file-actions {
+            margin-top: 10px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px;
+            color: #999;
+        }
+        .empty-state i {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        .warning-info {
+            background: #fff2e8;
+            border: 1px solid #ffd591;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #d46b08;
+        }
+        .warning-info i {
+            margin-right: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <!-- 警告信息 -->
+        <div class="warning-info">
+            <i class="layui-icon layui-icon-tips"></i>
+            回收站中的文件将在30天后自动永久删除，请及时恢复重要文件。
+        </div>
+
+        <!-- 工具栏 -->
+        <div class="toolbar">
+            <button class="layui-btn layui-btn-danger" onclick="clearAll()">
+                <i class="layui-icon layui-icon-delete"></i> 清空回收站
+            </button>
+            <button class="layui-btn layui-btn-primary" onclick="refreshPage()">
+                <i class="layui-icon layui-icon-refresh"></i> 刷新
+            </button>
+            <div style="float: right; color: #666;">
+                已删除文件: {{ deleted_files.count }} 个 | 已删除文件夹: {{ deleted_folders.count }} 个
+            </div>
+        </div>
+
+        <!-- 已删除的文件夹 -->
+        {% if deleted_folders %}
+        <div class="recycle-section">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <h3 style="margin: 0;">已删除的文件夹 ({{ deleted_folders.count }})</h3>
+                </div>
+                <div class="layui-card-body">
+                    <div class="file-grid">
+                        {% for folder in deleted_folders %}
+                        <div class="file-card">
+                            <div class="file-icon folder-icon">
+                                <i class="layui-icon layui-icon-file"></i>
+                            </div>
+                            <div class="file-name">{{ folder.name }}</div>
+                            <div class="delete-time">删除时间: {{ folder.delete_time|date:"Y-m-d H:i" }}</div>
+                            <div class="file-actions">
+                                <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="restoreFolder('{{ folder.id }}')">
+                                    <i class="layui-icon layui-icon-refresh"></i> 恢复
+                                </button>
+                                <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="permanentDeleteFolder('{{ folder.id }}')">
+                                    <i class="layui-icon layui-icon-delete"></i> 永久删除
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 已删除的文件 -->
+        {% if deleted_files %}
+        <div class="recycle-section">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <h3 style="margin: 0;">已删除的文件 ({{ deleted_files.count }})</h3>
+                </div>
+                <div class="layui-card-body">
+                    <div class="file-grid">
+                        {% for file in deleted_files %}
+                        <div class="file-card">
+                            <div class="file-icon {{ file.file_type }}-icon">
+                                {% if file.file_type == 'document' %}
+                                <i class="layui-icon layui-icon-file"></i>
+                                {% elif file.file_type == 'image' %}
+                                <i class="layui-icon layui-icon-picture"></i>
+                                {% elif file.file_type == 'video' %}
+                                <i class="layui-icon layui-icon-video"></i>
+                                {% elif file.file_type == 'audio' %}
+                                <i class="layui-icon layui-icon-voice"></i>
+                                {% elif file.file_type == 'archive' %}
+                                <i class="layui-icon layui-icon-file"></i>
+                                {% else %}
+                                <i class="layui-icon layui-icon-file"></i>
+                                {% endif %}
+                            </div>
+                            <div class="file-name">{{ file.name }}</div>
+                            <div class="file-meta">{{ file.get_size_display }}</div>
+                            <div class="delete-time">删除时间: {{ file.delete_time|date:"Y-m-d H:i" }}</div>
+                            <div class="file-actions">
+                                <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="restoreFile('{{ file.id }}')">
+                                    <i class="layui-icon layui-icon-refresh"></i> 恢复
+                                </button>
+                                <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="permanentDeleteFile('{{ file.id }}')">
+                                    <i class="layui-icon layui-icon-delete"></i> 永久删除
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 空状态 -->
+        {% if not deleted_files and not deleted_folders %}
+        <div class="layui-card">
+            <div class="layui-card-body">
+                <div class="empty-state">
+                    <i class="layui-icon layui-icon-delete"></i>
+                    <h3>回收站为空</h3>
+                    <p>您删除的文件和文件夹将显示在这里</p>
+                    <p>删除的文件将在30天后自动清理</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['layer'], function () {
+            var layer = layui.layer;
+        });
+
+        // 恢复文件
+        function restoreFile(fileId) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.confirm('确定要恢复这个文件吗？', function (index) {
+                    $.ajax({
+                        url: '/disk/file/restore/' + fileId + '/',
+                        type: 'POST',
+                        data: {
+                            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+                        },
+                        success: function (res) {
+                            if (res.code === 0) {
+                                layer.msg(res.msg, { icon: 1 });
+                                setTimeout(() => location.reload(), 1000);
+                            } else {
+                                layer.msg(res.msg, { icon: 2 });
+                            }
+                        },
+                        error: function () {
+                            layer.msg('网络错误', { icon: 2 });
+                        }
+                    });
+                    layer.close(index);
+                });
+            });
+        }
+
+        // 恢复文件夹
+        function restoreFolder(folderId) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.confirm('确定要恢复这个文件夹吗？', function (index) {
+                    $.ajax({
+                        url: '/disk/folder/restore/' + folderId + '/',
+                        type: 'POST',
+                        data: {
+                            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+                        },
+                        success: function (res) {
+                            if (res.code === 0) {
+                                layer.msg(res.msg, { icon: 1 });
+                                setTimeout(() => location.reload(), 1000);
+                            } else {
+                                layer.msg(res.msg, { icon: 2 });
+                            }
+                        },
+                        error: function () {
+                            layer.msg('网络错误', { icon: 2 });
+                        }
+                    });
+                    layer.close(index);
+                });
+            });
+        }
+
+        // 永久删除文件
+        function permanentDeleteFile(fileId) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.confirm('确定要永久删除这个文件吗？此操作不可恢复！', {
+                    btn: ['确定删除', '取消'],
+                    btn1: function (index) {
+                        $.ajax({
+                            url: '/disk/file/delete/' + fileId + '/',
+                            type: 'POST',
+                            data: {
+                                csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val(),
+                                permanent: true
+                            },
+                            success: function (res) {
+                                if (res.code === 0) {
+                                    layer.msg(res.msg, { icon: 1 });
+                                    setTimeout(() => location.reload(), 1000);
+                                } else {
+                                    layer.msg(res.msg, { icon: 2 });
+                                }
+                            },
+                            error: function () {
+                                layer.msg('网络错误', { icon: 2 });
+                            }
+                        });
+                        layer.close(index);
+                    }
+                });
+            });
+        }
+
+        // 永久删除文件夹
+        function permanentDeleteFolder(folderId) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.confirm('确定要永久删除这个文件夹吗？此操作不可恢复！', {
+                    btn: ['确定删除', '取消'],
+                    btn1: function (index) {
+                        $.ajax({
+                            url: '/disk/folder/delete/' + folderId + '/',
+                            type: 'POST',
+                            data: {
+                                csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val(),
+                                permanent: true
+                            },
+                            success: function (res) {
+                                if (res.code === 0) {
+                                    layer.msg(res.msg, { icon: 1 });
+                                    setTimeout(() => location.reload(), 1000);
+                                } else {
+                                    layer.msg(res.msg, { icon: 2 });
+                                }
+                            },
+                            error: function () {
+                                layer.msg('网络错误', { icon: 2 });
+                            }
+                        });
+                        layer.close(index);
+                    }
+                });
+            });
+        }
+
+        // 清空回收站
+        function clearAll() {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.confirm('确定要清空回收站吗？此操作将永久删除所有文件，不可恢复！', {
+                    btn: ['确定清空', '取消'],
+                    btn1: function (index) {
+                        $.ajax({
+                            url: '/disk/recycle/clear/',
+                            type: 'POST',
+                            data: {
+                                csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+                            },
+                            success: function (res) {
+                                if (res.code === 0) {
+                                    layer.msg(res.msg, { icon: 1 });
+                                    setTimeout(() => location.reload(), 1000);
+                                } else {
+                                    layer.msg(res.msg, { icon: 2 });
+                                }
+                            },
+                            error: function () {
+                                layer.msg('网络错误', { icon: 2 });
+                            }
+                        });
+                        layer.close(index);
+                    }
+                });
+            });
+        }
+
+        // 刷新页面
+        function refreshPage() {
+            location.reload();
+        }
+
+        // 添加CSRF token
+        $(document).ready(function() {
+            if (!$('[name=csrfmiddlewaretoken]').length) {
+                $('body').append('<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">');
+            }
+        });
+    </script>
+</body>
+
+</html>

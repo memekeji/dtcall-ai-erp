@@ -1,0 +1,167 @@
+{% extends 'include/common.html' %}
+
+{% block title %}会议室管理{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <span class="layui-breadcrumb">
+                    <a href="javascript:;">会议室管理</a>
+                    <a><cite>会议室列表</cite></a>
+                </span>
+            </div>
+            <div class="layui-col-md6 text-right">
+                <button class="layui-btn layui-btn-normal" id="addBtn">添加会议室</button>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <div class="layui-form">
+            <div class="layui-form-item">
+                <div class="layui-inline">
+                    <label class="layui-form-label">关键词</label>
+                    <div class="layui-input-inline">
+                        <input type="text" name="keywords" placeholder="请输入关键词" class="layui-input">
+                    </div>
+                </div>
+                <div class="layui-inline">
+                    <button class="layui-btn" id="searchBtn">搜索</button>
+                    <button class="layui-btn layui-btn-primary" id="resetBtn">重置</button>
+                </div>
+            </div>
+        </div>
+        <table id="dataTable" lay-filter="dataTable"></table>
+    </div>
+</div>
+
+<script>
+// 获取CSRF token
+function getCookie(name) {
+    var cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        var cookies = document.cookie.split(';');
+        for (var i = 0; i < cookies.length; i++) {
+            var cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+var csrftoken = getCookie('csrftoken');
+
+// 设置AJAX默认请求头
+$.ajaxSetup({
+    beforeSend: function(xhr, settings) {
+        if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+            xhr.setRequestHeader("X-CSRFToken", csrftoken);
+        }
+    }
+});
+
+layui.use(['table', 'form', 'jquery'], function(){
+    var table = layui.table;
+    var $ = layui.jquery;
+    var form = layui.form;
+    
+    // 初始化表格
+    table.render({
+        elem: '#dataTable',
+        url: '/system/admin_office/meeting_room/',
+        method: 'post',
+        page: true,
+        cols: [[
+            {field: 'id', title: 'ID', width: 80},
+            {field: 'title', title: '会议室名称'},
+            {field: 'keep_name', title: '负责人'},
+            {field: 'create_time', title: '创建时间'},
+            {fixed: 'right', title: '操作', toolbar: '#actionBar', width: 200}
+        ]]
+    });
+    
+    // 搜索按钮点击事件
+    $('#searchBtn').on('click', function(){
+        var keywords = $('input[name="keywords"]').val();
+        table.reload('dataTable', {
+            where: {
+                keywords: keywords
+            }
+        });
+    });
+    
+    // 重置按钮点击事件
+    $('#resetBtn').on('click', function(){
+        $('input[name="keywords"]').val('');
+        table.reload('dataTable', {
+            where: {
+                keywords: ''
+            }
+        });
+    });
+    
+    // 添加按钮点击事件
+    $('#addBtn').on('click', function(){
+        layer.open({
+            type: 2,
+            title: '添加会议室',
+            content: '/system/admin_office/meeting_room/create/',
+            area: ['800px', '500px'],
+            end: function(){
+                table.reload('dataTable');
+            }
+        });
+    });
+    
+    // 表格工具条事件
+    table.on('tool(dataTable)', function(obj){
+        var data = obj.data;
+        if(obj.event === 'edit'){
+            layer.open({
+                type: 2,
+                title: '编辑会议室',
+                content: '{% url "adm_meeting_room_edit" %}?id=' + data.id,
+                area: ['800px', '500px'],
+                end: function(){
+                    table.reload('dataTable');
+                }
+            });
+        } else if(obj.event === 'view'){
+            layer.open({
+                type: 2,
+                title: '查看会议室',
+                content: '/system/admin_office/meeting_room/update/' + data.id + '/',
+                area: ['800px', '500px']
+            });
+        } else if(obj.event === 'delete'){
+            layer.confirm('确定要删除该会议室吗？', function(index){
+                $.ajax({
+                    url: '/system/admin_office/meeting_room/delete/',
+                    type: 'post',
+                    data: {id: data.id},
+                    success: function(res){
+                        if(res.code === 0){
+                            layer.msg('删除成功');
+                            table.reload('dataTable');
+                        } else {
+                            layer.msg(res.msg);
+                        }
+                    }
+                });
+                layer.close(index);
+            });
+        }
+    });
+});
+</script>
+
+<script type="text/html" id="actionBar">
+    <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
+    <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="view">查看</a>
+    <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
+</script>
+{% endblock %}

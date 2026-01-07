@@ -1,0 +1,194 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>财务管理</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .finance-card {
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .finance-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #009688;
+        }
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <!-- 财务统计概览 -->
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md3">
+                <div class="layui-card finance-card">
+                    <div class="layui-card-body" style="text-align: center;">
+                        <div class="stat-number" id="totalOrders">0</div>
+                        <div class="stat-label">订单总数</div>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="layui-card finance-card">
+                    <div class="layui-card-body" style="text-align: center;">
+                        <div class="stat-number" id="totalAmount">¥0.00</div>
+                        <div class="stat-label">订单总金额</div>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="layui-card finance-card">
+                    <div class="layui-card-body" style="text-align: center;">
+                        <div class="stat-number" id="pendingPayment">0</div>
+                        <div class="stat-label">待付款订单</div>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="layui-card finance-card">
+                    <div class="layui-card-body" style="text-align: center;">
+                        <div class="stat-number" id="pendingInvoices">0</div>
+                        <div class="stat-label">待审核开票申请</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 功能菜单 -->
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md6">
+                <div class="layui-card">
+                    <div class="layui-card-header">订单财务管理</div>
+                    <div class="layui-card-body">
+                        <div class="layui-btn-group">
+                            <button class="layui-btn" onclick="openPage('/order-finance/list/')">
+                                <i class="layui-icon layui-icon-dollar"></i> 订单财务记录
+                            </button>
+                            <button class="layui-btn layui-btn-normal" onclick="openPage('/reimbursement/')">
+                                <i class="layui-icon layui-icon-file-b"></i> 报销管理
+                            </button>
+                        </div>
+                        <p style="margin-top: 10px; color: #666; font-size: 14px;">
+                            管理订单财务记录，跟踪付款状态，处理报销申请
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-col-md6">
+                <div class="layui-card">
+                    <div class="layui-card-header">开票管理</div>
+                    <div class="layui-card-body">
+                        <div class="layui-btn-group">
+                            <button class="layui-btn layui-btn-warm" onclick="openPage('/invoice-request/list/')">
+                                <i class="layui-icon layui-icon-survey"></i> 开票申请管理
+                            </button>
+                            <button class="layui-btn" onclick="openPage('/invoice/')">
+                                <i class="layui-icon layui-icon-template-1"></i> 发票管理
+                            </button>
+                        </div>
+                        <p style="margin-top: 10px; color: #666; font-size: 14px;">
+                            处理开票申请，管理发票记录，跟踪回款状态
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最近开票申请 -->
+        <div class="layui-card">
+            <div class="layui-card-header">
+                最近开票申请
+                <span class="layui-btn layui-btn-xs layui-btn-primary" style="float: right;" onclick="openPage('/invoice-request/list/')">查看全部</span>
+            </div>
+            <div class="layui-card-body">
+                <table id="recentRequests" class="layui-table" lay-filter="recentRequests"></table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['table', 'layer'], function() {
+            var table = layui.table;
+            var layer = layui.layer;
+
+            // 加载统计数据
+            function loadStatistics() {
+                $.ajax({
+                    url: '/adm/finance/statistics/',
+                    type: 'GET',
+                    success: function(response) {
+                        if (response.code === 0) {
+                            var data = response.data;
+                            $('#totalOrders').text(data.total_orders);
+                            $('#totalAmount').text('¥' + data.total_amount.toFixed(2));
+                            $('#pendingPayment').text(data.pending_payment);
+                            $('#pendingInvoices').text(data.pending_invoices);
+                        }
+                    },
+                    error: function(xhr) {
+                        console.error('加载统计数据失败:', xhr);
+                    }
+                });
+            }
+
+            // 初始化最近开票申请表格
+            table.render({
+                elem: '#recentRequests',
+                url: '/adm/finance/invoice-request/list/?limit=5',
+                cols: [[
+                    {field: 'order_number', title: '订单编号', width: 150},
+                    {field: 'customer_name', title: '客户名称', width: 200},
+                    {field: 'amount', title: '开票金额', width: 120},
+                    {field: 'status', title: '申请状态', width: 100},
+                    {field: 'applicant', title: '申请人', width: 100},
+                    {field: 'create_time', title: '申请时间', width: 180},
+                    {title: '操作', width: 120, toolbar: '#requestToolBar'}
+                ]],
+                limit: 5,
+                page: false,
+                height: 300
+            });
+
+            // 页面加载时获取统计数据
+            loadStatistics();
+
+            // 监听工具条
+            table.on('tool(recentRequests)', function(obj) {
+                var data = obj.data;
+                var layEvent = obj.event;
+
+                if (layEvent === 'view') {
+                    openPage('/invoice-request/detail/' + data.id + '/');
+                }
+            });
+        });
+
+        // 打开页面
+        function openPage(url) {
+            // 使用相对路径，因为财务模块现在在 /adm/finance/ 下
+            if (!url.startsWith('/adm/finance/')) {
+                url = '/adm/finance' + url;
+            }
+            window.open(url, '_blank');
+        }
+    </script>
+
+    <!-- 工具栏模板 -->
+    <script type="text/html" id="requestToolBar">
+        <a class="layui-btn layui-btn-xs" lay-event="view">查看</a>
+    </script>
+</body>
+</html>

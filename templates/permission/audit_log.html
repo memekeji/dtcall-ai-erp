@@ -1,0 +1,333 @@
+{% extends 'home/base.html' %}
+{% load static %}
+
+{% block title %}权限审计日志 - DTCall{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 全局样式 */
+    :root {
+        --primary: #3b82f6;
+        --primary-hover: #2563eb;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-300: #d1d5db;
+        --gray-400: #9ca3af;
+        --gray-500: #6b7280;
+        --gray-600: #4b5563;
+        --gray-700: #374151;
+        --gray-800: #1f2937;
+        --border-radius: 8px;
+        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --transition: all 0.3s ease;
+    }
+
+    body {
+        background-color: var(--gray-50);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        color: var(--gray-800);
+    }
+
+    /* 页面容器 */
+    .container {
+        max-width: 100%;
+        margin: 0 auto;
+        padding: 24px;
+    }
+
+    /* 页面标题 */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+
+    .page-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin: 0;
+        display: flex;
+        align-items: center;
+    }
+
+    .page-title i {
+        margin-right: 8px;
+        color: var(--primary);
+        font-size: 28px;
+    }
+
+    /* 工具栏 */
+    .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: white;
+        padding: 16px 20px;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .search-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+        min-width: 300px;
+    }
+
+    .search-input {
+        position: relative;
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .search-input .layui-input {
+        padding-left: 40px;
+        height: 40px;
+        border-radius: var(--border-radius);
+        border: 1px solid var(--gray-300);
+        transition: var(--transition);
+    }
+
+    .search-input .layui-input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .search-input i {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--gray-400);
+    }
+
+    /* 表格容器 */
+    .table-container {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-sm);
+        overflow: hidden;
+    }
+
+    /* 自定义表格样式 */
+    .layui-table {
+        margin: 0;
+        border-radius: var(--border-radius);
+        overflow: hidden;
+    }
+
+    .layui-table th {
+        background-color: var(--gray-50);
+        font-weight: 600;
+        color: var(--gray-700);
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--gray-200);
+        text-align: left;
+    }
+
+    .layui-table td {
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--gray-200);
+        transition: var(--transition);
+    }
+
+    .layui-table tbody tr:hover {
+        background-color: var(--gray-50);
+    }
+
+    /* 操作类型标签 */
+    .operation-tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+    
+    .tag-create { background-color: #dcfce7; color: #166534; }
+    .tag-update { background-color: #dbeafe; color: #1e40af; }
+    .tag-delete { background-color: #fee2e2; color: #991b1b; }
+    .tag-assign { background-color: #fef3c7; color: #92400e; }
+
+    /* 空状态 */
+    .empty-state {
+        padding: 60px 20px;
+        text-align: center;
+        color: var(--gray-500);
+    }
+
+    .empty-state i {
+        font-size: 48px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+        .container {
+            padding: 12px;
+        }
+
+        .toolbar {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .search-group {
+            min-width: auto;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- 页面标题 -->
+    <div class="page-header">
+        <h1 class="page-title">
+            <i class="layui-icon layui-icon-shield"></i>
+            权限审计日志
+        </h1>
+    </div>
+
+    <!-- 工具栏 -->
+    <div class="toolbar">
+        <form class="search-group" id="searchForm" method="get" lay-submit lay-filter="search">
+            <div class="search-input">
+                <i class="layui-icon layui-icon-search"></i>
+                <input type="text" name="username" placeholder="请输入操作人用户名" class="layui-input" value="{{ username|default:'' }}">
+            </div>
+            <div class="search-input">
+                <i class="layui-icon layui-icon-search"></i>
+                <select name="operation_type" class="layui-select">
+                    <option value="">所有操作类型</option>
+                    <option value="create">创建</option>
+                    <option value="update">更新</option>
+                    <option value="delete">删除</option>
+                    <option value="assign">分配</option>
+                </select>
+            </div>
+            <div class="search-input">
+                <i class="layui-icon layui-icon-search"></i>
+                <input type="text" name="start_time" placeholder="开始时间" class="layui-input" value="{{ start_time|default:'' }}" id="startTime">
+            </div>
+            <div class="search-input">
+                <i class="layui-icon layui-icon-search"></i>
+                <input type="text" name="end_time" placeholder="结束时间" class="layui-input" value="{{ end_time|default:'' }}" id="endTime">
+            </div>
+            <button type="submit" class="layui-btn layui-btn-primary">
+                <i class="layui-icon layui-icon-search"></i> 搜索
+            </button>
+            <button type="button" class="layui-btn layui-btn-primary" onclick="clearSearch()">
+                <i class="layui-icon layui-icon-refresh"></i> 重置
+            </button>
+        </form>
+    </div>
+
+    <!-- 表格容器 -->
+    <div class="table-container">
+        <table class="layui-table" id="audit-log-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>操作人</th>
+                    <th>操作类型</th>
+                    <th>操作对象</th>
+                    <th>操作详情</th>
+                    <th>操作时间</th>
+                    <th>IP地址</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="7" class="empty-state">
+                        <i class="layui-icon layui-icon-face-cry"></i>
+                        <p>暂无审计日志数据</p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 分页 -->
+    <div class="layui-box layui-laypage layui-laypage-default" id="pageNav" style="margin-top: 20px; text-align: right;">
+        <!-- 分页内容将由LayUI动态生成 -->
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+layui.use(['form', 'layer', 'jquery', 'laypage', 'laydate'], function(){  
+    var form = layui.form;
+    var layer = layui.layer;
+    var $ = layui.jquery;
+    var laypage = layui.laypage;
+    var laydate = layui.laydate;
+    
+    // 设置全局AJAX请求携带CSRF token
+    $.ajaxSetup({
+        headers: {
+            'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
+        }
+    });
+    
+    // 初始化日期选择器
+    laydate.render({
+        elem: '#startTime',
+        type: 'datetime',
+        format: 'yyyy-MM-dd HH:mm:ss'
+    });
+    
+    laydate.render({
+        elem: '#endTime',
+        type: 'datetime',
+        format: 'yyyy-MM-dd HH:mm:ss'
+    });
+    
+    // 初始化分页
+    laypage.render({
+        elem: 'pageNav',
+        count: 0,
+        limit: 20,
+        curr: 1,
+        layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip'],
+        jump: function(obj, first) {
+            if (!first) {
+                // 分页跳转逻辑
+            }
+        }
+    });
+    
+    // 搜索表单提交
+    form.on('submit(search)', function(data){
+        var params = [];
+        if(data.field.username) params.push('username=' + encodeURIComponent(data.field.username));
+        if(data.field.operation_type) params.push('operation_type=' + encodeURIComponent(data.field.operation_type));
+        if(data.field.start_time) params.push('start_time=' + encodeURIComponent(data.field.start_time));
+        if(data.field.end_time) params.push('end_time=' + encodeURIComponent(data.field.end_time));
+        window.location.href = window.location.pathname + '?' + params.join('&');
+        return false;
+    });
+    
+    // 清空搜索
+    window.clearSearch = function() {
+        window.location.href = window.location.pathname;
+    };
+    
+    // 初始化表单
+    form.render();
+});
+</script>
+{% endblock %}

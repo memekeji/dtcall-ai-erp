@@ -1,0 +1,122 @@
+{% extends 'home/iframe_base.html' %}
+
+{% block title %}AI任务详情{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        AI任务详情
+    </div>
+    <div class="layui-card-body">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <table class="layui-table">
+                    <tbody>
+                        <tr>
+                            <td width="150">任务ID</td>
+                            <td>{{ task.id }}</td>
+                        </tr>
+                        <tr>
+                            <td>任务名称</td>
+                            <td>{{ task.name }}</td>
+                        </tr>
+                        <tr>
+                            <td>任务类型</td>
+                            <td>{{ task.type }}</td>
+                        </tr>
+                        <tr>
+                            <td>任务状态</td>
+                            <td>
+                                {% if task.status == 'pending' %}
+                                <span class="layui-badge layui-bg-orange">等待中</span>
+                                {% elif task.status == 'processing' %}
+                                <span class="layui-badge layui-bg-blue">处理中</span>
+                                {% elif task.status == 'completed' %}
+                                <span class="layui-badge layui-bg-green">已完成</span>
+                                {% elif task.status == 'failed' %}
+                                <span class="layui-badge layui-bg-red">失败</span>
+                                {% else %}
+                                <span class="layui-badge">未知</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>创建时间</td>
+                            <td>{{ task.created_at|date:"Y-m-d H:i:s" }}</td>
+                        </tr>
+                        <tr>
+                            <td>开始时间</td>
+                            <td>{{ task.started_at|date:"Y-m-d H:i:s"|default_if_none:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <td>完成时间</td>
+                            <td>{{ task.completed_at|date:"Y-m-d H:i:s"|default_if_none:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <td>创建用户</td>
+                            <td>{{ task.user.username }}</td>
+                        </tr>
+                        <tr>
+                            <td>错误信息</td>
+                            <td>{{ task.error_message|default_if_none:"-" }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="layui-col-md6">
+                <div class="layui-card">
+                    <div class="layui-card-header">任务参数</div>
+                    <div class="layui-card-body">
+                        <pre style="background-color: #f8f8f8; padding: 10px; border-radius: 4px; overflow-x: auto;">{{ task.parameters|safe }}</pre>
+                    </div>
+                </div>
+                {% if task.result %}
+                <div class="layui-card mt10">
+                    <div class="layui-card-header">任务结果</div>
+                    <div class="layui-card-body">
+                        <pre style="background-color: #f8f8f8; padding: 10px; border-radius: 4px; overflow-x: auto;">{{ task.result|safe }}</pre>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="layui-btn-container mt10">
+            <a href="{% url 'ai:ai_task_list' %}" class="layui-btn layui-btn-primary">返回列表</a>
+            {% if task.status in 'pending processing' %}
+            <button class="layui-btn layui-btn-danger" onclick="cancelTask('{{ task.id }}')">取消任务</button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+layui.use(['layer', 'jquery'], function() {
+    var layer = layui.layer;
+    var $ = layui.jquery;
+    
+    // 取消任务
+    window.cancelTask = function(taskId) {
+        layer.confirm('确定要取消该任务吗？', {
+            btn: ['确定', '取消']
+        }, function() {
+            $.ajax({
+                url: '/ai/tasks/' + taskId + '/cancel/',
+                type: 'POST',
+                data: {'csrfmiddlewaretoken': '{{ csrf_token }}'},
+                success: function(result) {
+                    if (result.success) {
+                        layer.msg('任务已取消', {icon: 1});
+                        location.href = "{% url 'ai:ai_task_list' %}";
+                    } else {
+                        layer.msg(result.error, {icon: 2});
+                    }
+                },
+                error: function() {
+                    layer.msg('取消任务失败', {icon: 2});
+                }
+            });
+        });
+    };
+});
+</script>
+{% endblock %}

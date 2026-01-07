@@ -1,0 +1,95 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{% if maintenance %}编辑维修保养记录{% else %}新增维修保养记录{% endif %}{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>{% if maintenance %}编辑维修保养记录{% else %}新增维修保养记录{% endif %}</h3>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form" method="post">
+            {% csrf_token %}
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">车辆 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.vehicle }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">类型 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.maintenance_type }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">维修/保养日期 <span style="color: red;">*</span></label>
+                        <div class="layui-input-block">
+                            {{ form.maintenance_date }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">里程数(公里)</label>
+                        <div class="layui-input-block">
+                            {{ form.mileage }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">费用</label>
+                        <div class="layui-input-block">
+                            {{ form.cost }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">服务商</label>
+                        <div class="layui-input-block">
+                            {{ form.service_provider }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">下次保养日期</label>
+                        <div class="layui-input-block">
+                            {{ form.next_maintenance }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">维修/保养内容</label>
+                <div class="layui-input-block">
+                    {{ form.description }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" type="submit">保存</button>
+                    <a href="{% url 'system:admin_office:vehicle_maintenance_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

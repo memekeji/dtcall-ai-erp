@@ -1,0 +1,180 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>添加发票记录</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+<body>
+    <div class="layui-container" style="margin-top: 20px;">
+        <div class="layui-card">
+            <div class="layui-card-header">添加发票记录</div>
+            <div class="layui-card-body">
+                <form class="layui-form" id="invoiceForm">
+                    <input type="hidden" name="customer_id" value="{{ customer_id }}">
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">发票编号</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="invoice_number" placeholder="请输入发票编号" class="layui-input" lay-verify="required">
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">发票金额</label>
+                                <div class="layui-input-block">
+                                    <input type="number" name="amount" placeholder="请输入发票金额" class="layui-input" lay-verify="required|number" step="0.01">
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">开票日期</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="invoice_date" placeholder="请选择开票日期" class="layui-input" id="invoiceDate" lay-verify="required">
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">发票类型</label>
+                                <div class="layui-input-block">
+                                    <select name="invoice_type" lay-verify="required">
+                                        <option value="">请选择发票类型</option>
+                                        <option value="ordinary">普通发票</option>
+                                        <option value="special">专用发票</option>
+                                        <option value="electronic">电子发票</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">发票状态</label>
+                                <div class="layui-input-block">
+                                    <select name="status" lay-verify="required">
+                                        <option value="">请选择发票状态</option>
+                                        <option value="draft">草稿</option>
+                                        <option value="issued">已开票</option>
+                                        <option value="sent">已发送</option>
+                                        <option value="received">已收到</option>
+                                        <option value="paid">已付款</option>
+                                        <option value="cancelled">已作废</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">关联合同</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="contract_number" placeholder="请输入关联合同编号" class="layui-input">
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">税率(%)</label>
+                                <div class="layui-input-block">
+                                    <input type="number" name="tax_rate" placeholder="请输入税率" class="layui-input" step="0.01" value="13">
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">税额</label>
+                                <div class="layui-input-block">
+                                    <input type="number" name="tax_amount" placeholder="税额将自动计算" class="layui-input" step="0.01" readonly>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">发票内容</label>
+                        <div class="layui-input-block">
+                            <textarea name="content" placeholder="请输入发票内容描述" class="layui-textarea"></textarea>
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">备注信息</label>
+                        <div class="layui-input-block">
+                            <textarea name="remark" placeholder="请输入备注信息" class="layui-textarea"></textarea>
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <div class="layui-input-block">
+                            <button class="layui-btn" lay-submit lay-filter="submitInvoice">提交</button>
+                            <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/jquery.min.js' %}"></script>
+    <script>
+        // 获取URL参数
+        function getUrlParam(name) {
+            var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)");
+            var r = window.location.search.substr(1).match(reg);
+            if (r != null) return unescape(r[2]);
+            return null;
+        }
+
+        layui.use(['form', 'laydate'], function() {
+            var form = layui.form;
+            var laydate = layui.laydate;
+            var layer = layui.layer;
+
+            // 初始化日期选择器
+            laydate.render({
+                elem: '#invoiceDate',
+                type: 'date'
+            });
+
+            // 填充客户ID
+            var customerId = getUrlParam('customer_id');
+            if (customerId) {
+                $('input[name="customer_id"]').val(customerId);
+            } else {
+                layer.msg('客户ID参数缺失', {icon: 2});
+            }
+
+            // 自动计算税额
+            function calculateTax() {
+                var amount = parseFloat($('input[name="amount"]').val()) || 0;
+                var taxRate = parseFloat($('input[name="tax_rate"]').val()) || 0;
+                var taxAmount = (amount * taxRate / 100).toFixed(2);
+                $('input[name="tax_amount"]').val(taxAmount);
+            }
+
+            // 监听金额和税率变化
+            $('input[name="amount"], input[name="tax_rate"]').on('input', calculateTax);
+
+            // 表单提交
+            form.on('submit(submitInvoice)', function(data) {
+                $.ajax({
+                    url: '/adm/customer/add_invoice/',
+                    type: 'POST',
+                    data: data.field,
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    success: function(res) {
+                        if (res.code === 0) {
+                            layer.msg('添加成功', {icon: 1}, function() {
+                                // 关闭当前弹窗
+                                var index = parent.layer.getFrameIndex(window.name);
+                                parent.layer.close(index);
+                                // 刷新父页面的表格
+                                parent.layui.table.reload('invoiceTable');
+                            });
+                        } else {
+                            layer.msg(res.msg || '添加失败', {icon: 2});
+                        }
+                    },
+                    error: function(xhr) {
+                        layer.msg('服务器错误', {icon: 2});
+                        console.error(xhr);
+                    }
+                });
+                return false;
+            });
+        });
+    </script>
+</body>
+</html>

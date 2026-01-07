@@ -1,0 +1,114 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>收款管理</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <div class="layui-btn-group">
+                    <button class="layui-btn layui-btn-sm" onclick="addPaymentReceive()">
+                        <i class="layui-icon layui-icon-add-1"></i> 新增收款
+                    </button>
+                    <button class="layui-btn layui-btn-sm layui-btn-normal" onclick="exportData()">
+                        <i class="layui-icon layui-icon-export"></i> 导出数据
+                    </button>
+                </div>
+            </div>
+            <div class="layui-card-body">
+                <table id="paymentReceiveTable" class="layui-table" lay-filter="paymentReceiveTable"></table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['table', 'layer'], function() {
+            var table = layui.table;
+            var layer = layui.layer;
+
+            // 构建请求URL
+            var url = '/adm/finance/paymentreceive/datalist/';
+            {% if customer_id %}
+                url += '?customer_id={{ customer_id }}';
+            {% endif %}
+
+            // 初始化表格
+            table.render({
+                elem: '#paymentReceiveTable',
+                url: url,
+                cols: [[
+                    {field: 'id', title: 'ID', width: 80},
+                    {field: 'invoice_code', title: '关联发票', width: 150},
+                    {% if customer_id %}
+                    {field: 'customer_name', title: '客户名称', width: 150},
+                    {% endif %}
+                    {field: 'amount', title: '收款金额', width: 120},
+                    {field: 'income_date', title: '收款日期', width: 120},
+                    {field: 'remark', title: '备注', width: 200},
+                    {field: 'create_time', title: '创建时间', width: 180},
+                    {title: '操作', width: 200, toolbar: '#paymentReceiveToolBar'}
+                ]],
+                page: true,
+                limit: 20,
+                height: 'full-200'
+            });
+
+            // 监听工具条
+            table.on('tool(paymentReceiveTable)', function(obj) {
+                var data = obj.data;
+                var layEvent = obj.event;
+
+                if (layEvent === 'view') {
+                    layer.open({
+                        type: 2,
+                        title: '收款详情',
+                        content: '/adm/finance/paymentreceive/view/' + data.id + '/',
+                        area: ['800px', '600px']
+                    });
+                } else if (layEvent === 'edit') {
+                    layer.open({
+                        type: 2,
+                        title: '编辑收款',
+                        content: '/adm/finance/paymentreceive/edit/' + data.id + '/',
+                        area: ['700px', '500px'],
+                        end: function() {
+                            table.reload('paymentReceiveTable');
+                        }
+                    });
+                }
+            });
+        });
+
+        // 新增收款
+        function addPaymentReceive() {
+            layer.open({
+                type: 2,
+                title: '新增收款',
+                content: '/adm/finance/paymentreceive/add/',
+                area: ['700px', '500px'],
+                end: function() {
+                    layui.table.reload('paymentReceiveTable');
+                }
+            });
+        }
+
+        // 导出数据
+        function exportData() {
+            layer.msg('导出功能开发中...', {icon: 1});
+        }
+    </script>
+
+    <!-- 工具栏模板 -->
+    <script type="text/html" id="paymentReceiveToolBar">
+        <a class="layui-btn layui-btn-xs" lay-event="view">查看</a>
+        <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
+    </script>
+</body>
+</html>

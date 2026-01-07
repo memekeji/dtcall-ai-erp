@@ -1,0 +1,204 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>奖罚管理</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/common.css' %}">
+    <style>
+        .layui-container {
+            width: 100% !important;
+            max-width: none !important;
+            padding: 0;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow-x: hidden;
+        }
+        .content-box {
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            height: calc(100vh - 120px);
+        }
+        .search-bar {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .reward-status { background-color: #52c41a; color: white; padding: 2px 8px; border-radius: 3px; }
+        .punishment-status { background-color: #ff4d4f; color: white; padding: 2px 8px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="layui-container">
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <div class="content-box">
+                    <div class="layui-row">
+                        <div class="layui-col-md12">
+                            <div class="search-bar">
+                                <form class="layui-form" id="searchForm">
+                                    <div class="layui-form-item">
+                                        <div class="layui-inline">
+                                            <label class="layui-form-label">员工姓名</label>
+                                            <div class="layui-input-inline">
+                                                <input type="text" name="employee_name" placeholder="请输入员工姓名" class="layui-input">
+                                            </div>
+                                        </div>
+                                        <div class="layui-inline">
+                                            <label class="layui-form-label">类型</label>
+                                            <div class="layui-input-inline">
+                                                <select name="type">
+                                                    <option value="">全部</option>
+                                                    <option value="reward">奖励</option>
+                                                    <option value="punishment">处罚</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="layui-inline">
+                                            <button type="button" class="layui-btn layui-btn-normal" id="searchBtn">搜索</button>
+                                            <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                            
+                            <div class="layui-btn-group">
+                                <button class="layui-btn layui-btn-normal" id="addBtn">新增奖罚记录</button>
+                            </div>
+                            
+                            <table class="layui-table" id="rewardPunishmentTable" lay-filter="rewardPunishmentTable"></table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['table', 'form', 'layer'], function(){
+            var table = layui.table;
+            var form = layui.form;
+            var layer = layui.layer;
+            
+            // 初始化表格
+            table.render({
+                elem: '#rewardPunishmentTable',
+                url: '{% url "user:reward_punishment_list" %}',
+                method: 'GET',
+                cols: [[
+                    {field: 'id', title: 'ID', width: 80, sort: true},
+                    {field: 'employee_name', title: '员工姓名', width: 120},
+                    {field: 'type_display', title: '类型', width: 100, templet: function(d){
+                        if(d.type === 'reward') {
+                            return '<span class="reward-status">奖励</span>';
+                        } else {
+                            return '<span class="punishment-status">处罚</span>';
+                        }
+                    }},
+                    {field: 'amount', title: '金额', width: 120, sort: true},
+                    {field: 'reason', title: '原因', minWidth: 200},
+                    {field: 'executor_name', title: '执行人', width: 120},
+                    {field: 'created_at', title: '创建时间', width: 180, sort: true},
+                    {title: '操作', width: 150, toolbar: '#operationBar'}
+                ]],
+                page: true,
+                limit: 20,
+                limits: [10, 20, 50, 100]
+            });
+            
+            // 搜索功能
+            document.getElementById('searchBtn').addEventListener('click', function(){
+                var searchData = form.val('searchForm');
+                table.reload('rewardPunishmentTable', {
+                    where: searchData
+                });
+            });
+            
+            // 新增按钮
+            document.getElementById('addBtn').addEventListener('click', function(){
+                // 计算窗口尺寸：右侧75%宽度，全屏高度
+                var windowWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+                var windowHeight = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+                var rightWidth = Math.floor(windowWidth * 0.75);
+                
+                layer.open({
+                    type: 2,
+                    title: '新增奖罚记录',
+                    content: '/user/reward-punishment/add/',
+                    area: [rightWidth + 'px', windowHeight + 'px'],
+                    offset: 'rt', // 右上角对齐
+                    anim: 2, // 从右侧滑入动画
+                    move: false, // 禁止拖动
+                    resize: false, // 禁止调整大小
+                    shade: 0, // 禁用遮罩层
+                    end: function(){
+                        table.reload('rewardPunishmentTable');
+                    }
+                });
+            });
+            
+            // 表格操作
+            table.on('tool(rewardPunishmentTable)', function(obj){
+                var data = obj.data;
+                if(obj.event === 'edit'){
+                    // 计算窗口尺寸：右侧75%宽度，全屏高度
+                    var windowWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+                    var windowHeight = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+                    var rightWidth = Math.floor(windowWidth * 0.75);
+                    
+                    layer.open({
+                        type: 2,
+                        title: '编辑奖罚记录',
+                        content: '{% url "user:reward_punishment_edit" 0 %}'.replace('0', data.id),
+                        area: [rightWidth + 'px', windowHeight + 'px'],
+                        offset: 'rt', // 右上角对齐
+                        anim: 2, // 从右侧滑入动画
+                        move: false, // 禁止拖动
+                        resize: false, // 禁止调整大小
+                        shade: 0, // 禁用遮罩层
+                        end: function(){
+                            table.reload('rewardPunishmentTable');
+                        }
+                    });
+                } else if(obj.event === 'delete'){
+                    layer.confirm('确定删除这条奖罚记录吗？', function(index){
+                        var xhr = new XMLHttpRequest();
+                        xhr.open('DELETE', '/user/reward-punishment/' + data.id + '/delete/');
+                        xhr.setRequestHeader('Content-Type', 'application/json');
+                        xhr.onreadystatechange = function() {
+                            if (xhr.readyState === 4) {
+                                if (xhr.status === 200) {
+                                    var res = JSON.parse(xhr.responseText);
+                                    if(res.code === 0){
+                                        layer.msg('删除成功');
+                                        table.reload('rewardPunishmentTable');
+                                    } else {
+                                        layer.msg(res.msg);
+                                    }
+                                } else {
+                                    layer.msg('删除失败');
+                                }
+                            }
+                        };
+                        xhr.send();
+                        layer.close(index);
+                    });
+                }
+            });
+        });
+    </script>
+    
+    <!-- 操作列模板 -->
+    <script type="text/html" id="operationBar">
+        <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
+        <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="delete">删除</a>
+    </script>
+</body>
+</html>

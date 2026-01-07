@@ -1,0 +1,156 @@
+{% extends 'home/iframe_base.html' %}
+{% load static %}
+
+{% block title %}AI知识库列表{% endblock %}
+
+{% block content %}
+<div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-col-md12">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3><i class="layui-icon layui-icon-book"></i> AI知识库列表</h3>
+                        <a href="{% url 'ai:knowledge_base_create' %}" class="layui-btn layui-btn-normal">
+                            <i class="layui-icon layui-icon-add-circle"></i> 新建知识库
+                        </a>
+                    </div>
+                </div>
+                <div class="layui-card-body">
+                    <table class="layui-table" lay-filter="knowledgeBaseTable" lay-data="{
+                        url: '{% url 'ai:knowledge_base_list' %}',
+                        page: true,
+                        id: 'knowledgeBaseTable',
+                        parseData: function(res) {
+                            return {
+                                code: 0,
+                                msg: '',
+                                count: res.count,
+                                data: res.data
+                            };
+                        },
+                        cols: [[
+                            {field: 'name', width: 200, title: '知识库名称'},
+                            {field: 'description', width: 300, title: '描述'},
+                            {field: 'status', width: 100, title: '状态', templet: '#statusTpl'},
+                            {field: 'creator__name', width: 100, title: '创建人'},
+                            {field: 'created_at', width: 180, title: '创建时间', templet: '#timeTpl'},
+                            {fixed: 'right', width: 320, title: '操作', toolbar: '#barDemo'}
+                        ]]
+                    }"></table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 状态模板 -->
+<script type="text/html" id="statusTpl">
+    {% verbatim %}
+    {{#  if(d.status === 'published') {
+        return '<span class="layui-badge layui-bg-green">已发布</span>';
+    } else if(d.status === 'draft') {
+        return '<span class="layui-badge">草稿</span>';
+    } else {
+        return '<span class="layui-badge layui-bg-gray">已归档</span>';
+    } }}
+    {% endverbatim %}
+</script>
+
+<!-- 时间模板 -->
+<script type="text/html" id="timeTpl">
+    {% verbatim %}
+    {{#  var date = new Date(d.created_at);
+        var year = date.getFullYear();
+        var month = (date.getMonth() + 1).toString().padStart(2, '0');
+        var day = date.getDate().toString().padStart(2, '0');
+        var hour = date.getHours().toString().padStart(2, '0');
+        var minute = date.getMinutes().toString().padStart(2, '0');
+        var second = date.getSeconds().toString().padStart(2, '0');
+        return year + '-' + month + '-' + day + ' ' + hour + ':' + minute + ':' + second; }}
+    {% endverbatim %}
+</script>
+
+<!-- 操作栏模板 -->
+<script type="text/html" id="barDemo">
+    <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
+    <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="detail">详情</a>
+    <a class="layui-btn layui-btn-xs layui-btn-warm" lay-event="add_item">增加知识条目</a>
+    <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
+</script>
+{% endblock %}
+
+{% block script %}
+<script>
+    // 确保Layui和所需模块已加载
+    layui.use(['table', 'layer', 'laydate'], function() {
+        var table = layui.table;
+        var layer = layui.layer;
+        
+        // 监听工具条事件
+        table.on('tool(knowledgeBaseTable)', function(obj) {
+            var data = obj.data;
+            if(obj.event === 'edit'){
+                // 从右侧弹出编辑页面
+                window.layer.open({
+                    type: 2,
+                    title: '编辑知识库',
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['75%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: '{% url 'ai:knowledge_base_update' 0 %}'.replace('0', data.id)
+                });
+            } else if(obj.event === 'detail'){
+                // 从右侧弹出详情页面
+                window.layer.open({
+                    type: 2,
+                    title: '知识库详情',
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['75%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: '{% url 'ai:knowledge_base_detail' 0 %}'.replace('0', data.id)
+                });
+            } else if(obj.event === 'add_item'){
+                // 从右侧弹出知识条目创建页面
+                window.layer.open({
+                    type: 2,
+                    title: '增加知识条目',
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['75%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: '{% url 'ai:knowledge_item_create' %}?knowledge_base=' + data.id
+                });
+            } else if(obj.event === 'delete'){
+                layer.confirm('确定要删除这个知识库吗？', function(index) {
+                    layer.close(index);
+                    $.ajax({
+                        url: '{% url 'ai:knowledge_base_delete' 0 %}'.replace('0', data.id),
+                        type: 'POST',
+                        data: {csrfmiddlewaretoken: '{{ csrf_token }}'},
+                        success: function(res){
+                            if(res.status === 'success'){
+                                layer.msg('删除成功', {icon: 1});
+                                obj.del();
+                            } else {
+                                layer.msg(res.message || '删除失败', {icon: 2});
+                            }
+                        },
+                        error: function(){
+                            layer.msg('删除失败', {icon: 2});
+                        }
+                    });
+                });
+            }
+        });
+    });
+</script>
+{% endblock %}

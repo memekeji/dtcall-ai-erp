@@ -1,0 +1,75 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}已审公文{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>已审公文</h3>
+    </div>
+    <div class="layui-card-body">
+        <table class="layui-table" lay-skin="line">
+            <thead>
+                <tr>
+                    <th>公文编号</th>
+                    <th>公文标题</th>
+                    <th>分类</th>
+                    <th>起草人</th>
+                    <th>审批结果</th>
+                    <th>审批时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for document in page_obj %}
+                <tr>
+                    <td>{{ document.document_number }}</td>
+                    <td>{{ document.title }}</td>
+                    <td>{{ document.category.name }}</td>
+                    <td>{{ document.author.name }}</td>
+                    <td>
+                        {% if document.status == 'approved' %}
+                            <span class="layui-badge layui-bg-green">已通过</span>
+                        {% elif document.status == 'rejected' %}
+                            <span class="layui-badge layui-bg-red">已拒绝</span>
+                        {% else %}
+                            <span class="layui-badge layui-bg-orange">已退回</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ document.updated_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        <a href="{% url 'system:admin_office:document_detail' document.pk %}" class="layui-btn layui-btn-xs">查看</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; color: #999;">暂无已审公文</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <!-- 分页 -->
+        {% if page_obj.has_other_pages %}
+        <div class="layui-box layui-laypage layui-laypage-default">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}" class="layui-laypage-prev">上一页</a>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <span class="layui-laypage-curr"><em>{{ num }}</em></span>
+                {% else %}
+                    <a href="?page={{ num }}">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}" class="layui-laypage-next">下一页</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

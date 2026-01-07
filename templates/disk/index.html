@@ -1,0 +1,448 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>知识网盘</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <script src="{% static 'js/office_preview.js' %}"></script>
+    <style>
+        .disk-stats {
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin-bottom: 10px;
+        }
+
+        .stat-card.files {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .stat-card.folders {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+
+        .stat-card.storage {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .stat-number {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .quick-actions {
+            margin-bottom: 20px;
+        }
+
+        .file-icon {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+
+        .file-thumbnail {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+
+        .file-item {
+            padding: 15px;
+            border: 1px solid #f0f0f0;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+            background-color: #fff;
+            transition: all 0.3s ease;
+            width: calc(50% - 8px);
+            box-sizing: border-box;
+        }
+
+        .file-item:hover {
+            background-color: #f8f9fa;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .file-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .file-info {
+            flex: 1;
+        }
+
+        .file-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 14px;
+            word-break: break-all;
+        }
+
+        .file-meta {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .file-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .file-list-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <!-- 统计卡片 -->
+        <div class="layui-row layui-col-space15 disk-stats">
+            <div class="layui-col-md3">
+                <div class="stat-card storage">
+                    <div class="stat-number">{{ total_size|filesizeformat }}</div>
+                    <div class="stat-label">已使用存储</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="stat-card files">
+                    <div class="stat-number">{{ file_count }}</div>
+                    <div class="stat-label">文件数量</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="stat-card folders">
+                    <div class="stat-number">{{ folder_count }}</div>
+                    <div class="stat-label">文件夹数量</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="stat-card">
+                    <div class="stat-number">{{ starred_files.count }}</div>
+                    <div class="stat-label">收藏文件</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 快捷操作 -->
+        <div class="layui-row layui-col-space15 quick-actions">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">快捷操作</div>
+                    <div class="layui-card-body">
+                        <button class="layui-btn layui-btn-primary" onclick="goToPersonal()">
+                            <i class="layui-icon layui-icon-file"></i> 个人文件
+                        </button>
+                        <button class="layui-btn layui-btn-primary" onclick="goToShared()">
+                            <i class="layui-icon layui-icon-share"></i> 共享文件
+                        </button>
+                        <button class="layui-btn layui-btn-primary" onclick="goToRecycle()">
+                            <i class="layui-icon layui-icon-delete"></i> 回收站
+                        </button>
+                        <button class="layui-btn layui-btn-primary" onclick="uploadFile()">
+                            <i class="layui-icon layui-icon-upload"></i> 上传文件
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最近文件和收藏文件 -->
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md6">
+                <div class="layui-card">
+                    <div class="layui-card-header">最近文件</div>
+                    <div class="layui-card-body">
+                        <div class="file-list-container">
+                        {% for file in recent_files %}
+                        <div class="file-item">
+                            <div class="file-header">
+                                {% if file.file_type == 'image' %}
+                                <img src="/disk/download/{{ file.id }}/" alt="{{ file.name }}" class="file-thumbnail">
+                                {% else %}
+                                <div class="file-icon">
+                                    {% if file.file_type == 'document' %}
+                                    <i class="layui-icon layui-icon-file" style="color: #1E9FFF;"></i>
+                                    {% elif file.file_type == 'video' %}
+                                    <i class="layui-icon layui-icon-video" style="color: #FF5722;"></i>
+                                    {% elif file.file_type == 'audio' %}
+                                    <i class="layui-icon layui-icon-voice" style="color: #FFB800;"></i>
+                                    {% else %}
+                                    <i class="layui-icon layui-icon-file" style="color: #999;"></i>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                                <div class="file-info">
+                                    <div class="file-name">{{ file.name }}</div>
+                                    <div class="file-meta">{{ file.get_size_display }} · {{ file.update_time|date:"Y-m-d H:i" }}</div>
+                                </div>
+                            </div>
+                            <div class="file-actions">
+                                <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="previewFile('{{ file.id }}', '{{ file.name }}', '{{ file.file_type }}')">预览</button>
+                                <button class="layui-btn layui-btn-xs" onclick="downloadFile('{{ file.id }}')">下载</button>
+                                <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="shareItem('file', '{{ file.id }}')">分享</button>
+                                <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="shareToUserOrDept('file', '{{ file.id }}')">共享</button>
+                                {% if file.is_starred %}
+                                <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="toggleStar('{{ file.id }}', this)">
+                                    <i class="layui-icon layui-icon-star-fill" style="color: #FFB800;"></i> 取消收藏
+                                </button>
+                                {% else %}
+                                <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="toggleStar('{{ file.id }}', this)">
+                                    <i class="layui-icon layui-icon-star"></i> 收藏
+                                </button>
+                                {% endif %}
+                                <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteFile('{{ file.id }}')">删除</button>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div style="text-align: center; padding: 40px; color: #999; width: 100%;">
+                            暂无最近文件
+                        </div>
+                        {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-col-md6">
+                <div class="layui-card">
+                    <div class="layui-card-header">收藏文件</div>
+                    <div class="layui-card-body">
+                        <div class="file-list-container">
+                        {% for file in starred_files %}
+                        <div class="file-item">
+                            <div class="file-header">
+                                {% if file.file_type == 'image' %}
+                                <img src="/disk/download/{{ file.id }}/" alt="{{ file.name }}" class="file-thumbnail">
+                                {% else %}
+                                <div class="file-icon">
+                                    {% if file.file_type == 'document' %}
+                                    <i class="layui-icon layui-icon-file" style="color: #1E9FFF;"></i>
+                                    {% elif file.file_type == 'video' %}
+                                    <i class="layui-icon layui-icon-video" style="color: #FF5722;"></i>
+                                    {% elif file.file_type == 'audio' %}
+                                    <i class="layui-icon layui-icon-voice" style="color: #FFB800;"></i>
+                                    {% else %}
+                                    <i class="layui-icon layui-icon-file" style="color: #999;"></i>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                                <div class="file-info">
+                                    <div class="file-name">{{ file.name }}</div>
+                                    <div class="file-meta">{{ file.get_size_display }} · {{ file.update_time|date:"Y-m-d H:i" }}</div>
+                                </div>
+                            </div>
+                            <div class="file-actions">
+                                <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="previewFile('{{ file.id }}', '{{ file.name }}', '{{ file.file_type }}')">预览</button>
+                                <button class="layui-btn layui-btn-xs" onclick="downloadFile('{{ file.id }}')">下载</button>
+                                <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="shareItem('file', '{{ file.id }}')">分享</button>
+                                <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="shareToUserOrDept('file', '{{ file.id }}')">共享</button>
+                                {% if file.is_starred %}
+                                <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="toggleStar('{{ file.id }}', this)">
+                                    <i class="layui-icon layui-icon-star-fill" style="color: #FFB800;"></i> 取消收藏
+                                </button>
+                                {% else %}
+                                <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="toggleStar('{{ file.id }}', this)">
+                                    <i class="layui-icon layui-icon-star"></i> 收藏
+                                </button>
+                                {% endif %}
+                                <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteFile('{{ file.id }}')">删除</button>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div style="text-align: center; padding: 40px; color: #999; width: 100%;">
+                            暂无收藏文件
+                        </div>
+                        {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        layui.use(['layer'], function () {
+            window.layer = layui.layer;
+        });
+
+        function goToPersonal() {
+            window.location.href = '/disk/personal/';
+        }
+
+        function goToShared() {
+            window.location.href = '/disk/share/';
+        }
+
+        function goToRecycle() {
+            window.location.href = '/disk/recycle/';
+        }
+
+        function uploadFile() {
+            layer.open({
+                type: 2,
+                title: '文件上传',
+                area: ['800px', '600px'],
+                content: '/disk/upload/',
+                end: function() {
+                    layer.msg('上传完成', {icon: 1});
+                }
+            });
+        }
+        
+        function downloadFile(fileId) {
+            var a = document.createElement('a');
+            a.href = '/disk/download/' + fileId + '/';
+            a.download = '';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+        
+        function previewFile(fileId, fileName, fileType) {
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                var previewUrl = '/disk/preview/?file_id=' + fileId + '&file_name=' + encodeURIComponent(fileName) + '&file_type=' + fileType;
+                
+                layer.open({
+                    type: 2,
+                    title: '文件预览 - ' + fileName,
+                    area: ['90%', '90%'],
+                    content: previewUrl,
+                    maxmin: true,
+                    btn: ['下载', '关闭'],
+                    btn1: function(index) {
+                        downloadFile(fileId);
+                        return false;
+                    }
+                });
+            });
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            var k = 1024;
+            var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            var i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function shareItem(type, id) {
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: '创建分享',
+                    area: ['75%', '100%'],
+                    offset: 'r',
+                    shade: 0.3,
+                    maxmin: true,
+                    content: '/disk/share/create/?type=' + type + '&id=' + id
+                });
+            });
+        }
+        
+        function shareToUserOrDept(type, id) {
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: '共享给用户或部门',
+                    area: ['75%', '100%'],
+                    offset: 'r',
+                    shade: 0.3,
+                    maxmin: true,
+                    content: '/disk/permission/?type=' + type + '&id=' + id
+                });
+            });
+        }
+        
+        function toggleStar(fileId, button) {
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                var loadingIndex = layer.load(1, {shade: [0.1, '#fff']});
+                
+                $.post('/disk/file/star/' + fileId + '/', {
+                    csrfmiddlewaretoken: '{{ csrf_token }}'
+                }, function(response) {
+                    layer.close(loadingIndex);
+                    if (response.code === 0) {
+                        var icon = button.querySelector('i');
+                        var text = button.textContent.trim();
+                        if (response.data.is_starred) {
+                            icon.className = 'layui-icon layui-icon-star-fill';
+                            icon.style.color = '#FFB800';
+                            button.innerHTML = '<i class="layui-icon layui-icon-star-fill" style="color: #FFB800;"></i> 取消收藏';
+                            layer.msg('收藏成功', {icon: 1});
+                        } else {
+                            icon.className = 'layui-icon layui-icon-star';
+                            icon.style.color = '';
+                            button.innerHTML = '<i class="layui-icon layui-icon-star"></i> 收藏';
+                            layer.msg('取消收藏成功', {icon: 1});
+                        }
+                    } else {
+                        layer.msg(response.msg, {icon: 2});
+                    }
+                }).fail(function() {
+                    layer.close(loadingIndex);
+                    layer.msg('操作失败', {icon: 2});
+                });
+            });
+        }
+        
+        function deleteFile(fileId) {
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                layer.confirm('确定要删除此文件吗？删除后将移至回收站，可在回收站中恢复。', {
+                    icon: 3,
+                    title: '确认删除'
+                }, function(index) {
+                    layer.close(index);
+                    var loadingIndex = layer.load(1, {shade: [0.1, '#fff']});
+                    
+                    $.post('/disk/file/delete/' + fileId + '/', {
+                        csrfmiddlewaretoken: '{{ csrf_token }}'
+                    }, function(response) {
+                        layer.close(loadingIndex);
+                        if (response.code === 0) {
+                            layer.msg('文件已删除', {icon: 1});
+                            location.reload();
+                        } else {
+                            layer.msg(response.msg, {icon: 2});
+                        }
+                    }).fail(function() {
+                        layer.close(loadingIndex);
+                        layer.msg('删除失败', {icon: 2});
+                    });
+                });
+            });
+        }
+    </script>
+</body>
+
+</html>

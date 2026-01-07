@@ -1,0 +1,51 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>付款详情</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <h3>付款详情</h3>
+            </div>
+            <div class="layui-card-body">
+                <table class="layui-table">
+                    <tbody>
+                        <tr>
+                            <td width="150"><strong>关联报销</strong></td>
+                            <td>{{ payment.expense.code }} - ¥{{ payment.expense.cost }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>付款金额</strong></td>
+                            <td>¥{{ payment.amount }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>付款日期</strong></td>
+                            <td>{{ payment.payment_date|date:"Y-m-d H:i:s" }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>附件ID</strong></td>
+                            <td>{{ payment.file_ids|default:"无" }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>创建时间</strong></td>
+                            <td>{{ payment.create_time|date:"Y-m-d H:i:s" }}</td>
+                        </tr>
+                        {% if payment.remark %}
+                        <tr>
+                            <td><strong>备注</strong></td>
+                            <td>{{ payment.remark }}</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

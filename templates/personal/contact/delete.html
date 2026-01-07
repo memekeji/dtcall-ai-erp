@@ -1,0 +1,26 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}删除联系人{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>删除联系人确认</h3>
+    </div>
+    <div class="layui-card-body">
+        <div class="layui-alert layui-alert-danger">
+            <i class="layui-icon layui-icon-close"></i>
+            确定要删除联系人 "{{ contact.name }}" 吗？此操作不可恢复。
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" class="layui-btn layui-btn-danger">确定删除</button>
+                <a href="{% url 'personal:contact_list' %}" class="layui-btn layui-btn-primary">取消</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

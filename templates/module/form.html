@@ -1,0 +1,91 @@
+    <style>
+        .layui-form-label {
+            width: 120px;
+        }
+        .layui-input-block {
+            margin-left: 150px;
+        }
+    </style>
+    
+    <form id="module-form" class="layui-form" method="post" action="{% if module %}{% url 'system:module_edit' module.pk %}{% else %}{% url 'system:module_add' %}{% endif %}">
+        {% csrf_token %}
+        <div class="layui-form-item">
+            <label class="layui-form-label">模块名称</label>
+            <div class="layui-input-block">
+                <input type="text" name="name" value="{{ form.name.value|default:'' }}" 
+                       placeholder="请输入模块名称" class="layui-input" required>
+            </div>
+        </div>
+        
+        <div class="layui-form-item">
+            <label class="layui-form-label">模块代码</label>
+            <div class="layui-input-block">
+                <input type="text" name="code" value="{{ form.code.value|default:'' }}" 
+                       placeholder="请输入模块代码" class="layui-input" required>
+            </div>
+        </div>
+        
+        <div class="layui-form-item">
+            <label class="layui-form-label">父模块</label>
+            <div class="layui-input-block">
+                <select name="parent">
+                    <option value="">请选择父模块</option>
+                    {% for parent_module in form.parent.field.queryset %}
+                    <option value="{{ parent_module.id }}" 
+                            {% if form.parent.value == parent_module.id %}selected{% endif %}>
+                        {{ parent_module.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        
+        <div class="layui-form-item">
+            <label class="layui-form-label">图标</label>
+            <div class="layui-input-block">
+                <input type="text" name="icon" value="{{ form.icon.value|default:'' }}" 
+                       placeholder="请输入图标类名" class="layui-input">
+            </div>
+        </div>
+        
+        <div class="layui-form-item">
+            <label class="layui-form-label">排序</label>
+            <div class="layui-input-block">
+                <input type="number" name="sort_order" value="{{ form.sort_order.value|default:0 }}" 
+                       placeholder="请输入排序号" class="layui-input">
+            </div>
+        </div>
+        
+        <div class="layui-form-item layui-form-text">
+            <label class="layui-form-label">模块描述</label>
+            <div class="layui-input-block">
+                <textarea name="description" placeholder="请输入模块描述" 
+                          class="layui-textarea">{{ form.description.value|default:'' }}</textarea>
+            </div>
+        </div>
+        
+        <div class="layui-form-item">
+            <div class="layui-input-block">
+                <input type="checkbox" name="is_active" value="1" title="启用" 
+                       {% if form.is_active.value %}checked{% endif %}>
+            </div>
+        </div>
+        
+        <div class="layui-form-item">
+            <div class="layui-input-block">
+                <button class="layui-btn" lay-submit>保存</button>
+                <button type="button" class="layui-btn layui-btn-primary" onclick="closeForm()">取消</button>
+            </div>
+        </div>
+    </form>
+
+    <script>
+        layui.use('form', function(){
+            var form = layui.form;
+            
+            // 表单提交
+            form.on('submit()', function(data){
+                return true;
+            });
+        });
+    </script>

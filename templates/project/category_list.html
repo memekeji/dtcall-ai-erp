@@ -1,0 +1,167 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>项目分类管理</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <div class="layui-row layui-col-space10">
+                    <div class="layui-col-md6">
+                        <button class="layui-btn layui-btn-normal layui-btn-sm" onclick="addCategory()">
+                            <i class="layui-icon layui-icon-add-1"></i> 新建分类
+                        </button>
+                    </div>
+                    <div class="layui-col-md6" style="text-align: right;">
+                        <div class="layui-inline">
+                            <input type="text" id="searchKeywords" placeholder="分类名称" class="layui-input"
+                                style="width: 120px;">
+                        </div>
+                        <div class="layui-inline">
+                            <button type="button" class="layui-btn layui-btn-sm" onclick="searchCategory()">
+                                <i class="layui-icon layui-icon-search"></i> 搜索
+                            </button>
+                            <button type="button" class="layui-btn layui-btn-sm layui-btn-primary"
+                                onclick="resetSearch()">
+                                <i class="layui-icon layui-icon-refresh"></i> 重置
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-card-body">
+                <table id="categoryTable" class="layui-table" lay-filter="categoryTable"></table>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['table', 'layer', 'form'], function () {
+            var table = layui.table;
+            var layer = layui.layer;
+            var form = layui.form;
+
+            // 初始化表格
+            table.render({
+                elem: '#categoryTable',
+                url: '/adm/project/category/datalist/',
+                cols: [[
+                    { field: 'id', title: 'ID', width: 80, align: 'center' },
+                    { field: 'name', title: '分类名称', width: 200 },
+                    { field: 'description', title: '分类描述', width: 300 },
+                    { field: 'sort', title: '排序', width: 100, align: 'center' },
+                    {
+                        field: 'status_display', title: '状态', width: 100, align: 'center', templet: function (d) {
+                            if (d.status) {
+                                return '<span class="layui-badge layui-bg-green">启用</span>';
+                            } else {
+                                return '<span class="layui-badge">禁用</span>';
+                            }
+                        }
+                    },
+                    { field: 'create_time', title: '创建时间', width: 150, align: 'center' },
+                    { title: '操作', width: 200, toolbar: '#categoryToolBar', fixed: 'right' }
+                ]],
+                page: true,
+                limit: 20,
+                height: 'full-200'
+            });
+
+            // 监听工具条
+            table.on('tool(categoryTable)', function (obj) {
+                var data = obj.data;
+                var layEvent = obj.event;
+
+                if (layEvent === 'edit') {
+                    layer.open({
+                        type: 2,
+                        title: '编辑分类',
+                        content: '/adm/project/category/edit/' + data.id + '/',
+                        area: ['500px', '400px'],
+                        end: function () {
+                            table.reload('categoryTable');
+                        }
+                    });
+                } else if (layEvent === 'delete') {
+                    layer.confirm('确定删除这个分类吗？', function (index) {
+                        $.post('/adm/project/category/delete/' + data.id + '/', {
+                            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+                        }, function (res) {
+                            if (res.code === 0) {
+                                layer.msg(res.msg, { icon: 1 });
+                                table.reload('categoryTable');
+                            } else {
+                                layer.msg(res.msg, { icon: 2 });
+                            }
+                        });
+                        layer.close(index);
+                    });
+                }
+            });
+        });
+
+        // 新建分类
+        function addCategory() {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+
+                layer.open({
+                    type: 2,
+                    title: '新建分类',
+                    content: '/adm/project/category/add/',
+                    area: ['500px', '400px'],
+                    end: function () {
+                        layui.table.reload('categoryTable');
+                    }
+                });
+            });
+        }
+
+        // 搜索分类
+        function searchCategory() {
+            layui.use(['table'], function () {
+                var table = layui.table;
+                var keywords = $('#searchKeywords').val();
+                var params = {};
+
+                if (keywords) params.keywords = keywords;
+
+                table.reload('categoryTable', {
+                    where: params
+                });
+            });
+        }
+
+        // 重置搜索
+        function resetSearch() {
+            layui.use(['table'], function () {
+                var table = layui.table;
+
+                $('#searchKeywords').val('');
+
+                table.reload('categoryTable', {
+                    where: {}
+                });
+            });
+        }
+    </script>
+
+    <!-- 工具栏模板 -->
+    <script type="text/html" id="categoryToolBar">
+        <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
+        <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
+    </script>
+
+    <!-- CSRF Token -->
+    {% csrf_token %}
+</body>
+
+</html>

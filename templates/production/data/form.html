@@ -1,0 +1,133 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>添加数据采集</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <!-- 页面标题 -->
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <h2 style="margin-bottom: 20px;">添加数据采集</h2>
+            </div>
+        </div>
+
+        <!-- 表单 -->
+        <div class="layui-row">
+            <div class="layui-col-md8">
+                <div class="layui-card">
+                    <div class="layui-card-body">
+                        <form class="layui-form" method="post">
+                            {% csrf_token %}
+                            
+                            <div class="layui-form-item">
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">关联任务</label>
+                                    <div class="layui-input-inline" style="width: 200px;">
+                                        {{ form.task }}
+                                        {% if form.task.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.task.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">采集设备 <span style="color: red;">*</span></label>
+                                    <div class="layui-input-inline" style="width: 200px;">
+                                        {{ form.equipment }}
+                                        {% if form.equipment.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.equipment.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">参数名称 <span style="color: red;">*</span></label>
+                                    <div class="layui-input-inline" style="width: 150px;">
+                                        {{ form.parameter_name }}
+                                        {% if form.parameter_name.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.parameter_name.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">参数值 <span style="color: red;">*</span></label>
+                                    <div class="layui-input-inline" style="width: 120px;">
+                                        {{ form.parameter_value }}
+                                        {% if form.parameter_value.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.parameter_value.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">单位</label>
+                                    <div class="layui-input-inline" style="width: 80px;">
+                                        {{ form.unit }}
+                                        {% if form.unit.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.unit.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">标准下限</label>
+                                    <div class="layui-input-inline" style="width: 120px;">
+                                        {{ form.standard_min }}
+                                        {% if form.standard_min.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.standard_min.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="layui-inline">
+                                    <label class="layui-form-label">标准上限</label>
+                                    <div class="layui-input-inline" style="width: 120px;">
+                                        {{ form.standard_max }}
+                                        {% if form.standard_max.errors %}
+                                            <div style="color: red; margin-top: 5px;">{{ form.standard_max.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <div class="layui-input-block">
+                                    <button class="layui-btn" lay-submit lay-filter="formSubmit">
+                                        保存
+                                    </button>
+                                    <button type="button" class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:data_collection_list' %}'">
+                                        取消
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['form', 'layer'], function () {
+            var form = layui.form;
+            var layer = layui.layer;
+
+            // 监听提交
+            form.on('submit(formSubmit)', function(data) {
+                return true; // 允许表单提交
+            });
+        });
+    </script>
+</body>
+
+</html>

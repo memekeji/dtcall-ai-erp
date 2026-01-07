@@ -1,0 +1,128 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}印章管理{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <h3>印章管理</h3>
+            </div>
+            <div class="layui-col-md6" style="text-align: right;">
+                <button class="layui-btn layui-btn-sm" onclick="addSeal()">
+                    <i class="layui-icon layui-icon-add-1"></i> 新增印章
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <!-- 数据表格 -->
+        <table class="layui-table" lay-skin="line">
+            <thead>
+                <tr>
+                    <th>印章名称</th>
+                    <th>印章类型</th>
+                    <th>保管人</th>
+                    <th>存放位置</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for seal in seals %}
+                <tr>
+                    <td>{{ seal.name }}</td>
+                    <td>
+                        {% if seal.seal_type == 'company' %}
+                            <span class="layui-badge layui-bg-red">{{ seal.get_seal_type_display }}</span>
+                        {% elif seal.seal_type == 'contract' %}
+                            <span class="layui-badge layui-bg-blue">{{ seal.get_seal_type_display }}</span>
+                        {% elif seal.seal_type == 'finance' %}
+                            <span class="layui-badge layui-bg-green">{{ seal.get_seal_type_display }}</span>
+                        {% else %}
+                            <span class="layui-badge">{{ seal.get_seal_type_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ seal.keeper.name|default:"-" }}</td>
+                    <td>{{ seal.location }}</td>
+                    <td>
+                        {% if seal.is_active %}
+                            <span class="layui-badge layui-bg-green">启用</span>
+                        {% else %}
+                            <span class="layui-badge">禁用</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button class="layui-btn layui-btn-xs" onclick="editSeal({{ seal.pk }})">编辑</button>
+                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteSeal({{ seal.pk }})">删除</button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center; color: #999;">暂无数据</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+// 新增印章
+function addSeal() {
+    window.location.href = '{% url "system:admin_office:seal_create" %}';
+}
+
+// 编辑印章
+function editSeal(id) {
+    window.location.href = '/system/admin_office/seal/update/' + id + '/';
+}
+
+// 删除印章
+function deleteSeal(id) {
+    layer.confirm('确定要删除这个印章吗？', {
+        btn: ['确定', '取消']
+    }, function(){
+        // 发送删除请求
+        fetch('/system/admin_office/seal/delete/' + id + '/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCSRFToken(),
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                layer.msg('删除成功', {icon: 1}, function(){
+                    location.reload();
+                });
+            } else {
+                layer.msg('删除失败：' + data.message, {icon: 2});
+            }
+        })
+        .catch(error => {
+            layer.msg('网络错误，请稍后重试', {icon: 2});
+        });
+    });
+}
+
+// 获取CSRF令牌
+function getCSRFToken() {
+    var cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        var cookies = document.cookie.split(';');
+        for (var i = 0; i < cookies.length; i++) {
+            var cookie = cookies[i].trim();
+            if (cookie.substring(0, 10) === 'csrftoken=') {
+                cookieValue = cookie.substring(10);
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

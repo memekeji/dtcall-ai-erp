@@ -1,0 +1,71 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}会议室管理{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <h3>会议室管理</h3>
+            </div>
+            <div class="layui-col-md6" style="text-align: right;">
+                <a href="{% url 'system:admin_office:meeting_room_create' %}" class="layui-btn layui-btn-sm">
+                    <i class="layui-icon layui-icon-add-1"></i> 新增会议室
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <!-- 数据表格 -->
+        <table class="layui-table" lay-skin="line">
+            <thead>
+                <tr>
+                    <th>会议室名称</th>
+                    <th>位置</th>
+                    <th>容纳人数</th>
+                    <th>设备配置</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for room in rooms %}
+                <tr>
+                    <td>{{ room.name }}</td>
+                    <td>{{ room.location }}</td>
+                    <td>{{ room.capacity }}人</td>
+                    <td>{{ room.equipment|truncatechars:50 }}</td>
+                    <td>
+                        {% if room.status %}
+                            <span class="layui-badge layui-bg-green">可用</span>
+                        {% else %}
+                            <span class="layui-badge">不可用</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'system:admin_office:meeting_room_update' room.pk %}" class="layui-btn layui-btn-xs">编辑</a>
+                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteRoom({{ room.pk }})">删除</button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center; color: #999;">暂无数据</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function deleteRoom(id) {
+    layer.confirm('确定要删除这个会议室吗？', {
+        btn: ['确定', '取消']
+    }, function(){
+        layer.msg('删除功能待实现');
+    });
+}
+</script>
+{% endblock %}
