@@ -24,11 +24,10 @@ class NoticeListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     template_name = 'notice/list.html'
     context_object_name = 'notices'
     paginate_by = 20
-    permission_required = 'system.view_notice'
+    permission_required = 'user.view_notice'
     
     def get_queryset(self):
         queryset = super().get_queryset()
-        # 根据权限过滤数据
         if not self.request.user.is_superuser:
             queryset = queryset.filter(is_published=True)
         return queryset.order_by('-is_top', '-publish_time')
@@ -40,7 +39,7 @@ class NoticeCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     template_name = 'notice/form.html'
     fields = ['title', 'content', 'notice_type', 'is_top', 'is_published']
     success_url = reverse_lazy('system:admin_office:notice_list')
-    permission_required = 'system.add_notice'
+    permission_required = 'user.add_notice'
     
     def form_valid(self, form):
         form.instance.creator = self.request.user
@@ -54,7 +53,7 @@ class NoticeUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     template_name = 'notice/form.html'
     fields = ['title', 'content', 'notice_type', 'is_top', 'is_published']
     success_url = reverse_lazy('system:admin_office:notice_list')
-    permission_required = 'system.change_notice'
+    permission_required = 'user.change_notice'
     
     def form_valid(self, form):
         messages.success(self.request, '公告更新成功')
@@ -66,7 +65,7 @@ class NoticeDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     model = Notice
     template_name = 'notice/form.html'
     success_url = reverse_lazy('system:admin_office:notice_list')
-    permission_required = 'system.delete_notice'
+    permission_required = 'user.delete_notice'
     
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, '公告删除成功')
@@ -78,14 +77,14 @@ class NoticeDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     model = Notice
     template_name = 'notice/detail.html'
     context_object_name = 'notice'
-    permission_required = 'system.view_notice'
+    permission_required = 'user.view_notice'
 
 
 class NoticePublishView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     """发布公告视图"""
     model = Notice
     fields = []
-    permission_required = 'system.change_notice'
+    permission_required = 'user.change_notice'
     
     def post(self, request, *args, **kwargs):
         notice = self.get_object()
@@ -101,7 +100,7 @@ class MeetingRoomListView(LoginRequiredMixin, PermissionRequiredMixin, ListView)
     template_name = 'meeting/room_list.html'
     context_object_name = 'meeting_rooms'
     paginate_by = 20
-    permission_required = 'system.view_meetingroom'
+    permission_required = 'user.view_meeting_room'
 
 
 class MeetingRoomCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
@@ -110,7 +109,7 @@ class MeetingRoomCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateV
     template_name = 'meeting/room_form.html'
     fields = ['name', 'capacity', 'location', 'equipment', 'description']
     success_url = reverse_lazy('system:admin_office:meeting_room_list')
-    permission_required = 'system.add_meetingroom'
+    permission_required = 'user.add_meeting_room'
     
     def form_valid(self, form):
         messages.success(self.request, '会议室创建成功')
@@ -123,7 +122,7 @@ class MeetingRoomUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateV
     template_name = 'meeting_room/form.html'
     fields = ['name', 'capacity', 'location', 'equipment', 'description']
     success_url = reverse_lazy('system:admin_office:meeting_room_list')
-    permission_required = 'system.change_meetingroom'
+    permission_required = 'user.change_meeting_room'
     
     def form_valid(self, form):
         messages.success(self.request, '会议室更新成功')
@@ -135,7 +134,7 @@ class MeetingRoomDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteV
     model = MeetingRoom
     template_name = 'meeting/room_form.html'
     success_url = reverse_lazy('system:admin_office:meeting_room_list')
-    permission_required = 'system.delete_meetingroom'
+    permission_required = 'user.delete_meeting_room'
     
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, '会议室删除成功')

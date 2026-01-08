@@ -15,10 +15,12 @@ from django.db.models import Q
 from apps.user.utils.permission_utils import PermissionManager
 from apps.user.models_new import GroupExtension
 from apps.user.models.menu import Menu
+from apps.user.config.permission_nodes import PERMISSION_NODES
 from apps.system.middleware.data_permission_middleware import (
     DataScopeFilter, 
     PermissionChecker
 )
+from apps.user.services.permission_node_mapper import permission_node_mapper
 
 
 class GroupPermissionView(LoginRequiredMixin, View):
@@ -63,13 +65,29 @@ class GroupPermissionView(LoginRequiredMixin, View):
             if not permission_ids:
                 permission_ids = []
             
-            group.permissions.set(permission_ids)
+            permission_ids = [int(pid) for pid in permission_ids if pid]
+            
+            old_permissions = set(group.permissions.values_list('id', flat=True))
+            new_permissions = set(permission_ids)
+            
+            permissions_to_add = new_permissions - old_permissions
+            permissions_to_remove = old_permissions - new_permissions
+            
+            if permissions_to_remove:
+                remove_perms = Permission.objects.filter(id__in=permissions_to_remove)
+                group.permissions.remove(*remove_perms)
+            
+            if permissions_to_add:
+                add_perms = Permission.objects.filter(id__in=permissions_to_add)
+                group.permissions.add(*add_perms)
             
             return JsonResponse({
                 'code': 200, 
                 'msg': '权限配置成功',
                 'data': {
-                    'permissions_count': len(permission_ids)
+                    'permissions_count': len(permission_ids),
+                    'added': len(permissions_to_add),
+                    'removed': len(permissions_to_remove)
                 }
             })
         
@@ -277,16 +295,28 @@ class MenuPermissionsAPIView(LoginRequiredMixin, View):
         try:
             menu = Menu.objects.get(id=menu_id)
             
-            group_ids = request.user.groups.values_list('id', flat=True)
             group_permission_ids = []
-            for group_id in group_ids:
-                group = Group.objects.filter(id=group_id).first()
-                if group:
-                    group_permission_ids.extend(
-                        group.permissions.values_list('id', flat=True)
-                    )
             
-            group_permission_ids = list(set(group_permission_ids))
+            group_id = request.GET.get('group_id')
+            if group_id:
+                try:
+                    group = Group.objects.filter(id=group_id).first()
+                    if group:
+                        group_permission_ids = list(
+                            group.permissions.values_list('id', flat=True)
+                        )
+                except (ValueError, TypeError):
+                    pass
+            
+            if not group_permission_ids:
+                group_ids = request.user.groups.values_list('id', flat=True)
+                for gid in group_ids:
+                    group = Group.objects.filter(id=gid).first()
+                    if group:
+                        group_permission_ids.extend(
+                            group.permissions.values_list('id', flat=True)
+                        )
+                group_permission_ids = list(set(group_permission_ids))
             
             menu_code = self._get_menu_code(menu)
             related_permissions = self._get_related_permissions(menu_code, group_permission_ids)
@@ -347,13 +377,19 @@ class MenuPermissionsAPIView(LoginRequiredMixin, View):
         Returns:
             分组后的权限数据字典
         """
-        from apps.user.config.permission_nodes import PERMISSION_NODES
-        
         related_perms = {}
         
-        def add_permissions_from_config(config, group_name):
-            """从配置中添加权限"""
-            if 'permissions' in config:
+        if not menu_code:
+            return related_perms
+        
+        perm_cache = permission_node_mapper._build_permission_cache()
+        
+        def add_permission_to_result(codename, perm_name, group_name):
+            """将权限添加到结果中"""
+            if codename in perm_cache:
+                perm = perm_cache[codename]
+                checked = perm.id in group_permission_ids
+                
                 if group_name not in related_perms:
                     related_perms[group_name] = {}
                 
@@ -361,71 +397,54 @@ class MenuPermissionsAPIView(LoginRequiredMixin, View):
                 if model_name not in related_perms[group_name]:
                     related_perms[group_name][model_name] = []
                 
+                existing_ids = [p['id'] for p in related_perms[group_name][model_name]]
+                if perm.id not in existing_ids:
+                    related_perms[group_name][model_name].append({
+                        'id': perm.id,
+                        'name': perm_name,
+                        'codename': codename,
+                        'checked': checked
+                    })
+        
+        def collect_permissions_from_config(config, group_name):
+            """从配置中收集权限"""
+            if 'permissions' in config:
                 for perm_config in config['permissions']:
                     codename = perm_config.get('codename')
                     perm_name = perm_config.get('name')
-                    
                     if codename and perm_name:
-                        perm = Permission.objects.filter(codename=codename).first()
-                        if perm:
-                            checked = perm.id in group_permission_ids
-                            
-                            related_perms[group_name][model_name].append({
-                                'id': perm.id,
-                                'name': perm_name,
-                                'codename': codename,
-                                'checked': checked
-                            })
-        
-        def find_and_add_permissions(config, parent_name='', is_top_level=False):
-            """递归查找并添加匹配的权限"""
-            # 如果是一级菜单，添加所有子菜单的权限
-            if is_top_level and 'children' in config:
+                        add_permission_to_result(codename, perm_name, group_name)
+            
+            if 'children' in config:
                 for child_key, child_config in config['children'].items():
                     child_name = child_config.get('name', child_key)
-                    add_permissions_from_config(child_config, child_name)
-                    
-                    # 如果子菜单还有子菜单，也添加它们的权限
-                    if 'children' in child_config:
-                        for sub_key, sub_config in child_config['children'].items():
-                            sub_name = sub_config.get('name', sub_key)
-                            add_permissions_from_config(sub_config, sub_name)
-            else:
-                # 如果不是一级菜单，只添加当前菜单的权限
-                add_permissions_from_config(config, parent_name)
+                    collect_permissions_from_config(child_config, child_name)
         
-        # 遍历所有模块查找匹配的菜单
         for module_key, module_config in PERMISSION_NODES.items():
             module_name = module_config.get('name', module_key)
             
-            # 如果模块代码匹配menu_code（一级菜单）
             if module_key == menu_code:
-                find_and_add_permissions(module_config, module_name, is_top_level=True)
+                collect_permissions_from_config(module_config, module_name)
                 break
             
-            # 检查子菜单（二级菜单）
             if 'children' in module_config:
                 for child_key, child_config in module_config['children'].items():
-                    child_name = child_config.get('name', child_key)
-                    
                     if child_key == menu_code:
-                        find_and_add_permissions(child_config, child_name, is_top_level=False)
+                        child_name = child_config.get('name', child_key)
+                        collect_permissions_from_config(child_config, child_name)
                         break
                     
-                    # 检查子菜单的子菜单（三级菜单）
                     if 'children' in child_config:
                         for sub_key, sub_config in child_config['children'].items():
                             if sub_key == menu_code:
                                 sub_name = sub_config.get('name', sub_key)
-                                find_and_add_permissions(sub_config, sub_name, is_top_level=False)
+                                collect_permissions_from_config(sub_config, sub_name)
                                 break
         
-        # 如果还是没有找到匹配的权限，通过数据库模糊查找
         if not related_perms:
             all_perms = Permission.objects.all()
             for perm in all_perms:
                 codename = perm.codename
-                # 匹配规则：codename中包含menu_code
                 if menu_code and (codename.startswith(f'view_{menu_code}') or 
                                   codename.startswith(f'add_{menu_code}') or
                                   codename.startswith(f'change_{menu_code}') or
@@ -450,30 +469,6 @@ class MenuPermissionsAPIView(LoginRequiredMixin, View):
                     })
         
         return related_perms
-    
-    def _add_single_permission(self, group_name, perm_config, result, group_permission_ids):
-        """将单个权限添加到结果中"""
-        codename = perm_config.get('codename')
-        perm_name = perm_config.get('name')
-        
-        if codename and perm_name:
-            perm = Permission.objects.filter(codename=codename).first()
-            if perm:
-                checked = perm.id in group_permission_ids
-                
-                if group_name not in result:
-                    result[group_name] = {}
-                
-                model_name = '操作权限'
-                if model_name not in result[group_name]:
-                    result[group_name][model_name] = []
-                
-                result[group_name][model_name].append({
-                    'id': perm.id,
-                    'name': perm_name,
-                    'codename': codename,
-                    'checked': checked
-                })
     
     def _get_group_name(self, codename):
         """根据权限codename获取分组名称"""

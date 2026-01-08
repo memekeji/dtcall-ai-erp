@@ -1120,6 +1120,22 @@ system_menus = {
         "pid_id": 1300,
         "sort": 2,
         "status": 1
+    },
+    1303: {
+        "id": 1303,
+        "title": "我的审批",
+        "src": "/approval/my/",
+        "pid_id": 1300,
+        "sort": 3,
+        "status": 1
+    },
+    1304: {
+        "id": 1304,
+        "title": "发起审批",
+        "src": "/approval/apply/",
+        "pid_id": 1300,
+        "sort": 4,
+        "status": 1
     }
 }
 

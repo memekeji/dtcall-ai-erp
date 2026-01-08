@@ -557,45 +557,38 @@ layui.use(['form', 'layer', 'jquery'], function(){
     }
     
     function loadMenuPermissions(menuId) {
-        // 保存当前菜单的已选中权限
-        saveCurrentPermissions();
-        
         var container = $('#permissionContainer');
         container.html('<div class="empty-state"><i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i><p>加载中...</p></div>');
+        
+        var groupId = {{ group.id }};
         
         $.ajax({
             url: '/user/menu/' + menuId + '/permissions/',
             type: 'GET',
+            data: {
+                'group_id': groupId
+            },
             success: function(res) {
                 if (res && res.code === 200) {
-                    // 获取当前菜单的已保存权限
-                    var savedIds = savedPermissions[menuId] || [];
-                    // 合并已保存的权限到当前权限数据中
                     var permissions = res.data.permissions || {};
+                    var savedIds = savedPermissions[menuId] || [];
+                    
                     for (var groupName in permissions) {
                         var models = permissions[groupName];
                         for (var modelName in models) {
                             var perms = models[modelName];
                             for (var i = 0; i < perms.length; i++) {
                                 var perm = perms[i];
-                                // 如果有已保存的权限，使用已保存的权限ID来设置选中状态
-                                // 否则使用后端返回的checked状态
-                                if (savedIds.length > 0) {
-                                    perm.checked = (savedIds.indexOf(perm.id) !== -1);
-                                } else {
-                                    // 使用后端返回的checked状态
-                                    if (perm.checked && savedIds.indexOf(perm.id) === -1) {
-                                        savedIds.push(perm.id);
-                                    }
+                                if (savedIds.length > 0 && savedIds.indexOf(perm.id) !== -1) {
+                                    perm.checked = true;
                                 }
                             }
                         }
                     }
-                    // 更新savedPermissions
-                    savedPermissions[menuId] = savedIds;
-                    // 保存到localStorage
-                    savePermissionsToStorage();
+                    
                     renderPermissions(permissions);
+                    
+                    saveCurrentPermissions();
                 } else {
                     container.html('<div class="empty-state"><i class="layui-icon layui-icon-face-cry"></i><p>' + (res.msg || '加载失败') + '</p></div>');
                 }
@@ -677,6 +670,16 @@ layui.use(['form', 'layer', 'jquery'], function(){
         
         container.innerHTML = html;
         
+        for (const [groupName, models] of Object.entries(data)) {
+            for (const [modelName, permissions] of Object.entries(models)) {
+                for (const perm of permissions) {
+                    if (perm.checked) {
+                        $('#permissionContainer .permission-checkbox[data-id="' + perm.id + '"]').prop('checked', true);
+                    }
+                }
+            }
+        }
+        
         layui.form.render('checkbox');
         
         initCheckboxEvents();
@@ -742,10 +745,10 @@ layui.use(['form', 'layer', 'jquery'], function(){
     };
     
     window.savePermissions = function() {
-        // 保存当前菜单的已选中权限
-        saveCurrentPermissions();
+        if (currentMenuId) {
+            saveCurrentPermissions();
+        }
         
-        // 合并所有菜单的已选中权限
         var allSelectedIds = [];
         for (var menuId in savedPermissions) {
             if (savedPermissions.hasOwnProperty(menuId)) {
@@ -753,7 +756,6 @@ layui.use(['form', 'layer', 'jquery'], function(){
             }
         }
         
-        // 去重
         var uniqueIds = [];
         for (var i = 0; i < allSelectedIds.length; i++) {
             if (uniqueIds.indexOf(allSelectedIds[i]) === -1) {
@@ -773,7 +775,7 @@ layui.use(['form', 'layer', 'jquery'], function(){
                 title: '警告',
                 btn: ['确定保存', '取消']
             }, function(index){
-                submitFormData(formData);
+                window.submitFormData(formData);
                 layer.close(index);
             });
         } else {
@@ -782,13 +784,13 @@ layui.use(['form', 'layer', 'jquery'], function(){
                 title: '确认保存',
                 btn: ['确定保存', '取消']
             }, function(index){
-                submitFormData(formData);
+                window.submitFormData(formData);
                 layer.close(index);
             });
         }
     };
     
-    function submitFormData(formData) {
+    window.submitFormData = function(formData) {
         var loadingIndex = layer.load(1, {shade: [0.3, '#000']});
         
         $.ajax({
@@ -821,7 +823,6 @@ layui.use(['form', 'layer', 'jquery'], function(){
                                     errorMsg = responseObj.msg;
                                 }
                             } catch (e) {
-                                // Not JSON response
                             }
                         } else if (xhr.statusText) {
                             errorMsg = xhr.statusText;
@@ -832,7 +833,7 @@ layui.use(['form', 'layer', 'jquery'], function(){
                 console.error('Save error:', error, 'Status:', xhr ? xhr.status : 'N/A', 'Response:', xhr ? xhr.responseText : 'N/A');
             }
         });
-    }
+    };
     
     form.render();
     

@@ -124,7 +124,7 @@ class AdminAuthBackend(ModelBackend):
     def has_perm(self, user_obj, perm, obj=None):
         """
         检查用户是否有权限
-        严格检查用户是否拥有指定的具体权限
+        超级用户自动拥有所有权限
         """
         if not user_obj:
             return False
@@ -137,38 +137,22 @@ class AdminAuthBackend(ModelBackend):
         if not is_active:
             return False
         
-        # 检查权限格式是否正确
+        # 超级用户拥有所有权限，无需检查权限是否存在
+        if hasattr(user_obj, 'is_superuser') and user_obj.is_superuser:
+            return True
+        
+        # 非超级用户，检查权限格式
         if '.' not in perm:
             return False
-        
-        # 超级用户拥有所有权限，但权限必须存在
-        if hasattr(user_obj, 'is_superuser') and user_obj.is_superuser:
-            # 检查权限是否存在于系统中
-            from django.contrib.auth.models import Permission
-            
-            try:
-                app_label, codename = perm.split('.', 1)
-                # 检查权限是否存在，使用filter而不是get
-                return Permission.objects.filter(content_type__app_label=app_label, codename=codename).exists()
-            except ValueError:
-                return False
         
         # 获取用户所有权限
         all_permissions = self.get_all_permissions(user_obj, obj)
         
-        # 如果权限集合包含通配符'*'，表示拥有所有权限，但权限必须存在
+        # 如果权限集合包含通配符'*'，表示拥有所有权限
         if '*' in all_permissions:
-            from django.contrib.auth.models import Permission
-            
-            try:
-                app_label, codename = perm.split('.', 1)
-                # 检查权限是否存在，使用filter而不是get
-                return Permission.objects.filter(content_type__app_label=app_label, codename=codename).exists()
-            except ValueError:
-                return False
+            return True
         
         # 严格检查完整权限字符串是否匹配
-        # 不再支持单独的权限编码匹配，确保权限检查的严格性
         return perm in all_permissions
     
     def has_module_perms(self, user_obj, app_label):

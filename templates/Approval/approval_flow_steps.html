@@ -1,1980 +1,1487 @@
-<div>
+{% extends "home/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="flow-designer">
+    <div class="designer-header">
+        <div class="header-left">
+            <h2><i class="layui-icon layui-icon-flow"></i> 审批流程设计器</h2>
+            <span class="flow-tag">{{ flow.name }}</span>
+        </div>
+        <div class="header-right">
+            <button class="layui-btn layui-btn-primary" onclick="FlowDesigner.preview()">
+                <i class="layui-icon layui-icon-preview"></i> 预览
+            </button>
+            <button class="layui-btn layui-btn-danger" onclick="FlowDesigner.clearAll()">
+                <i class="layui-icon layui-icon-delete"></i> 清空
+            </button>
+            <button class="layui-btn layui-btn-normal" onclick="FlowDesigner.save()">
+                <i class="layui-icon layui-icon-ok"></i> 保存
+            </button>
+        </div>
+    </div>
+    
+    <div class="designer-body">
+        <div class="panel-left">
+            <div class="panel-header">
+                <i class="layui-icon layui-icon-component"></i> 流程组件
+            </div>
+            <div class="panel-content">
+                <div class="group-title">审批节点</div>
+                <div class="component-item" onclick="FlowDesigner.addNode('department_head')">
+                    <div class="comp-icon" style="background: linear-gradient(135deg, #8b5cf6, #a78bfa);">
+                        <i class="layui-icon layui-icon-user"></i>
+                    </div>
+                    <div class="comp-info">
+                        <span class="comp-name">部门负责人</span>
+                        <span class="comp-desc">部门负责人审批</span>
+                    </div>
+                </div>
+                <div class="component-item" onclick="FlowDesigner.addNode('specific_user')">
+                    <div class="comp-icon" style="background: linear-gradient(135deg, #ec4899, #f472b6);">
+                        <i class="layui-icon layui-icon-user-circle"></i>
+                    </div>
+                    <div class="comp-info">
+                        <span class="comp-name">指定人员</span>
+                        <span class="comp-desc">指定人员审批</span>
+                    </div>
+                </div>
+                <div class="component-item" onclick="FlowDesigner.addNode('department')">
+                    <div class="comp-icon" style="background: linear-gradient(135deg, #10b981, #34d399);">
+                        <i class="layui-icon layui-icon-organization"></i>
+                    </div>
+                    <div class="comp-info">
+                        <span class="comp-name">部门审批</span>
+                        <span class="comp-desc">按部门审批</span>
+                    </div>
+                </div>
+                <div class="component-item" onclick="FlowDesigner.addNode('role')">
+                    <div class="comp-icon" style="background: linear-gradient(135deg, #f59e0b, #fbbf24);">
+                        <i class="layui-icon layui-icon-rank"></i>
+                    </div>
+                    <div class="comp-info">
+                        <span class="comp-name">角色审批</span>
+                        <span class="comp-desc">按角色审批</span>
+                    </div>
+                </div>
+                <div class="component-item" onclick="FlowDesigner.addNode('level')">
+                    <div class="comp-icon" style="background: linear-gradient(135deg, #6366f1, #818cf8);">
+                        <i class="layui-icon layui-icon-sitemap"></i>
+                    </div>
+                    <div class="comp-info">
+                        <span class="comp-name">级别审批</span>
+                        <span class="comp-desc">按级别审批</span>
+                    </div>
+                </div>
+                <div class="group-title">抄送通知</div>
+                <div class="component-item" onclick="FlowDesigner.addNode('cc')">
+                    <div class="comp-icon" style="background: linear-gradient(135deg, #14b8a6, #2dd4bf);">
+                        <i class="layui-icon layui-icon-notice"></i>
+                    </div>
+                    <div class="comp-info">
+                        <span class="comp-name">抄送</span>
+                        <span class="comp-desc">抄送知会</span>
+                    </div>
+                </div>
+                <div class="component-item" onclick="FlowDesigner.addNode('notification')">
+                    <div class="comp-icon" style="background: linear-gradient(135deg, #f97316, #fb923c);">
+                        <i class="layui-icon layui-icon-email"></i>
+                    </div>
+                    <div class="comp-info">
+                        <span class="comp-name">系统通知</span>
+                        <span class="comp-desc">发送通知</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="panel-center">
+            <div class="canvas-area" id="flowCanvas">
+                <div class="node-start">
+                    <div class="start-circle">
+                        <i class="layui-icon layui-icon-start"></i>
+                    </div>
+                    <div class="start-text">开始</div>
+                </div>
+                
+                <div class="connector-v" id="connStart"></div>
+                
+                <div class="nodes-area" id="nodesArea"></div>
+                
+                <div class="add-node-btn" onclick="FlowDesigner.showMenu()">
+                    <i class="layui-icon layui-icon-add-1"></i> 添加节点
+                </div>
+                <div class="node-menu" id="nodeMenu" style="display:none;">
+                    <div onclick="FlowDesigner.addNode('department_head')"><i class="layui-icon layui-icon-user"></i> 部门负责人</div>
+                    <div onclick="FlowDesigner.addNode('specific_user')"><i class="layui-icon layui-icon-user-circle"></i> 指定人员</div>
+                    <div onclick="FlowDesigner.addNode('department')"><i class="layui-icon layui-icon-organization"></i> 部门审批</div>
+                    <div onclick="FlowDesigner.addNode('role')"><i class="layui-icon layui-icon-rank"></i> 角色审批</div>
+                    <div onclick="FlowDesigner.addNode('level')"><i class="layui-icon layui-icon-sitemap"></i> 级别审批</div>
+                    <div class="menu-div"></div>
+                    <div onclick="FlowDesigner.addNode('cc')"><i class="layui-icon layui-icon-notice"></i> 抄送</div>
+                    <div onclick="FlowDesigner.addNode('notification')"><i class="layui-icon layui-icon-email"></i> 系统通知</div>
+                </div>
+                
+                <div class="connector-v" id="connEnd"></div>
+                
+                <div class="node-end">
+                    <div class="end-circle">
+                        <i class="layui-icon layui-icon-end"></i>
+                    </div>
+                    <div class="end-text">结束</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="panel-right">
+            <div class="panel-header">
+                <i class="layui-icon layui-icon-set"></i> 属性配置
+            </div>
+            <div class="panel-content" id="configPanel">
+                <div class="empty-tip">
+                    <i class="layui-icon layui-icon-util"></i>
+                    <p>请选择节点进行配置</p>
+                </div>
             </div>
         </div>
     </div>
+</div>
 
-<!-- 先引入jQuery核心库 -->
-<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
-<!-- 然后引入jQuery UI -->
-<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
 <script src="/static/layui/layui.js"></script>
 <script>
-// 全局变量和函数定义，确保在页面加载时就可用
-// 初始化步骤计数器
-window.stepCounter = 1;
-
-// 确保addFlowStep函数在layui回调执行前就可用
-window.addFlowStep = function(type) {
-    var stepCounter = window.stepCounter || 1;
-    var stepId = 'step_' + stepCounter;
-    var stepHtml = createStepHtml(stepId, type, stepCounter);
-    
-    $('#flowSteps').append(stepHtml);
-    window.stepCounter = stepCounter + 1;
-    
-    // 延迟初始化，等待layui加载完成
-    setTimeout(function() {
-        if (typeof window.updateBranchTargetOptions === 'function') {
-            window.updateBranchTargetOptions();
-        }
-        if (typeof window.initConditionEvents === 'function') {
-            window.initConditionEvents();
-        }
-        if (typeof window.form === 'object') {
-            window.form.render();
-        }
-        
-        // 添加连接线
-        if (typeof drawConnectors === 'function') {
-            drawConnectors();
-        }
-    }, 100);
-};
-
-// 确保createStepHtml函数在addFlowStep函数使用前可用
-window.createStepHtml = function(stepId, type, stepNumber) {
-    // 使用getTypeConfig等辅助函数前，先检查它们是否已定义
-    var typeConfig = typeof getTypeConfig === 'function' ? getTypeConfig(type) : '';
-    var stepTitle = typeof getStepTitle === 'function' ? getStepTitle(type) : '审批步骤';
-    var typeColorClass = typeof getTypeColorClass === 'function' ? getTypeColorClass(type) : 'type-default';
-    var typeIcon = typeof getTypeIcon === 'function' ? getTypeIcon(type) : 'layui-icon-circle';
-    
-    return `
-    <div class="flow-step-container">
-        <!-- 左侧分支连接点 -->
-        <div class="branch-point left-point" onclick="addBranch('${stepId}', 'left')">
-            <div class="branch-plus">+</div>
-        </div>
-        
-        <div class="flow-step-wrapper">
-            <div class="flow-step-title">
-                <input type="text" name="step_name" class="step-name-input" placeholder="步骤名称" value="${stepTitle} (步骤${stepNumber})" />
-            </div>
-            
-            <div class="flow-step approval-component ${typeColorClass}" id="${stepId}" onclick="selectStep('${stepId}')">
-                <div class="approval-component-header">
-                    <span class="approval-type">${stepTitle}</span>
-                    <span class="step-number">${stepNumber}</span>
-                </div>
-                <div class="approval-component-body">
-                    <div class="component-type-icon">
-                        <i class="layui-icon ${typeIcon}"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>`;
-};
-
-// 获取步骤类型对应的颜色类
-function getTypeColorClass(type) {
-    const colors = {
-        'department_head': 'type-manager',
-        'specific_user': 'type-specific',
-        'department': 'type-department',
-        'role': 'type-role',
-        'level': 'type-level'
+var FlowDesigner = (function() {
+    var layer, form;
+    var nodesData = [];
+    var nodeCounter = 0;
+    var usersData = [];
+    var deptsData = [];
+    var initiatorData = {
+        users: [],
+        departments: [],
+        roles: []
     };
-    return colors[type] || 'type-default';
-}
-
-// 获取步骤类型对应的图标
-function getTypeIcon(type) {
-    const icons = {
-        'department_head': 'layui-icon-user',
-        'specific_user': 'layui-icon-user-circle',
-        'department': 'layui-icon-organization',
-        'role': 'layui-icon-rank',
-        'level': 'layui-icon-sitemap'
+    var startNodeConfig = {
+        form_fields: []
     };
-    return icons[type] || 'layui-icon-circle';
-}
-
-// 获取步骤标题
-function getStepTitle(type) {
-    const titles = {
-        'department_head': '部门负责人审批',
-        'specific_user': '指定人员审批',
-        'department': '部门审批',
-        'role': '角色审批',
-        'level': '职级审批'
+    
+    var typeMap = {
+        'department_head': {title: '部门负责人审批', icon: 'layui-icon-user', color: 'purple'},
+        'specific_user': {title: '指定人员审批', icon: 'layui-icon-user-circle', color: 'pink'},
+        'department': {title: '部门审批', icon: 'layui-icon-organization', color: 'green'},
+        'role': {title: '角色审批', icon: 'layui-icon-rank', color: 'orange'},
+        'level': {title: '级别审批', icon: 'layui-icon-sitemap', color: 'blue'},
+        'cc': {title: '抄送', icon: 'layui-icon-notice', color: 'teal'},
+        'notification': {title: '系统通知', icon: 'layui-icon-email', color: 'orange'}
     };
-    return titles[type] || '审批步骤';
-}
-
-layui.use(['element', 'layer', 'form'], function() {
-    var element = layui.element;
-    var layer = layui.layer;
-    window.form = layui.form;
-
-    // 发起人类型切换逻辑
-    $('#initiator_type').change(function() {
-        var type = $(this).val();
-        $('#specific_users_config').hide();
-        $('#departments_config').hide();
-        $('#roles_config').hide();
+    
+    function init() {
+        layer = layui.layer;
+        form = layui.form;
         
-        if (type === 'specific_users') {
-            $('#specific_users_config').show();
-        } else if (type === 'departments') {
-            $('#departments_config').show();
-        } else if (type === 'roles') {
-            $('#roles_config').show();
+        try {
+            usersData = {{ users_json|safe }};
+            deptsData = {{ departments_json|safe }};
+        } catch (e) {
+            usersData = [];
+            deptsData = [];
         }
-    });
-
-    // 初始化显示发起人配置区域
-    $('#initiator_type').trigger('change');
-
-    // 确保initDragAndDrop函数是全局可访问的
-    window.initDragAndDrop = function() {
-        // 组件拖拽功能
-        $('.component-item').draggable({
-            helper: 'clone',
-            cursor: 'move',
-            revert: 'invalid',
-            zIndex: 1000
-        });
         
-        // 流程设计区放置功能
-        $('.flow-steps').droppable({
-            accept: '.component-item',
-            activeClass: 'ui-droppable-active',
-            hoverClass: 'ui-droppable-hover',
-            drop: function(event, ui) {
-                var type = ui.draggable.attr('onclick').match(/'([^']+)'/)[1];
-                addFlowStep(type);
+        loadExisting();
+        loadInitiatorConfig();
+        updateConnectors();
+        showStartNodeConfig();
+        
+        document.addEventListener('click', function(e) {
+            var menu = document.getElementById('nodeMenu');
+            var btn = document.querySelector('.add-node-btn');
+            if (menu && menu.style.display === 'block' && 
+                (!btn || !btn.contains(e.target)) && 
+                !menu.contains(e.target)) {
+                menu.style.display = 'none';
             }
         });
     }
     
-    // 选择步骤，显示其属性
-    window.selectStep = function(stepId) {
-        // 移除其他步骤的选中状态
-        $('.approval-component').removeClass('selected');
-        
-        // 添加当前步骤的选中状态
-        $('#' + stepId).addClass('selected');
-        
-        // 显示属性面板
-        $('#noSelectionMessage').hide();
-        $('#selectedProperties').show();
-        
-        // 加载选中步骤的属性
-        loadStepProperties(stepId);
+    function loadStartNodeConfig() {
+        var flowId = {{ flow.pk }};
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/approval/approvalflow/' + flowId + '/start-config/', true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    startNodeConfig.form_fields = data.form_fields || [];
+                    renderFormFields();
+                } catch (e) {
+                    console.error('加载开始节点配置失败', e);
+                }
+            }
+        };
+        xhr.send();
     }
     
-    // 加载步骤属性到右侧面板
-    function loadStepProperties(stepId) {
-        const step = $('#' + stepId);
-        const propertiesPanel = $('#selectedProperties');
-        const configData = step.find('.step-config-data');
+    function renderFormFields() {
+        var container = document.getElementById('formFieldsContainer');
+        if (!container) return;
         
-        // 清空属性面板
-        propertiesPanel.empty();
-        
-        // 添加步骤名称编辑
-        const stepName = configData.closest('.flow-step-wrapper').find('.step-name-input').val();
-        propertiesPanel.append(`
-            <div class="property-group">
-                <h4>基本信息</h4>
-                <div class="property-row">
-                    <label>步骤名称：</label>
-                    <input type="text" id="prop_step_name" value="${stepName}" class="property-input" />
-                </div>
-            </div>
-        `);
-        
-        // 添加处理时限
-        const timeLimit = configData.find('input[name="time_limit"]').val();
-        propertiesPanel.append(`
-            <div class="property-row">
-                <label>处理时限(小时)：</label>
-                <input type="number" id="prop_time_limit" value="${timeLimit || ''}" class="property-input" placeholder="不填表示无限制" />
-            </div>
-        `);
-        
-        // 添加审批类型配置
-        const stepType = configData.find('input[name="step_type"]').val();
-        const typeConfigHtml = generatePropertyConfigHtml(configData, stepType);
-        propertiesPanel.append(typeConfigHtml);
-        
-        // 添加条件分支配置
-        const conditionField = configData.find('select[name="condition_field"]').val();
-        const conditionOperator = configData.find('select[name="condition_operator"]').val();
-        const conditionValue = configData.find('input[name="condition_value"]').val();
-        
-        propertiesPanel.append(`
-            <div class="property-group">
-                <h4>条件分支</h4>
-                <div class="property-row">
-                    <label>条件字段：</label>
-                    <select id="prop_condition_field" class="property-select">
-                        <option value="">无</option>
-                        <option value="amount" {% if conditionField == 'amount' %}selected{% endif %}>金额</option>
-                        <option value="department" {% if conditionField == 'department' %}selected{% endif %}>部门</option>
-                        <option value="position" {% if conditionField == 'position' %}selected{% endif %}>职位</option>
-                        <option value="custom_field" {% if conditionField == 'custom_field' %}selected{% endif %}>自定义字段</option>
-                    </select>
-                </div>
-                <div id="prop_operator_row" class="property-row" {% if not conditionField %}style="display: none"{% endif %}>
-                    <label>运算符：</label>
-                    <select id="prop_condition_operator" class="property-select">
-                        <option value="gt" {% if conditionOperator == 'gt' %}selected{% endif %}>大于</option>
-                        <option value="lt" {% if conditionOperator == 'lt' %}selected{% endif %}>小于</option>
-                        <option value="eq" {% if conditionOperator == 'eq' %}selected{% endif %}>等于</option>
-                        <option value="neq" {% if conditionOperator == 'neq' %}selected{% endif %}>不等于</option>
-                        <option value="contains" {% if conditionOperator == 'contains' %}selected{% endif %}>包含</option>
-                        <option value="not_contains" {% if conditionOperator == 'not_contains' %}selected{% endif %}>不包含</option>
-                    </select>
-                </div>
-                <div id="prop_value_row" class="property-row" {% if not conditionField %}style="display: none"{% endif %}>
-                    <label>条件值：</label>
-                    <input type="text" id="prop_condition_value" value="{{ conditionValue|default:'' }}" class="property-input" placeholder="条件值" />
-                </div>
-            </div>
-        `);
-        
-        // 绑定保存按钮事件
-        propertiesPanel.append(`
-            <div class="property-actions">
-                <button class="layui-btn layui-btn-normal" onclick="saveStepProperties('${stepId}')">
-                    <i class="layui-icon layui-icon-save"></i> 保存属性
-                </button>
-                <button class="layui-btn layui-btn-danger" onclick="removeStep('${stepId}')">
-                    <i class="layui-icon layui-icon-delete"></i> 删除步骤
-                </button>
-            </div>
-        `);
-        
-        // 绑定条件字段变更事件
-        $('#prop_condition_field').change(function() {
-            const hasCondition = $(this).val() !== '';
-            $('#prop_operator_row').toggle(hasCondition);
-            $('#prop_value_row').toggle(hasCondition);
+        var html = '';
+        startNodeConfig.form_fields.forEach(function(field, index) {
+            var fieldTypeLabels = {
+                'text': '文本',
+                'textarea': '多行文本',
+                'number': '数字',
+                'date': '日期',
+                'select': '下拉选择',
+                'user': '用户选择',
+                'department': '部门选择'
+            };
+            
+            html += '<div class="field-item" data-index="' + index + '">' +
+                '<div class="field-header">' +
+                '<span class="field-name">' + field.label + '</span>' +
+                '<span class="field-type">' + (fieldTypeLabels[field.type] || field.type) + '</span>' +
+                '</div>' +
+                '<div class="field-actions">' +
+                '<button type="button" class="layui-btn layui-btn-xs layui-btn-danger" onclick="FlowDesigner.deleteFormField(' + index + ')"><i class="layui-icon layui-icon-delete"></i></button>' +
+                '</div>' +
+                '</div>';
+        });
+        container.innerHTML = html || '<div class="empty-field-tip">暂未添加字段</div>';
+    }
+    
+    function addFormField() {
+        layer.open({
+            type: 1,
+            title: '添加表单字段',
+            area: ['400px', '420px'],
+            content: '<div class="add-field-form" style="padding: 20px;">' +
+                '<div class="layui-form-item">' +
+                '<label class="layui-form-label">字段标签</label>' +
+                '<div class="layui-input-block"><input type="text" id="fieldLabel" class="layui-input" placeholder="请输入字段显示名称"></div>' +
+                '</div>' +
+                '<div class="layui-form-item">' +
+                '<label class="layui-form-label">字段类型</label>' +
+                '<div class="layui-input-block"><select id="fieldType" class="layui-input">' +
+                '<option value="text">单行文本</option>' +
+                '<option value="textarea">多行文本</option>' +
+                '<option value="number">数字</option>' +
+                '<option value="date">日期</option>' +
+                '<option value="select">下拉选择</option>' +
+                '<option value="user">用户选择</option>' +
+                '<option value="department">部门选择</option>' +
+                '</select></div>' +
+                '</div>' +
+                '<div class="layui-form-item">' +
+                '<label class="layui-form-label">字段KEY</label>' +
+                '<div class="layui-input-block"><input type="text" id="fieldKey" class="layui-input" placeholder="如: amount, date"></div>' +
+                '</div>' +
+                '<div class="layui-form-item">' +
+                '<label class="layui-form-label">是否必填</label>' +
+                '<div class="layui-input-block"><input type="checkbox" id="fieldRequired" lay-skin="switch" lay-text="是|否"></div>' +
+                '</div>' +
+                '<div class="layui-form-item">' +
+                '<label class="layui-form-label">选项值</label>' +
+                '<div class="layui-input-block"><input type="text" id="fieldOptions" class="layui-input" placeholder="下拉选项用逗号分隔"></div>' +
+                '</div>' +
+                '</div>',
+            btn: ['确定', '取消'],
+            yes: function(index) {
+                var label = document.getElementById('fieldLabel').value.trim();
+                var type = document.getElementById('fieldType').value;
+                var key = document.getElementById('fieldKey').value.trim();
+                var required = document.getElementById('fieldRequired').checked;
+                var options = document.getElementById('fieldOptions').value.trim();
+                
+                if (!label || !key) {
+                    layer.msg('请填写字段标签和KEY', {icon: 2});
+                    return;
+                }
+                
+                startNodeConfig.form_fields.push({
+                    label: label,
+                    type: type,
+                    key: key,
+                    required: required,
+                    options: options ? options.split(',').map(function(o) { return o.trim(); }) : []
+                });
+                
+                renderFormFields();
+                layer.close(index);
+            }
         });
     }
     
-    // 根据步骤类型生成属性配置HTML
-    function generatePropertyConfigHtml(configData, stepType) {
-        let html = '<div class="property-group"><h4>审批配置</h4>';
+    function deleteFormField(index) {
+        layer.confirm('确定删除该字段？', {icon: 3, title: '确认'}, function(idx) {
+            startNodeConfig.form_fields.splice(index, 1);
+            renderFormFields();
+            layer.close(idx);
+        });
+    }
+    
+    function saveStartNodeConfig() {
+        layer.load(2);
         
-        switch(stepType) {
-            case 'department_head':
-            case 'department':
-                const deptId = configData.find('select[name="department_id"]').val();
-                html += `
-                    <div class="property-row">
-                        <label>部门：</label>
-                        <select id="prop_department_id" class="property-select">
-                            <option value="">发起人部门负责人</option>
-                            {% for dept in departments %}
-                            <option value="{{ dept.id }}" {% if dept_id == dept.id %}selected{% endif %}>{{ dept.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                `;
-                break;
-            case 'specific_user':
-                const userId = configData.find('select[name="user_id"]').val();
-                html += `
-                    <div class="property-row">
-                        <label>用户：</label>
-                        <select id="prop_user_id" class="property-select">
-                            <option value="">请选择用户</option>
-                            {% for user in users %}
-                            <option value="{{ user.id }}" {% if user_id == user.id %}selected{% endif %}>{{ user.get_full_name|default:user.username }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                `;
-                break;
-            case 'role':
-                const roleId = configData.find('select[name="role_id"]').val();
-                html += `
-                    <div class="property-row">
-                        <label>角色：</label>
-                        <select id="prop_role_id" class="property-select">
-                            <option value="">请选择角色</option>
-                            {% for role in roles %}
-                            <option value="{{ role.id }}" {% if role_id == role.id %}selected{% endif %}>{{ role.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                `;
-                break;
-            case 'level':
-                const level = configData.find('select[name="level"]').val();
-                html += `
-                    <div class="property-row">
-                        <label>审批级别：</label>
-                        <select id="prop_level" class="property-select">
-                            <option value="">请选择级别</option>
-                            <option value="1" {% if level == 1 %}selected{% endif %}>一级</option>
-                            <option value="2" {% if level == 2 %}selected{% endif %}>二级</option>
-                            <option value="3" {% if level == 3 %}selected{% endif %}>三级</option>
-                            <option value="4" {% if level == 4 %}selected{% endif %}>四级</option>
-                            <option value="5" {% if level == 5 %}selected{% endif %}>五级</option>
-                        </select>
-                    </div>
-                `;
-                break;
-        }
+        var csrfToken = '';
+        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (csrfEl) csrfToken = csrfEl.value;
         
-        html += '</div>';
+        var flowId = {{ flow.pk }};
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/approval/approvalflow/' + flowId + '/update-start-config/', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('X-CSRFToken', csrfToken);
+        xhr.onreadystatechange = function() {
+            layer.closeAll('loading');
+            if (xhr.readyState === 4) {
+                if (xhr.status === 200) {
+                    try {
+                        var res = JSON.parse(xhr.responseText);
+                        if (res.success) {
+                            layer.msg('开始节点配置保存成功', {icon: 1});
+                        } else {
+                            layer.msg(res.message || '保存失败', {icon: 2});
+                        }
+                    } catch (e) {
+                        layer.msg('保存失败', {icon: 2});
+                    }
+                } else {
+                    layer.msg('网络错误', {icon: 2});
+                }
+            }
+        };
+        xhr.send(JSON.stringify({
+            form_fields: startNodeConfig.form_fields
+        }));
+    }
+    
+    function showStartNodeConfig() {
+        loadStartNodeConfig();
+        
+        var userOpts = getAllUserOptions([]);
+        var deptOpts = getAllDeptOptions([]);
+        
+        var html = '<div class="config-section">' +
+            '<div class="section-label"><i class="layui-icon layui-icon-edit"></i> 开始节点配置</div>' +
+            '<div class="section-desc">配置发起审批时需要填写的申请信息</div>' +
+            '</div>' +
+            '<div class="config-section">' +
+            '<div class="section-label"><i class="layui-icon layui-icon-survey"></i> 自定义表单字段</div>' +
+            '<div id="formFieldsContainer" class="form-fields-container"></div>' +
+            '<button type="button" class="layui-btn layui-btn-fluid layui-btn-primary" onclick="FlowDesigner.addFormField()" style="margin-top: 12px;">' +
+            '<i class="layui-icon layui-icon-add-1"></i> 添加字段' +
+            '</button>' +
+            '</div>' +
+            '<div class="config-section">' +
+            '<div class="section-label">操作</div>' +
+            '<button class="layui-btn layui-btn-fluid layui-btn-normal" onclick="FlowDesigner.saveStartNodeConfig()">' +
+            '<i class="layui-icon layui-icon-ok"></i> 保存配置' +
+            '</button>' +
+            '</div>';
+        
+        document.getElementById('configPanel').innerHTML = html;
+        form.render();
+    }
+    
+    function getAllUserOptions(selectedIds) {
+        var html = '<option value="">请选择用户</option>';
+        usersData.forEach(function(u) {
+            var sel = selectedIds.indexOf(u.id) !== -1 ? 'selected' : '';
+            html += '<option value="' + u.id + '" ' + sel + '>' + (u.full_name || u.username) + '</option>';
+        });
         return html;
     }
     
-    // 保存步骤属性
-    window.saveStepProperties = function(stepId) {
-        const step = $('#' + stepId);
-        const configData = step.find('.step-config-data');
-        
-        // 保存步骤名称
-        const stepName = $('#prop_step_name').val();
-        configData.closest('.flow-step-wrapper').find('.step-name-input').val(stepName);
-        
-        // 保存处理时限
-        const timeLimit = $('#prop_time_limit').val();
-        configData.find('input[name="time_limit"]').val(timeLimit);
-        
-        // 保存审批类型配置
-        const stepType = configData.find('input[name="step_type"]').val();
-        
-        switch(stepType) {
-            case 'department_head':
-            case 'department':
-                const deptId = $('#prop_department_id').val();
-                configData.find('select[name="department_id"]').val(deptId);
-                break;
-            case 'specific_user':
-                const userId = $('#prop_user_id').val();
-                configData.find('select[name="user_id"]').val(userId);
-                break;
-            case 'role':
-                const roleId = $('#prop_role_id').val();
-                configData.find('select[name="role_id"]').val(roleId);
-                break;
-            case 'level':
-                const level = $('#prop_level').val();
-                configData.find('select[name="level"]').val(level);
-                break;
-        }
-        
-        // 保存条件分支配置
-        const conditionField = $('#prop_condition_field').val();
-        const conditionOperator = $('#prop_condition_operator').val();
-        const conditionValue = $('#prop_condition_value').val();
-        
-        configData.find('select[name="condition_field"]').val(conditionField);
-        configData.find('select[name="condition_operator"]').val(conditionOperator);
-        configData.find('input[name="condition_value"]').val(conditionValue);
-        
-        // 显示保存成功提示
-        layer.msg('属性保存成功');
-        
-        // 更新分支目标选项
-        if (typeof window.updateBranchTargetOptions === 'function') {
-            window.updateBranchTargetOptions();
-        }
-        
-        // 重绘连接线
-        drawConnectors();
+    function getAllDeptOptions(selectedIds) {
+        var html = '<option value="">请选择部门</option>';
+        deptsData.forEach(function(d) {
+            var sel = selectedIds.indexOf(d.id) !== -1 ? 'selected' : '';
+            html += '<option value="' + d.id + '" ' + sel + '>' + d.name + '</option>';
+        });
+        return html;
     }
     
-    // 添加分支
-    window.addBranch = function(sourceStepId, direction) {
-        // 在实际应用中，这里应该根据方向添加分支步骤
-        // 简化实现，直接添加一个新步骤
-        layer.prompt({
-            formType: 0,
-            title: '请选择分支类型',
-            btn: ['部门负责人', '指定用户', '部门审批', '角色审批', '级别审批'],
-            btn1: function(index, layero) {
-                addFlowStep('department_head');
-                layer.close(index);
-            },
-            btn2: function(index, layero) {
-                addFlowStep('specific_user');
-                layer.close(index);
-            },
-            btn3: function(index, layero) {
-                addFlowStep('department');
-                layer.close(index);
-            },
-            btn4: function(index, layero) {
-                addFlowStep('role');
-                layer.close(index);
-            },
-            btn5: function(index, layero) {
-                addFlowStep('level');
-                layer.close(index);
-            }
-        });
-    }
-    
-    // 获取步骤类型配置HTML
-    function getTypeConfig(type) {
-        switch(type) {
-            case 'department_head':
-                return `
-                <div class="config-row">
-                    <label>部门：</label>
-                    <select name="department_id" class="layui-select">
-                        <option value="">发起人部门负责人</option>
-                        {% for dept in departments %}
-                        <option value="{{ dept.id }}">{{ dept.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>`;
-            case 'specific_user':
-                return `
-                <div class="config-row">
-                    <label>用户：</label>
-                    <select name="user_id" class="layui-select">
-                        <option value="">请选择用户</option>
-                        {% for user in users %}
-                        <option value="{{ user.id }}">{{ user.get_full_name|default:user.username }}</option>
-                        {% endfor %}
-                    </select>
-                </div>`;
-            case 'department':
-                return `
-                <div class="config-row">
-                    <label>部门：</label>
-                    <select name="department_id" class="layui-select">
-                        <option value="">请选择部门</option>
-                        {% for dept in departments %}
-                        <option value="{{ dept.id }}">{{ dept.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>`;
-            case 'role':
-                return `
-                <div class="config-row">
-                    <label>角色：</label>
-                    <select name="role_id" class="layui-select">
-                        <option value="">请选择角色</option>
-                        {% for role in roles %}
-                        <option value="{{ role.id }}">{{ role.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>`;
-            case 'level':
-                return `
-                <div class="config-row">
-                    <label>审批级别：</label>
-                    <select name="level" class="layui-select">
-                        <option value="">请选择级别</option>
-                        <option value="1">一级</option>
-                        <option value="2">二级</option>
-                        <option value="3">三级</option>
-                        <option value="4">四级</option>
-                        <option value="5">五级</option>
-                    </select>
-                </div>`;
-            default:
-                return '';
-        }
-    }
-    
-
-    
-    // 复制步骤
-    window.duplicateStep = function(stepId) {
-        var originalStep = $('#' + stepId);
-        var newStepId = 'step_' + stepCounter;
-        var stepNumber = stepCounter;
-        var stepType = originalStep.find('.step-type').text().trim();
-        
-        // 创建新步骤
-        var newStepHtml = createStepHtml(newStepId, getTypeKey(stepType), stepNumber);
-        
-        // 插入新步骤
-        originalStep.next('.step-arrow').after(newStepHtml);
-        
-        // 复制原步骤的配置
-        var newStep = $('#' + newStepId);
-        var newStepName = originalStep.find('input[name="step_name"]').val() + '(复制)';
-        newStep.find('input[name="step_name"]').val(newStepName);
-        
-        // 复制其他配置
-        originalStep.find('.step-config input, .step-config select').each(function() {
-            var name = $(this).attr('name');
-            var value = $(this).val();
-            newStep.find('input[name="' + name + '"]').val(value);
-            newStep.find('select[name="' + name + '"]').val(value);
-        });
-        
-        stepCounter++;
-        if (typeof window.updateBranchTargetOptions === 'function') {
-            window.updateBranchTargetOptions();
-        }
-        if (typeof window.initConditionEvents === 'function') {
-            window.initConditionEvents();
-        }
-        if (typeof window.form === 'object') {
-            window.form.render();
-        }
-        
-        // 重新绘制连接线
-        drawConnectors();
-    };
-    
-    // 通过标题获取类型key
-    function getTypeKey(title) {
-        const keys = {
-            '部门负责人': 'department_head',
-            '指定用户': 'specific_user',
-            '部门审批': 'department',
-            '角色审批': 'role',
-            '级别审批': 'level'
-        };
-        return keys[title] || 'department_head';
-    }
-    
-    // 移除步骤
-    window.removeStep = function(stepId) {
-        layer.confirm('确定要删除这个步骤吗？', {icon: 3, title:'确认删除'}, function(index) {
-            $('#' + stepId).remove();
-            var arrow = $('#' + stepId).next('.step-arrow');
-            if (arrow) {
-                arrow.remove();
-            }
-            updateStepNumbers();
-            drawConnectors();
-            layer.close(index);
-        });
-    };
-    
-    // 清空所有步骤
-    window.clearAllSteps = function() {
-        layer.confirm('确定要清空所有审批步骤吗？', {icon: 3, title:'确认清空'}, function(index) {
-            $('#flowSteps').empty();
-            stepCounter = 1;
-            drawConnectors();
-            layer.close(index);
-        });
-    };
-    
-    // 初始化条件字段变更事件 - 全局函数，确保在任何地方都能访问
-    window.initConditionEvents = function() {
-        $(document).on('change', 'select[name="condition_field"]', function() {
-            var conditionField = $(this).val();
-            var conditionOperator = $(this).closest('.condition-row').find('.condition-operator');
-            var conditionValue = $(this).closest('.condition-row').find('.condition-value');
-            
-            if (conditionField) {
-                conditionOperator.removeAttr('disabled').show();
-                conditionValue.removeAttr('disabled').show();
-            } else {
-                conditionOperator.attr('disabled', 'disabled').hide();
-                conditionValue.attr('disabled', 'disabled').hide();
-            }
-        });
-        
-        // 初始化现有条件字段的状态
-        $('select[name="condition_field"]').each(function() {
-            var event = new Event('change');
-            this.dispatchEvent(event);
-        });
-    };
-    
-    // 更新步骤编号
-    function updateStepNumbers() {
-        $('#flowSteps .flow-step').each(function(index) {
-            $(this).find('.step-number').text(index + 1);
-        });
-        stepCounter = $('#flowSteps .flow-step').length + 1;
-        
-        // 更新所有步骤的分支目标选项
-        updateBranchTargetOptions();
-    }
-    
-    // 更新分支目标选项
-    window.updateBranchTargetOptions = function() {
-        var flowSteps = $('#flowSteps .flow-step');
-        
-        // 为每个步骤的分支目标下拉框更新选项
-        flowSteps.each(function() {
-            var currentStepOrder = parseInt($(this).find('.step-number').text());
-            var branchTrueSelect = $(this).find('select[name="branch_target_true"]');
-            var branchFalseSelect = $(this).find('select[name="branch_target_false"]');
-            
-            // 清空现有选项并添加默认选项
-            branchTrueSelect.empty().append('<option value="">下一步</option>');
-            branchFalseSelect.empty().append('<option value="">下一步</option>');
-            
-            // 添加其他步骤作为选项
-            flowSteps.each(function() {
-                var stepOrder = parseInt($(this).find('.step-number').text());
-                var stepName = $(this).find('input[name="step_name"]').val();
-                
-                // 不能选择自己作为目标
-                if (stepOrder !== currentStepOrder) {
-                    var optionText = stepOrder + '. ' + stepName;
-                    branchTrueSelect.append('<option value="' + stepOrder + '">' + optionText + '</option>');
-                    branchFalseSelect.append('<option value="' + stepOrder + '">' + optionText + '</option>');
+    function loadInitiatorConfig() {
+        var flowId = {{ flow.pk }};
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/approval/approvalflow/' + flowId + '/initiator/', true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    initiatorData.users = data.initiator_users || [];
+                    initiatorData.departments = data.initiator_departments || [];
+                    initiatorData.roles = data.initiator_roles || [];
+                    renderInitiatorSelects();
+                } catch (e) {
+                    console.error('加载发起人配置失败', e);
                 }
+            }
+        };
+        xhr.send();
+    }
+    
+    function renderInitiatorSelects() {
+        var userSel = document.getElementById('initiator_users');
+        var deptSel = document.getElementById('initiator_depts');
+        if (userSel) {
+            Array.from(userSel.options).forEach(function(opt) {
+                opt.selected = initiatorData.users.indexOf(parseInt(opt.value)) !== -1;
+            });
+            form.render('select');
+        }
+        if (deptSel) {
+            Array.from(deptSel.options).forEach(function(opt) {
+                opt.selected = initiatorData.departments.indexOf(parseInt(opt.value)) !== -1;
+            });
+            form.render('select');
+        }
+    }
+    
+    function loadExisting() {
+        var flowId = {{ flow.pk }};
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/approval/approvalflow/' + flowId + '/steps/?format=json', true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    if (data.steps && data.steps.length > 0) {
+                        document.getElementById('nodesArea').innerHTML = '';
+                        nodesData = [];
+                        nodeCounter = 0;
+                        
+                        data.steps.forEach(function(step) {
+                            addNodeToCanvas(step.step_type, step.step_name, step);
+                        });
+                    }
+                } catch (e) {
+                    console.error('加载失败', e);
+                }
+            }
+        };
+        xhr.send();
+    }
+    
+    function showInitiatorConfig() {
+        var userOpts = getAllUserOptions(initiatorData.users);
+        var deptOpts = getAllDeptOptions(initiatorData.departments);
+        
+        var html = '<div class="config-section">' +
+            '<div class="section-label"><i class="layui-icon layui-icon-user"></i> 发起人配置</div>' +
+            '<div class="section-desc">配置哪些人员可以发起此审批流程</div>' +
+            '<div class="config-row"><label>可发起用户</label><select class="layui-input" multiple id="initiator_users">' + userOpts + '</select></div>' +
+            '<div class="config-row"><label>可发起部门</label><select class="layui-input" multiple id="initiator_depts">' + deptOpts + '</select></div>' +
+            '<div class="config-row"><label>可发起角色</label><input type="text" class="layui-input" id="initiator_roles" value="' + (initiatorData.roles.join(',') || '') + '" placeholder="多个角色用逗号分隔" /></div>' +
+            '<div class="config-tip"><i class="layui-icon layui-icon-tips"></i> 留空表示所有用户均可发起</div>' +
+            '</div>' +
+            '<div class="config-section">' +
+            '<div class="section-label">操作</div>' +
+            '<button class="layui-btn layui-btn-fluid layui-btn-normal" onclick="FlowDesigner.saveInitiator()"><i class="layui-icon layui-icon-ok"></i> 保存发起人配置</button>' +
+            '</div>';
+        
+        document.getElementById('configPanel').innerHTML = html;
+        form.render('select');
+        
+        setTimeout(function() {
+            bindInitiatorEvents();
+        }, 50);
+    }
+    
+    function bindInitiatorEvents() {
+        var userSel = document.getElementById('initiator_users');
+        if (userSel) {
+            userSel.addEventListener('change', function() {
+                var arr = [];
+                Array.from(userSel.selectedOptions).forEach(function(opt) {
+                    arr.push(parseInt(opt.value));
+                });
+                initiatorData.users = arr;
+            });
+        }
+        
+        var deptSel = document.getElementById('initiator_depts');
+        if (deptSel) {
+            deptSel.addEventListener('change', function() {
+                var arr = [];
+                Array.from(deptSel.selectedOptions).forEach(function(opt) {
+                    arr.push(parseInt(opt.value));
+                });
+                initiatorData.departments = arr;
+            });
+        }
+        
+        var roleInput = document.getElementById('initiator_roles');
+        if (roleInput) {
+            roleInput.addEventListener('change', function() {
+                initiatorData.roles = this.value.split(',').map(function(r) { return r.trim(); }).filter(function(r) { return r; });
+            });
+        }
+    }
+    
+    function saveInitiator() {
+        layer.load(2);
+        
+        var csrfToken = '';
+        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (csrfEl) csrfToken = csrfEl.value;
+        
+        var flowId = {{ flow.pk }};
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/approval/approvalflow/' + flowId + '/update-initiator/', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('X-CSRFToken', csrfToken);
+        xhr.onreadystatechange = function() {
+            layer.closeAll('loading');
+            if (xhr.readyState === 4) {
+                if (xhr.status === 200) {
+                    try {
+                        var res = JSON.parse(xhr.responseText);
+                        if (res.success) {
+                            layer.msg('发起人配置保存成功', {icon: 1});
+                        } else {
+                            layer.msg(res.message || '保存失败', {icon: 2});
+                        }
+                    } catch (e) {
+                        layer.msg('保存失败', {icon: 2});
+                    }
+                } else {
+                    layer.msg('网络错误', {icon: 2});
+                }
+            }
+        };
+        xhr.send(JSON.stringify({
+            initiator_users: initiatorData.users,
+            initiator_departments: initiatorData.departments,
+            initiator_roles: initiatorData.roles
+        }));
+    }
+    
+    function getAllUserOptions(selectedIds) {
+        var html = '<option value="">请选择用户</option>';
+        usersData.forEach(function(u) {
+            var sel = selectedIds.indexOf(u.id) !== -1 ? 'selected' : '';
+            html += '<option value="' + u.id + '" ' + sel + '>' + (u.full_name || u.username) + '</option>';
+        });
+        return html;
+    }
+    
+    function getAllDeptOptions(selectedIds) {
+        var html = '<option value="">请选择部门</option>';
+        deptsData.forEach(function(d) {
+            var sel = selectedIds.indexOf(d.id) !== -1 ? 'selected' : '';
+            html += '<option value="' + d.id + '" ' + sel + '>' + d.name + '</option>';
+        });
+        return html;
+    }
+    
+    function addNode(type) {
+        hideMenu();
+        var info = typeMap[type] || {title: '节点', icon: 'layui-icon-circle', color: 'default'};
+        addNodeToCanvas(type, info.title, null);
+    }
+    
+    function addNodeToCanvas(type, name, existingData) {
+        nodeCounter++;
+        var nodeId = 'node_' + nodeCounter;
+        
+        var data = {
+            id: nodeId,
+            type: type,
+            name: name,
+            time_limit: existingData ? existingData.time_limit_hours : 24,
+            approver_user: existingData ? (existingData.approver_user || '') : '',
+            approver_dept: existingData ? (existingData.approver_department || '') : '',
+            approver_level: existingData ? (existingData.approver_level || '') : '',
+            cc_users: [],
+            notify_users: [],
+            desc: existingData ? (existingData.description || '') : '',
+            require_comment: existingData ? (existingData.require_comment || false) : true,
+            comment_hint: existingData ? (existingData.comment_hint || '请输入审批意见') : '请输入审批意见'
+        };
+        
+        if (existingData) {
+            data.cc_users = existingData.cc_users || [];
+            data.notify_users = existingData.notification_users || [];
+        }
+        
+        nodesData.push(data);
+        
+        var info = typeMap[type] || {title: '节点', icon: 'layui-icon-circle', color: 'default'};
+        var html = '<div class="node-card ' + info.color + '" id="' + nodeId + '" data-type="' + type + '">' +
+            '<div class="node-card-header ' + info.color + '">' +
+            '<i class="layui-icon ' + info.icon + '"></i>' +
+            '<span class="node-card-title">' + info.title + '</span>' +
+            '<span class="node-card-num">#' + nodeCounter + '</span>' +
+            '</div>' +
+            '<div class="node-card-body">' +
+            '<input type="text" class="node-name-input" id="name_' + nodeId + '" value="' + name + '" />' +
+            '</div>' +
+            '<div class="node-card-btns">' +
+            '<button class="btn-del" onclick="FlowDesigner.deleteNode(\'' + nodeId + '\', event)"><i class="layui-icon layui-icon-delete"></i></button>' +
+            '</div>' +
+            '</div>';
+        
+        document.getElementById('nodesArea').insertAdjacentHTML('beforeend', html);
+        
+        document.getElementById('name_' + nodeId).addEventListener('change', function() {
+            updateNodeData(nodeId, 'name', this.value);
+        });
+        
+        document.getElementById(nodeId).addEventListener('click', function() {
+            selectNode(nodeId);
+        });
+        
+        updateConnectors();
+        selectNode(nodeId);
+    }
+    
+    function selectNode(nodeId) {
+        document.querySelectorAll('.node-card').forEach(function(el) {
+            el.classList.remove('selected');
+        });
+        
+        var el = document.getElementById(nodeId);
+        if (el) {
+            el.classList.add('selected');
+        }
+        
+        var data = null;
+        for (var i = 0; i < nodesData.length; i++) {
+            if (nodesData[i].id === nodeId) {
+                data = nodesData[i];
+                break;
+            }
+        }
+        
+        if (data) {
+            showConfig(nodeId, data);
+        }
+    }
+    
+    function showConfig(nodeId, data) {
+        var info = typeMap[data.type] || {title: '节点'};
+        var isCC = data.type === 'cc';
+        var isNotify = data.type === 'notification';
+        
+        var userOpts = getUserOptions(data.approver_user);
+        var deptOpts = getDeptOptions(data.approver_dept);
+        var levelOpts = getLevelOptions(data.approver_level);
+        
+        var approverHtml = '';
+        if (!isCC && !isNotify) {
+            approverHtml = '<div class="config-section">' +
+                '<div class="section-label">审批人配置</div>';
+            
+            if (data.type === 'specific_user') {
+                approverHtml += '<div class="config-row"><label>指定用户</label><select class="layui-input" id="cfg_user_' + nodeId + '">' + userOpts + '</select></div>';
+            }
+            if (data.type === 'department' || data.type === 'department_head') {
+                approverHtml += '<div class="config-row"><label>审批部门</label><select class="layui-input" id="cfg_dept_' + nodeId + '">' + deptOpts + '</select></div>';
+            }
+            if (data.type === 'level') {
+                approverHtml += '<div class="config-row"><label>审批级别</label><select class="layui-input" id="cfg_level_' + nodeId + '">' + levelOpts + '</select></div>';
+            }
+            approverHtml += '<div class="config-row"><label>处理时限(小时)</label><input type="number" class="layui-input" id="cfg_time_' + nodeId + '" value="' + (data.time_limit || '') + '" placeholder="不限制" /></div>' +
+                '</div>' +
+                '<div class="config-section">' +
+                '<div class="section-label">审批意见配置</div>' +
+                '<div class="config-row"><label><input type="checkbox" id="cfg_require_comment_' + nodeId + '" lay-skin="primary" ' + (data.require_comment ? 'checked' : '') + '> 需要审批意见</label></div>' +
+                '<div class="config-row"><label>意见提示文字</label><input type="text" class="layui-input" id="cfg_comment_hint_' + nodeId + '" value="' + (data.comment_hint || '请输入审批意见') + '" placeholder="如：请输入审批意见" /></div>' +
+                '</div>';
+        } else if (isCC) {
+            approverHtml = '<div class="config-section">' +
+                '<div class="section-label">抄送配置</div>' +
+                '<div class="config-row"><label>抄送用户</label><select class="layui-input" multiple id="cfg_cc_' + nodeId + '">' + userOpts + '</select></div></div>';
+        } else if (isNotify) {
+            approverHtml = '<div class="config-section">' +
+                '<div class="section-label">通知配置</div>' +
+                '<div class="config-row"><label>通知用户</label><select class="layui-input" multiple id="cfg_ntf_' + nodeId + '">' + userOpts + '</select></div></div>';
+        }
+        
+        var html = '<div class="config-section">' +
+            '<div class="section-label">基本信息</div>' +
+            '<div class="config-row"><label>节点名称</label><input type="text" class="layui-input" id="cfg_name_' + nodeId + '" value="' + data.name + '" /></div>' +
+            '<div class="config-row"><label>节点类型</label><input type="text" class="layui-input" value="' + info.title + '" disabled /></div>' +
+            '<div class="config-row"><label>描述说明</label><textarea class="layui-textarea" id="cfg_desc_' + nodeId + '" placeholder="请输入描述">' + (data.desc || '') + '</textarea></div></div>' +
+            approverHtml +
+            '<div class="config-section">' +
+            '<div class="section-label">操作</div>' +
+            '<button class="layui-btn layui-btn-danger layui-btn-fluid" onclick="FlowDesigner.deleteNode(\'' + nodeId + '\', event)"><i class="layui-icon layui-icon-delete"></i> 删除节点</button>' +
+            '</div>';
+        
+        document.getElementById('configPanel').innerHTML = html;
+        form.render('select');
+        
+        setTimeout(function() {
+            bindConfigEvents(nodeId, data);
+        }, 50);
+    }
+    
+    function bindConfigEvents(nodeId, data) {
+        var nameInput = document.getElementById('cfg_name_' + nodeId);
+        if (nameInput) {
+            nameInput.addEventListener('change', function() {
+                updateNodeData(nodeId, 'name', this.value);
+                document.getElementById('name_' + nodeId).value = this.value;
+            });
+        }
+        
+        var descInput = document.getElementById('cfg_desc_' + nodeId);
+        if (descInput) {
+            descInput.addEventListener('change', function() {
+                updateNodeData(nodeId, 'desc', this.value);
+            });
+        }
+        
+        var userSel = document.getElementById('cfg_user_' + nodeId);
+        if (userSel) {
+            userSel.addEventListener('change', function() {
+                updateNodeData(nodeId, 'approver_user', this.value);
+            });
+        }
+        
+        var deptSel = document.getElementById('cfg_dept_' + nodeId);
+        if (deptSel) {
+            deptSel.addEventListener('change', function() {
+                updateNodeData(nodeId, 'approver_dept', this.value);
+            });
+        }
+        
+        var levelSel = document.getElementById('cfg_level_' + nodeId);
+        if (levelSel) {
+            levelSel.addEventListener('change', function() {
+                updateNodeData(nodeId, 'approver_level', this.value);
+            });
+        }
+        
+        var timeInput = document.getElementById('cfg_time_' + nodeId);
+        if (timeInput) {
+            timeInput.addEventListener('change', function() {
+                updateNodeData(nodeId, 'time_limit', this.value);
+            });
+        }
+        
+        var requireComment = document.getElementById('cfg_require_comment_' + nodeId);
+        if (requireComment) {
+            requireComment.addEventListener('change', function() {
+                updateNodeData(nodeId, 'require_comment', this.checked);
+            });
+        }
+        
+        var commentHint = document.getElementById('cfg_comment_hint_' + nodeId);
+        if (commentHint) {
+            commentHint.addEventListener('change', function() {
+                updateNodeData(nodeId, 'comment_hint', this.value);
+            });
+        }
+        
+        var ccSel = document.getElementById('cfg_cc_' + nodeId);
+        if (ccSel) {
+            ccSel.addEventListener('change', function() {
+                var arr = [];
+                Array.from(ccSel.selectedOptions).forEach(function(opt) {
+                    arr.push(opt.value);
+                });
+                updateNodeData(nodeId, 'cc_users', arr);
+            });
+            if (data.cc_users && data.cc_users.length > 0) {
+                Array.from(ccSel.options).forEach(function(opt) {
+                    opt.selected = data.cc_users.indexOf(opt.value) !== -1;
+                });
+                form.render('select');
+            }
+        }
+        
+        var ntfSel = document.getElementById('cfg_ntf_' + nodeId);
+        if (ntfSel) {
+            ntfSel.addEventListener('change', function() {
+                var arr = [];
+                Array.from(ntfSel.selectedOptions).forEach(function(opt) {
+                    arr.push(opt.value);
+                });
+                updateNodeData(nodeId, 'notify_users', arr);
+            });
+            if (data.notify_users && data.notify_users.length > 0) {
+                Array.from(ntfSel.options).forEach(function(opt) {
+                    opt.selected = data.notify_users.indexOf(opt.value) !== -1;
+                });
+                form.render('select');
+            }
+        }
+    }
+    
+    function updateNodeData(nodeId, field, value) {
+        for (var i = 0; i < nodesData.length; i++) {
+            if (nodesData[i].id === nodeId) {
+                nodesData[i][field] = value;
+                break;
+            }
+        }
+    }
+    
+    function deleteNode(nodeId, evt) {
+        if (evt) evt.stopPropagation();
+        
+        layer.confirm('确定删除此节点？', {icon: 3, title: '确认'}, function(idx) {
+            var el = document.getElementById(nodeId);
+            if (el) el.remove();
+            
+            nodesData = nodesData.filter(function(n) {
+                return n.id !== nodeId;
             });
             
-            // 重新渲染表单
-            if (typeof window.form === 'object') {
-                window.form.render('select');
-            }
+            document.getElementById('configPanel').innerHTML = '<div class="empty-tip"><i class="layui-icon layui-icon-util"></i><p>请选择节点进行配置</p></div>';
+            updateConnectors();
+            layer.close(idx);
         });
     }
     
-    // 初始化条件字段变更事件
-    function initConditionEvents() {
-        $(document).on('change', 'select[name="condition_field"]', function() {
-            var conditionField = $(this).val();
-            var conditionOperator = $(this).closest('.condition-row').find('.condition-operator');
-            var conditionValue = $(this).closest('.condition-row').find('.condition-value');
-            
-            if (conditionField) {
-                conditionOperator.removeAttr('disabled').show();
-                conditionValue.removeAttr('disabled').show();
-            } else {
-                conditionOperator.attr('disabled', 'disabled').hide();
-                conditionValue.attr('disabled', 'disabled').hide();
-            }
-        });
-        
-        // 初始化现有条件字段的状态
-        $('select[name="condition_field"]').each(function() {
-            var event = new Event('change');
-            this.dispatchEvent(event);
+    function clearAll() {
+        layer.confirm('确定清空所有节点？', {icon: 3, title: '确认'}, function(idx) {
+            document.getElementById('nodesArea').innerHTML = '';
+            nodesData = [];
+            nodeCounter = 0;
+            document.getElementById('configPanel').innerHTML = '<div class="empty-tip"><i class="layui-icon layui-icon-util"></i><p>请选择节点进行配置</p></div>';
+            updateConnectors();
+            layer.close(idx);
         });
     }
     
-    // 清空流程
-    window.clearFlow = function() {
-        layer.confirm('确定要清空所有步骤吗？', {
-            btn: ['确定', '取消']
-        }, function(index) {
-            $('#flowSteps').empty();
-            stepCounter = 1;
-            updateBranchTargetOptions();
-            layer.close(index);
-        });
-    };
-    
-    // 保存流程
-    window.saveFlow = function() {
-        var steps = [];
-        
-        $('#flowSteps .flow-step').each(function(index) {
-            var stepData = {
-                step_order: index + 1,
-                step_name: $(this).find('input[name="step_name"]').val(),
-                step_type: $(this).data('type'),
-                time_limit_hours: $(this).find('input[name="time_limit"]').val() || null
-            };
-            
-            // 根据类型获取特定配置
-            var type = $(this).data('type');
-            switch(type) {
-                case 'specific_user':
-                    stepData.approver_user = $(this).find('select[name="approver_user"]').val();
-                    break;
-                case 'department':
-                    stepData.approver_department = $(this).find('select[name="approver_department"]').val();
-                    stepData.department_role = $(this).find('select[name="department_role"]').val();
-                    break;
-                case 'role':
-                    stepData.approver_role = $(this).find('select[name="approver_role"]').val();
-                    break;
-                case 'level':
-                    stepData.approver_level = $(this).find('select[name="approver_level"]').val();
-                    break;
-            }
-            steps.push(stepData);
-        });
-    }
-    
-    // 绘制连接线
-    function drawConnectors() {
-        // 清除现有连接线和分支
-        $('.flow-connector, .branch-connector, .branch-path, .branch-label').remove();
-        
-        // 获取所有审批组件和开始结束节点的位置
-        var flowArea = $('.flow-design-area');
-        var approvalComponents = $('.approval-component');
-        var startNode = $('.flow-start');
-        var endNode = $('.flow-end');
-        
-        if (approvalComponents.length === 0) return;
-        
-        // 主流程连接线绘制 - 使用SVG实现带箭头的平滑曲线
-        drawMainFlowConnectors(flowArea, approvalComponents, startNode, endNode);
-        
-        // 绘制条件分支连接线
-        drawConditionBranches(flowArea, approvalComponents);
-    }
-    
-    // 绘制主流程连接线
-    function drawMainFlowConnectors(flowArea, approvalComponents, startNode, endNode) {
-        var flowWidth = flowArea.width();
-        var centerX = flowWidth / 2;
-        
-        // 创建SVG容器
-        var svg = createSVGContainer(flowArea);
-        
-        // 绘制开始节点到第一个审批组件的连接线（带箭头）
-        var startPos = startNode.position();
-        var firstComponentPos = approvalComponents.first().position();
-        var startX = startNode.width() / 2 + startPos.left;
-        var startY = startPos.top + startNode.height();
-        var firstX = centerX;
-        var firstY = firstComponentPos.top;
-        
-        drawArrowPath(svg, startX, startY, firstX, firstY, '#3b82f6', 4, 'arrowhead-main');
-        
-        // 绘制审批组件之间的连接线（带箭头）
-        approvalComponents.each(function(index) {
-            var currentComponent = $(this);
-            var nextComponent = approvalComponents.eq(index + 1);
-            
-            if (nextComponent.length > 0) {
-                var currentPos = currentComponent.position();
-                var nextPos = nextComponent.position();
-                var currentY = currentPos.top + currentComponent.height();
-                var nextY = nextPos.top;
-                
-                drawArrowPath(svg, centerX, currentY, centerX, nextY, '#3b82f6', 4, 'arrowhead-main');
-            }
-        });
-        
-        // 绘制最后一个审批组件到结束节点的连接线（带箭头）
-        var lastComponentPos = approvalComponents.last().position();
-        var endPos = endNode.position();
-        var lastY = lastComponentPos.top + approvalComponents.last().height();
-        var endX = endNode.width() / 2 + endPos.left;
-        var endY = endPos.top;
-        
-        drawArrowPath(svg, centerX, lastY, endX, endY, '#3b82f6', 4, 'arrowhead-main');
-    }
-    
-    // 绘制条件分支连接线
-    function drawConditionBranches(flowArea, approvalComponents) {
-        var conditionSteps = approvalComponents.filter('[data-type="condition"]');
-        
-        conditionSteps.each(function(index, conditionStep) {
-            var conditionId = $(conditionStep).attr('data-id');
-            var branches = approvalComponents.filter('[data-parent="' + conditionId + '"]');
-            
-            if (branches.length > 0) {
-                // 创建SVG容器
-                var svg = createSVGContainer(flowArea);
-                
-                var conditionPos = $(conditionStep).position();
-                var conditionX = conditionPos.left + $(conditionStep).width() / 2;
-                var conditionY = conditionPos.top + $(conditionStep).height();
-                
-                // 计算分支的布局位置
-                var branchCount = branches.length;
-                var branchSpacing = 180; // 分支之间的水平间距
-                var centerOffset = (branchCount - 1) * branchSpacing / 2;
-                
-                branches.each(function(branchIndex, branchStep) {
-                    var branchPos = $(branchStep).position();
-                    var branchX = conditionX - centerOffset + (branchIndex * branchSpacing);
-                    var branchY = conditionY + 80; // 分支的垂直偏移
-                    var targetX = branchPos.left + $(branchStep).width() / 2;
-                    var targetY = branchPos.top;
-                    
-                    // 绘制条件分支的连接线（带弯曲和箭头）
-                    drawBranchPath(svg, conditionX, conditionY, branchX, branchY, targetX, targetY, branchIndex);
-                    
-                    // 为条件分支添加标签
-                    var branchLabel = $(branchStep).attr('data-branch-label') || '条件 ' + (branchIndex + 1);
-                    var labelElement = $('<div class="branch-label" style="position:absolute;top:' + (branchY - 20) + 'px;left:' + (branchX - 60) + 'px;width:120px;text-align:center;font-size:12px;color:#ef4444;font-weight:500;background:rgba(255,255,255,0.95);padding:4px 8px;border-radius:6px;box-shadow:0 3px 10px rgba(0,0,0,0.15);z-index:10;">' + branchLabel + '</div>');
-                    flowArea.append(labelElement);
-                });
-            }
-        });
-    }
-    
-    // 创建SVG容器
-    function createSVGContainer(container) {
-        var svg = $('<svg class="branch-path" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:-1;"></svg>');
-        container.append(svg);
-        return svg[0];
-    }
-    
-    // 绘制带箭头的连接线
-    function drawArrowPath(svg, fromX, fromY, toX, toY, color, strokeWidth, arrowId) {
-        // 创建箭头标记（如果不存在）
-        if (!document.getElementById(arrowId)) {
-            var marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
-            marker.setAttribute('id', arrowId);
-            marker.setAttribute('markerWidth', '10');
-            marker.setAttribute('markerHeight', '7');
-            marker.setAttribute('refX', '9');
-            marker.setAttribute('refY', '3.5');
-            marker.setAttribute('orient', 'auto');
-            
-            var polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-            polygon.setAttribute('points', '0 0, 10 3.5, 0 7');
-            polygon.setAttribute('fill', color);
-            
-            marker.appendChild(polygon);
-            svg.appendChild(marker);
-        }
-        
-        // 创建路径
-        var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        
-        // 使用贝塞尔曲线创建平滑的连接线
-        var midY = (fromY + toY) / 2;
-        var d = 'M ' + fromX + ',' + fromY + ' C ' + fromX + ',' + midY + ' ' + toX + ',' + midY + ' ' + toX + ',' + toY;
-        
-        // 设置路径属性
-        path.setAttribute('d', d);
-        path.setAttribute('fill', 'none');
-        path.setAttribute('stroke', color);
-        path.setAttribute('stroke-width', strokeWidth);
-        path.setAttribute('stroke-linecap', 'round');
-        path.setAttribute('marker-end', 'url(#' + arrowId + ')');
-        
-        // 添加路径到SVG
-        svg.appendChild(path);
-    }
-    
-    // 绘制分支路径
-    function drawBranchPath(svg, conditionX, conditionY, branchX, branchY, targetX, targetY, branchIndex) {
-        var arrowId = 'arrowhead-branch-' + branchIndex;
-        
-        // 创建箭头标记（如果不存在）
-        if (!document.getElementById(arrowId)) {
-            var marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
-            marker.setAttribute('id', arrowId);
-            marker.setAttribute('markerWidth', '8');
-            marker.setAttribute('markerHeight', '5');
-            marker.setAttribute('refX', '7');
-            marker.setAttribute('refY', '2.5');
-            marker.setAttribute('orient', 'auto');
-            
-            var polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-            polygon.setAttribute('points', '0 0, 8 2.5, 0 5');
-            polygon.setAttribute('fill', '#ef4444');
-            
-            marker.appendChild(polygon);
-            svg.appendChild(marker);
-        }
-        
-        // 创建路径
-        var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        
-        // 绘制条件分支的连接线（带弯曲）
-        var d = 'M ' + conditionX + ',' + conditionY + 
-                ' C ' + conditionX + ',' + (conditionY + 40) + 
-                ' ' + branchX + ',' + (branchY - 20) + 
-                ' ' + branchX + ',' + branchY + 
-                ' L ' + targetX + ',' + targetY;
-        
-        // 设置路径属性
-        path.setAttribute('d', d);
-        path.setAttribute('fill', 'none');
-        path.setAttribute('stroke', '#ef4444');
-        path.setAttribute('stroke-width', '3');
-        path.setAttribute('stroke-dasharray', '5,5');
-        path.setAttribute('marker-end', 'url(#' + arrowId + ')');
-        
-        // 添加路径到SVG
-        svg.appendChild(path);
-    }
-    
-    // 保存流程
-    window.saveAllSteps = function() {
-        var steps = [];
-        
-        // 遍历所有步骤收集数据
-        $('#flowSteps .flow-step').each(function() {
-            var stepData = {};
-            var stepTypeText = $(this).find('.step-type').text().trim();
-            stepData.step_type = getTypeKey(stepTypeText);
-            stepData.step_name = $(this).find('input[name="step_name"]').val();
-            stepData.time_limit_hours = $(this).find('input[name="time_limit"]').val() || null;
-            
-            // 根据步骤类型收集特定配置
-            if (stepData.step_type === 'department_head' || stepData.step_type === 'department') {
-                stepData.department_id = $(this).find('select[name="department_id"]').val() || null;
-            } else if (stepData.step_type === 'specific_user') {
-                stepData.user_id = $(this).find('select[name="user_id"]').val() || null;
-            } else if (stepData.step_type === 'role') {
-                stepData.role_id = $(this).find('select[name="role_id"]').val() || null;
-            } else if (stepData.step_type === 'level') {
-                stepData.level = $(this).find('select[name="level"]').val() || null;
-            }
-            
-            // 获取条件分支配置
-            stepData.condition_field = $(this).find('select[name="condition_field"]').val();
-            stepData.condition_operator = $(this).find('select[name="condition_operator"]').val();
-            stepData.condition_value = $(this).find('input[name="condition_value"]').val();
-            stepData.branch_target_true = $(this).find('select[name="branch_target_true"]').val();
-            stepData.branch_target_false = $(this).find('select[name="branch_target_false"]').val();
-            
-            steps.push(stepData);
-        });
-        
-        if (steps.length === 0) {
-            layer.msg('请至少添加一个审批步骤', {icon: 2});
+    function save() {
+        if (nodesData.length === 0) {
+            layer.msg('请至少添加一个节点', {icon: 2});
             return;
         }
         
-        // 收集发起人配置数据
-        var initiatorConfig = {};
-        initiatorConfig.initiator_type = $('#initiator_type').val();
-        
-        if (initiatorConfig.initiator_type === 'specific_users') {
-            initiatorConfig.user_ids = $('#initiator_users').val() || [];
-        } else if (initiatorConfig.initiator_type === 'departments') {
-            initiatorConfig.department_ids = $('#initiator_departments').val() || [];
-        } else if (initiatorConfig.initiator_type === 'roles') {
-            initiatorConfig.role_ids = $('#initiator_roles').val() || [];
-        }
-
-        // 发送保存请求
         layer.load(2);
         
-        fetch("{% url 'approval:batch_create_steps' flow.pk %}", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCSRFToken()
-            },
-            body: JSON.stringify({steps: steps, initiator_config: initiatorConfig})
-        })
-        .then(response => response.json())
-        .then(data => {
-            layer.closeAll('loading');
-            if (data.success) {
-                layer.msg('流程保存成功', {icon: 1}, function() {
-                    location.reload();
-                });
-            } else {
-                layer.msg('保存失败：' + data.message, {icon: 2});
-            }
-        })
-        .catch(error => {
-            layer.closeAll('loading');
-            layer.msg('网络错误，请稍后重试', {icon: 2});
+        var steps = nodesData.map(function(n, i) {
+            return {
+                step_order: i + 1,
+                step_name: n.name,
+                step_type: n.type,
+                time_limit_hours: n.time_limit,
+                approver_user: n.approver_user,
+                approver_department: n.approver_dept,
+                approver_level: n.approver_level,
+                cc_users: n.cc_users,
+                notification_users: n.notify_users,
+                description: n.desc,
+                require_comment: n.require_comment,
+                comment_hint: n.comment_hint
+            };
         });
-    };
-    
-    // 加载现有步骤，确保它是全局可访问的
-    window.loadExistingSteps = function() {
-        // 尝试从服务器加载现有步骤
-        $.ajax({
-            url: "{% url 'approval:approval_flow_steps' flow.pk %}?format=json",
-            type: 'GET',
-            dataType: 'json',
-            success: function(data) {
-                // 加载发起人配置
-                if (data.initiator_config) {
-                    var initiatorConfig = data.initiator_config;
-                    $('#initiator_type').val(initiatorConfig.initiator_type || 'all');
-                     
-                    // 根据发起人类型显示对应的配置区域
-                    if (initiatorConfig.initiator_type === 'specific_users') {
-                        $('#specific_users_config').show();
-                        if (initiatorConfig.user_ids && Array.isArray(initiatorConfig.user_ids)) {
-                            $('#initiator_users').val(initiatorConfig.user_ids);
-                        }
-                    } else if (initiatorConfig.initiator_type === 'departments') {
-                        $('#departments_config').show();
-                        if (initiatorConfig.department_ids && Array.isArray(initiatorConfig.department_ids)) {
-                            $('#initiator_departments').val(initiatorConfig.department_ids);
-                        }
-                    } else if (initiatorConfig.initiator_type === 'roles') {
-                        $('#roles_config').show();
-                        if (initiatorConfig.role_ids && Array.isArray(initiatorConfig.role_ids)) {
-                            $('#initiator_roles').val(initiatorConfig.role_ids);
-                        }
-                    }
-                }
-                
-                if (data.steps && data.steps.length > 0) {
-                    $('#flowSteps').empty();
-                    
-                    $.each(data.steps, function(index, step) {
-                        var stepId = 'step_' + (index + 1);
-                        var stepHtml = createStepHtml(stepId, step.step_type, index + 1);
-                        
-                        $('#flowSteps').append(stepHtml);
-                        
-                        // 填充步骤数据
-                        var $stepElement = $('#' + stepId);
-                        $stepElement.find('input[name="step_name"]').val(step.step_name);
-                        $stepElement.find('input[name="time_limit"]').val(step.time_limit_hours || '');
-                        
-                        // 填充条件分支数据
-                        if (step.condition_field) {
-                            $stepElement.find('select[name="condition_field"]').val(step.condition_field);
-                            $stepElement.find('select[name="condition_operator"]').val(step.condition_operator);
-                            $stepElement.find('input[name="condition_value"]').val(step.condition_value);
-                        }
-                    });
-                    
-                    stepCounter = data.steps.length + 1;
-                    updateBranchTargetOptions();
-                    // 确保调用的是全局的initConditionEvents函数
-                    if (typeof window.initConditionEvents === 'function') {
-                        window.initConditionEvents();
-                    }
-                    form.render();
-                }
-            },
-            error: function() {
-                // 加载现有步骤失败
-            }
-        });
-    }; // 添加缺少的分号
-    
-    // 获取CSRF令牌
-    function getCSRFToken() {
-        var cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            var cookies = document.cookie.split(';');
-            for (var i = 0; i < cookies.length; i++) {
-                var cookie = cookies[i].trim();
-                if (cookie.substring(0, 10) === 'csrftoken=') {
-                    cookieValue = cookie.substring(10);
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
-    // 初始化
-    $(function() {
-        // 初始化条件字段事件
-        if (typeof window.initConditionEvents === 'function') {
-            window.initConditionEvents();
-        }
         
-        // 加载现有步骤
-        if (typeof window.loadExistingSteps === 'function') {
-            window.loadExistingSteps();
+        var csrfToken = '';
+        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (csrfEl) csrfToken = csrfEl.value;
+        
+        var flowId = {{ flow.pk }};
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/approval/approvalflow/' + flowId + '/batch-create/', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('X-CSRFToken', csrfToken);
+        xhr.onreadystatechange = function() {
+            layer.closeAll('loading');
+            if (xhr.readyState === 4) {
+                if (xhr.status === 200) {
+                    try {
+                        var res = JSON.parse(xhr.responseText);
+                        if (res.success) {
+                            layer.msg('保存成功', {icon: 1});
+                        } else {
+                            layer.msg(res.message || '保存失败', {icon: 2});
+                        }
+                    } catch (e) {
+                        layer.msg('保存失败', {icon: 2});
+                    }
+                } else {
+                    layer.msg('网络错误', {icon: 2});
+                }
+            }
+        };
+        xhr.send(JSON.stringify({steps: steps}));
+    }
+    
+    function preview() {
+        layer.open({
+            type: 2,
+            title: '流程预览',
+            content: '/approval/approvalflow/{{ flow.pk }}/preview/',
+            area: ['85%', '90%'],
+            maxmin: true
+        });
+    }
+    
+    function showMenu() {
+        var menu = document.getElementById('nodeMenu');
+        menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    }
+    
+    function hideMenu() {
+        document.getElementById('nodeMenu').style.display = 'none';
+    }
+    
+    function updateConnectors() {
+        var count = document.getElementById('nodesArea').children.length;
+        var h = count > 0 ? '30px' : '40px';
+        document.getElementById('connStart').style.height = h;
+        document.getElementById('connEnd').style.height = h;
+    }
+    
+    function getUserOptions(selectedId) {
+        var html = '<option value="">请选择用户</option>';
+        usersData.forEach(function(u) {
+            var sel = u.id == selectedId ? 'selected' : '';
+            html += '<option value="' + u.id + '" ' + sel + '>' + (u.full_name || u.username) + '</option>';
+        });
+        return html;
+    }
+    
+    function getDeptOptions(selectedId) {
+        var html = '<option value="">请选择部门</option>';
+        deptsData.forEach(function(d) {
+            var sel = d.id == selectedId ? 'selected' : '';
+            html += '<option value="' + d.id + '" ' + sel + '>' + d.name + '</option>';
+        });
+        return html;
+    }
+    
+    function getLevelOptions(selectedId) {
+        var html = '<option value="">请选择级别</option>';
+        for (var i = 1; i <= 10; i++) {
+            var sel = i == selectedId ? 'selected' : '';
+            html += '<option value="' + i + '" ' + sel + '>' + i + '级及以上</option>';
         }
-    });
+        return html;
+    }
+    
+    return {
+        init: init,
+        addNode: addNode,
+        deleteNode: deleteNode,
+        clearAll: clearAll,
+        save: save,
+        preview: preview,
+        showMenu: showMenu,
+        saveInitiator: saveInitiator,
+        addFormField: addFormField,
+        deleteFormField: deleteFormField,
+        saveStartNodeConfig: saveStartNodeConfig
+    };
+})();
+
+document.addEventListener('DOMContentLoaded', function() {
+    FlowDesigner.init();
 });
 </script>
 
 <style>
-/* 全局样式重置 */
-* {
-    box-sizing: border-box;
-}
-
-/* 流程设计器容器 */
 .flow-designer {
     display: flex;
-    gap: 24px;
-    margin: 24px 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    flex-direction: column;
+    height: calc(100vh - 140px);
+    background: #f5f7fa;
 }
 
-/* 组件面板 - 现代化设计 */
-.component-panel {
-    width: 240px;
-    border: none;
-    border-radius: 16px;
-    padding: 20px;
-    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-    box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.4);
+.designer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    background: #fff;
+    border-bottom: 1px solid #e8e8e8;
     flex-shrink: 0;
 }
 
-.component-panel h3 {
-    font-size: 20px;
-    margin-top: 0;
-    margin-bottom: 24px;
-    color: white;
-    text-align: center;
-    font-weight: 600;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
-}
-
-.component-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.component-item {
-    padding: 14px 18px;
-    background: white;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+.header-left {
     display: flex;
     align-items: center;
-    font-weight: 500;
-    color: #374151;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.component-item:hover {
-    background: #f0f9ff;
-    transform: translateX(10px);
-    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
-}
-
-.component-item i {
-    margin-right: 12px;
-    color: #3b82f6;
-    font-size: 20px;
-    width: 24px;
-    text-align: center;
-}
-
-/* 流程设计主容器 */
-.flow-designer-container {
-    display: flex;
-    flex: 1;
-    gap: 20px;
-    min-height: 700px;
-}
-
-/* 流程设计区域 - 现代化设计 */
-.flow-design-area {
-    flex: 1;
-    border: 2px dashed #94a3b8;
-    border-radius: 16px;
-    padding: 40px;
-    background: linear-gradient(145deg, #f8fafc 0%, #e2e8f0 100%);
-    min-height: 700px;
-    position: relative;
-    overflow-x: auto;
-    box-shadow: inset 0 4px 12px rgba(0,0,0,0.05);
-}
-
-/* 属性面板样式 - 现代化设计 */
-.properties-panel {
-    width: 350px;
-    background: white;
-    border-radius: 16px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    max-height: 700px;
-    overflow: hidden;
-}
-
-.properties-panel-header {
-    padding: 20px 24px;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-    color: white;
-    font-weight: 600;
-    font-size: 18px;
-    position: relative;
-}
-
-.properties-panel-header::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-    transition: all 0.8s ease;
-}
-
-.properties-panel-header:hover::before {
-    left: 100%;
-}
-
-.properties-panel-content {
-    padding: 24px;
-    overflow-y: auto;
-    flex: 1;
-}
-
-.no-selection-message {
-    text-align: center;
-    padding: 40px 20px;
-    color: #64748b;
-    font-size: 16px;
-}
-
-.no-selection-message i {
-    font-size: 48px;
-    margin-bottom: 16px;
-    display: block;
-    opacity: 0.3;
-}
-
-/* 属性表单样式 */
-.property-form {
-    display: flex;
-    flex-direction: column;
     gap: 16px;
 }
 
-.property-group {
-    margin-bottom: 24px;
-}
-
-.property-group-title {
-    font-weight: 600;
-    color: #334155;
-    margin-bottom: 12px;
-    font-size: 16px;
-    padding-bottom: 8px;
-    border-bottom: 2px solid #e2e8f0;
-}
-
-.property-field {
-    margin-bottom: 16px;
-}
-
-.property-field label {
-    display: block;
-    font-weight: 500;
-    color: #475569;
-    margin-bottom: 6px;
-    font-size: 14px;
-}
-
-/* 开始和结束节点 - 现代化设计 */
-.flow-start, .flow-end {
-    width: auto;
-    min-width: 320px;
-    height: auto;
-    padding: 16px 32px;
-    line-height: 1.5;
-    text-align: center;
-    color: white;
-    border-radius: 16px;
-    margin: 0 auto 32px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    font-weight: 600;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-    position: relative;
-    overflow: hidden;
-    background-position: center;
-    background-size: 200% 200%;
-}
-
-/* 渐变动画效果 */
-@keyframes gradientFlow {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
-
-.flow-start {
-    background-image: linear-gradient(-45deg, #3b82f6, #60a5fa, #3b82f6);
-    animation: gradientFlow 8s ease infinite;
-    box-shadow: 0 8px 24px rgba(59, 130, 246, 0.3);
-}
-
-.flow-end {
-    background-image: linear-gradient(-45deg, #ef4444, #f87171, #ef4444);
-    animation: gradientFlow 8s ease infinite;
-    margin: 32px auto 0;
-    box-shadow: 0 8px 24px rgba(239, 68, 68, 0.3);
-}
-
-/* 光效动画 */
-.flow-start::before,
-.flow-end::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-    transition: all 0.8s ease;
-}
-
-.flow-start:hover::before,
-.flow-end:hover::before {
-    left: 100%;
-}
-
-.flow-start:hover,
-.flow-end:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 28px rgba(0,0,0,0.2);
-}
-
-.flow-start i,
-.flow-end i {
-    margin-right: 8px;
-    font-size: 18px;
-    vertical-align: middle;
-}
-
-/* 发起人配置样式优化 - 现代化设计 */
-.flow-start h4 {
-    color: #fff;
-    font-size: 18px;
-    margin-bottom: 16px;
-    font-weight: 600;
-    text-align: center;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
-}
-
-/* 发起人配置表单样式 */
-.flow-start .initiator-config {
-    background: rgba(255,255,255,0.95);
-    padding: 20px;
-    border-radius: 12px;
-    margin-top: 16px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    backdrop-filter: blur(8px);
-}
-
-.flow-start .initiator-config select,
-.flow-start .initiator-config .type-options {
-    width: 100%;
-    padding: 10px 14px;
-    border: 2px solid #e2e8f0;
-    border-radius: 8px;
-    font-size: 14px;
-    margin-bottom: 16px;
-    transition: all 0.3s ease;
-}
-
-.flow-start .initiator-config label {
-    display: block;
-    font-weight: 600;
-    color: #1e293b;
-    margin-bottom: 8px;
-    font-size: 14px;
-}
-
-.flow-start .initiator-config .type-options {
-    background: white;
-    padding: 16px;
-    border-radius: 8px;
-}
-
-/* 表单元素统一样式 - 现代化设计 */
-select, 
-input[type="text"], 
-input[type="number"] {
-    font-family: inherit;
-    border: 2px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 10px 14px;
-    font-size: 14px;
-    transition: all 0.3s ease;
-    outline: none;
-    background-color: white;
-    width: 100%;
-}
-
-select:focus, 
-input[type="text"]:focus, 
-input[type="number"]:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-select:hover, 
-input[type="text"]:hover, 
-input[type="number"]:hover {
-    border-color: #cbd5e1;
-}
-
-/* 按钮样式 - 现代化设计 */
-button {
-    font-family: inherit;
-    border: none;
-    border-radius: 8px;
-    padding: 10px 20px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    outline: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-}
-
-button.primary {
-    background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
-    color: white;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-}
-
-button.primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
-}
-
-button.primary:active {
-    transform: translateY(0);
-}
-
-button.danger {
-    background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
-    color: white;
-    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
-}
-
-button.danger:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
-}
-
-/* 工具提示样式 */
-.tooltip {
-    position: relative;
-    display: inline-block;
-}
-
-.tooltip .tooltiptext {
-    visibility: hidden;
-    width: 140px;
-    background-color: rgba(15, 23, 42, 0.9);
-    color: #fff;
-    text-align: center;
-    border-radius: 6px;
-    padding: 8px 12px;
-    position: absolute;
-    z-index: 1000;
-    bottom: 130%;
-    left: 50%;
-    margin-left: -70px;
-    opacity: 0;
-    transition: opacity 0.3s, transform 0.3s;
-    font-size: 12px;
-    transform: translateY(10px);
-}
-
-.tooltip:hover .tooltiptext {
-    visibility: visible;
-    opacity: 1;
-    transform: translateY(0);
-}
-
-/* 滚动条样式 - 现代化设计 */
-::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-}
-
-::-webkit-scrollbar-track {
-    background: #f1f5f9;
-    border-radius: 6px;
-}
-
-::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 6px;
-    transition: background 0.3s ease;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
-}
-
-/* 流程步骤容器 */
-.flow-steps {
-    position: relative;
-    min-height: 450px;
+.header-left h2 {
+    margin: 0;
+    font-size: 17px;
+    color: #333;
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 40px;
+    gap: 8px;
 }
 
-/* 审批组件样式 - 现代简约设计 */
-.approval-component {
-    width: 200px;
-    height: 100px;
-    border-radius: 12px;
-    background: white;
-    box-shadow: 0 6px 16px rgba(0,0,0,0.1);
-    display: flex;
-    flex-direction: column;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
+.header-left h2 i {
+    color: #4f46e5;
 }
 
-.approval-component:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-}
-
-.approval-component.selected {
-    box-shadow: 0 0 0 3px #3b82f6, 0 8px 24px rgba(59, 130, 246, 0.3);
-}
-
-/* 审批组件头部 - 显示类型 */
-.approval-header {
-    padding: 8px 12px;
-    color: white;
-    font-weight: 600;
+.flow-tag {
+    padding: 4px 12px;
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    color: #fff;
+    border-radius: 20px;
     font-size: 12px;
-    text-align: center;
 }
 
-/* 不同类型的审批组件头部颜色 */
-.approval-header.type-department {
-    background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+.header-right {
+    display: flex;
+    gap: 10px;
 }
 
-.approval-header.type-user {
-    background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%);
-}
-
-.approval-header.type-role {
-    background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
-}
-
-.approval-header.type-manager {
-    background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
-}
-
-.approval-header.type-condition {
-    background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
-}
-
-/* 审批组件内容 - 显示名称 */
-.approval-content {
+.designer-body {
+    display: flex;
     flex: 1;
+    overflow: hidden;
+}
+
+.panel-left {
+    width: 240px;
+    background: #fff;
+    border-right: 1px solid #e8e8e8;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+.panel-header {
+    padding: 14px 18px;
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    color: #fff;
+    font-weight: 600;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.panel-content {
+    flex: 1;
+    padding: 12px;
+    overflow-y: auto;
+}
+
+.group-title {
+    font-size: 12px;
+    color: #999;
+    margin: 16px 0 8px 4px;
+}
+
+.group-title:first-child {
+    margin-top: 0;
+}
+
+.component-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #fafafa;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.component-item:hover {
+    background: #fff;
+    border-color: #4f46e5;
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.12);
+    transform: translateX(2px);
+}
+
+.comp-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 8px 12px;
-    font-size: 14px;
-    color: #1e293b;
-    font-weight: 500;
-    text-align: center;
-    line-height: 1.3;
 }
 
-/* 分支连接点样式 */
-.branch-connector-point {
-    position: absolute;
-    width: 24px;
-    height: 24px;
-    background: white;
-    border: 2px dashed #3b82f6;
+.comp-icon i {
+    font-size: 18px;
+    color: #fff;
+}
+
+.comp-info {
+    flex: 1;
+}
+
+.comp-name {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+}
+
+.comp-desc {
+    display: block;
+    font-size: 11px;
+    color: #999;
+}
+
+.panel-center {
+    flex: 1;
+    overflow: auto;
+    padding: 20px;
+    min-width: 0;
+}
+
+.canvas-area {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    position: relative;
+}
+
+.node-start, .node-end {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.start-circle, .end-circle {
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
-.branch-connector-point:hover {
-    background: #3b82f6;
-    border-color: white;
-    transform: scale(1.2);
-}
-
-.branch-connector-point i {
-    color: #3b82f6;
-    font-size: 12px;
-}
-
-.branch-connector-point:hover i {
-    color: white;
-}
-
-/* 连接点位置 */
-.left-connector {
-    left: -12px;
-    top: 50%;
-    transform: translateY(-50%);
-}
-
-.right-connector {
-    right: -12px;
-    top: 50%;
-    transform: translateY(-50%);
-}
-
-.bottom-connector {
-    bottom: -12px;
-    left: 50%;
-    transform: translateX(-50%);
-}
-
-/* 步骤名称显示 */
-.step-name-display {
-    text-align: center;
-    margin-bottom: 12px;
-    font-weight: 600;
-    color: #1e293b;
-    font-size: 16px;
-}
-
-/* 表单元素统一样式 - 现代化设计 */
-.form-select,
-.form-input {
-    width: 100%;
-    padding: 10px 14px;
-    border: 2px solid #e2e8f0;
-    border-radius: 8px;
-    font-size: 14px;
-    transition: all 0.3s ease;
-    background: white;
-    font-family: inherit;
-}
-
-.form-select:focus,
-.form-input:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.form-label {
-    display: block;
-    font-weight: 600;
-    color: #334155;
-    margin-bottom: 6px;
-    font-size: 14px;
-}
-
-/* 拖拽时的样式 */
-.ui-draggable-dragging {
-    z-index: 9999;
-    opacity: 0.95;
-    transform: rotate(2deg) scale(1.02);
-    box-shadow: 0 15px 30px rgba(0,0,0,0.2) !important;
-}
-
-.ui-droppable-hover {
-    background: #dbeafe !important;
-    border-color: #3b82f6 !important;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-}
-
-/* 流程图连接线 - 现代化设计 */
-.flow-connector {
-    position: absolute;
-    width: 5px;
-    background: linear-gradient(to bottom, #3b82f6, #60a5fa);
-    z-index: -1;
-    border-radius: 3px;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-}
-
-/* 条件分支样式优化 */
-.condition-branches {
-    position: relative;
-    margin-top: 20px;
-    margin-bottom: 40px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.branch-connector {
-    position: absolute;
-    width: 4px;
-    background: linear-gradient(to bottom, #ef4444, #f87171);
-    border-radius: 2px;
-    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
-}
-
-/* 分支标签样式 */
-.branch-label {
-    animation: fadeIn 0.3s ease-out;
-    transition: all 0.3s ease;
-}
-
-.branch-label:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-}
-
-/* 审批组件悬停效果增强 */
-.approval-component:hover {
-    transform: translateY(-2px) scale(1.03);
-    box-shadow: 0 12px 28px rgba(0,0,0,0.2);
-    z-index: 100;
-}
-
-/* 流程步骤容器优化 */
-.flow-steps {
-    position: relative;
-    min-height: 600px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 60px;
-    padding: 40px 20px;
-    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-    border-radius: 16px;
-    border: 2px solid #e2e8f0;
-}
-
-/* 开始和结束节点样式增强 */
-.flow-start, .flow-end {
-    min-width: 280px;
-    padding: 20px 30px;
-    border-radius: 16px;
-    font-size: 16px;
-    font-weight: 600;
-    text-align: center;
-    color: white;
-    margin-bottom: 16px;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    position: relative;
-    transition: all 0.3s ease;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
-}
-
-.flow-start {
+.start-circle {
     background: linear-gradient(135deg, #10b981, #34d399);
 }
 
-.flow-end {
+.end-circle {
     background: linear-gradient(135deg, #6366f1, #818cf8);
 }
 
-.flow-start:hover, .flow-end:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+.start-circle i, .end-circle i {
+    font-size: 20px;
+    color: #fff;
 }
 
-/* 分支连接点优化 */
-.branch-connector-point {
+.start-text, .end-text {
+    margin-top: 8px;
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+}
+
+.connector-v {
+    width: 2px;
+    height: 30px;
+    background: linear-gradient(to bottom, #d1d5db, #9ca3af);
+    border-radius: 1px;
+}
+
+.nodes-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    gap: 12px;
+}
+
+.node-card {
+    width: 320px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.node-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    transform: translateY(-2px);
+}
+
+.node-card.selected {
+    box-shadow: 0 0 0 3px #4f46e5, 0 4px 16px rgba(79, 70, 229, 0.2);
+}
+
+.node-card-header {
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #fff;
+}
+
+.node-card-header i {
+    font-size: 16px;
+}
+
+.node-card-header.purple { background: linear-gradient(135deg, #8b5cf6, #a78bfa); }
+.node-card-header.pink { background: linear-gradient(135deg, #ec4899, #f472b6); }
+.node-card-header.green { background: linear-gradient(135deg, #10b981, #34d399); }
+.node-card-header.orange { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
+.node-card-header.blue { background: linear-gradient(135deg, #6366f1, #818cf8); }
+.node-card-header.teal { background: linear-gradient(135deg, #14b8a6, #2dd4bf); }
+.node-card-header.orange { background: linear-gradient(135deg, #f97316, #fb923c); }
+
+.node-card-title {
+    flex: 1;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.node-card-num {
+    font-size: 11px;
+    opacity: 0.9;
+}
+
+.node-card-body {
+    padding: 12px;
+}
+
+.node-name-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #e8e8e8;
+    border-radius: 6px;
+    text-align: center;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.node-name-input:focus {
+    border-color: #4f46e5;
+    outline: none;
+}
+
+.node-card-btns {
     position: absolute;
-    width: 28px;
-    height: 28px;
-    background: white;
-    border: 2px dashed #3b82f6;
-    border-radius: 50%;
+    top: 42px;
+    right: 6px;
+    display: none;
+}
+
+.node-card:hover .node-card-btns {
+    display: block;
+}
+
+.btn-del {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 4px;
+    background: #fee2e2;
+    color: #ef4444;
+    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    z-index: 100;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: all 0.2s;
 }
 
-.branch-connector-point:hover {
-    background: #3b82f6;
-    border-color: white;
-    transform: scale(1.2);
-    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+.btn-del:hover {
+    background: #ef4444;
+    color: #fff;
 }
 
-/* 条件类型组件样式增强 */
-.approval-component[data-type="condition"] {
-    border: 2px solid #ef4444;
-}
-
-.approval-component[data-type="condition"] .approval-header {
-    background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
-}
-
-/* 动画效果增强 */
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(15px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes pulse {
-    0% {
-        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5);
-    }
-    70% {
-        box-shadow: 0 0 0 15px rgba(59, 130, 246, 0);
-    }
-    100% {
-        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
-    }
-}
-
-/* 应用动画 */
-.approval-component, .flow-start, .flow-end, .branch-label {
-    animation: fadeIn 0.5s ease-out;
-}
-
-/* 动画效果 */
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(15px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes pulse {
-    0% {
-        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5);
-    }
-    70% {
-        box-shadow: 0 0 0 12px rgba(59, 130, 246, 0);
-    }
-    100% {
-        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
-    }
-}
-
-/* 应用动画 */
-.approval-component, .flow-start, .flow-end {
-    animation: fadeIn 0.5s ease-out;
-}
-
-/* 响应式设计 */
-@media (max-width: 1400px) {
-    .flow-designer {
-        flex-direction: column;
-    }
-    
-    .component-panel {
-        width: 100%;
-        max-width: 100%;
-    }
-    
-    .component-list {
-        flex-direction: row;
-        flex-wrap: wrap;
-    }
-    
-    .component-item {
-        flex: 1;
-        min-width: 200px;
-    }
-    
-    .flow-designer-container {
-        flex-direction: column;
-    }
-    
-    .properties-panel {
-        width: 100%;
-        max-height: 400px;
-    }
-}
-
-@media (max-width: 768px) {
-    .flow-design-area {
-        padding: 20px;
-        min-height: 500px;
-    }
-    
-    .flow-start,
-    .flow-end {
-        min-width: 100%;
-        padding: 12px 20px;
-    }
-    
-    .approval-component {
-        width: 160px;
-        height: 80px;
-    }
-    
-    .approval-content {
-        font-size: 12px;
-    }
-    
-    .step-name-display {
-        font-size: 14px;
-    }
-}
-
-/* 打印样式 */
-@media print {
-    .component-panel {
-        display: none;
-    }
-    
-    .flow-design-area {
-        border: none;
-        box-shadow: none;
-        padding: 0;
-    }
-    
-    button {
-        display: none;
-    }
-    
-    .properties-panel {
-        display: none;
-    }
-}
-
-/* 保存按钮样式 */
-.save-properties-btn {
-    width: 100%;
-    margin-top: 20px;
-    padding: 12px;
-    background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
-    color: white;
-    border: none;
+.form-fields-container {
+    border: 1px solid #e8e8e8;
     border-radius: 8px;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    padding: 12px;
+    background: #fafafa;
+    max-height: 300px;
+    overflow-y: auto;
 }
 
-.save-properties-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+.field-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: #fff;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    border: 1px solid #e8e8e8;
 }
 
-/* 条件配置样式 */
-.condition-property {
-    margin-top: 20px;
-    padding-top: 20px;
-    border-top: 2px solid #e2e8f0;
+.field-item:last-child {
+    margin-bottom: 0;
 }
 
-.condition-row {
+.field-header {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    margin-bottom: 16px;
+    gap: 4px;
 }
 
-.condition-selectors {
+.field-name {
+    font-weight: 500;
+    color: #333;
+    font-size: 13px;
+}
+
+.field-type {
+    font-size: 11px;
+    color: #999;
+}
+
+.field-actions {
     display: flex;
-    gap: 12px;
-    align-items: center;
+    gap: 6px;
 }
 
-.condition-operator {
+.empty-field-tip {
+    text-align: center;
+    padding: 20px;
+    color: #999;
+    font-size: 13px;
+}
+
+.add-node-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 20px;
+    background: #fff;
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+    color: #666;
+    cursor: pointer;
+    margin: 12px 0;
+    transition: all 0.2s;
+}
+
+.add-node-btn:hover {
+    border-color: #4f46e5;
+    color: #4f46e5;
+    background: #f5f3ff;
+}
+
+.node-menu {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    z-index: 100;
+    min-width: 150px;
+    overflow: hidden;
+}
+
+.node-menu div {
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-size: 13px;
+}
+
+.node-menu div:hover {
+    background: #f5f3ff;
+    color: #4f46e5;
+}
+
+.node-menu div i {
+    font-size: 14px;
+}
+
+.menu-div {
+    height: 1px;
+    background: #e8e8e8;
+    margin: 4px 0;
+    padding: 0;
+}
+
+.panel-right {
+    width: 300px;
+    background: #fff;
+    border-left: 1px solid #e8e8e8;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+.panel-right .panel-content {
+    flex: 1;
+    padding: 16px;
+}
+
+.empty-tip {
+    text-align: center;
+    padding: 60px 20px;
+    color: #999;
+}
+
+.empty-tip i {
+    font-size: 44px;
+    color: #d1d5db;
+    margin-bottom: 12px;
+    display: block;
+}
+
+.config-section {
+    margin-bottom: 20px;
+}
+
+.section-label {
     font-weight: 600;
-    color: #334155;
-    padding: 0 8px;
+    color: #333;
+    font-size: 13px;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e8e8e8;
+}
+
+.config-row {
+    margin-bottom: 12px;
+}
+
+.config-row label {
+    display: block;
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.config-row select, .config-row input, .config-row textarea {
+    width: 100%;
+}
+
+.section-desc {
+    font-size: 12px;
+    color: #999;
+    margin-bottom: 12px;
+}
+
+.section-label i {
+    margin-right: 4px;
+}
+
+.config-tip {
+    margin-top: 12px;
+    padding: 8px 12px;
+    background: #f0f9ff;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #0369a1;
+}
+
+.config-tip i {
+    margin-right: 4px;
+}
+
+@media (max-width: 1200px) {
+    .panel-left { width: 200px; }
+    .panel-right { width: 260px; }
 }
 </style>
-
-</body>
-</html>
+{% endblock %}

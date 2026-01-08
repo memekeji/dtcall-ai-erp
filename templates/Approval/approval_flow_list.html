@@ -1,4 +1,154 @@
 {% extends "customer/_base_list.html" %}
+
+{% block toolbar %}
+<div class="layui-btn-container">
+    <button type="button" class="layui-btn layui-btn-sm" onclick="addItem()">
+        <i class="layui-icon layui-icon-add-1"></i> 添加审批流程
+    </button>
+</div>
+{% endblock %}
+
+{% block table_columns_config %}
+var tableColumns = [
+    {field: 'name', title: '流程名称', width: 150},
+    {field: 'approval_type_name', title: '审批类型', width: 120, templet: function(d){
+        return d.approval_type_name || '-';
+    }},
+    {field: 'description', title: '描述', width: 200, templet: function(d){
+        return d.description ? (d.description.substring(0, 50) + (d.description.length > 50 ? '...' : '')) : '-';
+    }},
+    {field: 'is_active', title: '状态', width: 100, templet: function(d){
+        if(d.is_active){
+            return '<span class="layui-badge layui-bg-green">启用</span>';
+        }else{
+            return '<span class="layui-badge">禁用</span>';
+        }
+    }},
+    {field: 'created_by_name', title: '创建人', width: 100, templet: function(d){
+        return d.created_by_name || '-';
+    }},
+    {field: 'created_at', title: '创建时间', width: 160},
+    {field: 'right', title: '操作', width: 250, templet: function(d){
+        return '<button class="layui-btn layui-btn-xs" lay-event="edit">编辑</button>'+
+               '<button class="layui-btn layui-btn-xs layui-btn-normal" lay-event="steps">步骤</button>' +
+               '<button class="layui-btn layui-btn-xs layui-btn-warm" lay-event="preview">预览</button>' +
+               '<button class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</button>';
+    }}
+];
+{% endblock %}
+
+{% block search_form %}
+<div class="layui-inline">
+    <input type="text" name="search" placeholder="搜索流程名称" class="layui-input" style="width: 200px;">
+</div>
+{% endblock %}
+
+{% block extra_js %}
+window.addItem = function() {
+    layer.open({
+        type: 2,
+        title: '新增审批流程',
+        content: '/approval/approvalflow/add/',
+        area: ['80%', '80%'],
+        end: function() {
+            refreshTable();
+        }
+    });
+};
+
+window.editFlow = function(id) {
+    layer.open({
+        type: 2,
+        title: '编辑审批流程',
+        content: '/approval/approvalflow/' + id + '/edit/',
+        area: ['80%', '80%'],
+        end: function() {
+            refreshTable();
+        }
+    });
+};
+
+window.viewSteps = function(id) {
+    layer.open({
+        type: 2,
+        title: '审批步骤设计 - ' + getFlowName(id),
+        content: '/approval/approvalflow/' + id + '/steps/',
+        area: ['85%', '100%'],
+        offset: 'r',
+        anim: 'slideLeft',
+        shadeClose: false,
+        move: false,
+        end: function() {
+            refreshTable();
+        }
+    });
+};
+
+window.getFlowName = function(id) {
+    var name = '';
+    layui.table.cache.dataTable.forEach(function(row) {
+        if (row.id == id) {
+            name = row.name || '';
+        }
+    });
+    return name;
+};
+
+window.previewFlow = function(id) {
+    layer.open({
+        type: 2,
+        title: '流程预览',
+        content: '/approval/approvalflow/' + id + '/preview/',
+        area: ['85%', '90%'],
+        maxmin: true
+    });
+};
+
+window.deleteFlow = function(id) {
+    layer.confirm('确认删除这条流程吗？', function(index) {
+        var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        $.ajax({
+            url: '/approval/delete/approvalflow/' + id + '/',
+            type: 'POST',
+            data: {csrfmiddlewaretoken: csrfToken},
+            success: function(res) {
+                if (res.success) {
+                    layer.msg('删除成功');
+                    refreshTable();
+                } else {
+                    layer.msg(res.message || '删除失败');
+                }
+            },
+            error: function() {
+                layer.msg('网络错误');
+            }
+        });
+        layer.close(index);
+    });
+};
+
+layui.use(['table', 'form', 'layer', 'jquery'], function() {
+    var table = layui.table;
+    var layer = layui.layer;
+    var $ = layui.jquery;
+    
+    table.on('tool(dataTable)', function(obj) {
+        var data = obj.data;
+        var layEvent = obj.event;
+        
+        if (layEvent === 'edit') {
+            editFlow(data.id);
+        } else if (layEvent === 'steps') {
+            viewSteps(data.id);
+        } else if (layEvent === 'preview') {
+            previewFlow(data.id);
+        } else if (layEvent === 'delete') {
+            deleteFlow(data.id);
+        }
+    });
+});
+{% endblock %}
+
 {% block table_headers %}
 <th>流程名称</th>
 <th>审批类型</th>
@@ -25,6 +175,7 @@
 <td>
     <button class="layui-btn layui-btn-xs" onclick="editItem({{ item.pk }})">编辑</button>
     <a href="{% url 'approval:approval_flow_steps' item.pk %}" class="layui-btn layui-btn-xs layui-btn-normal">步骤</a>
+    <a href="{% url 'approval:approval_flow_preview' item.pk %}" target="_blank" class="layui-btn layui-btn-xs layui-btn-warm">预览</a>
     <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteItem({{ item.pk }})">删除</button>
 </td>
 {% endblock %}

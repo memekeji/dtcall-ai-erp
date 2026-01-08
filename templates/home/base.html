@@ -310,9 +310,9 @@
     {% endblock %}
     
     <!-- 数字人功能实现 - 使用JavaScript控制显示 -->
-    <div class="digital-human-container" id="digitalHumanContainer" style="position: fixed; right: 10px; bottom: 30px; z-index: 1004; display: none; gap: 10px; flex-direction: row-reverse; align-items: flex-end;">
+    <div class="digital-human-container" id="digitalHumanContainer" style="position: fixed; left: auto; right: 10px; bottom: 30px; top: auto; z-index: 1004; display: none; gap: 10px; flex-direction: row-reverse; align-items: flex-end; user-select: none;">
         <!-- 折叠状态的小图标 -->
-        <div class="digital-human-toggle" style="width: 60px; height: 60px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 5px 15px rgba(0,0,0,0.2); cursor: pointer; transition: all 0.3s ease; z-index: 1005;">
+        <div class="digital-human-toggle" id="digitalHumanToggle" style="width: 60px; height: 60px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 5px 15px rgba(0,0,0,0.2); cursor: move; z-index: 1005;">
             <div style="width: 30px; height: 30px; background: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 20px; font-weight: bold; color: #667eea;">
                 AI
             </div>
@@ -338,7 +338,7 @@
         </div>
         
         <!-- 对话历史列表 -->
-        <div class="chat-history-list" style="width: 200px; background: white; border-radius: 15px 0 0 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); margin-top: 15px; overflow: hidden; transition: all 0.3s ease; max-height: 400px; display: none; border-right: 1px solid #e6e6e6;">
+        <div class="chat-history-list" id="chatHistoryList" style="width: 200px; background: white; border-radius: 15px 0 0 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); margin-top: 15px; overflow: hidden; max-height: 400px; display: none; border-right: 1px solid #e6e6e6;">
             <!-- 历史列表标题 -->
             <div class="chat-history-header" style="padding: 15px; border-bottom: 1px solid #e6e6e6; font-weight: bold; font-size: 14px; background: #fafafa;">
                 会话历史
@@ -357,7 +357,7 @@
         </div>
         
         <!-- 对话框 -->
-        <div class="dialog-box" style="width: 300px; background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); margin-top: 15px; overflow: hidden; transition: all 0.3s ease; max-height: 50px; min-height: 50px; display: none;">
+        <div class="dialog-box" id="dialogBox" style="width: 300px; background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); margin-top: 15px; overflow: hidden; max-height: 50px; min-height: 50px; display: none;">
             <!-- 对话内容区域 -->
             <div class="dialog-content" style="padding: 15px; max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
                 <!-- 默认欢迎消息 -->
@@ -377,6 +377,18 @@
         
         <!-- 数字人相关CSS动画 -->
         <style>
+            /* 拖动时的特殊样式 */
+            .digital-human-container.dragging {
+                transition: none !important;
+                will-change: transform;
+            }
+            
+            .digital-human-container.dragging .digital-human-toggle {
+                transition: none !important;
+                will-change: transform, box-shadow;
+            }
+            
+            /* 基础动画样式 */
             @keyframes float {
                 0%, 100% { transform: translateY(0px); }
                 50% { transform: translateY(-10px); }
@@ -1055,6 +1067,279 @@
         // setTimeout(() => {
         //     digitalHuman.click();
         // }, 2000);
+
+        // AI图标拖拽功能 - 高性能实现
+        (function() {
+            const container = document.getElementById('digitalHumanContainer');
+            const toggle = document.getElementById('digitalHumanToggle');
+            
+            // 状态管理
+            let isDragging = false;
+            let isLongPress = false;
+            let dragStartX = 0, dragStartY = 0;
+            let containerStartX = 0, containerStartY = 0;
+            let animationFrameId = null;
+            let longPressTimer = null;
+            
+            // 配置
+            const LONG_PRESS_DELAY = 150; // 长按激活时间（150ms）
+            const MIN_DRAG_DISTANCE = 5; // 最小拖动距离，防止误触
+            
+            // 获取容器实际尺寸（根据显示状态）
+            function getContainerBounds() {
+                if (container.style.display === 'none') {
+                    return { width: 60, height: 60 }; // 仅图标尺寸
+                }
+                
+                // 根据显示状态计算实际尺寸
+                const hasDigitalHuman = digitalHumanWrapper.style.display !== 'none';
+                const hasDialog = dialogBox.style.display !== 'none';
+                const hasHistory = chatHistoryList.style.display !== 'none';
+                
+                let width = 60;  // 图标宽度
+                let height = 60; // 图标高度
+                
+                if (hasDigitalHuman) width = Math.max(width, 200);
+                if (hasDialog) width = Math.max(width, 300);
+                if (hasHistory) width = Math.max(width, 200);
+                
+                if (hasDigitalHuman) height += 300;
+                if (hasDialog) height += 350;
+                if (hasHistory) height += 400;
+                
+                return { width: Math.min(width, 520), height: Math.min(height, 450) };
+            }
+            
+            // 边界限制
+            function clampPosition(x, y) {
+                const bounds = getContainerBounds();
+                const maxX = Math.max(0, window.innerWidth - bounds.width);
+                const maxY = Math.max(0, window.innerHeight - bounds.height);
+                
+                return {
+                    x: Math.max(0, Math.min(x, maxX)),
+                    y: Math.max(0, Math.min(y, maxY))
+                };
+            }
+            
+            // 立即应用位置（无requestAnimationFrame延迟）
+            function applyPosition(x, y) {
+                const pos = clampPosition(x, y);
+                container.style.left = pos.x + 'px';
+                container.style.top = pos.y + 'px';
+                container.style.right = 'auto';
+                container.style.bottom = 'auto';
+                return pos;
+            }
+            
+            // 激活拖动
+            function startDrag(e) {
+                if (container.style.display === 'none') return;
+                
+                isDragging = true;
+                isLongPress = true;
+                
+                const rect = container.getBoundingClientRect();
+                containerStartX = rect.left;
+                containerStartY = rect.top;
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+                
+                // 添加拖动样式类
+                container.classList.add('dragging');
+                
+                // 视觉反馈
+                toggle.style.transform = 'scale(1.15)';
+                toggle.style.boxShadow = '0 10px 30px rgba(102, 126, 234, 0.6)';
+                toggle.style.cursor = 'grabbing';
+                
+                // 防止文本选择
+                document.body.style.userSelect = 'none';
+                document.body.style.webkitUserSelect = 'none';
+                
+                // 绑定全局事件（捕获阶段）
+                document.addEventListener('mousemove', onGlobalMouseMove, { capture: true });
+                document.addEventListener('mouseup', onGlobalMouseUp, { capture: true });
+            }
+            
+            // 全局鼠标移动
+            function onGlobalMouseMove(e) {
+                if (!isDragging) return;
+                
+                const offsetX = e.clientX - dragStartX;
+                const offsetY = e.clientY - dragStartY;
+                const newX = containerStartX + offsetX;
+                const newY = containerStartY + offsetY;
+                
+                applyPosition(newX, newY);
+            }
+            
+            // 全局鼠标释放
+            function onGlobalMouseUp(e) {
+                // 移除全局事件监听（捕获阶段）
+                document.removeEventListener('mousemove', onGlobalMouseMove, { capture: true });
+                document.removeEventListener('mouseup', onGlobalMouseUp, { capture: true });
+                
+                // 清除定时器
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+                
+                // 如果正在拖动，立即结束
+                if (isDragging) {
+                    isDragging = false;
+                    
+                    // 立即恢复状态
+                    container.classList.remove('dragging');
+                    toggle.style.transform = '';
+                    toggle.style.boxShadow = '';
+                    toggle.style.cursor = 'move';
+                    
+                    // 恢复文本选择
+                    document.body.style.userSelect = '';
+                    document.body.style.webkitUserSelect = '';
+                    
+                    // 检查是否触发点击事件
+                    const distance = Math.sqrt(
+                        Math.pow(e.clientX - dragStartX, 2) + 
+                        Math.pow(e.clientY - dragStartY, 2)
+                    );
+                    
+                    if (distance < MIN_DRAG_DISTANCE && isLongPress) {
+                        // 延迟触发点击，避免冲突
+                        setTimeout(() => {
+                            const clickEvent = new MouseEvent('click', {
+                                bubbles: true,
+                                cancelable: true,
+                                view: window
+                            });
+                            digitalHumanToggle.dispatchEvent(clickEvent);
+                        }, 0);
+                    }
+                }
+                
+                isLongPress = false;
+            }
+            
+            // 鼠标按下
+            function onMouseDown(e) {
+                if (e.button !== 0) return;
+                if (container.style.display === 'none') return;
+                
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // 清除之前的定时器
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                }
+                
+                // 重置状态
+                isLongPress = false;
+                isDragging = false;
+                
+                // 设置长按定时器
+                longPressTimer = setTimeout(() => startDrag(e), LONG_PRESS_DELAY);
+            }
+            
+            // 鼠标移动
+            function onMouseMove(e) {
+                if (!isDragging) return;
+                
+                const offsetX = e.clientX - dragStartX;
+                const offsetY = e.clientY - dragStartY;
+                
+                const newX = containerStartX + offsetX;
+                const newY = containerStartY + offsetY;
+                
+                applyPosition(newX, newY);
+            }
+            
+            // 鼠标释放
+            function onMouseUp(e) {
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+                
+                if (isDragging) {
+                    isDragging = false;
+                    
+                    // 恢复视觉状态
+                    toggle.style.transform = '';
+                    toggle.style.boxShadow = '';
+                    toggle.style.cursor = 'move';
+                    
+                    // 移除拖动样式类
+                    container.classList.remove('dragging');
+                    
+                    // 恢复文本选择
+                    document.body.style.userSelect = '';
+                    document.body.style.webkitUserSelect = '';
+                    
+                    // 如果移动距离很小，视为点击
+                    const distance = Math.sqrt(
+                        Math.pow(e.clientX - dragStartX, 2) + 
+                        Math.pow(e.clientY - dragStartY, 2)
+                    );
+                    
+                    if (distance < MIN_DRAG_DISTANCE && isLongPress) {
+                        // 触发原始点击事件
+                        setTimeout(() => {
+                            const clickEvent = new MouseEvent('click', {
+                                bubbles: true,
+                                cancelable: true,
+                                view: window
+                            });
+                            digitalHumanToggle.dispatchEvent(clickEvent);
+                        }, 10);
+                    }
+                }
+                
+                isLongPress = false;
+            }
+            
+            // 窗口大小改变时重新计算边界
+            function onWindowResize() {
+                if (container.style.right === 'auto') {
+                    const rect = container.getBoundingClientRect();
+                    applyPosition(rect.left, rect.top);
+                }
+            }
+            
+            // 事件绑定 - 修复重复绑定问题
+            toggle.addEventListener('mousedown', onMouseDown, { passive: false });
+            window.addEventListener('resize', onWindowResize);
+            
+            // 初始样式
+            toggle.style.cursor = 'move';
+            toggle.style.userSelect = 'none';
+            toggle.style.webkitUserSelect = 'none';
+            
+            // 保存原始点击事件
+            const originalClickHandler = digitalHumanToggle.onclick;
+            
+            // 重写点击事件，只在非拖动时触发
+            digitalHumanToggle.onclick = function(e) {
+                if (isDragging || isLongPress) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+                
+                // 如果已经使用left/top定位，保持位置
+                if (container.style.right === 'auto') {
+                    const rect = container.getBoundingClientRect();
+                    applyPosition(rect.left, rect.top);
+                }
+                
+                // 调用原始点击事件
+                if (originalClickHandler) {
+                    originalClickHandler.call(this, e);
+                }
+            };
+        })();
         </script>
         
         <!-- 水印功能实现 - 动态读取配置 -->

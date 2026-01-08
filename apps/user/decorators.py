@@ -20,7 +20,7 @@ def data_isolation(model=None):
         @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
             # 超级用户拥有所有数据权限
-            if hasattr(request.user, 'is_superuser') and request.user.is_superuser:
+            if request.user.is_authenticated and request.user.is_superuser:
                 return view_func(request, *args, **kwargs)
             
             # 获取用户的数据权限信息
@@ -65,7 +65,7 @@ def permission_required(perms):
         @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
             # 超级用户拥有所有权限
-            if hasattr(request.user, 'is_superuser') and request.user.is_superuser:
+            if request.user.is_authenticated and request.user.is_superuser:
                 return view_func(request, *args, **kwargs)
             
             # 检查用户是否已登录
@@ -100,7 +100,7 @@ def button_permission_required(button_code):
         @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
             # 超级用户拥有所有按钮权限
-            if hasattr(request.user, 'is_superuser') and request.user.is_superuser:
+            if request.user.is_authenticated and request.user.is_superuser:
                 return view_func(request, *args, **kwargs)
             
             # 检查用户是否有按钮权限

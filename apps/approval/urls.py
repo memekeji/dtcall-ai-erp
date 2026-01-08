@@ -17,6 +17,15 @@ urlpatterns = [
     path('approvalflow/<int:flow_pk>/step/<int:pk>/delete/', views.approval_step_delete, name='approval_step_delete'),
     path('approvalflow/<int:pk>/preview/', views.approval_flow_preview, name='approval_flow_preview'),
     path('approvalflow/<int:pk>/batch-create-steps/', views.batch_create_steps, name='batch_create_steps'),
+    path('approvalflow/<int:pk>/initiator/', views.get_initiator_config, name='get_initiator_config'),
+    path('approvalflow/<int:pk>/update-initiator/', views.update_initiator_config, name='update_initiator_config'),
+    path('approvalflow/<int:pk>/start-config/', views.get_start_config, name='get_start_config'),
+    path('approvalflow/<int:pk>/update-start-config/', views.update_start_config, name='update_start_config'),
+    
+    path('my/', views.my_approval_list, name='my_approval_list'),
+    path('apply/', views.apply_approval, name='apply_approval'),
+    path('apply/<int:flow_id>/', views.create_approval, name='create_approval'),
+    path('api/available-flows/', views.get_available_flows, name='get_available_flows'),
     
     path('delete/<str:model_name>/<int:pk>/', views.delete_item, name='delete_item'),
 ]

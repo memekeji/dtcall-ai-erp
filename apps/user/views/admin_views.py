@@ -337,8 +337,7 @@ class BatchImportView(LoginRequiredMixin, View):
             return JsonResponse({'code': 1, 'msg': str(e)}, json_dumps_params={'ensure_ascii': False})
 
 # 重置密码
-class ResetPasswordView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    permission_required = 'user.change_admin'
+class ResetPasswordView(LoginRequiredMixin, View):
     
     def post(self, request, pk):
         try:
@@ -355,8 +354,7 @@ class ResetPasswordView(LoginRequiredMixin, PermissionRequiredMixin, View):
             return JsonResponse({'code': 1, 'msg': str(e)}, json_dumps_params={'ensure_ascii': False})
 
 # 更改员工状态
-class ChangeStatusView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    permission_required = 'user.change_admin'
+class ChangeStatusView(LoginRequiredMixin, View):
     
     def post(self, request, pk):
         try:

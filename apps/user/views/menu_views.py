@@ -1,14 +1,28 @@
 from django.views import View
 from django.http import JsonResponse
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.decorators import login_required
 from apps.user.models import Menu
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 import json
 
-class MenuListAPIView(LoginRequiredMixin, PermissionRequiredMixin, View):
+
+class SuperUserPermissionMixin:
+    """
+    自定义权限检查Mixin
+    允许超级用户绕过PermissionRequiredMixin的权限检查
+    """
+    
+    def has_permission(self):
+        # 超级用户拥有所有权限
+        if self.request.user.is_authenticated and self.request.user.is_superuser:
+            return True
+        return False
+
+
+class MenuListAPIView(LoginRequiredMixin, View):
     """菜单列表API视图"""
-    permission_required = 'user.view_menu'
     
     def get(self, request):
         """获取菜单列表"""
@@ -58,9 +72,8 @@ class MenuListAPIView(LoginRequiredMixin, PermissionRequiredMixin, View):
         })
 
 
-class MenuDetailAPIView(LoginRequiredMixin, PermissionRequiredMixin, View):
+class MenuDetailAPIView(LoginRequiredMixin, View):
     """菜单详情API视图"""
-    permission_required = 'user.view_menu'
     
     def get(self, request, pk):
         """获取菜单详情"""
@@ -94,9 +107,8 @@ class MenuDetailAPIView(LoginRequiredMixin, PermissionRequiredMixin, View):
             })
 
 
-class MenuView(LoginRequiredMixin, PermissionRequiredMixin, View):
+class MenuView(LoginRequiredMixin, View):
     """菜单管理视图"""
-    permission_required = 'user.change_menu'
     
     def get(self, request):
         """获取菜单列表或菜单树

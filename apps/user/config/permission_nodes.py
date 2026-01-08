@@ -2,6 +2,9 @@
 权限节点配置
 根据权限管理详细设计文档定义的所有权限节点
 用于前端权限配置页面和后端权限控制
+
+权限格式: {app_label}.{action}_{model}
+例如: user.view_notice, user.add_department
 """
 
 PERMISSION_NODES = {
@@ -27,8 +30,11 @@ PERMISSION_NODES = {
                 'name': '系统配置',
                 'permissions': [
                     {'codename': 'view_config', 'name': '菜单查看'},
+                    {'codename': 'view_systemconfiguration', 'name': '系统配置查看'},
                     {'codename': 'add_config', 'name': '新增配置'},
                     {'codename': 'change_config', 'name': '编辑配置'},
+                    {'codename': 'change_systemconfiguration', 'name': '系统配置编辑'},
+                    {'codename': 'delete_systemconfiguration', 'name': '系统配置删除'},
                 ]
             },
             'module': {
@@ -53,6 +59,7 @@ PERMISSION_NODES = {
                 'name': '操作日志',
                 'permissions': [
                     {'codename': 'view_operation_log', 'name': '菜单查看'},
+                    {'codename': 'view_systemoperationlog', 'name': '系统操作日志查看'},
                     {'codename': 'view_operation_log_detail', 'name': '查看日志详情'},
                 ]
             },
@@ -124,7 +131,7 @@ PERMISSION_NODES = {
                     {'codename': 'add_employee', 'name': '新增员工'},
                     {'codename': 'change_employee', 'name': '编辑员工'},
                     {'codename': 'delete_employee', 'name': '删除员工'},
-                    {'codename': 'import_employee', 'name': '批量导入'},
+                    {'codename': 'batch_import_employee', 'name': '批量导入'},
                 ]
             },
             'reward_punishment': {
@@ -156,7 +163,7 @@ PERMISSION_NODES = {
             'assets': {
                 'name': '固定资产',
                 'children': {
-                    'asset_management': {
+                    'asset': {
                         'name': '资产管理',
                         'permissions': [
                             {'codename': 'view_asset', 'name': '菜单查看'},
@@ -200,10 +207,10 @@ PERMISSION_NODES = {
                     'vehicle_info': {
                         'name': '车辆信息',
                         'permissions': [
-                            {'codename': 'view_vehicle', 'name': '菜单查看'},
-                            {'codename': 'add_vehicle', 'name': '新增车辆'},
-                            {'codename': 'change_vehicle', 'name': '编辑车辆'},
-                            {'codename': 'delete_vehicle', 'name': '删除车辆'},
+                            {'codename': 'view_vehicle_info', 'name': '菜单查看'},
+                            {'codename': 'add_vehicle_info', 'name': '新增车辆'},
+                            {'codename': 'change_vehicle_info', 'name': '编辑车辆'},
+                            {'codename': 'delete_vehicle_info', 'name': '删除车辆'},
                         ]
                     },
                     'vehicle_apply': {
@@ -311,7 +318,7 @@ PERMISSION_NODES = {
                         'name': '公文审核',
                         'permissions': [
                             {'codename': 'view_document_approve', 'name': '菜单查看'},
-                            {'codename': 'approve_document', 'name': '新增审核'},
+                            {'codename': 'add_document_approve', 'name': '新增审核'},
                             {'codename': 'change_document_approve', 'name': '编辑审核'},
                             {'codename': 'delete_document_approve', 'name': '删除审核'},
                         ]
@@ -320,7 +327,7 @@ PERMISSION_NODES = {
                         'name': '公文发布',
                         'permissions': [
                             {'codename': 'view_document_publish', 'name': '菜单查看'},
-                            {'codename': 'publish_document', 'name': '新增发布'},
+                            {'codename': 'add_document_publish', 'name': '新增发布'},
                             {'codename': 'change_document_publish', 'name': '编辑发布'},
                             {'codename': 'delete_document_publish', 'name': '删除发布'},
                         ]
@@ -328,7 +335,7 @@ PERMISSION_NODES = {
                     'document_view': {
                         'name': '公文查看',
                         'permissions': [
-                            {'codename': 'view_document', 'name': '菜单查看'},
+                            {'codename': 'view_document_view', 'name': '菜单查看'},
                             {'codename': 'view_document_detail', 'name': '查看详情'},
                         ]
                     },
@@ -349,7 +356,7 @@ PERMISSION_NODES = {
                     'seal_management': {
                         'name': '印章管理',
                         'permissions': [
-                            {'codename': 'view_seal', 'name': '菜单查看'},
+                            {'codename': 'view_seal_management', 'name': '菜单查看'},
                             {'codename': 'add_seal', 'name': '新增印章'},
                             {'codename': 'change_seal', 'name': '编辑印章'},
                             {'codename': 'delete_seal', 'name': '删除印章'},
@@ -389,7 +396,7 @@ PERMISSION_NODES = {
                 'name': '公司动态',
                 'permissions': [
                     {'codename': 'view_company_news', 'name': '菜单查看'},
-                    {'codename': 'view_news_detail', 'name': '查看动态'},
+                    {'codename': 'view_company_news_detail', 'name': '查看动态'},
                     {'codename': 'add_company_news', 'name': '新增动态'},
                     {'codename': 'change_company_news', 'name': '编辑动态'},
                     {'codename': 'delete_company_news', 'name': '删除动态'},
@@ -562,7 +569,7 @@ PERMISSION_NODES = {
                         ]
                     },
                 }
-            }
+            },
         }
     },
 
@@ -579,10 +586,10 @@ PERMISSION_NODES = {
                     {'codename': 'add_customer', 'name': '新增客户'},
                     {'codename': 'change_customer', 'name': '编辑客户'},
                     {'codename': 'delete_customer', 'name': '删除客户'},
-                    {'codename': 'import_customer', 'name': '批量导入'},
+                    {'codename': 'batch_import_customer', 'name': '批量导入'},
                     {'codename': 'batch_delete_customer', 'name': '批量删除'},
                     {'codename': 'dial_customer', 'name': '拨号'},
-                    {'codename': 'followup_customer', 'name': '跟进客户'},
+                    {'codename': 'follow_customer', 'name': '跟进客户'},
                     {'codename': 'add_customer_order', 'name': '添加客户订单'},
                     {'codename': 'add_customer_contract', 'name': '添加客户合同'},
                     {'codename': 'add_customer_invoice', 'name': '添加客户发票'},
@@ -590,16 +597,16 @@ PERMISSION_NODES = {
                     {'codename': 'add_customer_project', 'name': '添加客户项目'},
                 ]
             },
-            'customer_pool': {
+            'pool_list': {
                 'name': '客户公海',
                 'children': {
-                    'pool_list': {
+                    'public_customer': {
                         'name': '公海列表',
                         'permissions': [
-                            {'codename': 'view_pool_list', 'name': '菜单查看'},
-                            {'codename': 'add_pool_customer', 'name': '新增公海客户'},
-                            {'codename': 'claim_customer', 'name': '认领客户'},
-                            {'codename': 'view_pool_customer_detail', 'name': '公海客户详情'},
+                            {'codename': 'view_public_customer', 'name': '菜单查看'},
+                            {'codename': 'add_public_customer', 'name': '新增公海客户'},
+                            {'codename': 'claim_public_customer', 'name': '认领客户'},
+                            {'codename': 'view_public_customer_detail', 'name': '公海客户详情'},
                             {'codename': 'discard_customer', 'name': '移入废弃客户'},
                         ]
                     },
@@ -633,9 +640,9 @@ PERMISSION_NODES = {
                 'name': '客户订单',
                 'permissions': [
                     {'codename': 'view_customer_order', 'name': '菜单查看'},
-                    {'codename': 'view_order_detail', 'name': '查看订单详情'},
+                    {'codename': 'view_customer_order_detail', 'name': '查看订单详情'},
                     {'codename': 'add_customer_order', 'name': '新增订单'},
-                    {'codename': 'payment_order', 'name': '收款订单'},
+                    {'codename': 'payment_customer_order', 'name': '收款订单'},
                     {'codename': 'change_customer_order', 'name': '编辑订单'},
                     {'codename': 'delete_customer_order', 'name': '删除订单'},
                 ]
@@ -805,7 +812,7 @@ PERMISSION_NODES = {
     # 9. 项目管理
     'project': {
         'name': '项目管理',
-        'icon': 'layui-icon-template',
+        'icon': 'layui-icon-project',
         'children': {
             'project_list': {
                 'name': '项目列表',
@@ -1034,14 +1041,14 @@ PERMISSION_NODES = {
                         ]
                     },
                 }
-            }
+            },
         }
     },
 
     # 11. AI智能中心
     'ai': {
         'name': 'AI智能中心',
-        'icon': 'layui-icon-auz',
+        'icon': 'layui-icon-app',
         'children': {
             'knowledge_base': {
                 'name': '知识库管理',
@@ -1083,12 +1090,12 @@ PERMISSION_NODES = {
     # 12. 企业网盘
     'disk': {
         'name': '企业网盘',
-        'icon': 'layui-icon-file',
+        'icon': 'layui-icon-cloud',
         'children': {
             'disk_index': {
                 'name': '网盘首页',
                 'permissions': [
-                    {'codename': 'view_disk_index', 'name': '菜单查看'},
+                    {'codename': 'view_disk', 'name': '菜单查看'},
                     {'codename': 'view_disk_file', 'name': '查看文件'},
                     {'codename': 'add_disk_file', 'name': '新增文件'},
                     {'codename': 'change_disk_file', 'name': '编辑文件'},
@@ -1125,7 +1132,7 @@ PERMISSION_NODES = {
             'share_management': {
                 'name': '分享管理',
                 'permissions': [
-                    {'codename': 'view_share_management', 'name': '菜单查看'},
+                    {'codename': 'view_share', 'name': '菜单查看'},
                     {'codename': 'add_share', 'name': '新增分享'},
                     {'codename': 'change_share', 'name': '编辑分享'},
                     {'codename': 'delete_share', 'name': '删除分享'},
@@ -1135,10 +1142,114 @@ PERMISSION_NODES = {
                 'name': '回收站',
                 'permissions': [
                     {'codename': 'view_recycle', 'name': '菜单查看'},
-                    {'codename': 'view_recycle_detail', 'name': '查看回收站'},
+                    {'codename': 'view_recycle_list', 'name': '查看回收站'},
                     {'codename': 'clear_recycle', 'name': '清空回收站'},
                 ]
             },
         }
-    }
+    },
 }
+
+
+def get_all_permission_codenames():
+    """获取所有权限节点的codename列表"""
+    codenames = []
+    for module_key, module_config in PERMISSION_NODES.items():
+        if 'permissions' in module_config:
+            for perm in module_config['permissions']:
+                if perm.get('codename'):
+                    codenames.append(perm['codename'])
+        
+        if 'children' in module_config:
+            for child_key, child_config in module_config['children'].items():
+                codenames.append(f'view_{child_key}')
+                
+                if 'permissions' in child_config:
+                    for perm in child_config['permissions']:
+                        if perm.get('codename'):
+                            codenames.append(perm['codename'])
+                
+                if 'children' in child_config:
+                    for sub_key, sub_config in child_config['children'].items():
+                        codenames.append(f'view_{sub_key}')
+                        
+                        if 'permissions' in sub_config:
+                            for perm in sub_config['permissions']:
+                                if perm.get('codename'):
+                                    codenames.append(perm['codename'])
+    
+    return codenames
+
+
+def get_permission_name(codename):
+    """根据codename获取权限名称"""
+    for module_key, module_config in PERMISSION_NODES.items():
+        if 'permissions' in module_config:
+            for perm in module_config['permissions']:
+                if perm.get('codename') == codename:
+                    return perm.get('name', codename)
+        
+        if 'children' in module_config:
+            for child_key, child_config in module_config['children'].items():
+                if f'view_{child_key}' == codename:
+                    return '菜单查看'
+                
+                if 'permissions' in child_config:
+                    for perm in child_config['permissions']:
+                        if perm.get('codename') == codename:
+                            return perm.get('name', codename)
+                
+                if 'children' in child_config:
+                    for sub_key, sub_config in child_config['children'].items():
+                        if f'view_{sub_key}' == codename:
+                            return '菜单查看'
+                        
+                        if 'permissions' in sub_config:
+                            for perm in sub_config['permissions']:
+                                if perm.get('codename') == codename:
+                                    return perm.get('name', codename)
+    
+    return codename
+
+
+def build_permission_tree():
+    """构建权限树结构用于前端显示"""
+    tree = []
+    
+    for module_key, module_config in PERMISSION_NODES.items():
+        module_node = {
+            'key': module_key,
+            'title': module_config.get('name', module_key),
+            'icon': module_config.get('icon', ''),
+            'children': [],
+            'type': 'module'
+        }
+        
+        if 'children' in module_config:
+            for child_key, child_config in module_config['children'].items():
+                child_node = {
+                    'key': child_key,
+                    'title': child_config.get('name', child_key),
+                    'children': [],
+                    'type': 'menu'
+                }
+                
+                if 'children' in child_config:
+                    for sub_key, sub_config in child_config['children'].items():
+                        sub_node = {
+                            'key': sub_key,
+                            'title': sub_config.get('name', sub_key),
+                            'permissions': sub_config.get('permissions', []),
+                            'type': 'submenu'
+                        }
+                        child_node['children'].append(sub_node)
+                else:
+                    child_node['permissions'] = child_config.get('permissions', [])
+                
+                module_node['children'].append(child_node)
+        else:
+            module_node['permissions'] = module_config.get('permissions', [])
+        
+        tree.append(module_node)
+    
+    return tree

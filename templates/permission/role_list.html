@@ -663,31 +663,10 @@ layui.use(['form', 'layer', 'laypage', 'jquery'], function(){
                 maxmin: false,
                 btn: ['保存', '取消'],
                 yes: function(index, layero) {
-                    // 获取iframe中的表单
                     var iframeWin = window[layero.find('iframe')[0]['name']];
-                    var form = iframeWin.document.getElementById('permissionForm');
-                    var formData = new FormData(form);
-                    
-                    // 提交表单
-                    $.ajax({
-                        url: '/user/group/' + roleId + '/permission/',
-                        type: 'POST',
-                        data: formData,
-                        processData: false,
-                        contentType: false,
-                        success: function(res) {
-                            if (res.code === 200) {
-                                layer.msg('权限配置成功');
-                                layer.close(index);
-                                setTimeout(function() { window.location.reload(); }, 1000);
-                            } else {
-                                layer.msg(res.msg || '权限配置失败');
-                            }
-                        },
-                        error: function() {
-                            layer.msg('网络错误，请重试');
-                        }
-                    });
+                    if (typeof iframeWin.savePermissions === 'function') {
+                        iframeWin.savePermissions();
+                    }
                 },
                 btn2: function(index) {
                     layer.close(index);

@@ -45,10 +45,37 @@ class Command(BaseCommand):
         """清除现有权限"""
         self.stdout.write('正在清除现有权限...')
         deleted_count = 0
-        for perm in Permission.objects.filter(codename__startswith='custom_'):
+        for perm in Permission.objects.filter(codename__in=self._get_all_permission_codenames()):
             perm.delete()
             deleted_count += 1
         self.stdout.write(self.style.SUCCESS(f'已清除 {deleted_count} 个自定义权限'))
+
+    def _get_all_permission_codenames(self):
+        """获取所有需要清除的权限codename列表"""
+        codenames = []
+        for module_name, module_config in PERMISSION_NODES.items():
+            if 'permissions' in module_config:
+                for perm_config in module_config['permissions']:
+                    codename = perm_config.get('codename')
+                    if codename:
+                        codenames.append(codename)
+            if 'children' in module_config:
+                for child_key, child_config in module_config['children'].items():
+                    codenames.append(f'view_{child_key}')
+                    if 'permissions' in child_config:
+                        for perm_config in child_config['permissions']:
+                            codename = perm_config.get('codename')
+                            if codename:
+                                codenames.append(codename)
+                    if 'children' in child_config:
+                        for sub_key, sub_config in child_config['children'].items():
+                            codenames.append(f'view_{sub_key}')
+                            if 'permissions' in sub_config:
+                                for perm_config in sub_config['permissions']:
+                                    codename = perm_config.get('codename')
+                                    if codename:
+                                        codenames.append(codename)
+        return codenames
 
     def _create_permissions(self):
         """创建权限"""
@@ -56,9 +83,16 @@ class Command(BaseCommand):
         total_created = 0
         total_existed = 0
 
+        content_type, _ = ContentType.objects.get_or_create(
+            app_label='user',
+            model='permission'
+        )
+
         for module_name, module_config in PERMISSION_NODES.items():
             self.stdout.write(f'\n处理模块: {module_name}')
-            module_created, module_existed = self._create_module_permissions(module_name, module_config)
+            module_created, module_existed = self._create_module_permissions(
+                module_name, module_config, content_type
+            )
             total_created += module_created
             total_existed += module_existed
 
@@ -66,17 +100,11 @@ class Command(BaseCommand):
         self.stdout.write(f'  新建: {total_created} 个')
         self.stdout.write(f'  已存在: {total_existed} 个')
 
-    def _create_module_permissions(self, module_name, module_config):
+    def _create_module_permissions(self, module_name, module_config, content_type):
         """创建单个模块的权限"""
         created = 0
         existed = 0
 
-        content_type, _ = ContentType.objects.get_or_create(
-            app_label='custom',
-            model='permission'
-        )
-
-        # 处理独立权限列表
         if 'permissions' in module_config:
             for perm_config in module_config['permissions']:
                 perm_created, perm_existed = self._create_permission(
@@ -85,7 +113,6 @@ class Command(BaseCommand):
                 created += perm_created
                 existed += perm_existed
 
-        # 处理子菜单（children结构）
         if 'children' in module_config:
             for child_key, child_config in module_config['children'].items():
                 child_created, child_existed = self._create_child_permissions(
@@ -104,7 +131,7 @@ class Command(BaseCommand):
         child_name = child_config.get('name', child_key)
 
         child_perm_code = f'view_{child_key}'
-        child_perm_name = f'查看{module_name}-{child_name}'
+        child_perm_name = f'查看{child_name}'
         is_new, is_existed = self._get_or_create_permission(
             child_perm_code, child_perm_name, content_type
         )
@@ -115,8 +142,8 @@ class Command(BaseCommand):
 
         if 'permissions' in child_config:
             for perm_config in child_config['permissions']:
-                action_perm_code = perm_config.get('codename', f'op_{child_key}')
-                action_perm_name = perm_config.get('name', f'{child_name}操作')
+                action_perm_code = perm_config.get('codename', f'change_{child_key}')
+                action_perm_name = perm_config.get('name', child_name)
                 is_new, is_existed = self._get_or_create_permission(
                     action_perm_code, action_perm_name, content_type
                 )
@@ -143,7 +170,7 @@ class Command(BaseCommand):
         sub_name = sub_config.get('name', sub_key)
 
         sub_perm_code = f'view_{sub_key}'
-        sub_perm_name = f'查看{module_name}-{parent_name}-{sub_name}'
+        sub_perm_name = f'查看{sub_name}'
         is_new, is_existed = self._get_or_create_permission(
             sub_perm_code, sub_perm_name, content_type
         )
@@ -154,8 +181,8 @@ class Command(BaseCommand):
 
         if 'permissions' in sub_config:
             for perm_config in sub_config['permissions']:
-                action_perm_code = perm_config.get('codename', f'op_{sub_key}')
-                action_perm_name = perm_config.get('name', f'{sub_name}操作')
+                action_perm_code = perm_config.get('codename', f'change_{sub_key}')
+                action_perm_name = perm_config.get('name', sub_name)
                 is_new, is_existed = self._get_or_create_permission(
                     action_perm_code, action_perm_name, content_type
                 )
@@ -168,8 +195,8 @@ class Command(BaseCommand):
 
     def _create_permission(self, module_name, perm_config, content_type):
         """创建独立权限"""
-        perm_code = perm_config.get('codename', f'op_{module_name}')
-        perm_name = perm_config.get('name', f'{module_name}操作')
+        perm_code = perm_config.get('codename', f'view_{module_name}')
+        perm_name = perm_config.get('name', module_name)
         is_new, is_existed = self._get_or_create_permission(
             perm_code, perm_name, content_type
         )
@@ -205,12 +232,12 @@ class Command(BaseCommand):
             if 'children' in module_config:
                 for child_key, child_config in module_config['children'].items():
                     child_name = child_config.get('name', child_key)
-                    perm_count += 1  # 查看权限
+                    perm_count += 1
                     if 'permissions' in child_config:
                         perm_count += len(child_config['permissions'])
                     if 'children' in child_config:
                         for sub_key, sub_config in child_config['children'].items():
-                            perm_count += 1  # 查看权限
+                            perm_count += 1
                             if 'permissions' in sub_config:
                                 perm_count += len(sub_config['permissions'])
 
@@ -241,12 +268,12 @@ class Command(BaseCommand):
                 total_perms += len(module_config['permissions'])
             if 'children' in module_config:
                 for child_key, child_config in module_config['children'].items():
-                    total_perms += 1  # 查看权限
+                    total_perms += 1
                     if 'permissions' in child_config:
                         total_perms += len(child_config['permissions'])
                     if 'children' in child_config:
                         for sub_key, sub_config in child_config['children'].items():
-                            total_perms += 1  # 查看权限
+                            total_perms += 1
                             if 'permissions' in sub_config:
                                 total_perms += len(sub_config['permissions'])
 

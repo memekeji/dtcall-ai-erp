@@ -1,0 +1,279 @@
+{% extends "home/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="create-approval-page">
+    <div class="page-header">
+        <a href="{% url 'approval:apply_approval' %}" class="back-link">
+            <i class="layui-icon layui-icon-left"></i> 返回
+        </a>
+        <h2><i class="layui-icon layui-icon-edit"></i> {{ page_title }}</h2>
+    </div>
+    
+    <div class="approval-form">
+        <form method="post" class="layui-form">
+            {% csrf_token %}
+            
+            <div class="form-section">
+                <div class="section-title">申请信息</div>
+                
+                <div class="layui-form-item">
+                    <label class="layui-form-label">审批标题 <span class="required">*</span></label>
+                    <div class="layui-input-block">
+                        <input type="text" name="title" required lay-verify="required" 
+                               placeholder="请输入审批标题" class="layui-input">
+                    </div>
+                </div>
+                
+                <div class="layui-form-item">
+                    <label class="layui-form-label">申请说明</label>
+                    <div class="layui-input-block">
+                        <textarea name="content" placeholder="请输入申请说明（选填）" 
+                                  class="layui-textarea" rows="5"></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <div class="section-title">
+                    <i class="layui-icon layui-icon-flow"></i> 审批流程预览
+                </div>
+                
+                <div class="flow-preview">
+                    <div class="preview-node start-node">
+                        <div class="node-icon">
+                            <i class="layui-icon layui-icon-start"></i>
+                        </div>
+                        <span>开始</span>
+                    </div>
+                    
+                    <div class="preview-connector">
+                        <i class="layui-icon layui-icon-down"></i>
+                    </div>
+                    
+                    {% for step in steps %}
+                    <div class="preview-node approval-node">
+                        <div class="node-icon {{ step.step_type }}">
+                            {% if step.step_type == 'department_head' %}
+                            <i class="layui-icon layui-icon-user"></i>
+                            {% elif step.step_type == 'specific_user' %}
+                            <i class="layui-icon layui-icon-user-circle"></i>
+                            {% elif step.step_type == 'department' %}
+                            <i class="layui-icon layui-icon-organization"></i>
+                            {% elif step.step_type == 'role' %}
+                            <i class="layui-icon layui-icon-rank"></i>
+                            {% elif step.step_type == 'level' %}
+                            <i class="layui-icon layui-icon-sitemap"></i>
+                            {% elif step.step_type == 'cc' %}
+                            <i class="layui-icon layui-icon-notice"></i>
+                            {% elif step.step_type == 'notification' %}
+                            <i class="layui-icon layui-icon-email"></i>
+                            {% else %}
+                            <i class="layui-icon layui-icon-circle"></i>
+                            {% endif %}
+                        </div>
+                        <div class="node-info">
+                            <span class="node-name">{{ step.step_name }}</span>
+                            <span class="node-type">{{ step.get_step_type_display }}</span>
+                        </div>
+                    </div>
+                    
+                    {% if not forloop.last %}
+                    <div class="preview-connector">
+                        <i class="layui-icon layui-icon-down"></i>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                    
+                    <div class="preview-connector">
+                        <i class="layui-icon layui-icon-down"></i>
+                    </div>
+                    
+                    <div class="preview-node end-node">
+                        <div class="node-icon">
+                            <i class="layui-icon layui-icon-end"></i>
+                        </div>
+                        <span>结束</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" lay-submit class="layui-btn layui-btn-lg layui-btn-normal">
+                    <i class="layui-icon layui-icon-ok"></i> 提交审批
+                </button>
+                <a href="{% url 'approval:apply_approval' %}" class="layui-btn layui-btn-lg layui-btn-primary">
+                    <i class="layui-icon layui-icon-close"></i> 取消
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.create-approval-page {
+    padding: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.page-header {
+    margin-bottom: 24px;
+}
+
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 12px;
+    transition: color 0.2s;
+}
+
+.back-link:hover {
+    color: #4f46e5;
+}
+
+.page-header h2 {
+    margin: 0;
+    font-size: 20px;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.page-header h2 i {
+    color: #4f46e5;
+}
+
+.approval-form {
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+}
+
+.form-section {
+    margin-bottom: 24px;
+}
+
+.section-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e8e8e8;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.section-title i {
+    color: #4f46e5;
+}
+
+.required {
+    color: #f5222d;
+}
+
+.flow-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background: #fafafa;
+    border-radius: 8px;
+}
+
+.preview-node {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #fff;
+    border-radius: 8px;
+    border: 1px solid #e8e8e8;
+    min-width: 200px;
+}
+
+.preview-node.start-node {
+    border-color: #10b981;
+    background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+}
+
+.preview-node.end-node {
+    border-color: #6366f1;
+    background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+}
+
+.preview-node.approval-node {
+    border-color: #4f46e5;
+    background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+}
+
+.node-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.start-node .node-icon {
+    background: linear-gradient(135deg, #10b981, #34d399);
+}
+
+.end-node .node-icon {
+    background: linear-gradient(135deg, #6366f1, #818cf8);
+}
+
+.approval-node .node-icon {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+}
+
+.node-icon i {
+    font-size: 18px;
+    color: #fff;
+}
+
+.node-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.node-name {
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+}
+
+.node-type {
+    font-size: 12px;
+    color: #999;
+}
+
+.preview-connector {
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #d1d5db;
+}
+
+.preview-connector i {
+    font-size: 20px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid #e8e8e8;
+}
+</style>
+{% endblock %}

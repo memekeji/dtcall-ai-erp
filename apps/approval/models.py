@@ -15,9 +15,11 @@ class Approval(models.Model):
     )
 
     title = models.CharField(max_length=255, default='', verbose_name='审批标题')
+    flow = models.ForeignKey('ApprovalFlow', on_delete=models.SET_NULL, null=True, blank=True, verbose_name='审批流程')
     type_id = models.PositiveIntegerField(default=0, verbose_name='审批类型ID')
     applicant_id = models.PositiveIntegerField(default=0, verbose_name='申请人ID')
     status = models.PositiveSmallIntegerField(default=0, choices=STATUS_CHOICES, verbose_name='审批状态')
+    content = models.TextField(blank=True, default='', verbose_name='申请内容')
     create_time = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     update_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
     reviewer = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='审核人', null=True, blank=True)
@@ -56,7 +58,12 @@ class ApprovalFlow(models.Model):
     name = models.CharField(max_length=100, verbose_name='流程名称')
     code = models.CharField(max_length=50, default='FLOW_001', unique=True, verbose_name='流程代码')
     description = models.TextField(blank=True, verbose_name='流程描述')
+    approval_type = models.ForeignKey(ApprovalType, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='审批类型')
     is_active = models.BooleanField(default=True, verbose_name='是否启用')
+    initiator_departments = models.CharField(max_length=500, blank=True, default='', help_text='可发起流程的部门ID，多个用逗号分隔', verbose_name='发起部门')
+    initiator_roles = models.CharField(max_length=500, blank=True, default='', help_text='可发起流程的角色ID，多个用逗号分隔', verbose_name='发起角色')
+    initiator_users = models.CharField(max_length=500, blank=True, default='', help_text='可发起流程的用户ID，多个用逗号分隔', verbose_name='发起用户')
+    form_fields = models.TextField(blank=True, default='[]', verbose_name='自定义表单字段')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
 
     class Meta:
@@ -71,10 +78,13 @@ class ApprovalFlow(models.Model):
 class ApprovalStep(models.Model):
     """审批步骤"""
     STEP_TYPE_CHOICES = (
-        ('user', '指定用户'),
-        ('role', '指定角色'),
+        ('department_head', '部门负责人'),
+        ('specific_user', '指定用户'),
         ('department', '指定部门'),
+        ('role', '指定角色'),
         ('level', '指定级别'),
+        ('cc', '抄送'),
+        ('notification', '通知'),
         ('custom', '自定义条件'),
     )
     
@@ -88,11 +98,14 @@ class ApprovalStep(models.Model):
     flow = models.ForeignKey(ApprovalFlow, on_delete=models.CASCADE, related_name='steps', verbose_name='所属流程')
     step_name = models.CharField(max_length=100, verbose_name='步骤名称')
     step_order = models.IntegerField(verbose_name='步骤顺序')
-    step_type = models.CharField(max_length=20, choices=STEP_TYPE_CHOICES, default='user', verbose_name='步骤类型')
+    step_type = models.CharField(max_length=20, choices=STEP_TYPE_CHOICES, default='department_head', verbose_name='步骤类型')
     action_type = models.CharField(max_length=20, choices=ACTION_TYPE_CHOICES, default='approve', verbose_name='操作类型')
+    approver = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, verbose_name='审批人', related_name='approval_steps')
     approver_role = models.CharField(max_length=100, blank=True, verbose_name='审批角色')
     approver_department = models.CharField(max_length=100, blank=True, verbose_name='审批部门')
     approver_level = models.CharField(max_length=100, blank=True, verbose_name='审批级别')
+    cc_users = models.CharField(max_length=500, blank=True, default='', help_text='多个用户ID用逗号分隔', verbose_name='抄送用户')
+    notification_users = models.CharField(max_length=500, blank=True, default='', help_text='多个用户ID用逗号分隔', verbose_name='通知用户')
     cc_roles = models.CharField(max_length=500, blank=True, help_text='多个角色用逗号分隔', verbose_name='抄送角色')
     cc_departments = models.CharField(max_length=500, blank=True, help_text='多个部门用逗号分隔', verbose_name='抄送部门')
     condition_field = models.CharField(max_length=100, blank=True, verbose_name='条件字段')
@@ -105,6 +118,8 @@ class ApprovalStep(models.Model):
     is_parallel = models.BooleanField(default=False, verbose_name='是否并行处理')
     allow_delegate = models.BooleanField(default=True, verbose_name='允许委托')
     allow_skip = models.BooleanField(default=False, verbose_name='允许跳过')
+    require_comment = models.BooleanField(default=True, verbose_name='需要审批意见')
+    comment_hint = models.CharField(max_length=200, default='请输入审批意见', verbose_name='意见提示文字')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
 
     class Meta:

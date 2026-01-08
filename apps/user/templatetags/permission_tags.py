@@ -8,17 +8,26 @@ def get_menu_level(menu_items):
     return getattr(menu_items, 'level', 1)
 
 
+def _check_permission_format(user, permission_code):
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    
+    full_perm = permission_code
+    if '.' not in full_perm:
+        full_perm = f'user.{permission_code}'
+    
+    return user.has_perm(full_perm)
+
+
 @register.filter
 def has_permission(user, permission_code):
     """
     检查用户是否拥有指定权限
     用法: {% if user|has_permission:"view_customer" %}
     """
-    if not user or not user.is_authenticated:
-        return False
-    if user.is_superuser:
-        return True
-    return user.has_perm(f'user.{permission_code}')
+    return _check_permission_format(user, permission_code)
 
 
 @register.filter
@@ -32,7 +41,7 @@ def has_any_permission(user, *permissions):
     if user.is_superuser:
         return True
     for perm in permissions:
-        if user.has_perm(f'user.{perm}'):
+        if _check_permission_format(user, perm):
             return True
     return False
 
@@ -48,7 +57,7 @@ def has_all_permissions(user, *permissions):
     if user.is_superuser:
         return True
     for perm in permissions:
-        if not user.has_perm(f'user.{perm}'):
+        if not _check_permission_format(user, perm):
             return False
     return True
 

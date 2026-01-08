@@ -1,0 +1,206 @@
+{% extends "home/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="approval-apply-page">
+    <div class="page-header">
+        <h2><i class="layui-icon layui-icon-add-1"></i> 发起审批</h2>
+        <p class="page-desc">选择您要发起的审批流程</p>
+    </div>
+    
+    <div class="flow-grid">
+        {% if flows %}
+            {% for flow in flows %}
+            <div class="flow-card" onclick="location.href='{% url 'approval:create_approval' flow.id %}'">
+                <div class="flow-icon">
+                    <i class="layui-icon layui-icon-template-1"></i>
+                </div>
+                <div class="flow-info">
+                    <h3>{{ flow.name }}</h3>
+                    <p class="flow-code">流程编号：{{ flow.code }}</p>
+                    {% if flow.description %}
+                    <p class="flow-desc">{{ flow.description }}</p>
+                    {% endif %}
+                    <div class="flow-meta">
+                        <span class="meta-item">
+                            <i class="layui-icon layui-icon-layer"></i>
+                            {{ flow.step_count }} 个审批步骤
+                        </span>
+                    </div>
+                </div>
+                <div class="flow-action">
+                    <button class="layui-btn layui-btn-sm layui-btn-normal">
+                        <i class="layui-icon layui-icon-right"></i> 发起申请
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <i class="layui-icon layui-icon-util"></i>
+                <p>暂无可发起的审批流程</p>
+                <p class="empty-tip">请联系管理员配置审批流程或发起权限</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.approval-apply-page {
+    padding: 20px;
+}
+
+.page-header {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e8e8e8;
+}
+
+.page-header h2 {
+    margin: 0 0 8px 0;
+    font-size: 20px;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.page-header h2 i {
+    color: #4f46e5;
+}
+
+.page-desc {
+    color: #999;
+    margin: 0;
+}
+
+.flow-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.flow-card {
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #e8e8e8;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.flow-card:hover {
+    border-color: #4f46e5;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
+    transform: translateY(-2px);
+}
+
+.flow-card .flow-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+}
+
+.flow-card .flow-icon i {
+    font-size: 24px;
+    color: #fff;
+}
+
+.flow-info {
+    flex: 1;
+    min-width: 0;
+    margin-bottom: 12px;
+}
+
+.flow-info h3 {
+    margin: 0 0 6px 0;
+    font-size: 15px;
+    color: #333;
+    line-height: 1.4;
+}
+
+.flow-code {
+    margin: 0 0 6px 0;
+    font-size: 12px;
+    color: #999;
+}
+
+.flow-desc {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    color: #666;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.flow-meta {
+    display: flex;
+    gap: 12px;
+}
+
+.meta-item {
+    font-size: 12px;
+    color: #999;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.meta-item i {
+    font-size: 14px;
+}
+
+.flow-action {
+    flex-shrink: 0;
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.flow-action .layui-btn {
+    width: 100%;
+}
+
+.empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 20px;
+    background: #fff;
+    border-radius: 12px;
+    border: 1px dashed #d1d5db;
+}
+
+.empty-state i {
+    font-size: 64px;
+    color: #d1d5db;
+    margin-bottom: 16px;
+}
+
+.empty-state p {
+    margin: 0 0 8px 0;
+    color: #666;
+    font-size: 14px;
+}
+
+.empty-tip {
+    color: #999 !important;
+    font-size: 12px !important;
+}
+
+@media (max-width: 768px) {
+    .flow-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}

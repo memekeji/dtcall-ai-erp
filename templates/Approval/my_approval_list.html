@@ -1,0 +1,82 @@
+{% extends "home/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <i class="layui-icon layui-icon-user"></i> 我的审批
+    </div>
+    <div class="layui-card-body">
+        <div class="layui-btns">
+            <a href="{% url 'approval:apply_approval' %}" class="layui-btn layui-btn-normal">
+                <i class="layui-icon layui-icon-add-1"></i> 发起审批
+            </a>
+        </div>
+        
+        <table id="approvalTable" lay-filter="approvalTable"></table>
+        
+        <script type="text/html" id="statusTpl">
+            {% verbatim %}
+            {{#  if(d.status === 0){ }}
+            <span class="layui-badge layui-bg-blue">待审批</span>
+            {{#  } else if(d.status === 1){ }}
+            <span class="layui-badge layui-bg-orange">审批中</span>
+            {{#  } else if(d.status === 2){ }}
+            <span class="layui-badge layui-bg-green">已通过</span>
+            {{#  } else if(d.status === 3){ }}
+            <span class="layui-badge layui-bg-red">已拒绝</span>
+            {{#  } else { }}
+            <span class="layui-badge">已取消</span>
+            {{#  } }}
+            {% endverbatim %}
+        </script>
+        
+        <script type="text/html" id="actionTpl">
+            <a class="layui-btn layui-btn-xs" lay-event="view">查看</a>
+        </script>
+    </div>
+</div>
+
+<script>
+layui.use(['table', 'layer'], function(){
+    var table = layui.table;
+    var layer = layui.layer;
+    var $ = layui.$;
+    
+    table.render({
+        elem: '#approvalTable',
+        url: '{% url "approval:my_approval_list" %}',
+        page: true,
+        limit: 10,
+        cols: [[
+            {field: 'id', title: 'ID', width: 80, sort: true},
+            {field: 'title', title: '审批标题', minWidth: 150},
+            {field: 'flow_name', title: '流程名称', width: 150},
+            {field: 'status', title: '状态', width: 100, templet: '#statusTpl'},
+            {field: 'create_time', title: '申请时间', width: 180},
+            {title: '操作', width: 100, templet: '#actionTpl'}
+        ]],
+        parseData: function(res){
+            return {
+                "code": res.code,
+                "msg": res.msg || '',
+                "count": res.count,
+                "data": res.data
+            };
+        }
+    });
+    
+    table.on('tool(approvalTable)', function(obj){
+        if(obj.event === 'view'){
+            layer.open({
+                type: 2,
+                title: '审批详情',
+                content: '/approval/approvalflow/' + obj.data.id + '/preview/',
+                area: ['85%', '90%'],
+                maxmin: true
+            });
+        }
+    });
+});
+</script>
+{% endblock %}
