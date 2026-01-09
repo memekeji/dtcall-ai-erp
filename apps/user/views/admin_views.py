@@ -8,11 +8,47 @@ from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib import messages
 from ..models import Admin
 from apps.department.models import Department
+from ..models.permission import DepartmentGroup
 from ..forms import EmployeeForm
 import logging
 import datetime
 
 logger = logging.getLogger(__name__)
+
+
+def _inherit_user_department_roles(user):
+    """
+    继承用户所属部门的角色
+    当用户登录时，自动将用户加入其所在部门关联的所有角色组
+    仅支持 Admin 模型（使用 did 字段）
+    """
+    try:
+        if not user or not hasattr(user, 'did') or not user.did:
+            return
+        
+        department_id = user.did
+        
+        try:
+            department = Department.objects.get(id=department_id)
+        except Department.DoesNotExist:
+            logger.warning(f"部门不存在: {department_id}")
+            return
+        
+        links = DepartmentGroup.objects.filter(
+            department=department
+        ).select_related('group')
+        
+        added_count = 0
+        for link in links:
+            if link.group and not user.groups.filter(id=link.group.id).exists():
+                user.groups.add(link.group)
+                logger.info(f"用户 {user.username} 自动加入部门角色: {link.group.name}")
+                added_count += 1
+        
+        if added_count > 0:
+            logger.info(f"用户 {user.username} 继承部门 {department.name} 的 {added_count} 个角色")
+    except Exception as e:
+        logger.error(f"继承用户部门角色失败: {e}")
 
 class AdminListAPIView(LoginRequiredMixin, View):
     """员工列表API接口，提供JSON数据"""
@@ -528,6 +564,9 @@ def login_submit(request):
                 
                 # 使用Django认证系统登录，确保安全会话管理
                 login(request, user)
+                
+                # 继承用户所属部门的默认角色
+                _inherit_user_department_roles(user)
                 
                 # 同时设置自定义会话（保持兼容性）
                 request.session['admin_id'] = user.id

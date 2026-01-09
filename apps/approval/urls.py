@@ -23,6 +23,11 @@ urlpatterns = [
     path('approvalflow/<int:pk>/update-start-config/', views.update_start_config, name='update_start_config'),
     
     path('my/', views.my_approval_list, name='my_approval_list'),
+    path('pending/', views.pending_list, name='pending_list'),
+    path('pending/api/', views.get_pending_approvals, name='get_pending_approvals'),
+    path('<int:pk>/', views.approval_detail, name='approval_detail'),
+    path('<int:pk>/process/', views.process_approval, name='process_approval'),
+    path('api/<int:pk>/action/', views.approval_action, name='approval_action'),
     path('apply/', views.apply_approval, name='apply_approval'),
     path('apply/<int:flow_id>/', views.create_approval, name='create_approval'),
     path('api/available-flows/', views.get_available_flows, name='get_available_flows'),

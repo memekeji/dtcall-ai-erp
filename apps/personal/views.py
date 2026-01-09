@@ -727,7 +727,7 @@ def minutes_form(request, pk=None):
                 if not meeting_id and reservation_id:
                     try:
                         from apps.system.models import MeetingReservation
-                        from apps.oa.models_new import MeetingRecord
+                        from apps.oa.models import MeetingRecord
                         
                         # 获取预约记录
                         reservation = MeetingReservation.objects.get(pk=reservation_id)
@@ -773,7 +773,7 @@ def minutes_form(request, pk=None):
                     return JsonResponse({'code': 1, 'msg': '会议ID不能为空，请先选择一个会议记录'})
                 
                 # 导入MeetingRecord模型
-                from apps.oa.models_new import MeetingRecord
+                from apps.oa.models import MeetingRecord
                 
                 # 尝试获取会议记录
                 try:
@@ -894,7 +894,7 @@ def minutes_form(request, pk=None):
                 meeting_id = request.POST.get('meeting_id') or request.GET.get('meeting_id')
                 if meeting_id:
                     try:
-                        from apps.oa.models_new import MeetingRecord
+                        from apps.oa.models import MeetingRecord
                         meeting_record = MeetingRecord.objects.get(pk=meeting_id)
                         minute.meeting_record = meeting_record
                     except MeetingRecord.DoesNotExist:
@@ -927,7 +927,7 @@ def minutes_form(request, pk=None):
             if meeting_id:
                 try:
                     # 从会议记录获取信息
-                    from apps.oa.models_new import MeetingRecord
+                    from apps.oa.models import MeetingRecord
                     meeting_record = MeetingRecord.objects.get(pk=meeting_id)
                     # 填充表单初始值
                     initial.update({
@@ -950,7 +950,7 @@ def minutes_form(request, pk=None):
                     meeting_room_name = reservation.meeting_room.name if reservation.meeting_room else ''
                     
                     # 尝试查找是否已有基于此预约创建的会议记录
-                    from apps.oa.models_new import MeetingRecord
+                    from apps.oa.models import MeetingRecord
                     meeting_record = MeetingRecord.objects.filter(title=reservation.title, 
                                                                  meeting_date=reservation.start_time).first()
                     
@@ -1006,7 +1006,7 @@ def minutes_form(request, pk=None):
             form = MeetingMinutesForm(instance=minute)
     
     # 获取可用的会议记录列表（只显示用户有权限的）
-    from apps.oa.models_new import MeetingRecord
+    from apps.oa.models import MeetingRecord
     user_meetings = MeetingRecord.objects.filter(
         Q(host=request.user) | Q(recorder=request.user) | Q(participants=request.user)
     ).order_by('-meeting_date')

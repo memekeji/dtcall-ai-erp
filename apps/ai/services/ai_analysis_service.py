@@ -2,7 +2,7 @@ import logging
 from django.db.models import Q
 from apps.customer.models import Customer, Contact
 from apps.project.models import Project, Task
-from apps.oa.models_new import MeetingRecord
+from apps.oa.models import MeetingRecord
 from apps.finance.models import Expense
 from apps.ai.utils.ai_client import AIClient, AIClientError
 from apps.ai.models import AITask
@@ -197,13 +197,12 @@ class AIAnalysisService:
             expense = Expense.objects.get(id=expense_id)
             
             # 构建报销单信息文本
-            expense_info = f"报销人：{expense.user.username}\n"\
-                          f"报销金额：{expense.amount}\n"\
-                          f"报销类型：{expense.get_expense_type_display()}\n"\
-                          f"报销日期：{expense.expense_date.strftime('%Y-%m-%d') if expense.expense_date else '未设置'}\n"\
-                          f"提交日期：{expense.created_at.strftime('%Y-%m-%d %H:%M:%S')}\n"\
-                          f"报销事由：{expense.reason}\n"\
-                          f"当前状态：{expense.get_status_display()}\n"
+            expense_info = f"报销人：{expense.user.username if hasattr(expense, 'user') else '未知'}\n"\
+                          f"报销金额：{expense.cost}\n"\
+                          f"报销日期：{timestamp_to_date(expense.expense_time) if expense.expense_time else '未设置'}\n"\
+                          f"提交日期：{timestamp_to_date(expense.create_time) if expense.create_time else '未设置'}\n"\
+                          f"报销事由：{expense.remark}\n"\
+                          f"当前状态：{expense.get_check_status_display()}\n"
             
             # 构建AI请求
             prompt = f"请根据以下报销单信息，进行智能审核，包括：1.审核建议（通过/驳回/需补充材料） 2.审核理由 3.异常项说明（如有）\n\n{expense_info}"

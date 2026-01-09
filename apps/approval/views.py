@@ -1,18 +1,16 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import JsonResponse
-from django.utils import timezone
 from django.contrib.auth import get_user_model
 from decimal import Decimal
 from datetime import datetime as dt, date as dt_date
 import json
 
-from .models import ApprovalType, ApprovalFlow, ApprovalStep, Approval
+from .models import ApprovalType, ApprovalFlow, ApprovalStep, Approval, ApprovalRecord
 from .forms import ApprovalTypeForm, ApprovalFlowForm, ApprovalStepForm
 
 User = get_user_model()
@@ -78,7 +76,6 @@ def generic_list_view(request, model_class, template_name, search_fields=None, f
             'data': data
         })
     
-    from django.urls import reverse
     context = {
         'page_obj': page_obj,
         'search': search,
@@ -507,12 +504,6 @@ def update_start_config(request, pk):
 def my_approval_list(request):
     user = request.user
     approvals = Approval.objects.filter(applicant_id=user.id).order_by('-create_time')
-
-
-@login_required
-def my_approval_list(request):
-    user = request.user
-    approvals = Approval.objects.filter(applicant_id=user.id).order_by('-create_time')
     
     page = int(request.GET.get('page', 1))
     limit = int(request.GET.get('limit', 10))
@@ -543,6 +534,243 @@ def my_approval_list(request):
         'add_url': '/approval/apply/',
     }
     return render(request, 'Approval/my_approval_list.html', context)
+
+
+@login_required
+def pending_list(request):
+    context = {
+        'page_title': '待我审批',
+    }
+    return render(request, 'Approval/pending_list.html', context)
+
+
+@login_required
+def get_pending_approvals(request):
+    user = request.user
+    user_id = user.id
+    user_dept_id = getattr(user, 'did', None)
+    
+    user_roles = []
+    if hasattr(user, 'roles'):
+        user_roles = list(user.roles.values_list('code', flat=True))
+    elif hasattr(user, 'role_codes'):
+        user_roles = user.role_codes or []
+    
+    pending_approvals = []
+    
+    approvals = Approval.objects.filter(status=1).order_by('-create_time')
+    
+    for approval in approvals:
+        flow = approval.flow
+        if not flow:
+            continue
+        
+        current_step_order = approval.current_step_order or 1
+        current_step = flow.steps.filter(step_order=current_step_order).first()
+        
+        if not current_step:
+            continue
+        
+        can_approve = False
+        step_type = current_step.step_type
+        
+        if step_type == 'department_head':
+            if user_dept_id and hasattr(user, 'did'):
+                if str(user.did) == str(user_dept_id):
+                    can_approve = True
+        elif step_type == 'specific_user':
+            if current_step.approver_id and user_id == current_step.approver_id:
+                can_approve = True
+        elif step_type == 'department':
+            if user_dept_id:
+                dept_ids = [x.strip() for x in (current_step.approver_department or '').split(',') if x.strip()]
+                if str(user_dept_id) in dept_ids:
+                    can_approve = True
+        elif step_type == 'role':
+            role_codes = [x.strip() for x in (current_step.approver_role or '').split(',') if x.strip()]
+            for ur in user_roles:
+                if ur in role_codes:
+                    can_approve = True
+                    break
+        elif step_type == 'level':
+            pass
+        
+        if can_approve:
+            pending_approvals.append({
+                'id': approval.id,
+                'title': approval.title,
+                'flow_name': flow.name,
+                'applicant_id': approval.applicant_id,
+                'content': approval.content[:100] if approval.content else '',
+                'create_time': approval.create_time.strftime('%Y-%m-%d %H:%M') if approval.create_time else '',
+                'current_step': current_step.step_name,
+                'step_type': current_step.get_step_type_display(),
+            })
+    
+    return JsonResponse({
+        'code': 0,
+        'msg': '',
+        'count': len(pending_approvals),
+        'data': pending_approvals
+    })
+
+
+@login_required
+def approval_detail(request, pk):
+    approval = get_object_or_404(Approval, pk=pk)
+    
+    flow = approval.flow
+    steps = []
+    if flow:
+        steps = flow.steps.all().order_by('step_order')
+    
+    records = approval.records.all().order_by('create_time')
+    
+    context = {
+        'approval': approval,
+        'flow': flow,
+        'steps': steps,
+        'records': records,
+        'page_title': '审批详情 - ' + approval.title,
+    }
+    return render(request, 'Approval/approval_detail.html', context)
+
+
+@login_required
+def process_approval(request, pk):
+    approval = get_object_or_404(Approval, pk=pk)
+    
+    if approval.status not in [0, 1]:
+        messages.error(request, '该审批已处理完成')
+        return redirect('approval:pending_list')
+    
+    flow = approval.flow
+    steps = []
+    if flow:
+        steps = flow.steps.all().order_by('step_order')
+    
+    current_step_order = approval.current_step_order or 1
+    current_step = None
+    if flow:
+        current_step = flow.steps.filter(step_order=current_step_order).first()
+    
+    context = {
+        'approval': approval,
+        'flow': flow,
+        'steps': steps,
+        'current_step': current_step,
+        'page_title': '处理审批 - ' + approval.title,
+    }
+    return render(request, 'Approval/process_approval.html', context)
+
+
+@login_required
+@require_POST
+def approval_action(request, pk):
+    approval = get_object_or_404(Approval, pk=pk)
+    
+    if approval.status not in [0, 1]:
+        return JsonResponse({
+            'success': False,
+            'message': '该审批已处理完成，不能重复操作'
+        }, json_dumps_params={'ensure_ascii': False})
+    
+    try:
+        data = json.loads(request.body)
+        action = data.get('action', '')
+        comment = data.get('comment', '')
+        
+        if not action:
+            return JsonResponse({
+                'success': False,
+                'message': '请选择操作类型'
+            }, json_dumps_params={'ensure_ascii': False})
+        
+        user = request.user
+        flow = approval.flow
+        
+        current_step_order = approval.current_step_order or 1
+        current_step = None
+        if flow:
+            current_step = flow.steps.filter(step_order=current_step_order).first()
+        
+        step_name = current_step.step_name if current_step else f'第{current_step_order}步'
+        
+        if action == 'approve':
+            next_step = None
+            if flow:
+                next_step = flow.steps.filter(step_order=current_step_order + 1).first()
+            
+            if next_step:
+                approval.current_step_order = current_step_order + 1
+                approval.status = 1
+            else:
+                approval.status = 2
+                approval.current_step_order = 0
+            approval.save()
+            
+        elif action == 'reject':
+            approval.status = 3
+            approval.current_step_order = 0
+            approval.save()
+        
+        elif action == 'cancel':
+            approval.status = 4
+            approval.current_step_order = 0
+            approval.save()
+        
+        elif action == 'delegate':
+            delegate_to = data.get('delegate_to', 0)
+            if not delegate_to:
+                return JsonResponse({
+                    'success': False,
+                    'message': '请选择委托人'
+                }, json_dumps_params={'ensure_ascii': False})
+            
+            ApprovalRecord.objects.create(
+                approval=approval,
+                step_order=current_step_order,
+                step_name=step_name,
+                action='delegate',
+                comment=comment,
+                handler=user
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': '已委托给指定人员处理'
+            }, json_dumps_params={'ensure_ascii': False})
+        
+        ApprovalRecord.objects.create(
+            approval=approval,
+            step_order=current_step_order,
+            step_name=step_name,
+            action=action,
+            comment=comment,
+            handler=user
+        )
+        
+        action_msg = {
+            'approve': '审批已通过',
+            'reject': '审批已拒绝',
+            'cancel': '已取消该审批'
+        }.get(action, '操作成功')
+        
+        return JsonResponse({
+            'success': True,
+            'message': action_msg
+        }, json_dumps_params={'ensure_ascii': False})
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': '数据格式错误'
+        }, json_dumps_params={'ensure_ascii': False})
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'操作失败：{str(e)}'
+        }, json_dumps_params={'ensure_ascii': False})
 
 
 @login_required
@@ -624,6 +852,10 @@ def create_approval(request, flow_id):
         'steps': steps,
         'page_title': '提交审批 - ' + flow.name,
     }
+    
+    if request.GET.get('iframe') == '1':
+        return render(request, 'Approval/create_approval_iframe.html', context)
+    
     return render(request, 'Approval/create_approval.html', context)
 
 

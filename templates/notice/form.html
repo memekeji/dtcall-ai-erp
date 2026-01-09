@@ -1,14 +1,14 @@
-{% extends 'include/common.html' %}
-{% load static %}
-
-{% block title %}{% if notice %}编辑公告{% else %}新增公告{% endif %}{% endblock %}
-
-{% block content %}
-<div class="layui-card">
-    <div class="layui-card-header">
-        <h3>{% if notice %}编辑公告{% else %}新增公告{% endif %}</h3>
-    </div>
-    <div class="layui-card-body">
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if notice %}编辑公告{% else %}新增公告{% endif %}</title>
+    <link rel="stylesheet" href="/static/layui/css/layui.css">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div style="padding: 20px;">
         <form class="layui-form" method="post">
             {% csrf_token %}
             <div class="layui-row layui-col-space15">
@@ -50,8 +50,8 @@
                     <div class="layui-form-item">
                         <label class="layui-form-label">设置</label>
                         <div class="layui-input-block">
-                            <input type="checkbox" name="is_top" {% if notice.is_top %}checked{% endif %} title="置顶">
-                            <input type="checkbox" name="is_published" {% if notice.is_published %}checked{% endif %} title="发布">
+                            {{ form.is_top }}<span style="margin-right: 15px;">置顶</span>
+                            {{ form.is_published }}<span>发布</span>
                         </div>
                     </div>
                 </div>
@@ -76,10 +76,27 @@
             <div class="layui-form-item">
                 <div class="layui-input-block">
                     <button class="layui-btn" type="submit">保存</button>
-                    <a href="{% url 'system:admin_office:notice_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                    <button type="button" class="layui-btn layui-btn-primary" onclick="closeLayer()">返回</button>
                 </div>
             </div>
         </form>
     </div>
-</div>
-{% endblock %}
+    
+    <script src="/static/layui/layui.js"></script>
+    <script src="/static/js/jquery.min.js"></script>
+    <script>
+        layui.use(['form', 'layer'], function() {
+            var form = layui.form;
+            var layer = layui.layer;
+            
+            form.render();
+        });
+        
+        function closeLayer() {
+            var index = parent.layer.getFrameIndex(window.name);
+            parent.layer.close(index);
+        }
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

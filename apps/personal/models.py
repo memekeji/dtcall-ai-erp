@@ -2,7 +2,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from apps.department.models import Department
-from apps.oa.models_new import MeetingRecord
+from apps.oa.models import MeetingRecord
 
 User = get_user_model()
 

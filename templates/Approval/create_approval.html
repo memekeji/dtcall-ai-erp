@@ -3,6 +3,18 @@
 
 {% block content %}
 <div class="create-approval-page">
+    {% if messages %}
+    <div class="layui-container">
+        {% for message in messages %}
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <div class="layui-badge {{ message.tags }}">{{ message }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
     <div class="page-header">
         <a href="{% url 'approval:apply_approval' %}" class="back-link">
             <i class="layui-icon layui-icon-left"></i> 返回
@@ -11,7 +23,7 @@
     </div>
     
     <div class="approval-form">
-        <form method="post" class="layui-form">
+        <form method="post" lay-filter="approvalForm" class="layui-form">
             {% csrf_token %}
             
             <div class="form-section">
@@ -276,4 +288,15 @@
     border-top: 1px solid #e8e8e8;
 }
 </style>
+
+<script>
+layui.use(['form', 'layer'], function(){
+    var form = layui.form;
+    var layer = layui.layer;
+    
+    form.on('submit(approvalForm)', function(data){
+        return true;
+    });
+});
+</script>
 {% endblock %}

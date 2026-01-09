@@ -1,0 +1,25 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "reportMissingImports": false,
+  "pythonVersion": "3.11",
+  "pythonPlatform": "Windows",
+  "reportGeneralTypeIssues": false,
+  "reportPropertyTypeMismatch": false,
+  "reportArgumentType": false,
+  "reportReturnType": false,
+  "reportAttributeAccessIssue": false,
+  "reportCallIssue": false,
+  "reportOperatorIssue": false,
+  "reportUntypedFunctionDecorator": false,
+  "reportUntypedBaseClass": false,
+  "reportMissingTypeArgument": false,
+  "reportReturnType": false,
+  "analysis": {
+    "useLibraryCodeForTypes": true,
+    "diagnosticMode": "workspace",
+    "autoImportCompletions": true,
+    "typeCheckingMode": "basic"
+  },
+  "exclude": ["**/migrations/**"]
+}

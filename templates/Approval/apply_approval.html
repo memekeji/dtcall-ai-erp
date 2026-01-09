@@ -11,7 +11,7 @@
     <div class="flow-grid">
         {% if flows %}
             {% for flow in flows %}
-            <div class="flow-card" onclick="location.href='{% url 'approval:create_approval' flow.id %}'">
+            <div class="flow-card" onclick="openCreateApproval({{ flow.id }}, '{{ flow.name|escapejs }}')">
                 <div class="flow-icon">
                     <i class="layui-icon layui-icon-template-1"></i>
                 </div>
@@ -29,7 +29,7 @@
                     </div>
                 </div>
                 <div class="flow-action">
-                    <button class="layui-btn layui-btn-sm layui-btn-normal">
+                    <button type="button" class="layui-btn layui-btn-sm layui-btn-normal">
                         <i class="layui-icon layui-icon-right"></i> 发起申请
                     </button>
                 </div>
@@ -44,6 +44,29 @@
         {% endif %}
     </div>
 </div>
+
+<script>
+function openCreateApproval(flowId, flowName) {
+    var content = '/approval/apply/' + flowId + '/?iframe=1';
+    
+    layer.open({
+        type: 2,
+        title: '<i class="layui-icon layui-icon-edit"></i> 发起审批 - ' + flowName,
+        area: ['65%', '100%'],
+        offset: 'r',
+        anim: 'slideLeft',
+        shadeClose: false,
+        shade: 0.3,
+        maxmin: true,
+        content: content,
+        success: function(layero, index) {
+            var iframeWin = window[layero.find('iframe')[0]['name']];
+        },
+        end: function() {
+        }
+    });
+}
+</script>
 
 <style>
 .approval-apply-page {

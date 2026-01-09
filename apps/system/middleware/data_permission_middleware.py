@@ -3,9 +3,14 @@
 确保用户只能访问授权的数据范围
 """
 import re
-from django.http import HttpResponseForbidden
+from django.http import JsonResponse, HttpResponseForbidden
 from django.conf import settings
-from apps.user.models import Admin
+from django.core.cache import cache
+import logging
+
+logger = logging.getLogger('django')
+
+DATA_PERMISSION_CACHE_TIMEOUT = 5 * 60
 
 
 class DataPermissionMiddleware:
@@ -23,13 +28,15 @@ class DataPermissionMiddleware:
         r'^/api/common/',
         r'^/media/',
         r'^/static/',
+        r'^/captcha/',
+        r'^/login/',
+        r'^/logout/',
     ]
     
     EXEMPT_VIEWS = [
-        'home',
-        'login', 
-        'logout',
-        'password_reset',
+        'login_view',
+        'logout_view',
+        'login_submit',
     ]
     
     def __init__(self, get_response):
@@ -44,7 +51,7 @@ class DataPermissionMiddleware:
         """
         在视图执行前检查数据权限
         """
-        if self._is_exempt(request.path):
+        if self._is_exempt(request.path, view_func):
             return None
         
         user = request.user
@@ -55,23 +62,41 @@ class DataPermissionMiddleware:
         if user.is_superuser:
             return None
         
-        employee = getattr(user, 'employee', None)
+        auth_did = getattr(user, 'auth_did', 0)
+        auth_dids = getattr(user, 'auth_dids', '')
+        son_dids = getattr(user, 'son_dids', '')
         
-        if not employee:
+        if auth_did == 0 and not auth_dids and not son_dids:
             return None
+        
+        auth_dids_list = list(map(int, auth_dids.split(','))) if auth_dids else []
+        son_dids_list = list(map(int, son_dids.split(','))) if son_dids else []
+        all_visible_dids = list(set(auth_dids_list + son_dids_list))
+        
+        if auth_did > 0 and auth_did not in all_visible_dids:
+            all_visible_dids.append(auth_did)
+        
+        request.user_data_permissions = {
+            'auth_did': auth_did,
+            'auth_dids': auth_dids_list,
+            'son_dids': son_dids_list,
+            'all_visible_dids': all_visible_dids,
+            'can_view_all': False,
+            'can_view_department': bool(all_visible_dids),
+            'can_view_self': True,
+        }
+        
+        if getattr(user, 'is_superuser', False):
+            request.user_data_permissions['can_view_all'] = True
         
         return None
     
-    def _is_exempt(self, path):
+    def _is_exempt(self, path, view_func):
         """检查路径是否豁免数据权限检查"""
-        from django.urls import resolve
-        try:
-            match = resolve(path)
-            view_name = match.func.__name__
+        if view_func:
+            view_name = getattr(view_func, '__name__', '')
             if view_name in self.EXEMPT_VIEWS:
                 return True
-        except:
-            pass
         
         for url_pattern in self.exempt_urls:
             if url_pattern.match(path):
@@ -166,33 +191,35 @@ class DataScopeFilter:
                 'can_view_self': True,
             }
         
-        employee = getattr(user, 'employee', None)
+        auth_did = getattr(user, 'auth_did', 0)
+        auth_dids = getattr(user, 'auth_dids', '')
+        son_dids = getattr(user, 'son_dids', '')
         
-        if not employee:
+        if auth_did == 0 and not auth_dids and not son_dids:
+            employee = getattr(user, 'employee', None)
+            if not employee:
+                return {
+                    'scope': 'self',
+                    'scope_name': '仅本人数据',
+                    'department_id': None,
+                    'can_view_all': False,
+                    'can_view_department': False,
+                    'can_view_self': True,
+                }
             return {
-                'scope': 'self',
-                'scope_name': '仅本人数据',
-                'department_id': None,
-                'can_view_all': False,
-                'can_view_department': False,
-                'can_view_self': True,
-            }
-        
-        if employee.is_admin:
-            return {
-                'scope': 'all',
-                'scope_name': '全部数据',
+                'scope': 'self_and_department',
+                'scope_name': '本人及本部门数据',
                 'department_id': employee.department_id,
-                'can_view_all': True,
+                'can_view_all': False,
                 'can_view_department': True,
                 'can_view_self': True,
             }
         
         return {
-            'scope': 'self_and_department',
-            'scope_name': '本人及本部门数据',
-            'department_id': employee.department_id,
-            'can_view_all': False,
+            'scope': 'all',
+            'scope_name': '全部数据',
+            'department_id': auth_did if auth_did > 0 else None,
+            'can_view_all': True,
             'can_view_department': True,
             'can_view_self': True,
         }
@@ -216,20 +243,32 @@ class DataScopeFilter:
         if user.is_superuser:
             return queryset
         
-        employee = getattr(user, 'employee', None)
+        auth_did = getattr(user, 'auth_did', 0)
+        auth_dids = getattr(user, 'auth_dids', '')
+        son_dids = getattr(user, 'son_dids', '')
         
-        if not employee:
-            return queryset.filter(**{owner_field: user.id})
+        auth_dids_list = list(map(int, auth_dids.split(','))) if auth_dids else []
+        son_dids_list = list(map(int, son_dids.split(','))) if son_dids else []
+        all_visible_dids = list(set(auth_dids_list + son_dids_list))
         
-        employee_dept_id = getattr(employee, 'department_id', None)
-        
-        if not employee_dept_id:
-            return queryset.filter(**{owner_field: user.id})
+        if auth_did > 0 and auth_did not in all_visible_dids:
+            all_visible_dids.append(auth_did)
         
         from django.db.models import Q
+        
+        if not all_visible_dids:
+            employee = getattr(user, 'employee', None)
+            if employee:
+                return queryset.filter(
+                    Q(**{owner_field: user.id}) | 
+                    Q(**{f'{owner_field}__department_id': employee.department_id})
+                ).distinct()
+            return queryset.filter(**{owner_field: user.id})
+        
         return queryset.filter(
-            Q(**{owner_field: user.id}) | 
-            Q(**{f'{owner_field}__department_id': employee_dept_id})
+            Q(**{owner_field: user.id}) |
+            Q(**{f'{owner_field}__did__in': all_visible_dids}) |
+            Q(**{f'{owner_field}__department_id__in': all_visible_dids})
         ).distinct()
 
 
@@ -238,6 +277,23 @@ class PermissionChecker:
     权限检查器
     提供细粒度的权限检查功能
     """
+    
+    @staticmethod
+    def normalize_permission(permission_code):
+        """
+        标准化权限代码
+        
+        Args:
+            permission_code: 权限代码
+            
+        Returns:
+            str: 标准化后的权限代码
+        """
+        if not permission_code:
+            return None
+        if '.' in permission_code:
+            return permission_code
+        return f'user.{permission_code}'
     
     @staticmethod
     def can_view(user, resource_type):
@@ -339,7 +395,8 @@ class PermissionChecker:
             return False
         if user.is_superuser:
             return True
-        return user.has_perm(f'user.{operation_code}')
+        normalized_perm = PermissionChecker.normalize_permission(operation_code)
+        return user.has_perm(normalized_perm)
     
     @staticmethod
     def can_access_menu(user, menu_code):

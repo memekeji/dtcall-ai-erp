@@ -99,6 +99,66 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // 添加标签页的全局函数
+    window.addTab = function(url, title) {
+        if (typeof layui === 'undefined') {
+            console.error('LayUI未加载，无法添加标签页');
+            window.location.href = url;
+            return;
+        }
+        
+        layui.use(['element'], function() {
+            const element = layui.element;
+            
+            // 生成标签页ID
+            let id;
+            if (title === '工作台') {
+                id = 'dashboard';
+            } else {
+                id = 'tab-' + title.replace(/\s+/g, '-').toLowerCase();
+            }
+            
+            // 检查标签页容器是否存在
+            const tabContainer = document.querySelector('.layui-tab[lay-filter="main-tab"]');
+            if (!tabContainer) {
+                console.error('未找到标签页容器');
+                window.location.href = url;
+                return;
+            }
+            
+            // 获取标签页标题和内容容器
+            const tabTitleContainer = tabContainer.querySelector('.layui-tab-title');
+            const tabContentContainer = tabContainer.querySelector('.layui-tab-content');
+            
+            // 检查标签页是否已存在
+            const existingTab = tabTitleContainer.querySelector(`[lay-id="${id}"]`);
+            
+            if (!existingTab) {
+                // 创建标签页标题
+                const tabTitle = document.createElement('li');
+                tabTitle.setAttribute('lay-id', id);
+                tabTitle.innerHTML = `${title}<i class="layui-icon layui-icon-close layui-unselect layui-tab-close"></i>`;
+                tabTitleContainer.appendChild(tabTitle);
+                
+                // 创建标签页内容
+                const tabContent = document.createElement('div');
+                tabContent.className = 'layui-tab-item';
+                tabContent.setAttribute('lay-id', id);
+                tabContent.innerHTML = `<iframe src="${url}" style="width:100%;height:100%;border:none;"></iframe>`;
+                tabContentContainer.appendChild(tabContent);
+                
+                // 渲染标签页
+                element.render('tab');
+            }
+            
+            // 切换到对应的标签页
+            element.tabChange('main-tab', id);
+            
+            // 保存标签页状态
+            saveTabs();
+        });
+    };
+    
     // 绑定菜单点击事件 - 使用事件委托，确保所有菜单层级都能正确处理
     // 绑定到document，使用捕获阶段，确保动态生成的菜单也能被处理
     document.addEventListener('click', handleMenuClick, true);

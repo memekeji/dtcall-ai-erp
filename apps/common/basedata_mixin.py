@@ -1,4 +1,3 @@
-from django.db import models
 from .models import Region, Enterprise
 
 
@@ -17,8 +16,6 @@ class BasedataMixin:
             'asset_unit': 'AssetUnit',
             'car_fee_type': 'CarFeeType',
             'notice_type': 'NoticeType',
-            'reimbursement_type': 'ReimbursementType',
-            'expense_type': 'ExpenseType',
             'customer_field': 'CustomerField',
             'follow_field': 'FollowField',
             'order_field': 'OrderField',
@@ -39,7 +36,6 @@ class BasedataMixin:
     def get_model_by_name(cls, name):
         from apps.hr.models import RewardPunishmentType, CareType, Duty, JobLevel
         from apps.admin.models import AssetCategory, AssetBrand, AssetUnit, CarFeeType, NoticeType
-        from apps.finance.models import ReimbursementType, ExpenseType
         from apps.customer.models import CustomerField, FollowField, OrderField
         from apps.contract.models import ContractCategory, ProductCategory, ServiceCategory, Product, Service, Supplier, PurchaseCategory, PurchaseItem
         from apps.project.models import ProjectStage, ProjectCategory, WorkType
@@ -56,8 +52,6 @@ class BasedataMixin:
             'asset_unit': AssetUnit,
             'car_fee_type': CarFeeType,
             'notice_type': NoticeType,
-            'reimbursement_type': ReimbursementType,
-            'expense_type': ExpenseType,
             'customer_field': CustomerField,
             'follow_field': FollowField,
             'order_field': OrderField,

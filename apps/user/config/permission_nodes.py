@@ -512,24 +512,6 @@ PERMISSION_NODES = {
                     {'codename': 'export_payment', 'name': '导出付款'},
                 ]
             },
-            'reimbursement_type': {
-                'name': '报销类型',
-                'permissions': [
-                    {'codename': 'view_reimbursement_type', 'name': '菜单查看'},
-                    {'codename': 'add_reimbursement_type', 'name': '新增类型'},
-                    {'codename': 'change_reimbursement_type', 'name': '编辑类型'},
-                    {'codename': 'delete_reimbursement_type', 'name': '删除类型'},
-                ]
-            },
-            'expense_type': {
-                'name': '费用类型',
-                'permissions': [
-                    {'codename': 'view_expense_type', 'name': '菜单查看'},
-                    {'codename': 'add_expense_type', 'name': '新增类型'},
-                    {'codename': 'change_expense_type', 'name': '编辑类型'},
-                    {'codename': 'delete_expense_type', 'name': '删除类型'},
-                ]
-            },
             'finance_statistics': {
                 'name': '财务统计',
                 'children': {
@@ -569,6 +551,48 @@ PERMISSION_NODES = {
                         ]
                     },
                 }
+            },
+        }
+    },
+
+    # 6.5 消息管理
+    'message': {
+        'name': '消息管理',
+        'icon': 'layui-icon-notice',
+        'children': {
+            'message_center': {
+                'name': '消息中心',
+                'permissions': [
+                    {'codename': 'view_message_center', 'name': '菜单查看'},
+                    {'codename': 'view_message', 'name': '查看消息'},
+                    {'codename': 'create_message', 'name': '发送消息'},
+                    {'codename': 'delete_message', 'name': '删除消息'},
+                    {'codename': 'mark_message_read', 'name': '标记已读'},
+                    {'codename': 'star_message', 'name': '标星消息'},
+                    {'codename': 'batch_message_operation', 'name': '批量操作'},
+                ]
+            },
+            'message_category': {
+                'name': '消息分类',
+                'permissions': [
+                    {'codename': 'view_message_category', 'name': '菜单查看'},
+                    {'codename': 'add_message_category', 'name': '新增分类'},
+                    {'codename': 'change_message_category', 'name': '编辑分类'},
+                    {'codename': 'delete_message_category', 'name': '删除分类'},
+                ]
+            },
+            'message_preference': {
+                'name': '通知偏好',
+                'permissions': [
+                    {'codename': 'view_message_preference', 'name': '菜单查看'},
+                    {'codename': 'change_message_preference', 'name': '编辑偏好'},
+                ]
+            },
+            'message_stats': {
+                'name': '消息统计',
+                'permissions': [
+                    {'codename': 'view_message_stats', 'name': '菜单查看'},
+                ]
             },
         }
     },

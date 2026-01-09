@@ -467,7 +467,7 @@ system_menus = {
     1179: {
         "id": 1179,
         "title": "报销类型",
-        "src": "/adm/basedata/finance/reimbursement/",
+        "src": "/finance/expense/",
         "pid_id": 1172,
         "sort": 61,
         "status": 1
@@ -475,7 +475,7 @@ system_menus = {
     1180: {
         "id": 1180,
         "title": "费用类型",
-        "src": "/finance/expense_type/",
+        "src": "/finance/expense/",
         "pid_id": 1172,
         "sort": 62,
         "status": 1
@@ -1135,6 +1135,14 @@ system_menus = {
         "src": "/approval/apply/",
         "pid_id": 1300,
         "sort": 4,
+        "status": 1
+    },
+    1305: {
+        "id": 1305,
+        "title": "待我审批",
+        "src": "/approval/pending/",
+        "pid_id": 1300,
+        "sort": 5,
         "status": 1
     }
 }

@@ -819,7 +819,7 @@ class CustomerDetailView(LoginRequiredMixin, DetailView):
         
         # 获取客户财务往来记录 - 直接列表显示（按日期排序）
         try:
-            # 获取所有发票记录 - 使用models_new中的Invoice模型和正确的软删除字段
+            # 获取所有发票记录 - 使用Invoice模型和正确的软删除字段
             from apps.finance_new.models import Invoice, Income, Payment
             all_invoices = Invoice.objects.filter(customer=self.object.id, is_deleted=False).order_by('-id')[:20]
             

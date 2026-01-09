@@ -4,6 +4,7 @@ from .admin_log import AdminLog
 from .menu import Menu
 from .position import Position
 from .department import Department
+from .permission import GroupExtension, DepartmentGroup
 
 # 导入员工相关模型
 from .employee import EmployeeFile, EmployeeTransfer, EmployeeDimission, RewardPunishment, EmployeeCare, EmployeeContract

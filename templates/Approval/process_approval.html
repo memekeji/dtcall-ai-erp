@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #f5f7fa;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            min-height: 100vh;
+        }
+        
+        .iframe-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        .iframe-header {
+            background: #fff;
+            padding: 16px 20px;
+            border-bottom: 1px solid #e8e8e8;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+        
+        .iframe-header h2 {
+            margin: 0;
+            font-size: 16px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-badge.pending {
+            background: #e6f7ff;
+            color: #1890ff;
+        }
+        
+        .status-badge.processing {
+            background: #fff7e6;
+            color: #fa8c16;
+        }
+        
+        .close-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            border: 1px solid #e8e8e8;
+            background: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .close-btn:hover {
+            background: #f5f5f5;
+            border-color: #d9d9d9;
+        }
+        
+        .close-btn i {
+            font-size: 18px;
+            color: #999;
+        }
+        
+        .iframe-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .detail-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e8e8e8;
+        }
+        
+        .card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .card-title i {
+            color: #4f46e5;
+        }
+        
+        .info-row {
+            display: flex;
+            margin-bottom: 12px;
+        }
+        
+        .info-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .info-label {
+            width: 80px;
+            color: #999;
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+        
+        .info-value {
+            flex: 1;
+            color: #333;
+            font-size: 13px;
+        }
+        
+        .process-section {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        
+        .process-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .process-title i {
+            color: #4f46e5;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .action-btn {
+            flex: 1;
+            height: 48px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .action-btn.approve {
+            background: linear-gradient(135deg, #52c41a, #73d13d);
+            color: #fff;
+            border: none;
+        }
+        
+        .action-btn.approve:hover {
+            background: linear-gradient(135deg, #73d13d, #95de64);
+        }
+        
+        .action-btn.reject {
+            background: linear-gradient(135deg, #f5222d, #ff4d4f);
+            color: #fff;
+            border: none;
+        }
+        
+        .action-btn.reject:hover {
+            background: linear-gradient(135deg, #ff4d4f, #ff7875);
+        }
+        
+        .action-btn.cancel {
+            background: #fff;
+            color: #666;
+            border: 1px solid #d9d9d9;
+        }
+        
+        .action-btn.cancel:hover {
+            background: #f5f5f5;
+        }
+        
+        .action-btn i {
+            font-size: 18px;
+        }
+        
+        .comment-section {
+            margin-top: 16px;
+        }
+        
+        .comment-label {
+            font-size: 13px;
+            color: #333;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .comment-label .required {
+            color: #f5222d;
+        }
+        
+        .layui-textarea {
+            border-radius: 8px;
+            resize: none;
+        }
+        
+        .current-step-info {
+            background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+            border: 1px solid #4f46e5;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .current-step-info i {
+            font-size: 24px;
+            color: #4f46e5;
+        }
+        
+        .current-step-info .info {
+            flex: 1;
+        }
+        
+        .current-step-info .step-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .current-step-info .step-desc {
+            font-size: 12px;
+            color: #666;
+            margin-top: 2px;
+        }
+        
+        .submit-btn {
+            width: 100%;
+            height: 44px;
+            font-size: 14px;
+            margin-top: 16px;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="iframe-container">
+        <div class="iframe-header">
+            <h2>
+                <i class="layui-icon layui-icon-edit"></i> 
+                {{ approval.title }}
+            </h2>
+            <button class="close-btn" onclick="closeLayer()">
+                <i class="layui-icon layui-icon-close"></i>
+            </button>
+        </div>
+        
+        <div class="iframe-content">
+            {% if current_step and current_step.require_comment %}
+            <div class="current-step-info">
+                <i class="layui-icon layui-icon-about"></i>
+                <div class="info">
+                    <div class="step-name">{{ current_step.step_name }}</div>
+                    <div class="step-desc">{{ current_step.comment_hint|default:'请输入审批意见' }}</div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="detail-card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <i class="layui-icon layui-icon-user"></i> 申请信息
+                    </div>
+                </div>
+                
+                <div class="info-row">
+                    <div class="info-label">流程名称</div>
+                    <div class="info-value">{{ flow.name|default:'未设置' }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">申请时间</div>
+                    <div class="info-value">{{ approval.create_time|date:'Y-m-d H:i:s'|default:'-' }}</div>
+                </div>
+                {% if approval.content %}
+                <div class="info-row">
+                    <div class="info-label">申请说明</div>
+                    <div class="info-value">{{ approval.content|linebreaksbr }}</div>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="process-section">
+                <div class="process-title">
+                    <i class="layui-icon layui-icon-ok"></i> 审批操作
+                </div>
+                
+                <div class="action-buttons">
+                    <button type="button" class="action-btn approve" onclick="submitAction('approve')">
+                        <i class="layui-icon layui-icon-ok-circle"></i>
+                        通过
+                    </button>
+                    <button type="button" class="action-btn reject" onclick="submitAction('reject')">
+                        <i class="layui-icon layui-icon-close-fill"></i>
+                        拒绝
+                    </button>
+                    <button type="button" class="action-btn cancel" onclick="submitAction('cancel')">
+                        <i class="layui-icon layui-icon-close"></i>
+                        取消
+                    </button>
+                </div>
+                
+                <div class="comment-section">
+                    <div class="comment-label">
+                        审批意见 
+                        {% if current_step and current_step.require_comment %}<span class="required">*</span>{% endif %}
+                    </div>
+                    <textarea id="commentInput" class="layui-textarea" rows="4" placeholder="{% if current_step and current_step.require_comment %}{{ current_step.comment_hint|default:'请输入审批意见' }}{% else %}请输入审批意见（选填）{% endif %}"></textarea>
+                </div>
+                
+                <button type="button" class="layui-btn layui-btn-lg submit-btn" onclick="submitAction('approve')">
+                    <i class="layui-icon layui-icon-ok"></i> 确认提交
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        function closeLayer() {
+            var index = parent.layer.getFrameIndex(window.name);
+            if (index) {
+                parent.layer.close(index);
+            } else {
+                history.back();
+            }
+        }
+        
+        function submitAction(action) {
+            var comment = document.getElementById('commentInput').value.trim();
+            var requireComment = {{ current_step.require_comment|yesno:"true,false" }};
+            
+            if (requireComment && !comment) {
+                layer.msg('请输入审批意见', {icon: 2});
+                return;
+            }
+            
+            var btnText = {
+                'approve': '通过',
+                'reject': '拒绝',
+                'cancel': '取消'
+            };
+            
+            layer.confirm('确定要' + btnText[action] + '该审批吗？', {
+                icon: action === 'approve' ? 1 : (action === 'reject' ? 2 : 3),
+                title: '确认操作'
+            }, function(index) {
+                layer.load(2);
+                
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', '/approval/api/{{ approval.id }}/action/', true);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.setRequestHeader('X-CSRFToken', getCsrfToken());
+                
+                xhr.onreadystatechange = function() {
+                    layer.closeAll('loading');
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            try {
+                                var res = JSON.parse(xhr.responseText);
+                                if (res.success) {
+                                    layer.msg(res.message, {icon: 1, time: 1500}, function() {
+                                        var parentIndex = parent.layer.getFrameIndex(window.name);
+                                        if (parentIndex) {
+                                            parent.layer.close(parentIndex);
+                                        } else {
+                                            window.location.reload();
+                                        }
+                                    });
+                                } else {
+                                    layer.msg(res.message, {icon: 2});
+                                }
+                            } catch (e) {
+                                layer.msg('操作失败', {icon: 2});
+                            }
+                        } else {
+                            layer.msg('网络错误', {icon: 2});
+                        }
+                    }
+                };
+                
+                xhr.send(JSON.stringify({
+                    action: action,
+                    comment: comment
+                }));
+                
+                layer.close(index);
+            });
+        }
+        
+        function getCsrfToken() {
+            var cookies = document.cookie.split(';');
+            for (var i = 0; i < cookies.length; i++) {
+                var cookie = cookies[i].trim();
+                if (cookie.indexOf('csrftoken=') === 0) {
+                    return cookie.substring('csrftoken='.length, cookie.length);
+                }
+            }
+            return '';
+        }
+        
+        layui.use(['layer'], function(){
+            var layer = layui.layer;
+        });
+    </script>
+</body>
+</html>

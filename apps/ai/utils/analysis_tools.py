@@ -307,7 +307,7 @@ class MeetingAnalysisTool(AIAnalysisTool):
         try:
             # 获取会议数据 - 将导入移到方法内部以避免循环导入
             try:
-                from apps.oa.models_new import MeetingRecord
+                from apps.oa.models import MeetingRecord
                 try:
                     meeting = MeetingRecord.objects.get(id=meeting_id)
                     meeting_data = {

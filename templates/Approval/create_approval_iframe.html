@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+{% load static %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }}</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #f5f7fa;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            min-height: 100vh;
+        }
+        
+        .iframe-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        .iframe-header {
+            background: #fff;
+            padding: 16px 20px;
+            border-bottom: 1px solid #e8e8e8;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+        
+        .iframe-header h2 {
+            margin: 0;
+            font-size: 16px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .iframe-header h2 i {
+            color: #4f46e5;
+        }
+        
+        .close-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            border: 1px solid #e8e8e8;
+            background: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .close-btn:hover {
+            background: #f5f5f5;
+            border-color: #d9d9d9;
+        }
+        
+        .close-btn i {
+            font-size: 18px;
+            color: #999;
+        }
+        
+        .iframe-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .approval-form {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        
+        .form-section {
+            margin-bottom: 20px;
+        }
+        
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e8e8e8;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .section-title i {
+            color: #4f46e5;
+        }
+        
+        .layui-form-item {
+            margin-bottom: 16px;
+        }
+        
+        .layui-form-label {
+            width: 80px;
+            padding: 8px 12px 8px 0;
+            font-size: 13px;
+        }
+        
+        .layui-input-block {
+            margin-left: 80px;
+        }
+        
+        .layui-input, .layui-textarea {
+            border-radius: 6px;
+        }
+        
+        .required {
+            color: #f5222d;
+        }
+        
+        .flow-preview {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px;
+            background: #fafafa;
+            border-radius: 8px;
+        }
+        
+        .preview-node {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: #fff;
+            border-radius: 6px;
+            border: 1px solid #e8e8e8;
+            min-width: 160px;
+            font-size: 13px;
+        }
+        
+        .preview-node.start-node {
+            border-color: #10b981;
+            background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+        }
+        
+        .preview-node.end-node {
+            border-color: #6366f1;
+            background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+        }
+        
+        .preview-node.approval-node {
+            border-color: #4f46e5;
+            background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+        }
+        
+        .preview-node .node-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .preview-node.start-node .node-icon {
+            background: linear-gradient(135deg, #10b981, #34d399);
+        }
+        
+        .preview-node.end-node .node-icon {
+            background: linear-gradient(135deg, #6366f1, #818cf8);
+        }
+        
+        .preview-node.approval-node .node-icon {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        }
+        
+        .preview-node .node-icon i {
+            font-size: 14px;
+            color: #fff;
+        }
+        
+        .preview-node .node-info {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .preview-node .node-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 12px;
+        }
+        
+        .preview-node .node-type {
+            font-size: 11px;
+            color: #999;
+        }
+        
+        .preview-connector {
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #d1d5db;
+        }
+        
+        .preview-connector i {
+            font-size: 16px;
+        }
+        
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid #e8e8e8;
+        }
+        
+        .form-actions .layui-btn {
+            min-width: 100px;
+        }
+        
+        .layui-btn-normal {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        }
+    </style>
+</head>
+<body>
+    <div class="iframe-container">
+        <div class="iframe-header">
+            <h2><i class="layui-icon layui-icon-edit"></i> {{ page_title }}</h2>
+            <button class="close-btn" onclick="closeLayer()">
+                <i class="layui-icon layui-icon-close"></i>
+            </button>
+        </div>
+        
+        <div class="iframe-content">
+            <div class="approval-form">
+                {% if messages %}
+                <div style="margin-bottom: 16px;">
+                    {% for message in messages %}
+                    <div class="layui-badge {{ message.tags }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                
+                <form method="post" lay-filter="approvalForm" class="layui-form">
+                    {% csrf_token %}
+                    
+                    <div class="form-section">
+                        <div class="section-title">申请信息</div>
+                        
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">审批标题 <span class="required">*</span></label>
+                            <div class="layui-input-block">
+                                <input type="text" name="title" required lay-verify="required" 
+                                       placeholder="请输入审批标题" class="layui-input">
+                            </div>
+                        </div>
+                        
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">申请说明</label>
+                            <div class="layui-input-block">
+                                <textarea name="content" placeholder="请输入申请说明（选填）" 
+                                          class="layui-textarea" rows="3"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-section">
+                        <div class="section-title">
+                            <i class="layui-icon layui-icon-flow"></i> 审批流程
+                        </div>
+                        
+                        <div class="flow-preview">
+                            <div class="preview-node start-node">
+                                <div class="node-icon">
+                                    <i class="layui-icon layui-icon-start"></i>
+                                </div>
+                                <span>开始</span>
+                            </div>
+                            
+                            {% for step in steps %}
+                            <div class="preview-connector">
+                                <i class="layui-icon layui-icon-down"></i>
+                            </div>
+                            
+                            <div class="preview-node approval-node">
+                                <div class="node-icon">
+                                    {% if step.step_type == 'department_head' %}
+                                    <i class="layui-icon layui-icon-user"></i>
+                                    {% elif step.step_type == 'specific_user' %}
+                                    <i class="layui-icon layui-icon-user-circle"></i>
+                                    {% elif step.step_type == 'department' %}
+                                    <i class="layui-icon layui-icon-organization"></i>
+                                    {% elif step.step_type == 'role' %}
+                                    <i class="layui-icon layui-icon-rank"></i>
+                                    {% elif step.step_type == 'level' %}
+                                    <i class="layui-icon layui-icon-sitemap"></i>
+                                    {% elif step.step_type == 'cc' %}
+                                    <i class="layui-icon layui-icon-notice"></i>
+                                    {% elif step.step_type == 'notification' %}
+                                    <i class="layui-icon layui-icon-email"></i>
+                                    {% else %}
+                                    <i class="layui-icon layui-icon-circle"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="node-info">
+                                    <span class="node-name">{{ step.step_name }}</span>
+                                    <span class="node-type">{{ step.get_step_type_display }}</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            
+                            <div class="preview-connector">
+                                <i class="layui-icon layui-icon-down"></i>
+                            </div>
+                            
+                            <div class="preview-node end-node">
+                                <div class="node-icon">
+                                    <i class="layui-icon layui-icon-end"></i>
+                                </div>
+                                <span>结束</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" lay-submit class="layui-btn layui-btn-lg layui-btn-normal">
+                            <i class="layui-icon layui-icon-ok"></i> 提交审批
+                        </button>
+                        <button type="button" class="layui-btn layui-btn-lg layui-btn-primary" onclick="closeLayer()">
+                            <i class="layui-icon layui-icon-close"></i> 取消
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        function closeLayer() {
+            var index = parent.layer.getFrameIndex(window.name);
+            if (index) {
+                parent.layer.close(index);
+            } else {
+                history.back();
+            }
+        }
+        
+        layui.use(['form', 'layer'], function(){
+            var form = layui.form;
+            var layer = layui.layer;
+            
+            form.on('submit(approvalForm)', function(data){
+                return true;
+            });
+        });
+    </script>
+</body>
+</html>

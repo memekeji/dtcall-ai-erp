@@ -222,7 +222,7 @@ def department_list_api(request):
         level = calculate_level(dept.id)
         
         # 获取部门已分配的角色（使用DepartmentGroup模型）
-        from apps.user.models_new import DepartmentGroup
+        from apps.user.models.permission import DepartmentGroup
         from django.contrib.auth.models import Group
         
         # 获取部门已分配的角色

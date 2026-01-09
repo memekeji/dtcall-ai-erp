@@ -83,11 +83,23 @@
         
         <!-- 右侧用户区域 -->
         <div class="user-menu-container" style="position: absolute; right: 20px; top: 0; height: 60px; display: flex; align-items: center; z-index: 1003;">
+            <!-- 消息通知图标 -->
+            <div class="message-bell" style="margin-right: 15px; cursor: pointer; position: relative;" onclick="openMessageCenter()">
+                <i class="layui-icon layui-icon-notice" style="font-size: 22px; color: #333;"></i>
+                <span class="unread-badge" id="unreadBadge" style="display: none; position: absolute; top: -5px; right: -5px; background: #ff4d4f; color: #fff; font-size: 10px; padding: 2px 5px; border-radius: 10px; min-width: 18px; text-align: center;">0</span>
+            </div>
+            <!-- 用户头像 -->
             <div class="user-avatar" style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; border: 2px solid rgba(0,242,254,0.5); cursor: pointer; transition: all 0.3s; background-color: #f5f5f5;">
                 <img src="{% if request.user.avatar %}{{ request.user.avatar.url }}{% else %}{% static 'img/user-avatar.png' %}{% endif %}" style="width: 100%; height: 100%; object-fit: cover;">
             </div>
-            <div class="user-dropdown" style="position: absolute; top: 65px; right: 0; width: 180px; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); display: none; z-index: 1002;">
-                <ul class="layui-nav" style="background: transparent; width: 100%;">
+            <div class="user-dropdown" style="position: absolute; top: 65px; right: 0; width: 200px; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); display: none; z-index: 1002;">
+                <ul class="layui-nav" style="background: transparent; width: 100%; padding: 5px 0;">
+                    <li class="layui-nav-item" style="border-bottom: 1px solid #f0f0f0;">
+                        <a href="javascript:;" onclick="openMessageCenter()" style="color: #333; padding: 12px 20px;">
+                            <i class="layui-icon layui-icon-notice" style="margin-right: 8px;"></i> 消息中心
+                            <span class="unread-badge-dropdown" id="unreadBadgeDropdown" style="display: none; background: #ff4d4f; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 10px; margin-left: 8px;">0</span>
+                        </a>
+                    </li>
                     <li class="layui-nav-item"><a href="/user/center/" style="color: #333; padding: 12px 20px;"><i class="layui-icon layui-icon-user" style="margin-right: 8px;"></i> 个人中心</a></li>
                     <li class="layui-nav-item"><a href="/logout/" style="color: #333; padding: 12px 20px;"><i class="layui-icon layui-icon-logout" style="margin-right: 8px;"></i> 退出登录</a></li>
                 </ul>
@@ -95,6 +107,41 @@
         </div>
 
         <script>
+            // 打开消息中心
+            function openMessageCenter() {
+                if (window.parent && window.parent.addTab) {
+                    window.parent.addTab('/message/page/', '消息中心');
+                } else {
+                    window.location.href = '/message/page/';
+                }
+                // 隐藏下拉菜单
+                document.querySelector('.user-dropdown').style.display = 'none';
+            }
+            
+            // 加载未读消息数量
+            function loadUnreadCount() {
+                fetch('/message/unread-count/')
+                    .then(response => response.json())
+                    .then(data => {
+                        const count = data.unread_count || 0;
+                        const badge = document.getElementById('unreadBadge');
+                        const dropdownBadge = document.getElementById('unreadBadgeDropdown');
+                        
+                        if (count > 0) {
+                            badge.style.display = 'block';
+                            badge.textContent = count > 99 ? '99+' : count;
+                            dropdownBadge.style.display = 'inline-block';
+                            dropdownBadge.textContent = count > 99 ? '99+' : count;
+                        } else {
+                            badge.style.display = 'none';
+                            dropdownBadge.style.display = 'none';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('加载未读消息数量失败:', error);
+                    });
+            }
+            
             // 用户头像点击事件 - 显示/隐藏下拉菜单
             document.querySelector('.user-avatar').addEventListener('click', function(e) {
                 e.stopPropagation();
@@ -110,6 +157,13 @@
             // 阻止下拉菜单内部点击事件冒泡
             document.querySelector('.user-dropdown').addEventListener('click', function(e) {
                 e.stopPropagation();
+            });
+            
+            // 页面加载时获取未读消息数量
+            document.addEventListener('DOMContentLoaded', function() {
+                loadUnreadCount();
+                // 每60秒刷新一次未读消息数量
+                setInterval(loadUnreadCount, 60000);
             });
         </script>
     </div>
@@ -1068,7 +1122,7 @@
         //     digitalHuman.click();
         // }, 2000);
 
-        // AI图标拖拽功能 - 高性能实现
+        // AI图标拖拽功能 - 终极重构版本
         (function() {
             const container = document.getElementById('digitalHumanContainer');
             const toggle = document.getElementById('digitalHumanToggle');
@@ -1078,26 +1132,25 @@
             let isLongPress = false;
             let dragStartX = 0, dragStartY = 0;
             let containerStartX = 0, containerStartY = 0;
-            let animationFrameId = null;
             let longPressTimer = null;
+            let hasMoved = false; // 新增：标记是否实际移动过
             
             // 配置
-            const LONG_PRESS_DELAY = 150; // 长按激活时间（150ms）
-            const MIN_DRAG_DISTANCE = 5; // 最小拖动距离，防止误触
+            const LONG_PRESS_DELAY = 80; // 长按激活时间（80ms）
+            const MIN_DRAG_DISTANCE = 2;  // 最小拖动距离，减少误触
             
-            // 获取容器实际尺寸（根据显示状态）
+            // 获取容器实际尺寸
             function getContainerBounds() {
                 if (container.style.display === 'none') {
-                    return { width: 60, height: 60 }; // 仅图标尺寸
+                    return { width: 60, height: 60 };
                 }
                 
-                // 根据显示状态计算实际尺寸
                 const hasDigitalHuman = digitalHumanWrapper.style.display !== 'none';
                 const hasDialog = dialogBox.style.display !== 'none';
                 const hasHistory = chatHistoryList.style.display !== 'none';
                 
-                let width = 60;  // 图标宽度
-                let height = 60; // 图标高度
+                let width = 60;
+                let height = 60;
                 
                 if (hasDigitalHuman) width = Math.max(width, 200);
                 if (hasDialog) width = Math.max(width, 300);
@@ -1122,7 +1175,7 @@
                 };
             }
             
-            // 立即应用位置（无requestAnimationFrame延迟）
+            // 立即应用位置
             function applyPosition(x, y) {
                 const pos = clampPosition(x, y);
                 container.style.left = pos.x + 'px';
@@ -1132,12 +1185,13 @@
                 return pos;
             }
             
-            // 激活拖动
+            // 开始拖动
             function startDrag(e) {
                 if (container.style.display === 'none') return;
                 
                 isDragging = true;
                 isLongPress = true;
+                hasMoved = false;
                 
                 const rect = container.getBoundingClientRect();
                 containerStartX = rect.left;
@@ -1145,7 +1199,7 @@
                 dragStartX = e.clientX;
                 dragStartY = e.clientY;
                 
-                // 添加拖动样式类
+                // 添加拖动样式
                 container.classList.add('dragging');
                 
                 // 视觉反馈
@@ -1157,28 +1211,43 @@
                 document.body.style.userSelect = 'none';
                 document.body.style.webkitUserSelect = 'none';
                 
-                // 绑定全局事件（捕获阶段）
-                document.addEventListener('mousemove', onGlobalMouseMove, { capture: true });
-                document.addEventListener('mouseup', onGlobalMouseUp, { capture: true });
+                // 绑定全局事件（使用捕获阶段确保优先）
+                document.addEventListener('mousemove', onGlobalMouseMove, { capture: true, passive: false });
+                document.addEventListener('mouseup', onGlobalMouseUp, { capture: true, passive: false });
+                
+                // 防止拖拽时选中文本
+                e.preventDefault();
+                e.stopPropagation();
             }
             
-            // 全局鼠标移动
+            // 全局鼠标移动（捕获阶段）
             function onGlobalMouseMove(e) {
                 if (!isDragging) return;
                 
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // 计算新位置
                 const offsetX = e.clientX - dragStartX;
                 const offsetY = e.clientY - dragStartY;
                 const newX = containerStartX + offsetX;
                 const newY = containerStartY + offsetY;
                 
+                // 检查是否实际移动了
+                const distance = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
+                if (distance > 1) {
+                    hasMoved = true;
+                }
+                
+                // 立即更新位置
                 applyPosition(newX, newY);
             }
             
-            // 全局鼠标释放
+            // 全局鼠标释放（捕获阶段）
             function onGlobalMouseUp(e) {
-                // 移除全局事件监听（捕获阶段）
-                document.removeEventListener('mousemove', onGlobalMouseMove, { capture: true });
-                document.removeEventListener('mouseup', onGlobalMouseUp, { capture: true });
+                // 移除全局事件监听
+                document.removeEventListener('mousemove', onGlobalMouseMove, { capture: true, passive: false });
+                document.removeEventListener('mouseup', onGlobalMouseUp, { capture: true, passive: false });
                 
                 // 清除定时器
                 if (longPressTimer) {
@@ -1186,11 +1255,11 @@
                     longPressTimer = null;
                 }
                 
-                // 如果正在拖动，立即结束
+                // 如果正在拖动
                 if (isDragging) {
                     isDragging = false;
                     
-                    // 立即恢复状态
+                    // 立即恢复视觉状态
                     container.classList.remove('dragging');
                     toggle.style.transform = '';
                     toggle.style.boxShadow = '';
@@ -1200,13 +1269,13 @@
                     document.body.style.userSelect = '';
                     document.body.style.webkitUserSelect = '';
                     
-                    // 检查是否触发点击事件
+                    // 检查是否触发点击事件（只有实际移动距离很小才触发）
                     const distance = Math.sqrt(
                         Math.pow(e.clientX - dragStartX, 2) + 
                         Math.pow(e.clientY - dragStartY, 2)
                     );
                     
-                    if (distance < MIN_DRAG_DISTANCE && isLongPress) {
+                    if (distance < MIN_DRAG_DISTANCE && isLongPress && !hasMoved) {
                         // 延迟触发点击，避免冲突
                         setTimeout(() => {
                             const clickEvent = new MouseEvent('click', {
@@ -1220,11 +1289,12 @@
                 }
                 
                 isLongPress = false;
+                hasMoved = false;
             }
             
-            // 鼠标按下
+            // 鼠标按下处理
             function onMouseDown(e) {
-                if (e.button !== 0) return;
+                if (e.button !== 0) return; // 只处理左键
                 if (container.style.display === 'none') return;
                 
                 e.preventDefault();
@@ -1238,69 +1308,13 @@
                 // 重置状态
                 isLongPress = false;
                 isDragging = false;
+                hasMoved = false;
                 
                 // 设置长按定时器
                 longPressTimer = setTimeout(() => startDrag(e), LONG_PRESS_DELAY);
             }
             
-            // 鼠标移动
-            function onMouseMove(e) {
-                if (!isDragging) return;
-                
-                const offsetX = e.clientX - dragStartX;
-                const offsetY = e.clientY - dragStartY;
-                
-                const newX = containerStartX + offsetX;
-                const newY = containerStartY + offsetY;
-                
-                applyPosition(newX, newY);
-            }
-            
-            // 鼠标释放
-            function onMouseUp(e) {
-                if (longPressTimer) {
-                    clearTimeout(longPressTimer);
-                    longPressTimer = null;
-                }
-                
-                if (isDragging) {
-                    isDragging = false;
-                    
-                    // 恢复视觉状态
-                    toggle.style.transform = '';
-                    toggle.style.boxShadow = '';
-                    toggle.style.cursor = 'move';
-                    
-                    // 移除拖动样式类
-                    container.classList.remove('dragging');
-                    
-                    // 恢复文本选择
-                    document.body.style.userSelect = '';
-                    document.body.style.webkitUserSelect = '';
-                    
-                    // 如果移动距离很小，视为点击
-                    const distance = Math.sqrt(
-                        Math.pow(e.clientX - dragStartX, 2) + 
-                        Math.pow(e.clientY - dragStartY, 2)
-                    );
-                    
-                    if (distance < MIN_DRAG_DISTANCE && isLongPress) {
-                        // 触发原始点击事件
-                        setTimeout(() => {
-                            const clickEvent = new MouseEvent('click', {
-                                bubbles: true,
-                                cancelable: true,
-                                view: window
-                            });
-                            digitalHumanToggle.dispatchEvent(clickEvent);
-                        }, 10);
-                    }
-                }
-                
-                isLongPress = false;
-            }
-            
-            // 窗口大小改变时重新计算边界
+            // 窗口大小改变处理
             function onWindowResize() {
                 if (container.style.right === 'auto') {
                     const rect = container.getBoundingClientRect();
@@ -1308,7 +1322,7 @@
                 }
             }
             
-            // 事件绑定 - 修复重复绑定问题
+            // 事件绑定
             toggle.addEventListener('mousedown', onMouseDown, { passive: false });
             window.addEventListener('resize', onWindowResize);
             

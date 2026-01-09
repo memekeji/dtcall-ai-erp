@@ -8,7 +8,7 @@ from django.urls import reverse_lazy
 from django.shortcuts import render
 from django.core.exceptions import ObjectDoesNotExist
 
-from apps.user.models_new import GroupExtension, DepartmentGroup
+from apps.user.models.permission import GroupExtension, DepartmentGroup
 from apps.department.models import Department
 from apps.user.utils.permission_utils import PermissionManager
 
@@ -126,7 +126,7 @@ class GroupDetailAPIView(LoginRequiredMixin, PermissionRequiredMixin, View):
                 pass
             
             # 删除部门角色关联
-            from apps.user.models_new import DepartmentGroup
+            from apps.user.models.permission import DepartmentGroup
             DepartmentGroup.objects.filter(group=group).delete()
             
             # 删除角色

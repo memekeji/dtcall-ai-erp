@@ -97,7 +97,7 @@
         
         <div class="panel-center">
             <div class="canvas-area" id="flowCanvas">
-                <div class="node-start">
+                <div class="node-start" id="startNode" onclick="FlowDesigner.selectStartNode()">
                     <div class="start-circle">
                         <i class="layui-icon layui-icon-start"></i>
                     </div>
@@ -636,6 +636,19 @@ var FlowDesigner = (function() {
         selectNode(nodeId);
     }
     
+    function selectStartNode() {
+        document.querySelectorAll('.node-card').forEach(function(el) {
+            el.classList.remove('selected');
+        });
+        
+        var el = document.getElementById('startNode');
+        if (el) {
+            el.classList.add('selected');
+        }
+        
+        showStartNodeConfig();
+    }
+    
     function selectNode(nodeId) {
         document.querySelectorAll('.node-card').forEach(function(el) {
             el.classList.remove('selected');
@@ -968,7 +981,8 @@ var FlowDesigner = (function() {
         saveInitiator: saveInitiator,
         addFormField: addFormField,
         deleteFormField: deleteFormField,
-        saveStartNodeConfig: saveStartNodeConfig
+        saveStartNodeConfig: saveStartNodeConfig,
+        selectStartNode: selectStartNode
     };
 })();
 
@@ -1171,6 +1185,16 @@ document.addEventListener('DOMContentLoaded', function() {
     font-weight: 600;
     color: #333;
     font-size: 14px;
+}
+
+.node-start.selected .start-circle,
+.node-end.selected .end-circle {
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.4);
+}
+
+.node-start.selected,
+.node-end.selected {
+    cursor: pointer;
 }
 
 .connector-v {

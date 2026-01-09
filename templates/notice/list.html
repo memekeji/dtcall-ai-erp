@@ -11,9 +11,9 @@
                 <h3>公告管理</h3>
             </div>
             <div class="layui-col-md6" style="text-align: right;">
-                <a href="{% url 'system:admin_office:notice_create' %}" class="layui-btn layui-btn-sm">
+                <button onclick="openNoticeForm()" class="layui-btn layui-btn-sm">
                     <i class="layui-icon layui-icon-add-1"></i> 新增公告
-                </a>
+                </button>
             </div>
         </div>
     </div>
@@ -79,7 +79,7 @@
                         {% endif %}
                     </td>
                     <td>
-                        <a href="{% url 'system:admin_office:notice_update' notice.pk %}" class="layui-btn layui-btn-xs">编辑</a>
+                        <button class="layui-btn layui-btn-xs" onclick="editNotice({{ notice.pk }})">编辑</button>
                         <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteNotice({{ notice.pk }})">删除</button>
                     </td>
                 </tr>
@@ -115,6 +115,36 @@
 </div>
 
 <script>
+function openNoticeForm() {
+    layer.open({
+        type: 2,
+        title: '新增公告',
+        area: ['75%', '90%'],
+        shade: 0.3,
+        maxmin: true,
+        offset: 'rt',
+        content: '{% url "system:admin_office:notice_create" %}',
+        end: function() {
+            location.reload();
+        }
+    });
+}
+
+function editNotice(id) {
+    layer.open({
+        type: 2,
+        title: '编辑公告',
+        area: ['75%', '90%'],
+        shade: 0.3,
+        maxmin: true,
+        offset: 'rt',
+        content: '/system/admin_office/notice/' + id + '/update/',
+        end: function() {
+            location.reload();
+        }
+    });
+}
+
 function deleteNotice(id) {
     layer.confirm('确定要删除这条公告吗？', {
         btn: ['确定', '取消']

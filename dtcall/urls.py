@@ -49,6 +49,8 @@ urlpatterns = [
     path('customer/', include('apps.customer.urls', namespace='customer')),
     # 财务模块
     path('finance/', include('apps.finance.urls', namespace='finance')),
+    # 财务模块 - adm前缀（兼容旧路径）
+    path('adm/finance/', include('apps.finance.urls', namespace='adm_finance')),
     # 生产模块
     path('production/', include('apps.production.urls', namespace='production')),
     # 系统模块
@@ -68,6 +70,9 @@ urlpatterns = [
     
     # 审批流程模块
     path('approval/', include('apps.approval.urls', namespace='approval')),
+    
+    # 消息通知模块
+    path('message/', include('apps.message.urls', namespace='message')),
     
     # 登出
     path('logout/', apps.user.views.logout_view, name='logout'),
@@ -92,7 +97,7 @@ urlpatterns = [
     path('adm/basic/', RedirectView.as_view(url='/contract/category/', permanent=True)),
     path('basedata/contract/', RedirectView.as_view(url='/contract/category/', permanent=True)),
     path('basedata/customer/', RedirectView.as_view(url='/customer/source/', permanent=True)),
-    path('basedata/finance/', RedirectView.as_view(url='/finance/reimbursement_type/', permanent=True)),
+    path('basedata/finance/', RedirectView.as_view(url='/finance/expense/', permanent=True)),
     path('basedata/project/', RedirectView.as_view(url='/project/stage/', permanent=True)),
     path('basedata/hr/', RedirectView.as_view(url='/user/employee/', permanent=True)),
     
@@ -196,9 +201,7 @@ urlpatterns = [
     path('finance/receive_invoice/', RedirectView.as_view(url='/finance/receiveinvoice/', permanent=True)),
     path('finance/receivable/', RedirectView.as_view(url='/finance/paymentreceive/', permanent=True)),
     path('finance/payable/', RedirectView.as_view(url='/finance/payment/', permanent=True)),
-    # 修复报销类型和费用类型的重定向规则，将它们整合到财务模块
-    path('adm/basedata/finance/reimbursement/', RedirectView.as_view(url='/finance/reimbursement_type/', permanent=True)),
-    path('adm/basedata/finance/expense/', RedirectView.as_view(url='/finance/expense_type/', permanent=True)),
+    # 修复财务统计相关的重定向规则
     path('adm/finance/statistics/reimbursement/', RedirectView.as_view(url='/finance/statistics/reimbursement/', permanent=True)),
     path('adm/finance/statistics/invoice/', RedirectView.as_view(url='/finance/statistics/invoice/', permanent=True)),
     path('adm/finance/statistics/receiveinvoice/', RedirectView.as_view(url='/finance/statistics/receiveinvoice/', permanent=True)),

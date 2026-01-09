@@ -3,7 +3,7 @@ import logging
 import time
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
-from .models_new import MeetingRecord
+from .models import MeetingRecord
 from apps.ai.utils.analysis_tools import default_meeting_analysis_tool
 
 logger = logging.getLogger(__name__)

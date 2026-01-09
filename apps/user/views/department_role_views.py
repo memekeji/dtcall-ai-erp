@@ -3,7 +3,7 @@ from django.http import JsonResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.auth.models import Group
-from apps.user.models_new import DepartmentGroup
+from apps.user.models.permission import DepartmentGroup
 from apps.department.models import Department
 
 

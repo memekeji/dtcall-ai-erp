@@ -4,16 +4,10 @@
 {% block content %}
 <div class="layui-card">
     <div class="layui-card-header">
-        <i class="layui-icon layui-icon-user"></i> 我的审批
+        <i class="layui-icon layui-icon-util"></i> 待我审批
     </div>
     <div class="layui-card-body">
-        <div class="layui-btns">
-            <a href="{% url 'approval:apply_approval' %}" class="layui-btn layui-btn-normal">
-                <i class="layui-icon layui-icon-add-1"></i> 发起审批
-            </a>
-        </div>
-        
-        <table id="approvalTable" lay-filter="approvalTable"></table>
+        <table id="pendingTable" lay-filter="pendingTable"></table>
         
         <script type="text/html" id="statusTpl">
             {% verbatim %}
@@ -32,7 +26,8 @@
         </script>
         
         <script type="text/html" id="actionTpl">
-            <a class="layui-btn layui-btn-xs" lay-event="view">查看</a>
+            <button class="layui-btn layui-btn-xs layui-btn-normal" lay-event="process">处理</button>
+            <button class="layui-btn layui-btn-xs" lay-event="view">查看</button>
         </script>
     </div>
 </div>
@@ -44,17 +39,18 @@ layui.use(['table', 'layer'], function(){
     var $ = layui.$;
     
     table.render({
-        elem: '#approvalTable',
-        url: '{% url "approval:my_approval_list" %}',
+        elem: '#pendingTable',
+        url: '{% url "approval:get_pending_approvals" %}',
         page: true,
         limit: 10,
         cols: [[
             {field: 'id', title: 'ID', width: 80, sort: true},
-            {field: 'title', title: '审批标题', minWidth: 100},
-            {field: 'flow_name', title: '流程名称', width: 150},
-            {field: 'status', title: '状态', width: 100, templet: '#statusTpl'},
-            {field: 'create_time', title: '申请时间', width: 180},
-            {title: '操作', width: 100, templet: '#actionTpl'}
+            {field: 'title', title: '审批标题', minWidth: 150},
+            {field: 'flow_name', title: '流程名称', width: 120},
+            {field: 'current_step', title: '当前步骤', width: 100},
+            {field: 'content', title: '申请内容', minWidth: 150},
+            {field: 'create_time', title: '申请时间', width: 160},
+            {title: '操作', width: 150, templet: '#actionTpl'}
         ]],
         parseData: function(res){
             return {
@@ -66,13 +62,23 @@ layui.use(['table', 'layer'], function(){
         }
     });
     
-    table.on('tool(approvalTable)', function(obj){
-        if(obj.event === 'view'){
+    table.on('tool(pendingTable)', function(obj){
+        if(obj.event === 'process'){
+            layer.open({
+                type: 2,
+                title: '处理审批',
+                content: '/approval/' + obj.data.id + '/process/',
+                area: ['65%', '90%'],
+                offset: 'r',
+                anim: 'slideLeft',
+                maxmin: true
+            });
+        } else if(obj.event === 'view'){
             layer.open({
                 type: 2,
                 title: '审批详情',
                 content: '/approval/' + obj.data.id + '/',
-                area: ['75%', '100%'],
+                area: ['65%', '90%'],
                 offset: 'r',
                 anim: 'slideLeft',
                 maxmin: true

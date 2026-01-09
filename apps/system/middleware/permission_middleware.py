@@ -46,31 +46,24 @@ class PermissionMiddleware:
         return self.get_response(request)
     
     def _should_skip_permission_check(self, path):
-        login_urls = ['/login/', '/logout/', '/api/login/', '/api/logout/', '/user/login/', '/user/logout/', '/user/login-submit/']
-        if any(path.startswith(url) for url in login_urls):
-            return True
-        
-        static_urls = ['/static/', '/media/', '/favicon.ico', '/captcha/']
-        if any(path.startswith(url) for url in static_urls):
-            return True
-        
-        if path.startswith('/admin/'):
-            return True
-        
-        home_urls = ['/home/main/', '/home/dashboard/']
-        if any(path.startswith(url) for url in home_urls):
-            return True
-        
-        if path.startswith('/get-new-captcha/'):
-            return True
-        
-        return False
+        skip_urls = [
+            '/login/', '/logout/', '/api/login/', '/api/logout/',
+            '/user/login/', '/user/logout/', '/user/login-submit/',
+            '/static/', '/media/', '/favicon.ico', '/captcha/',
+            '/admin/', '/home/main/', '/home/dashboard/',
+            '/get-new-captcha/',
+        ]
+        return any(path.startswith(url) for url in skip_urls)
     
     def _is_api_request(self, path):
         return path.startswith('/api/')
     
     def _has_permission(self, request, path):
         try:
+            from apps.system.context_processors import get_permission_from_src
+            from apps.user.models import Menu
+            from django.core.cache import cache
+            
             resolver_match = resolve(path)
             view_func = resolver_match.func
             
@@ -82,22 +75,24 @@ class PermissionMiddleware:
                 elif isinstance(permission_required, (list, tuple)):
                     return any(self._check_permission(request, perm) for perm in permission_required)
             
-            from apps.user.models import Menu
-            from django.core.cache import cache
+            perm_codename = get_permission_from_src(path)
+            if perm_codename:
+                return self._check_permission(request, perm_codename)
             
             cache_key = f'menu_path_{path}'
+            menu = None
             
-            menu = cache.get(cache_key)
-            if menu is None:
+            try:
+                menu = cache.get(cache_key)
+                if menu is None:
+                    menu = Menu.objects.filter(src=path, status=1).first()
+                    if menu:
+                        cache.set(cache_key, menu, 60 * 60)
+            except Exception:
                 menu = Menu.objects.filter(src=path, status=1).first()
-                cache.set(cache_key, menu, 60 * 60)
             
-            if menu:
-                if menu.permission_required:
-                    return self._check_permission(request, menu.permission_required)
-                if menu.view_permission_id:
-                    return self._check_menu_view_permission(request, menu.view_permission_id)
-                return True
+            if menu and menu.permission_required:
+                return self._check_permission(request, menu.permission_required)
             
             app_label = resolver_match.app_name or resolver_match.view_name.split(':')[0]
             return request.user.has_module_perms(app_label)
@@ -117,15 +112,3 @@ class PermissionMiddleware:
             full_perm = f'user.{permission_required}'
         
         return request.user.has_perm(full_perm)
-    
-    def _check_menu_view_permission(self, request, view_permission_id):
-        from django.contrib.auth.models import Permission
-        
-        try:
-            view_perm = Permission.objects.filter(id=view_permission_id).first()
-            if view_perm:
-                full_perm = f'{view_perm.content_type.app_label}.{view_perm.codename}'
-                return request.user.has_perm(full_perm)
-        except Exception as e:
-            logger.error(f"检查菜单查看权限失败: {e}")
-        return True

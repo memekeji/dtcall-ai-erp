@@ -718,7 +718,7 @@ def create_meeting_record(sender, instance, created, **kwargs):
                     meeting_type = temp_data.get('meeting_type', 'regular')
             except Exception:
                 pass
-        from apps.oa.models_new import MeetingRecord
+        from apps.oa.models import MeetingRecord
         meeting_record = MeetingRecord.objects.create(
             title=instance.title,
             meeting_type=meeting_type,

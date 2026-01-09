@@ -16,19 +16,45 @@ from apps.system.models import (
 
 class NoticeForm(forms.ModelForm):
     """公告表单"""
+    target_departments = forms.ModelMultipleChoiceField(
+        queryset=None,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'layui-checkbox'}),
+        label='目标部门'
+    )
+    target_users = forms.ModelMultipleChoiceField(
+        queryset=None,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'layui-checkbox'}),
+        label='目标用户'
+    )
+    
     class Meta:
         model = Notice
-        fields = ['title', 'content', 'is_published']
+        fields = ['title', 'content', 'notice_type', 'is_top', 'is_published', 'target_departments', 'target_users', 'expire_time']
         widgets = {
             'title': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入公告标题'}),
             'content': forms.Textarea(attrs={'class': 'layui-textarea', 'placeholder': '请输入公告内容', 'rows': 10}),
             'is_published': forms.CheckboxInput(attrs={'class': 'layui-checkbox'}),
+            'notice_type': forms.Select(attrs={'class': 'layui-select'}),
+            'is_top': forms.CheckboxInput(attrs={'class': 'layui-checkbox'}),
+            'expire_time': forms.DateInput(attrs={'class': 'layui-input', 'type': 'date'}),
         }
         labels = {
             'title': '公告标题',
             'content': '公告内容',
+            'notice_type': '公告类型',
+            'is_top': '置顶',
             'is_published': '是否发布',
+            'expire_time': '过期时间',
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from apps.department.models import Department
+        from apps.user.models import Admin
+        self.fields['target_departments'].queryset = Department.objects.filter(is_active=True)
+        self.fields['target_users'].queryset = Admin.objects.filter(status=1)
 
     def clean_title(self):
         title = self.cleaned_data.get('title')

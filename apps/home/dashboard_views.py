@@ -12,6 +12,97 @@ import logging
 User = get_user_model()
 logger = logging.getLogger('django')
 
+
+def _build_menu_tree(available_menus, user_permissions=None, is_superuser=False):
+    """构建菜单树结构（统一方法）
+    
+    Args:
+        available_menus: 可用菜单列表
+        user_permissions: 用户权限集合
+        is_superuser: 是否超级管理员
+        
+    Returns:
+        tuple: (top_menus, all_filtered_menus)
+    """
+    from apps.system.context_processors import get_permission_from_src
+    
+    if is_superuser:
+        top_menus = [menu for menu in available_menus if menu.pid is None]
+        for menu in top_menus:
+            menu.submenus_list = [submenu for submenu in available_menus if submenu.pid_id == menu.id]
+            for submenu in menu.submenus_list:
+                submenu.submenus_list = [subsubmenu for subsubmenu in available_menus if subsubmenu.pid_id == submenu.id]
+                for subsubmenu in submenu.submenus_list:
+                    subsubmenu.submenus_list = [subsubsubmenu for subsubsubmenu in available_menus if subsubsubmenu.pid_id == subsubmenu.id]
+        return top_menus, available_menus
+    
+    def check_menu_permission(menu):
+        """检查用户是否有权限访问菜单"""
+        if not menu.src or menu.src == 'javascript:;':
+            return False
+        
+        if menu.permission_required:
+            perm_key = f'user.{menu.permission_required}' if '.' not in menu.permission_required else menu.permission_required
+            if perm_key in user_permissions or menu.permission_required in user_permissions:
+                return True
+        
+        inferred_perm = get_permission_from_src(menu.src)
+        if inferred_perm:
+            full_perm = f'user.{inferred_perm}' if not inferred_perm.startswith('user.') else inferred_perm
+            if inferred_perm in user_permissions or full_perm in user_permissions:
+                return True
+        
+        return False
+    
+    def collect_descendants(menu_id):
+        """收集菜单的所有后代ID"""
+        descendant_ids = set()
+        children = [m for m in available_menus if m.pid_id == menu_id]
+        for child in children:
+            descendant_ids.add(child.id)
+            descendant_ids.update(collect_descendants(child.id))
+        return descendant_ids
+    
+    menu_dict = {menu.id: menu for menu in available_menus}
+    for menu in available_menus:
+        menu.children = []
+        menu.submenus_list = []
+    
+    for menu in available_menus:
+        if menu.pid_id:
+            parent = menu_dict.get(menu.pid_id)
+            if parent:
+                parent.children.append(menu)
+    
+    authorized_menu_ids = set()
+    
+    for menu in available_menus:
+        if check_menu_permission(menu):
+            authorized_menu_ids.add(menu.id)
+            current = menu
+            while current and current.pid_id:
+                authorized_menu_ids.add(current.pid_id)
+                current = menu_dict.get(current.pid_id)
+    
+    for menu_id in list(authorized_menu_ids):
+        menu = menu_dict.get(menu_id)
+        if menu:
+            descendants = collect_descendants(menu_id)
+            authorized_menu_ids.update(descendants)
+    
+    filtered_menus = [menu for menu in available_menus if menu.id in authorized_menu_ids]
+    
+    top_menus = [menu for menu in filtered_menus if menu.pid is None]
+    for menu in top_menus:
+        menu.submenus_list = [submenu for submenu in filtered_menus if submenu.pid_id == menu.id]
+        for submenu in menu.submenus_list:
+            submenu.submenus_list = [subsubmenu for subsubmenu in filtered_menus if subsubmenu.pid_id == submenu.id]
+            for subsubmenu in submenu.submenus_list:
+                subsubmenu.submenus_list = [subsubsubmenu for subsubsubmenu in filtered_menus if subsubsubmenu.pid_id == subsubmenu.id]
+    
+    return top_menus, filtered_menus
+
+
 INDUSTRY_CHOICES = {
     0: '其他',
     1: '互联网',

@@ -10,6 +10,22 @@ from apps.common.models import (
 )
 
 
+class PaymentMethodChoices:
+    BANK_TRANSFER = 'bank_transfer'
+    CASH = 'cash'
+    CHECK = 'check'
+    ONLINE = 'online'
+    OTHER = 'other'
+
+    CHOICES = [
+        (BANK_TRANSFER, '银行转账'),
+        (CASH, '现金'),
+        (CHECK, '支票'),
+        (ONLINE, '在线支付'),
+        (OTHER, '其他'),
+    ]
+
+
 class ExpenseCategory(SoftDeleteModel):
     """报销类别"""
     name = models.CharField(max_length=100, verbose_name='类别名称')

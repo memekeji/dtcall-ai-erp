@@ -11,9 +11,10 @@ from django.contrib.auth.models import Group, Permission
 from django.shortcuts import render, get_object_or_404
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
+from django.core.cache import cache
 
 from apps.user.utils.permission_utils import PermissionManager
-from apps.user.models_new import GroupExtension
+from apps.user.models.permission import GroupExtension
 from apps.user.models.menu import Menu
 from apps.user.config.permission_nodes import PERMISSION_NODES
 from apps.system.middleware.data_permission_middleware import (
@@ -21,6 +22,38 @@ from apps.system.middleware.data_permission_middleware import (
     PermissionChecker
 )
 from apps.user.services.permission_node_mapper import permission_node_mapper
+
+
+def clear_permission_cache_for_group(group_id):
+    """清除角色相关的所有权限缓存
+    
+    Args:
+        group_id: 角色ID
+    """
+    from apps.user.models import Admin
+    
+    try:
+        group = Group.objects.get(id=group_id)
+        
+        # 获取该角色的所有用户
+        users = Admin.objects.filter(groups=group)
+        
+        # 清除每个用户的菜单缓存
+        for user in users:
+            cache.delete(f'menus_user_{user.id}')
+            cache.delete(f'dashboard_menu_{user.id}')
+        
+        # 清除角色的权限数据缓存
+        cache.delete(f'group_permissions_{group_id}')
+        cache.delete(f'group_menu_tree_{group_id}')
+        
+        # 清除系统配置缓存（因为权限配置可能影响系统配置）
+        cache.delete('system_configs')
+        
+        print(f"已清除角色 {group.name}(ID:{group_id}) 相关缓存，用户数: {users.count()}")
+        return True
+    except Group.DoesNotExist:
+        return False
 
 
 class GroupPermissionView(LoginRequiredMixin, View):
@@ -81,6 +114,8 @@ class GroupPermissionView(LoginRequiredMixin, View):
                 add_perms = Permission.objects.filter(id__in=permissions_to_add)
                 group.permissions.add(*add_perms)
             
+            clear_permission_cache_for_group(pk)
+            
             return JsonResponse({
                 'code': 200, 
                 'msg': '权限配置成功',
@@ -105,13 +140,42 @@ class GroupPermissionView(LoginRequiredMixin, View):
         Returns:
             菜单树结构列表，包含menu_path信息用于显示面包屑
         """
+        from apps.system.context_processors import get_permission_from_src
+        from django.contrib.contenttypes.models import ContentType
+        from django.contrib.auth.models import Permission
+        
         menus = Menu.objects.filter(status=1).order_by('sort', 'id')
         
-        for menu in menus:
-            if not menu.view_permission:
-                menu.create_view_permission()
-        
         menu_dict = {menu.id: menu for menu in menus}
+        
+        permission_cache = {}
+        
+        def get_permission_id_by_codename(codename):
+            """根据codename获取权限ID"""
+            if not codename:
+                return None
+            
+            if codename in permission_cache:
+                return permission_cache[codename]
+            
+            try:
+                perm = Permission.objects.get(codename=codename)
+                permission_cache[codename] = perm.id
+                return perm.id
+            except Permission.DoesNotExist:
+                permission_cache[codename] = None
+                return None
+        
+        def get_menu_permission_id(menu):
+            """获取菜单对应的权限ID"""
+            perm_codename = None
+            
+            if menu.permission_required:
+                perm_codename = menu.permission_required
+            else:
+                perm_codename = get_permission_from_src(menu.src)
+            
+            return get_permission_id_by_codename(perm_codename)
         
         def build_tree(parent_id=None, path=None):
             if path is None:
@@ -122,6 +186,8 @@ class GroupPermissionView(LoginRequiredMixin, View):
                 if menu.pid_id == parent_id:
                     current_path = path + [menu.title]
                     
+                    view_perm_id = get_menu_permission_id(menu)
+                    
                     menu_data = {
                         'id': menu.id,
                         'title': menu.title,
@@ -129,10 +195,10 @@ class GroupPermissionView(LoginRequiredMixin, View):
                         'icon': menu.icon,
                         'sort': menu.sort,
                         'permission_required': menu.permission_required,
-                        'view_permission_id': menu.get_view_permission_id(),
+                        'view_permission_id': view_perm_id,
                         'has_view_permission': (
-                            menu.get_view_permission_id() in group_permission_ids 
-                            if menu.get_view_permission_id() else False
+                            view_perm_id in group_permission_ids 
+                            if view_perm_id else False
                         ),
                         'menu_path': json.dumps(current_path, ensure_ascii=False),
                         'expanded': len(current_path) <= 2,
@@ -208,8 +274,6 @@ class MenuPermissionsAPIView(LoginRequiredMixin, View):
         '收票管理': 'receive_invoice',
         '回款管理': 'payment_receive',
         '付款管理': 'payment',
-        '报销类型': 'reimbursement_type',
-        '费用类型': 'expense_type',
         '财务统计': 'finance_statistics',
         '报销记录': 'reimbursement_record',
         '开票记录': 'invoice_record',

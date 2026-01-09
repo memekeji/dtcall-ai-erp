@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from .models import Schedule, Approval
-from .models_new import MeetingRoom, MeetingRecord
+from .models import MeetingRoom, MeetingRecord
 from .utils import get_admin, get_leader_departments, is_leader, is_auth, value_auth
 from django.db.models import Q
 import json
@@ -461,7 +461,7 @@ class MeetingMinutesView(LoginRequiredMixin, View):
         if meeting_id:
             try:
                 # 获取会议记录信息
-                from apps.oa.models_new import MeetingRecord
+                from apps.oa.models import MeetingRecord
                 meeting = MeetingRecord.objects.get(id=meeting_id)
                 
                 # 检查当前用户是否有权限创建该会议的纪要
@@ -516,7 +516,7 @@ class MeetingMinutesView(LoginRequiredMixin, View):
                 return JsonResponse({'code': 1, 'msg': '会议ID不能为空'})
             
             # 获取会议记录
-            from apps.oa.models_new import MeetingRecord
+            from apps.oa.models import MeetingRecord
             meeting = MeetingRecord.objects.get(id=meeting_id)
             
             # 检查权限
@@ -711,7 +711,7 @@ class MeetingMinutesView(LoginRequiredMixin, View):
             return JsonResponse({'code': 1, 'msg': f'保存会议纪要失败: {str(e)}'})
 
 from django.views.generic import DetailView
-from .models_new import Message
+from .models import OAMessage as Message
 
 class MessageDetailView(LoginRequiredMixin, DetailView):
     login_url = '/user/login/'
@@ -837,7 +837,7 @@ def create_temp_meeting(request):
         meeting_date_str = request.POST.get('meeting_date')
         
         # 导入正确的MeetingRecord模型
-        from apps.oa.models_new import MeetingRecord
+        from apps.oa.models import MeetingRecord
         from django.utils import timezone
         import datetime
         
@@ -892,7 +892,7 @@ def save_audio(request):
     if request.method == 'POST':
         try:
             # 导入会议记录模型
-            from apps.oa.models_new import MeetingRecord
+            from apps.oa.models import MeetingRecord
             
             # 检查文件是否存在
             if 'audio_file' not in request.FILES:

@@ -16,6 +16,7 @@ from apps.system.models import (
     Document, DocumentCategory, DocumentReview, Asset, AssetRepair,
     Vehicle, VehicleMaintenance, VehicleFee, VehicleOil
 )
+from apps.system.forms.admin_office_forms import NoticeForm
 
 
 class NoticeListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -37,27 +38,41 @@ class NoticeCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     """创建公告视图"""
     model = Notice
     template_name = 'notice/form.html'
-    fields = ['title', 'content', 'notice_type', 'is_top', 'is_published']
+    form_class = NoticeForm
     success_url = reverse_lazy('system:admin_office:notice_list')
     permission_required = 'user.add_notice'
     
     def form_valid(self, form):
-        form.instance.creator = self.request.user
+        form.instance.author = self.request.user
+        response = super().form_valid(form)
+        if form.cleaned_data.get('target_departments'):
+            form.instance.target_departments.set(form.cleaned_data['target_departments'])
+        if form.cleaned_data.get('target_users'):
+            form.instance.target_users.set(form.cleaned_data['target_users'])
         messages.success(self.request, '公告创建成功')
-        return super().form_valid(form)
+        return response
 
 
 class NoticeUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     """更新公告视图"""
     model = Notice
     template_name = 'notice/form.html'
-    fields = ['title', 'content', 'notice_type', 'is_top', 'is_published']
+    form_class = NoticeForm
     success_url = reverse_lazy('system:admin_office:notice_list')
     permission_required = 'user.change_notice'
     
     def form_valid(self, form):
+        response = super().form_valid(form)
+        if form.cleaned_data.get('target_departments'):
+            form.instance.target_departments.set(form.cleaned_data['target_departments'])
+        else:
+            form.instance.target_departments.clear()
+        if form.cleaned_data.get('target_users'):
+            form.instance.target_users.set(form.cleaned_data['target_users'])
+        else:
+            form.instance.target_users.clear()
         messages.success(self.request, '公告更新成功')
-        return super().form_valid(form)
+        return response
 
 
 class NoticeDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):

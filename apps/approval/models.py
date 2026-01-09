@@ -23,6 +23,7 @@ class Approval(models.Model):
     create_time = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     update_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
     reviewer = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='审核人', null=True, blank=True)
+    current_step_order = models.IntegerField(default=1, verbose_name='当前步骤')
 
     class Meta:
         db_table = 'mimu_approval'
@@ -31,6 +32,34 @@ class Approval(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class ApprovalRecord(models.Model):
+    """审批记录表"""
+    ACTION_CHOICES = (
+        ('submit', '提交'),
+        ('approve', '通过'),
+        ('reject', '拒绝'),
+        ('cancel', '取消'),
+        ('delegate', '委托'),
+    )
+
+    approval = models.ForeignKey(Approval, on_delete=models.CASCADE, related_name='records', verbose_name='审批')
+    step_order = models.IntegerField(default=1, verbose_name='步骤序号')
+    step_name = models.CharField(max_length=100, verbose_name='步骤名称')
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES, verbose_name='操作类型')
+    comment = models.TextField(blank=True, verbose_name='审批意见')
+    handler = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approval_handled_records', verbose_name='处理人')
+    create_time = models.DateTimeField(auto_now_add=True, verbose_name='处理时间')
+
+    class Meta:
+        db_table = 'mimu_approval_record'
+        verbose_name = '审批记录'
+        verbose_name_plural = '审批记录'
+        ordering = ['create_time']
+
+    def __str__(self):
+        return f'{self.approval.title} - {self.get_action_display()}'
 
 
 class ApprovalType(models.Model):
