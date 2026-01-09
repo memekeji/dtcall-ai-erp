@@ -1,0 +1,389 @@
+{% extends 'home/iframe_base.html' %}
+{% load static %}
+
+{% block title %}消息统计 - DTCALL管理后台{% endblock %}
+
+{% block css %}
+<style>
+    .stats-container {
+        padding: 20px;
+    }
+    
+    .stats-overview {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 20px;
+        margin-bottom: 25px;
+    }
+    
+    .stat-card {
+        background: #fff;
+        border-radius: 8px;
+        padding: 25px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        text-align: center;
+    }
+    
+    .stat-card .icon-wrapper {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 15px;
+        font-size: 28px;
+    }
+    
+    .stat-card.total .icon-wrapper { background: #e6f7ff; color: #1890ff; }
+    .stat-card.unread .icon-wrapper { background: #fff1f0; color: #ff4d4f; }
+    .stat-card.starred .icon-wrapper { background: #fffbe6; color: #faad14; }
+    .stat-card.rate .icon-wrapper { background: #f6ffed; color: #52c41a; }
+    
+    .stat-card .stat-value {
+        font-size: 36px;
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 5px;
+    }
+    
+    .stat-card .stat-label {
+        font-size: 14px;
+        color: #999;
+    }
+    
+    .stats-section {
+        background: #fff;
+        border-radius: 8px;
+        padding: 25px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+    }
+    
+    .section-title {
+        font-size: 16px;
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .category-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 15px;
+    }
+    
+    .category-item {
+        background: #fafafa;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        border: 1px solid #f0f0f0;
+        transition: all 0.3s;
+    }
+    
+    .category-item:hover {
+        border-color: #1890ff;
+        box-shadow: 0 2px 8px rgba(24,144,255,0.1);
+    }
+    
+    .category-item .cat-icon {
+        font-size: 32px;
+        margin-bottom: 10px;
+    }
+    
+    .category-item .cat-name {
+        font-size: 14px;
+        color: #333;
+        margin-bottom: 8px;
+        font-weight: 500;
+    }
+    
+    .category-item .cat-stats {
+        font-size: 12px;
+        color: #999;
+    }
+    
+    .category-item .cat-stats span {
+        margin: 0 5px;
+    }
+    
+    .category-item .cat-unread {
+        color: #ff4d4f;
+        font-weight: bold;
+    }
+    
+    .chart-container {
+        height: 350px;
+        margin-top: 20px;
+    }
+    
+    .data-table {
+        margin-top: 20px;
+    }
+    
+    .data-table .layui-table {
+        margin-top: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stats-container">
+    <div class="stats-overview">
+        <div class="stat-card total">
+            <div class="icon-wrapper">
+                <i class="layui-icon layui-icon-notice"></i>
+            </div>
+            <div class="stat-value" id="totalCount">-</div>
+            <div class="stat-label">消息总数</div>
+        </div>
+        <div class="stat-card unread">
+            <div class="icon-wrapper">
+                <i class="layui-icon layui-icon-email"></i>
+            </div>
+            <div class="stat-value" id="unreadCount">-</div>
+            <div class="stat-label">未读消息</div>
+        </div>
+        <div class="stat-card starred">
+            <div class="icon-wrapper">
+                <i class="layui-icon layui-icon-rate-half"></i>
+            </div>
+            <div class="stat-value" id="starredCount">-</div>
+            <div class="stat-label">标星消息</div>
+        </div>
+        <div class="stat-card rate">
+            <div class="icon-wrapper">
+                <i class="layui-icon layui-icon-ok"></i>
+            </div>
+            <div class="stat-value" id="readRate">-%</div>
+            <div class="stat-label">已读比例</div>
+        </div>
+    </div>
+    
+    <div class="stats-section">
+        <div class="section-title">
+            <i class="layui-icon layui-icon-chart"></i> 消息类型分布
+        </div>
+        <div class="category-grid" id="categoryGrid">
+            <div style="text-align: center; color: #999; padding: 30px;">加载中...</div>
+        </div>
+    </div>
+    
+    <div class="stats-section">
+        <div class="section-title">
+            <i class="layui-icon layui-icon-chart-bar"></i> 消息趋势图
+        </div>
+        <div class="chart-container" id="trendChart"></div>
+    </div>
+    
+    <div class="stats-section">
+        <div class="section-title">
+            <i class="layui-icon layui-icon-list"></i> 详细数据
+        </div>
+        <div class="data-table">
+            <table class="layui-table" id="detailTable">
+                <thead>
+                    <tr>
+                        <th style="text-align: center;">消息类型</th>
+                        <th style="text-align: center;">总数</th>
+                        <th style="text-align: center;">未读</th>
+                        <th style="text-align: center;">已读</th>
+                        <th style="text-align: center;">已读率</th>
+                    </tr>
+                </thead>
+                <tbody id="detailTableBody">
+                    <tr><td colspan="5" style="text-align: center; color: #999;">加载中...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+{% endblock %}
+
+{% block script %}
+<script>
+    var trendChart = null;
+    
+    var typeMap = {
+        'announcement': {name: '公告通知', icon: '📢', color: '#1890ff'},
+        'approval': {name: '审批通知', icon: '📋', color: '#52c41a'},
+        'task': {name: '任务通知', icon: '📋', color: '#faad14'},
+        'comment': {name: '评论回复', icon: '💬', color: '#722ed1'},
+        'system': {name: '系统通知', icon: '⚙️', color: '#999999'}
+    };
+    
+    function initPage() {
+        loadStats();
+        initChart();
+    }
+    
+    function loadStats() {
+        fetch('/message/stats/')
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                updateOverview(data);
+                updateCategoryGrid(data.category_stats || {});
+                updateDetailTable(data.category_stats || {});
+            })
+            .catch(function(error) {
+                console.error('加载统计信息失败:', error);
+            });
+    }
+    
+    function updateOverview(data) {
+        document.getElementById('totalCount').textContent = data.total_count || 0;
+        document.getElementById('unreadCount').textContent = data.unread_count || 0;
+        document.getElementById('starredCount').textContent = data.starred_count || 0;
+        
+        var total = data.total_count || 1;
+        var read = total - (data.unread_count || 0);
+        var rate = Math.round((read / total) * 100);
+        document.getElementById('readRate').textContent = rate + '%';
+    }
+    
+    function updateCategoryGrid(categoryStats) {
+        var grid = document.getElementById('categoryGrid');
+        var html = '';
+        
+        for (var key in categoryStats) {
+            var stat = categoryStats[key];
+            var typeInfo = typeMap[key] || {name: key, icon: '📬', color: '#999'};
+            var read = (stat.total || 0) - (stat.unread || 0);
+            var rate = stat.total > 0 ? Math.round((read / stat.total) * 100) : 0;
+            
+            html += '<div class="category-item">';
+            html += '  <div class="cat-icon">' + typeInfo.icon + '</div>';
+            html += '  <div class="cat-name">' + (stat.name || typeInfo.name) + '</div>';
+            html += '  <div class="cat-stats">';
+            html += '    共<span>' + (stat.total || 0) + '</span>条，';
+            html += '    未读<span class="cat-unread">' + (stat.unread || 0) + '</span>条';
+            html += '  </div>';
+            html += '</div>';
+        }
+        
+        if (!html) {
+            html = '<div style="text-align: center; color: #999; padding: 30px; grid-column: 1/-1;">暂无消息数据</div>';
+        }
+        
+        grid.innerHTML = html;
+    }
+    
+    function updateDetailTable(categoryStats) {
+        var tbody = document.getElementById('detailTableBody');
+        var html = '';
+        
+        for (var key in categoryStats) {
+            var stat = categoryStats[key];
+            var typeInfo = typeMap[key] || {name: key};
+            var total = stat.total || 0;
+            var unread = stat.unread || 0;
+            var read = total - unread;
+            var rate = total > 0 ? Math.round((read / total) * 100) : 0;
+            
+            html += '<tr>';
+            html += '  <td>' + typeInfo.icon + ' ' + (stat.name || typeInfo.name) + '</td>';
+            html += '  <td style="text-align: center;">' + total + '</td>';
+            html += '  <td style="text-align: center;"><span style="color: #ff4d4f;">' + unread + '</span></td>';
+            html += '  <td style="text-align: center;">' + read + '</td>';
+            html += '  <td style="text-align: center;">' + rate + '%</td>';
+            html += '</tr>';
+        }
+        
+        if (!html) {
+            html = '<tr><td colspan="5" style="text-align: center; color: #999;">暂无消息数据</td></tr>';
+        }
+        
+        tbody.innerHTML = html;
+    }
+    
+    function initChart() {
+        if (typeof echarts === 'undefined') {
+            setTimeout(initChart, 100);
+            return;
+        }
+        
+        trendChart = echarts.init(document.getElementById('trendChart'));
+        
+        var option = {
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'shadow' }
+            },
+            legend: {
+                data: ['未读消息', '已读消息']
+            },
+            grid: {
+                left: '3%',
+                right: '4%',
+                bottom: '3%',
+                containLabel: true
+            },
+            xAxis: {
+                type: 'category',
+                data: Object.keys(typeMap).map(function(key) { return typeMap[key].name; }),
+                axisLabel: { interval: 0, rotate: 30 }
+            },
+            yAxis: {
+                type: 'value'
+            },
+            series: [
+                {
+                    name: '未读消息',
+                    type: 'bar',
+                    stack: 'total',
+                    data: [0, 0, 0, 0, 0],
+                    itemStyle: { color: '#ff4d4f' }
+                },
+                {
+                    name: '已读消息',
+                    type: 'bar',
+                    stack: 'total',
+                    data: [0, 0, 0, 0, 0],
+                    itemStyle: { color: '#52c41a' }
+                }
+            ]
+        };
+        
+        trendChart.setOption(option);
+        
+        loadChartData();
+    }
+    
+    function loadChartData() {
+        fetch('/message/stats/')
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                var categoryStats = data.category_stats || {};
+                var unreadData = [];
+                var readData = [];
+                
+                Object.keys(typeMap).forEach(function(key) {
+                    var stat = categoryStats[key] || {};
+                    var total = stat.total || 0;
+                    var unread = stat.unread || 0;
+                    unreadData.push(unread);
+                    readData.push(total - unread);
+                });
+                
+                trendChart.setOption({
+                    series: [
+                        { data: unreadData },
+                        { data: readData }
+                    ]
+                });
+            });
+    }
+    
+    window.onresize = function() {
+        if (trendChart) trendChart.resize();
+    };
+    
+    initPage();
+</script>
+{% endblock %}

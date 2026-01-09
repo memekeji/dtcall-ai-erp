@@ -4,12 +4,16 @@
 """
 
 from functools import wraps
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseForbidden
 from django.contrib.auth.decorators import user_passes_test
 from django.core.exceptions import PermissionDenied
 import logging
 
 logger = logging.getLogger('django')
+
+DATA_PERMISSION_CACHE_TIMEOUT = 5 * 60
+PERMISSION_CACHE_TIMEOUT = 5 * 60
+MENU_CACHE_TIMEOUT = 10 * 60
 
 
 class PermissionRequiredMixin:
@@ -41,9 +45,18 @@ class PermissionRequiredMixin:
             return True
         
         if isinstance(perm_required, (list, tuple)):
-            return any(request.user.has_perm(perm) for perm in perm_required)
+            return any(request.user.has_perm(self._normalize_permission(perm)) for perm in perm_required)
         
-        return request.user.has_perm(perm_required)
+        return request.user.has_perm(self._normalize_permission(perm_required))
+    
+    @staticmethod
+    def _normalize_permission(permission_code):
+        """标准化权限代码"""
+        if not permission_code:
+            return None
+        if '.' in permission_code:
+            return permission_code
+        return f'user.{permission_code}'
     
     def dispatch(self, request, *args, **kwargs):
         if not self.has_permission(request):
@@ -54,6 +67,15 @@ class PermissionRequiredMixin:
                 })
             raise PermissionDenied('您没有权限执行此操作')
         return super().dispatch(request, *args, **kwargs)
+
+
+def _normalize_permission(permission_code):
+    """标准化权限代码"""
+    if not permission_code:
+        return None
+    if '.' in permission_code:
+        return permission_code
+    return f'user.{permission_code}'
 
 
 def permission_required(permission, login_url=None):
@@ -84,8 +106,10 @@ def permission_required(permission, login_url=None):
             if request.user.is_superuser:
                 return view_func(request, *args, **kwargs)
             
+            normalized_perm = _normalize_permission(permission)
+            
             if isinstance(permission, (list, tuple)):
-                has_all = all(request.user.has_perm(perm) for perm in permission)
+                has_all = all(request.user.has_perm(_normalize_permission(perm)) for perm in permission)
                 if not has_all:
                     logger.warning(
                         f"用户 {request.user.username} 缺少权限: {permission}"
@@ -97,7 +121,7 @@ def permission_required(permission, login_url=None):
                         }, status=403)
                     raise PermissionDenied('您没有权限执行此操作')
             else:
-                if not request.user.has_perm(permission):
+                if not request.user.has_perm(normalized_perm):
                     logger.warning(
                         f"用户 {request.user.username} 缺少权限: {permission}"
                     )
@@ -133,7 +157,7 @@ def permission_required_any(*permissions):
             if request.user.is_superuser:
                 return view_func(request, *args, **kwargs)
             
-            has_any = any(request.user.has_perm(perm) for perm in permissions)
+            has_any = any(request.user.has_perm(_normalize_permission(perm)) for perm in permissions)
             if not has_any:
                 logger.warning(
                     f"用户 {request.user.username} 缺少以下任一权限: {permissions}"
@@ -221,11 +245,7 @@ def check_permission(request, permission_code):
     if request.user.is_superuser:
         return True
     
-    full_perm = permission_code
-    if '.' not in full_perm:
-        full_perm = f'user.{permission_code}'
-    
-    return request.user.has_perm(full_perm)
+    return request.user.has_perm(_normalize_permission(permission_code))
 
 
 def get_user_permissions(user):
@@ -275,7 +295,70 @@ def filter_queryset_by_permissions(user, queryset, permission_code, field_name='
     if user.is_superuser:
         return queryset
     
-    if check_permission(user, permission_code):
+    if check_permission(request=user, permission_code=permission_code):
         return queryset
     
     return queryset.filter(**{field_name: user})
+
+
+def data_isolation(model=None):
+    """
+    数据隔离装饰器
+    确保用户只能访问自己有权限的数据
+    
+    参数：
+    - model: 模型类，用于确定数据过滤的字段
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            if request.user.is_authenticated and getattr(request.user, 'is_superuser', False):
+                return view_func(request, *args, **kwargs)
+            
+            auth_did = getattr(request.user, 'auth_did', 0)
+            auth_dids = getattr(request.user, 'auth_dids', '')
+            son_dids = getattr(request.user, 'son_dids', '')
+            
+            auth_dids_list = list(map(int, auth_dids.split(','))) if auth_dids else []
+            son_dids_list = list(map(int, son_dids.split(','))) if son_dids else []
+            
+            all_visible_dids = auth_dids_list + son_dids_list
+            all_visible_dids = list(set(all_visible_dids))
+            
+            if not all_visible_dids and auth_did != 0:
+                return HttpResponseForbidden("您没有权限访问该数据")
+            
+            request.user_data_permissions = {
+                'auth_did': auth_did,
+                'auth_dids': auth_dids_list,
+                'son_dids': son_dids_list,
+                'all_visible_dids': all_visible_dids
+            }
+            
+            return view_func(request, *args, **kwargs)
+        return _wrapped_view
+    return decorator
+
+
+def button_permission_required(button_code):
+    """
+    按钮权限检查装饰器
+    用于检查用户是否有使用特定按钮的权限
+    
+    参数：
+    - button_code: 按钮代码，用于标识特定的按钮权限
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            if request.user.is_authenticated and getattr(request.user, 'is_superuser', False):
+                return view_func(request, *args, **kwargs)
+            
+            button_perm = f"user.button_{button_code}"
+            if not request.user.has_perm(button_perm):
+                logger.warning(f"用户 {request.user.username} 尝试使用无权限的按钮: {button_code}")
+                return HttpResponseForbidden("您没有权限使用此功能")
+            
+            return view_func(request, *args, **kwargs)
+        return _wrapped_view
+    return decorator

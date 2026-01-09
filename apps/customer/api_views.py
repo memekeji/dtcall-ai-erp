@@ -289,10 +289,11 @@ class CustomerInvoicesAPIView(LoginRequiredMixin, View):
 
     def get(self, request, customer_id):
         try:
-            from apps.finance_new.models import Invoice
+            from apps.finance.models_new import Invoice as FinanceInvoice
+            from apps.customer.models import CustomerInvoice
             
             customer = Customer.objects.get(id=customer_id, delete_time=0)
-            invoices = Invoice.objects.filter(customer_id=customer.id, is_deleted=False)
+            invoices = CustomerInvoice.objects.filter(customer_id=customer.id, delete_time=0)
             
             # 分页处理
             page = int(request.GET.get('page', 1))
@@ -387,14 +388,14 @@ class CustomerPendingPaymentsAPIView(LoginRequiredMixin, View):
 
     def get(self, request, customer_id):
         try:
-            from apps.finance_new.models import Invoice
+            from apps.finance.models_new import Invoice as FinanceInvoice
+            from apps.customer.models import CustomerInvoice
             
             customer = Customer.objects.get(id=customer_id, delete_time=0)
-            # 获取未完全回款的发票
-            pending_invoices = Invoice.objects.filter(
+            pending_invoices = CustomerInvoice.objects.filter(
                 customer_id=customer.id,
-                is_deleted=False,
-                enter_status__in=[0, 1]  # 未回款或部分回款
+                delete_time=0,
+                status__in=[0, 1]
             )
             
             # 分页处理
@@ -442,16 +443,15 @@ class CustomerFinanceStatsAPIView(LoginRequiredMixin, View):
 
     def get(self, request, customer_id):
         try:
-            from apps.finance_new.models import Invoice
+            from apps.finance.models_new import Invoice as FinanceInvoice
+            from apps.customer.models import CustomerInvoice
             
             customer = Customer.objects.get(id=customer_id, delete_time=0)
             
-            # 计算财务统计数据
-            invoices = Invoice.objects.filter(customer_id=customer.id, is_deleted=False)
+            invoices = CustomerInvoice.objects.filter(customer_id=customer.id, delete_time=0)
             
             total_amount = invoices.aggregate(total=Sum('amount'))['total'] or 0
-            # 检查enter_amount字段是否存在
-            if hasattr(Invoice.objects.first(), 'enter_amount'):
+            if hasattr(FinanceInvoice(), 'enter_amount'):
                 paid_amount = invoices.aggregate(paid=Sum('enter_amount'))['paid'] or 0
             else:
                 paid_amount = 0

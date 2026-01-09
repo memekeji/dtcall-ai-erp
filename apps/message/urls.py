@@ -17,4 +17,6 @@ urlpatterns = [
     path('unread-count/', views.UnreadCountView.as_view(), name='unread-count'),
     
     path('page/', views.message_center_page, name='message-center-page'),
+    path('preference/', views.message_preference_page, name='message-preference-page'),
+    path('stats/page/', views.message_stats_page, name='message-stats-page'),
 ]

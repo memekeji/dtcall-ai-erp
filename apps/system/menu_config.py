@@ -352,14 +352,6 @@ system_menus = {
         "sort": 46,
         "status": 1
     },
-    1155: {
-        "id": 1155,
-        "title": "公司动态",
-        "src": "/system/admin_office/notice/",
-        "pid_id": 1122,
-        "sort": 47,
-        "status": 1
-    },
     1156: {
         "id": 1156,
         "title": "资产分类",
@@ -1143,6 +1135,39 @@ system_menus = {
         "src": "/approval/pending/",
         "pid_id": 1300,
         "sort": 5,
+        "status": 1
+    },
+    # 消息管理菜单 - 个人办公
+    1400: {
+        "id": 1400,
+        "title": "消息管理",
+        "src": "javascript:;",
+        "pid_id": 1162,
+        "sort": 56,
+        "status": 1
+    },
+    1401: {
+        "id": 1401,
+        "title": "消息中心",
+        "src": "/message/page/",
+        "pid_id": 1400,
+        "sort": 1,
+        "status": 1
+    },
+    1403: {
+        "id": 1403,
+        "title": "通知偏好",
+        "src": "/message/preference/",
+        "pid_id": 1400,
+        "sort": 2,
+        "status": 1
+    },
+    1404: {
+        "id": 1404,
+        "title": "消息统计",
+        "src": "/message/stats/page/",
+        "pid_id": 1400,
+        "sort": 3,
         "status": 1
     }
 }

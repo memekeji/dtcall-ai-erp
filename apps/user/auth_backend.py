@@ -13,6 +13,8 @@ import logging
 
 logger = logging.getLogger('django')
 
+AUTH_CACHE_TIMEOUT = 5 * 60
+
 
 class AdminAuthBackend(ModelBackend):
     """
@@ -42,12 +44,12 @@ class AdminAuthBackend(ModelBackend):
             if department and department.status == 1:
                 department_groups = DepartmentGroup.objects.filter(department=department)
                 department_group_ids = {dg.group.id for dg in department_groups}
-                cache.set(cache_key, department_group_ids, 5 * 60)
+                cache.set(cache_key, department_group_ids, AUTH_CACHE_TIMEOUT)
                 return department_group_ids
         except Exception as e:
             logger.error(f"获取用户部门角色失败: {e}")
         
-        cache.set(cache_key, set(), 5 * 60)
+        cache.set(cache_key, set(), AUTH_CACHE_TIMEOUT)
         return set()
     
     def _get_all_user_groups(self, user_obj):
@@ -70,7 +72,7 @@ class AdminAuthBackend(ModelBackend):
         
         all_groups = user_groups | department_groups
         
-        cache.set(cache_key, all_groups, 5 * 60)
+        cache.set(cache_key, all_groups, AUTH_CACHE_TIMEOUT)
         return all_groups
     
     def authenticate(self, request, username=None, password=None, **kwargs):
@@ -209,7 +211,7 @@ class AdminAuthBackend(ModelBackend):
                 logger.error(f"获取角色权限失败 (group_id={group.id}): {e}")
                 continue
         
-        cache.set(cache_key, permissions, 5 * 60)
+        cache.set(cache_key, permissions, AUTH_CACHE_TIMEOUT)
         return permissions
     
     def get_user_permissions(self, user_obj, obj=None):
@@ -238,7 +240,7 @@ class AdminAuthBackend(ModelBackend):
                 perm_str = f"{perm.content_type.app_label}.{perm.codename}"
                 permissions.add(perm_str)
         
-        cache.set(cache_key, permissions, 5 * 60)
+        cache.set(cache_key, permissions, AUTH_CACHE_TIMEOUT)
         return permissions
     
     def get_all_permissions(self, user_obj, obj=None):
@@ -266,5 +268,5 @@ class AdminAuthBackend(ModelBackend):
         
         all_permissions = user_permissions | group_permissions
         
-        cache.set(cache_key, all_permissions, 5 * 60)
+        cache.set(cache_key, all_permissions, AUTH_CACHE_TIMEOUT)
         return all_permissions

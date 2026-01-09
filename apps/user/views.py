@@ -27,22 +27,18 @@ def logout_view(request):
     logger.info(f'请求方法: {request.method}')
     
     try:
-        # 手动清除会话
         request.session.flush()
         if hasattr(request, 'user'):
             from django.contrib.auth.models import AnonymousUser
             request.user = AnonymousUser()
         logger.info('手动清除会话成功')
         
-        # 重定向到登录页面
         from django.shortcuts import redirect
         return redirect('/user/login/')
         
     except Exception as e:
         logger.error(f'登出处理异常: {str(e)}', exc_info=True)
         return JsonResponse({'code': 1, 'msg': f'服务器错误: {str(e)}'}, status=500)
-
-
 
 
 
@@ -72,14 +68,12 @@ class DepartmentCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateVi
     def post(self, request, *args, **kwargs):
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             try:
-                # 获取表单数据
                 title = request.POST.get('title')
                 pid = request.POST.get('pid', 0)
                 sort = request.POST.get('sort', 0)
                 status = request.POST.get('status')
                 desc = request.POST.get('desc')
                 
-                # 验证必填字段
                 if not title:
                     return JsonResponse({
                         'code': 1,
@@ -87,7 +81,6 @@ class DepartmentCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateVi
                         'errors': {'title': ['部门名称为必填项']}
                     })
                 
-                # 验证名称唯一性
                 if Department.objects.filter(name=title).exists():
                     return JsonResponse({
                         'code': 1,
@@ -95,7 +88,6 @@ class DepartmentCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateVi
                         'errors': {'title': ['该部门名称已被使用']}
                     })
                 
-                # 创建新部门
                 department = Department.objects.create(
                     name=title,
                     pid=int(pid) if pid else 0,
@@ -104,14 +96,11 @@ class DepartmentCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateVi
                     desc=desc
                 )
                 
-                # 记录操作日志
                 SystemOperationLog.objects.create(
-                    operator_id=request.user.id,
-                    operator_name=request.user.username,
-                    operation_title=f'创建部门 - {title}',
-                    operation_content='创建部门操作',
-                    ip_address=request.META.get('REMOTE_ADDR', ''),
-                    user_agent=request.META.get('HTTP_USER_AGENT', '')
+                    user=request.user,
+                    action=f'创建部门 - {title}',
+                    content='创建部门操作',
+                    ip=request.META.get('REMOTE_ADDR', '')
                 )
                 
                 return JsonResponse({
@@ -155,14 +144,12 @@ class DepartmentUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateVi
             try:
                 department = self.get_object()
                 
-                # 获取表单数据
                 title = request.POST.get('title')
                 pid = request.POST.get('pid', 0)
                 sort = request.POST.get('sort', 0)
                 status = request.POST.get('status')
                 desc = request.POST.get('desc')
                 
-                # 验证必填字段
                 if not title:
                     return JsonResponse({
                         'code': 1,
@@ -170,7 +157,6 @@ class DepartmentUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateVi
                         'errors': {'title': ['部门名称为必填项']}
                     })
                 
-                # 验证名称唯一性
                 if Department.objects.filter(name=title).exclude(id=department.id).exists():
                     return JsonResponse({
                         'code': 1,
@@ -178,7 +164,6 @@ class DepartmentUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateVi
                         'errors': {'title': ['该部门名称已被使用']}
                     })
                 
-                # 防止循环引用
                 if int(pid) == department.id:
                     return JsonResponse({
                         'code': 1,
@@ -186,7 +171,6 @@ class DepartmentUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateVi
                         'errors': {'pid': ['不能选择自己作为父级部门']}
                     })
                 
-                # 更新部门信息
                 department.name = title
                 department.pid = int(pid) if pid else 0
                 department.sort = int(sort) if sort else 0
@@ -194,14 +178,11 @@ class DepartmentUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateVi
                 department.desc = desc
                 department.save()
                 
-                # 记录操作日志
                 SystemOperationLog.objects.create(
-                    operator_id=request.user.id,
-                    operator_name=request.user.username,
-                    operation_title=f'更新部门 - {title}',
-                    operation_content='更新部门操作',
-                    ip_address=request.META.get('REMOTE_ADDR', ''),
-                    user_agent=request.META.get('HTTP_USER_AGENT', '')
+                    user=request.user,
+                    action=f'更新部门 - {title}',
+                    content='更新部门操作',
+                    ip=request.META.get('REMOTE_ADDR', '')
                 )
                 
                 return JsonResponse({
@@ -229,14 +210,12 @@ class DepartmentDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteVi
             try:
                 department = self.get_object()
                 
-                # 检查是否有子部门
                 if Department.objects.filter(pid=department.id).exists():
                     return JsonResponse({
                         'code': 1,
                         'msg': '该部门下存在子部门，无法删除'
                     })
                 
-                # 检查是否有管理员关联此部门
                 if department.admin_set.exists():
                     return JsonResponse({
                         'code': 1,
@@ -245,17 +224,13 @@ class DepartmentDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteVi
                 
                 title = department.name
                 
-                # 记录操作日志
                 SystemOperationLog.objects.create(
-                    operator_id=request.user.id,
-                    operator_name=request.user.username,
-                    operation_title=f'删除部门 - {title}',
-                    operation_content='删除部门操作',
-                    ip_address=request.META.get('REMOTE_ADDR', ''),
-                    user_agent=request.META.get('HTTP_USER_AGENT', '')
+                    user=request.user,
+                    action=f'删除部门 - {title}',
+                    content='删除部门操作',
+                    ip=request.META.get('REMOTE_ADDR', '')
                 )
                 
-                # 执行删除操作
                 department.delete()
                 
                 return JsonResponse({
@@ -274,14 +249,6 @@ class DepartmentDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteVi
 
 
 
-
-
-
-
-
-
-
-
 class AdminListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     """管理员列表视图"""
     model = Admin
@@ -293,7 +260,6 @@ class AdminListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     def get_queryset(self):
         queryset = super().get_queryset()
         
-        # 搜索条件
         search = self.request.GET.get('search', '').strip()
         if search:
             queryset = queryset.filter(
@@ -303,17 +269,14 @@ class AdminListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
                 Q(mobile__icontains=search)
             )
         
-        # 状态过滤
         status = self.request.GET.get('status')
         if status and status.isdigit():
             queryset = queryset.filter(status=int(status))
             
-        # 部门过滤
         did = self.request.GET.get('did')
         if did and did.isdigit():
             queryset = queryset.filter(did=int(did))
             
-        # 排序
         sort_field = self.request.GET.get('sort')
         if sort_field and sort_field.lstrip('-') in ['username', 'name', 'create_time']:
             queryset = queryset.order_by(sort_field)
@@ -397,14 +360,11 @@ class AdminCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     def post(self, request, *args, **kwargs):
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             try:
-                # 使用EmployeeForm处理表单数据
                 form = EmployeeForm(request.POST)
                 if form.is_valid():
-                    # 保存员工信息
                     employee = form.save(commit=False)
                     employee.save()
                     
-                    # 记录操作日志
                     AdminLog.objects.create(
                         admin_id=request.user.id,
                         username=request.user.username,
@@ -420,7 +380,6 @@ class AdminCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
                         'data': {'redirect_url': reverse_lazy('user:admin_list')}
                     })
                 else:
-                    # 表单验证失败
                     return JsonResponse({
                         'code': 1,
                         'msg': '表单验证失败',
@@ -463,13 +422,10 @@ class AdminUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
             try:
                 employee = self.get_object()
                 
-                # 使用EmployeeForm处理表单数据
                 form = EmployeeForm(request.POST, instance=employee)
                 if form.is_valid():
-                    # 保存员工信息
                     employee = form.save()
                     
-                    # 记录操作日志
                     AdminLog.objects.create(
                         admin_id=request.user.id,
                         username=request.user.username,
@@ -485,7 +441,6 @@ class AdminUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
                         'data': {'redirect_url': reverse_lazy('user:admin_list')}
                     })
                 else:
-                    # 表单验证失败
                     return JsonResponse({
                         'code': 1,
                         'msg': '表单验证失败',
@@ -501,8 +456,6 @@ class AdminUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
 
 
 
-
-
 class AdminLogListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     """管理员操作日志列表视图"""
     model = AdminLog
@@ -515,7 +468,6 @@ class AdminLogListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     def get_queryset(self):
         queryset = super().get_queryset()
         
-        # 搜索条件
         search = self.request.GET.get('search', '').strip()
         if search:
             queryset = queryset.filter(
@@ -525,17 +477,14 @@ class AdminLogListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
                 Q(admin__name__icontains=search)
             )
         
-        # 管理员过滤
         admin_id = self.request.GET.get('admin_id')
         if admin_id and admin_id.isdigit():
             queryset = queryset.filter(admin_id=int(admin_id))
             
-        # 操作类型过滤
         action = self.request.GET.get('action')
         if action:
             queryset = queryset.filter(action=action)
             
-        # 时间范围过滤
         start_time = self.request.GET.get('start_time')
         end_time = self.request.GET.get('end_time')
         if start_time:
@@ -543,7 +492,6 @@ class AdminLogListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         if end_time:
             queryset = queryset.filter(create_time__lte=end_time)
             
-        # 排序
         sort_field = self.request.GET.get('sort')
         if sort_field and sort_field.lstrip('-') in ['create_time', 'admin__username', 'action']:
             queryset = queryset.order_by(sort_field)

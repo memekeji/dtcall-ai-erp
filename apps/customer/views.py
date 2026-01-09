@@ -792,12 +792,11 @@ class CustomerDetailView(LoginRequiredMixin, DetailView):
         
         # 获取客户发票记录 - 整合客户模块和财务模块的发票记录
         try:
-            from apps.finance_new.models import Invoice
-            # 获取客户模块的发票记录（使用SoftDeleteModel的软删除机制）
-            customer_invoices = Invoice.objects.filter(customer_id=self.object.id, is_deleted=False)[:5]
+            from apps.finance.models_new import Invoice as FinanceInvoice
+            from apps.customer.models import CustomerInvoice
+            customer_invoices = CustomerInvoice.objects.filter(customer_id=self.object.id, delete_time=0)[:5]
             
-            # 获取财务模块的开票记录（关联到该客户的发票）
-            finance_invoices = Invoice.objects.filter(customer_id=self.object.id, is_deleted=False).order_by('-id')[:10]
+            finance_invoices = FinanceInvoice.objects.filter(customer_id=self.object.id, is_deleted=False).order_by('-id')[:10]
             
             # 合并发票记录，按开票时间排序
             all_invoices = list(customer_invoices) + list(finance_invoices)
@@ -819,20 +818,19 @@ class CustomerDetailView(LoginRequiredMixin, DetailView):
         
         # 获取客户财务往来记录 - 直接列表显示（按日期排序）
         try:
-            # 获取所有发票记录 - 使用Invoice模型和正确的软删除字段
-            from apps.finance_new.models import Invoice, Income, Payment
-            all_invoices = Invoice.objects.filter(customer=self.object.id, is_deleted=False).order_by('-id')[:20]
+            from apps.finance.models_new import Invoice as FinanceInvoice, Income, Payment
+            from apps.customer.models import CustomerInvoice
+            all_invoices = CustomerInvoice.objects.filter(customer=self.object.id, delete_time=0).order_by('-id')[:20]
             
-            # 获取所有收款记录（Income模型）- 通过invoice关联到customer
+            all_finance_invoices = FinanceInvoice.objects.filter(customer=self.object.id, is_deleted=False).order_by('-id')[:20]
+            
             all_incomes = Income.objects.filter(invoice__customer=self.object.id).order_by('-id')[:20]
             
             # 获取所有付款记录（Payment模型）- 暂时不显示付款记录，因为Payment模型与客户没有直接关联
-            all_payments = Payment.objects.none()  # 返回空查询集
+            all_payments = Payment.objects.none()
             
-            # 构建完整的财务记录列表
             financial_records = []
             
-            # 处理发票记录
             for invoice in all_invoices:
                 invoice_date = None
                 try:
@@ -849,7 +847,26 @@ class CustomerDetailView(LoginRequiredMixin, DetailView):
                         'record': invoice,
                         'amount': invoice.amount,
                         'date': invoice_date,
-                        'status': '已开票' if invoice.open_status == 1 else '未开票'
+                        'status': '已开票' if getattr(invoice, 'open_status', 0) == 1 else '未开票'
+                    })
+            
+            for invoice in all_finance_invoices:
+                invoice_date = None
+                try:
+                    if hasattr(invoice, 'open_time') and invoice.open_time > 0:
+                        invoice_date = datetime.fromtimestamp(invoice.open_time)
+                    elif hasattr(invoice, 'create_time'):
+                        invoice_date = datetime.fromtimestamp(invoice.create_time) if isinstance(invoice.create_time, (int, float)) else invoice.create_time
+                except:
+                    pass
+                
+                if invoice_date:
+                    financial_records.append({
+                        'type': 'invoice',
+                        'record': invoice,
+                        'amount': invoice.amount,
+                        'date': invoice_date,
+                        'status': '已开票' if getattr(invoice, 'open_status', 0) == 1 else '未开票'
                     })
             
             # 处理收款记录
@@ -1980,23 +1997,22 @@ class CustomerOrderCreateView(LoginRequiredMixin, View):
         
         # 3. 生成待收款记录
         try:
-            from apps.finance_new.models import Invoice
-            # 创建发票记录（待收款）
+            from apps.finance.models_new import Invoice as FinanceInvoice
+            from apps.customer.models import CustomerInvoice
             invoice_data = {
                 'code': f"INV-ORD-{order.order_number}-{int(time.time())}",
                 'customer_id': order.customer_id,
                 'amount': order.amount,
                 'applicant': user,
-                'invoice_title': "",  # 留空，后续填写
-                'invoice_status': 'draft',  # 草稿状态
-                'enter_status': 0,  # 未回款状态
-                'auto_generated': True  # 标记为自动生成
+                'invoice_title': "",
+                'invoice_status': 'draft',
+                'enter_status': 0,
+                'auto_generated': True
             }
-            # 如果项目记录创建成功，添加项目关联
             if 'project_record' in locals() and project_record:
                 invoice_data['project_id'] = project_record.id
             
-            invoice_record = Invoice.objects.create(**invoice_data)
+            invoice_record = FinanceInvoice.objects.create(**invoice_data)
         except Exception as e:
             logger.error(f"创建发票记录失败: {e}")
 

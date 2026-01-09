@@ -572,15 +572,6 @@ PERMISSION_NODES = {
                     {'codename': 'batch_message_operation', 'name': '批量操作'},
                 ]
             },
-            'message_category': {
-                'name': '消息分类',
-                'permissions': [
-                    {'codename': 'view_message_category', 'name': '菜单查看'},
-                    {'codename': 'add_message_category', 'name': '新增分类'},
-                    {'codename': 'change_message_category', 'name': '编辑分类'},
-                    {'codename': 'delete_message_category', 'name': '删除分类'},
-                ]
-            },
             'message_preference': {
                 'name': '通知偏好',
                 'permissions': [

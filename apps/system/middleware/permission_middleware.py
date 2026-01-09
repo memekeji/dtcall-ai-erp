@@ -10,6 +10,8 @@ import logging
 
 logger = logging.getLogger('django')
 
+PERMISSION_CACHE_TIMEOUT = 5 * 60
+
 
 class PermissionMiddleware:
     """
@@ -87,7 +89,7 @@ class PermissionMiddleware:
                 if menu is None:
                     menu = Menu.objects.filter(src=path, status=1).first()
                     if menu:
-                        cache.set(cache_key, menu, 60 * 60)
+                        cache.set(cache_key, menu, PERMISSION_CACHE_TIMEOUT)
             except Exception:
                 menu = Menu.objects.filter(src=path, status=1).first()
             

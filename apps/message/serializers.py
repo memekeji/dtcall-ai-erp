@@ -9,30 +9,11 @@ from django.utils import timezone
 
 class MessageCategorySerializer(serializers.ModelSerializer):
     """消息分类序列化器"""
-    message_count = serializers.SerializerMethodField()
     
     class Meta:
         model = MessageCategory
-        fields = ['id', 'name', 'code', 'type', 'icon', 'description', 'sort_order', 'is_active', 'message_count', 'created_at']
+        fields = ['id', 'name', 'code', 'type', 'icon', 'description', 'sort_order', 'is_active', 'created_at']
         read_only_fields = ['created_at']
-    
-    def get_message_count(self, obj):
-        """获取该分类的消息数量"""
-        request = self.context.get('request')
-        if request and hasattr(request, 'user'):
-            return MessageUserRelation.objects.filter(
-                message__category=obj,
-                user=request.user
-            ).count()
-        return 0
-
-
-class MessageCategorySimpleSerializer(serializers.ModelSerializer):
-    """消息分类简单序列化器"""
-    
-    class Meta:
-        model = MessageCategory
-        fields = ['id', 'name', 'code', 'type', 'icon']
 
 
 class MessageSerializer(serializers.ModelSerializer):
@@ -102,6 +83,8 @@ class MessageListSerializer(serializers.ModelSerializer):
     category_icon = serializers.CharField(source='category.icon', read_only=True)
     sender_name = serializers.CharField(source='sender.username', read_only=True)
     sender_avatar = serializers.SerializerMethodField()
+    sender = serializers.SerializerMethodField()
+    user_relation = serializers.SerializerMethodField()
     is_read = serializers.SerializerMethodField()
     is_starred = serializers.SerializerMethodField()
     
@@ -110,8 +93,8 @@ class MessageListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'content', 'priority',
             'category_name', 'category_icon',
-            'sender_name', 'sender_avatar',
-            'is_read', 'is_starred',
+            'sender', 'sender_name', 'sender_avatar',
+            'user_relation', 'is_read', 'is_starred',
             'related_object_type', 'related_object_id', 'action_url',
             'created_at'
         ]
@@ -122,21 +105,37 @@ class MessageListSerializer(serializers.ModelSerializer):
             return obj.sender.thumb
         return None
     
-    def get_is_read(self, obj):
-        """获取当前用户是否已读"""
+    def get_sender(self, obj):
+        """获取发送者对象（兼容模板）"""
+        if obj.sender:
+            return {
+                'id': obj.sender.id,
+                'username': obj.sender.username,
+                'name': getattr(obj.sender, 'name', obj.sender.username),
+                'avatar': obj.sender.thumb if hasattr(obj.sender, 'thumb') else None
+            }
+        return None
+    
+    def get_user_relation(self, obj):
+        """获取当前用户的消息关系"""
         request = self.context.get('request')
         if request and hasattr(request, 'user'):
             relation = obj.user_relations.filter(user=request.user).first()
-            return relation.is_read if relation else False
-        return False
+            if relation:
+                return {
+                    'is_read': relation.is_read,
+                    'is_starred': relation.is_starred,
+                    'read_time': relation.read_time
+                }
+        return {'is_read': False, 'is_starred': False, 'read_time': None}
+    
+    def get_is_read(self, obj):
+        """获取当前用户是否已读（兼容旧模板）"""
+        return self.get_user_relation(obj).get('is_read', False)
     
     def get_is_starred(self, obj):
-        """获取当前用户是否标星"""
-        request = self.context.get('request')
-        if request and hasattr(request, 'user'):
-            relation = obj.user_relations.filter(user=request.user).first()
-            return relation.is_starred if relation else False
-        return False
+        """获取当前用户是否标星（兼容旧模板）"""
+        return self.get_user_relation(obj).get('is_starred', False)
 
 
 class MessageCreateSerializer(serializers.ModelSerializer):

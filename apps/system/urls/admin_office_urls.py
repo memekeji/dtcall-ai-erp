@@ -7,10 +7,10 @@ urlpatterns = [
     # 公告管理路由
     path('notice/', admin_office_views.NoticeListView.as_view(), name='notice_list'),
     path('notice/create/', admin_office_views.NoticeCreateView.as_view(), name='notice_create'),
-    path('notice/update/<int:pk>/', admin_office_views.NoticeUpdateView.as_view(), name='notice_update'),
-    path('notice/delete/<int:pk>/', admin_office_views.NoticeDeleteView.as_view(), name='notice_delete'),
-    path('notice/detail/<int:pk>/', admin_office_views.NoticeDetailView.as_view(), name='notice_detail'),
-    path('notice/publish/<int:pk>/', admin_office_views.NoticePublishView.as_view(), name='notice_publish'),
+    path('notice/<int:pk>/update/', admin_office_views.NoticeUpdateView.as_view(), name='notice_update'),
+    path('notice/<int:pk>/delete/', admin_office_views.NoticeDeleteView.as_view(), name='notice_delete'),
+    path('notice/<int:pk>/', admin_office_views.NoticeDetailView.as_view(), name='notice_detail'),
+    path('notice/<int:pk>/publish/', admin_office_views.NoticePublishView.as_view(), name='notice_publish'),
     
     # 会议室管理路由
     path('meeting_room/', admin_office_views.MeetingRoomListView.as_view(), name='meeting_room_list'),

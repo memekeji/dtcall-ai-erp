@@ -1,0 +1,313 @@
+{% extends 'home/iframe_base.html' %}
+{% load static %}
+
+{% block title %}通知偏好设置 - DTCALL管理后台{% endblock %}
+
+{% block css %}
+<style>
+    .preference-container {
+        padding: 20px;
+        max-width: 800px;
+    }
+    
+    .preference-card {
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        padding: 25px;
+        margin-bottom: 20px;
+    }
+    
+    .preference-card-title {
+        font-size: 16px;
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #f0f0f0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .preference-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 18px 0;
+        border-bottom: 1px solid #f5f5f5;
+    }
+    
+    .preference-item:last-child {
+        border-bottom: none;
+    }
+    
+    .preference-info h4 {
+        margin: 0 0 5px;
+        font-size: 14px;
+        color: #333;
+    }
+    
+    .preference-info p {
+        margin: 0;
+        font-size: 12px;
+        color: #999;
+    }
+    
+    .preference-info .icon {
+        font-size: 20px;
+        margin-right: 10px;
+        color: #1890ff;
+    }
+    
+    .layui-form-switch {
+        margin-top: 0;
+    }
+    
+    .quiet-time-row {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 15px 0;
+    }
+    
+    .time-input-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .time-input-group input {
+        width: 100px;
+        text-align: center;
+    }
+    
+    .save-btn-container {
+        margin-top: 30px;
+        text-align: center;
+    }
+    
+    .save-btn-container .layui-btn {
+        padding: 0 40px;
+        height: 40px;
+        line-height: 40px;
+        font-size: 16px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="preference-container">
+    <div class="preference-card">
+        <div class="preference-card-title">
+            <i class="layui-icon layui-icon-set"></i> 通知基础设置
+        </div>
+        
+        <form class="layui-form" lay-filter="preferenceForm" id="preferenceForm">
+            <div class="preference-item">
+                <div class="preference-info">
+                    <h4><i class="layui-icon layui-icon-email icon"></i> 邮件通知</h4>
+                    <p>接收消息的邮件通知</p>
+                </div>
+                <div>
+                    <input type="checkbox" name="enable_email" lay-skin="switch" lay-text="开启|关闭">
+                </div>
+            </div>
+            
+            <div class="preference-item">
+                <div class="preference-info">
+                    <h4><i class="layui-icon layui-icon-browser icon"></i> 浏览器通知</h4>
+                    <p>在浏览器中显示通知弹窗</p>
+                </div>
+                <div>
+                    <input type="checkbox" name="enable_browser" lay-skin="switch" lay-text="开启|关闭">
+                </div>
+            </div>
+            
+            <div class="preference-item">
+                <div class="preference-info">
+                    <h4><i class="layui-icon layui-icon-time icon"></i> 免打扰时段</h4>
+                    <p>在指定时段内不发送任何通知</p>
+                </div>
+                <div class="time-input-group">
+                    <input type="text" name="quiet_hours_start" id="quietStart" placeholder="开始时间" class="layui-input">
+                    <span>至</span>
+                    <input type="text" name="quiet_hours_end" id="quietEnd" placeholder="结束时间" class="layui-input">
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <div class="preference-card">
+        <div class="preference-card-title">
+            <i class="layui-icon layui-icon-notice"></i> 通知类型设置
+        </div>
+        
+        <form class="layui-form" lay-filter="notifyTypeForm" id="notifyTypeForm">
+            <div class="preference-item">
+                <div class="preference-info">
+                    <h4><i class="layui-icon layui-icon-speaker" style="color: #1890ff;"></i> 公告通知</h4>
+                    <p>接收系统公告和重要通知</p>
+                </div>
+                <div>
+                    <input type="checkbox" name="notify_announcement" lay-skin="switch" lay-text="接收|不接收">
+                </div>
+            </div>
+            
+            <div class="preference-item">
+                <div class="preference-info">
+                    <h4><i class="layui-icon layui-icon-survey" style="color: #52c41a;"></i> 审批通知</h4>
+                    <p>接收审批相关通知</p>
+                </div>
+                <div>
+                    <input type="checkbox" name="notify_approval" lay-skin="switch" lay-text="接收|不接收">
+                </div>
+            </div>
+            
+            <div class="preference-item">
+                <div class="preference-info">
+                    <h4><i class="layui-icon layui-icon-task" style="color: #faad14;"></i> 任务通知</h4>
+                    <p>接收任务分配和更新通知</p>
+                </div>
+                <div>
+                    <input type="checkbox" name="notify_task" lay-skin="switch" lay-text="接收|不接收">
+                </div>
+            </div>
+            
+            <div class="preference-item">
+                <div class="preference-info">
+                    <h4><i class="layui-icon layui-icon-reply-fill" style="color: #722ed1;"></i> 评论回复通知</h4>
+                    <p>接收评论和回复通知</p>
+                </div>
+                <div>
+                    <input type="checkbox" name="notify_comment" lay-skin="switch" lay-text="接收|不接收">
+                </div>
+            </div>
+            
+            <div class="preference-item">
+                <div class="preference-info">
+                    <h4><i class="layui-icon layui-icon-set" style="color: #999;"></i> 系统通知</h4>
+                    <p>接收系统相关通知</p>
+                </div>
+                <div>
+                    <input type="checkbox" name="notify_system" lay-skin="switch" lay-text="接收|不接收">
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <div class="save-btn-container">
+        <button type="button" class="layui-btn" id="savePreferenceBtn">
+            <i class="layui-icon layui-icon-ok"></i> 保存设置
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+    layui.use(['laydate', 'layer', 'form'], function() {
+        var laydate = layui.laydate;
+        var layer = layui.layer;
+        var form = layui.form;
+        
+        laydate.render({
+            elem: '#quietStart',
+            type: 'time',
+            format: 'HH:mm'
+        });
+        
+        laydate.render({
+            elem: '#quietEnd',
+            type: 'time',
+            format: 'HH:mm'
+        });
+        
+        function loadPreference() {
+            fetch('/message/preferences/')
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data && Object.keys(data).length > 0) {
+                        form.val('preferenceForm', {
+                            enable_email: data.enable_email,
+                            enable_browser: data.enable_browser
+                        });
+                        if (data.quiet_hours_start) {
+                            document.getElementById('quietStart').value = data.quiet_hours_start;
+                        }
+                        if (data.quiet_hours_end) {
+                            document.getElementById('quietEnd').value = data.quiet_hours_end;
+                        }
+                        
+                        form.val('notifyTypeForm', {
+                            notify_announcement: data.notify_announcement,
+                            notify_approval: data.notify_approval,
+                            notify_task: data.notify_task,
+                            notify_comment: data.notify_comment,
+                            notify_system: data.notify_system
+                        });
+                    }
+                })
+                .catch(function(error) {
+                    console.error('加载偏好设置失败:', error);
+                });
+        }
+        
+        loadPreference();
+        
+        document.getElementById('savePreferenceBtn').addEventListener('click', function() {
+            layer.confirm('确定要保存通知偏好设置吗？', function(index) {
+                var formData = {
+                    enable_email: document.querySelector('input[name="enable_email"]').checked,
+                    enable_browser: document.querySelector('input[name="enable_browser"]').checked,
+                    quiet_hours_start: document.getElementById('quietStart').value || null,
+                    quiet_hours_end: document.getElementById('quietEnd').value || null,
+                    notify_announcement: document.querySelector('input[name="notify_announcement"]').checked,
+                    notify_approval: document.querySelector('input[name="notify_approval"]').checked,
+                    notify_task: document.querySelector('input[name="notify_task"]').checked,
+                    notify_comment: document.querySelector('input[name="notify_comment"]').checked,
+                    notify_system: document.querySelector('input[name="notify_system"]').checked
+                };
+                
+                fetch('/message/preferences/update_settings/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(res) {
+                    if (res.code === 200) {
+                        layer.msg('保存成功', {icon: 1});
+                    } else {
+                        layer.msg(res.msg || '保存失败', {icon: 2});
+                    }
+                })
+                .catch(function(error) {
+                    console.error('保存失败:', error);
+                    layer.msg('保存失败', {icon: 2});
+                });
+                
+                layer.close(index);
+            });
+        });
+        
+        function getCookie(name) {
+            var cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    });
+</script>
+{% endblock %}

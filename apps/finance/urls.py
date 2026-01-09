@@ -32,6 +32,7 @@ urlpatterns = [
     # 发票管理 - 新路由
     path('invoice/', views.InvoiceListView.as_view(), name='invoice_list'),
     path('invoice/datalist/', views.InvoiceListView.as_view(), name='invoice_datalist'),
+    path('invoice/add/', views.InvoiceCreateView.as_view(), name='invoice_add'),
     path('invoice/edit/<int:pk>/', views.InvoiceUpdateView.as_view(), name='invoice_edit'),
     path('invoice/view/<int:id>/', views.invoice_detail, name='invoice_detail'),
     path('invoice/del/', views.InvoiceDeleteView.as_view(), name='invoice_del'),
@@ -59,7 +60,8 @@ urlpatterns = [
 
     # 收付款管理 - 旧路由兼容
     path('paymentreceive/', views.PaymentReceiveListView.as_view(), name='paymentreceive_list'),
-    path('paymentreceive/datalist/', views.PaymentListView.as_view(), name='paymentreceive_datalist'),
+    path('paymentreceive/datalist/', views.PaymentReceiveListView.as_view(), name='paymentreceive_datalist'),
+    path('paymentreceive/create/', views.PaymentReceiveCreateView.as_view(), name='paymentreceive_create'),
 
     # 开票申请
     path('invoice-request/', views.InvoiceRequestListView.as_view(), name='invoice_request_list'),

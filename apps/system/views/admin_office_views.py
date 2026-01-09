@@ -10,6 +10,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMix
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.db import transaction
+from django.http import JsonResponse
 
 from apps.system.models import (
     Notice, MeetingRoom, MeetingReservation, Seal, SealApplication,
@@ -17,6 +18,7 @@ from apps.system.models import (
     Vehicle, VehicleMaintenance, VehicleFee, VehicleOil
 )
 from apps.system.forms.admin_office_forms import NoticeForm
+from apps.message.services import NoticeNotificationService
 
 
 class NoticeListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -29,8 +31,11 @@ class NoticeListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     
     def get_queryset(self):
         queryset = super().get_queryset()
+        # 非超级用户只能看到已发布的公告，或者自己创建的公告
         if not self.request.user.is_superuser:
-            queryset = queryset.filter(is_published=True)
+            queryset = queryset.filter(
+                models.Q(is_published=True) | models.Q(author=self.request.user)
+            )
         return queryset.order_by('-is_top', '-publish_time')
 
 
@@ -49,6 +54,15 @@ class NoticeCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
             form.instance.target_departments.set(form.cleaned_data['target_departments'])
         if form.cleaned_data.get('target_users'):
             form.instance.target_users.set(form.cleaned_data['target_users'])
+        
+        # 检查是否是 AJAX 请求
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'code': 200,
+                'message': '公告创建成功',
+                'id': form.instance.id
+            })
+        
         messages.success(self.request, '公告创建成功')
         return response
 
@@ -71,6 +85,15 @@ class NoticeUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
             form.instance.target_users.set(form.cleaned_data['target_users'])
         else:
             form.instance.target_users.clear()
+        
+        # 检查是否是 AJAX 请求
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'code': 200,
+                'message': '公告更新成功',
+                'id': form.instance.id
+            })
+        
         messages.success(self.request, '公告更新成功')
         return response
 
@@ -78,13 +101,21 @@ class NoticeUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
 class NoticeDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     """删除公告视图"""
     model = Notice
-    template_name = 'notice/form.html'
-    success_url = reverse_lazy('system:admin_office:notice_list')
     permission_required = 'user.delete_notice'
     
     def delete(self, request, *args, **kwargs):
-        messages.success(self.request, '公告删除成功')
-        return super().delete(request, *args, **kwargs)
+        notice = self.get_object()
+        title = notice.title
+        
+        try:
+            notice.delete()
+            messages.success(request, f'公告"{title}"已删除')
+            return JsonResponse({'code': 200, 'message': f'公告"{title}"已删除'})
+        except Exception as e:
+            return JsonResponse({'code': 400, 'message': f'删除失败: {str(e)}'})
+    
+    def get_success_url(self):
+        return reverse_lazy('system:admin_office:notice_list')
 
 
 class NoticeDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
@@ -105,8 +136,15 @@ class NoticePublishView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView)
         notice = self.get_object()
         notice.is_published = True
         notice.save()
-        messages.success(request, '公告发布成功')
-        return redirect('system:admin_office:notice_list')
+        
+        try:
+            NoticeNotificationService.notify_new_notice(notice, request.user)
+            message = '公告发布成功，通知已发送'
+        except Exception as e:
+            message = f'公告发布成功，但发送通知失败: {str(e)}'
+        
+        messages.success(request, message)
+        return JsonResponse({'code': 200, 'message': message})
 
 
 class MeetingRoomListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):

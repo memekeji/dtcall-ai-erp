@@ -48,6 +48,14 @@ class Message(models.Model):
         null=True,
         verbose_name='消息分类'
     )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='received_messages',
+        verbose_name='接收用户'
+    )
     sender = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,

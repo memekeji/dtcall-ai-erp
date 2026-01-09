@@ -384,6 +384,14 @@ class PaymentReceiveListView(LoginRequiredMixin, View):
         return render(request, 'finance/paymentreceive_list.html')
 
 
+class PaymentReceiveCreateView(LoginRequiredMixin, FinancePermissionMixin, CreateView):
+    """创建收付款记录"""
+    login_url = '/user/login/'
+    permission_required = 'finance.add_payment'
+    template_name = 'finance/paymentreceive_form.html'
+    success_url = reverse_lazy('finance:paymentreceive_list')
+
+
 class InvoiceRequestListView(LoginRequiredMixin, FinancePermissionMixin, View):
     """开票申请列表"""
     login_url = '/user/login/'

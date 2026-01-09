@@ -49,6 +49,7 @@ class MessageService:
             with transaction.atomic():
                 message = Message.objects.create(
                     category=category,
+                    user=None,
                     sender=sender,
                     title=title,
                     content=content,
@@ -112,6 +113,7 @@ class MessageService:
             with transaction.atomic():
                 message = Message.objects.create(
                     category=category,
+                    user=None,
                     sender=sender,
                     title=title,
                     content=content,
@@ -239,52 +241,35 @@ class MessageService:
         }
 
 
-class AnnouncementNotificationService:
-    """公告通知服务 - 处理公告相关消息推送"""
+class NoticeNotificationService:
+    """公告通知服务 - 处理公告相关消息推送（基于 Notice 模型）"""
     
     @staticmethod
-    def notify_new_announcement(announcement, sender: User = None):
+    def notify_new_notice(notice, sender: User = None):
         """新公告发布通知"""
         MessageService.send_broadcast_notification(
-            title=f'新公告: {announcement.title}',
-            content=announcement.content[:200] + '...' if len(announcement.content) > 200 else announcement.content,
+            title=f'新公告: {notice.title}',
+            content=notice.content[:200] + '...' if len(notice.content) > 200 else notice.content,
             category_code='announcement',
             sender=sender,
             priority=3,
-            related_object_type='announcement',
-            related_object_id=announcement.id,
-            action_url=f'/oa/announcement/{announcement.id}/'
+            related_object_type='notice',
+            related_object_id=notice.id,
+            action_url=f'/system/admin_office/notice/{notice.id}/'
         )
     
     @staticmethod
-    def notify_announcement_update(announcement, sender: User = None):
+    def notify_notice_update(notice, sender: User = None):
         """公告更新通知"""
         MessageService.send_broadcast_notification(
-            title=f'公告更新: {announcement.title}',
+            title=f'公告更新: {notice.title}',
             content='公告内容已更新，请查阅。',
             category_code='announcement',
             sender=sender,
             priority=2,
-            related_object_type='announcement',
-            related_object_id=announcement.id,
-            action_url=f'/oa/announcement/{announcement.id}/'
-        )
-    
-    @staticmethod
-    def notify_comment(author, announcement, comment_content: str, sender: User = None):
-        """评论通知 - 通知公告作者"""
-        if author.id == sender.id:
-            return
-        
-        MessageService.send_notification(
-            title=f'评论提醒: {announcement.title}',
-            content=f'{sender.username} 评论了你的公告: {comment_content[:100]}...',
-            category_code='comment',
-            user_ids=[author.id],
-            sender=sender,
-            priority=2,
-            related_object_type='announcement_comment',
-            related_object_id=announcement.id
+            related_object_type='notice',
+            related_object_id=notice.id,
+            action_url=f'/system/admin_office/notice/{notice.id}/'
         )
 
 

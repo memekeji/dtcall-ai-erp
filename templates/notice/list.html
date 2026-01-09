@@ -79,8 +79,11 @@
                         {% endif %}
                     </td>
                     <td>
-                        <button class="layui-btn layui-btn-xs" onclick="editNotice({{ notice.pk }})">编辑</button>
-                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteNotice({{ notice.pk }})">删除</button>
+                        {% if not notice.is_published %}
+                        <button class="layui-btn layui-btn-xs" onclick="publishNotice({{ notice.id }})">发布</button>
+                        {% endif %}
+                        <button class="layui-btn layui-btn-xs" onclick="editNotice({{ notice.id }})">编辑</button>
+                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteNotice({{ notice.id }})">删除</button>
                     </td>
                 </tr>
                 {% empty %}
@@ -115,11 +118,15 @@
 </div>
 
 <script>
+var noticeUpdateUrl = '/system/admin_office/notice/';
+var noticeDeleteUrl = '/system/admin_office/notice/';
+var noticePublishUrl = '/system/admin_office/notice/';
+
 function openNoticeForm() {
     layer.open({
         type: 2,
         title: '新增公告',
-        area: ['75%', '90%'],
+        area: ['75%', '100%'],
         shade: 0.3,
         maxmin: true,
         offset: 'rt',
@@ -134,11 +141,11 @@ function editNotice(id) {
     layer.open({
         type: 2,
         title: '编辑公告',
-        area: ['75%', '90%'],
+        area: ['75%', '100%'],
         shade: 0.3,
         maxmin: true,
         offset: 'rt',
-        content: '/system/admin_office/notice/' + id + '/update/',
+        content: noticeUpdateUrl + id + '/update/',
         end: function() {
             location.reload();
         }
@@ -148,9 +155,72 @@ function editNotice(id) {
 function deleteNotice(id) {
     layer.confirm('确定要删除这条公告吗？', {
         btn: ['确定', '取消']
-    }, function(){
-        layer.msg('删除功能待实现');
+    }, function(index){
+        fetch(noticeDeleteUrl + id + '/delete/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.code === 200 || data.status === 'success') {
+                layer.msg('删除成功', {icon: 1});
+                location.reload();
+            } else {
+                layer.msg(data.message || '删除失败', {icon: 2});
+            }
+        })
+        .catch(error => {
+            console.error('删除失败:', error);
+            layer.msg('删除失败', {icon: 2});
+        });
+        layer.close(index);
     });
+}
+
+function publishNotice(id) {
+    layer.confirm('确定要发布这条公告吗？发布后所有用户都能看到。', {
+        btn: ['确定', '取消']
+    }, function(index){
+        fetch(noticePublishUrl + id + '/publish/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.code === 200 || data.status === 'success') {
+                layer.msg('发布成功', {icon: 1});
+                location.reload();
+            } else {
+                layer.msg(data.message || '发布失败', {icon: 2});
+            }
+        })
+        .catch(error => {
+            console.error('发布失败:', error);
+            layer.msg('发布失败', {icon: 2});
+        });
+        layer.close(index);
+    });
+}
+
+function getCookie(name) {
+    var cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        var cookies = document.cookie.split(';');
+        for (var i = 0; i < cookies.length; i++) {
+            var cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
 }
 </script>
 {% endblock %}

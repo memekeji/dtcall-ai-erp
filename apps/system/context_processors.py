@@ -7,28 +7,9 @@ logger = logging.getLogger('django')
 
 User = get_user_model()
 
-
-def system_config(request):
-    """系统配置上下文处理器"""
-    cache_key = 'system_configs'
-    configs = cache.get(cache_key)
-    
-    if configs is None:
-        config_items = SystemConfig.objects.filter(is_active=True)
-        configs = {item.key: item for item in config_items}
-        cache.set(cache_key, configs, 30 * 60)
-    
-    return {'configs': configs}
-
-
-import logging
-from apps.user.models import SystemConfiguration as SystemConfig, Menu
-from django.contrib.auth import get_user_model
-from django.core.cache import cache
-
-logger = logging.getLogger('django')
-
-User = get_user_model()
+SYSTEM_CONFIG_CACHE_TIMEOUT = 30 * 60
+MENU_CACHE_TIMEOUT = 10 * 60
+PERMISSION_CACHE_TIMEOUT = 5 * 60
 
 
 def system_config(request):
@@ -39,7 +20,7 @@ def system_config(request):
     if configs is None:
         config_items = SystemConfig.objects.filter(is_active=True)
         configs = {item.key: item for item in config_items}
-        cache.set(cache_key, configs, 30 * 60)
+        cache.set(cache_key, configs, SYSTEM_CONFIG_CACHE_TIMEOUT)
     
     return {'configs': configs}
 
@@ -261,6 +242,15 @@ MENU_URL_TO_PERMISSION_MAP = {
 }
 
 
+def _normalize_permission(permission_code):
+    """标准化权限代码"""
+    if not permission_code:
+        return None
+    if '.' in permission_code:
+        return permission_code
+    return f'user.{permission_code}'
+
+
 def get_permission_from_src(src):
     """从菜单src URL推断权限codename"""
     if not src or not src.startswith('/') or src == 'javascript:;':
@@ -350,7 +340,7 @@ def get_menus(request):
     
     if getattr(user, 'is_superuser', False):
         logger.debug(f"用户 {user.username} 是超级管理员，显示所有菜单")
-        cache.set(cache_key, available_menus, 10 * 60)
+        cache.set(cache_key, available_menus, MENU_CACHE_TIMEOUT)
         return {'menus': available_menus}
     
     user_permissions = set(user.get_all_permissions())
@@ -383,9 +373,9 @@ def get_menus(request):
         if not perm_codename:
             return None
         
-        perm_key = f'user.{perm_codename}'
+        normalized_perm = _normalize_permission(perm_codename)
         
-        if perm_key in user_permissions:
+        if normalized_perm in user_permissions:
             return True
         
         if perm_codename in user_permissions:
@@ -409,11 +399,9 @@ def get_menus(request):
         """递归过滤用户有权访问的菜单"""
         has_access = check_child_permissions(menu)
         
-        # 如果确定没有权限，返回None
         if has_access is False:
             return None
         
-        # 递归过滤子菜单
         if hasattr(menu, 'children') and menu.children:
             filtered_children = []
             for child in menu.children:
@@ -421,7 +409,6 @@ def get_menus(request):
                 if filtered_child:
                     filtered_children.append(filtered_child)
             
-            # 如果没有任何子菜单有权限，则不显示
             if not filtered_children:
                 return None
             
@@ -440,6 +427,6 @@ def get_menus(request):
     
     logger.debug(f"用户 {user.username} 显示 {len(authorized_menus)} 个一级菜单")
     
-    cache.set(cache_key, authorized_menus, 10 * 60)
+    cache.set(cache_key, authorized_menus, MENU_CACHE_TIMEOUT)
     
     return {'menus': authorized_menus}

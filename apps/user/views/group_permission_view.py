@@ -345,6 +345,16 @@ class MenuPermissionsAPIView(LoginRequiredMixin, View):
         '收藏文件': 'starred_file',
         '分享管理': 'share_management',
         '回收站': 'recycle',
+        '审批流程': 'approval',
+        '审批类型': 'approval_type',
+        '审批流程': 'approval_flow',
+        '我的审批': 'my_approval',
+        '发起审批': 'apply_approval',
+        '待我审批': 'pending_approval',
+        '消息管理': 'message',
+        '消息中心': 'message_center',
+        '通知偏好': 'message_preference',
+        '消息统计': 'message_stats',
     }
     
     def get(self, request, menu_id):
@@ -560,6 +570,8 @@ class MenuPermissionsAPIView(LoginRequiredMixin, View):
             return 'AI智能中心'
         elif 'disk' in codename or 'file' in codename:
             return '企业网盘'
+        elif any(x in codename for x in ['message', 'notification']):
+            return '消息管理'
         else:
             return '其他权限'
 

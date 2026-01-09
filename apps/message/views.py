@@ -1,6 +1,8 @@
 from django.shortcuts import render
+from django.http import JsonResponse
 from django.db.models import Q, Count
 from django.utils import timezone
+from django.core.paginator import Paginator
 from rest_framework import viewsets, status, views
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -14,7 +16,7 @@ import logging
 
 from .models import MessageCategory, Message, MessageUserRelation, NotificationPreference
 from .serializers import (
-    MessageCategorySerializer, MessageCategorySimpleSerializer,
+    MessageCategorySerializer,
     MessageSerializer, MessageListSerializer, MessageCreateSerializer,
     MessageUserRelationSerializer, MessageMarkReadSerializer,
     MessageStarSerializer, MessageBatchOperationSerializer,
@@ -31,18 +33,14 @@ MESSAGE_PERMISSIONS = {
     'mark_message_read': '标记已读',
     'star_message': '标星消息',
     'batch_message_operation': '批量操作',
-    'view_message_category': '查看消息分类',
-    'add_message_category': '新增分类',
-    'change_message_category': '编辑分类',
-    'delete_message_category': '删除分类',
     'view_message_preference': '查看通知偏好',
     'change_message_preference': '编辑通知偏好',
     'view_message_stats': '查看消息统计',
 }
 
 
-class MessageCategoryViewSet(viewsets.ModelViewSet):
-    """消息分类视图集"""
+class MessageCategoryViewSet(viewsets.ReadOnlyModelViewSet):
+    """消息分类视图集（只读）"""
     queryset = MessageCategory.objects.filter(is_active=True)
     serializer_class = MessageCategorySerializer
     permission_classes = [IsAuthenticated]
@@ -51,17 +49,38 @@ class MessageCategoryViewSet(viewsets.ModelViewSet):
     ordering_fields = ['sort_order', 'created_at']
     ordering = ['sort_order', 'id']
     
-    def get_serializer_class(self):
-        if self.action == 'list':
-            return MessageCategorySimpleSerializer
-        return MessageCategorySerializer
+    def get_queryset(self):
+        return super().get_queryset()
+    
+    def list(self, request, *args, **kwargs):
+        """获取消息分类列表"""
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 10))
+        
+        paginator = Paginator(queryset, page_size)
+        page_obj = paginator.get_page(page)
+        
+        serializer = self.get_serializer(page_obj, many=True)
+        
+        return JsonResponse({
+            'code': 200,
+            'msg': 'success',
+            'count': paginator.count,
+            'results': serializer.data
+        })
     
     @action(detail=False, methods=['get'])
     def all(self, request):
-        """获取所有分类（包含统计信息）"""
+        """获取所有分类"""
         categories = self.get_queryset()
         serializer = self.get_serializer(categories, many=True)
-        return Response(serializer.data)
+        return JsonResponse({
+            'code': 200,
+            'msg': 'success',
+            'results': serializer.data
+        })
 
 
 class MessageViewSet(viewsets.ModelViewSet):
@@ -75,6 +94,8 @@ class MessageViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """获取当前用户的消息"""
+        if not self.request.user.has_perm('message.view_message'):
+            return Message.objects.none()
         user = self.request.user
         queryset = super().get_queryset()
         
@@ -109,10 +130,16 @@ class MessageViewSet(viewsets.ModelViewSet):
     
     def list(self, request, *args, **kwargs):
         """获取消息列表"""
+        if not request.user.has_perm('message.view_message'):
+            from rest_framework.response import Response
+            return Response({'results': [], 'count': 0})
         return super().list(request, *args, **kwargs)
     
     def create(self, request, *args, **kwargs):
         """创建消息"""
+        if not request.user.has_perm('message.create_message'):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("您没有权限发送消息")
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         message = serializer.save()
@@ -152,6 +179,9 @@ class MessageViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def star(self, request, pk=None):
         """标星消息"""
+        if not request.user.has_perm('message.star_message'):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("您没有权限标星消息")
         message = self.get_object()
         relation, created = MessageUserRelation.objects.get_or_create(
             message=message,
@@ -166,6 +196,9 @@ class MessageViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def unstar(self, request, pk=None):
         """取消标星"""
+        if not request.user.has_perm('message.star_message'):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("您没有权限标星消息")
         message = self.get_object()
         relation = MessageUserRelation.objects.filter(
             message=message,
@@ -179,11 +212,18 @@ class MessageViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def batch_operation(self, request):
         """批量操作"""
+        if not request.user.has_perm('message.batch_message_operation'):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("您没有权限执行批量操作")
         serializer = MessageBatchOperationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         message_ids = serializer.validated_data['message_ids']
         operation = serializer.validated_data['operation']
+        
+        if operation == 'delete' and not request.user.has_perm('message.delete_message'):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("您没有权限删除消息")
         
         relations = MessageUserRelation.objects.filter(
             message_id__in=message_ids,
@@ -191,6 +231,9 @@ class MessageViewSet(viewsets.ModelViewSet):
         )
         
         if operation == 'read':
+            if not request.user.has_perm('message.mark_message_read'):
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied("您没有权限标记已读")
             relations.update(is_read=True, read_time=timezone.now())
         elif operation == 'unread':
             relations.update(is_read=False, read_time=None)
@@ -210,6 +253,9 @@ class MessageMarkReadView(views.APIView):
     
     def post(self, request):
         """标记消息已读"""
+        if not request.user.has_perm('message.mark_message_read'):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("您没有权限标记消息已读")
         serializer = MessageMarkReadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
@@ -235,6 +281,13 @@ class MessageStatsView(views.APIView):
     
     def get(self, request):
         """获取消息统计"""
+        if not request.user.has_perm('message.view_message_stats'):
+            return Response({
+                'total_count': 0,
+                'unread_count': 0,
+                'starred_count': 0,
+                'category_stats': {}
+            })
         user = request.user
         
         total_count = MessageUserRelation.objects.filter(user=user).count()
@@ -271,12 +324,13 @@ class MessageStatsView(views.APIView):
 class NotificationPreferenceViewSet(viewsets.ModelViewSet):
     """用户通知偏好视图集"""
     permission_classes = [IsAuthenticated]
+    serializer_class = NotificationPreferenceSerializer
+    http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
     
     def get_queryset(self):
+        if not self.request.user.has_perm('message.view_message_preference'):
+            return NotificationPreference.objects.none()
         return NotificationPreference.objects.filter(user=self.request.user)
-    
-    def get_serializer_class(self):
-        return NotificationPreferenceSerializer
     
     def get_object(self):
         obj, created = NotificationPreference.objects.get_or_create(
@@ -286,22 +340,58 @@ class NotificationPreferenceViewSet(viewsets.ModelViewSet):
     
     def list(self, request, *args, **kwargs):
         """获取当前用户的通知偏好"""
+        if not request.user.has_perm('message.view_message_preference'):
+            return JsonResponse({'code': 403, 'msg': '您没有权限查看通知偏好'})
         preference = self.get_object()
         serializer = self.get_serializer(preference)
-        return Response(serializer.data)
+        return JsonResponse({'code': 200, 'msg': 'success', 'data': serializer.data})
+    
+    def retrieve(self, request, *args, **kwargs):
+        """获取单个偏好设置"""
+        if not self.request.user.has_perm('message.view_message_preference'):
+            return JsonResponse({'code': 403, 'msg': '您没有权限查看通知偏好'})
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return JsonResponse({'code': 200, 'msg': 'success', 'data': serializer.data})
     
     def create(self, request, *args, **kwargs):
-        """创建通知偏好"""
+        """创建设置"""
+        if not request.user.has_perm('message.change_message_preference'):
+            return JsonResponse({'code': 403, 'msg': '您没有权限修改通知偏好'})
         return self.update(request, *args, **kwargs)
     
     def update(self, request, *args, **kwargs):
-        """更新通知偏好"""
+        """更新设置"""
+        if not request.user.has_perm('message.change_message_preference'):
+            return JsonResponse({'code': 403, 'msg': '您没有权限修改通知偏好'})
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-        return Response(serializer.data)
+        if serializer.is_valid():
+            serializer.save()
+            return JsonResponse({'code': 200, 'msg': '保存成功', 'data': serializer.data})
+        return JsonResponse({'code': 400, 'msg': serializer.errors})
+    
+    def partial_update(self, request, *args, **kwargs):
+        """部分更新"""
+        if not self.request.user.has_perm('message.change_message_preference'):
+            return JsonResponse({'code': 403, 'msg': '您没有权限修改通知偏好'})
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
+    
+    @action(detail=False, methods=['post'])
+    def update_settings(self, request):
+        """更新用户偏好设置（POST /message/preferences/update_settings/）"""
+        if not self.request.user.has_perm('message.change_message_preference'):
+            return JsonResponse({'code': 403, 'msg': '您没有权限修改通知偏好'})
+        
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        
+        if serializer.is_valid():
+            serializer.save()
+            return JsonResponse({'code': 200, 'msg': '保存成功', 'data': serializer.data})
+        return JsonResponse({'code': 400, 'msg': serializer.errors})
 
 
 class UnreadCountView(views.APIView):
@@ -310,11 +400,32 @@ class UnreadCountView(views.APIView):
     
     def get(self, request):
         """获取未读消息数量"""
+        if not request.user.has_perm('message.view_message'):
+            return Response({'unread_count': 0})
         user = request.user
         unread_count = MessageUserRelation.objects.filter(user=user, is_read=False).count()
         return Response({'unread_count': unread_count})
 
 
+@login_required
 def message_center_page(request):
     """消息中心页面"""
+    if not request.user.has_perm('message.view_message_center'):
+        return render(request, '403.html', {'message': '您没有权限访问消息中心'})
     return render(request, 'message/message_center.html')
+
+
+@login_required
+def message_preference_page(request):
+    """通知偏好设置页面"""
+    if not request.user.has_perm('message.view_message_preference'):
+        return render(request, '403.html', {'message': '您没有权限查看通知偏好'})
+    return render(request, 'message/message_preference.html')
+
+
+@login_required
+def message_stats_page(request):
+    """消息统计页面"""
+    if not request.user.has_perm('message.view_message_stats'):
+        return render(request, '403.html', {'message': '您没有权限查看消息统计'})
+    return render(request, 'message/message_stats.html')
