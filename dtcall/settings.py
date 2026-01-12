@@ -94,6 +94,7 @@ INSTALLED_APPS = [
     'apps.personal',
     'apps.production',
     'apps.ai',
+    'apps.finance_new',
 ]
 
 # 原项目验证码配置映射（来自config/captcha.php）
