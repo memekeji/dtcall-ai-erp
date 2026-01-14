@@ -626,17 +626,8 @@
                     data.field.category_id = categoryId;
                 }
                 
-                // 调试：检查所有必填字段是否都有值
-                // console.log('提交数据检查:', data.field);
                 var requiredFields = ['code', 'name', 'customer_id', 'cost', 'sign_time', 'start_time', 'end_time', 'types', 'category_id'];
                 var missingFields = [];
-                
-                // 特别检查时间字段的值 - 直接从DOM获取
-                // console.log('时间字段详细检查:');
-                // console.log('sign_time 输入框值:', $('#signTime').val());
-                // console.log('start_time 输入框值:', $('#startTime').val());
-                // console.log('end_time 输入框值:', $('#endTime').val());
-                // console.log('category_id 值:', categoryId);
                 
                 // 重新获取所有字段的实际值，确保数据一致性
                 var actualFieldValues = {};

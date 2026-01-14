@@ -325,17 +325,25 @@
             layui.use(['layer'], function() {
                 var layer = layui.layer;
                 
-                // 设置弹窗层级
-                layer.config({
-                    zIndex: 2147483646
-                });
-                
                 layer.open({
                     type: 2,
                     title: '编辑合同',
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '90%'],
+                    offset: 'r',
+                    anim: 2,
                     content: '/adm/contract/sales/edit/' + contractId + '/',
-                    area: ['900px', '700px'],
-                    zIndex: 2147483646,
+                    success: function(layero, index) {
+                        if (layero && typeof layero.css === 'function') {
+                            layero.css({
+                                'right': '0',
+                                'top': '0',
+                                'height': '100%'
+                            });
+                        }
+                    },
                     end: function() {
                         location.reload();
                     }

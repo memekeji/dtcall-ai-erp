@@ -210,22 +210,47 @@
                 layer.open({
                     type: 2,
                     title: '分享文件',
-                    shadeClose: true,
+                    shadeClose: false,
                     shade: 0.3,
-                    area: ['600px', '500px'],
-                    content: '/adm/disk/share/create/?type=file&id=' + fileId
+                    maxmin: true,
+                    area: ['80%', '90%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: '/adm/disk/share/create/?type=file&id=' + fileId,
+                    success: function(layero, index) {
+                        if (layero && typeof layero.css === 'function') {
+                            layero.css({
+                                'right': '0',
+                                'top': '0',
+                                'height': '100%'
+                            });
+                        }
+                    }
                 });
             });
-        }        function shareFolder(folderId) {
+        }
+        function shareFolder(folderId) {
             layui.use(['layer'], function () {
                 var layer = layui.layer;
                 layer.open({
                     type: 2,
                     title: '分享文件夹',
-                    shadeClose: true,
+                    shadeClose: false,
                     shade: 0.3,
-                    area: ['600px', '500px'],
-                    content: '/adm/disk/share/create/?type=folder&id=' + folderId
+                    maxmin: true,
+                    area: ['80%', '90%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: '/adm/disk/share/create/?type=folder&id=' + folderId,
+                    success: function(layero, index) {
+                        if (layero && typeof layero.css === 'function') {
+                            layero.css({
+                                'right': '0',
+                                'top': '0',
+                                'height': '100%'
+                            });
+                        }
+                    }
                 });
             });
         }        function previewFile(fileId) {

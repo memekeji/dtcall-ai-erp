@@ -1,13 +1,19 @@
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, View
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.urls import reverse_lazy
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import Prefetch
+from django.db import transaction
+from django.contrib.sessions.exceptions import SessionInterrupted
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 from apps.user.models import Menu
+from apps.system.menu_config import system_menus
 
 class MenuListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     login_url = '/user/login/'
@@ -91,72 +97,138 @@ class MenuDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     redirect_field_name = 'next'
     model = Menu
     template_name = 'menu/menu_confirm_delete.html'
-    success_url = reverse_lazy('system:menu:menu_list')
     permission_required = 'user.delete_menu'
     
     def get_success_url(self):
-        # 操作成功后添加refresh参数，指示需要刷新菜单
         return reverse_lazy('system:menu:menu_list') + '?refresh=1'
     
-    def delete(self, request, *args, **kwargs):
-        # 处理删除操作，这里可以添加额外的逻辑
-        return super().delete(request, *args, **kwargs)
+    def post(self, request, *args, **kwargs):
+        try:
+            self.object = self.get_object()
+            self.object.delete()
+            return HttpResponseRedirect(self.get_success_url())
+        except SessionInterrupted:
+            logger.warning("会话在删除菜单操作中被中断，用户可能已登出或会话已过期")
+            from django.contrib.auth import logout
+            logout(request)
+            return HttpResponseRedirect('/user/login/?next=' + request.path)
+        except Exception as e:
+            logger.error(f"菜单删除操作发生错误: {str(e)}")
+            from django.contrib import messages
+            messages.error(request, f'删除失败: {str(e)}')
+            return HttpResponseRedirect(reverse_lazy('system:menu:menu_list'))
 
 class MenuSyncAPIView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    """菜单同步API视图，返回最新的菜单数据"""
+    """菜单同步API视图，将menu_config.py中的菜单配置导入数据库"""
     permission_required = 'user.change_menu'
+    
+    def post(self, request, *args, **kwargs):
+        """执行菜单同步：先清空数据库，再从menu_config.py导入"""
+        try:
+            result = self._sync_menus_from_config()
+            return JsonResponse({
+                'status': 'success',
+                'message': '菜单同步成功',
+                'data': result
+            })
+        except Exception as e:
+            return JsonResponse({
+                'status': 'error',
+                'message': f'菜单同步失败: {str(e)}'
+            }, status=500)
+    
+    def _sync_menus_from_config(self):
+        """从menu_config.py同步菜单到数据库（先清空再导入）"""
+        with transaction.atomic():
+            existing_menus = {menu.id: menu for menu in Menu.objects.all()}
+            
+            sorted_menus = sorted(system_menus.items(), key=lambda x: x[0])
+            
+            deleted_count = 0
+            created_count = 0
+            updated_count = 0
+            errors = []
+            
+            existing_menu_ids = set(existing_menus.keys())
+            config_menu_ids = {menu_data['id'] for menu_key, menu_data in sorted_menus}
+            
+            menus_to_delete = existing_menu_ids - config_menu_ids
+            if menus_to_delete:
+                deleted_count = Menu.objects.filter(id__in=menus_to_delete).delete()[0]
+            
+            for menu_key, menu_data in sorted_menus:
+                menu_id = menu_data['id']
+                
+                try:
+                    menu_defaults = {
+                        'title': menu_data['title'],
+                        'src': menu_data['src'],
+                        'sort': menu_data['sort'],
+                        'status': menu_data['status'],
+                    }
+                    
+                    pid_id = menu_data.get('pid_id')
+                    if pid_id and pid_id in existing_menus:
+                        menu_defaults['pid'] = existing_menus[pid_id]
+                    elif pid_id and pid_id == 0:
+                        menu_defaults['pid'] = None
+                    
+                    menu, created = Menu.objects.update_or_create(
+                        id=menu_id,
+                        defaults=menu_defaults
+                    )
+                    
+                    existing_menus[menu_id] = menu
+                    
+                    if created:
+                        created_count += 1
+                    else:
+                        updated_count += 1
+                        
+                except Exception as e:
+                    errors.append({
+                        'id': menu_id,
+                        'title': menu_data.get('title', 'Unknown'),
+                        'error': str(e)
+                    })
+            
+            for menu_key, menu_data in sorted_menus:
+                menu_id = menu_data['id']
+                pid_id = menu_data.get('pid_id')
+                
+                try:
+                    if pid_id and pid_id != 0:
+                        menu = existing_menus.get(menu_id)
+                        parent = existing_menus.get(pid_id)
+                        
+                        if menu and parent and (not menu.pid or menu.pid_id != parent.id):
+                            menu.pid = parent
+                            menu.save(update_fields=['pid'])
+                except Exception as e:
+                    errors.append({
+                        'id': menu_id,
+                        'title': menu_data.get('title', 'Unknown'),
+                        'error': f'父菜单关联失败: {e}'
+                    })
+        
+        return {
+            'deleted': deleted_count,
+            'created': created_count,
+            'updated': updated_count,
+            'total': len(sorted_menus),
+            'errors': errors
+        }
+    
     def get(self, request, *args, **kwargs):
-        # 使用与MenuListView相同的递归预取方法获取菜单数据
-        
-        # 递归预取所有级别的子菜单，并确保每级都按sort字段排序
-        def prefetch_submenus(level=0):
-            if level >= 5:  # 限制最大递归深度，避免无限循环
-                return None
-            
-            # 创建下一级的Prefetch对象
-            next_level = prefetch_submenus(level + 1)
-            query = Menu.objects.filter(status=1).order_by('sort')
-            
-            if next_level:
-                query = query.prefetch_related(next_level)
-            
-            return Prefetch('submenus', queryset=query)
-        
-        # 获取顶级菜单并预取所有级别的子菜单
-        menus = Menu.objects.filter(pid=None, status=1).order_by('sort')
-        menus = menus.prefetch_related(prefetch_submenus())
-        
-        # 构建菜单树结构
-        def build_menu_tree(menu_queryset):
-            menu_list = []
-            for menu in menu_queryset:
-                # 检查菜单是否可用
-                if not menu.is_available():
-                    continue
-                
-                # 对子菜单进行排序，确保即使在API响应中也保持正确的排序
-                sorted_submenus = sorted(menu.submenus.all(), key=lambda x: x.sort)
-                
-                # 过滤可用的子菜单
-                available_submenus = [submenu for submenu in sorted_submenus if submenu.is_available()]
-                
-                menu_dict = {
-                    'id': menu.id,
-                    'title': menu.title,
-                    'src': menu.src,
-                    'icon': menu.icon,
-                    'pid': menu.pid.id if menu.pid else None,
-                    'sort': menu.sort,
-                    'status': menu.status,
-                    'create_time': menu.create_time.strftime('%Y-%m-%d %H:%M:%S'),
-                    'update_time': menu.update_time.strftime('%Y-%m-%d %H:%M:%S'),
-                    'submenus': build_menu_tree(available_submenus)
-                }
-                menu_list.append(menu_dict)
-            return menu_list
-        
-        menu_tree = build_menu_tree(menus)
-        return JsonResponse({'status': 'success', 'data': menu_tree}, encoder=DjangoJSONEncoder)
+        """获取同步状态信息"""
+        return JsonResponse({
+            'status': 'success',
+            'message': '使用POST方法执行菜单同步',
+            'data': {
+                'method': 'post_required',
+                'description': '此API需要使用POST方法执行菜单同步'
+            }
+        })
 
 class MenuOrderAPIView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """处理菜单排序更新的API视图"""

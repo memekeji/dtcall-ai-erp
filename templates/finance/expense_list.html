@@ -126,15 +126,43 @@
                     layer.open({
                         type: 2,
                         title: '报销详情',
+                        shadeClose: false,
+                        shade: 0.3,
+                        maxmin: true,
+                        area: ['80%', '90%'],
+                        offset: 'r',
+                        anim: 2,
                         content: '/finance/reimbursement/view/' + data.id + '/',
-                        area: ['800px', '600px']
+                        success: function(layero, index) {
+                            if (layero && typeof layero.css === 'function') {
+                                layero.css({
+                                    'right': '0',
+                                    'top': '0',
+                                    'height': '100%'
+                                });
+                            }
+                        }
                     });
                 } else if (layEvent === 'edit') {
                     layer.open({
                         type: 2,
                         title: '编辑报销',
+                        shadeClose: false,
+                        shade: 0.3,
+                        maxmin: true,
+                        area: ['80%', '90%'],
+                        offset: 'r',
+                        anim: 2,
                         content: '/finance/reimbursement/edit/' + data.id + '/',
-                        area: ['700px', '500px'],
+                        success: function(layero, index) {
+                            if (layero && typeof layero.css === 'function') {
+                                layero.css({
+                                    'right': '0',
+                                    'top': '0',
+                                    'height': '100%'
+                                });
+                            }
+                        },
                         end: function() {
                             table.reload('expenseTable');
                         }
@@ -162,14 +190,24 @@
 
             // 新增报销
             window.addExpense = function() {
-                console.log('addExpense function called');
                 layer.open({
                     type: 2,
                     title: '新增报销',
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '90%'],
+                    offset: 'r',
+                    anim: 2,
                     content: '/finance/reimbursement/add/',
-                    area: ['900px', '700px'],
-                    success: function() {
-                        console.log('报销弹窗打开成功');
+                    success: function(layero, index) {
+                        if (layero && typeof layero.css === 'function') {
+                            layero.css({
+                                'right': '0',
+                                'top': '0',
+                                'height': '100%'
+                            });
+                        }
                     },
                     end: function() {
                         table.reload('expenseTable');

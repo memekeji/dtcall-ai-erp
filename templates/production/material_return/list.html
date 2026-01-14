@@ -1,0 +1,164 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>材料退料管理</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .status-pending { color: #FFB800; }
+        .status-approved { color: #1E9FFF; }
+        .status-active { color: #5FB878; }
+        .status-cancelled { color: #999; }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <h2 style="margin-bottom: 20px;">材料退料管理</h2>
+            </div>
+        </div>
+
+        <div class="layui-row table-toolbar">
+            <div class="layui-col-md6">
+                <button class="layui-btn" onclick="location.href='{% url 'production:material_return_add' %}'">
+                    <i class="layui-icon layui-icon-add-1"></i> 新建退料单
+                </button>
+            </div>
+        </div>
+
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-body" style="padding: 0;">
+                        <table class="layui-table" lay-skin="line">
+                            <thead>
+                                <tr>
+                                    <th>退料单号</th>
+                                    <th>材料出库单</th>
+                                    <th>生产计划</th>
+                                    <th>退料日期</th>
+                                    <th>退料人</th>
+                                    <th>总金额</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for return in page_obj %}
+                                <tr>
+                                    <td>{{ return.code }}</td>
+                                    <td>{{ return.material_issue.code|default:"-" }}</td>
+                                    <td>{{ return.production_plan.name|default:"-" }}</td>
+                                    <td>{{ return.return_date }}</td>
+                                    <td>{{ return.created_by.username|default:"-"|default:"-" }}</td>
+                                    <td>¥{{ return.total_amount|floatformat:2 }}</td>
+                                    <td>
+                                        {% if return.status == 1 %}
+                                            <span class="status-pending">待审核</span>
+                                        {% elif return.status == 2 %}
+                                            <span class="status-approved">已审核</span>
+                                        {% elif return.status == 3 %}
+                                            <span class="status-active">已入库</span>
+                                        {% elif return.status == 4 %}
+                                            <span class="status-cancelled">已取消</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if return.status == 1 %}
+                                        <button class="layui-btn layui-btn-xs" onclick="approveReturn({{ return.pk }})">
+                                            <i class="layui-icon layui-icon-ok"></i> 审核
+                                        </button>
+                                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="cancelReturn({{ return.pk }})">
+                                            <i class="layui-icon layui-icon-close"></i> 取消
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" style="text-align: center; padding: 40px; color: #999;">暂无数据</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if page_obj.has_other_pages %}
+        <div class="layui-row" style="margin-top: 20px;">
+            <div class="layui-col-md12" style="text-align: center;">
+                <div id="pagination"></div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['layer', 'laypage'], function () {
+            var layer = layui.layer;
+            var laypage = layui.laypage;
+
+            {% if page_obj.has_other_pages %}
+            laypage.render({
+                elem: 'pagination',
+                count: {{ page_obj.paginator.count }},
+                limit: 20,
+                curr: {{ page_obj.number }},
+                jump: function(obj, first) {
+                    if (!first) {
+                        var url = new URL(window.location);
+                        url.searchParams.set('page', obj.curr);
+                        window.location.href = url.toString();
+                    }
+                }
+            });
+            {% endif %}
+        });
+
+        function approveReturn(id) {
+            layer.confirm('确定要审核通过该退料单吗？', {
+                icon: 3,
+                title: '确认审核'
+            }, function(index) {
+                $.post('/adm/production/material/return/' + id + '/approve/', {
+                    csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
+                }, function(res) {
+                    if (res.success) {
+                        layer.msg('审核成功', {icon: 1});
+                        setTimeout(function() { location.reload(); }, 500);
+                    } else {
+                        layer.msg(res.error || '审核失败', {icon: 2});
+                    }
+                });
+                layer.close(index);
+            });
+        }
+
+        function cancelReturn(id) {
+            layer.confirm('确定要取消该退料单吗？', {
+                icon: 3,
+                title: '确认取消'
+            }, function(index) {
+                $.post('/adm/production/material/return/' + id + '/cancel/', {
+                    csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
+                }, function(res) {
+                    if (res.success) {
+                        layer.msg('取消成功', {icon: 1});
+                        setTimeout(function() { location.reload(); }, 500);
+                    } else {
+                        layer.msg(res.error || '取消失败', {icon: 2});
+                    }
+                });
+                layer.close(index);
+            });
+        }
+    </script>
+</body>
+</html>

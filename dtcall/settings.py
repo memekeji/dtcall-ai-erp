@@ -21,7 +21,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-a0fqbg6%n+0ze#&6f3@6e&&pp#*_%xg8^@&!z=p3!$t68av6g^'
+# 使用环境变量存储 SECRET_KEY，生产环境必须设置此环境变量
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-fallback-key-for-development-only')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -64,7 +65,6 @@ X_FRAME_OPTIONS = 'SAMEORIGIN'
 AUTH_USER_MODEL = 'user.Admin'
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -97,16 +97,23 @@ INSTALLED_APPS = [
     'apps.finance_new',
 ]
 
-# 原项目验证码配置映射（来自config/captcha.php）
-CAPTCHA_LENGTH = 5  # 验证码位数
-CAPTCHA_CHALLENGE_FUNCT = 'dtcall.utils.captcha_challenge'  # 自定义字符集合
-CAPTCHA_TIMEOUT = 60  # 过期时间（秒）
-CAPTCHA_IMAGE_HEIGHT = 60  # 提高图片高度以增加清晰度
-CAPTCHA_IMAGE_WIDTH = 200  # 增加图片宽度以容纳更多字符
+# 验证码配置
+CAPTCHA_CHALLENGE_FUNCT = 'dtcall.utils.captcha_challenge'  # 使用加法验证码
+CAPTCHA_TIMEOUT = 60  # 验证码有效期（秒）
+CAPTCHA_IMAGE_HEIGHT = 50  # 图片高度
+CAPTCHA_IMAGE_WIDTH = 180  # 图片宽度
+
+CAPTCHA_LETTER_ROTATION = False
+
+#CAPTCHA_NOISE_FUNCTIONS = ()  # 禁用噪点
+#CAPTCHA_FILTER_FUNCTIONS = ()  # 禁用滤波
+
+CAPTCHA_FOREGROUND_COLOR = '#001100'  # 深绿色前景
+CAPTCHA_BACKGROUND_COLOR = '#FFFFFF'  # 白色背景
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
+    'apps.system.middleware.session_middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -138,6 +145,26 @@ TEMPLATES = [
     },
 ]
 
+# Redis缓存配置
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://192.168.1.149:6379/0",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "CONNECTION_POOL_KWARGS": {
+                "max_connections": 50,
+                "retry_on_timeout": True,
+            },
+            "SOCKET_CONNECT_TIMEOUT": 5,
+            "SOCKET_TIMEOUT": 5,
+            "COMPRESSOR": "django_redis.compressors.zlib.ZlibCompressor",
+        },
+        "KEY_PREFIX": "dtcall",
+        "TIMEOUT": 300,
+    }
+}
+
 WSGI_APPLICATION = 'dtcall.wsgi.application'
 
 
@@ -152,7 +179,7 @@ DATABASES = {
         'PASSWORD': 'dtcall',  # 数据库密码：dtcall
         'HOST': '192.168.1.149',  # 数据库连接地址：192.168.1.149
         'PORT': '5432',  # 数据库端口：5432
-        'CONN_MAX_AGE': 300,  # 数据库连接最大保持时间（秒）
+        'CONN_MAX_AGE': 1800,  # 数据库连接最大保持时间（秒），生产环境建议30分钟
         'OPTIONS': {
             'options': '-c search_path=dtcall_schema',
             'keepalives': 1,
@@ -170,10 +197,21 @@ LOGIN_REDIRECT_URL = '/home/main/'  # 登录成功后重定向到主框架页面
 LOGOUT_REDIRECT_URL = None  # 完全禁用Django默认登出重定向
 
 # 会话配置
-SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # 使用数据库存储会话，确保会话持久化
-SESSION_COOKIE_AGE = 600  # 会话过期时间，单位秒（10分钟）
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # 浏览器关闭时会话过期
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
+SESSION_COOKIE_AGE = 7200  # 会话过期时间，单位秒（2小时）
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # 浏览器关闭时不过期，配合SESSION_COOKIE_AGE使用
 SESSION_SAVE_EVERY_REQUEST = True  # 每次请求都会更新会话过期时间，实现从最后一次操作计时
+
+# 改进的会话缓存配置，增加重试机制
+SESSION_CACHE_OPTIONS = {
+    'CONNECTION_POOL_KWARGS': {
+        'max_connections': 50,
+        'retry_on_timeout': True,
+    },
+    'SOCKET_CONNECT_TIMEOUT': 5,
+    'SOCKET_TIMEOUT': 5,
+}
 
 # Password validation
 
@@ -184,6 +222,9 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 8,  # 最小8位密码
+        }
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
@@ -239,7 +280,7 @@ REST_FRAMEWORK = {
     ],
     # 分页类配置
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,
+    'PAGE_SIZE': 15,
     # 渲染器配置
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',

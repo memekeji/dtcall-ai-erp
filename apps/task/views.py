@@ -240,10 +240,6 @@ class TaskAddView(LoginRequiredMixin, View):
         projects = Project.objects.all()
         users = User.objects.filter(is_active=True)
         
-        # 调试信息：打印项目ID和项目列表
-        print(f"URL参数project_id: {project_id}")
-        print(f"项目列表中包含的ID: {[p.id for p in projects]}")
-        
         return render(request, 'project/task_form.html', {
             'projects': projects,
             'users': users,

@@ -7,6 +7,7 @@ from apps.user.models.position import Position
 from .forms import PositionForm
 from django.utils.translation import gettext_lazy as _
 from django.http import JsonResponse
+from apps.common.services import CommonService
 
 class PositionListView(LoginRequiredMixin, ListView):
     model = Position
@@ -105,7 +106,7 @@ def position_list_data(request):
     keyword = request.GET.get('keyword', '').strip()
     status = request.GET.get('status', '')
     page = int(request.GET.get('page', 1))
-    page_size = 10
+    page_size = CommonService.get_page_size(request, 20)
     
     positions = Position.objects.all().order_by('sort')
     

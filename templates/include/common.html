@@ -4,6 +4,7 @@
     {% load static %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{% block title %}DTCALL管理后台{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
     <link rel="icon" href="{% static 'img/favicon.ico' %}" type="image/x-icon">
@@ -17,6 +18,22 @@
     
     <script src="{% static 'layui/layui.js' %}"></script>
     <script src="{% static 'js/jquery.min.js' %}"></script>
+    <script>
+    layui.use(['jquery', 'layer'], function(){
+        var $ = layui.jquery;
+        
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                    var csrfToken = $('meta[name="csrf-token"]').attr('content');
+                    if (csrfToken) {
+                        xhr.setRequestHeader("X-CSRFToken", csrfToken);
+                    }
+                }
+            }
+        });
+    });
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

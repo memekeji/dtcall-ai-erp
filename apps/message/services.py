@@ -6,6 +6,7 @@ from django.utils import timezone
 from django.contrib.auth import get_user_model
 
 from .models import MessageCategory, Message, MessageUserRelation, NotificationPreference
+from apps.common.cache_service import MessageCache
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -150,6 +151,7 @@ class MessageService:
             relation.is_read = True
             relation.read_time = timezone.now()
             relation.save()
+            MessageCache.invalidate_unread_count(user.id)
             return True
         return False
     
@@ -161,6 +163,8 @@ class MessageService:
             user=user,
             is_read=False
         ).update(is_read=True, read_time=now)
+        if count > 0:
+            MessageCache.invalidate_unread_count(user.id)
         return count
     
     @staticmethod
@@ -179,7 +183,13 @@ class MessageService:
     @staticmethod
     def get_unread_count(user: User) -> int:
         """获取未读消息数量"""
-        return MessageUserRelation.objects.filter(user=user, is_read=False).count()
+        cached_count = MessageCache.get_unread_count(user.id)
+        if cached_count is not None:
+            return cached_count
+        
+        count = MessageUserRelation.objects.filter(user=user, is_read=False).count()
+        MessageCache.set_unread_count(user.id, count)
+        return count
     
     @staticmethod
     def get_user_messages(

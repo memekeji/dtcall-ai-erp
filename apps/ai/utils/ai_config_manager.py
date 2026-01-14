@@ -9,6 +9,7 @@ from typing import Dict, List, Optional
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from apps.ai.models import AIModelConfig
+from apps.common.cache_service import AICache
 
 logger = logging.getLogger(__name__)
 
@@ -19,13 +20,19 @@ class AIConfigManager:
     def __init__(self):
         self._configs = {}
         self._active_config = None
-        self._loaded = False  # 标记配置是否已加载
-        # 延迟加载配置，避免在迁移等操作时访问数据库
-        # self._load_configs()  # 注释掉立即加载
+        self._loaded = False
+        
     
     def _load_configs(self):
         """加载所有AI模型配置"""
         if self._loaded:
+            return
+        
+        cached_config = AICache.get_config()
+        if cached_config is not None:
+            self._configs = cached_config
+            self._loaded = True
+            logger.debug("从缓存加载AI配置")
             return
             
         # 从数据库加载配置
@@ -37,7 +44,6 @@ class AIConfigManager:
                     'name': config.name,
                     'provider': config.provider,
                     'model_type': config.model_type,
-                    'api_key': config.api_key,
                     'base_url': config.api_base,
                     'api_base': config.api_base,
                     'model_name': config.model_name,
@@ -49,7 +55,9 @@ class AIConfigManager:
                     'created_at': config.created_at,
                     'updated_at': config.updated_at
                 }
+            AICache.set_config(self._configs)
             self._loaded = True
+            logger.info(f"从数据库加载AI配置并缓存，共{len(self._configs)}个配置")
         except Exception as e:
             logger.warning(f"加载数据库AI配置失败: {e}")
         

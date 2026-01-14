@@ -118,15 +118,43 @@
                     layer.open({
                         type: 2,
                         title: '发票详情',
+                        shadeClose: false,
+                        shade: 0.3,
+                        maxmin: true,
+                        area: ['80%', '90%'],
+                        offset: 'r',
+                        anim: 2,
                         content: '/adm/finance/invoice/view/' + data.id + '/',
-                        area: ['800px', '600px']
+                        success: function(layero, index) {
+                            if (layero && typeof layero.css === 'function') {
+                                layero.css({
+                                    'right': '0',
+                                    'top': '0',
+                                    'height': '100%'
+                                });
+                            }
+                        }
                     });
                 } else if (layEvent === 'edit') {
                     layer.open({
                         type: 2,
                         title: '编辑发票',
+                        shadeClose: false,
+                        shade: 0.3,
+                        maxmin: true,
+                        area: ['80%', '90%'],
+                        offset: 'r',
+                        anim: 2,
                         content: '/adm/finance/invoice/edit/' + data.id + '/',
-                        area: ['700px', '500px'],
+                        success: function(layero, index) {
+                            if (layero && typeof layero.css === 'function') {
+                                layero.css({
+                                    'right': '0',
+                                    'top': '0',
+                                    'height': '100%'
+                                });
+                            }
+                        },
                         end: function() {
                             table.reload('invoiceTable');
                         }
@@ -158,7 +186,6 @@
 
         // 新增发票
         function addInvoice() {
-            console.log('addInvoice function called');
             layui.use(['layer', 'table'], function() {
                 var layer = layui.layer;
                 var table = layui.table;
@@ -166,10 +193,21 @@
                 layer.open({
                     type: 2,
                     title: '新增发票',
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '90%'],
+                    offset: 'r',
+                    anim: 2,
                     content: '/adm/finance/invoice/add/',
-                    area: ['900px', '700px'],
-                    success: function() {
-                        console.log('发票弹窗打开成功');
+                    success: function(layero, index) {
+                        if (layero && typeof layero.css === 'function') {
+                            layero.css({
+                                'right': '0',
+                                'top': '0',
+                                'height': '100%'
+                            });
+                        }
                     },
                     end: function() {
                         table.reload('invoiceTable');

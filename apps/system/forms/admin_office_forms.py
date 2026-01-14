@@ -8,10 +8,11 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from apps.system.models import (
-    Notice, MeetingRoom, MeetingReservation, Seal, SealApplication,
+    Notice, MeetingReservation, Seal, SealApplication,
     Document, DocumentCategory, DocumentReview, Asset, AssetRepair,
     Vehicle, VehicleMaintenance, VehicleFee, VehicleOil
 )
+from apps.oa.models import MeetingRoom
 
 
 class NoticeForm(forms.ModelForm):
@@ -67,19 +68,23 @@ class MeetingRoomForm(forms.ModelForm):
     """会议室表单"""
     class Meta:
         model = MeetingRoom
-        fields = ['name', 'capacity', 'equipment', 'location', 'status', 'description']
+        fields = ['name', 'code', 'location', 'capacity', 'has_projector', 
+                  'has_whiteboard', 'has_tv', 'has_phone', 'has_wifi',
+                  'equipment_list', 'description', 'status']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入会议室名称'}),
+            'code': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入会议室编号'}),
             'capacity': forms.NumberInput(attrs={'class': 'layui-input', 'placeholder': '请输入容纳人数'}),
-            'equipment': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入设备信息'}),
+            'equipment_list': forms.Textarea(attrs={'class': 'layui-textarea', 'placeholder': '请输入设备清单', 'rows': 3}),
             'location': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入位置信息'}),
             'status': forms.Select(attrs={'class': 'layui-select'}),
             'description': forms.Textarea(attrs={'class': 'layui-textarea', 'placeholder': '请输入描述信息', 'rows': 5}),
         }
         labels = {
             'name': '会议室名称',
+            'code': '会议室编号',
             'capacity': '容纳人数',
-            'equipment': '设备信息',
+            'equipment_list': '设备清单',
             'location': '位置信息',
             'status': '状态',
             'description': '描述信息',

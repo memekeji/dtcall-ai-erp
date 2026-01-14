@@ -5,7 +5,6 @@
 
 from functools import wraps
 from django.http import JsonResponse, HttpResponseForbidden
-from django.contrib.auth.decorators import user_passes_test
 from django.core.exceptions import PermissionDenied
 import logging
 

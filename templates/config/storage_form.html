@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{% if config %}编辑{% else %}新增{% endif %}存储配置</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <style>
+        .storage-panel { display: none; }
+        .storage-panel.active { display: block; }
+        .layui-form-label { width: 120px; }
+        .layui-input-block { margin-left: 150px; }
+        .help-text { color: #999; font-size: 12px; margin-top: 5px; }
+        .local-storage-tip {
+            background: #f0f9eb;
+            border: 1px solid #c2e7b0;
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .local-storage-tip .icon {
+            font-size: 48px;
+            color: #5ba636;
+            margin-bottom: 10px;
+        }
+        .local-storage-tip .title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        .local-storage-tip .desc {
+            color: #666;
+            font-size: 14px;
+        }
+        .storage-type-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .storage-type-item {
+            border: 2px solid #e6e6e6;
+            border-radius: 8px;
+            padding: 15px 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #fff;
+        }
+        .storage-type-item:hover {
+            border-color: #009688;
+            background: #f0f9f8;
+        }
+        .storage-type-item.selected {
+            border-color: #009688;
+            background: #e6f7f5;
+            box-shadow: 0 2px 8px rgba(0, 150, 136, 0.2);
+        }
+        .storage-type-item .icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+        .storage-type-item .name {
+            font-size: 13px;
+            color: #333;
+        }
+        .sync-option {
+            background: #fafafa;
+            border: 1px solid #e6e6e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        .storage-status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .storage-status-badge.active {
+            background: #5ba636;
+            color: #fff;
+        }
+        .storage-status-badge.inactive {
+            background: #999;
+            color: #fff;
+        }
+        .form-section {
+            background: #fafafa;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .form-section-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e6e6e6;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <h3>{% if config %}编辑{% else %}新增{% endif %}存储配置</h3>
+                    </div>
+                    <div class="layui-card-body">
+                        <form class="layui-form" id="storageForm" method="post">
+                            {% csrf_token %}
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">配置名称 <span style="color: red;">*</span></label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="name" required lay-verify="required" 
+                                           value="{{ config.name|default:'' }}" class="layui-input" placeholder="请输入配置名称">
+                                </div>
+                            </div>
+                            
+                            <div class="form-section">
+                                <div class="form-section-title">选择存储类型</div>
+                                <div class="storage-type-grid" id="storageTypeGrid">
+                                    <div class="storage-type-item" data-type="local" onclick="selectStorageType('local')">
+                                        <div class="icon" style="color: #5ba636;">&#xe68d;</div>
+                                        <div class="name">本地存储</div>
+                                    </div>
+                                    <div class="storage-type-item" data-type="aliyun" onclick="selectStorageType('aliyun')">
+                                        <div class="icon" style="color: #ff6b00;">&#xe66a;</div>
+                                        <div class="name">阿里云OSS</div>
+                                    </div>
+                                    <div class="storage-type-item" data-type="tencent" onclick="selectStorageType('tencent')">
+                                        <div class="icon" style="color: #1890ff;">&#xe66d;</div>
+                                        <div class="name">腾讯云COS</div>
+                                    </div>
+                                    <div class="storage-type-item" data-type="huawei" onclick="selectStorageType('huawei')">
+                                        <div class="icon" style="color: #d63031;">&#xe66c;</div>
+                                        <div class="name">华为云OBS</div>
+                                    </div>
+                                    <div class="storage-type-item" data-type="baidu" onclick="selectStorageType('baidu')">
+                                        <div class="icon" style="color: #4fc3f7;">&#xe66b;</div>
+                                        <div class="name">百度云BOS</div>
+                                    </div>
+                                    <div class="storage-type-item" data-type="qiniu" onclick="selectStorageType('qiniu')">
+                                        <div class="icon" style="color: #00d2d3;">&#xe669;</div>
+                                        <div class="name">七牛云KODO</div>
+                                    </div>
+                                    <div class="storage-type-item" data-type="aws" onclick="selectStorageType('aws')">
+                                        <div class="icon" style="color: #ff9f43;">&#xe668;</div>
+                                        <div class="name">AWS S3</div>
+                                    </div>
+                                    <div class="storage-type-item" data-type="feiniu_nas" onclick="selectStorageType('feiniu_nas')">
+                                        <div class="icon" style="color: #6c5ce7;">&#xe667;</div>
+                                        <div class="name">飞牛NAS</div>
+                                    </div>
+                                    <div class="storage-type-item" data-type="qunhui_nas" onclick="selectStorageType('qunhui_nas')">
+                                        <div class="icon" style="color: #a29bfe;">&#xe666;</div>
+                                        <div class="name">群晖NAS</div>
+                                    </div>
+                                    <div class="storage-type-item" data-type="webdav" onclick="selectStorageType('webdav')">
+                                        <div class="icon" style="color: #74b9ff;">&#xe665;</div>
+                                        <div class="name">WebDAV</div>
+                                    </div>
+                                </div>
+                                <input type="hidden" name="storage_type" id="storageTypeInput" value="{{ config.storage_type|default:'' }}">
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">设为默认</label>
+                                <div class="layui-input-block">
+                                    <input type="checkbox" name="is_default" lay-skin="switch" lay-text="是|否"
+                                           {% if config.is_default %}checked{% endif %}>
+                                </div>
+                            </div>
+                            
+                            <div id="localStorageTip" class="local-storage-tip" style="display: none;">
+                                <div class="icon">&#xe68d;</div>
+                                <div class="title">本地存储已启用</div>
+                                <div class="desc">系统将使用默认存储路径(MEDIA_ROOT/uploads)保存文件</div>
+                            </div>
+                            
+                            <div class="layui-tab layui-tab-brief" id="storageTabs" lay-filter="storage_tabs" style="display: none;">
+                                <ul class="layui-tab-title">
+                                    <li class="layui-this" data-panel="cloud">云存储配置</li>
+                                    <li data-panel="nas">NAS配置</li>
+                                    <li data-panel="webdav">WebDAV配置</li>
+                                    <li data-panel="limits">限制设置</li>
+                                </ul>
+                                <div class="layui-tab-content" style="padding: 20px 0;">
+                                    
+                                    <div class="layui-tab-item layui-show" id="panel-cloud">
+                                        <div class="form-section">
+                                            <div class="form-section-title">云存储凭证</div>
+                                            <div class="layui-row layui-col-space15">
+                                                <div class="layui-col-md6">
+                                                    <div class="layui-form-item">
+                                                        <label class="layui-form-label">AccessKey <span style="color: red;">*</span></label>
+                                                        <div class="layui-input-block">
+                                                            <input type="text" name="access_key" 
+                                                                   value="{{ config.access_key|default:'' }}" class="layui-input"
+                                                                   placeholder="请输入AccessKey">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="layui-col-md6">
+                                                    <div class="layui-form-item">
+                                                        <label class="layui-form-label">SecretKey <span style="color: red;">*</span></label>
+                                                        <div class="layui-input-block">
+                                                            <input type="password" name="secret_key" 
+                                                                   value="{{ config.secret_key|default:'' }}" class="layui-input"
+                                                                   placeholder="请输入SecretKey">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="form-section">
+                                            <div class="form-section-title">存储桶配置</div>
+                                            <div class="layui-row layui-col-space15">
+                                                <div class="layui-col-md6">
+                                                    <div class="layui-form-item">
+                                                        <label class="layui-form-label">存储桶名称 <span style="color: red;">*</span></label>
+                                                        <div class="layui-input-block">
+                                                            <input type="text" name="bucket_name" 
+                                                                   value="{{ config.bucket_name|default:'' }}" class="layui-input"
+                                                                   placeholder="请输入存储桶名称">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="layui-col-md6">
+                                                    <div class="layui-form-item">
+                                                        <label class="layui-form-label">区域(Region)</label>
+                                                        <div class="layui-input-block">
+                                                            <input type="text" name="region" 
+                                                                   value="{{ config.region|default:'' }}" class="layui-input"
+                                                                   placeholder="如: oss-cn-hangzhou">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">Endpoint地址</label>
+                                                <div class="layui-input-block">
+                                                    <input type="text" name="endpoint" 
+                                                           value="{{ config.endpoint|default:'' }}" class="layui-input"
+                                                           placeholder="如: oss-cn-hangzhou.aliyuncs.com">
+                                                </div>
+                                                <div class="help-text">不同云服务商有不同的Endpoint格式，请参考各云服务商官方文档</div>
+                                            </div>
+                                        </div>
+                                        <div class="form-section">
+                                            <div class="form-section-title">访问配置</div>
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">访问域名</label>
+                                                <div class="layui-input-block">
+                                                    <input type="text" name="domain" 
+                                                           value="{{ config.domain|default:'' }}" class="layui-input"
+                                                           placeholder="自定义访问域名(可选)">
+                                                </div>
+                                                <div class="help-text">如配置了CDN加速域名或自定义域名，请在此填写</div>
+                                            </div>
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">基础路径</label>
+                                                <div class="layui-input-block">
+                                                    <input type="text" name="base_path" 
+                                                           value="{{ config.base_path|default:'' }}" class="layui-input"
+                                                           placeholder="如: uploads/files">
+                                                </div>
+                                                <div class="help-text">文件存储的基础路径，会在存储桶中创建对应的文件夹</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="layui-tab-item" id="panel-nas">
+                                        <div class="form-section">
+                                            <div class="form-section-title">NAS连接配置</div>
+                                            <div class="layui-row layui-col-space15">
+                                                <div class="layui-col-md6">
+                                                    <div class="layui-form-item">
+                                                        <label class="layui-form-label">NAS主机地址</label>
+                                                        <div class="layui-input-block">
+                                                            <input type="text" name="nas_host" 
+                                                                   value="{{ config.nas_host|default:'' }}" class="layui-input"
+                                                                   placeholder="如: 192.168.1.100">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="layui-col-md6">
+                                                    <div class="layui-form-item">
+                                                        <label class="layui-form-label">NAS端口</label>
+                                                        <div class="layui-input-block">
+                                                            <input type="number" name="nas_port" 
+                                                                   value="{{ config.nas_port|default:0 }}" class="layui-input"
+                                                                   placeholder="如: 445">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">共享路径</label>
+                                                <div class="layui-input-block">
+                                                    <input type="text" name="nas_share_path" 
+                                                           value="{{ config.nas_share_path|default:'' }}" class="layui-input"
+                                                           placeholder="如: Volume1/data">
+                                                </div>
+                                                <div class="help-text">NAS设备上的共享文件夹路径</div>
+                                            </div>
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">基础路径</label>
+                                                <div class="layui-input-block">
+                                                    <input type="text" name="base_path" 
+                                                           value="{{ config.base_path|default:'' }}" class="layui-input"
+                                                           placeholder="如: app_files">
+                                                </div>
+                                                <div class="help-text">在NAS共享目录下创建的基础文件夹路径</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="layui-tab-item" id="panel-webdav">
+                                        <div class="form-section">
+                                            <div class="form-section-title">WebDAV配置</div>
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">WebDAV地址 <span style="color: red;">*</span></label>
+                                                <div class="layui-input-block">
+                                                    <input type="text" name="webdav_url" 
+                                                           value="{{ config.webdav_url|default:'' }}" class="layui-input"
+                                                           placeholder="如: https://dav.example.com">
+                                                </div>
+                                                <div class="help-text">WebDAV服务器的完整地址</div>
+                                            </div>
+                                            <div class="layui-row layui-col-space15">
+                                                <div class="layui-col-md6">
+                                                    <div class="layui-form-item">
+                                                        <label class="layui-form-label">用户名</label>
+                                                        <div class="layui-input-block">
+                                                            <input type="text" name="webdav_username" 
+                                                                   value="{{ config.webdav_username|default:'' }}" class="layui-input"
+                                                                   placeholder="WebDAV用户名">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="layui-col-md6">
+                                                    <div class="layui-form-item">
+                                                        <label class="layui-form-label">密码</label>
+                                                        <div class="layui-input-block">
+                                                            <input type="password" name="webdav_password" 
+                                                                   value="{{ config.webdav_password|default:'' }}" class="layui-input"
+                                                                   placeholder="WebDAV密码">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="layui-form-item">
+                                                <label class="layui-form-label">基础路径</label>
+                                                <div class="layui-input-block">
+                                                    <input type="text" name="base_path" 
+                                                           value="{{ config.base_path|default:'' }}" class="layui-input"
+                                                           placeholder="如: files">
+                                                </div>
+                                                <div class="help-text">WebDAV服务器上的基础文件夹路径</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="layui-tab-item" id="panel-limits">
+                                        <div class="form-section">
+                                            <div class="form-section-title">上传限制</div>
+                                            <div class="layui-row layui-col-space15">
+                                                <div class="layui-col-md6">
+                                                    <div class="layui-form-item">
+                                                        <label class="layui-form-label">最大文件大小</label>
+                                                        <div class="layui-input-block">
+                                                            <input type="number" name="max_file_size" 
+                                                                   value="{% if config.max_file_size %}{{ config.max_file_size|add:0 }}{% endif %}" class="layui-input"
+                                                                   placeholder="单位: MB">
+                                                        </div>
+                                                        <div class="help-text">0表示不限制</div>
+                                                    </div>
+                                                </div>
+                                                <div class="layui-col-md6">
+                                                    <div class="layui-form-item">
+                                                        <label class="layui-form-label">允许的文件扩展名</label>
+                                                        <div class="layui-input-block">
+                                                            <input type="text" name="allowed_extensions" 
+                                                                   value="{{ config.allowed_extensions|default:'' }}" class="layui-input"
+                                                                   placeholder="如: jpg,png,pdf,doc,docx">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="help-text" style="margin-left: 150px; margin-top: 10px;">
+                                                允许的文件扩展名，多个用逗号分隔。留空表示不限制扩展名。
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                </div>
+                            </div>
+                            
+                            <div class="sync-option" id="syncOption" style="display: none;">
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label">同步选项</label>
+                                    <div class="layui-input-block">
+                                        <input type="checkbox" name="sync_to_local" lay-skin="switch" lay-text="是|否" 
+                                               {% if config.sync_to_local %}checked{% endif %} title="同步到本地">
+                                    </div>
+                                </div>
+                                <div class="help-text" style="margin-left: 150px;">
+                                    启用后，文件将同时保存到本地存储和当前配置的存储位置，确保数据安全。
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item layui-form-text" style="margin-top: 20px;">
+                                <label class="layui-form-label">描述</label>
+                                <div class="layui-input-block">
+                                    <textarea name="description" class="layui-textarea" placeholder="请输入配置描述">{{ config.description|default:'' }}</textarea>
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <div class="layui-input-block">
+                                    <button type="button" class="layui-btn" lay-submit lay-filter="configForm" id="btnSubmit">保存</button>
+                                    <button type="button" class="layui-btn layui-btn-primary" id="btnTest">测试连接</button>
+                                    <button type="button" class="layui-btn layui-btn-primary" id="btnBack">返回</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+    layui.use(['form', 'element', 'layer'], function(){
+        var form = layui.form;
+        var element = layui.element;
+        var layer = layui.layer;
+        
+        var cloudTypes = ['aliyun', 'tencent', 'huawei', 'baidu', 'qiniu', 'aws'];
+        var nasTypes = ['feiniu_nas', 'qunhui_nas'];
+        var webdavType = 'webdav';
+        var localType = 'local';
+        
+        window.selectStorageType = function(storageType) {
+            document.querySelectorAll('.storage-type-item').forEach(function(item) {
+                item.classList.remove('selected');
+            });
+            document.querySelector('.storage-type-item[data-type="' + storageType + '"]').classList.add('selected');
+            document.getElementById('storageTypeInput').value = storageType;
+            updateUI(storageType);
+        };
+        
+        function updateUI(storageType) {
+            var tabs = document.getElementById('storageTabs');
+            var localTip = document.getElementById('localStorageTip');
+            var syncOption = document.getElementById('syncOption');
+            
+            if (storageType === localType) {
+                tabs.style.display = 'none';
+                localTip.style.display = 'block';
+                syncOption.style.display = 'none';
+            } else if (storageType) {
+                tabs.style.display = 'block';
+                localTip.style.display = 'none';
+                syncOption.style.display = 'block';
+                
+                if (cloudTypes.indexOf(storageType) !== -1) {
+                    showPanel('cloud');
+                } else if (nasTypes.indexOf(storageType) !== -1) {
+                    showPanel('nas');
+                } else if (storageType === webdavType) {
+                    showPanel('webdav');
+                } else {
+                    showPanel('cloud');
+                }
+            } else {
+                tabs.style.display = 'none';
+                localTip.style.display = 'none';
+                syncOption.style.display = 'none';
+            }
+        }
+        
+        function showPanel(panelName) {
+            element.tabChange('storage_tabs', panelName);
+        }
+        
+        document.getElementById('btnTest').addEventListener('click', function() {
+            var storageType = document.getElementById('storageTypeInput').value;
+            if (!storageType) {
+                layer.msg('请先选择存储类型', {icon: 2});
+                return;
+            }
+            
+            var index = layer.load(2, {shade: false});
+            var formData = new FormData(document.getElementById('storageForm'));
+            
+            fetch('/system/storage/test/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                layer.close(index);
+                if (data.status === 'success') {
+                    layer.alert('连接测试成功！', {icon: 1, title: '测试结果'});
+                } else {
+                    layer.alert('连接测试失败：' + data.message, {icon: 2, title: '测试结果'});
+                }
+            })
+            .catch(error => {
+                layer.close(index);
+                layer.alert('测试失败: ' + error, {icon: 2, title: '错误'});
+            });
+        });
+        
+        document.getElementById('btnBack').addEventListener('click', function() {
+            if (window.parent.layer) {
+                window.parent.layer.closeAll();
+            } else {
+                window.history.back();
+            }
+        });
+        
+        form.on('submit(configForm)', function(data) {
+            var storageType = document.getElementById('storageTypeInput').value;
+            if (!storageType) {
+                layer.msg('请先选择存储类型', {icon: 2});
+                return false;
+            }
+            
+            if (storageType !== localType) {
+                var index = layer.load(2, {shade: false});
+                var formData = new FormData(document.getElementById('storageForm'));
+                
+                fetch('/system/storage/test/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                })
+                .then(response => response.json())
+                .then(result => {
+                    layer.close(index);
+                    if (result.status === 'success') {
+                        document.getElementById('storageForm').submit();
+                    } else {
+                        layer.confirm('连接测试失败：' + result.message + '，是否仍要保存？', {
+                            icon: 3,
+                            title: '确认保存'
+                        }, function(idx) {
+                            layer.close(idx);
+                            document.getElementById('storageForm').submit();
+                        });
+                    }
+                })
+                .catch(error => {
+                    layer.close(index);
+                    layer.alert('测试失败: ' + error, {icon: 2});
+                });
+                return false;
+            }
+            return true;
+        });
+        
+        function getCookie(name) {
+            var arr, reg = new RegExp("(^| )" + name + "=([^;]*)(;|$)");
+            if (arr = document.cookie.match(reg)) {
+                return unescape(arr[2]);
+            }
+            return null;
+        }
+        
+        var initialStorageType = document.getElementById('storageTypeInput').value;
+        if (initialStorageType) {
+            selectStorageType(initialStorageType);
+        }
+        
+        form.render();
+    });
+    </script>
+</body>
+</html>

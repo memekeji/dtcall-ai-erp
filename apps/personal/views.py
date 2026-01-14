@@ -24,6 +24,7 @@ from .models import (
     PersonalSchedule, WorkRecord, WorkReport, 
     PersonalNote, PersonalTask, PersonalContact, MeetingMinutes
 )
+from apps.oa.constants import MeetingTypeChoices
 from .forms import (
     PersonalScheduleForm, WorkRecordForm, WorkReportForm,
     PersonalNoteForm, PersonalTaskForm, PersonalContactForm, MeetingMinutesForm
@@ -696,7 +697,7 @@ def minutes_list(request):
         'meeting_type': meeting_type,
         'date_from': date_from,
         'date_to': date_to,
-        'meeting_types': MeetingMinutes.MEETING_TYPE_CHOICES,
+        'meeting_types': MeetingTypeChoices.choices,
     }
     return render(request, 'personal/minutes/list.html', context)
 
@@ -1110,7 +1111,7 @@ def generate_minutes_word(request, pk):
     
     info_table.cell(1, 0).text = '会议类型'
     # 获取会议类型的中文名称
-    meeting_type_dict = dict(MeetingMinutes.MEETING_TYPE_CHOICES)
+    meeting_type_dict = dict(MeetingTypeChoices.choices)
     info_table.cell(1, 1).text = meeting_type_dict.get(minutes.meeting_type, minutes.meeting_type)
     info_table.cell(1, 1).merge(info_table.cell(1, 2))  # 合并单元格使类型占两列
     
@@ -1322,7 +1323,7 @@ def generate_minutes_preview(request, pk):
         
         info_table.cell(1, 0).text = '会议类型'
         # 获取会议类型的中文名称
-        meeting_type_dict = dict(MeetingMinutes.MEETING_TYPE_CHOICES)
+        meeting_type_dict = dict(MeetingTypeChoices.choices)
         info_table.cell(1, 1).text = meeting_type_dict.get(minutes.meeting_type, minutes.meeting_type)
         info_table.cell(1, 1).merge(info_table.cell(1, 2))  # 合并单元格使类型占两列
         

@@ -102,32 +102,70 @@
                 var layEvent = obj.event;
 
                 if (layEvent === 'view') {
-                    // 查看发票详情
                     layer.open({
                         type: 2,
                         title: '发票详情 - ' + data.code,
+                        shadeClose: false,
+                        shade: 0.3,
+                        maxmin: true,
+                        area: ['80%', '90%'],
+                        offset: 'r',
+                        anim: 2,
                         content: '/adm/finance/invoice/view/' + data.id + '/',
-                        area: ['800px', '600px']
+                        success: function(layero, index) {
+                            if (layero && typeof layero.css === 'function') {
+                                layero.css({
+                                    'right': '0',
+                                    'top': '0',
+                                    'height': '100%'
+                                });
+                            }
+                        }
                     });
                 } else if (layEvent === 'receipt') {
-                    // 登记回款
                     layer.open({
                         type: 2,
                         title: '登记回款 - ' + data.code,
+                        shadeClose: false,
+                        shade: 0.3,
+                        maxmin: true,
+                        area: ['80%', '90%'],
+                        offset: 'r',
+                        anim: 2,
                         content: '/adm/finance/paymentreceive/create/?invoice_id=' + data.id,
-                        area: ['700px', '500px'],
+                        success: function(layero, index) {
+                            if (layero && typeof layero.css === 'function') {
+                                layero.css({
+                                    'right': '0',
+                                    'top': '0',
+                                    'height': '100%'
+                                });
+                            }
+                        },
                         end: function() {
-                            // 回款登记完成后刷新表格
                             table.reload('pendingPaymentTable');
                         }
                     });
                 } else if (layEvent === 'invoice') {
-                    // 查看发票详情
                     layer.open({
                         type: 2,
                         title: '发票信息 - ' + data.code,
+                        shadeClose: false,
+                        shade: 0.3,
+                        maxmin: true,
+                        area: ['80%', '90%'],
+                        offset: 'r',
+                        anim: 2,
                         content: '/adm/finance/invoice/view/' + data.id + '/',
-                        area: ['800px', '600px']
+                        success: function(layero, index) {
+                            if (layero && typeof layero.css === 'function') {
+                                layero.css({
+                                    'right': '0',
+                                    'top': '0',
+                                    'height': '100%'
+                                });
+                            }
+                        }
                     });
                 }
             });
@@ -142,8 +180,22 @@
                 layer.open({
                     type: 2,
                     title: '新增回款记录',
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '90%'],
+                    offset: 'r',
+                    anim: 2,
                     content: '/adm/finance/paymentreceive/create/',
-                    area: ['700px', '500px'],
+                    success: function(layero, index) {
+                        if (layero && typeof layero.css === 'function') {
+                            layero.css({
+                                'right': '0',
+                                'top': '0',
+                                'height': '100%'
+                            });
+                        }
+                    },
                     end: function() {
                         table.reload('pendingPaymentTable');
                     }

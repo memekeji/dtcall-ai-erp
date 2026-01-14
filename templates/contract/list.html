@@ -266,22 +266,29 @@
         
         // 新增合同
         function addContract() {
-            // console.log('新增合同按钮被点击');
-            
             layui.use('layer', function() {
                 var layer = layui.layer;
                 
                 layer.open({
                     type: 2,
                     title: '新增合同',
-                    content: '/contract/add/',
-                    area: ['900px', '700px'],
+                    shadeClose: false,
+                    shade: 0.3,
                     maxmin: true,
+                    area: ['80%', '90%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: '/contract/add/',
                     success: function(layero, index) {
-                        // console.log('新增合同弹窗打开成功');
+                        if (layero && typeof layero.css === 'function') {
+                            layero.css({
+                                'right': '0',
+                                'top': '0',
+                                'height': '100%'
+                            });
+                        }
                     },
                     end: function() {
-                        // 新增完成后刷新页面
                         window.location.reload();
                     }
                 });

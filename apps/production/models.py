@@ -43,7 +43,7 @@ class ProductionProcedure(models.Model):
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='所属部门')
     sort = models.IntegerField(default=0, verbose_name='排序')
     status = models.BooleanField(default=True, verbose_name='是否启用')
-    creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name='创建人')
+    creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_procedures', verbose_name='创建人')
     create_time = models.DateTimeField(default=timezone.now, verbose_name='创建时间')
     update_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
 
@@ -66,7 +66,7 @@ class ProcedureSet(models.Model):
     total_time = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='总工时')
     total_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='总成本')
     status = models.BooleanField(default=True, verbose_name='是否启用')
-    creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name='创建人')
+    creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_procedure_sets', verbose_name='创建人')
     create_time = models.DateTimeField(default=timezone.now, verbose_name='创建时间')
     update_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
 
@@ -116,7 +116,7 @@ class ProcessRoute(models.Model):
     version = models.CharField(max_length=20, default='1.0', verbose_name='版本号')
     effective_date = models.DateField(null=True, blank=True, verbose_name='生效日期')
     expiry_date = models.DateField(null=True, blank=True, verbose_name='失效日期')
-    creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name='创建人')
+    creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_process_routes', verbose_name='创建人')
     create_time = models.DateTimeField(default=timezone.now, verbose_name='创建时间')
     update_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
 
@@ -164,7 +164,7 @@ class BOM(models.Model):
     version = models.CharField(max_length=20, default='1.0', verbose_name='版本号')
     description = models.TextField(blank=True, verbose_name='BOM描述')
     status = models.BooleanField(default=True, verbose_name='是否启用')
-    creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name='创建人')
+    creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_boms', verbose_name='创建人')
     create_time = models.DateTimeField(default=timezone.now, verbose_name='创建时间')
     update_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
 
@@ -374,7 +374,7 @@ class QualityCheck(models.Model):
     
     task = models.ForeignKey(ProductionTask, on_delete=models.CASCADE, related_name='quality_checks', verbose_name='关联任务')
     check_time = models.DateTimeField(default=timezone.now, verbose_name='检查时间')
-    checker = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name='检查员')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_quality_checks', verbose_name='检查员')
     check_quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='检查数量')
     qualified_quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='合格数量')
     defective_quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='不合格数量')
@@ -412,7 +412,7 @@ class DataCollection(models.Model):
     standard_max = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True, verbose_name='标准上限')
     is_normal = models.BooleanField(default=True, verbose_name='是否正常')
     collect_time = models.DateTimeField(default=timezone.now, verbose_name='采集时间')
-    collector = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name='采集人')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_data_collections', verbose_name='采集人')
     
     class Meta:
         db_table = 'production_data_collection'
@@ -436,7 +436,7 @@ class SOP(models.Model):
     tools_required = models.TextField(blank=True, verbose_name='所需工具')
     file_path = models.CharField(max_length=500, blank=True, verbose_name='附件路径')
     status = models.BooleanField(default=True, verbose_name='是否启用')
-    creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name='创建人')
+    creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_sops', verbose_name='创建人')
     create_time = models.DateTimeField(default=timezone.now, verbose_name='创建时间')
     update_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
 
@@ -496,7 +496,7 @@ class DataSource(models.Model):
     last_success_time = models.DateTimeField(null=True, blank=True, verbose_name='最后成功时间')
     error_count = models.IntegerField(default=0, verbose_name='错误次数')
     last_error = models.TextField(blank=True, verbose_name='最后错误信息')
-    creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name='创建人')
+    creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_data_sources', verbose_name='创建人')
     create_time = models.DateTimeField(default=timezone.now, verbose_name='创建时间')
     update_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
     
@@ -660,7 +660,7 @@ class DataCollectionTask(models.Model):
     success_runs = models.IntegerField(default=0, verbose_name='成功次数')
     failed_runs = models.IntegerField(default=0, verbose_name='失败次数')
     is_active = models.BooleanField(default=True, verbose_name='是否启用')
-    creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name='创建人')
+    creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_data_collection_tasks', verbose_name='创建人')
     create_time = models.DateTimeField(default=timezone.now, verbose_name='创建时间')
     update_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
     
@@ -689,7 +689,7 @@ class ProductionOrderChange(models.Model):
     old_value = models.JSONField(default=dict, verbose_name='变更前值')
     new_value = models.JSONField(default=dict, verbose_name='变更后值')
     status = models.IntegerField(choices=STATUS_CHOICES, default=1, verbose_name='状态')
-    creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name='创建人')
+    creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_order_changes', verbose_name='创建人')
     create_time = models.DateTimeField(default=timezone.now, verbose_name='创建时间')
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='approved_order_changes', verbose_name='审核人')
     approved_time = models.DateTimeField(null=True, blank=True, verbose_name='审核时间')
@@ -753,7 +753,7 @@ class MaterialRequest(models.Model):
     production_task = models.ForeignKey(ProductionTask, on_delete=models.SET_NULL, null=True, blank=True, related_name='material_requests', verbose_name='生产任务')
     code = models.CharField(max_length=50, unique=True, verbose_name='申请单号')
     request_date = models.DateField(default=timezone.now, verbose_name='申请日期')
-    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name='申请人')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_material_requests', verbose_name='申请人')
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='approved_material_requests', verbose_name='审核人')
     status = models.IntegerField(choices=STATUS_CHOICES, default=1, verbose_name='状态')
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='总金额')
@@ -807,7 +807,7 @@ class MaterialIssue(models.Model):
     material_request = models.ForeignKey(MaterialRequest, on_delete=models.SET_NULL, null=True, blank=True, related_name='material_issues', verbose_name='领料申请单')
     production_plan = models.ForeignKey(ProductionPlan, on_delete=models.CASCADE, related_name='material_issues', verbose_name='生产计划')
     issue_date = models.DateField(default=timezone.now, verbose_name='出库日期')
-    issued_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name='出库人')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_material_issues', verbose_name='出库人')
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='approved_material_issues', verbose_name='审核人')
     status = models.IntegerField(choices=STATUS_CHOICES, default=1, verbose_name='状态')
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='总金额')
@@ -860,7 +860,7 @@ class MaterialReturn(models.Model):
     material_issue = models.ForeignKey(MaterialIssue, on_delete=models.SET_NULL, null=True, blank=True, related_name='material_returns', verbose_name='材料出库单')
     production_plan = models.ForeignKey(ProductionPlan, on_delete=models.CASCADE, related_name='material_returns', verbose_name='生产计划')
     return_date = models.DateField(default=timezone.now, verbose_name='退料日期')
-    returned_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name='退料人')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_material_returns', verbose_name='退料人')
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='approved_material_returns', verbose_name='审核人')
     status = models.IntegerField(choices=STATUS_CHOICES, default=1, verbose_name='状态')
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='总金额')
@@ -915,7 +915,7 @@ class WorkCompletionReport(models.Model):
     reported_quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='申报数量')
     qualified_quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='合格数量')
     defective_quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='不合格数量')
-    reported_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name='申报人')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_completion_reports', verbose_name='申报人')
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='approved_completion_reports', verbose_name='审核人')
     status = models.IntegerField(choices=STATUS_CHOICES, default=1, verbose_name='状态')
     work_hours = models.DecimalField(max_digits=8, decimal_places=2, default=0, verbose_name='实际工时')
@@ -948,7 +948,7 @@ class WorkCompletionRedFlush(models.Model):
     red_flush_date = models.DateField(default=timezone.now, verbose_name='红冲日期')
     red_flush_reason = models.TextField(verbose_name='红冲原因')
     red_flush_quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='红冲数量')
-    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name='申请人')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_red_flushes', verbose_name='申请人')
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='approved_red_flushes', verbose_name='审核人')
     status = models.IntegerField(choices=STATUS_CHOICES, default=1, verbose_name='状态')
     create_time = models.DateTimeField(default=timezone.now, verbose_name='创建时间')
@@ -980,7 +980,7 @@ class ProductReceipt(models.Model):
     receipt_date = models.DateField(default=timezone.now, verbose_name='入库日期')
     receipt_quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='入库数量')
     storage_location = models.CharField(max_length=100, verbose_name='存储位置')
-    received_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name='入库人')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_product_receipts', verbose_name='入库人')
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='approved_product_receipts', verbose_name='审核人')
     status = models.IntegerField(choices=STATUS_CHOICES, default=1, verbose_name='状态')
     remarks = models.TextField(blank=True, verbose_name='备注')
@@ -1025,7 +1025,7 @@ class ResourceConsumption(models.Model):
     unit = models.CharField(max_length=20, verbose_name='单位')
     cost = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='成本')
     consumption_time = models.DateTimeField(default=timezone.now, verbose_name='消耗时间')
-    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name='记录人')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_resource_consumptions', verbose_name='记录人')
     
     class Meta:
         db_table = 'production_resource_consumption'

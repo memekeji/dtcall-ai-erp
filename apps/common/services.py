@@ -16,12 +16,12 @@ User = get_user_model()
 
 # 尝试导入其他模块中的模型
 try:
-    from user.models import Admin
-    from customer.models import Customer, CustomerContract, CustomerOrder, CustomerInvoice
-    from contract.models import Contract as ContractModule
-    from project.models import Project
-    from finance.models import Invoice, Payment, OrderFinanceRecord
-    from adm.models import EmployeeFile, EmployeeTransfer, RewardPunishment
+    from apps.user.models import Admin
+    from apps.user.models import EmployeeFile, EmployeeTransfer, RewardPunishment
+    from apps.customer.models import Customer, CustomerContract, CustomerOrder, CustomerInvoice
+    from apps.contract.models import Contract as ContractModule
+    from apps.project.models import Project
+    from apps.finance.models import Invoice, Payment, OrderFinanceRecord
 except ImportError as e:
     logger.warning(f"模型导入失败: {e}")
     # 设置全局变量为None，避免未定义错误
@@ -876,7 +876,7 @@ def register_signal_handlers():
     signal_handlers = []
     
     # 注册用户档案同步信号
-    if 'Admin' in globals():
+    if Admin is not None:
         try:
             @receiver(post_save, sender=Admin)
             def sync_user_profile_on_save(sender, instance, created, **kwargs):
@@ -887,7 +887,7 @@ def register_signal_handlers():
             logger.warning(f"注册用户档案同步信号失败: {e}")
     
     # 注册客户合同同步信号
-    if 'CustomerContract' in globals():
+    if CustomerContract is not None:
         try:
             @receiver(post_save, sender=CustomerContract)
             def sync_customer_business_on_customer_contract_save(sender, instance, created, **kwargs):
@@ -901,7 +901,7 @@ def register_signal_handlers():
             logger.warning(f"注册客户合同同步信号失败: {e}")
     
     # 注册合同管理模块同步信号
-    if 'ContractModule' in globals():
+    if ContractModule is not None:
         try:
             @receiver(post_save, sender=ContractModule)
             def sync_contract_module_to_customer(sender, instance, **kwargs):
@@ -916,7 +916,7 @@ def register_signal_handlers():
             logger.warning(f"注册合同管理模块同步信号失败: {e}")
     
     # 注册客户订单同步信号
-    if 'CustomerOrder' in globals():
+    if CustomerOrder is not None:
         try:
             @receiver(post_save, sender=CustomerOrder)
             def sync_order_to_finance_on_save(sender, instance, created, **kwargs):
@@ -930,7 +930,7 @@ def register_signal_handlers():
             logger.warning(f"注册客户订单同步信号失败: {e}")
     
     # 注册发票同步信号
-    if 'Invoice' in globals():
+    if Invoice is not None:
         try:
             @receiver(post_save, sender=Invoice)
             def sync_customer_business_on_invoice_save(sender, instance, **kwargs):
@@ -941,7 +941,7 @@ def register_signal_handlers():
             logger.warning(f"注册发票同步信号失败: {e}")
     
     # 注册付款记录同步信号
-    if 'Payment' in globals():
+    if Payment is not None:
         try:
             @receiver(post_save, sender=Payment)
             def sync_customer_business_on_payment_save(sender, instance, **kwargs):
@@ -968,7 +968,7 @@ def register_signal_handlers():
             logger.warning(f"注册付款记录同步信号失败: {e}")
     
     # 注册员工调动同步信号
-    if 'EmployeeTransfer' in globals():
+    if EmployeeTransfer is not None:
         try:
             @receiver(post_save, sender=EmployeeTransfer)
             def sync_user_department_on_transfer(sender, instance, **kwargs):
@@ -1034,19 +1034,43 @@ class CommonService:
     """公共服务类 - 提供通用的工具函数"""
     
     @staticmethod
-    def get_paginated_data(queryset, request, page_size=20, context=None):
+    def get_page_size(request, default=20):
+        """获取分页大小
+        
+        Args:
+            request: Django请求对象
+            default: 默认分页大小
+            
+        Returns:
+            int: 分页大小
+        """
+        from apps.system.config_service import config_service
+        
+        page_size_param = request.GET.get('limit')
+        if page_size_param and page_size_param.isdigit():
+            return int(page_size_param)
+        
+        return config_service.get_int_config('default_page_size', default)
+    
+    @staticmethod
+    def get_paginated_data(queryset, request, page_size=None, context=None):
         """获取分页数据
         
         Args:
             queryset: 要分页的查询集
             request: Django请求对象
-            page_size: 每页数量，默认20
+            page_size: 每页数量，如果为None则从系统配置读取
             context: 额外的上下文数据
             
         Returns:
             dict: 包含分页对象和上下文数据的字典
         """
         from django.core.paginator import Paginator
+        from apps.system.config_service import config_service
+        
+        # 如果page_size为None，从系统配置读取
+        if page_size is None:
+            page_size = config_service.get_int_config('default_page_size', 20)
         
         # 处理page_size参数
         page_size_param = request.GET.get('page_size')

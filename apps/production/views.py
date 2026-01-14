@@ -32,10 +32,13 @@ from .forms import (
     ResourceConsumptionForm, DataCollectionTaskForm, ProductionDataPointForm
 )
 from .services.data_collector import DataCollectorService
+from .services.scheduling_service import SchedulingOptimizerService, GanttChartService, DeliveryPredictionService
+from .services.monitoring_service import EquipmentMonitorService, AlertRuleService, WebSocketNotificationService
+from .services.statistics_service import ProductionStatisticsService
 
 
-def _get_paginated_queryset(request, queryset, search_fields=None, default_order='-create_time'):
-    """通用的分页查询辅助函数"""
+def _get_paginated_queryset(request, queryset, search_fields=None, default_order='-create_time', select_related=None, prefetch_related=None):
+    """通用的分页查询辅助函数，支持关联查询优化"""
     search = request.GET.get('search', '').strip()
     order = request.GET.get('order', default_order)
     
@@ -44,6 +47,12 @@ def _get_paginated_queryset(request, queryset, search_fields=None, default_order
         for field in search_fields:
             query |= Q(**{f'{field}__icontains': search})
         queryset = queryset.filter(query)
+    
+    if select_related:
+        queryset = queryset.select_related(*select_related)
+    
+    if prefetch_related:
+        queryset = queryset.prefetch_related(*prefetch_related)
     
     paginator = Paginator(queryset.order_by(order), 20)
     page_number = request.GET.get('page')
@@ -164,7 +173,9 @@ def procedureset_delete(request, pk):
 
 def bom_list(request):
     """BOM列表"""
-    boms = BOM.objects.all()
+    boms = BOM.objects.select_related(
+        'product', 'creator'
+    ).all()
     page_obj, context = _get_paginated_queryset(
         request, boms,
         search_fields=['name', 'code'],
@@ -218,7 +229,9 @@ def bom_detail(request, pk):
 
 def equipment_list(request):
     """设备列表"""
-    equipment_list = Equipment.objects.all()
+    equipment_list = Equipment.objects.select_related(
+        'department', 'creator'
+    ).all()
     page_obj, context = _get_paginated_queryset(
         request, equipment_list,
         search_fields=['name', 'code'],
@@ -378,7 +391,9 @@ def production_task_index(request):
 
 def production_plan_list(request):
     """计划列表"""
-    plans = ProductionPlan.objects.all()
+    plans = ProductionPlan.objects.select_related(
+        'product', 'bom', 'procedure_set', 'process_route', 'department', 'manager'
+    ).all()
     page_obj, context = _get_paginated_queryset(
         request, plans,
         search_fields=['name', 'code'],
@@ -432,7 +447,9 @@ def production_plan_detail(request, pk):
 
 def production_task_list(request):
     """任务列表"""
-    tasks = ProductionTask.objects.all()
+    tasks = ProductionTask.objects.select_related(
+        'plan__product', 'procedure', 'equipment', 'assignee', 'department'
+    ).all()
     page_obj, context = _get_paginated_queryset(
         request, tasks,
         search_fields=['name', 'code'],
@@ -998,7 +1015,10 @@ def production_line_day_plan_delete(request, pk):
 
 def material_request_list(request):
     """领料申请列表"""
-    requests = MaterialRequest.objects.all()
+    permission_required = 'production.view_materialrequest'
+    requests = MaterialRequest.objects.select_related(
+        'production_plan'
+    ).all()
     page_obj, context = _get_paginated_queryset(
         request, requests,
         search_fields=['code'],
@@ -1009,19 +1029,28 @@ def material_request_list(request):
 
 def material_request_add(request):
     """添加领料申请"""
+    permission_required = 'production.add_materialrequest'
     if request.method == 'POST':
         form = MaterialRequestForm(request.POST)
         if form.is_valid():
-            form.save()
+            material_request = form.save(commit=False)
+            material_request.created_by = request.user
+            material_request.save()
             messages.success(request, '领料申请添加成功')
             return redirect('production:material_request_list')
     else:
         form = MaterialRequestForm()
-    return render(request, 'production/material_request/form.html', {'form': form, 'action': '添加'})
+    production_plans = ProductionPlan.objects.filter(status__in=[1, 2]).order_by('-create_time')
+    return render(request, 'production/material_request/form.html', {
+        'form': form, 
+        'action': '添加',
+        'production_plans': production_plans
+    })
 
 
 def material_request_edit(request, pk):
     """编辑领料申请"""
+    permission_required = 'production.change_materialrequest'
     material_request = get_object_or_404(MaterialRequest, pk=pk)
     if request.method == 'POST':
         form = MaterialRequestForm(request.POST, instance=material_request)
@@ -1031,11 +1060,17 @@ def material_request_edit(request, pk):
             return redirect('production:material_request_list')
     else:
         form = MaterialRequestForm(instance=material_request)
-    return render(request, 'production/material_request/form.html', {'form': form, 'action': '编辑'})
+    production_plans = ProductionPlan.objects.filter(status__in=[1, 2]).order_by('-create_time')
+    return render(request, 'production/material_request/form.html', {
+        'form': form, 
+        'action': '编辑',
+        'production_plans': production_plans
+    })
 
 
 def material_request_approve(request, pk):
     """审核领料申请"""
+    permission_required = 'production.change_materialrequest'
     material_request = get_object_or_404(MaterialRequest, pk=pk)
     material_request.status = 2
     material_request.approved_by = request.user
@@ -1046,6 +1081,7 @@ def material_request_approve(request, pk):
 
 def material_request_cancel(request, pk):
     """取消领料申请"""
+    permission_required = 'production.change_materialrequest'
     material_request = get_object_or_404(MaterialRequest, pk=pk)
     material_request.status = 5
     material_request.save()
@@ -1055,7 +1091,10 @@ def material_request_cancel(request, pk):
 
 def material_issue_list(request):
     """材料出库列表"""
-    issues = MaterialIssue.objects.all()
+    permission_required = 'production.view_materialissue'
+    issues = MaterialIssue.objects.select_related(
+        'material_request', 'production_plan'
+    ).all()
     page_obj, context = _get_paginated_queryset(
         request, issues,
         search_fields=['code'],
@@ -1066,19 +1105,30 @@ def material_issue_list(request):
 
 def material_issue_add(request):
     """添加材料出库"""
+    permission_required = 'production.add_materialissue'
     if request.method == 'POST':
         form = MaterialIssueForm(request.POST)
         if form.is_valid():
-            form.save()
+            issue = form.save(commit=False)
+            issue.created_by = request.user
+            issue.save()
             messages.success(request, '材料出库添加成功')
             return redirect('production:material_issue_list')
     else:
         form = MaterialIssueForm()
-    return render(request, 'production/material_issue/form.html', {'form': form, 'action': '添加'})
+    production_plans = ProductionPlan.objects.filter(status__in=[1, 2]).order_by('-create_time')
+    material_requests = list(MaterialRequest.objects.filter(status=2).values('pk', 'code').order_by('-create_time'))
+    return render(request, 'production/material_issue/form.html', {
+        'form': form, 
+        'action': '添加',
+        'production_plans': production_plans,
+        'material_requests': material_requests
+    })
 
 
 def material_issue_edit(request, pk):
     """编辑材料出库"""
+    permission_required = 'production.change_materialissue'
     issue = get_object_or_404(MaterialIssue, pk=pk)
     if request.method == 'POST':
         form = MaterialIssueForm(request.POST, instance=issue)
@@ -1088,11 +1138,19 @@ def material_issue_edit(request, pk):
             return redirect('production:material_issue_list')
     else:
         form = MaterialIssueForm(instance=issue)
-    return render(request, 'production/material_issue/form.html', {'form': form, 'action': '编辑'})
+    production_plans = ProductionPlan.objects.filter(status__in=[1, 2]).order_by('-create_time')
+    material_requests = MaterialRequest.objects.filter(status=2).order_by('-create_time')
+    return render(request, 'production/material_issue/form.html', {
+        'form': form, 
+        'action': '编辑',
+        'production_plans': production_plans,
+        'material_requests': material_requests
+    })
 
 
 def material_issue_approve(request, pk):
     """审核材料出库"""
+    permission_required = 'production.change_materialissue'
     issue = get_object_or_404(MaterialIssue, pk=pk)
     issue.status = 2
     issue.approved_by = request.user
@@ -1103,6 +1161,7 @@ def material_issue_approve(request, pk):
 
 def material_issue_cancel(request, pk):
     """取消材料出库"""
+    permission_required = 'production.change_materialissue'
     issue = get_object_or_404(MaterialIssue, pk=pk)
     issue.status = 4
     issue.save()
@@ -1112,7 +1171,10 @@ def material_issue_cancel(request, pk):
 
 def material_return_list(request):
     """退料列表"""
-    returns = MaterialReturn.objects.all()
+    permission_required = 'production.view_materialreturn'
+    returns = MaterialReturn.objects.select_related(
+        'material_issue', 'production_plan'
+    ).all()
     page_obj, context = _get_paginated_queryset(
         request, returns,
         search_fields=['code'],
@@ -1123,19 +1185,30 @@ def material_return_list(request):
 
 def material_return_add(request):
     """添加退料"""
+    permission_required = 'production.add_materialreturn'
     if request.method == 'POST':
         form = MaterialReturnForm(request.POST)
         if form.is_valid():
-            form.save()
+            material_return = form.save(commit=False)
+            material_return.created_by = request.user
+            material_return.save()
             messages.success(request, '退料添加成功')
             return redirect('production:material_return_list')
     else:
         form = MaterialReturnForm()
-    return render(request, 'production/material_return/form.html', {'form': form, 'action': '添加'})
+    production_plans = ProductionPlan.objects.filter(status__in=[1, 2]).order_by('-create_time')
+    material_issues = list(MaterialIssue.objects.filter(status=2).values('pk', 'code').order_by('-create_time'))
+    return render(request, 'production/material_return/form.html', {
+        'form': form, 
+        'action': '添加',
+        'production_plans': production_plans,
+        'material_issues': material_issues
+    })
 
 
 def material_return_edit(request, pk):
     """编辑退料"""
+    permission_required = 'production.change_materialreturn'
     material_return = get_object_or_404(MaterialReturn, pk=pk)
     if request.method == 'POST':
         form = MaterialReturnForm(request.POST, instance=material_return)
@@ -1145,11 +1218,19 @@ def material_return_edit(request, pk):
             return redirect('production:material_return_list')
     else:
         form = MaterialReturnForm(instance=material_return)
-    return render(request, 'production/material_return/form.html', {'form': form, 'action': '编辑'})
+    production_plans = ProductionPlan.objects.filter(status__in=[1, 2]).order_by('-create_time')
+    material_issues = MaterialIssue.objects.filter(status=2).order_by('-create_time')
+    return render(request, 'production/material_return/form.html', {
+        'form': form, 
+        'action': '编辑',
+        'production_plans': production_plans,
+        'material_issues': material_issues
+    })
 
 
 def material_return_approve(request, pk):
     """审核退料"""
+    permission_required = 'production.change_materialreturn'
     material_return = get_object_or_404(MaterialReturn, pk=pk)
     material_return.status = 2
     material_return.approved_by = request.user
@@ -1160,6 +1241,7 @@ def material_return_approve(request, pk):
 
 def material_return_cancel(request, pk):
     """取消退料"""
+    permission_required = 'production.change_materialreturn'
     material_return = get_object_or_404(MaterialReturn, pk=pk)
     material_return.status = 4
     material_return.save()
@@ -1398,3 +1480,526 @@ def resource_consumption_add(request):
     else:
         form = ResourceConsumptionForm()
     return render(request, 'production/resource_consumption/form.html', {'form': form, 'action': '添加'})
+
+
+def resource_scheduling(request):
+    """智能资源调度页面"""
+    service = SchedulingOptimizerService()
+    
+    equipment_usage = []
+    for equipment in Equipment.objects.filter(status=1).all():
+        tasks = ProductionTask.objects.filter(
+            equipment=equipment,
+            status__in=[1, 2]
+        ).order_by('plan_start_time')[:5]
+        
+        equipment_usage.append({
+            'equipment': equipment,
+            'task_count': ProductionTask.objects.filter(equipment=equipment, status__in=[1, 2]).count(),
+            'current_tasks': list(tasks)
+        })
+    
+    user_workload = []
+    users = Admin.objects.filter(is_active=True)[:10]
+    for user in users:
+        active_tasks = ProductionTask.objects.filter(
+            assignee=user,
+            status=2
+        ).count()
+        
+        user_workload.append({
+            'user': user,
+            'active_tasks': active_tasks
+        })
+    
+    context = {
+        'equipment_usage': equipment_usage,
+        'user_workload': user_workload
+    }
+    return render(request, 'production/scheduling/index.html', context)
+
+
+def scheduling_optimize(request):
+    """执行智能排程优化"""
+    if request.method == 'POST':
+        try:
+            strategy = request.POST.get('strategy', 'hybrid')
+            start_date = request.POST.get('start_date')
+            end_date = request.POST.get('end_date')
+            
+            if start_date:
+                start_date = datetime.strptime(start_date, '%Y-%m-%d')
+            else:
+                start_date = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            
+            if end_date:
+                end_date = datetime.strptime(end_date, '%Y-%m-%d')
+            else:
+                end_date = start_date + timedelta(days=30)
+            
+            service = SchedulingOptimizerService()
+            result = service.optimize_schedule(
+                start_date=start_date,
+                end_date=end_date,
+                strategy=strategy
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': result.message,
+                'scheduled_count': len(result.scheduled_tasks),
+                'unscheduled_count': len(result.unscheduled_tasks),
+                'optimization_score': result.optimization_score,
+                'execution_time': result.execution_time,
+                'gantt_data': GanttChartService().generate_gantt_data(result.scheduled_tasks)
+            })
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.error(f"排程优化失败: {str(e)}")
+            return JsonResponse({
+                'success': False,
+                'message': f'排程优化失败: {str(e)}'
+            })
+    
+    return JsonResponse({'success': False, 'message': '仅支持POST请求'})
+
+
+def scheduling_bottleneck_analysis(request):
+    """瓶颈分析"""
+    try:
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        
+        if start_date:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+        else:
+            start_date = timezone.now().date()
+        
+        if end_date:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+        else:
+            end_date = start_date + timedelta(days=30)
+        
+        service = SchedulingOptimizerService()
+        analysis = service.calculate_bottleneck_analysis(start_date, end_date)
+        
+        return JsonResponse({
+            'success': True,
+            'analysis': analysis
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        })
+
+
+def scheduling_simulation(request, plan_id):
+    """排程模拟"""
+    try:
+        plan = get_object_or_404(ProductionPlan, pk=plan_id)
+        
+        service = SchedulingOptimizerService()
+        simulation = service.simulate_schedule(plan)
+        
+        return JsonResponse({
+            'success': True,
+            'simulation': simulation
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        })
+
+
+def gantt_chart_data(request):
+    """获取甘特图数据"""
+    try:
+        service = SchedulingOptimizerService()
+        
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        
+        if start_date:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d')
+        else:
+            start_date = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        if end_date:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d')
+        else:
+            end_date = start_date + timedelta(days=30)
+        
+        result = service.optimize_schedule(
+            start_date=start_date,
+            end_date=end_date,
+            strategy='hybrid'
+        )
+        
+        gantt_data = GanttChartService().generate_gantt_data(result.scheduled_tasks)
+        
+        return JsonResponse({
+            'success': True,
+            'gantt_data': gantt_data
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        })
+
+
+def delivery_prediction(request, plan_id=None):
+    """交期达成率预测"""
+    try:
+        if plan_id:
+            plan = get_object_or_404(ProductionPlan, pk=plan_id)
+            service = DeliveryPredictionService()
+            prediction = service.predict_delivery_rate(plan)
+            return JsonResponse({'success': True, 'prediction': prediction})
+        
+        plans = ProductionPlan.objects.filter(status__in=[2, 3])
+        predictions = []
+        service = DeliveryPredictionService()
+        
+        for plan in plans:
+            prediction = service.predict_delivery_rate(plan)
+            predictions.append(prediction)
+        
+        return JsonResponse({
+            'success': True,
+            'predictions': predictions
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        })
+
+
+def equipment_monitor_realtime(request):
+    """实时设备监控页面"""
+    service = EquipmentMonitorService()
+    equipment_status = service.get_all_equipment_status()
+    
+    context = {
+        'equipment_status': equipment_status,
+        'total_equipment': len(equipment_status),
+        'normal_count': sum(1 for s in equipment_status if s['equipment']['status'] == 1),
+        'maintenance_count': sum(1 for s in equipment_status if s['equipment']['status'] == 2),
+        'stopped_count': sum(1 for s in equipment_status if s['equipment']['status'] == 3)
+    }
+    return render(request, 'production/monitor/index.html', context)
+
+
+def equipment_status_api(request, equipment_id):
+    """获取设备实时状态API"""
+    try:
+        service = EquipmentMonitorService()
+        status = service.get_equipment_status(equipment_id)
+        return JsonResponse({'success': True, 'status': status})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+def equipment_data_history(request, equipment_id):
+    """获取设备历史数据"""
+    try:
+        service = EquipmentMonitorService()
+        
+        start_time = request.GET.get('start_time')
+        end_time = request.GET.get('end_time')
+        metric_name = request.GET.get('metric_name')
+        limit = int(request.GET.get('limit', 500))
+        
+        if start_time:
+            start_time = datetime.strptime(start_time, '%Y-%m-%dT%H:%M:%S')
+        if end_time:
+            end_time = datetime.strptime(end_time, '%Y-%m-%dT%H:%M:%S')
+        
+        history = service.get_equipment_data_history(
+            equipment_id,
+            start_time=start_time,
+            end_time=end_time,
+            metric_name=metric_name,
+            limit=limit
+        )
+        
+        return JsonResponse({'success': True, 'history': history})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+def equipment_oee(request, equipment_id):
+    """获取设备OEE"""
+    try:
+        service = EquipmentMonitorService()
+        
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        
+        if start_date:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+        if end_date:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+        
+        oee = service.calculate_equipment_oee(
+            equipment_id,
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        return JsonResponse({'success': True, 'oee': oee})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+def production_progress(request, plan_id=None, task_id=None):
+    """获取生产进度"""
+    try:
+        service = EquipmentMonitorService()
+        progress = service.get_production_progress(plan_id=plan_id, task_id=task_id)
+        return JsonResponse({'success': True, 'progress': progress})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+def alert_list(request):
+    """告警列表页面"""
+    return render(request, 'production/alert/list.html')
+
+
+def alert_api(request):
+    """获取告警API"""
+    try:
+        equipment_id = request.GET.get('equipment_id')
+        
+        service = AlertRuleService()
+        alerts = service.get_all_alerts(limit=50)
+        
+        if equipment_id:
+            alerts = [a for a in alerts if a.get('equipment_id') == int(equipment_id)]
+        
+        return JsonResponse({'success': True, 'alerts': alerts})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+def alert_acknowledge(request, alert_id):
+    """确认告警"""
+    try:
+        service = AlertRuleService()
+        service.acknowledge_alert(alert_id, request.user.id)
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+def performance_analysis(request):
+    """性能分析页面"""
+    service = ProductionStatisticsService()
+    
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    
+    if start_date:
+        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    else:
+        start_date = timezone.now().date() - timedelta(days=30)
+    
+    if end_date:
+        end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+    else:
+        end_date = timezone.now().date()
+    
+    summary = service.get_production_summary(start_date, end_date)
+    equipment_stats = service.get_equipment_efficiency(start_date, end_date)
+    
+    context = {
+        'summary': summary,
+        'equipment_stats': equipment_stats,
+        'start_date': start_date,
+        'end_date': end_date
+    }
+    return render(request, 'production/analysis/index.html', context)
+
+
+def statistics_production_summary(request):
+    """生产统计概览API"""
+    try:
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        department_id = request.GET.get('department_id')
+        
+        if start_date:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d')
+        if end_date:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d')
+        
+        service = ProductionStatisticsService()
+        summary = service.get_production_summary(
+            start_date=start_date,
+            end_date=end_date,
+            department_id=department_id
+        )
+        
+        return JsonResponse({'success': True, 'summary': summary})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+def statistics_production_trend(request):
+    """生产趋势API"""
+    try:
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        granularity = request.GET.get('granularity', 'day')
+        
+        if start_date:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d')
+        if end_date:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d')
+        
+        service = ProductionStatisticsService()
+        trend = service.get_production_trend(
+            start_date=start_date,
+            end_date=end_date,
+            granularity=granularity
+        )
+        
+        return JsonResponse({'success': True, 'trend': trend})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+def statistics_quality(request):
+    """质量统计API"""
+    try:
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        
+        if start_date:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d')
+        if end_date:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d')
+        
+        service = ProductionStatisticsService()
+        quality = service.get_quality_statistics(
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        return JsonResponse({'success': True, 'quality': quality})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+def statistics_equipment_efficiency(request):
+    """设备效率API"""
+    try:
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        
+        if start_date:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d')
+        if end_date:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d')
+        
+        service = ProductionStatisticsService()
+        efficiency = service.get_equipment_efficiency(
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        return JsonResponse({'success': True, 'efficiency': efficiency})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+def statistics_labor_efficiency(request):
+    """人员效率API"""
+    try:
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        
+        if start_date:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d')
+        if end_date:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d')
+        
+        service = ProductionStatisticsService()
+        efficiency = service.get_labor_efficiency(
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        return JsonResponse({'success': True, 'efficiency': efficiency})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+def statistics_cost(request):
+    """成本分析API"""
+    try:
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        
+        if start_date:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d')
+        if end_date:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d')
+        
+        service = ProductionStatisticsService()
+        cost = service.get_cost_analysis(
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        return JsonResponse({'success': True, 'cost': cost})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+def statistics_on_time_delivery(request):
+    """准时交货率API"""
+    try:
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        
+        if start_date:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d')
+        if end_date:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d')
+        
+        service = ProductionStatisticsService()
+        delivery = service.get_on_time_delivery_rate(
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        return JsonResponse({'success': True, 'delivery': delivery})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+def statistics_comprehensive_report(request):
+    """综合分析报告API"""
+    try:
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        
+        if start_date:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d')
+        if end_date:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d')
+        
+        service = ProductionStatisticsService()
+        report = service.generate_comprehensive_report(
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        return JsonResponse({'success': True, 'report': report})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})

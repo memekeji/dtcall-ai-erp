@@ -149,8 +149,22 @@
                 layer.open({
                     type: 2,
                     title: '新增员工关怀记录',
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '90%'],
+                    offset: 'r',
+                    anim: 2,
                     content: '{% url "user:employee_care_add" %}',
-                    area: ['800px', '600px'],
+                    success: function(layero, index) {
+                        if (layero && typeof layero.css === 'function') {
+                            layero.css({
+                                'right': '0',
+                                'top': '0',
+                                'height': '100%'
+                            });
+                        }
+                    },
                     end: function(){
                         table.reload('employeeCareTable');
                     }
@@ -186,8 +200,22 @@
                     layer.open({
                         type: 2,
                         title: '编辑员工关怀记录',
+                        shadeClose: false,
+                        shade: 0.3,
+                        maxmin: true,
+                        area: ['80%', '90%'],
+                        offset: 'r',
+                        anim: 2,
                         content: '{% url "user:employee_care_edit" 0 %}'.replace('0', data.id),
-                        area: ['800px', '600px'],
+                        success: function(layero, index) {
+                            if (layero && typeof layero.css === 'function') {
+                                layero.css({
+                                    'right': '0',
+                                    'top': '0',
+                                    'height': '100%'
+                                });
+                            }
+                        },
                         end: function(){
                             table.reload('employeeCareTable');
                         }

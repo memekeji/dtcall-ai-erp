@@ -11,7 +11,7 @@ system_menus = {
         "id": 1,
         "title": "收藏文件",
         "src": "/adm/disk/starred/",
-        "pid_id": 1256,
+        "pid_id": 1274,
         "sort": 138,
         "status": 1
     },
@@ -19,7 +19,7 @@ system_menus = {
         "id": 2,
         "title": "知识库管理",
         "src": "/ai/knowledge-base/list/",
-        "pid_id": 1253,
+        "pid_id": 1271,
         "sort": 130,
         "status": 1
     },
@@ -109,6 +109,14 @@ system_menus = {
         "src": "/position/",
         "pid_id": 1107,
         "sort": 11,
+        "status": 1
+    },
+    1405: {
+        "id": 1405,
+        "title": "角色管理",
+        "src": "/user/group/",
+        "pid_id": 1107,
+        "sort": 12,
         "status": 1
     },
     1114: {
@@ -875,7 +883,7 @@ system_menus = {
     1236: {
         "id": 1236,
         "title": "基础信息",
-        "src": "/adm/production/baseinfo/",
+        "src": "/production/baseinfo/",
         "pid_id": 1235,
         "sort": 113,
         "status": 1
@@ -883,7 +891,7 @@ system_menus = {
     1237: {
         "id": 1237,
         "title": "基本工序",
-        "src": "/adm/production/procedure/",
+        "src": "/production/procedure/",
         "pid_id": 1236,
         "sort": 114,
         "status": 1
@@ -891,7 +899,7 @@ system_menus = {
     1238: {
         "id": 1238,
         "title": "工序集",
-        "src": "/adm/production/procedureset/",
+        "src": "/production/procedureset/",
         "pid_id": 1236,
         "sort": 115,
         "status": 1
@@ -899,7 +907,7 @@ system_menus = {
     1239: {
         "id": 1239,
         "title": "BOM管理",
-        "src": "/adm/production/bom/",
+        "src": "/production/bom/",
         "pid_id": 1236,
         "sort": 116,
         "status": 1
@@ -907,7 +915,7 @@ system_menus = {
     1240: {
         "id": 1240,
         "title": "设备管理",
-        "src": "/adm/production/equipment/",
+        "src": "/production/equipment/",
         "pid_id": 1236,
         "sort": 117,
         "status": 1
@@ -915,136 +923,232 @@ system_menus = {
     1241: {
         "id": 1241,
         "title": "数据采集",
-        "src": "/adm/production/data/",
+        "src": "/production/data/",
         "pid_id": 1236,
         "sort": 118,
         "status": 1
     },
     1242: {
         "id": 1242,
-        "title": "性能分析",
-        "src": "/adm/production/analysis/",
-        "pid_id": 1236,
-        "sort": 119,
+        "title": "数据源配置",
+        "src": "/production/data/source/",
+        "pid_id": 1241,
+        "sort": 1181,
         "status": 1
     },
     1243: {
         "id": 1243,
-        "title": "SOP管理",
-        "src": "/adm/production/sop/",
-        "pid_id": 1236,
-        "sort": 120,
+        "title": "数据映射",
+        "src": "/production/data/mapping/",
+        "pid_id": 1241,
+        "sort": 1182,
         "status": 1
     },
     1244: {
         "id": 1244,
-        "title": "产品管理",
-        "src": "/contract/product/",
-        "pid_id": 1236,
-        "sort": 121,
+        "title": "采集记录",
+        "src": "/production/data/record/",
+        "pid_id": 1241,
+        "sort": 1183,
         "status": 1
     },
     1245: {
         "id": 1245,
-        "title": "工艺路线",
-        "src": "/adm/production/process/",
+        "title": "数据采集任务",
+        "src": "/production/data/task/",
+        "pid_id": 1241,
+        "sort": 1184,
+        "status": 1
+    },
+    1246: {
+        "id": 1246,
+        "title": "性能分析",
+        "src": "/production/analysis/",
         "pid_id": 1236,
-        "sort": 122,
+        "sort": 119,
         "status": 1
     },
     1247: {
         "id": 1247,
-        "title": "生产任务",
-        "src": "/adm/production/task/",
-        "pid_id": 1235,
-        "sort": 123,
+        "title": "SOP管理",
+        "src": "/production/sop/",
+        "pid_id": 1236,
+        "sort": 120,
         "status": 1
     },
     1248: {
         "id": 1248,
-        "title": "生产计划",
-        "src": "/adm/production/task/plan/",
-        "pid_id": 1247,
-        "sort": 124,
+        "title": "工艺路线",
+        "src": "/production/process/",
+        "pid_id": 1236,
+        "sort": 122,
         "status": 1
     },
     1249: {
         "id": 1249,
-        "title": "生产任务",
-        "src": "/adm/production/task/execution/",
-        "pid_id": 1247,
-        "sort": 125,
+        "title": "物料管理",
+        "src": "/production/material/",
+        "pid_id": 1235,
+        "sort": 1225,
         "status": 1
     },
     1250: {
         "id": 1250,
-        "title": "资源调度",
-        "src": "/adm/production/technology/",
-        "pid_id": 1247,
-        "sort": 126,
+        "title": "领料申请",
+        "src": "/production/material/request/",
+        "pid_id": 1249,
+        "sort": 1226,
         "status": 1
     },
     1251: {
         "id": 1251,
-        "title": "质量管理",
-        "src": "/adm/production/quality/",
-        "pid_id": 1247,
-        "sort": 127,
+        "title": "材料出库",
+        "src": "/production/material/issue/",
+        "pid_id": 1249,
+        "sort": 1227,
         "status": 1
     },
     1252: {
         "id": 1252,
-        "title": "设备监控",
-        "src": "/production/equipment/monitor/",
-        "pid_id": 1247,
-        "sort": 128,
+        "title": "材料退料",
+        "src": "/production/material/return/",
+        "pid_id": 1249,
+        "sort": 1228,
         "status": 1
     },
     1253: {
         "id": 1253,
+        "title": "生产任务",
+        "src": "/production/task/",
+        "pid_id": 1235,
+        "sort": 123,
+        "status": 1
+    },
+    1254: {
+        "id": 1254,
+        "title": "生产计划",
+        "src": "/production/task/plan/",
+        "pid_id": 1253,
+        "sort": 124,
+        "status": 1
+    },
+    1255: {
+        "id": 1255,
+        "title": "生产任务",
+        "src": "/production/task/execution/",
+        "pid_id": 1253,
+        "sort": 125,
+        "status": 1
+    },
+    1256: {
+        "id": 1256,
+        "title": "资源调度",
+        "src": "/production/technology/",
+        "pid_id": 1253,
+        "sort": 126,
+        "status": 1
+    },
+    1257: {
+        "id": 1257,
+        "title": "生产线日计划",
+        "src": "/production/line/dayplan/",
+        "pid_id": 1256,
+        "sort": 1261,
+        "status": 1
+    },
+    1258: {
+        "id": 1258,
+        "title": "订单变更",
+        "src": "/production/order/change/",
+        "pid_id": 1256,
+        "sort": 1262,
+        "status": 1
+    },
+    1259: {
+        "id": 1259,
+        "title": "质量管理",
+        "src": "/production/quality/",
+        "pid_id": 1253,
+        "sort": 127,
+        "status": 1
+    },
+    1260: {
+        "id": 1260,
+        "title": "设备监控",
+        "src": "/production/equipment/monitor/",
+        "pid_id": 1253,
+        "sort": 128,
+        "status": 1
+    },
+    1261: {
+        "id": 1261,
+        "title": "完工申报",
+        "src": "/production/completion/report/",
+        "pid_id": 1253,
+        "sort": 1281,
+        "status": 1
+    },
+    1262: {
+        "id": 1262,
+        "title": "完工红冲",
+        "src": "/production/completion/red-flush/",
+        "pid_id": 1253,
+        "sort": 1282,
+        "status": 1
+    },
+    1263: {
+        "id": 1270,
+        "title": "成品入库",
+        "src": "/production/product/receipt/",
+        "pid_id": 1253,
+        "sort": 1283,
+        "status": 1
+    },
+    1271: {
+        "id": 1271,
         "title": "AI智能中心",
         "src": "/ai/",
         "pid_id": 0,
         "sort": 129,
         "status": 1
     },
-    1254: {
-        "id": 1254,
+    1272: {
+        "id": 1272,
         "title": "AI模型配置",
         "src": "/ai/config/models/",
-        "pid_id": 1253,
+        "pid_id": 1271,
         "sort": 131,
         "status": 1
     },
-    1255: {
-        "id": 1255,
+    1273: {
+        "id": 1273,
         "title": "AI任务管理",
         "src": "/ai/tasks/",
-        "pid_id": 1253,
+        "pid_id": 1271,
         "sort": 132,
         "status": 1
     },
-    1256: {
-        "id": 1256,
+    1274: {
+        "id": 1274,
         "title": "企业网盘",
         "src": "/disk/",
         "pid_id": 0,
         "sort": 134,
         "status": 1
     },
-    1257: {
-        "id": 1257,
+    1275: {
+        "id": 1275,
         "title": "网盘首页",
         "src": "/adm/disk/",
-        "pid_id": 1256,
+        "pid_id": 1274,
         "sort": 135,
         "status": 1
     },
-    1258: {
-        "id": 1258,
+    1276: {
+        "id": 1276,
         "title": "个人文件",
         "src": "/adm/disk/personal/",
-        "pid_id": 1256,
+        "pid_id": 1274,
         "sort": 136,
         "status": 1
     },
@@ -1052,7 +1156,7 @@ system_menus = {
         "id": 1259,
         "title": "共享文件",
         "src": "/adm/disk/share/",
-        "pid_id": 1256,
+        "pid_id": 1274,
         "sort": 137,
         "status": 1
     },
@@ -1060,7 +1164,7 @@ system_menus = {
         "id": 1260,
         "title": "回收站",
         "src": "/adm/disk/recycle/",
-        "pid_id": 1256,
+        "pid_id": 1274,
         "sort": 139,
         "status": 1
     },
@@ -1084,7 +1188,7 @@ system_menus = {
         "id": 1263,
         "title": "AI工作流",
         "src": "/ai/workflow/",
-        "pid_id": 1253,
+        "pid_id": 1271,
         "sort": 133,
         "status": 1
     },

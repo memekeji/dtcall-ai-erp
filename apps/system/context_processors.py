@@ -2,6 +2,7 @@ import logging
 from apps.user.models import SystemConfiguration as SystemConfig, Menu
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from apps.common.cache_service import SystemCache
 
 logger = logging.getLogger('django')
 
@@ -14,21 +15,33 @@ PERMISSION_CACHE_TIMEOUT = 5 * 60
 
 def system_config(request):
     """系统配置上下文处理器"""
-    cache_key = 'system_configs'
-    configs = cache.get(cache_key)
+    from apps.system.views import STATIC_SYSTEM_CONFIGS
+    
+    configs = SystemCache.get_configs()
     
     if configs is None:
         config_items = SystemConfig.objects.filter(is_active=True)
-        configs = {item.key: item for item in config_items}
-        cache.set(cache_key, configs, SYSTEM_CONFIG_CACHE_TIMEOUT)
+        db_configs = {item.key: item for item in config_items}
+        SystemCache.set_configs(db_configs)
+        configs = db_configs
     
-    return {'configs': configs}
+    config_dict = {}
+    for static_config in STATIC_SYSTEM_CONFIGS:
+        key = static_config['key']
+        if key in configs:
+            config_dict[key] = configs[key]
+        else:
+            config_obj = SystemConfig(key=key, value=static_config['value'], is_active=True)
+            config_dict[key] = config_obj
+    
+    return {'configs': config_dict}
 
 
 MENU_URL_TO_PERMISSION_MAP = {
     '/dashboard/': 'view_workbench',
     '/home/main/': 'view_workbench',
     '/system/config/': 'view_config',
+    '/system/storage/': 'view_storage_config',
     '/system/department/': 'view_department',
     '/system/module/': 'view_module',
     '/system/menu/': 'view_menu',

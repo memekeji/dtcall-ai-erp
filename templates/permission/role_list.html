@@ -652,15 +652,25 @@ layui.use(['form', 'layer', 'laypage', 'jquery'], function(){
         
         // 管理权限
         window.managePermissions = function(roleId) {
-            // 从右侧弹出权限配置页面，占据80%宽度
             layer.open({
                 type: 2,
                 title: '角色权限配置',
-                area: ['80%', '100%'],
-                offset: 'r',
-                content: '/user/group/' + roleId + '/permission/',
+                shadeClose: false,
                 shade: 0.3,
-                maxmin: false,
+                maxmin: true,
+                area: ['80%', '90%'],
+                offset: 'r',
+                anim: 2,
+                content: '/user/group/' + roleId + '/permission/',
+                success: function(layero, index) {
+                    if (layero && typeof layero.css === 'function') {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    }
+                },
                 btn: ['保存', '取消'],
                 yes: function(index, layero) {
                     var iframeWin = window[layero.find('iframe')[0]['name']];

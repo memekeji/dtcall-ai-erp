@@ -1,0 +1,175 @@
+/**
+ * 生产管理模块公共CSS样式
+ */
+
+/* 页面容器 */
+.production-container {
+    padding: 20px;
+}
+
+/* 页面标题 */
+.production-page-title {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.production-page-title h2 {
+    margin: 0;
+    font-size: 20px;
+    color: #333;
+}
+
+/* 统计卡片 */
+.production-stats {
+    margin-bottom: 20px;
+}
+
+.production-stat-card {
+    text-align: center;
+    padding: 20px;
+    border-radius: 8px;
+    color: white;
+    margin-bottom: 10px;
+    transition: transform 0.2s;
+}
+
+.production-stat-card:hover {
+    transform: translateY(-5px);
+}
+
+.production-stat-number {
+    font-size: 28px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.production-stat-label {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+/* 快捷操作 */
+.production-quick-actions {
+    margin-bottom: 20px;
+}
+
+.production-action-btn {
+    margin: 5px;
+}
+
+/* 搜索区域 */
+.production-search {
+    margin-bottom: 15px;
+    padding: 15px;
+    background: #fafafa;
+    border-radius: 4px;
+}
+
+.production-search .layui-input {
+    width: 200px;
+}
+
+/* 表格操作 */
+.production-table-actions {
+    white-space: nowrap;
+}
+
+.production-table-actions .layui-btn {
+    margin: 2px;
+    padding: 0 8px;
+    font-size: 12px;
+}
+
+/* 状态标签 */
+.production-status {
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.production-status.pending {
+    background: #FFB800;
+    color: #fff;
+}
+
+.production-status.active {
+    background: #009688;
+    color: #fff;
+}
+
+.production-status.completed {
+    background: #009688;
+    color: #fff;
+}
+
+.production-status.cancelled {
+    background: #FF5722;
+    color: #fff;
+}
+
+/* 表单样式 */
+.production-form-container {
+    padding: 20px;
+}
+
+.production-form-container .layui-form-label {
+    width: 100px;
+}
+
+.production-form-container .layui-input-block {
+    margin-left: 130px;
+}
+
+/* 详情页面 */
+.production-detail-container {
+    padding: 20px;
+}
+
+.production-detail-row {
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.production-detail-label {
+    color: #999;
+    margin-bottom: 5px;
+}
+
+.production-detail-value {
+    color: #333;
+    font-size: 14px;
+}
+
+/* 空状态 */
+.production-empty {
+    text-align: center;
+    padding: 50px 0;
+    color: #999;
+}
+
+.production-empty i {
+    font-size: 60px;
+    margin-bottom: 15px;
+    display: block;
+}
+
+/* 响应式适配 */
+@media screen and (max-width: 768px) {
+    .production-page-title h2 {
+        font-size: 18px;
+    }
+    
+    .production-stat-number {
+        font-size: 24px;
+    }
+    
+    .production-form-container .layui-form-label {
+        width: 80px;
+    }
+    
+    .production-form-container .layui-input-block {
+        margin-left: 100px;
+    }
+}

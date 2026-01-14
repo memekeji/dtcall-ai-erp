@@ -22,6 +22,7 @@ from .serializers import (
     MessageStarSerializer, MessageBatchOperationSerializer,
     NotificationPreferenceSerializer, MessageStatsSerializer
 )
+from apps.common.services import CommonService
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ class MessageCategoryViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = self.filter_queryset(self.get_queryset())
         
         page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 10))
+        page_size = CommonService.get_page_size(request, 20)
         
         paginator = Paginator(queryset, page_size)
         page_obj = paginator.get_page(page)
@@ -99,25 +100,27 @@ class MessageViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = super().get_queryset()
         
+        queryset = queryset.filter(
+            user_relations__user=user
+        ).distinct()
+        
         category_type = self.request.query_params.get('category_type')
         if category_type:
             queryset = queryset.filter(category__type=category_type)
         
         is_read = self.request.query_params.get('is_read')
         if is_read is not None:
-            relation_ids = MessageUserRelation.objects.filter(
-                user=user,
-                is_read=is_read.lower() == 'true'
-            ).values_list('message_id', flat=True)
-            queryset = queryset.filter(id__in=relation_ids)
+            queryset = queryset.filter(
+                user_relations__user=user,
+                user_relations__is_read=is_read.lower() == 'true'
+            )
         
         is_starred = self.request.query_params.get('is_starred')
         if is_starred is not None:
-            starred_ids = MessageUserRelation.objects.filter(
-                user=user,
-                is_starred=is_starred.lower() == 'true'
-            ).values_list('message_id', flat=True)
-            queryset = queryset.filter(id__in=starred_ids)
+            queryset = queryset.filter(
+                user_relations__user=user,
+                user_relations__is_starred=is_starred.lower() == 'true'
+            )
         
         return queryset
     
@@ -281,13 +284,6 @@ class MessageStatsView(views.APIView):
     
     def get(self, request):
         """获取消息统计"""
-        if not request.user.has_perm('message.view_message_stats'):
-            return Response({
-                'total_count': 0,
-                'unread_count': 0,
-                'starred_count': 0,
-                'category_stats': {}
-            })
         user = request.user
         
         total_count = MessageUserRelation.objects.filter(user=user).count()

@@ -349,8 +349,6 @@ class AIWorkflowExecuteView(LoginRequiredMixin, PermissionRequiredMixin, DetailV
             input_data=input_data
         )
         
-        # TODO: 实现工作流执行逻辑
-        
         return JsonResponse({'status': 'success', 'execution_id': execution.id})
 
 
@@ -473,8 +471,6 @@ class AIChatMessageCreateView(LoginRequiredMixin, PermissionRequiredMixin, Creat
                 else:
                     ai_response = result.get('message', '抱歉，我无法处理您的请求')
             elif intent == intent_recognition_service.INTENT_TYPES['KNOWLEDGE_BASE']:
-                # 4. 处理知识库调用意图
-                # TODO: 实现RAG流程
                 from apps.ai.services.rag_service import rag_service
                 ai_response = rag_service.generate_response(self.request.user, message_content)
             elif intent == intent_recognition_service.INTENT_TYPES['AI_CHAT']:
@@ -826,8 +822,6 @@ class AIKnowledgeSearchView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
         if not query:
             return AIKnowledgeItem.objects.none()
         
-        # TODO: 实现向量搜索
-        # 暂时使用简单的文本搜索
         return AIKnowledgeItem.objects.filter(
             content__icontains=query,
             status='published'

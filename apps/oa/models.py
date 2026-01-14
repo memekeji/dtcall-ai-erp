@@ -1,12 +1,11 @@
 from django.db import models
-from apps.user.models import Admin as User
-from apps.department.models import Department
 from django.conf import settings
 from django.utils import timezone
 from apps.common.models import (
     SoftDeleteModel, BaseModel, StatusChoices, 
     PriorityChoices, ApprovalStatusChoices
 )
+from apps.oa.constants import MeetingTypeChoices, MeetingStatusChoices
 
 
 class MeetingRecordParticipant(models.Model):
@@ -89,6 +88,21 @@ class MeetingRoom(SoftDeleteModel):
     def __str__(self):
         return f"{self.code} - {self.name}"
 
+    def get_equipment_display(self):
+        """获取设备显示信息"""
+        equipment = []
+        if self.has_projector:
+            equipment.append('投影仪')
+        if self.has_whiteboard:
+            equipment.append('白板')
+        if self.has_tv:
+            equipment.append('电视')
+        if self.has_phone:
+            equipment.append('电话')
+        if self.has_wifi:
+            equipment.append('WiFi')
+        return ', '.join(equipment) if equipment else '无'
+
     def is_available(self, start_time, end_time, exclude_meeting=None):
         """检查会议室是否可用"""
         from django.db.models import Q
@@ -97,7 +111,7 @@ class MeetingRoom(SoftDeleteModel):
             room=self,
             meeting_date__lt=end_time,
             meeting_end_time__gt=start_time,
-            status__in=['confirmed', 'in_progress']
+            status__in=[MeetingStatusChoices.CONFIRMED, MeetingStatusChoices.IN_PROGRESS]
         )
         
         if exclude_meeting:
@@ -111,15 +125,8 @@ class MeetingRecord(SoftDeleteModel):
     title = models.CharField(max_length=255, verbose_name='会议主题')
     meeting_type = models.CharField(
         max_length=20,
-        choices=[
-            ('regular', '例会'),
-            ('project', '项目会议'),
-            ('training', '培训会议'),
-            ('review', '评审会议'),
-            ('emergency', '紧急会议'),
-            ('other', '其他'),
-        ],
-        default='regular',
+        choices=MeetingTypeChoices.choices,
+        default=MeetingTypeChoices.REGULAR,
         verbose_name='会议类型'
     )
     
@@ -177,25 +184,20 @@ class MeetingRecord(SoftDeleteModel):
     
     status = models.CharField(
         max_length=20,
-        choices=[
-            ('scheduled', '已安排'),
-            ('confirmed', '已确认'),
-            ('in_progress', '进行中'),
-            ('completed', '已完成'),
-            ('cancelled', '已取消'),
-            ('postponed', '已延期'),
-        ],
-        default='scheduled',
+        choices=MeetingStatusChoices.choices,
+        default=MeetingStatusChoices.SCHEDULED,
         verbose_name='会议状态'
     )
     
     agenda = models.TextField(blank=True, verbose_name='会议议程')
     content = models.TextField(blank=True, verbose_name='会议内容')
+    summary = models.TextField(blank=True, verbose_name='会议纪要摘要')
     resolution = models.TextField(blank=True, verbose_name='会议决议')
     action_items = models.TextField(blank=True, verbose_name='行动项')
     next_meeting = models.DateTimeField(null=True, blank=True, verbose_name='下次会议时间')
     
     attachments = models.TextField(blank=True, verbose_name='会议附件')
+    audio_file = models.FileField(upload_to='meeting_recordings/', blank=True, null=True, verbose_name='会议录音')
     shared_users = models.ManyToManyField(
         settings.AUTH_USER_MODEL, 
         blank=True, 
@@ -249,17 +251,49 @@ class MeetingRecord(SoftDeleteModel):
         """是否已过期"""
         return timezone.now() > self.meeting_end_time
 
+    @property
+    def host_id_safe(self):
+        """安全获取主持人ID"""
+        return self.host.id if self.host else None
+
+    @property
+    def host_name(self):
+        """获取主持人名称"""
+        return self.host.username if self.host else ''
+
+    @property
+    def recorder_name(self):
+        """获取记录人名称"""
+        return self.recorder.username if self.recorder else ''
+
+    @property
+    def room_name(self):
+        """获取会议室名称"""
+        return self.room.name if self.room else ''
+
     def get_status_color(self):
         """获取状态颜色"""
         status_colors = {
-            'scheduled': 'blue',
-            'confirmed': 'green',
-            'in_progress': 'orange',
-            'completed': 'green',
-            'cancelled': 'red',
-            'postponed': 'gray',
+            MeetingStatusChoices.SCHEDULED: 'blue',
+            MeetingStatusChoices.CONFIRMED: 'green',
+            MeetingStatusChoices.IN_PROGRESS: 'orange',
+            MeetingStatusChoices.COMPLETED: 'green',
+            MeetingStatusChoices.CANCELLED: 'red',
+            MeetingStatusChoices.POSTPONED: 'gray',
         }
         return status_colors.get(self.status, 'gray')
+
+    def can_user_access(self, user):
+        """检查用户是否有权限访问此会议记录"""
+        if not user or not user.is_authenticated:
+            return False
+        uid = user.id
+        return (
+            self.recorder_id == uid or
+            (self.host and self.host.id == uid) or
+            self.participants.filter(id=uid).exists() or
+            self.shared_users.filter(id=uid).exists()
+        )
 
 
 class OAMessage(SoftDeleteModel):

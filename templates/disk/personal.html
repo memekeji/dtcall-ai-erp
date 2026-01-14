@@ -165,6 +165,74 @@
         .file-item {
             display: none;
         }
+        
+        .view-list .grid-container {
+            display: block;
+        }
+        
+        .view-list .file-grid-item {
+            display: none;
+        }
+        
+        .view-list .file-list {
+            display: table;
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            border: 1px solid #e6e6e6;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        
+        .view-list .file-header {
+            display: table-header-group;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e6e6e6;
+        }
+        
+        .view-list .file-header th {
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .view-list .file-body {
+            display: table-row-group;
+        }
+        
+        .view-list .file-row {
+            display: table-row;
+            border-bottom: 1px solid #f0f0f0;
+            transition: all 0.3s;
+        }
+        
+        .view-list .file-row:hover {
+            background: #f8f9fa;
+        }
+        
+        .view-list .file-row td {
+            padding: 12px 15px;
+            vertical-align: middle;
+        }
+        
+        .view-list .file-row .file-icon {
+            width: 40px;
+            text-align: center;
+        }
+        
+        .view-list .file-row .file-icon i {
+            font-size: 24px;
+        }
+        
+        .view-list .file-row .file-name {
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .view-list .file-row .file-actions-cell {
+            width: 200px;
+        }
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -435,6 +503,86 @@
             {% endfor %}
         </div>
         
+        <!-- 列表视图 -->
+        <div class="file-list" style="display: none;">
+            <div class="file-header">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <th style="width: 50px; padding: 12px 15px;"></th>
+                        <th style="padding: 12px 15px; text-align: left;">名称</th>
+                        <th style="width: 120px; padding: 12px 15px; text-align: right;">大小</th>
+                        <th style="width: 160px; padding: 12px 15px; text-align: left;">上传时间</th>
+                        <th style="width: 200px; padding: 12px 15px; text-align: center;">操作</th>
+                    </tr>
+                </table>
+            </div>
+            <div class="file-body">
+                {% for folder in folders %}
+                <div class="file-row" data-type="folder" data-id="{{ folder.id }}" onclick="if (!event.target.closest('.file-actions-cell')) { toggleItemSelection('folder', '{{ folder.id }}'); } (window.event || event).stopPropagation();" ondblclick="navigateToFolder('{{ folder.id }}'); (window.event || event).stopPropagation();">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td class="file-icon" style="padding: 12px 15px;">
+                                <i class="layui-icon layui-icon-folder" style="color: #FFB800; font-size: 24px;"></i>
+                            </td>
+                            <td class="file-name" style="padding: 12px 15px;">{{ folder.name }}</td>
+                            <td style="padding: 12px 15px; text-align: right;">-</td>
+                            <td style="padding: 12px 15px;">{{ folder.created_at|date:"Y-m-d H:i" }}</td>
+                            <td class="file-actions-cell" style="padding: 12px 15px; text-align: center;">
+                                <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="managePermission('folder', '{{ folder.id }}'); (window.event || event).stopPropagation();">
+                                    <i class="layui-icon layui-icon-set"></i>
+                                </button>
+                                <button class="layui-btn layui-btn-xs" onclick="shareItem('folder', '{{ folder.id }}'); (window.event || event).stopPropagation();">
+                                    <i class="layui-icon layui-icon-share"></i>
+                                </button>
+                                <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteFolder('{{ folder.id }}'); (window.event || event).stopPropagation();">
+                                    <i class="layui-icon layui-icon-delete"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                {% endfor %}
+                {% for file in files %}
+                <div class="file-row" data-type="file" data-id="{{ file.id }}" onclick="if (!event.target.closest('.file-actions-cell')) { toggleItemSelection('file', '{{ file.id }}'); } (window.event || event).stopPropagation();" ondblclick="previewFile('{{ file.id }}', '{{ file.name }}', '{{ file.file_type }}'); (window.event || event).stopPropagation();">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td class="file-icon" style="padding: 12px 15px;">
+                                {% if file.file_type == 'image' %}
+                                <i class="layui-icon layui-icon-picture" style="color: #5FB878; font-size: 24px;"></i>
+                                {% elif file.file_type == 'document' %}
+                                <i class="layui-icon layui-icon-file" style="color: #1E9FFF; font-size: 24px;"></i>
+                                {% elif file.file_type == 'video' %}
+                                <i class="layui-icon layui-icon-video" style="color: #FF5722; font-size: 24px;"></i>
+                                {% elif file.file_type == 'audio' %}
+                                <i class="layui-icon layui-icon-voice" style="color: #FFB800; font-size: 24px;"></i>
+                                {% else %}
+                                <i class="layui-icon layui-icon-file" style="color: #999; font-size: 24px;"></i>
+                                {% endif %}
+                            </td>
+                            <td class="file-name" style="padding: 12px 15px;">{{ file.name }}</td>
+                            <td style="padding: 12px 15px; text-align: right;">{{ file.size|filesizeformat }}</td>
+                            <td style="padding: 12px 15px;">{{ file.created_at|date:"Y-m-d H:i" }}</td>
+                            <td class="file-actions-cell" style="padding: 12px 15px; text-align: center;">
+                                <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="previewFile('{{ file.id }}', '{{ file.name }}', '{{ file.file_type }}'); (window.event || event).stopPropagation();">
+                                    <i class="layui-icon layui-icon-read"></i>
+                                </button>
+                                <button class="layui-btn layui-btn-xs" onclick="downloadFile('{{ file.id }}'); (window.event || event).stopPropagation();">
+                                    <i class="layui-icon layui-icon-download-circle"></i>
+                                </button>
+                                <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="shareItem('file', '{{ file.id }}'); (window.event || event).stopPropagation();">
+                                    <i class="layui-icon layui-icon-share"></i>
+                                </button>
+                                <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteFile('{{ file.id }}'); (window.event || event).stopPropagation();">
+                                    <i class="layui-icon layui-icon-delete"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
         <!-- 空状态 -->
         {% if not folders and not files %}
         <div class="empty-state">
@@ -501,7 +649,13 @@
             },
             multiple: true,
             drag: true,
-            accept: 'file',            auto: true,            before: function(obj) {                layer.load(1, {shade: [0.1, '#fff']});
+            accept: 'file',
+            auto: true,
+            before: function(obj) {
+                layer.load(1, {shade: [0.1, '#fff']});
+                if (obj.files && obj.files[0]) {
+                    pendingUploadFile = obj.files[0];
+                }
             },
             done: function(res) {
                 layer.closeAll('loading');
@@ -520,19 +674,28 @@
                             '<button class="layui-btn layui-btn-normal" id="renameUploadBtn">重命名上传</button>' +
                             '</div>' +
                             '</div>',
-                        success: function(layero, index) {                            layero.find('#cancelUploadBtn').on('click', function() {
+                        success: function(layero, index) {                            
+                            layero.find('#cancelUploadBtn').on('click', function() {
                                 layer.close(index);
-                            });                            layero.find('#overwriteUploadBtn').on('click', function() {
-                                layer.close(index);                                $.ajax({
+                                pendingUploadFile = null;
+                            });                            
+                            layero.find('#overwriteUploadBtn').on('click', function() {
+                                layer.close(index);
+                                if (!pendingUploadFile) {
+                                    layer.msg('没有待上传的文件', {icon: 2});
+                                    return;
+                                }
+                                var formData = new FormData();
+                                formData.append('file', pendingUploadFile);
+                                formData.append('folder_id', '{{ current_folder.id|default:'' }}');
+                                formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+                                formData.append('action', 'overwrite');
+                                formData.append('file_id', res.data.file_id);
+                                
+                                $.ajax({
                                     url: '/disk/upload/',
                                     type: 'POST',
-                                    data: {
-                                        file: this.files[0],
-                                        folder_id: '{{ current_folder.id|default:'' }}',
-                                        csrfmiddlewaretoken: '{{ csrf_token }}',
-                                        action: 'overwrite',
-                                        file_id: res.data.file_id
-                                    },
+                                    data: formData,
                                     processData: false,
                                     contentType: false,
                                     beforeSend: function() {
@@ -540,6 +703,7 @@
                                     },
                                     success: function(response) {
                                         layer.closeAll('loading');
+                                        pendingUploadFile = null;
                                         if (response.code === 0) {
                                             layer.msg('文件覆盖成功', {icon: 1});
                                             refreshList();
@@ -549,19 +713,27 @@
                                     },
                                     error: function() {
                                         layer.closeAll('loading');
+                                        pendingUploadFile = null;
                                         layer.msg('上传失败', {icon: 2});
                                     }
                                 });
-                            });                            layero.find('#renameUploadBtn').on('click', function() {
-                                layer.close(index);                                $.ajax({
+                            });                            
+                            layero.find('#renameUploadBtn').on('click', function() {
+                                layer.close(index);
+                                if (!pendingUploadFile) {
+                                    layer.msg('没有待上传的文件', {icon: 2});
+                                    return;
+                                }
+                                var formData = new FormData();
+                                formData.append('file', pendingUploadFile);
+                                formData.append('folder_id', '{{ current_folder.id|default:'' }}');
+                                formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+                                formData.append('action', 'rename');
+                                
+                                $.ajax({
                                     url: '/disk/upload/',
                                     type: 'POST',
-                                    data: {
-                                        file: this.files[0],
-                                        folder_id: '{{ current_folder.id|default:'' }}',
-                                        csrfmiddlewaretoken: '{{ csrf_token }}',
-                                        action: 'rename'
-                                    },
+                                    data: formData,
                                     processData: false,
                                     contentType: false,
                                     beforeSend: function() {
@@ -569,6 +741,7 @@
                                     },
                                     success: function(response) {
                                         layer.closeAll('loading');
+                                        pendingUploadFile = null;
                                         if (response.code === 0) {
                                             layer.msg('文件重命名上传成功', {icon: 1});
                                             refreshList();
@@ -578,6 +751,7 @@
                                     },
                                     error: function() {
                                         layer.closeAll('loading');
+                                        pendingUploadFile = null;
                                         layer.msg('上传失败', {icon: 2});
                                     }
                                 });
@@ -599,6 +773,7 @@
         let contextMenuTarget = null;
         let contextMenuType = null;
         let contextMenuId = null;
+        let pendingUploadFile = null;
         
         function showContextMenu(event, type, id) {
             event.preventDefault();
@@ -662,9 +837,22 @@
                         layer.open({
                             type: 2,
                             title: '权限管理',
-                            shade: 0.8,
-                            area: ['800px', '600px'],
-                            content: '/disk/permission/?type=' + contextMenuType + '&id=' + contextMenuId
+                            shadeClose: false,
+                            shade: 0.3,
+                            maxmin: true,
+                            area: ['80%', '90%'],
+                            offset: 'r',
+                            anim: 2,
+                            content: '/disk/permission/?type=' + contextMenuType + '&id=' + contextMenuId,
+                            success: function(layero, index) {
+                                if (layero && typeof layero.css === 'function') {
+                                    layero.css({
+                                        'right': '0',
+                                        'top': '0',
+                                        'height': '100%'
+                                    });
+                                }
+                            }
                         });
                     });
                     break;
@@ -699,9 +887,36 @@
                                 return;
                             }
                             
-                            // 重命名功能暂时使用占位符
-                            layer.msg('重命名功能开发中...', {icon: 0});
-                            layer.close(index);
+                            if (value.trim() === currentName) {
+                                layer.msg('名称未更改', {icon: 0});
+                                layer.close(index);
+                                return;
+                            }
+                            
+                            var renameUrl = contextMenuType === 'folder' 
+                                ? '/disk/folder/rename/' + contextMenuId + '/'
+                                : '/disk/file/rename/' + contextMenuId + '/';
+                            
+                            $.ajax({
+                                url: renameUrl,
+                                type: 'POST',
+                                data: {
+                                    name: value.trim(),
+                                    csrfmiddlewaretoken: '{{ csrf_token }}'
+                                },
+                                success: function(response) {
+                                    if (response.code === 0) {
+                                        layer.msg('重命名成功', {icon: 1});
+                                        layer.close(index);
+                                        refreshList();
+                                    } else {
+                                        layer.msg(response.msg, {icon: 2});
+                                    }
+                                },
+                                error: function() {
+                                    layer.msg('请求失败', {icon: 2});
+                                }
+                            });
                         });
                     });
                     break;
@@ -764,19 +979,47 @@
         }
         
         // 视图切换功能
-        function switchView(viewType) {
+        function switchView(viewType, event) {
             // 切换按钮状态
             document.querySelectorAll('.view-toggle button').forEach(btn => {
                 btn.classList.remove('active');
             });
             event.target.classList.add('active');
             
-            // 视图切换功能暂时使用占位符
-            layui.use('layer', function() {
-                var layer = layui.layer;
-                layer.msg('视图切换功能开发中...', {icon: 0});
-            });
+            // 切换视图显示
+            const container = document.querySelector('.disk-container');
+            const gridContainer = document.querySelector('.grid-container');
+            const fileList = document.querySelector('.file-list');
+            const uploadArea = document.querySelector('#uploadArea');
+            
+            if (viewType === 'list') {
+                container.classList.add('view-list');
+                if (gridContainer) gridContainer.style.display = 'none';
+                if (fileList) fileList.style.display = 'block';
+                if (uploadArea) uploadArea.parentElement.style.display = 'none';
+            } else {
+                container.classList.remove('view-list');
+                if (gridContainer) gridContainer.style.display = 'grid';
+                if (fileList) fileList.style.display = 'none';
+                if (uploadArea) uploadArea.parentElement.style.display = 'block';
+            }
+            
+            // 保存视图偏好到本地存储
+            localStorage.setItem('disk_view_type', viewType);
         }
+        
+        // 页面加载时恢复视图偏好
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedView = localStorage.getItem('disk_view_type');
+            if (savedView) {
+                const btn = document.querySelector('.view-toggle button:nth-child(' + (savedView === 'list' ? '1' : '2') + ')');
+                if (btn) {
+                    document.querySelectorAll('.view-toggle button').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    switchView(savedView, { target: btn });
+                }
+            }
+        });
         
         function refreshList() {
             location.reload();
@@ -822,8 +1065,6 @@
                 var layer = layui.layer;
                 // 确保fileId是字符串类型
                 var strFileId = String(fileId);
-                // 调试：打印传递的参数
-                console.log('预览参数:', { fileId: strFileId, fileName: fileName, fileType: fileType });
                 // 修复：使用正确的URL格式，移除adm前缀
                 var previewUrl = '/disk/preview/?file_id=' + strFileId + '&file_name=' + encodeURIComponent(fileName) + '&file_type=' + fileType;
                 

@@ -3,7 +3,7 @@
 用于存储项目中的所有常量定义，避免硬编码和魔法数字
 """
 
-# ==================== 财务模块常量 ====================
+# 财务模块常量
 class FinanceStatus:
     """财务相关状态常量"""
     
@@ -91,7 +91,7 @@ class CustomerIntentStatus:
     STATUS_INACTIVE = 0            # 禁用
 
 
-# ==================== 项目模块常量 ====================
+# 项目模块常量
 class ProjectStatus:
     """项目状态常量"""
     
@@ -136,7 +136,7 @@ class ContractType:
     TYPE_OTHER = 'other'           # 其他
 
 
-# ==================== 生产模块常量 ====================
+# 生产模块常量
 class ProductionStatus:
     """生产相关状态常量"""
     
@@ -180,7 +180,7 @@ class CommonConstant:
     DELETE_TIME_ZERO = 0
 
 
-# ==================== API响应常量 ====================
+# API响应常量
 class ApiResponseCode:
     """API响应状态码"""
     

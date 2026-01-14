@@ -145,6 +145,30 @@ class ProductionPlanForm(forms.ModelForm):
             'auto_complete': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'complete_threshold': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
         }
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        plan_start_date = cleaned_data.get('plan_start_date')
+        plan_end_date = cleaned_data.get('plan_end_date')
+        quantity = cleaned_data.get('quantity')
+        complete_threshold = cleaned_data.get('complete_threshold')
+        
+        if plan_start_date and plan_end_date and plan_start_date > plan_end_date:
+            raise ValidationError({
+                'plan_start_date': '计划开始日期不能晚于计划结束日期'
+            })
+        
+        if quantity is not None and quantity <= 0:
+            raise ValidationError({
+                'quantity': '计划数量必须大于0'
+            })
+        
+        if complete_threshold is not None and (complete_threshold < 0 or complete_threshold > 100):
+            raise ValidationError({
+                'complete_threshold': '自动完工阈值必须在0到100之间'
+            })
+        
+        return cleaned_data
 
 
 class ProductionTaskForm(forms.ModelForm):
@@ -166,19 +190,37 @@ class ProductionTaskForm(forms.ModelForm):
             'assignee': forms.Select(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        plan_start_time = cleaned_data.get('plan_start_time')
+        plan_end_time = cleaned_data.get('plan_end_time')
+        quantity = cleaned_data.get('quantity')
+        
+        if plan_start_time and plan_end_time and plan_start_time > plan_end_time:
+            raise ValidationError({
+                'plan_start_time': '计划开始时间不能晚于计划结束时间'
+            })
+        
+        if quantity is not None and quantity <= 0:
+            raise ValidationError({
+                'quantity': '任务数量必须大于0'
+            })
+        
+        return cleaned_data
 
 
 class QualityCheckForm(forms.ModelForm):
     """质量检查表单"""
     class Meta:
         model = QualityCheck
-        fields = ['task', 'check_time', 'checker', 'check_quantity', 
+        fields = ['task', 'check_time', 'created_by', 'check_quantity', 
                   'qualified_quantity', 'defective_quantity', 'result',
                   'defect_description', 'improvement_suggestion']
         widgets = {
             'task': forms.Select(attrs={'class': 'form-control'}),
             'check_time': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
-            'checker': forms.Select(attrs={'class': 'form-control'}),
+            'created_by': forms.Select(attrs={'class': 'form-control'}),
             'check_quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'qualified_quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'defective_quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
@@ -186,6 +228,26 @@ class QualityCheckForm(forms.ModelForm):
             'defect_description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'improvement_suggestion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        check_quantity = cleaned_data.get('check_quantity')
+        qualified_quantity = cleaned_data.get('qualified_quantity')
+        defective_quantity = cleaned_data.get('defective_quantity')
+        
+        if check_quantity is not None and check_quantity <= 0:
+            raise ValidationError({
+                'check_quantity': '检查数量必须大于0'
+            })
+        
+        if qualified_quantity is not None and defective_quantity is not None:
+            total = (qualified_quantity or 0) + (defective_quantity or 0)
+            if check_quantity and total > check_quantity:
+                raise ValidationError({
+                    'qualified_quantity': '合格数量与不合格数量之和不能超过检查数量'
+                })
+        
+        return cleaned_data
 
 
 class DataCollectionForm(forms.ModelForm):
@@ -193,7 +255,7 @@ class DataCollectionForm(forms.ModelForm):
     class Meta:
         model = DataCollection
         fields = ['task', 'equipment', 'parameter_name', 'parameter_value', 'unit',
-                  'standard_min', 'standard_max', 'is_normal', 'collect_time', 'collector']
+                  'standard_min', 'standard_max', 'is_normal', 'collect_time', 'created_by']
         widgets = {
             'task': forms.Select(attrs={'class': 'form-control'}),
             'equipment': forms.Select(attrs={'class': 'form-control'}),
@@ -204,8 +266,26 @@ class DataCollectionForm(forms.ModelForm):
             'standard_max': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.0001'}),
             'is_normal': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'collect_time': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
-            'collector': forms.Select(attrs={'class': 'form-control'}),
+            'created_by': forms.Select(attrs={'class': 'form-control'}),
         }
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        parameter_value = cleaned_data.get('parameter_value')
+        standard_min = cleaned_data.get('standard_min')
+        standard_max = cleaned_data.get('standard_max')
+        
+        if parameter_value is not None:
+            if standard_min is not None and parameter_value < standard_min:
+                raise ValidationError({
+                    'parameter_value': f'参数值不能小于标准下限 {standard_min}'
+                })
+            if standard_max is not None and parameter_value > standard_max:
+                raise ValidationError({
+                    'parameter_value': f'参数值不能大于标准上限 {standard_max}'
+                })
+        
+        return cleaned_data
 
 
 class DataSourceForm(forms.ModelForm):
@@ -401,17 +481,20 @@ class MaterialRequestForm(forms.ModelForm):
     class Meta:
         model = MaterialRequest
         fields = ['production_plan', 'production_task', 'code', 'request_date',
-                  'requested_by', 'status', 'total_amount', 'description']
+                  'status', 'total_amount', 'description']
         widgets = {
             'production_plan': forms.Select(attrs={'class': 'form-control'}),
             'production_task': forms.Select(attrs={'class': 'form-control'}),
             'code': forms.TextInput(attrs={'class': 'form-control'}),
             'request_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'requested_by': forms.Select(attrs={'class': 'form-control'}),
             'status': forms.Select(attrs={'class': 'form-control'}),
             'total_amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['status'].initial = 1
 
 
 class MaterialRequestItemForm(forms.ModelForm):
@@ -440,17 +523,20 @@ class MaterialIssueForm(forms.ModelForm):
     class Meta:
         model = MaterialIssue
         fields = ['code', 'material_request', 'production_plan', 'issue_date',
-                  'issued_by', 'status', 'total_amount', 'description']
+ 'total_amount',                  'status', 'description']
         widgets = {
             'code': forms.TextInput(attrs={'class': 'form-control'}),
             'material_request': forms.Select(attrs={'class': 'form-control'}),
             'production_plan': forms.Select(attrs={'class': 'form-control'}),
             'issue_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'issued_by': forms.Select(attrs={'class': 'form-control'}),
             'status': forms.Select(attrs={'class': 'form-control'}),
             'total_amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['status'].initial = 1
 
 
 class MaterialIssueItemForm(forms.ModelForm):
@@ -478,17 +564,20 @@ class MaterialReturnForm(forms.ModelForm):
     class Meta:
         model = MaterialReturn
         fields = ['code', 'material_issue', 'production_plan', 'return_date',
-                  'returned_by', 'status', 'total_amount', 'return_reason']
+                  'status', 'total_amount', 'return_reason']
         widgets = {
             'code': forms.TextInput(attrs={'class': 'form-control'}),
             'material_issue': forms.Select(attrs={'class': 'form-control'}),
             'production_plan': forms.Select(attrs={'class': 'form-control'}),
             'return_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'returned_by': forms.Select(attrs={'class': 'form-control'}),
             'status': forms.Select(attrs={'class': 'form-control'}),
             'total_amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'return_reason': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['status'].initial = 1
 
 
 class MaterialReturnItemForm(forms.ModelForm):
@@ -516,7 +605,7 @@ class WorkCompletionReportForm(forms.ModelForm):
     class Meta:
         model = WorkCompletionReport
         fields = ['code', 'production_task', 'report_date', 'reported_quantity',
-                  'qualified_quantity', 'defective_quantity', 'reported_by',
+                  'qualified_quantity', 'defective_quantity', 'created_by',
                   'status', 'work_hours', 'resource_consumption', 'remarks']
         widgets = {
             'code': forms.TextInput(attrs={'class': 'form-control'}),
@@ -525,12 +614,32 @@ class WorkCompletionReportForm(forms.ModelForm):
             'reported_quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'qualified_quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'defective_quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'reported_by': forms.Select(attrs={'class': 'form-control'}),
+            'created_by': forms.Select(attrs={'class': 'form-control'}),
             'status': forms.Select(attrs={'class': 'form-control'}),
             'work_hours': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'resource_consumption': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'remarks': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        reported_quantity = cleaned_data.get('reported_quantity')
+        qualified_quantity = cleaned_data.get('qualified_quantity')
+        defective_quantity = cleaned_data.get('defective_quantity')
+        
+        if reported_quantity is not None and reported_quantity <= 0:
+            raise ValidationError({
+                'reported_quantity': '申报数量必须大于0'
+            })
+        
+        if qualified_quantity is not None and defective_quantity is not None:
+            total = (qualified_quantity or 0) + (defective_quantity or 0)
+            if reported_quantity and total > reported_quantity:
+                raise ValidationError({
+                    'qualified_quantity': '合格数量与不合格数量之和不能超过申报数量'
+                })
+        
+        return cleaned_data
 
 
 class WorkCompletionRedFlushForm(forms.ModelForm):
@@ -538,16 +647,35 @@ class WorkCompletionRedFlushForm(forms.ModelForm):
     class Meta:
         model = WorkCompletionRedFlush
         fields = ['code', 'completion_report', 'red_flush_date', 'red_flush_reason',
-                  'red_flush_quantity', 'requested_by', 'status']
+                  'red_flush_quantity', 'created_by', 'status']
         widgets = {
             'code': forms.TextInput(attrs={'class': 'form-control'}),
             'completion_report': forms.Select(attrs={'class': 'form-control'}),
             'red_flush_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'red_flush_reason': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'red_flush_quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'requested_by': forms.Select(attrs={'class': 'form-control'}),
+            'created_by': forms.Select(attrs={'class': 'form-control'}),
             'status': forms.Select(attrs={'class': 'form-control'}),
         }
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        red_flush_quantity = cleaned_data.get('red_flush_quantity')
+        completion_report = cleaned_data.get('completion_report')
+        
+        if red_flush_quantity is not None and red_flush_quantity <= 0:
+            raise ValidationError({
+                'red_flush_quantity': '红冲数量必须大于0'
+            })
+        
+        if completion_report and red_flush_quantity:
+            total_completed = (completion_report.qualified_quantity or 0) + (completion_report.defective_quantity or 0)
+            if red_flush_quantity > total_completed:
+                raise ValidationError({
+                    'red_flush_quantity': '红冲数量不能超过原完工申报的完成数量'
+                })
+        
+        return cleaned_data
 
 
 class ProductReceiptForm(forms.ModelForm):
@@ -555,7 +683,7 @@ class ProductReceiptForm(forms.ModelForm):
     class Meta:
         model = ProductReceipt
         fields = ['code', 'completion_report', 'production_plan', 'receipt_date',
-                  'receipt_quantity', 'storage_location', 'received_by',
+                  'receipt_quantity', 'storage_location', 'created_by',
                   'status', 'remarks']
         widgets = {
             'code': forms.TextInput(attrs={'class': 'form-control'}),
@@ -564,10 +692,21 @@ class ProductReceiptForm(forms.ModelForm):
             'receipt_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'receipt_quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'storage_location': forms.TextInput(attrs={'class': 'form-control'}),
-            'received_by': forms.Select(attrs={'class': 'form-control'}),
+            'created_by': forms.Select(attrs={'class': 'form-control'}),
             'status': forms.Select(attrs={'class': 'form-control'}),
             'remarks': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        receipt_quantity = cleaned_data.get('receipt_quantity')
+        
+        if receipt_quantity is not None and receipt_quantity <= 0:
+            raise ValidationError({
+                'receipt_quantity': '入库数量必须大于0'
+            })
+        
+        return cleaned_data
 
 
 class OrderMaterialConfirmationForm(forms.ModelForm):
@@ -592,7 +731,7 @@ class ResourceConsumptionForm(forms.ModelForm):
         model = ResourceConsumption
         fields = ['production_task', 'resource_type', 'resource_name',
                   'consumed_quantity', 'unit', 'cost', 'consumption_time',
-                  'recorded_by']
+                  'created_by']
         widgets = {
             'production_task': forms.Select(attrs={'class': 'form-control'}),
             'resource_type': forms.TextInput(attrs={'class': 'form-control'}),
@@ -601,7 +740,7 @@ class ResourceConsumptionForm(forms.ModelForm):
             'unit': forms.TextInput(attrs={'class': 'form-control'}),
             'cost': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'consumption_time': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
-            'recorded_by': forms.Select(attrs={'class': 'form-control'}),
+            'created_by': forms.Select(attrs={'class': 'form-control'}),
         }
 
 

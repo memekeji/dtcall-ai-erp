@@ -122,8 +122,6 @@ class SystemOperationLogListView(LoginRequiredMixin, ListView):
         context['chart_data'] = chart_data
         context['search'] = self.request.GET.get('search', '')
         context['log_type'] = self.request.GET.get('log_type', '')
-        print('Chart Data:', chart_data)
-        print('Chart Data JSON:', context['chart_data_json'])
         return context
     
     def get_queryset(self):

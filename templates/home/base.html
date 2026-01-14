@@ -4,7 +4,7 @@
     {% load static %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}DTCALL管理后台{% endblock %}</title>
+    <title>{% block title %}{% if configs.system_name %}{{ configs.system_name.value }}{% else %}DTCALL管理后台{% endif %}{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
     <link rel="icon" href="{% static 'img/favicon.ico' %}" type="image/x-icon">
     <style>
@@ -637,7 +637,7 @@
         <!-- 顶部导航 -->
         <div class="layui-header">
             <div class="layui-logo">
-                <img src="{% static 'img/logo.png' %}" alt="DTCALL">
+                <img src="{% if configs.system_logo and configs.system_logo.value %}{{ configs.system_logo.value }}{% else %}{% static 'img/logo.png' %}{% endif %}" alt="{{ configs.system_name.value|default:'DTCALL' }}">
             </div>
             
             <div class="user-menu-container">

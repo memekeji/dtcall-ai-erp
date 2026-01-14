@@ -29,7 +29,6 @@ class DataPermissionMiddleware:
         r'^/media/',
         r'^/static/',
         r'^/captcha/',
-        r'^/login/',
         r'^/logout/',
     ]
     

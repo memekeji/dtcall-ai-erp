@@ -78,6 +78,7 @@ class AdminAuthBackend(ModelBackend):
     def authenticate(self, request, username=None, password=None, **kwargs):
         """
         认证用户，返回Admin实例
+        统一使用pwd字段进行密码验证
         """
         try:
             user = Admin.objects.get(username=username)
@@ -90,6 +91,7 @@ class AdminAuthBackend(ModelBackend):
                 user.save()
             
             from django.contrib.auth.hashers import check_password
+            # 统一使用pwd字段进行密码验证
             if check_password(password, user.pwd):
                 user.backend = 'apps.user.auth_backend.AdminAuthBackend'
                 return user

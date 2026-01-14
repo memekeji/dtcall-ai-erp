@@ -1,0 +1,98 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ action }}材料退料</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .form-container { padding: 20px; }
+        .layui-form-label { width: 120px; }
+        .layui-input-block { margin-left: 150px; }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">{{ action }}材料退料</div>
+                    <div class="layui-card-body">
+                        <form class="layui-form" method="post">
+                            {% csrf_token %}
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">退料单号</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="code" value="{{ form.code.value|default:'' }}" 
+                                           class="layui-input" placeholder="自动生成或手动输入" lay-verify="required">
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">材料出库单</label>
+                                <div class="layui-input-block">
+                                    <select name="material_issue" lay-search>
+                                        <option value="">请选择材料出库单（可选）</option>
+                                        {% for issue in material_issues %}
+                                        <option value="{{ issue.pk }}" {% if form.material_issue.value == issue.pk %}selected{% endif %}>
+                                            {{ issue.code }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">生产计划</label>
+                                <div class="layui-input-block">
+                                    <select name="production_plan" lay-search lay-verify="required">
+                                        <option value="">请选择生产计划</option>
+                                        {% for plan in production_plans %}
+                                        <option value="{{ plan.pk }}" {% if form.production_plan.value == plan.pk %}selected{% endif %}>
+                                            {{ plan.name }} ({{ plan.code }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">退料日期</label>
+                                <div class="layui-input-block">
+                                    <input type="date" name="return_date" value="{{ form.return_date.value|default:'' }}" 
+                                           class="layui-input">
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">退料原因</label>
+                                <div class="layui-input-block">
+                                    <textarea name="return_reason" class="layui-textarea" rows="3">{{ form.return_reason.value|default:'' }}</textarea>
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <div class="layui-input-block">
+                                    <button type="submit" class="layui-btn">
+                                        <i class="layui-icon layui-icon-ok"></i> 保存
+                                    </button>
+                                    <button type="button" class="layui-btn layui-btn-primary" onclick="history.back()">
+                                        <i class="layui-icon layui-icon-return"></i> 返回
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['form', 'layer'], function () {
+            var form = layui.form;
+            var layer = layui.layer;
+
+            form.render();
+        });
+    </script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 权限控制中间件
 用于拦截所有请求并检查用户是否有相应的权限
 """
-from django.http import HttpResponseForbidden, HttpResponseRedirect
+from django.http import HttpResponseForbidden, HttpResponseRedirect, JsonResponse, HttpResponse
 from django.urls import resolve
 from django.contrib.auth import logout
 from django.conf import settings
@@ -29,14 +29,11 @@ class PermissionMiddleware:
             return self.get_response(request)
         
         if not request.user.is_authenticated:
-            if self._is_api_request(path):
-                return HttpResponseForbidden("未登录或登录已过期")
-            from django.urls import reverse
-            return HttpResponseRedirect(reverse('user:login'))
+            return self._handle_unauthenticated(request, path)
         
         if hasattr(request.user, 'status') and request.user.status != 1:
             logout(request)
-            return HttpResponseRedirect('/login/')
+            return self._handle_unauthenticated(request, path)
         
         if hasattr(request.user, 'is_superuser') and request.user.is_superuser:
             return self.get_response(request)
@@ -47,9 +44,30 @@ class PermissionMiddleware:
         
         return self.get_response(request)
     
+    def _handle_unauthenticated(self, request, path):
+        """处理未登录用户请求"""
+        from django.urls import reverse
+        login_url = reverse('user:login')
+        
+        is_ajax = self._is_ajax_request(request)
+        
+        if is_ajax:
+            return JsonResponse({
+                'code': 401,
+                'msg': '登录已过期，请重新登录',
+                'data': {
+                    'redirect_url': login_url
+                }
+            }, status=401)
+        
+        is_iframe = self._is_iframe_request(request)
+        if is_iframe:
+            return HttpResponse(f'<script>window.top.location.href = "{login_url}";</script>')
+        
+        return HttpResponseRedirect(login_url)
+    
     def _should_skip_permission_check(self, path):
         skip_urls = [
-            '/login/', '/logout/', '/api/login/', '/api/logout/',
             '/user/login/', '/user/logout/', '/user/login-submit/',
             '/static/', '/media/', '/favicon.ico', '/captcha/',
             '/admin/', '/home/main/', '/home/dashboard/',
@@ -57,8 +75,16 @@ class PermissionMiddleware:
         ]
         return any(path.startswith(url) for url in skip_urls)
     
-    def _is_api_request(self, path):
-        return path.startswith('/api/')
+    def _is_ajax_request(self, request):
+        """检测是否为AJAX请求"""
+        x_requested_with = request.META.get('HTTP_X_REQUESTED_WITH', '')
+        return x_requested_with == 'XMLHttpRequest'
+    
+    def _is_iframe_request(self, request):
+        """检测请求是否来自iframe"""
+        referer = request.META.get('HTTP_REFERER', '')
+        host = request.META.get('HTTP_HOST', '')
+        return bool(referer and host in referer)
     
     def _has_permission(self, request, path):
         try:

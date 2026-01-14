@@ -3,7 +3,187 @@
 """
 
 import re
+import operator
+from typing import Any, Dict, Set
 from .base_processor import BaseNodeProcessor, NodeProcessorRegistry
+
+
+class SafeExpressionEvaluator:
+    """安全表达式评估器"""
+    
+    _allowed_ops = {
+        # 比较运算符
+        operator.eq: '==',
+        operator.ne: '!=',
+        operator.lt: '<',
+        operator.le: '<=',
+        operator.gt: '>',
+        operator.ge: '>=',
+        # 逻辑运算符
+        'and': lambda a, b: a and b,
+        'or': lambda a, b: a or b,
+        'not': lambda a: not a,
+        # 成员运算符
+        'in': lambda a, b: a in b,
+        'not in': lambda a, b: a not in b,
+        # 一元运算符
+        '+': operator.pos,
+        '-': operator.neg,
+    }
+    
+    _allowed_funcs: Set[str] = set()
+    
+    _allowed_names: Dict[str, Any] = {
+        'True': True,
+        'False': False,
+        'None': None,
+    }
+    
+    _dangerous_patterns = [
+        r'import\s+',
+        r'from\s+.*\s+import',
+        r'exec\s*\(',
+        r'eval\s*\(',
+        r'compile\s*\(',
+        r'open\s*\(',
+        r'__',
+        r'class\s+',
+        r'def\s+',
+        r'global\s+',
+        r'nonlocal\s+',
+        r'breakpoint\s*\(',
+        r'help\s*\(',
+    ]
+    
+    @classmethod
+    def is_safe_expression(cls, expression: str) -> bool:
+        """检查表达式是否安全"""
+        expr_lower = expression.lower()
+        for pattern in cls._dangerous_patterns:
+            if re.search(pattern, expr_lower):
+                return False
+        return True
+    
+    @classmethod
+    def safe_eval(cls, expression: str, context: Dict[str, Any] = None) -> bool:
+        """安全地评估布尔表达式"""
+        if context is None:
+            context = {}
+        
+        # 安全检查
+        if not cls.is_safe_expression(expression):
+            return False
+        
+        # 预处理：替换变量
+        processed_expr = expression
+        for key, value in context.items():
+            placeholder = f'{{{{{key}}}}}'
+            processed_expr = processed_expr.replace(placeholder, str(value))
+        
+        # 使用模式匹配进行安全评估
+        return cls._evaluate_safe(processed_expr, context)
+    
+    @classmethod
+    def _evaluate_safe(cls, expression: str, context: Dict[str, Any]) -> bool:
+        """安全地评估表达式"""
+        try:
+            expr = expression.strip()
+            
+            # 布尔值直接匹配
+            expr_lower = expr.lower()
+            if expr_lower in ('true', '1', 'yes', '是', '真'):
+                return True
+            if expr_lower in ('false', '0', 'no', '否', '假'):
+                return False
+            
+            # 模式匹配评估
+            return cls._pattern_evaluation(expr, context)
+        except Exception:
+            return False
+    
+    @classmethod
+    def _pattern_evaluation(cls, expression: str, context: Dict[str, Any]) -> bool:
+        """使用模式匹配评估表达式"""
+        # 比较运算符模式
+        comparison_patterns = [
+            (r'(\w+)\s*>\s*(\w+)', lambda x, y: cls._compare(x, y, context, operator.gt)),
+            (r'(\w+)\s*<\s*(\w+)', lambda x, y: cls._compare(x, y, context, operator.lt)),
+            (r'(\w+)\s*>=\s*(\w+)', lambda x, y: cls._compare(x, y, context, operator.ge)),
+            (r'(\w+)\s*<=\s*(\w+)', lambda x, y: cls._compare(x, y, context, operator.le)),
+            (r'(\w+)\s*==\s*(\w+)', lambda x, y: cls._compare(x, y, context, operator.eq)),
+            (r'(\w+)\s*!=\s*(\w+)', lambda x, y: cls._compare(x, y, context, operator.ne)),
+        ]
+        
+        for pattern, evaluator in comparison_patterns:
+            match = re.search(pattern, expression)
+            if match:
+                try:
+                    left = match.group(1)
+                    right = match.group(2)
+                    return evaluator(left, right)
+                except (ValueError, TypeError):
+                    continue
+        
+        # 成员运算符模式
+        in_pattern = r'(\w+)\s+in\s+\[(.*?)\]'
+        in_match = re.search(in_pattern, expression)
+        if in_match:
+            try:
+                left = in_match.group(1)
+                right_items = [item.strip().strip("'\"") for item in in_match.group(2).split(',')]
+                left_val = cls._get_value(left, context)
+                return left_val in right_items
+            except Exception:
+                pass
+        
+        # contains模式
+        contains_pattern = r'(\w+)\s+contains\s+(\w+)'
+        contains_match = re.search(contains_pattern, expression)
+        if contains_match:
+            try:
+                left = contains_match.group(1)
+                right = contains_match.group(2)
+                left_val = cls._get_value(left, context)
+                right_val = cls._get_value(right, context)
+                return str(right_val) in str(left_val)
+            except Exception:
+                pass
+        
+        return False
+    
+    @classmethod
+    def _compare(cls, left: str, right: str, context: Dict[str, Any], op) -> bool:
+        """比较两个值"""
+        left_val = cls._get_value(left, context)
+        right_val = cls._get_value(right, context)
+        
+        # 尝试转换为数字
+        try:
+            left_val = float(left_val)
+            right_val = float(right_val)
+        except (ValueError, TypeError):
+            pass
+        
+        try:
+            return op(left_val, right_val)
+        except (TypeError, ValueError):
+            return False
+    
+    @classmethod
+    def _get_value(cls, name: str, context: Dict[str, Any]) -> Any:
+        """获取变量的值"""
+        # 尝试从上下文获取
+        if name in context:
+            return context[name]
+        
+        # 尝试转换为布尔值
+        name_lower = name.lower()
+        if name_lower in ('true', 'yes', '是', '真', '1'):
+            return True
+        if name_lower in ('false', 'no', '否', '假', '0'):
+            return False
+        
+        return name
 
 
 @NodeProcessorRegistry.register('condition')
@@ -94,51 +274,11 @@ class ConditionProcessor(BaseNodeProcessor):
     def _evaluate_condition(self, expression: str, strict_mode: bool) -> bool:
         """评估条件表达式"""
         try:
-            # 简单的表达式解析和评估
-            if strict_mode:
-                # 严格模式：使用eval评估
-                # 注意：在生产环境中应该使用更安全的表达式评估方法
-                return bool(eval(expression, {}, {}))
-            else:
-                # 宽松模式：使用简单的模式匹配
-                return self._simple_condition_evaluation(expression)
+            # 使用安全评估器替代eval
+            return SafeExpressionEvaluator.safe_eval(expression, {})
         except Exception as e:
             # 表达式评估失败，返回False
             return False
-    
-    def _simple_condition_evaluation(self, expression: str) -> bool:
-        """简单的条件表达式评估"""
-        # 支持常见的比较运算符
-        patterns = [
-            (r'(\w+)\s*>\s*(\w+)', lambda x, y: str(x) > str(y)),
-            (r'(\w+)\s*<\s*(\w+)', lambda x, y: str(x) < str(y)),
-            (r'(\w+)\s*>=\s*(\w+)', lambda x, y: str(x) >= str(y)),
-            (r'(\w+)\s*<=\s*(\w+)', lambda x, y: str(x) <= str(y)),
-            (r'(\w+)\s*==\s*(\w+)', lambda x, y: str(x) == str(y)),
-            (r'(\w+)\s*!=\s*(\w+)', lambda x, y: str(x) != str(y)),
-            (r'(\w+)\s*contains\s*(\w+)', lambda x, y: str(y) in str(x)),
-            (r'(\w+)\s*in\s*\[(.*?)\]', lambda x, y: str(x) in [item.strip() for item in y.split(',')])
-        ]
-        
-        for pattern, evaluator in patterns:
-            match = re.search(pattern, expression)
-            if match:
-                try:
-                    left = match.group(1)
-                    right = match.group(2)
-                    return evaluator(left, right)
-                except:
-                    continue
-        
-        # 如果无法匹配任何模式，尝试布尔值判断
-        expression_lower = expression.lower().strip()
-        if expression_lower in ('true', '1', 'yes', '是', '真'):
-            return True
-        elif expression_lower in ('false', '0', 'no', '否', '假'):
-            return False
-        
-        # 默认返回False
-        return False
 
 
 @NodeProcessorRegistry.register('multi_condition')

@@ -481,9 +481,22 @@
                         layer.open({
                             type: 2,
                             title: '权限管理',
-                            shade: 0.8,
-                            area: ['800px', '600px'],
-                            content: '/disk/permission/?type=' + contextMenuType + '&id=' + contextMenuId
+                            shadeClose: false,
+                            shade: 0.3,
+                            maxmin: true,
+                            area: ['80%', '90%'],
+                            offset: 'r',
+                            anim: 2,
+                            content: '/disk/permission/?type=' + contextMenuType + '&id=' + contextMenuId,
+                            success: function(layero, index) {
+                                if (layero && typeof layero.css === 'function') {
+                                    layero.css({
+                                        'right': '0',
+                                        'top': '0',
+                                        'height': '100%'
+                                    });
+                                }
+                            }
                         });
                     });
                     break;

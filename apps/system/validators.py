@@ -1,11 +1,16 @@
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
-from .models import SystemConfiguration as SystemConfig
+try:
+    from apps.user.models import SystemConfiguration as SystemConfig
+except ImportError:
+    SystemConfig = None
 
 def validate_config_title(value, instance=None):
     """
     验证配置名称是否唯一
     """
+    if not SystemConfig:
+        return
     queryset = SystemConfig.objects.filter(title=value)
     if instance and instance.pk:
         queryset = queryset.exclude(pk=instance.pk)
@@ -16,6 +21,8 @@ def validate_config_name(value, instance=None):
     """
     验证配置标识是否唯一
     """
+    if not SystemConfig:
+        return
     queryset = SystemConfig.objects.filter(name=value)
     if instance and instance.pk:
         queryset = queryset.exclude(pk=instance.pk)
@@ -26,6 +33,9 @@ class SystemConfigValidator:
     @staticmethod
     def validate_add(data):
         errors = {}
+        
+        if not SystemConfig:
+            return errors
         
         # 验证配置名称
         if not data.get('title'):
@@ -50,6 +60,9 @@ class SystemConfigValidator:
     @staticmethod
     def validate_edit(data):
         errors = {}
+        
+        if not SystemConfig:
+            return errors
         
         # 验证ID
         if not data.get('id'):

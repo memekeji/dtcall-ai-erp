@@ -13,15 +13,17 @@ urlpatterns = [
     
     # 文件操作
     path('upload/', views.FileUploadView.as_view(), name='file_upload'),
-    path('upload/check/', views.FileUploadView.as_view(), name='check_file_exists'),
     path('download/<int:file_id>/', views.FileDownloadView.as_view(), name='file_download'),
     path('file/delete/<int:file_id>/', views.FileDeleteView.as_view(), name='file_delete'),
     path('file/restore/<int:file_id>/', views.FileRestoreView.as_view(), name='file_restore'),
+    path('file/rename/<int:file_id>/', views.FileRenameView.as_view(), name='file_rename'),
     
     # 文件夹操作
     path('folder/create/', views.FolderCreateView.as_view(), name='folder_create'),
     path('folder/delete/<int:folder_id>/', views.FolderDeleteView.as_view(), name='folder_delete'),
     path('folder/restore/<int:folder_id>/', views.FolderRestoreView.as_view(), name='folder_restore'),
+    path('folder/rename/<int:folder_id>/', views.FolderRenameView.as_view(), name='folder_rename'),
+    path('folder/move/<int:folder_id>/', views.FolderMoveView.as_view(), name='folder_move'),
     
     # 回收站操作
     path('recycle/clear/', views.RecycleBinClearView.as_view(), name='recycle_clear'),
@@ -53,9 +55,9 @@ urlpatterns = [
     
     # 文件预览功能
     path('preview/', views.PreviewView.as_view(), name='preview'),
-    path('disk/preview/', views.PreviewView.as_view(), name='disk_preview'),
     path('file/preview/<int:file_id>/', views.FilePreviewView.as_view(), name='file_preview'),
     path('share/preview/<int:file_id>/', views.SharePreviewView.as_view(), name='share_preview'),
+    path('image/thumbnail/<int:file_id>/', views.ImageThumbnailView.as_view(), name='image_thumbnail'),
     
     # 兼容原有功能
     path('disk_list/', views.disk_list, name='disk_list'),

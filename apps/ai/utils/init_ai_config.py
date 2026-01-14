@@ -2,7 +2,7 @@ import os
 import django
 import logging
 
-# 设置Django环境\os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dtcall.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dtcall.settings')
 django.setup()
 
 from apps.user.models import SystemConfiguration as SystemConfig

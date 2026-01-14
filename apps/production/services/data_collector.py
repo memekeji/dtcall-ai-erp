@@ -25,16 +25,17 @@ class DataCollectorService:
     def _test_api_connection(self, data_source: DataSource) -> Dict[str, Any]:
         """测试API连接"""
         try:
-            # 准备请求
+            logger.info(f"正在测试API数据源连接: {data_source.name} ({data_source.code})")
+            
             url = data_source.endpoint_url
             method = data_source.request_method.upper()
             headers = data_source.request_headers.copy()
             params = data_source.request_params.copy()
             
-            # 设置认证
             auth = self._prepare_auth(data_source, headers)
             
-            # 发送请求
+            logger.debug(f"API请求: {method} {url}")
+            
             response = self.session.request(
                 method=method,
                 url=url,
@@ -45,6 +46,8 @@ class DataCollectorService:
                 auth=auth
             )
             
+            logger.info(f"API连接测试成功: {data_source.name}, 状态码: {response.status_code}")
+            
             return {
                 'success': True,
                 'status_code': response.status_code,
@@ -53,7 +56,20 @@ class DataCollectorService:
                 'sample_data': response.text[:500] if response.text else ''
             }
             
+        except requests.exceptions.Timeout as e:
+            logger.error(f"API连接超时: {data_source.name}, 错误: {str(e)}")
+            return {
+                'success': False,
+                'error': f'请求超时: {str(e)}'
+            }
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"API连接错误: {data_source.name}, 错误: {str(e)}")
+            return {
+                'success': False,
+                'error': f'网络连接失败: {str(e)}'
+            }
         except requests.exceptions.RequestException as e:
+            logger.error(f"API请求失败: {data_source.name}, 错误: {str(e)}")
             return {
                 'success': False,
                 'error': f'HTTP请求失败: {str(e)}'
@@ -62,38 +78,49 @@ class DataCollectorService:
     def _test_iot_connection(self, data_source: DataSource) -> Dict[str, Any]:
         """测试IoT设备连接"""
         try:
-            # 这里可以根据具体的IoT协议实现连接测试
-            # 例如：TCP连接、UDP连接等
+            logger.info(f"正在测试IoT数据源连接: {data_source.name} ({data_source.code})")
+            
             import socket
             
             host = data_source.host
             port = data_source.port
             
             if not host or not port:
+                logger.warning(f"IoT数据源配置不完整: {data_source.name}")
                 return {
                     'success': False,
                     'error': 'IoT设备需要配置主机地址和端口'
                 }
             
-            # 尝试TCP连接
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(data_source.timeout)
+            
+            logger.debug(f"尝试连接IoT设备: {host}:{port}")
             
             result = sock.connect_ex((host, port))
             sock.close()
             
             if result == 0:
+                logger.info(f"IoT设备连接成功: {data_source.name} ({host}:{port})")
                 return {
                     'success': True,
                     'message': f'成功连接到 {host}:{port}'
                 }
             else:
+                logger.warning(f"IoT设备连接失败: {data_source.name} ({host}:{port})")
                 return {
                     'success': False,
                     'error': f'无法连接到 {host}:{port}'
                 }
                 
+        except socket.timeout:
+            logger.error(f"IoT连接超时: {data_source.name}")
+            return {
+                'success': False,
+                'error': '连接超时'
+            }
         except Exception as e:
+            logger.error(f"IoT连接测试失败: {data_source.name}, 错误: {str(e)}")
             return {
                 'success': False,
                 'error': f'IoT连接测试失败: {str(e)}'

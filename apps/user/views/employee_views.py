@@ -158,7 +158,6 @@ class EmployeeCreateView(CustomLoginRequiredMixin, CreateView):
     
     def form_valid(self, form):
         with transaction.atomic():
-            # 使用form.save()直接保存，因为表单的save方法已经处理了密码和次要部门
             employee = form.save()
             
             return JsonResponse({
@@ -183,7 +182,6 @@ class EmployeeUpdateView(CustomLoginRequiredMixin, UpdateView):
     
     def form_valid(self, form):
         with transaction.atomic():
-            # 使用form.save()直接保存，因为表单的save方法已经处理了密码和次要部门
             employee = form.save()
             
             return JsonResponse({

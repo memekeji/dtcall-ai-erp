@@ -158,29 +158,49 @@
 
                     if (layEvent === 'view') {
                         layer.open({
-                    type: 2,
-                    title: '合同详情',
-                    content: '/contract/sales/view/' + data.id + '/',
-                    area: ['900px', '700px'],
-                    zIndex: 2147483646, // 设置合适的zIndex，作为父弹窗
-                    success: function(layero, index) {
-                        layer.setTop(layero);
-                    }
-                });
+                            type: 2,
+                            title: '合同详情',
+                            shadeClose: false,
+                            shade: 0.3,
+                            maxmin: true,
+                            area: ['80%', '90%'],
+                            offset: 'r',
+                            anim: 2,
+                            content: '/contract/sales/view/' + data.id + '/',
+                            success: function(layero, index) {
+                                if (layero && typeof layero.css === 'function') {
+                                    layero.css({
+                                        'right': '0',
+                                        'top': '0',
+                                        'height': '100%'
+                                    });
+                                }
+                            }
+                        });
                     } else if (layEvent === 'edit') {
                         layer.open({
-                    type: 2,
-                    title: '编辑合同',
-                    content: '/contract/sales/edit/' + data.id + '/',
-                    area: ['900px', '700px'],
-                    zIndex: 2147483646, // 设置合适的zIndex，作为父弹窗
-                    success: function(layero, index) {
-                        layer.setTop(layero);
-                    },
-                    end: function() {
-                        table.reload('contractTable');
-                    }
-                });
+                            type: 2,
+                            title: '编辑合同',
+                            shadeClose: false,
+                            shade: 0.3,
+                            maxmin: true,
+                            area: ['80%', '90%'],
+                            offset: 'r',
+                            anim: 2,
+                            content: '/contract/sales/edit/' + data.id + '/',
+                            success: function(layero, index) {
+                                if (layero && typeof layero.css === 'function') {
+                                    layero.css({
+                                        'right': '0',
+                                        'top': '0',
+                                        'height': '100%'
+                                    });
+                                }
+                            },
+                            end: function() {
+                                table.reload('contractTable');
+                            }
+                        });
                     } else if (layEvent === 'delete') {
                         layer.confirm('确定删除这条合同记录吗？', function(index) {
                             // 获取CSRF token
@@ -208,32 +228,25 @@
                     }
                 });
             });
-        });
+        }
 
         // 新增合同
         function addContract() {
-            // console.log('addContract function called - 按钮被点击');
             layui.use(['layer', 'table'], function() {
                 var layer = layui.layer;
                 var table = layui.table;
                 
-
-                
                 layer.open({
                     type: 2,
                     title: '新增销售合同',
-                    content: '/contract/sales/add/',
                     shadeClose: false,
                     shade: 0.3,
                     maxmin: true,
-                    area: ['75%', '100%'],
+                    area: ['80%', '90%'],
                     offset: 'r',
                     anim: 2,
-                    zIndex: 2147483646, // 设置合适的zIndex，作为父弹窗
+                    content: '/contract/sales/add/',
                     success: function(layero, index) {
-                        // console.log('合同弹窗打开成功');
-                        layer.setTop(layero);
-                        // 设置弹窗从右侧滑入，占据75%宽度
                         if (layero && typeof layero.css === 'function') {
                             layero.css({
                                 'right': '0',

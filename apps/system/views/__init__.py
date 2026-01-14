@@ -1,47 +1,180 @@
+import json
+import logging
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.core.paginator import Paginator
-from django.db.models import Q
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-from django.utils import timezone
-from django.template.loader import render_to_string
-from datetime import datetime, timedelta
-import json
+from django.views.decorators.csrf import csrf_exempt
 
-from apps.user.models import SystemConfiguration, SystemModule, SystemLog
-from apps.system.models import SystemAttachment, SystemBackup, SystemTask, BackupPolicy
-from apps.system.forms import (
-    SystemConfigForm, SystemModuleForm, 
-    SystemBackupForm, SystemTaskForm, BackupPolicyForm
-)
+from apps.user.models import SystemConfiguration
+from apps.system.forms import SystemConfigForm
 from apps.system.config_service import config_service
-from apps.department.models import Department
+from apps.system.models import StorageConfiguration, ServiceConfiguration
+
+logger = logging.getLogger(__name__)
+
+
+STATIC_SYSTEM_CONFIGS = [
+    {
+        'key': 'system_name',
+        'name': '系统名称',
+        'value': 'DTCall 企业管理系统',
+        'description': '系统显示名称，将显示在页面标题和导出文件中',
+        'value_type': 'text',
+        'category': 'basic',
+        'icon': 'layui-icon-app',
+        'extra': {'placeholder': '请输入系统名称', 'maxlength': 100}
+    },
+    {
+        'key': 'system_logo',
+        'name': '系统Logo',
+        'value': '',
+        'description': '系统Logo图片地址，支持本地上传或外部URL',
+        'value_type': 'text',
+        'category': 'basic',
+        'icon': 'layui-icon-picture',
+        'extra': {'placeholder': 'Logo图片路径或上传', 'maxlength': 500}
+    },
+    {
+        'key': 'watermark_enabled',
+        'name': '页面水印',
+        'value': 'true',
+        'description': '是否在页面显示用户水印，防止截图泄露',
+        'value_type': 'switch',
+        'category': 'basic',
+        'icon': 'layui-icon-water',
+        'extra': {'on_text': '开启', 'off_text': '关闭'}
+    },
+    {
+        'key': 'default_page_size',
+        'name': '默认分页大小',
+        'value': '20',
+        'description': '系统默认分页条数，所有列表页面默认使用此值',
+        'value_type': 'number',
+        'category': 'basic',
+        'icon': 'layui-icon-template-1',
+        'extra': {'placeholder': '请输入分页大小', 'min': 10, 'max': 100}
+    },
+    {
+        'key': 'customer_no_follow_days',
+        'name': '客户无跟进天数',
+        'value': '30',
+        'description': '客户多少天无跟进记录自动转入公海池',
+        'value_type': 'number',
+        'category': 'business',
+        'icon': 'layui-icon-user',
+        'extra': {'placeholder': '请输入天数', 'min': 1, 'max': 365}
+    },
+    {
+        'key': 'customer_no_deal_days',
+        'name': '客户无成交天数',
+        'value': '90',
+        'description': '客户多少天无成交流转公海池',
+        'value_type': 'number',
+        'category': 'business',
+        'icon': 'layui-icon-cart',
+        'extra': {'placeholder': '请输入天数', 'min': 1, 'max': 365}
+    },
+    {
+        'key': 'attachment_size',
+        'name': '附件大小限制',
+        'value': '5',
+        'description': '上传附件大小限制(MB)',
+        'value_type': 'number',
+        'category': 'business',
+        'icon': 'layui-icon-upload-drag',
+        'extra': {'placeholder': '请输入大小(MB)', 'min': 1, 'max': 100}
+    },
+    {
+        'key': 'sip_server_url',
+        'name': 'SIP服务器地址',
+        'value': 'http://192.168.1.200:9078',
+        'description': 'SIP电话服务器地址，用于客户拨号功能',
+        'value_type': 'text',
+        'category': 'business',
+        'icon': 'layui-icon-phone',
+        'extra': {'placeholder': '例如: http://192.168.1.200:9078', 'maxlength': 500}
+    },
+    {
+        'key': 'sms_enabled',
+        'name': '短信服务',
+        'value': 'false',
+        'description': '是否启用短信发送功能，用于营销通知等',
+        'value_type': 'switch',
+        'category': 'service',
+        'icon': 'layui-icon-cellphone',
+        'extra': {'on_text': '开启', 'off_text': '关闭'}
+    },
+    {
+        'key': 'stt_enabled',
+        'name': '语音转文本服务',
+        'value': 'false',
+        'description': '是否启用语音转文本功能，用于会议录音转写',
+        'value_type': 'switch',
+        'category': 'service',
+        'icon': 'layui-icon-audio',
+        'extra': {'on_text': '开启', 'off_text': '关闭'}
+    },
+    {
+        'key': 'tts_enabled',
+        'name': '文本转语音服务',
+        'value': 'false',
+        'description': '是否启用文本转语音功能，用于语音播报',
+        'value_type': 'switch',
+        'category': 'service',
+        'icon': 'layui-icon-speaker',
+        'extra': {'on_text': '开启', 'off_text': '关闭'}
+    },
+]
 
 
 @login_required
 def config_list(request):
     """系统配置列表"""
-    search = request.GET.get('search', '')
-    configs = SystemConfiguration.objects.all()
+    from apps.user.models import SystemConfiguration
     
-    if search:
-        configs = configs.filter(
-            Q(key__icontains=search) | 
-            Q(description__icontains=search)
-        )
+    storage_configs = StorageConfiguration.objects.all().order_by('-is_default', 'name')
     
-    configs = configs.order_by('key')
+    storage_list = []
+    for sc in storage_configs:
+        storage_list.append({
+            'pk': sc.pk,
+            'name': sc.name,
+            'storage_type': sc.storage_type,
+            'storage_type_display': sc.get_storage_type_display(),
+            'is_default': sc.is_default,
+            'status': sc.status,
+            'bucket_name': sc.bucket_name or sc.nas_share_path or sc.webdav_url or sc.local_path or '',
+            'region': sc.region or sc.endpoint or '',
+            'last_test_time': sc.last_test_time.strftime('%Y-%m-%d %H:%M') if sc.last_test_time else '从未测试',
+            'description': sc.description or '',
+            'last_error': sc.last_error or '',
+            'sync_to_local': sc.sync_to_local,
+        })
     
-    # 分页
-    paginator = Paginator(configs, 20)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    service_configs = ServiceConfiguration.objects.all().order_by('category', 'name')
+    service_list = []
+    for sc in service_configs:
+        service_list.append(sc.to_dict())
+    
+    db_configs = {config.key: config.value for config in SystemConfiguration.objects.all()}
+    
+    configs = []
+    for config in STATIC_SYSTEM_CONFIGS:
+        config_dict = config.copy()
+        if config['key'] in db_configs:
+            config_dict['value'] = db_configs[config['key']]
+        configs.append(config_dict)
     
     context = {
-        'page_obj': page_obj,
-        'search': search,
+        'configs': configs,
+        'configs_json': json.dumps(configs, ensure_ascii=False),
+        'storage_configs': storage_list,
+        'storage_configs_json': json.dumps(storage_list, ensure_ascii=False),
+        'service_configs': service_list,
+        'service_configs_json': json.dumps(service_list, ensure_ascii=False),
     }
     return render(request, 'config/list.html', context)
 
@@ -49,16 +182,23 @@ def config_list(request):
 @login_required
 def config_form(request, pk=None):
     """系统配置表单"""
-    config = None
-    if pk:
+    from apps.common.cache_service import SystemCache
+    
+    if not pk:
+        key = request.GET.get('key')
+        if key:
+            config = SystemConfiguration.objects.filter(key=key).first()
+        else:
+            config = None
+    else:
         config = get_object_or_404(SystemConfiguration, pk=pk)
     
     if request.method == 'POST':
         form = SystemConfigForm(request.POST, instance=config)
         if form.is_valid():
             form.save()
-            # 刷新配置缓存，使新配置立即生效
             config_service.refresh_configs()
+            SystemCache.invalidate_configs()
             messages.success(request, '系统配置保存成功！')
             return redirect('system:config_list')
     else:
@@ -66,6 +206,203 @@ def config_form(request, pk=None):
     
     context = {'form': form, 'config': config}
     return render(request, 'config/form.html', context)
+
+
+@login_required
+@require_http_methods(['POST'])
+def config_toggle(request):
+    """切换配置状态"""
+    from apps.user.models import SystemConfiguration
+    from apps.common.cache_service import SystemCache
+    
+    key = request.POST.get('key')
+    is_active = request.POST.get('is_active', 'true').lower() == 'true'
+    
+    if not key:
+        return JsonResponse({'code': 1, 'msg': '配置键不能为空'})
+    
+    try:
+        config, created = SystemConfiguration.objects.get_or_create(key=key)
+        config.is_active = is_active
+        config.save()
+        config_service.refresh_configs()
+        SystemCache.invalidate_configs()
+        return JsonResponse({'code': 0, 'msg': '状态更新成功'})
+    except Exception as e:
+        return JsonResponse({'code': 1, 'msg': f'更新失败: {str(e)}'})
+
+
+@login_required
+@require_http_methods(['POST'])
+@csrf_exempt
+def config_upload_logo(request):
+    """上传系统Logo"""
+    import traceback
+    from django.conf import settings
+    from django.http import JsonResponse
+    import os
+    import uuid
+    from apps.user.models import SystemConfiguration
+    from apps.common.cache_service import SystemCache
+    
+    logger.info(f'Logo上传请求开始，FILES: {list(request.FILES.keys())}')
+    
+    try:
+        logo_file = None
+        if 'logo' in request.FILES:
+            logo_file = request.FILES['logo']
+        elif 'file' in request.FILES:
+            logo_file = request.FILES['file']
+        
+        if not logo_file:
+            logger.warning('Logo上传失败: 未找到上传文件，FILES: %s', list(request.FILES.keys()))
+            return JsonResponse({'code': 1, 'msg': '请选择要上传的图片'})
+        
+        logger.info(f'文件信息: name={logo_file.name}, size={logo_file.size}, content_type={logo_file.content_type}')
+        
+        allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/x-icon', 'image/svg+xml']
+        if logo_file.content_type not in allowed_types:
+            logger.warning(f'Logo上传失败: 不支持的文件类型 {logo_file.content_type}')
+            return JsonResponse({'code': 1, 'msg': '不支持的图片格式，仅支持 JPG、PNG、GIF、ICO、SVG'})
+        
+        max_size = 2 * 1024 * 1024
+        if logo_file.size > max_size:
+            logger.warning(f'Logo上传失败: 文件大小超过限制 {logo_file.size}')
+            return JsonResponse({'code': 1, 'msg': '图片大小不能超过2MB'})
+        
+        ext = os.path.splitext(logo_file.name)[1].lower()
+        if ext not in ['.jpg', '.jpeg', '.png', '.gif', '.ico', '.svg']:
+            ext = '.png'
+        
+        upload_dir = os.path.join(str(settings.MEDIA_ROOT), 'system', 'logo')
+        logger.info(f'上传目录: {upload_dir}')
+        
+        if not os.path.exists(upload_dir):
+            os.makedirs(upload_dir, exist_ok=True)
+        
+        filename = f"logo_{uuid.uuid4().hex[:8]}{ext}"
+        filepath = os.path.normpath(os.path.join(upload_dir, filename))
+        logger.info(f'文件路径: {filepath}')
+        
+        with open(filepath, 'wb+') as destination:
+            for chunk in logo_file.chunks():
+                destination.write(chunk)
+        
+        logger.info(f'文件写入成功: {filepath}')
+        
+        logo_url = f"{settings.MEDIA_URL}system/logo/{filename}"
+        logger.info(f'Logo URL: {logo_url}')
+        
+        config, created = SystemConfiguration.objects.get_or_create(key='system_logo')
+        config.value = logo_url
+        config.is_active = True
+        config.save()
+        logger.info(f'数据库保存成功: key=system_logo, value={logo_url}')
+        
+        try:
+            config_service.refresh_configs()
+            SystemCache.invalidate_configs()
+            logger.info('缓存刷新成功')
+        except Exception as cache_error:
+            logger.warning(f'缓存刷新失败: {str(cache_error)}')
+        
+        response = JsonResponse({'code': 0, 'msg': 'Logo上传成功', 'url': logo_url})
+        logger.info(f'返回响应: {response.content}')
+        return response
+        
+    except Exception as e:
+        error_msg = f'上传失败: {str(e)}'
+        logger.error(f'Logo上传错误: {traceback.format_exc()}')
+        return JsonResponse({'code': 1, 'msg': error_msg})
+
+
+@login_required
+@require_http_methods(['POST'])
+def config_update(request):
+    """更新配置值"""
+    from apps.user.models import SystemConfiguration
+    from apps.common.cache_service import SystemCache
+    
+    key = request.POST.get('key')
+    value = request.POST.get('value')
+    
+    if not key:
+        return JsonResponse({'code': 1, 'msg': '配置键不能为空'})
+    
+    try:
+        config, created = SystemConfiguration.objects.get_or_create(key=key)
+        config.value = value
+        config.is_active = True
+        config.save()
+        config_service.refresh_configs()
+        SystemCache.invalidate_configs()
+        return JsonResponse({'code': 0, 'msg': '更新成功'})
+    except Exception as e:
+        return JsonResponse({'code': 1, 'msg': f'更新失败: {str(e)}'})
+
+
+@login_required
+@require_http_methods(['POST'])
+def storage_config_toggle(request):
+    """切换存储配置状态"""
+    pk = request.POST.get('pk')
+    status = request.POST.get('status', 'active')
+    
+    if not pk:
+        return JsonResponse({'code': 1, 'msg': '配置ID不能为空'})
+    
+    if status not in ['active', 'inactive']:
+        return JsonResponse({'code': 1, 'msg': '无效的状态'})
+    
+    try:
+        config = StorageConfiguration.objects.get(pk=pk)
+        config.status = status
+        config.save()
+        return JsonResponse({'code': 0, 'msg': '状态更新成功'})
+    except StorageConfiguration.DoesNotExist:
+        return JsonResponse({'code': 1, 'msg': '配置不存在'})
+    except Exception as e:
+        return JsonResponse({'code': 1, 'msg': f'更新失败: {str(e)}'})
+
+
+@login_required
+@require_http_methods(['POST'])
+def storage_config_set_default(request):
+    """设置默认存储配置"""
+    pk = request.POST.get('pk')
+    
+    if not pk:
+        return JsonResponse({'code': 1, 'msg': '配置ID不能为空'})
+    
+    try:
+        StorageConfiguration.objects.filter(is_default=True).update(is_default=False)
+        config = StorageConfiguration.objects.get(pk=pk)
+        config.is_default = True
+        config.save()
+        return JsonResponse({'code': 0, 'msg': '已设置为默认存储'})
+    except StorageConfiguration.DoesNotExist:
+        return JsonResponse({'code': 1, 'msg': '配置不存在'})
+    except Exception as e:
+        return JsonResponse({'code': 1, 'msg': f'设置失败: {str(e)}'})
+
+
+@login_required
+@require_http_methods(['POST'])
+def storage_config_delete(request):
+    """删除存储配置"""
+    pk = request.POST.get('pk')
+    
+    if not pk:
+        return JsonResponse({'code': 1, 'msg': '配置ID不能为空'})
+    
+    try:
+        config = StorageConfiguration.objects.get(pk=pk)
+        config.delete()
+        return JsonResponse({'code': 0, 'msg': '删除成功'})
+    except StorageConfiguration.DoesNotExist:
+        return JsonResponse({'code': 1, 'msg': '配置不存在'})
+    except Exception as e:
+        return JsonResponse({'code': 1, 'msg': f'删除失败: {str(e)}'})
 
 
 @login_required

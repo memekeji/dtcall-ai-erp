@@ -126,11 +126,22 @@ function openNoticeForm() {
     layer.open({
         type: 2,
         title: '新增公告',
-        area: ['75%', '100%'],
+        shadeClose: false,
         shade: 0.3,
         maxmin: true,
-        offset: 'rt',
+        area: ['80%', '90%'],
+        offset: 'r',
+        anim: 2,
         content: '{% url "system:admin_office:notice_create" %}',
+        success: function(layero, index) {
+            if (layero && typeof layero.css === 'function') {
+                layero.css({
+                    'right': '0',
+                    'top': '0',
+                    'height': '100%'
+                });
+            }
+        },
         end: function() {
             location.reload();
         }
@@ -141,11 +152,22 @@ function editNotice(id) {
     layer.open({
         type: 2,
         title: '编辑公告',
-        area: ['75%', '100%'],
+        shadeClose: false,
         shade: 0.3,
         maxmin: true,
-        offset: 'rt',
+        area: ['80%', '90%'],
+        offset: 'r',
+        anim: 2,
         content: noticeUpdateUrl + id + '/update/',
+        success: function(layero, index) {
+            if (layero && typeof layero.css === 'function') {
+                layero.css({
+                    'right': '0',
+                    'top': '0',
+                    'height': '100%'
+                });
+            }
+        },
         end: function() {
             location.reload();
         }

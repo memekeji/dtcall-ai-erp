@@ -4,8 +4,9 @@ from django.utils import timezone
 import json
 import logging
 import requests
+import uuid
 from apps.ai.models import (
-    AIWorkflow, WorkflowNode, WorkflowConnection
+    AIWorkflow, WorkflowNode, WorkflowConnection, AIWorkflowExecution, NodeExecution
 )
 from apps.ai.services.ai_analysis_service import AIAnalysisService
 from apps.ai.processors import get_processor_for_node_type, validate_node_config, get_all_node_types, generate_config_form
@@ -305,7 +306,7 @@ class WorkflowService:
             input_data: 输入数据
             
         Returns:
-            WorkflowExecution: 执行实例
+            AIWorkflowExecution: 执行实例
         """
         try:
             workflow = AIWorkflow.objects.get(id=workflow_id)
@@ -315,7 +316,7 @@ class WorkflowService:
                 raise ValidationError('只能执行已发布的工作流')
             
             # 创建执行实例
-            execution = WorkflowExecution.objects.create(
+            execution = AIWorkflowExecution.objects.create(
                 workflow=workflow,
                 created_by=user,
                 input_data=input_data or {}
@@ -352,7 +353,7 @@ class WorkflowService:
             execution_id: 执行实例ID
         """
         try:
-            execution = WorkflowExecution.objects.select_related('workflow').get(id=execution_id)
+            execution = AIWorkflowExecution.objects.select_related('workflow').get(id=execution_id)
             workflow = execution.workflow
             
             # 获取所有节点和连接
@@ -381,7 +382,7 @@ class WorkflowService:
             
         except Exception as e:
             logger.error(f'异步执行工作流失败: {str(e)}')
-            execution = WorkflowExecution.objects.get(id=execution_id)
+            execution = AIWorkflowExecution.objects.get(id=execution_id)
             execution.status = 'failed'
             execution.error_message = str(e)
             execution.completed_at = timezone.now()
@@ -1728,92 +1729,6 @@ class WorkflowService:
         
         return output
     
-    def _execute_multi_condition(self, config, context):
-        """
-        执行多条件分支节点逻辑
-        
-        Args:
-            config: 节点配置
-            context: 执行上下文
-            
-        Returns:
-            dict: 条件分支结果
-        """
-        output = {}
-        
-        try:
-            # 获取配置参数
-            conditions = config.get('conditions', [])
-            default_branch = config.get('default_branch', '')
-            evaluation_mode = config.get('evaluation_mode', 'first_match')  # first_match, all_matches
-            
-            matched_branches = []
-            condition_results = []
-            
-            for condition in conditions:
-                condition_expression = condition.get('expression', '')
-                branch_name = condition.get('branch', '')
-                condition_description = condition.get('description', '')
-                
-                if condition_expression:
-                    try:
-                        # 替换表达式中的变量
-                        for key, value in context.items():
-                            if isinstance(value, (str, int, float, bool)):
-                                condition_expression = condition_expression.replace(f'{{{{{key}}}}}', str(value))
-                        
-                        # 评估条件
-                        condition_result = eval(condition_expression, {}, context)
-                        condition_results.append({
-                            'branch': branch_name,
-                            'expression': condition_expression,
-                            'description': condition_description,
-                            'result': condition_result
-                        })
-                        
-                        if condition_result:
-                            matched_branches.append(branch_name)
-                            
-                            # 如果是first_match模式，找到第一个匹配就停止
-                            if evaluation_mode == 'first_match':
-                                break
-                                
-                    except Exception as e:
-                        condition_results.append({
-                            'branch': branch_name,
-                            'expression': condition_expression,
-                            'description': condition_description,
-                            'result': False,
-                            'error': str(e)
-                        })
-                        continue
-            
-            # 处理匹配结果
-            if evaluation_mode == 'first_match':
-                matched_branch = matched_branches[0] if matched_branches else None
-            else:
-                matched_branch = matched_branches if matched_branches else None
-            
-            # 如果没有匹配且设置了默认分支
-            if not matched_branch and default_branch:
-                matched_branch = default_branch
-                output['used_default_branch'] = True
-            
-            output['matched_branch'] = matched_branch
-            output['matched_branches'] = matched_branches
-            output['condition_results'] = condition_results
-            output['evaluation_mode'] = evaluation_mode
-            output['total_conditions'] = len(conditions)
-            output['matched_conditions'] = len(matched_branches)
-            output['multi_condition_success'] = True
-            
-        except Exception as e:
-            logger.error(f'多条件分支节点执行失败: {str(e)}')
-            output['multi_condition_success'] = False
-            output['error_message'] = str(e)
-        
-        return output
-    
     def _execute_ai_generation(self, config, context):
         """
         执行AI生成节点逻辑
@@ -2024,7 +1939,7 @@ class WorkflowService:
         Returns:
             QuerySet: 执行实例查询集
         """
-        return WorkflowExecution.objects.filter(workflow_id=workflow_id, **filters).order_by('-created_at')
+        return AIWorkflowExecution.objects.filter(workflow_id=workflow_id, **filters).order_by('-created_at')
     
     def get_execution_details(self, execution_id):
         """
@@ -2037,7 +1952,7 @@ class WorkflowService:
             dict: 执行详情
         """
         try:
-            execution = WorkflowExecution.objects.get(id=execution_id)
+            execution = AIWorkflowExecution.objects.get(id=execution_id)
             
             # 获取节点执行记录
             node_executions = list(execution.node_executions.all().values(
@@ -2060,7 +1975,7 @@ class WorkflowService:
                 'node_executions': node_executions
             }
             
-        except WorkflowExecution.DoesNotExist:
+        except AIWorkflowExecution.DoesNotExist:
             logger.error(f'执行实例不存在: {execution_id}')
             raise ValidationError('执行实例不存在')
         except Exception as e:
@@ -2192,8 +2107,3 @@ class WorkflowService:
         except Exception as e:
             logger.error(f'获取节点类型失败: {str(e)}')
             return []
-
-# 添加时区导入
-from django.utils import timezone
-from django.core.exceptions import PermissionDenied
-import uuid

@@ -368,10 +368,22 @@
                     layer.open({
                         type: 2,
                         title: '新建项目',
-                        content: '/adm/project/add/',
-                        area: ['75%', '90%'],
-                        anim: 2,
+                        shadeClose: false,
+                        shade: 0.3,
                         maxmin: true,
+                        area: ['80%', '90%'],
+                        offset: 'r',
+                        anim: 2,
+                        content: '/adm/project/add/',
+                        success: function(layero, index) {
+                            if (layero && typeof layero.css === 'function') {
+                                layero.css({
+                                    'right': '0',
+                                    'top': '0',
+                                    'height': '100%'
+                                });
+                            }
+                        },
                         end: function () {
                             if (table && table.reload) {
                                 table.reload('projectTable');

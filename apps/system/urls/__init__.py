@@ -4,8 +4,13 @@ from apps.system import views
 app_name = 'system'
 
 urlpatterns = [
-    # 系统配置
     path('config/', views.config_list, name='config_list'),
+    path('config/toggle/', views.config_toggle, name='config_toggle'),
+    path('config/update/', views.config_update, name='config_update'),
+    path('config/upload-logo/', views.config_upload_logo, name='config_upload_logo'),
+    path('config/storage/toggle/', views.storage_config_toggle, name='storage_config_toggle'),
+    path('config/storage/set_default/', views.storage_config_set_default, name='storage_config_set_default'),
+    path('config/storage/delete/', views.storage_config_delete, name='storage_config_delete'),
     path('config/add/', views.config_form, name='config_add'),
     path('config/<int:pk>/edit/', views.config_form, name='config_edit'),
     
@@ -52,4 +57,10 @@ urlpatterns = [
     path('admin_office/', include('apps.system.urls.admin_office_urls')),
     # 人事管理 - 部门页面
     path('department/', views.department_page, name='department_page'),
+    
+    # 存储配置
+    path('storage/', include('apps.system.urls.storage_config_urls')),
+    
+    # 服务配置
+    path('config/service/', include('apps.system.urls.service_config_urls')),
 ]

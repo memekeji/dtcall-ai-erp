@@ -60,15 +60,43 @@
                     layer.open({
                         type: 2,
                         title: '收票详情',
+                        shadeClose: false,
+                        shade: 0.3,
+                        maxmin: true,
+                        area: ['80%', '90%'],
+                        offset: 'r',
+                        anim: 2,
                         content: '/adm/finance/receiveinvoice/view/' + data.id + '/',
-                        area: ['800px', '600px']
+                        success: function(layero, index) {
+                            if (layero && typeof layero.css === 'function') {
+                                layero.css({
+                                    'right': '0',
+                                    'top': '0',
+                                    'height': '100%'
+                                });
+                            }
+                        }
                     });
                 } else if (layEvent === 'edit') {
                     layer.open({
                         type: 2,
                         title: '编辑收票',
+                        shadeClose: false,
+                        shade: 0.3,
+                        maxmin: true,
+                        area: ['80%', '90%'],
+                        offset: 'r',
+                        anim: 2,
                         content: '/adm/finance/receiveinvoice/edit/' + data.id + '/',
-                        area: ['700px', '500px'],
+                        success: function(layero, index) {
+                            if (layero && typeof layero.css === 'function') {
+                                layero.css({
+                                    'right': '0',
+                                    'top': '0',
+                                    'height': '100%'
+                                });
+                            }
+                        },
                         end: function() {
                             table.reload('receiveInvoiceTable');
                         }
@@ -82,8 +110,22 @@
             layer.open({
                 type: 2,
                 title: '新增收票',
+                shadeClose: false,
+                shade: 0.3,
+                maxmin: true,
+                area: ['80%', '90%'],
+                offset: 'r',
+                anim: 2,
                 content: '/adm/finance/receiveinvoice/add/',
-                area: ['700px', '500px'],
+                success: function(layero, index) {
+                    if (layero && typeof layero.css === 'function') {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    }
+                },
                 end: function() {
                     layui.table.reload('receiveInvoiceTable');
                 }

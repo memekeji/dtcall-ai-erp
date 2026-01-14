@@ -7,6 +7,11 @@ import json
 
 User = get_user_model()
 
+try:
+    from apps.oa.models import MeetingRoom as OAMeetingRoom
+except ImportError:
+    OAMeetingRoom = None
+
 
 class AssetCategory(models.Model):
     """资产分类"""
@@ -647,27 +652,6 @@ class DocumentTargetUser(models.Model):
         return f"{self.user.name} - {self.document.title}"
 
 
-class MeetingRoom(models.Model):
-    """会议室管理"""
-    name = models.CharField(max_length=100, verbose_name='会议室名称')
-    location = models.CharField(max_length=200, verbose_name='位置')
-    capacity = models.IntegerField(verbose_name='容纳人数')
-    equipment = models.TextField(blank=True, verbose_name='设备配置')
-    status = models.BooleanField(default=True, verbose_name='是否可用')
-    description = models.TextField(blank=True, verbose_name='备注')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
-
-    class Meta:
-        verbose_name = '会议室'
-        verbose_name_plural = verbose_name
-        db_table = 'system_meeting_room'
-        ordering = ['name']
-
-    def __str__(self):
-        return self.name
-
-
 class MeetingReservation(models.Model):
     """会议室预订"""
     STATUS_CHOICES = (
@@ -677,7 +661,14 @@ class MeetingReservation(models.Model):
         ('cancelled', '已取消'),
     )
     
-    meeting_room = models.ForeignKey(MeetingRoom, on_delete=models.CASCADE, verbose_name='会议室')
+    if OAMeetingRoom:
+        meeting_room = models.ForeignKey(OAMeetingRoom, on_delete=models.CASCADE, verbose_name='会议室')
+    else:
+        meeting_room_id = models.IntegerField(verbose_name='会议室ID')
+        @property
+        def meeting_room(self):
+            return None
+    
     title = models.CharField(max_length=200, verbose_name='会议主题')
     organizer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='system_meeting_reservations', verbose_name='组织者')
     start_time = models.DateTimeField(verbose_name='开始时间')
@@ -695,7 +686,7 @@ class MeetingReservation(models.Model):
         ordering = ['-start_time']
 
     def __str__(self):
-        return f"{self.meeting_room.name} - {self.title}"
+        return f"{self.meeting_room.name if self.meeting_room else '未知'} - {self.title}"
 
 
 from django.db.models.signals import post_save
@@ -703,6 +694,288 @@ from django.dispatch import receiver
 from django.conf import settings
 import os
 import json
+
+
+class StorageProvider:
+    LOCAL = 'local'
+    ALIYUN = 'aliyun'
+    TENCENT = 'tencent'
+    HUAWEI = 'huawei'
+    BAIDU = 'baidu'
+    QINIU = 'qiniu'
+    AWS = 'aws'
+    FEINIU_NAS = 'feiniu_nas'
+    QUNHUI_NAS = 'qunhui_nas'
+    WEBDAV = 'webdav'
+
+    CHOICES = (
+        (LOCAL, '本地存储'),
+        (ALIYUN, '阿里云OSS'),
+        (TENCENT, '腾讯云COS'),
+        (HUAWEI, '华为云OBS'),
+        (BAIDU, '百度云BOS'),
+        (QINIU, '七牛云KODO'),
+        (AWS, 'AWS S3'),
+        (FEINIU_NAS, '飞牛NAS'),
+        (QUNHUI_NAS, '群晖NAS'),
+        (WEBDAV, 'WebDAV'),
+    )
+
+
+class StorageConfiguration(models.Model):
+    """存储配置"""
+    STORAGE_TYPES = (
+        (StorageProvider.LOCAL, '本地存储'),
+        (StorageProvider.ALIYUN, '阿里云OSS'),
+        (StorageProvider.TENCENT, '腾讯云COS'),
+        (StorageProvider.HUAWEI, '华为云OBS'),
+        (StorageProvider.BAIDU, '百度云BOS'),
+        (StorageProvider.QINIU, '七牛云KODO'),
+        (StorageProvider.AWS, 'AWS S3'),
+        (StorageProvider.FEINIU_NAS, '飞牛NAS'),
+        (StorageProvider.QUNHUI_NAS, '群晖NAS'),
+        (StorageProvider.WEBDAV, 'WebDAV'),
+    )
+
+    STATUS_CHOICES = (
+        ('active', '启用'),
+        ('inactive', '禁用'),
+        ('testing', '测试中'),
+        ('error', '错误'),
+    )
+
+    name = models.CharField(max_length=100, verbose_name='配置名称')
+    storage_type = models.CharField(max_length=50, choices=STORAGE_TYPES, verbose_name='存储类型')
+    is_default = models.BooleanField(default=False, verbose_name='是否默认')
+    sync_to_local = models.BooleanField(default=False, verbose_name='同步到本地')
+
+    access_key = models.CharField(max_length=200, blank=True, verbose_name='AccessKey')
+    secret_key = models.CharField(max_length=200, blank=True, verbose_name='SecretKey')
+    bucket_name = models.CharField(max_length=100, blank=True, verbose_name='存储桶名称')
+    endpoint = models.CharField(max_length=200, blank=True, verbose_name='Endpoint地址')
+    region = models.CharField(max_length=100, blank=True, verbose_name='区域')
+    domain = models.CharField(max_length=200, blank=True, verbose_name='访问域名')
+    base_path = models.CharField(max_length=200, blank=True, verbose_name='基础路径')
+
+    nas_host = models.CharField(max_length=200, blank=True, verbose_name='NAS主机地址')
+    nas_port = models.IntegerField(default=0, verbose_name='NAS端口')
+    nas_share_path = models.CharField(max_length=200, blank=True, verbose_name='共享路径')
+    webdav_url = models.CharField(max_length=500, blank=True, verbose_name='WebDAV地址')
+    webdav_username = models.CharField(max_length=100, blank=True, verbose_name='WebDAV用户名')
+    webdav_password = models.CharField(max_length=100, blank=True, verbose_name='WebDAV密码')
+
+    local_path = models.CharField(max_length=500, blank=True, verbose_name='本地存储路径')
+    max_file_size = models.BigIntegerField(default=0, verbose_name='最大文件大小(字节)')
+    allowed_extensions = models.TextField(blank=True, verbose_name='允许的文件扩展名')
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='inactive', verbose_name='状态')
+    last_test_time = models.DateTimeField(null=True, blank=True, verbose_name='最后测试时间')
+    last_error = models.TextField(blank=True, verbose_name='最后错误信息')
+
+    description = models.TextField(blank=True, verbose_name='描述')
+    creator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name='创建人')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+
+    class Meta:
+        verbose_name = '存储配置'
+        verbose_name_plural = verbose_name
+        db_table = 'system_storage_config'
+        ordering = ['-is_default', 'name']
+
+    def __str__(self):
+        return f"{self.name} ({self.get_storage_type_display()})"
+
+    def save(self, *args, **kwargs):
+        if self.is_default:
+            StorageConfiguration.objects.filter(is_default=True).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
+
+
+class ServiceCategory:
+    SMS = 'sms'
+    STT = 'stt'
+    TTS = 'tts'
+    OCR = 'ocr'
+    AI = 'ai'
+
+    CHOICES = (
+        (SMS, '短信服务'),
+        (STT, '语音转文本'),
+        (TTS, '文本转语音'),
+        (OCR, 'OCR识别'),
+        (AI, 'AI智能服务'),
+    )
+
+    ICONS = {
+        SMS: 'layui-icon-cellphone',
+        STT: 'layui-icon-audio',
+        TTS: 'layui-icon-speaker',
+        OCR: 'layui-icon-picture',
+        AI: 'layui-icon-engine',
+    }
+
+
+class ServiceProvider:
+    ALIYUN = 'aliyun'
+    TENCENT = 'tencent'
+    HUAWEI = 'huawei'
+    BAIDU = 'baidu'
+    QINIU = 'qiniu'
+    AWS = 'aws'
+    AZURE = 'azure'
+    ANTHROPIC = 'anthropic'
+    OPENAI = 'openai'
+    ZHIPU = 'zhipu'
+
+    SMS_PROVIDERS = (
+        (ALIYUN, '阿里云'),
+        (TENCENT, '腾讯云'),
+        (HUAWEI, '华为云'),
+        (BAIDU, '百度云'),
+    )
+
+    STT_PROVIDERS = (
+        (ALIYUN, '阿里云'),
+        (TENCENT, '腾讯云'),
+        (BAIDU, '百度云'),
+        (AZURE, 'Azure'),
+    )
+
+    TTS_PROVIDERS = (
+        (ALIYUN, '阿里云'),
+        (TENCENT, '腾讯云'),
+        (BAIDU, '百度云'),
+        (AZURE, 'Azure'),
+    )
+
+    OCR_PROVIDERS = (
+        (ALIYUN, '阿里云'),
+        (TENCENT, '腾讯云'),
+        (BAIDU, '百度云'),
+    )
+
+    AI_PROVIDERS = (
+        (OPENAI, 'OpenAI'),
+        (AZURE, 'Azure OpenAI'),
+        (ANTHROPIC, 'Anthropic'),
+        (BAIDU, '百度文心'),
+        (ALIYUN, '阿里通义千问'),
+        (TENCENT, '腾讯混元'),
+        (ZHIPU, '智谱AI'),
+    )
+
+
+class ServiceConfiguration(models.Model):
+    """服务配置"""
+    CATEGORY_CHOICES = (
+        (ServiceCategory.SMS, '短信服务'),
+        (ServiceCategory.STT, '语音转文本'),
+        (ServiceCategory.TTS, '文本转语音'),
+        (ServiceCategory.OCR, 'OCR识别'),
+        (ServiceCategory.AI, 'AI智能服务'),
+    )
+
+    STATUS_CHOICES = (
+        ('active', '启用'),
+        ('inactive', '禁用'),
+        ('testing', '测试中'),
+        ('error', '错误'),
+    )
+
+    name = models.CharField(max_length=100, verbose_name='配置名称')
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, verbose_name='服务类别')
+    provider = models.CharField(max_length=50, verbose_name='服务商')
+    
+    api_key = models.CharField(max_length=500, blank=True, verbose_name='API密钥')
+    api_secret = models.CharField(max_length=500, blank=True, verbose_name='API密钥Secret')
+    base_url = models.CharField(max_length=500, blank=True, verbose_name='接口地址')
+    
+    template_id = models.CharField(max_length=100, blank=True, verbose_name='模板ID')
+    sign_name = models.CharField(max_length=100, blank=True, verbose_name='签名名称')
+    
+    request_rate_limit = models.IntegerField(default=0, verbose_name='请求频率限制(次/秒)')
+    max_audio_size = models.BigIntegerField(default=0, verbose_name='最大音频大小(字节)')
+    supported_formats = models.CharField(max_length=200, blank=True, verbose_name='支持格式')
+    
+    extra_config = models.TextField(blank=True, verbose_name='额外配置(JSON格式)')
+
+    is_enabled = models.BooleanField(default=False, verbose_name='是否启用')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='inactive', verbose_name='状态')
+    last_test_time = models.DateTimeField(null=True, blank=True, verbose_name='最后测试时间')
+    last_error = models.TextField(blank=True, verbose_name='最后错误信息')
+
+    description = models.TextField(blank=True, verbose_name='描述')
+    creator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name='创建人')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+
+    class Meta:
+        verbose_name = '服务配置'
+        verbose_name_plural = verbose_name
+        db_table = 'system_service_config'
+        ordering = ['category', 'name']
+
+    def __str__(self):
+        return f"{self.name} ({self.get_category_display()})"
+
+    def get_provider_display(self):
+        provider_value = self.provider
+        if self.category == ServiceCategory.SMS:
+            providers = ServiceProvider.SMS_PROVIDERS
+        elif self.category == ServiceCategory.STT:
+            providers = ServiceProvider.STT_PROVIDERS
+        elif self.category == ServiceCategory.TTS:
+            providers = ServiceProvider.TTS_PROVIDERS
+        elif self.category == ServiceCategory.OCR:
+            providers = ServiceProvider.OCR_PROVIDERS
+        elif self.category == ServiceCategory.AI:
+            providers = ServiceProvider.AI_PROVIDERS
+        else:
+            return provider_value
+
+        for value, text in providers:
+            if value == provider_value:
+                return text
+        return provider_value
+
+    def get_icon(self):
+        return ServiceCategory.ICONS.get(self.category, 'layui-icon技术服务')
+
+    def get_api_key_masked(self):
+        api_key = self.api_key
+        if len(api_key) <= 4:
+            return '****'
+        return '*' * (len(api_key) - 4) + api_key[-4:]
+
+    def to_dict(self):
+        import json
+        extra_config = {}
+        if self.extra_config:
+            try:
+                extra_config = json.loads(self.extra_config)
+            except json.JSONDecodeError:
+                pass
+
+        return {
+            'pk': self.pk,
+            'name': self.name,
+            'category': self.category,
+            'category_display': self.get_category_display(),
+            'provider': self.provider,
+            'provider_display': self.get_provider_display(),
+            'api_key_masked': self.get_api_key_masked(),
+            'base_url': self.base_url,
+            'template_id': self.template_id,
+            'sign_name': self.sign_name,
+            'description': self.description,
+            'is_enabled': self.is_enabled,
+            'status': self.status,
+            'icon': self.get_icon(),
+            'test_available': self.status == 'active',
+            'extra_config': extra_config,
+        }
+
 
 @receiver(post_save, sender=MeetingReservation)
 def create_meeting_record(sender, instance, created, **kwargs):

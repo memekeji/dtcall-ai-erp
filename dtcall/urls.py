@@ -4,11 +4,10 @@ URL configuration for dtcall project.
 The `urlpatterns` list routes URLs to views. For more information please see:
     https://docs.djangoproject.com/en/5.2/topics/http/urls/
 """
-from django.contrib import admin
 from django.urls import path, include, re_path
 from django.views.generic import RedirectView, TemplateView
 import apps.user.views.captcha_views
-from apps.user.views import group_views
+from apps.user.views import admin_views
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic.base import RedirectView
@@ -22,9 +21,6 @@ urlpatterns = [
     path('', RedirectView.as_view(url='/user/login/', permanent=False), name='home'),
     # 测试页面
     path('test-jquery/', TemplateView.as_view(template_name='test_jquery.html'), name='test_jquery'),
-    
-    # Django管理后台
-    path('admin/', admin.site.urls),
     
     # 第三方应用
     path('captcha/', include('captcha.urls')),
@@ -75,7 +71,7 @@ urlpatterns = [
     path('message/', include('apps.message.urls', namespace='message')),
     
     # 登出
-    path('logout/', apps.user.views.logout_view, name='logout'),
+    path('logout/', admin_views.logout_view, name='logout'),
     
     # AI智能服务
     path('ai/', include('apps.ai.urls', namespace='ai')),
@@ -446,6 +442,8 @@ urlpatterns = [
     
     # API路由
     path('api/', include('apps.contract.api_urls')),
+    # 通用API路由
+    path('api/common/', include('apps.common.urls')),
     # JWT认证路由
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

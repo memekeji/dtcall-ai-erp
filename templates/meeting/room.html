@@ -23,7 +23,7 @@
                 <div class="layui-inline">
                     <label class="layui-form-label">关键词</label>
                     <div class="layui-input-inline">
-                        <input type="text" name="keywords" placeholder="请输入关键词" class="layui-input">
+                        <input type="text" name="keywords" placeholder="请输入关键词" class="layui-input" id="keywordsInput">
                     </div>
                 </div>
                 <div class="layui-inline">
@@ -32,136 +32,184 @@
                 </div>
             </div>
         </div>
-        <table id="dataTable" lay-filter="dataTable"></table>
+        <table class="layui-table" id="dataTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>会议室名称</th>
+                    <th>编号</th>
+                    <th>位置</th>
+                    <th>容量</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <tr><td colspan="7" style="text-align:center;">正在加载数据...</td></tr>
+            </tbody>
+        </table>
     </div>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
-// 获取CSRF token
-function getCookie(name) {
-    var cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        var cookies = document.cookie.split(';');
-        for (var i = 0; i < cookies.length; i++) {
-            var cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
-
-var csrftoken = getCookie('csrftoken');
-
-// 设置AJAX默认请求头
-$.ajaxSetup({
-    beforeSend: function(xhr, settings) {
-        if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
-            xhr.setRequestHeader("X-CSRFToken", csrftoken);
-        }
-    }
-});
-
-layui.use(['table', 'form', 'jquery'], function(){
-    var table = layui.table;
+layui.use(['jquery', 'layer'], function(){
     var $ = layui.jquery;
-    var form = layui.form;
+    var layer = layui.layer;
+    var csrfToken = $('meta[name="csrf-token"]').attr('content');
     
-    // 初始化表格
-    table.render({
-        elem: '#dataTable',
-        url: '/system/admin_office/meeting_room/',
-        method: 'post',
-        page: true,
-        cols: [[
-            {field: 'id', title: 'ID', width: 80},
-            {field: 'title', title: '会议室名称'},
-            {field: 'keep_name', title: '负责人'},
-            {field: 'create_time', title: '创建时间'},
-            {fixed: 'right', title: '操作', toolbar: '#actionBar', width: 200}
-        ]]
-    });
+    function loadData(page, keywords){
+        $.ajax({
+            url: '/system/admin_office/meeting_room/',
+            type: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/json'
+            },
+            data: JSON.stringify({page: page || 1, keywords: keywords || ''}),
+            success: function(res){
+                if(res.code === 200 && res.data){
+                    renderTable(res.data);
+                } else {
+                    $('#tableBody').html('<tr><td colspan="7" style="text-align:center;color:red;">加载失败: ' + (res.msg || '未知错误') + '</td></tr>');
+                }
+            },
+            error: function(xhr){
+                $('#tableBody').html('<tr><td colspan="7" style="text-align:center;color:red;">网络请求失败 (' + xhr.status + ')</td></tr>');
+            }
+        });
+    }
     
-    // 搜索按钮点击事件
+    function renderTable(data){
+        var html = '';
+        if(data.length === 0){
+            html = '<tr><td colspan="7" style="text-align:center;">暂无数据</td></tr>';
+        } else {
+            for(var i = 0; i < data.length; i++){
+                var item = data[i];
+                html += '<tr>' +
+                    '<td>' + item.id + '</td>' +
+                    '<td>' + item.name + '</td>' +
+                    '<td>' + (item.code || '') + '</td>' +
+                    '<td>' + (item.location || '') + '</td>' +
+                    '<td>' + item.capacity + '人</td>' +
+                    '<td>' + (item.status_display || '未知') + '</td>' +
+                    '<td>' +
+                    '<button class="layui-btn layui-btn-xs" onclick="editRoom(' + item.id + ')">编辑</button>' +
+                    '<button class="layui-btn layui-btn-xs layui-btn-normal" onclick="viewRoom(' + item.id + ')">查看</button>' +
+                    '<button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteRoom(' + item.id + ')">删除</button>' +
+                    '</td>' +
+                    '</tr>';
+            }
+        }
+        $('#tableBody').html(html);
+    }
+    
+    window.editRoom = function(id){
+        layer.open({
+            type: 2,
+            title: '编辑会议室',
+            shadeClose: false,
+            shade: 0.3,
+            maxmin: true,
+            area: ['80%', '90%'],
+            offset: 'r',
+            anim: 2,
+            content: '/system/admin_office/meeting_room/update/' + id + '/',
+            success: function(layero, index) {
+                if (layero && typeof layero.css === 'function') {
+                    layero.css({
+                        'right': '0',
+                        'top': '0',
+                        'height': '100%'
+                    });
+                }
+            },
+            end: function(){
+                loadData(1, $('#keywordsInput').val());
+            }
+        });
+    };
+    
+    window.viewRoom = function(id){
+        layer.open({
+            type: 2,
+            title: '查看会议室',
+            shadeClose: false,
+            shade: 0.3,
+            maxmin: true,
+            area: ['80%', '90%'],
+            offset: 'r',
+            anim: 2,
+            content: '/system/admin_office/meeting_room/update/' + id + '/',
+            success: function(layero, index) {
+                if (layero && typeof layero.css === 'function') {
+                    layero.css({
+                        'right': '0',
+                        'top': '0',
+                        'height': '100%'
+                    });
+                }
+            }
+        });
+    };
+    
+    window.deleteRoom = function(id){
+        layer.confirm('确定要删除该会议室吗？', function(index){
+            $.ajax({
+                url: '/system/admin_office/meeting_room/delete/' + id + '/',
+                type: 'POST',
+                headers: {'X-CSRFToken': csrfToken},
+                success: function(res){
+                    if(res.code === 200){
+                        layer.msg('删除成功');
+                        loadData(1, $('#keywordsInput').val());
+                    } else {
+                        layer.msg(res.msg || '删除失败');
+                    }
+                }
+            });
+            layer.close(index);
+        });
+    };
+    
+    loadData(1, '');
+    
     $('#searchBtn').on('click', function(){
-        var keywords = $('input[name="keywords"]').val();
-        table.reload('dataTable', {
-            where: {
-                keywords: keywords
-            }
-        });
+        loadData(1, $('#keywordsInput').val());
     });
     
-    // 重置按钮点击事件
     $('#resetBtn').on('click', function(){
-        $('input[name="keywords"]').val('');
-        table.reload('dataTable', {
-            where: {
-                keywords: ''
-            }
-        });
+        $('#keywordsInput').val('');
+        loadData(1, '');
     });
     
-    // 添加按钮点击事件
     $('#addBtn').on('click', function(){
         layer.open({
             type: 2,
             title: '添加会议室',
+            shadeClose: false,
+            shade: 0.3,
+            maxmin: true,
+            area: ['80%', '90%'],
+            offset: 'r',
+            anim: 2,
             content: '/system/admin_office/meeting_room/create/',
-            area: ['800px', '500px'],
+            success: function(layero, index) {
+                if (layero && typeof layero.css === 'function') {
+                    layero.css({
+                        'right': '0',
+                        'top': '0',
+                        'height': '100%'
+                    });
+                }
+            },
             end: function(){
-                table.reload('dataTable');
+                loadData(1, $('#keywordsInput').val());
             }
         });
     });
-    
-    // 表格工具条事件
-    table.on('tool(dataTable)', function(obj){
-        var data = obj.data;
-        if(obj.event === 'edit'){
-            layer.open({
-                type: 2,
-                title: '编辑会议室',
-                content: '{% url "adm_meeting_room_edit" %}?id=' + data.id,
-                area: ['800px', '500px'],
-                end: function(){
-                    table.reload('dataTable');
-                }
-            });
-        } else if(obj.event === 'view'){
-            layer.open({
-                type: 2,
-                title: '查看会议室',
-                content: '/system/admin_office/meeting_room/update/' + data.id + '/',
-                area: ['800px', '500px']
-            });
-        } else if(obj.event === 'delete'){
-            layer.confirm('确定要删除该会议室吗？', function(index){
-                $.ajax({
-                    url: '/system/admin_office/meeting_room/delete/',
-                    type: 'post',
-                    data: {id: data.id},
-                    success: function(res){
-                        if(res.code === 0){
-                            layer.msg('删除成功');
-                            table.reload('dataTable');
-                        } else {
-                            layer.msg(res.msg);
-                        }
-                    }
-                });
-                layer.close(index);
-            });
-        }
-    });
 });
-</script>
-
-<script type="text/html" id="actionBar">
-    <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
-    <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="view">查看</a>
-    <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
 </script>
 {% endblock %}

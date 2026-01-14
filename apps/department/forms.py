@@ -86,7 +86,6 @@ class DepartmentForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         
         # 动态设置上级部门choices
-        # 构建部门选择列表，格式：(部门ID, "部门名称")
         departments = Department.objects.all().order_by('sort', 'id')
         pid_choices = [(0, '无上级部门（顶级部门）')]  # 默认选项
         for dept in departments:

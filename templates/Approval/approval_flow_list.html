@@ -48,8 +48,22 @@ window.addItem = function() {
     layer.open({
         type: 2,
         title: '新增审批流程',
+        shadeClose: false,
+        shade: 0.3,
+        maxmin: true,
+        area: ['80%', '90%'],
+        offset: 'r',
+        anim: 2,
         content: '/approval/approvalflow/add/',
-        area: ['80%', '80%'],
+        success: function(layero, index) {
+            if (layero && typeof layero.css === 'function') {
+                layero.css({
+                    'right': '0',
+                    'top': '0',
+                    'height': '100%'
+                });
+            }
+        },
         end: function() {
             refreshTable();
         }
@@ -60,8 +74,22 @@ window.editFlow = function(id) {
     layer.open({
         type: 2,
         title: '编辑审批流程',
+        shadeClose: false,
+        shade: 0.3,
+        maxmin: true,
+        area: ['80%', '90%'],
+        offset: 'r',
+        anim: 2,
         content: '/approval/approvalflow/' + id + '/edit/',
-        area: ['80%', '80%'],
+        success: function(layero, index) {
+            if (layero && typeof layero.css === 'function') {
+                layero.css({
+                    'right': '0',
+                    'top': '0',
+                    'height': '100%'
+                });
+            }
+        },
         end: function() {
             refreshTable();
         }
@@ -98,9 +126,22 @@ window.previewFlow = function(id) {
     layer.open({
         type: 2,
         title: '流程预览',
+        shadeClose: false,
+        shade: 0.3,
+        maxmin: true,
+        area: ['80%', '90%'],
+        offset: 'r',
+        anim: 2,
         content: '/approval/approvalflow/' + id + '/preview/',
-        area: ['85%', '90%'],
-        maxmin: true
+        success: function(layero, index) {
+            if (layero && typeof layero.css === 'function') {
+                layero.css({
+                    'right': '0',
+                    'top': '0',
+                    'height': '100%'
+                });
+            }
+        }
     });
 };
 

@@ -123,21 +123,25 @@
             
             // 新增按钮
             document.getElementById('addBtn').addEventListener('click', function(){
-                // 计算窗口尺寸：右侧75%宽度，全屏高度
-                var windowWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
-                var windowHeight = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
-                var rightWidth = Math.floor(windowWidth * 0.75);
-                
                 layer.open({
                     type: 2,
                     title: '新增奖罚记录',
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '90%'],
+                    offset: 'r',
+                    anim: 2,
                     content: '/user/reward-punishment/add/',
-                    area: [rightWidth + 'px', windowHeight + 'px'],
-                    offset: 'rt', // 右上角对齐
-                    anim: 2, // 从右侧滑入动画
-                    move: false, // 禁止拖动
-                    resize: false, // 禁止调整大小
-                    shade: 0, // 禁用遮罩层
+                    success: function(layero, index) {
+                        if (layero && typeof layero.css === 'function') {
+                            layero.css({
+                                'right': '0',
+                                'top': '0',
+                                'height': '100%'
+                            });
+                        }
+                    },
                     end: function(){
                         table.reload('rewardPunishmentTable');
                     }
@@ -148,21 +152,25 @@
             table.on('tool(rewardPunishmentTable)', function(obj){
                 var data = obj.data;
                 if(obj.event === 'edit'){
-                    // 计算窗口尺寸：右侧75%宽度，全屏高度
-                    var windowWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
-                    var windowHeight = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
-                    var rightWidth = Math.floor(windowWidth * 0.75);
-                    
                     layer.open({
                         type: 2,
                         title: '编辑奖罚记录',
+                        shadeClose: false,
+                        shade: 0.3,
+                        maxmin: true,
+                        area: ['80%', '90%'],
+                        offset: 'r',
+                        anim: 2,
                         content: '{% url "user:reward_punishment_edit" 0 %}'.replace('0', data.id),
-                        area: [rightWidth + 'px', windowHeight + 'px'],
-                        offset: 'rt', // 右上角对齐
-                        anim: 2, // 从右侧滑入动画
-                        move: false, // 禁止拖动
-                        resize: false, // 禁止调整大小
-                        shade: 0, // 禁用遮罩层
+                        success: function(layero, index) {
+                            if (layero && typeof layero.css === 'function') {
+                                layero.css({
+                                    'right': '0',
+                                    'top': '0',
+                                    'height': '100%'
+                                });
+                            }
+                        },
                         end: function(){
                             table.reload('rewardPunishmentTable');
                         }

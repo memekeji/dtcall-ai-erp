@@ -14,32 +14,8 @@ from .models import (
 from .forms import EmployeeForm
 import logging
 from django.contrib import messages
-from django.contrib.auth import logout
-from django.contrib.auth.models import AnonymousUser
-from django.shortcuts import redirect
 from django.contrib.auth.decorators import login_required
 from .decorators import ajax_error_handler
-
-def logout_view(request):
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info('登出视图开始处理请求')
-    logger.info(f'请求方法: {request.method}')
-    
-    try:
-        request.session.flush()
-        if hasattr(request, 'user'):
-            from django.contrib.auth.models import AnonymousUser
-            request.user = AnonymousUser()
-        logger.info('手动清除会话成功')
-        
-        from django.shortcuts import redirect
-        return redirect('/user/login/')
-        
-    except Exception as e:
-        logger.error(f'登出处理异常: {str(e)}', exc_info=True)
-        return JsonResponse({'code': 1, 'msg': f'服务器错误: {str(e)}'}, status=500)
-
 
 
 class DepartmentCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):

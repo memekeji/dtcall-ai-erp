@@ -3,9 +3,44 @@ from django.utils import timezone
 from django.core.cache import cache
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-
 import logging
+
 logger = logging.getLogger(__name__)
+
+MENU_CACHE_KEY_PREFIX = 'menu_cache_'
+
+
+def get_menu_cache_key(menu_id=None, tree=False):
+    """生成菜单缓存键"""
+    if menu_id is None:
+        return f"{MENU_CACHE_KEY_PREFIX}all_menus"
+    elif tree:
+        return f"{MENU_CACHE_KEY_PREFIX}tree_{menu_id}"
+    else:
+        return f"{MENU_CACHE_KEY_PREFIX}item_{menu_id}"
+
+
+def clear_menu_cache_data(menu_id=None):
+    """清除菜单相关缓存（不清除会话缓存）"""
+    try:
+        if menu_id is None:
+            cache_pattern = f"{MENU_CACHE_KEY_PREFIX}*"
+            try:
+                keys = cache.keys(cache_pattern)
+                if keys:
+                    cache.delete_many(keys)
+                    logger.debug(f'已清除 {len(keys)} 个菜单缓存键')
+            except Exception:
+                cache.clear()
+                logger.warning('无法精确清除菜单缓存，已使用全局清除')
+        else:
+            specific_key = get_menu_cache_key(menu_id)
+            cache.delete(specific_key)
+            cache.delete(get_menu_cache_key(tree=True))
+            cache.delete(get_menu_cache_key())
+            logger.debug(f'菜单[{menu_id}]缓存已清除')
+    except Exception as e:
+        logger.error(f'清除菜单缓存失败: {e}')
 
 
 class Menu(models.Model):
@@ -38,27 +73,24 @@ class Menu(models.Model):
         if self.module and not self.module.is_active:
             return False
         
-        if self.pid and not self.pid.is_available():
-            return False
+        if self.pid:
+            if self.pid.id == self.id:
+                return False
+            if not self.pid.is_available():
+                return False
         
         return True
 
 
 @receiver(post_save, sender=Menu)
-def clear_menu_cache(sender, instance, **kwargs):
-    """菜单保存时清除菜单缓存"""
-    try:
-        cache.clear()
-        logger.debug(f'菜单[{instance.id}]已保存，已清除菜单缓存')
-    except Exception as e:
-        logger.error(f'清除菜单缓存失败: {e}')
+def menu_post_save_handler(sender, instance, **kwargs):
+    """菜单保存时清除菜单缓存（不清除会话）"""
+    clear_menu_cache_data(instance.id if instance.id else None)
+    logger.debug(f'菜单[{instance.id}]已保存，菜单缓存已更新')
 
 
 @receiver(post_delete, sender=Menu)
-def clear_menu_cache_on_delete(sender, instance, **kwargs):
-    """菜单删除时清除菜单缓存"""
-    try:
-        cache.clear()
-        logger.debug(f'菜单[{instance.id}]已删除，已清除菜单缓存')
-    except Exception as e:
-        logger.error(f'清除菜单缓存失败: {e}')
+def menu_post_delete_handler(sender, instance, **kwargs):
+    """菜单删除时清除菜单缓存（不清除会话）"""
+    clear_menu_cache_data(instance.id if instance.id else None)
+    logger.debug(f'菜单[{instance.id}]已删除，菜单缓存已更新')

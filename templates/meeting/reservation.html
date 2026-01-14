@@ -111,8 +111,22 @@ layui.use(['table', 'form', 'laydate', 'jquery'], function(){
         layer.open({
             type: 2,
             title: '添加会议室预约',
+            shadeClose: false,
+            shade: 0.3,
+            maxmin: true,
+            area: ['80%', '90%'],
+            offset: 'r',
+            anim: 2,
             content: '{% url "adm_meeting_reservation_add" %}',
-            area: ['800px', '500px'],
+            success: function(layero, index) {
+                if (layero && typeof layero.css === 'function') {
+                    layero.css({
+                        'right': '0',
+                        'top': '0',
+                        'height': '100%'
+                    });
+                }
+            },
             end: function(){
                 table.reload('dataTable');
             }
@@ -126,8 +140,22 @@ layui.use(['table', 'form', 'laydate', 'jquery'], function(){
             layer.open({
                 type: 2,
                 title: '编辑会议室预约',
+                shadeClose: false,
+                shade: 0.3,
+                maxmin: true,
+                area: ['80%', '90%'],
+                offset: 'r',
+                anim: 2,
                 content: '{% url "adm_meeting_reservation_edit" %}?id=' + data.id,
-                area: ['800px', '500px'],
+                success: function(layero, index) {
+                    if (layero && typeof layero.css === 'function') {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    }
+                },
                 end: function(){
                     table.reload('dataTable');
                 }
@@ -136,8 +164,22 @@ layui.use(['table', 'form', 'laydate', 'jquery'], function(){
             layer.open({
                 type: 2,
                 title: '查看预约详情',
+                shadeClose: false,
+                shade: 0.3,
+                maxmin: true,
+                area: ['80%', '90%'],
+                offset: 'r',
+                anim: 2,
                 content: '{% url "adm_meeting_reservation_view" %}?id=' + data.id,
-                area: ['800px', '500px'],
+                success: function(layero, index) {
+                    if (layero && typeof layero.css === 'function') {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    }
+                }
             });
         }
     });

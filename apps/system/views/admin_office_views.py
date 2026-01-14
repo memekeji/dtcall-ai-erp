@@ -3,20 +3,22 @@
 包含公告管理、会议室管理、印章管理、公文管理、资产管理、车辆管理等视图函数
 """
 
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
+from django.db import models
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView, View
 from django.urls import reverse_lazy
 from django.http import JsonResponse
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib import messages
-from django.shortcuts import redirect
+from django.shortcuts import render, redirect
 from django.db import transaction
 from django.http import JsonResponse
 
 from apps.system.models import (
-    Notice, MeetingRoom, MeetingReservation, Seal, SealApplication,
+    Notice, MeetingReservation, Seal, SealApplication,
     Document, DocumentCategory, DocumentReview, Asset, AssetRepair,
     Vehicle, VehicleMaintenance, VehicleFee, VehicleOil
 )
+from apps.oa.models import MeetingRoom
 from apps.system.forms.admin_office_forms import NoticeForm
 from apps.message.services import NoticeNotificationService
 
@@ -147,20 +149,43 @@ class NoticePublishView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView)
         return JsonResponse({'code': 200, 'message': message})
 
 
-class MeetingRoomListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class MeetingRoomListView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """会议室列表视图"""
     model = MeetingRoom
-    template_name = 'meeting/room_list.html'
-    context_object_name = 'meeting_rooms'
-    paginate_by = 20
+    template_name = 'meeting/room.html'
     permission_required = 'user.view_meeting_room'
+    
+    def get(self, request, *args, **kwargs):
+        return render(request, self.template_name)
+    
+    def post(self, request, *args, **kwargs):
+        return self.datalist(request)
+    
+    def datalist(self, request):
+        """会议室数据列表API"""
+        try:
+            rooms = MeetingRoom.objects.filter().order_by('-id')
+            data = [{
+                'id': room.id,
+                'name': room.name,
+                'code': room.code or '',
+                'location': room.location or '',
+                'capacity': room.capacity,
+                'status': room.status,
+                'status_display': '可用' if room.status == 'active' else '不可用',
+                'equipment_list': room.equipment_list or '',
+            } for room in rooms]
+            return JsonResponse({'code': 200, 'msg': 'success', 'data': data, 'count': len(data)})
+        except Exception as e:
+            return JsonResponse({'code': 500, 'msg': str(e)})
 
 
 class MeetingRoomCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     """创建会议室视图"""
     model = MeetingRoom
     template_name = 'meeting/room_form.html'
-    fields = ['name', 'capacity', 'location', 'equipment', 'description']
+    fields = ['name', 'code', 'location', 'capacity', 'has_projector', 'has_whiteboard', 
+              'has_tv', 'has_phone', 'has_wifi', 'equipment_list', 'description', 'status']
     success_url = reverse_lazy('system:admin_office:meeting_room_list')
     permission_required = 'user.add_meeting_room'
     
@@ -172,8 +197,9 @@ class MeetingRoomCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateV
 class MeetingRoomUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     """更新会议室视图"""
     model = MeetingRoom
-    template_name = 'meeting_room/form.html'
-    fields = ['name', 'capacity', 'location', 'equipment', 'description']
+    template_name = 'meeting/room_form.html'
+    fields = ['name', 'code', 'location', 'capacity', 'has_projector', 'has_whiteboard', 
+              'has_tv', 'has_phone', 'has_wifi', 'equipment_list', 'description', 'status']
     success_url = reverse_lazy('system:admin_office:meeting_room_list')
     permission_required = 'user.change_meeting_room'
     

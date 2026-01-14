@@ -578,3 +578,126 @@ class AIBatchTestResult(models.Model):
     
     def __str__(self):
         return f"{self.ab_test.name} - {self.variant.name if self.variant else '整体'}结果"
+
+
+class WorkflowVariable(models.Model):
+    """工作流变量"""
+    DATA_TYPES = [
+        ('string', '字符串'),
+        ('number', '数字'),
+        ('boolean', '布尔值'),
+        ('object', '对象'),
+        ('array', '数组'),
+    ]
+    
+    workflow = models.ForeignKey(AIWorkflow, on_delete=models.CASCADE, related_name='variables', verbose_name='所属工作流')
+    name = models.CharField(max_length=100, verbose_name='变量名称')
+    data_type = models.CharField(max_length=20, choices=DATA_TYPES, default='string', verbose_name='数据类型')
+    default_value = models.JSONField(blank=True, null=True, verbose_name='默认值')
+    description = models.TextField(blank=True, verbose_name='变量描述')
+    is_required = models.BooleanField(default=False, verbose_name='是否必填')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+    
+    class Meta:
+        verbose_name = '工作流变量'
+        verbose_name_plural = verbose_name
+        db_table = 'ai_workflow_variable'
+    
+    def __str__(self):
+        return f"{self.workflow.name} - {self.name}"
+
+
+class WorkflowNodeType(models.Model):
+    """工作流节点类型"""
+    NODE_CATEGORIES = [
+        ('basic', '基础节点'),
+        ('ai', 'AI节点'),
+        ('data', '数据节点'),
+        ('logic', '逻辑节点'),
+        ('integration', '集成节点'),
+    ]
+    
+    code = models.CharField(max_length=50, unique=True, verbose_name='类型代码')
+    name = models.CharField(max_length=100, verbose_name='类型名称')
+    description = models.TextField(blank=True, verbose_name='类型描述')
+    category = models.CharField(max_length=20, choices=NODE_CATEGORIES, default='basic', verbose_name='分类')
+    icon = models.CharField(max_length=50, blank=True, verbose_name='图标类名')
+    config_schema = models.JSONField(verbose_name='配置模式', help_text='JSON格式的配置模式定义')
+    is_active = models.BooleanField(default=True, verbose_name='是否激活')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+    
+    class Meta:
+        verbose_name = '工作流节点类型'
+        verbose_name_plural = verbose_name
+        db_table = 'ai_workflow_node_type'
+    
+    def __str__(self):
+        return self.name
+
+
+class NodeExecution(models.Model):
+    """节点执行记录"""
+    STATUS_CHOICES = [
+        ('pending', '待执行'),
+        ('running', '执行中'),
+        ('completed', '已完成'),
+        ('failed', '执行失败'),
+        ('skipped', '已跳过'),
+    ]
+    
+    id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False, verbose_name='ID')
+    workflow_execution = models.ForeignKey(AIWorkflowExecution, on_delete=models.CASCADE, related_name='node_executions', verbose_name='所属执行')
+    node = models.ForeignKey(WorkflowNode, on_delete=models.SET_NULL, null=True, verbose_name='节点')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='执行状态')
+    input_data = models.JSONField(blank=True, null=True, verbose_name='输入数据')
+    output_data = models.JSONField(blank=True, null=True, verbose_name='输出数据')
+    error_message = models.TextField(blank=True, verbose_name='错误信息')
+    started_at = models.DateTimeField(auto_now_add=True, verbose_name='开始时间')
+    completed_at = models.DateTimeField(blank=True, null=True, verbose_name='完成时间')
+    execution_time = models.FloatField(default=0, verbose_name='执行时间(秒)')
+    
+    class Meta:
+        verbose_name = '节点执行记录'
+        verbose_name_plural = verbose_name
+        db_table = 'ai_node_execution'
+    
+    def __str__(self):
+        node_name = self.node.name if self.node else '未知节点'
+        return f"{node_name} - {self.get_status_display()}"
+
+
+class WorkflowDataAccessConfig(models.Model):
+    """工作流数据访问配置"""
+    ACCESS_TYPES = [
+        ('database', '数据库'),
+        ('api', 'API接口'),
+        ('file', '文件'),
+        ('memory', '内存数据'),
+    ]
+    
+    OPERATIONS = [
+        ('read', '读取'),
+        ('write', '写入'),
+        ('delete', '删除'),
+    ]
+    
+    workflow = models.ForeignKey(AIWorkflow, on_delete=models.CASCADE, related_name='data_access_configs', verbose_name='所属工作流')
+    access_type = models.CharField(max_length=20, choices=ACCESS_TYPES, verbose_name='访问类型')
+    resource_name = models.CharField(max_length=100, verbose_name='资源名称')
+    resource_identifier = models.CharField(max_length=200, verbose_name='资源标识符')
+    operations = models.JSONField(verbose_name='允许的操作', help_text='如：["read", "write"]')
+    filters = models.JSONField(blank=True, null=True, verbose_name='过滤条件')
+    description = models.TextField(blank=True, verbose_name='配置描述')
+    is_active = models.BooleanField(default=True, verbose_name='是否激活')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+    
+    class Meta:
+        verbose_name = '工作流数据访问配置'
+        verbose_name_plural = verbose_name
+        db_table = 'ai_workflow_data_access'
+    
+    def __str__(self):
+        return f"{self.workflow.name} - {self.resource_name}"

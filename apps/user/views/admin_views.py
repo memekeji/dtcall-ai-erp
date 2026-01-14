@@ -87,20 +87,12 @@ class AdminListAPIView(LoginRequiredMixin, View):
         
         # 构建返回数据
         data = []
-        # 获取所有部门并创建ID到名称的映射
         departments = Department.objects.all()
-        dept_map = {dept.id: dept.name for dept in departments}  # 使用name字段而不是title
+        dept_map = {dept.id: dept.name for dept in departments}
         
-        # 获取用户与角色的关联（通过新的权限系统实现）
-        # 实际项目中根据新的权限系统数据库结构调整
-        # 这里暂时使用一个简化的查询方式来模拟
         user_ids = [item.id for item in queryset[start:end]]
         
-        # 注意：由于我们将角色管理移到了adm应用，这里需要重新实现用户角色的关联
-        # 实际项目中应该根据真实的用户-角色关联表来构建角色映射
-        # 以下是一个简化的实现，实际应用中需要根据数据库结构调整
         role_map = {}
-        # 由于缺少具体的用户-角色关联信息，这里暂时将所有用户的角色设置为'无角色'
         for user_id in user_ids:
             role_map[user_id] = ['无角色']
         
@@ -194,8 +186,8 @@ class AdminUpdateView(LoginRequiredMixin, UpdateView):
 
     def form_valid(self, form):
         # 如果未输入密码则不更新
-        if not form.cleaned_data.get('password'):
-            form.instance.password = Admin.objects.get(pk=self.object.pk).password
+        if not form.cleaned_data.get('pwd'):
+            form.instance.pwd = Admin.objects.get(pk=self.object.pk).pwd
         
         # 确保表单保存成功
         self.object = form.save()
@@ -383,7 +375,7 @@ class ResetPasswordView(LoginRequiredMixin, View):
             if not password:
                 return JsonResponse({'code': 1, 'msg': '密码不能为空'}, json_dumps_params={'ensure_ascii': False})
             from django.contrib.auth.hashers import make_password
-            admin.password = make_password(password)
+            admin.pwd = make_password(password)
             admin.save()
             return JsonResponse({'code': 0, 'msg': '密码重置成功'}, json_dumps_params={'ensure_ascii': False})
         except Exception as e:
@@ -426,13 +418,27 @@ def login_view(request):
         
         # 获取客户端IP
         client_ip = get_client_ip(request)
+        
+        # 检查IP维度的全局锁定（防止暴力破解攻击）
+        ip_lock_key = f'login_ip_lock:{client_ip}'
+        if cache.get(ip_lock_key):
+            remaining_time = cache.ttl(ip_lock_key)
+            return JsonResponse({
+                'code': 1, 
+                'msg': f'登录失败次数过多，请{int(remaining_time / 60)}分钟后再试'
+            }, json_dumps_params={'ensure_ascii': False})
+        
         # 构造缓存键
         login_attempts_key = f'login_attempts:{client_ip}:{username}'
         login_lock_key = f'login_lock:{client_ip}:{username}'
         
         # 检查账户是否被锁定
         if cache.get(login_lock_key):
-            return JsonResponse({'code': 1, 'msg': '登录失败次数过多，请15分钟后再试'}, json_dumps_params={'ensure_ascii': False})
+            remaining_time = cache.ttl(login_lock_key)
+            return JsonResponse({
+                'code': 1, 
+                'msg': f'登录失败次数过多，请{int(remaining_time / 60)}分钟后再试'
+            }, json_dumps_params={'ensure_ascii': False})
         
         try:
             # 使用Django内置的authenticate函数进行认证，自动处理模型匹配
@@ -443,6 +449,10 @@ def login_view(request):
                 # 登录成功，清除失败次数记录
                 cache.delete(login_attempts_key)
                 cache.delete(login_lock_key)
+                cache.delete(ip_attempts_key) if 'ip_attempts_key' in dir() else None
+                
+                # 安全会话管理：登录前重置会话，防止会话固定攻击
+                request.session.cycle_key()
                 
                 # 使用Django认证系统登录，确保安全会话管理
                 from django.contrib.auth import login
@@ -483,13 +493,31 @@ def login_view(request):
                 attempts = cache.get(login_attempts_key, 0) + 1
                 cache.set(login_attempts_key, attempts, 300)  # 5分钟内有效
                 
+                # 检查IP维度的全局失败次数
+                ip_attempts_key = f'login_ip_attempts:{client_ip}'
+                ip_attempts = cache.get(ip_attempts_key, 0) + 1
+                cache.set(ip_attempts_key, ip_attempts, 300)  # 5分钟内有效
+                
                 if attempts >= 5:
                     # 超过5次失败，锁定15分钟
                     cache.set(login_lock_key, True, 900)  # 15分钟锁定
-                    return JsonResponse({'code': 1, 'msg': '登录失败次数过多，请15分钟后再试'}, json_dumps_params={'ensure_ascii': False})
+                    return JsonResponse({
+                        'code': 1, 
+                        'msg': '登录失败次数过多，请15分钟后再试'
+                    }, json_dumps_params={'ensure_ascii': False})
                 
-                remaining_attempts = 5 - attempts
-                return JsonResponse({'code': 1, 'msg': f'用户名或密码错误，还有{remaining_attempts}次尝试机会'}, json_dumps_params={'ensure_ascii': False})
+                # 如果IP维度的失败次数超过20次，锁定该IP 30分钟
+                if ip_attempts >= 40:
+                    cache.set(ip_lock_key, True, 1800)  # 30分钟锁定
+                    return JsonResponse({
+                        'code': 1, 
+                        'msg': '登录失败次数过多，请30分钟后再试'
+                    }, json_dumps_params={'ensure_ascii': False})
+                
+                return JsonResponse({
+                    'code': 1, 
+                    'msg': '用户名或密码错误'
+                }, json_dumps_params={'ensure_ascii': False})
         except Exception as e:
             logger.error(f'登录失败: {str(e)}')
             return JsonResponse({'code': 1, 'msg': '登录失败，请稍后重试'}, json_dumps_params={'ensure_ascii': False})
@@ -497,8 +525,22 @@ def login_view(request):
     else:
         # GET请求，返回登录页面
         from captcha.models import CaptchaStore
+        from apps.common.views import DAILY_QUOTES
+        import random
+        from datetime import datetime
+        
         captcha_key = CaptchaStore.generate_key()
-        return render(request, 'login.html', {'captcha_key': captcha_key})
+        
+        today = datetime.now().date()
+        day_of_year = today.timetuple().tm_yday
+        random.seed(day_of_year)
+        daily_quote = random.choice(DAILY_QUOTES)
+        random.seed()
+        
+        return render(request, 'login.html', {
+            'captcha_key': captcha_key,
+            'daily_quote': daily_quote
+        })
 
 
 def get_client_ip(request):
@@ -542,13 +584,27 @@ def login_submit(request):
         
         # 获取客户端IP
         client_ip = get_client_ip(request)
+        
+        # 检查IP维度的全局锁定（防止暴力破解攻击）
+        ip_lock_key = f'login_ip_lock:{client_ip}'
+        if cache.get(ip_lock_key):
+            remaining_time = cache.ttl(ip_lock_key)
+            return JsonResponse({
+                'code': 1, 
+                'msg': f'登录失败次数过多，请{int(remaining_time / 60)}分钟后再试'
+            }, json_dumps_params={'ensure_ascii': False})
+        
         # 构造缓存键
         login_attempts_key = f'login_attempts:{client_ip}:{username}'
         login_lock_key = f'login_lock:{client_ip}:{username}'
         
         # 检查账户是否被锁定
         if cache.get(login_lock_key):
-            return JsonResponse({'code': 1, 'msg': '登录失败次数过多，请15分钟后再试'}, json_dumps_params={'ensure_ascii': False})
+            remaining_time = cache.ttl(login_lock_key)
+            return JsonResponse({
+                'code': 1, 
+                'msg': f'登录失败次数过多，请{int(remaining_time / 60)}分钟后再试'
+            }, json_dumps_params={'ensure_ascii': False})
         
         try:
             # 使用Django内置的authenticate函数进行认证，自动处理模型匹配
@@ -561,6 +617,9 @@ def login_submit(request):
                 # 登录成功，清除失败次数记录
                 cache.delete(login_attempts_key)
                 cache.delete(login_lock_key)
+                
+                # 安全会话管理：登录前重置会话，防止会话固定攻击
+                request.session.cycle_key()
                 
                 # 使用Django认证系统登录，确保安全会话管理
                 login(request, user)
@@ -603,13 +662,31 @@ def login_submit(request):
                 attempts = cache.get(login_attempts_key, 0) + 1
                 cache.set(login_attempts_key, attempts, 300)  # 5分钟内有效
                 
+                # 检查IP维度的全局失败次数
+                ip_attempts_key = f'login_ip_attempts:{client_ip}'
+                ip_attempts = cache.get(ip_attempts_key, 0) + 1
+                cache.set(ip_attempts_key, ip_attempts, 300)  # 5分钟内有效
+                
                 if attempts >= 5:
                     # 超过5次失败，锁定15分钟
                     cache.set(login_lock_key, True, 900)  # 15分钟锁定
-                    return JsonResponse({'code': 1, 'msg': '登录失败次数过多，请15分钟后再试'}, json_dumps_params={'ensure_ascii': False})
+                    return JsonResponse({
+                        'code': 1, 
+                        'msg': '登录失败次数过多，请15分钟后再试'
+                    }, json_dumps_params={'ensure_ascii': False})
                 
-                remaining_attempts = 5 - attempts
-                return JsonResponse({'code': 1, 'msg': f'用户名或密码错误，还有{remaining_attempts}次尝试机会'}, json_dumps_params={'ensure_ascii': False})
+                # 如果IP维度的失败次数超过20次，锁定该IP 30分钟
+                if ip_attempts >= 20:
+                    cache.set(ip_lock_key, True, 1800)  # 30分钟锁定
+                    return JsonResponse({
+                        'code': 1, 
+                        'msg': '登录失败次数过多，请30分钟后再试'
+                    }, json_dumps_params={'ensure_ascii': False})
+                
+                return JsonResponse({
+                    'code': 1, 
+                    'msg': '用户名或密码错误'
+                }, json_dumps_params={'ensure_ascii': False})
                 
         except Admin.DoesNotExist:
             # 用户名不存在，同样增加失败次数
@@ -621,8 +698,7 @@ def login_submit(request):
                 cache.set(login_lock_key, True, 900)  # 15分钟锁定
                 return JsonResponse({'code': 1, 'msg': '登录失败次数过多，请15分钟后再试'}, json_dumps_params={'ensure_ascii': False})
             
-            remaining_attempts = 5 - attempts
-            return JsonResponse({'code': 1, 'msg': f'用户名或密码错误，还有{remaining_attempts}次尝试机会'}, json_dumps_params={'ensure_ascii': False})
+            return JsonResponse({'code': 1, 'msg': '用户名或密码错误'}, json_dumps_params={'ensure_ascii': False})
         except Exception as e:
             logger.error(f'登录提交失败: {str(e)}')
             return JsonResponse({'code': 1, 'msg': '登录失败，请稍后重试'}, json_dumps_params={'ensure_ascii': False})

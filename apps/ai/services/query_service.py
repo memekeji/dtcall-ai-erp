@@ -12,6 +12,15 @@ from django.apps import apps
 logger = logging.getLogger(__name__)
 
 
+def get_default_page_size():
+    """获取系统配置的默认分页大小"""
+    try:
+        from apps.system.config_service import config_service
+        return config_service.get_int_config('default_page_size', 20)
+    except Exception:
+        return 20
+
+
 class QueryService:
     """通用查询服务"""
     
@@ -672,9 +681,9 @@ class QueryService:
         # 应用排序
         queryset = queryset.order_by('-create_time')  # 默认按创建时间降序排列
         
-        # 应用分页（默认每页10条）
+        # 应用分页
         page = entities.get('page', 1)
-        page_size = entities.get('page_size', 10)
+        page_size = entities.get('page_size', get_default_page_size())
         start_index = (page - 1) * page_size
         end_index = start_index + page_size
         
@@ -826,9 +835,9 @@ class QueryService:
         # 应用排序
         queryset = queryset.order_by('-start_date')  # 默认按开始日期降序排列
         
-        # 应用分页（默认每页10条）
+        # 应用分页
         page = entities.get('page', 1)
-        page_size = entities.get('page_size', 10)
+        page_size = entities.get('page_size', get_default_page_size())
         start_index = (page - 1) * page_size
         end_index = start_index + page_size
         
@@ -1227,9 +1236,9 @@ class QueryService:
         # 应用排序
         queryset = queryset.order_by('-order_date')  # 默认按订单日期降序排列
         
-        # 应用分页（默认每页10条）
+        # 应用分页
         page = entities.get('page', 1)
-        page_size = entities.get('page_size', 10)
+        page_size = entities.get('page_size', get_default_page_size())
         start_index = (page - 1) * page_size
         end_index = start_index + page_size
         
@@ -1355,9 +1364,9 @@ class QueryService:
         # 应用排序
         queryset = queryset.order_by('-sign_time')  # 默认按签约时间降序排列
         
-        # 应用分页（默认每页10条）
+        # 应用分页
         page = entities.get('page', 1)
-        page_size = entities.get('page_size', 10)
+        page_size = entities.get('page_size', get_default_page_size())
         start_index = (page - 1) * page_size
         end_index = start_index + page_size
         
@@ -1511,9 +1520,9 @@ class QueryService:
         # 应用排序
         queryset = queryset.order_by('-issue_date')  # 默认按开票日期降序排列
         
-        # 应用分页（默认每页10条）
+        # 应用分页
         page = entities.get('page', 1)
-        page_size = entities.get('page_size', 10)
+        page_size = entities.get('page_size', get_default_page_size())
         start_index = (page - 1) * page_size
         end_index = start_index + page_size
         

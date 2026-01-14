@@ -26,6 +26,8 @@ from django.views.generic import (
 
 # 系统日志导入
 from apps.user.models import SystemLog
+from apps.common.cache_service import SystemCache
+from apps.common.services import CommonService
 
 # 本地应用导入
 from .models import (
@@ -141,38 +143,6 @@ class CustomerListSimpleView(LoginRequiredMixin, TemplateView):
     template_name = 'customer/customer_list_simple.html'
 
 
-class CustomerListDebugView(LoginRequiredMixin, TemplateView):
-    login_url = '/user/login/'
-    redirect_field_name = 'next'
-    template_name = 'customer/customer_list_debug.html'
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        queryset = queryset.filter(delete_time=0)
-        queryset = queryset.prefetch_related(
-            Prefetch('custom_fields',
-                queryset=CustomerCustomFieldValue.objects.select_related('field'),
-                to_attr='custom_field_values'
-            )
-        )
-        return queryset
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['sources'] = CustomerSource.objects.filter(status=1, delete_time=0)
-        context['grades'] = CustomerGrade.objects.filter(status=1, delete_time=0)
-        
-        # 获取启用的客户字段，用于动态生成表格列
-        custom_fields = CustomerField.objects.filter(
-            status=True, 
-            delete_time=0, 
-            is_list_display=True
-        ).order_by('sort', 'id')
-        context['custom_fields'] = custom_fields
-        
-        return context
-
-
 class CustomerListDataView(LoginRequiredMixin, View):
     login_url = '/user/login/'
     redirect_field_name = 'next'
@@ -277,7 +247,7 @@ class CustomerListDataView(LoginRequiredMixin, View):
 
             # 处理分页
             page = int(request.GET.get('page', 1))
-            limit = int(request.GET.get('limit', 10))
+            limit = CommonService.get_page_size(request, 20)
             start = (page - 1) * limit
             end = start + limit
 
@@ -285,9 +255,20 @@ class CustomerListDataView(LoginRequiredMixin, View):
             paginated_queryset = queryset[start:end]
 
             # 获取基础数据映射
-            sources_map = {s.id: s.title for s in CustomerSource.objects.filter(delete_time=0)}
-            grades_map = {g.id: g.title for g in CustomerGrade.objects.filter(delete_time=0)}
-            intents_map = {i.id: i.name for i in CustomerIntent.objects.filter(delete_time=0)}
+            sources_map = SystemCache.get_dict('customer_sources')
+            if sources_map is None:
+                sources_map = {s.id: s.title for s in CustomerSource.objects.filter(delete_time=0)}
+                SystemCache.set_dict('customer_sources', sources_map)
+            
+            grades_map = SystemCache.get_dict('customer_grades')
+            if grades_map is None:
+                grades_map = {g.id: g.title for g in CustomerGrade.objects.filter(delete_time=0)}
+                SystemCache.set_dict('customer_grades', grades_map)
+            
+            intents_map = SystemCache.get_dict('customer_intents')
+            if intents_map is None:
+                intents_map = {i.id: i.name for i in CustomerIntent.objects.filter(delete_time=0)}
+                SystemCache.set_dict('customer_intents', intents_map)
             
             # 构建用户ID到姓名的映射
             user_ids = list(queryset.values_list('belong_uid', flat=True).distinct())
@@ -1251,7 +1232,7 @@ class PublicCustomerListDataView(LoginRequiredMixin, View):
             
             # 分页
             page = int(request.GET.get('page', 1))
-            limit = int(request.GET.get('limit', 20))
+            limit = CommonService.get_page_size(request, 20)
             start = (page - 1) * limit
             end = start + limit
             
@@ -1332,7 +1313,7 @@ class SpiderTaskListDataView(LoginRequiredMixin, View):
             
             # 分页
             page = int(request.GET.get('page', 1))
-            limit = int(request.GET.get('limit', 20))
+            limit = CommonService.get_page_size(request, 20)
             start = (page - 1) * limit
             end = start + limit
             
@@ -1605,7 +1586,6 @@ def auto_move_to_public_pool(request):
         # 1. 非删除状态
         # 2. 有归属人（belong_uid > 0）
         # 3. 最近跟进时间follow_time < cutoff_time
-        # 4. 未废弃（discard_time = 0）
         customers_to_move = Customer.objects.filter(
             delete_time=0,
             belong_uid__gt=0,
@@ -1673,7 +1653,7 @@ class AbandonedCustomerListDataView(LoginRequiredMixin, View):
             
             # 分页
             page = int(request.GET.get('page', 1))
-            limit = int(request.GET.get('limit', 20))
+            limit = CommonService.get_page_size(request, 20)
             start = (page - 1) * limit
             end = start + limit
             
@@ -1759,7 +1739,7 @@ class CustomerOrderListDataView(LoginRequiredMixin, View):
             
             # 分页
             page = int(request.GET.get('page', 1))
-            limit = int(request.GET.get('limit', 20))
+            limit = CommonService.get_page_size(request, 20)
             start = (page - 1) * limit
             end = start + limit
             
@@ -2221,7 +2201,7 @@ class OpportunityListDataView(LoginRequiredMixin, View):
             
             # 分页
             page = int(request.GET.get('page', 1))
-            limit = int(request.GET.get('limit', 20))
+            limit = CommonService.get_page_size(request, 20)
             start = (page - 1) * limit
             end = start + limit
             
@@ -2310,7 +2290,7 @@ class FollowRecordListDataView(LoginRequiredMixin, View):
             
             # 分页
             page = int(request.GET.get('page', 1))
-            limit = int(request.GET.get('limit', 20))
+            limit = CommonService.get_page_size(request, 20)
             start = (page - 1) * limit
             end = start + limit
             
@@ -2550,7 +2530,7 @@ class CallRecordListDataView(LoginRequiredMixin, View):
         
         # 处理分页
         page = int(request.GET.get('page', 1))
-        limit = int(request.GET.get('limit', 20))
+        limit = CommonService.get_page_size(request, 20)
         start = (page - 1) * limit
         end = start + limit
         
@@ -3086,8 +3066,7 @@ class SpiderTaskBatchDeleteView(LoginRequiredMixin, View):
             if not ids:
                 return JsonResponse({'status': 'error', 'message': '请选择要删除的任务'}, status=400)
             
-            # 这里可以添加实际的删除逻辑
-            # SpiderTask.objects.filter(id__in=ids).delete()
+            SpiderTask.objects.filter(id__in=ids).delete()
             
             return JsonResponse({'status': 'success', 'message': f'成功删除{len(ids)}个任务'})
         except Exception as e:
@@ -3102,9 +3081,8 @@ class SpiderTaskStartView(LoginRequiredMixin, View):
     
     def post(self, request, pk):
         try:
-            # 这里可以添加实际的启动逻辑
-            # task = SpiderTask.objects.get(id=pk)
-            # task.start()
+            task = SpiderTask.objects.get(id=pk)
+            task.start()
             
             return JsonResponse({'status': 'success', 'message': '任务启动成功'})
         except Exception as e:
@@ -3281,36 +3259,32 @@ def sip_call(request):
     from django.http import JsonResponse
     from .models import CallRecord
     from apps.user.models.admin import Admin
+    from apps.system.config_service import config_service
     
     try:
-        # 获取请求参数
         phone = request.POST.get('phone')
         customer_id = request.POST.get('customer_id')
         customer_name = request.POST.get('customer_name', '')
         
-        # 验证参数
         if not phone:
             return JsonResponse({'code': 1, 'msg': '电话号码不能为空'})
         
-        # 从当前用户的Admin模型中获取SIP账号信息
-        # request.user已经是Admin模型的实例，因为Django的认证系统已经配置为使用Admin模型
         sip_account = request.user.sip_account
         sip_password = request.user.sip_password
         
-        # 验证SIP账号和密码是否存在
         if not sip_account or not sip_password:
             return JsonResponse({'code': 1, 'msg': '当前用户未配置SIP账号信息，请联系管理员'})
         
-        # 调用LYCC系统的SIP拨号接口
-        lycc_url = "http://192.168.1.200:9078"
+        sip_server_url = config_service.get_config('sip_server_url', 'http://192.168.1.200:9078')
+        lycc_url = f"{sip_server_url.rstrip('/')}" if sip_server_url else "http://192.168.1.200:9078"
         params = {
             'op': 'callout',
             'Exten': sip_account,
             'phone': phone,
             'flowid': f"{request.user.id}_{int(time.time() * 1000)}"
         }
-        
-        response = requests.get(lycc_url, params=params)
+
+        response = requests.get(lycc_url, params=params, timeout=10)
         result = response.text.strip()
         
         # 解析LYCC系统的返回结果
@@ -3543,7 +3517,7 @@ def follow_field_list_data(request):
     try:
         search = request.GET.get('search', '')
         page = int(request.GET.get('page', 1))
-        limit = int(request.GET.get('limit', 20))
+        limit = CommonService.get_page_size(request, 20)
         
         # 构建查询
         query = Q()
@@ -3625,7 +3599,7 @@ def order_field_list_data(request):
     try:
         search = request.GET.get('search', '')
         page = int(request.GET.get('page', 1))
-        limit = int(request.GET.get('limit', 20))
+        limit = CommonService.get_page_size(request, 20)
         
         # 构建查询
         query = Q()
@@ -4187,7 +4161,7 @@ def customer_source_list_data(request):
     try:
         search = request.GET.get('search', '')
         page = int(request.GET.get('page', 1))
-        limit = int(request.GET.get('limit', 20))
+        limit = CommonService.get_page_size(request, 20)
         
         queryset = CustomerSource.objects.filter(delete_time=0)
         
@@ -4272,7 +4246,7 @@ def customer_grade_list_data(request):
     try:
         search = request.GET.get('search', '')
         page = int(request.GET.get('page', 1))
-        limit = int(request.GET.get('limit', 20))
+        limit = CommonService.get_page_size(request, 20)
         
         queryset = CustomerGrade.objects.filter(delete_time=0)
         
@@ -4357,7 +4331,7 @@ def customer_intent_list_data(request):
     try:
         search = request.GET.get('search', '')
         page = int(request.GET.get('page', 1))
-        limit = int(request.GET.get('limit', 20))
+        limit = CommonService.get_page_size(request, 20)
         
         queryset = CustomerIntent.objects.filter(delete_time=0)
         
@@ -4474,7 +4448,7 @@ def customer_field_list_data(request):
     try:
         search = request.GET.get('search', '')
         page = int(request.GET.get('page', 1))
-        limit = int(request.GET.get('limit', 20))
+        limit = CommonService.get_page_size(request, 20)
         
         queryset = CustomerField.objects.filter(delete_time=0)
         

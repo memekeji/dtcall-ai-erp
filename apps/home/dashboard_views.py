@@ -331,7 +331,6 @@ def finance_dashboard(request):
         current_month_ts = int(current_month.timestamp())
         last_month_ts = int(last_month.timestamp())
         
-        # ============ 本月核心财务指标 ============
         # 营业收入 = 合同金额(已审核) + 收入记录
         contract_revenue = Contract.objects.filter(
             create_time__gte=current_month,
@@ -383,7 +382,7 @@ def finance_dashboard(request):
         net_profit_last = gross_profit_last - float(expense_last)
         net_profit_growth = round((net_profit - net_profit_last) / max(net_profit_last, 1) * 100, 1) if net_profit_last > 0 else 0
         
-        # ============ 收支趋势（最近12个月） ============
+        # 收支趋势（最近12个月）
         months = []
         income_trend = []
         expense_trend = []
@@ -438,7 +437,7 @@ def finance_dashboard(request):
             'net_profit': json.dumps(profit_trend_data)
         }
         
-        # ============ 收入分类 ============
+        # 收入分类
         # 按合同类型分类
         contract_by_type = Contract.objects.filter(
             delete_time=0,
@@ -464,7 +463,7 @@ def finance_dashboard(request):
             'data': json.dumps([float(item['total'] or 0) for item in expense_by_category])
         }
         
-        # ============ 回款统计 ============
+        # 回款统计
         # 已回款（全部回款）
         received_amount = Invoice.objects.filter(
             create_time__gte=current_month_ts,
@@ -488,7 +487,7 @@ def finance_dashboard(request):
         total_receivable = float(received_amount) + float(pending_amount) + float(overdue_amount)
         collection_rate = round(float(received_amount) / max(total_receivable, 1) * 100, 1)
         
-        # ============ 应收账款TOP5 ============
+        # 应收账款TOP5
         accounts_receivable = []
         try:
             receivables = Invoice.objects.filter(
@@ -516,7 +515,7 @@ def finance_dashboard(request):
             'data': json.dumps([float(item['total'] or 0) for item in expense_by_type])
         }
         
-        # ============ 财务预警 ============
+        # 财务预警
         finance_warnings = []
         try:
             # 逾期账款预警
@@ -746,7 +745,7 @@ def business_dashboard(request):
             logger.error(f'获取行业分布失败: {str(e)}')
         
         # 经营指标
-        # CAC - 客户获取成本 = 总营销费用 / 新增客户数
+        # CAC - 客户获取成本
         try:
             current_month_ts = int(current_month.timestamp())
             marketing_expense = Expense.objects.filter(
@@ -843,7 +842,7 @@ def production_dashboard(request):
         current_month = timezone.now().replace(day=1)
         last_month = (current_month - timedelta(days=1)).replace(day=1)
         
-        # ============ 本月核心生产指标 ============
+        # 本月核心生产指标
         # 本月生产计划
         monthly_plans = ProductionPlan.objects.filter(
             plan_start_date__gte=current_month
@@ -919,7 +918,7 @@ def production_dashboard(request):
             'data': json.dumps(status_data)
         }
         
-        # ============ 生产线实时状态 ============
+        # 生产线实时状态
         production_lines = []
         try:
             lines = Equipment.objects.all()[:10]
@@ -972,7 +971,7 @@ def production_dashboard(request):
             logger.error(f'获取生产计划进度失败: {str(e)}')
             production_plans = []
         
-        # ============ 质量控制指标 ============
+        # 质量控制指标
         pass_rate = 0
         rework_rate = 0
         scrap_rate = 0
@@ -990,7 +989,7 @@ def production_dashboard(request):
         except Exception as e:
             logger.error(f'获取质量指标失败: {str(e)}')
         
-        # ============ 生产预警 ============
+        # 生产预警
         production_warnings = []
         try:
             # 设备故障预警

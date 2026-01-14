@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <meta charset="utf-8">
     <title>系统配置</title>
@@ -8,82 +7,215 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <style>
+    .config-cards, .storage-cards, .service-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 15px;
+        padding: 10px 0;
+    }
+    .config-card, .storage-card, .service-card {
+        border: 1px solid #e6e6e6;
+        border-radius: 4px;
+        transition: all 0.3s;
+        cursor: pointer;
+    }
+    .config-card:hover, .storage-card:hover, .service-card:hover {
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        border-color: #009688;
+    }
+    .config-card .layui-card-header, .storage-card .layui-card-header, .service-card .layui-card-header {
+        background: #fafafa;
+        border-bottom: 1px solid #e6e6e6;
+        font-weight: 500;
+        cursor: pointer;
+    }
+    .config-card .layui-card-body, .storage-card .layui-card-body, .service-card .layui-card-body {
+        cursor: default;
+    }
+    .config-desc {
+        color: #999;
+        font-size: 13px;
+        line-height: 1.6;
+        margin: 0;
+    }
+    .config-category, .storage-type {
+        font-weight: normal;
+    }
+    .config-count {
+        font-size: 14px;
+        font-weight: normal;
+        color: #999;
+        margin-left: 5px;
+    }
+    .storage-info {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+    .storage-info-item {
+        display: flex;
+        align-items: center;
+        min-width: 150px;
+    }
+    .storage-info-item label {
+        color: #999;
+        font-size: 13px;
+        white-space: nowrap;
+        margin-right: 5px;
+    }
+    .storage-info-item span {
+        font-size: 13px;
+        color: #333;
+        word-break: break-all;
+    }
+    .storage-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+    .storage-actions .layui-btn {
+        margin-right: 5px;
+    }
+    .storage-actions .layui-btn:last-child {
+        margin-right: 0;
+    }
+    .empty-tip {
+        text-align: center;
+        padding: 40px 0;
+    }
+    .service-info {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+    .service-info-item {
+        display: flex;
+        align-items: center;
+        min-width: 200px;
+    }
+    .service-info-item label {
+        color: #999;
+        font-size: 13px;
+        white-space: nowrap;
+        margin-right: 5px;
+    }
+    .service-info-item span {
+        font-size: 13px;
+        color: #333;
+    }
+    .service-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-size: 12px;
+        margin-left: 5px;
+    }
+    .service-badge.enabled {
+        background: #5ba636;
+        color: #fff;
+    }
+    .service-badge.disabled {
+        background: #999;
+        color: #fff;
+    }
+    .config-input-changed {
+        border-color: #009688 !important;
+        background-color: #f0f9f8;
+    }
+    .save-indicator {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 10px 20px;
+        background: #009688;
+        color: #fff;
+        border-radius: 4px;
+        font-size: 13px;
+        z-index: 9999;
+        display: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .section-header .layui-btn {
+        margin-left: 10px;
+    }
+    </style>
 </head>
-
 <body>
     <div class="layui-fluid">
         <div class="layui-row layui-col-space15">
             <div class="layui-col-md12">
                 <div class="layui-card">
-                    <div class="layui-card-header">
-                        <h3>系统配置管理</h3>
+                    <div class="layui-card-header section-header">
+                        <span><h3>系统业务配置</h3></span>
+                        <div>
+                            <button class="layui-btn layui-btn-sm layui-btn-warm" id="btnAddStorage">
+                                <i class="layui-icon layui-icon-file"></i> 存储配置
+                            </button>
+                            <button class="layui-btn layui-btn-sm layui-btn-primary" id="btnAddService">
+                                <i class="layui-icon layui-icon技术服务"></i> 服务配置
+                            </button>
+                        </div>
                     </div>
                     <div class="layui-card-body">
-                        <!-- 搜索栏 -->
-                        <div class="layui-form layui-form-pane" style="margin-bottom: 20px;">
-                            <div class="layui-form-item">
-                                <div class="layui-inline">
-                                    <input type="text" name="search" placeholder="搜索配置键或描述" autocomplete="off"
-                                        class="layui-input" value="{{ search }}">
-                                </div>
-                                <div class="layui-inline">
-                                    <button class="layui-btn" onclick="searchConfig()">
-                                        <i class="layui-icon layui-icon-search"></i> 搜索
-                                    </button>
-                                    <a href="{% url 'system:config_add' %}" class="layui-btn layui-btn-normal">
-                                        <i class="layui-icon layui-icon-add-1"></i> 新增配置
-                                    </a>
-                                </div>
-                            </div>
+                        <div class="layui-btn-container" style="margin-bottom: 20px;">
+                            <span class="layui-badge layui-bg-green" id="autoSaveStatus">
+                                <i class="layui-icon layui-icon-ok"></i> 自动保存已启用
+                            </span>
+                            <span style="margin-left: 15px; color: #999; font-size: 12px;">
+                                提示：编辑框失去焦点或开关切换时自动保存配置
+                            </span>
                         </div>
+                    </div>
+                </div>
 
-                        <!-- 数据表格 -->
-                        <table class="layui-table">
-                            <thead>
-                                <tr>
-                                    <th>配置键</th>
-                                    <th>配置值</th>
-                                    <th>描述</th>
-                                    <th>状态</th>
-                                    <th>更新时间</th>
-                                    <th>操作</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for config in page_obj %}
-                                <tr>
-                                    <td>{{ config.key }}</td>
-                                    <td>
-                                        <div
-                                            style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                            {{ config.value }}
-                                        </div>
-                                    </td>
-                                    <td>{{ config.description }}</td>
-                                    <td>
-                                        {% if config.is_active %}
-                                        <span class="layui-badge layui-bg-green">启用</span>
-                                        {% else %}
-                                        <span class="layui-badge">禁用</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ config.updated_at|date:"Y-m-d H:i" }}</td>
-                                    <td>
-                                        <a href="{% url 'system:config_edit' config.pk %}"
-                                            class="layui-btn layui-btn-xs">编辑</a>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="6" style="text-align: center; color: #999;">暂无数据</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <i class="layui-icon layui-icon-set" style="margin-right: 5px;"></i>
+                        <span>业务参数配置</span>
+                    </div>
+                    <div class="layui-card-body">
+                        <div class="config-cards" id="systemConfigCards"></div>
+                    </div>
+                </div>
 
-                        <!-- 分页 -->
-                        {% if page_obj.has_other_pages %}
-                        <div id="pagination"></div>
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <i class="layui-icon layui-icon技术服务" style="margin-right: 5px;"></i>
+                        <span>服务接口配置</span>
+                        <span class="config-count" id="serviceCount">({{ service_configs|length }})</span>
+                    </div>
+                    <div class="layui-card-body">
+                        <div class="service-cards" id="serviceConfigCards"></div>
+                        {% if not service_configs %}
+                        <div class="empty-tip">
+                            <i class="layui-icon layui-icon技术服务" style="font-size: 48px; color: #999;"></i>
+                            <p style="margin-top: 10px; color: #999;">暂无服务配置</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <i class="layui-icon layui-icon-file" style="margin-right: 5px;"></i>
+                        <span>存储配置</span>
+                        <span class="config-count" id="storageCount">({{ storage_configs|length }})</span>
+                    </div>
+                    <div class="layui-card-body">
+                        <div class="storage-cards" id="storageConfigCards"></div>
+                        {% if not storage_configs %}
+                        <div class="empty-tip">
+                            <i class="layui-icon layui-icon-file" style="font-size: 48px; color: #999;"></i>
+                            <p style="margin-top: 10px; color: #999;">暂无存储配置</p>
+                        </div>
                         {% endif %}
                     </div>
                 </div>
@@ -91,48 +223,741 @@
         </div>
     </div>
 
+    <div id="saveIndicator" class="save-indicator">
+        <i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i>
+        <span style="margin-left: 8px;">保存中...</span>
+    </div>
+
     <script src="/static/layui/layui.js"></script>
     <script>
-        layui.use(['laypage'], function () {
-            var laypage = layui.laypage;
-
-            {% if page_obj.has_other_pages %}
-            laypage.render({
-                elem: 'pagination',
-                count: {{ page_obj.paginator.count }},
-            curr: {{ page_obj.number }},
-            limit: 20,
-            layout: ['count', 'prev', 'page', 'next', 'limit', 'skip'],
-            jump: function (obj, first) {
-                if (!first) {
-                    var url = new URL(window.location);
-                    url.searchParams.set('page', obj.curr);
-                    window.location.href = url.toString();
-                }
-            }
-            });
-        {% endif %}
-        });
-
-        function searchConfig() {
-            var search = document.querySelector('input[name="search"]').value;
-            var url = new URL(window.location);
-            if (search) {
-                url.searchParams.set('search', search);
+    layui.use(['layer', 'form', 'upload'], function(){
+        var layer = layui.layer;
+        var form = layui.form;
+        
+        var configs = {{ configs_json|safe }};
+        var serviceConfigs = {{ service_configs_json|safe }};
+        var storageConfigs = {{ storage_configs_json|safe }};
+        
+        function showSaveIndicator(show, text) {
+            var indicator = document.getElementById('saveIndicator');
+            if (show) {
+                indicator.querySelector('span').textContent = text || '保存中...';
+                indicator.style.display = 'block';
             } else {
-                url.searchParams.delete('search');
+                setTimeout(function() {
+                    indicator.style.display = 'none';
+                }, 500);
             }
-            url.searchParams.delete('page');
-            window.location.href = url.toString();
         }
-
-        // 回车搜索
-        document.querySelector('input[name="search"]').addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') {
-                searchConfig();
+        
+        function showSaveSuccess() {
+            var indicator = document.getElementById('saveIndicator');
+            indicator.innerHTML = '<i class="layui-icon layui-icon-ok"></i><span style="margin-left: 8px;">保存成功</span>';
+            indicator.style.background = '#5ba636';
+            indicator.style.display = 'block';
+            setTimeout(function() {
+                indicator.style.background = '#009688';
+                indicator.style.display = 'none';
+            }, 1500);
+        }
+        
+        function renderSystemCards() {
+            var html = '';
+            configs.forEach(function(config, index) {
+                var extraAttrs = '';
+                if (config.extra) {
+                    if (config.extra.placeholder) extraAttrs += ' placeholder="' + config.extra.placeholder + '"';
+                    if (config.extra.min) extraAttrs += ' min="' + config.extra.min + '"';
+                    if (config.extra.max) extraAttrs += ' max="' + config.extra.max + '"';
+                    if (config.extra.maxlength) extraAttrs += ' maxlength="' + config.extra.maxlength + '"';
+                }
+                
+                var statusBadge = '';
+                var statusClass = '';
+                var isEnabled = config.value === 'true' || config.value === true;
+                if (config.value_type === 'switch') {
+                    statusClass = isEnabled ? 'enabled' : 'disabled';
+                    var statusText = isEnabled ? '启用' : '禁用';
+                    statusBadge = '<span class="service-badge ' + statusClass + '">' + statusText + '</span>';
+                }
+                
+                var categoryNames = {
+                    'basic': '基础配置',
+                    'security': '安全配置',
+                    'business': '业务配置',
+                    'service': '服务配置'
+                };
+                
+                if (config.key === 'system_logo') {
+                    html += '<div class="layui-card config-card">';
+                    html += '  <div class="layui-card-header">';
+                    html += '    <i class="layui-icon ' + config.icon + '" style="margin-right: 5px;"></i>';
+                    html += '    <span>' + config.name + '</span>';
+                    html += '    <span class="config-category" style="float: right; font-size: 12px; color: #999;">' + 
+                            (categoryNames[config.category] || config.category) + '</span>';
+                    html += '  </div>';
+                    html += '  <div class="layui-card-body">';
+                    html += '    <div class="layui-form-item">';
+                    html += '      <label class="layui-form-label" style="width: 90px;">Logo预览：</label>';
+                    html += '      <div class="layui-input-block" style="margin-left: 120px;">';
+                    html += '        <div class="logo-preview" id="logoPreview" style="width: 120px; height: 40px; border: 1px dashed #ccc; display: flex; align-items: center; justify-content: center; overflow: hidden;">';
+                    if (config.value) {
+                        html += '          <img src="' + config.value + '" style="max-width: 100%; max-height: 100%;" onerror="this.parentElement.innerHTML=\'<span style=\\\'color: #999; font-size: 12px;\\\'>图片加载失败</span>\'">';
+                    } else {
+                        html += '          <span style="color: #999; font-size: 12px;">暂无Logo</span>';
+                    }
+                    html += '        </div>';
+                    html += '      </div>';
+                    html += '    </div>';
+                    html += '    <div class="layui-form-item">';
+                    html += '      <label class="layui-form-label" style="width: 90px;">Logo地址：</label>';
+                    html += '      <div class="layui-input-block" style="margin-left: 120px;">';
+                    html += '        <input type="text" name="value_' + config.key + '" id="logoInput" value="' + config.value + '" ' + 
+                            extraAttrs + ' class="layui-input config-input" ' +
+                            ' onblur="saveConfigValue(\'' + config.key + '\', this.value)" ' +
+                            ' oninput="this.classList.add(\'config-input-changed\'); updateLogoPreview(this.value)" ' +
+                            ' onchange="this.classList.remove(\'config-input-changed\')">';
+                    html += '      </div>';
+                    html += '    </div>';
+                    html += '    <div class="layui-form-item">';
+                    html += '      <label class="layui-form-label" style="width: 90px;">上传Logo：</label>';
+                    html += '      <div class="layui-input-block" style="margin-left: 120px;">';
+                    html += '        <button type="button" class="layui-btn layui-btn-sm" id="logoUploadBtn">';
+                    html += '          <i class="layui-icon layui-icon-upload"></i> 选择图片';
+                    html += '        </button>';
+                    html += '        <span id="logoUploadStatus" style="margin-left: 10px; color: #999;"></span>';
+                    html += '      </div>';
+                    html += '    </div>';
+                    html += '    <div class="layui-form-item" style="margin-bottom: 0;">';
+                    html += '      <label class="layui-form-label" style="width: 90px;">描述：</label>';
+                    html += '      <div class="layui-input-block" style="margin-left: 120px;">';
+                    html += '        <p class="config-desc">' + config.description + '</p>';
+                    html += '      </div>';
+                    html += '    </div>';
+                    html += '  </div>';
+                    html += '</div>';
+                } else {
+                    html += '<div class="layui-card config-card">';
+                    html += '  <div class="layui-card-header">';
+                    html += '    <i class="layui-icon ' + config.icon + '" style="margin-right: 5px;"></i>';
+                    html += '    <span>' + config.name + '</span>';
+                    html += '    <span class="config-category" style="float: right; font-size: 12px; color: #999;">' + 
+                            (categoryNames[config.category] || config.category) + '</span>';
+                    html += '  </div>';
+                    html += '  <div class="layui-card-body">';
+                    html += '    <div class="layui-form-item">';
+                    html += '      <label class="layui-form-label" style="width: 90px;">当前值：</label>';
+                    html += '      <div class="layui-input-block" style="margin-left: 120px;">';
+                    
+                    if (config.value_type === 'switch') {
+                        var checked = isEnabled ? 'checked' : '';
+                        html += '<input type="checkbox" name="value_' + config.key + '" ' + checked + 
+                                ' lay-skin="switch" lay-text="启用|禁用" id="switch_' + config.key + '" onclick="event.stopPropagation(); toggleConfig(\'' + config.key + '\', this.checked)">';
+                        html += ' ' + statusBadge;
+                    } else if (config.value_type === 'number') {
+                        html += '<input type="number" name="value_' + config.key + '" value="' + config.value + '" ' + 
+                                extraAttrs + ' class="layui-input config-input" ' +
+                                ' onblur="saveConfigValue(\'' + config.key + '\', this.value)" ' +
+                                ' oninput="this.classList.add(\'config-input-changed\')" ' +
+                                ' onchange="this.classList.remove(\'config-input-changed\')">';
+                    } else {
+                        html += '<input type="text" name="value_' + config.key + '" value="' + config.value + '" ' + 
+                                extraAttrs + ' class="layui-input config-input" ' +
+                                ' onblur="saveConfigValue(\'' + config.key + '\', this.value)" ' +
+                                ' oninput="this.classList.add(\'config-input-changed\')" ' +
+                                ' onchange="this.classList.remove(\'config-input-changed\')">';
+                    }
+                    
+                    html += '      </div>';
+                    html += '    </div>';
+                    html += '    <div class="layui-form-item" style="margin-bottom: 0;">';
+                    html += '      <label class="layui-form-label" style="width: 90px;">描述：</label>';
+                    html += '      <div class="layui-input-block" style="margin-left: 120px;">';
+                    html += '        <p class="config-desc">' + config.description + '</p>';
+                    html += '      </div>';
+                    html += '    </div>';
+                    html += '  </div>';
+                    html += '</div>';
+                }
+            });
+            document.getElementById('systemConfigCards').innerHTML = html;
+            form.render();
+            setTimeout(initLogoUpload, 200);
+        }
+        
+        window.saveConfigValue = function(key, value) {
+            var input = document.querySelector('input[name="value_' + key + '"]');
+            if (input) {
+                input.classList.remove('config-input-changed');
             }
+            
+            var config = configs.find(function(c) { return c.key === key; });
+            if (!config) return;
+            
+            if (config.value_type === 'number') {
+                var numValue = parseInt(value);
+                if (isNaN(numValue) || numValue < 1) {
+                    layer.msg('请输入有效的数字', {icon: 2});
+                    if (input) input.value = config.value;
+                    renderSystemCards();
+                    return;
+                }
+                
+                var min = config.extra && config.extra.min ? parseInt(config.extra.min) : 1;
+                var max = config.extra && config.extra.max ? parseInt(config.extra.max) : 1000;
+                
+                if (numValue < min || numValue > max) {
+                    layer.msg('请输入' + min + '-' + max + '之间的数字', {icon: 2});
+                    if (input) input.value = config.value;
+                    renderSystemCards();
+                    return;
+                }
+                
+                value = numValue;
+            }
+            
+            if (config.value === String(value) || config.value === value) {
+                return;
+            }
+            
+            showSaveIndicator(true, '保存中...');
+            
+            var formData = new FormData();
+            formData.append('key', key);
+            formData.append('value', value);
+            
+            fetch('/system/config/update/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                showSaveIndicator(false);
+                if (data.code === 0) {
+                    showSaveSuccess();
+                    config.value = String(value);
+                    renderSystemCards();
+                } else {
+                    layer.msg(data.msg || '保存失败', {icon: 2});
+                    renderSystemCards();
+                }
+            })
+            .catch(function(error) {
+                showSaveIndicator(false);
+                layer.msg('保存失败: ' + error, {icon: 2});
+                renderSystemCards();
+            });
+        };
+        
+        window.toggleConfig = function(key, isActive) {
+            var config = configs.find(function(c) { return c.key === key; });
+            if (!config) return;
+            
+            var oldValue = config.value;
+            var newValue = String(isActive);
+            config.value = newValue;
+            
+            showSaveIndicator(true, '保存中...');
+            
+            var formData = new FormData();
+            formData.append('key', key);
+            formData.append('value', newValue);
+            
+            fetch('/system/config/update/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                showSaveIndicator(false);
+                if (data.code === 0) {
+                    showSaveSuccess();
+                    config.value = newValue;
+                    renderSystemCards();
+                } else {
+                    config.value = oldValue;
+                    layer.msg(data.msg, {icon: 2});
+                    renderSystemCards();
+                }
+            })
+            .catch(function(error) {
+                config.value = oldValue;
+                showSaveIndicator(false);
+                layer.msg('操作失败: ' + error, {icon: 2});
+                renderSystemCards();
+            });
+        };
+        
+        function renderServiceCards() {
+            var html = '';
+            serviceConfigs.forEach(function(config) {
+                var statusClass = config.is_enabled ? 'enabled' : 'disabled';
+                var statusText = config.is_enabled ? '已启用' : '已禁用';
+                
+                html += '<div class="layui-card service-card" onclick="openServiceDetail(' + config.pk + ')">';
+                html += '  <div class="layui-card-header">';
+                html += '    <i class="layui-icon ' + (config.icon || 'layui-icon技术服务') + '" style="margin-right: 5px;"></i>';
+                html += '    <span>' + config.name + '</span>';
+                html += '    <span class="service-badge ' + statusClass + '">' + statusText + '</span>';
+                html += '    <span class="config-category" style="float: right; font-size: 12px; color: #999;">' + 
+                        (config.category_display || config.category) + '</span>';
+                html += '  </div>';
+                html += '  <div class="layui-card-body">';
+                html += '    <div class="service-info">';
+                
+                if (config.provider) {
+                html += '      <div class="service-info-item">';
+                html += '        <label>服务商：</label>';
+                html += '        <span>' + config.provider + '</span>';
+                html += '      </div>';
+                }
+                
+                if (config.api_key_masked) {
+                html += '      <div class="service-info-item">';
+                html += '        <label>API密钥：</label>';
+                html += '        <span>' + config.api_key_masked + '</span>';
+                html += '      </div>';
+                }
+                
+                if (config.base_url) {
+                html += '      <div class="service-info-item" style="width: 100%;">';
+                html += '        <label>接口地址：</label>';
+                html += '        <span>' + config.base_url + '</span>';
+                html += '      </div>';
+                }
+                
+                if (config.description) {
+                html += '      <div class="service-info-item" style="width: 100%;">';
+                html += '        <label>描述：</label>';
+                html += '        <span>' + config.description + '</span>';
+                html += '      </div>';
+                }
+                
+                html += '    </div>';
+                html += '    <div class="storage-actions">';
+                html += '      <button class="layui-btn layui-btn-xs" onclick="event.stopPropagation(); openServiceDetail(' + config.pk + ')">配置</button>';
+                
+                if (config.is_enabled) {
+                html += '      <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="event.stopPropagation(); toggleService(' + config.pk + ', false)">禁用</button>';
+                } else {
+                html += '      <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="event.stopPropagation(); toggleService(' + config.pk + ', true)">启用</button>';
+                }
+                
+                if (config.test_available) {
+                html += '      <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="event.stopPropagation(); testService(' + config.pk + ')">测试</button>';
+                }
+                
+                html += '      <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation(); deleteService(' + config.pk + ')">删除</button>';
+                html += '    </div>';
+                html += '  </div>';
+                html += '</div>';
+            });
+            document.getElementById('serviceConfigCards').innerHTML = html;
+        }
+        
+        window.openServiceDetail = function(pk) {
+            layer.open({
+                type: 2,
+                title: '服务配置详情',
+                area: ['700px', '550px'],
+                content: '/system/config/service/' + pk + '/',
+                end: function() {
+                    location.reload();
+                }
+            });
+        };
+        
+        window.toggleService = function(pk, isEnabled) {
+            var statusText = isEnabled ? '启用' : '禁用';
+            layer.confirm('确定要' + statusText + '此服务配置吗？', {icon: 3, title: '确认'}, function(index){
+                var formData = new FormData();
+                formData.append('pk', pk);
+                formData.append('is_enabled', isEnabled);
+                
+                fetch('/system/config/service/toggle/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.code === 0) {
+                        layer.msg(data.msg, {icon: 1});
+                        setTimeout(function(){location.reload();}, 1000);
+                    } else {
+                        layer.msg(data.msg, {icon: 2});
+                    }
+                });
+                layer.close(index);
+            });
+        };
+        
+        window.testService = function(pk) {
+            var index = layer.open({
+                type: 1,
+                title: '测试服务连接',
+                skin: 'layui-layer-rim',
+                area: ['400px', '200px'],
+                content: '<div style="padding: 20px; text-align: center;"><i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop" style="font-size: 48px;"></i><p style="margin-top: 10px;">正在测试连接...</p></div>'
+            });
+
+            fetch('/system/config/service/' + pk + '/test/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                layer.close(index);
+                if (data.status === 'success') {
+                    layer.alert(data.message, {icon: 1, title: '测试结果'});
+                } else {
+                    layer.alert(data.message, {icon: 2, title: '测试结果'});
+                }
+            })
+            .catch(function(error) {
+                layer.close(index);
+                layer.alert('测试失败: ' + error, {icon: 2, title: '错误'});
+            });
+        };
+        
+        window.deleteService = function(pk) {
+            layer.confirm('确定要删除此服务配置吗？此操作不可恢复！', {icon: 3, title: '警告'}, function(index){
+                var formData = new FormData();
+                formData.append('pk', pk);
+                fetch('/system/config/service/' + pk + '/delete/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.code === 0) {
+                        layer.msg(data.msg, {icon: 1});
+                        setTimeout(function(){location.reload();}, 1000);
+                    } else {
+                        layer.msg(data.msg, {icon: 2});
+                    }
+                });
+                layer.close(index);
+            });
+        };
+        
+        function renderStorageCards() {
+            var html = '';
+            storageConfigs.forEach(function(config) {
+                var statusClass = config.status === 'active' ? 'layui-bg-green' : (config.status === 'error' ? 'layui-bg-red' : 'layui-bg-gray');
+                var statusText = config.status === 'active' ? '启用' : (config.status === 'error' ? '错误' : '禁用');
+                
+                html += '<div class="layui-card storage-card" onclick="editStorage(' + config.pk + ')">';
+                html += '  <div class="layui-card-header">';
+                if (config.is_default) {
+                    html += '<span class="layui-badge layui-bg-green" style="margin-right: 8px;">默认</span>';
+                }
+                if (config.sync_to_local) {
+                    html += '<span class="layui-badge layui-bg-blue" style="margin-right: 8px;">同步</span>';
+                }
+                html += '<span style="margin-right: 10px;">' + config.name + '</span>';
+                html += '<span class="layui-badge ' + statusClass + '">' + statusText + '</span>';
+                html += '    <span class="storage-type" style="float: right; font-size: 12px; color: #999;">' + config.storage_type_display + '</span>';
+                html += '  </div>';
+                html += '  <div class="layui-card-body">';
+                html += '    <div class="storage-info">';
+                html += '      <div class="storage-info-item">';
+                html += '        <label>存储位置：</label>';
+                html += '        <span>' + (config.bucket_name || config.nas_share_path || config.webdav_url || config.local_path || '-') + '</span>';
+                html += '      </div>';
+                html += '      <div class="storage-info-item">';
+                html += '        <label>区域：</label>';
+                html += '        <span>' + (config.region || config.endpoint || '-') + '</span>';
+                html += '      </div>';
+                html += '      <div class="storage-info-item">';
+                html += '        <label>最后测试：</label>';
+                html += '        <span>' + config.last_test_time + '</span>';
+                html += '      </div>';
+                if (config.description) {
+                html += '      <div class="storage-info-item" style="width: 100%;">';
+                html += '        <label>描述：</label>';
+                html += '        <span>' + config.description + '</span>';
+                html += '      </div>';
+                }
+                if (config.last_error) {
+                html += '      <div class="storage-info-item" style="width: 100%;">';
+                html += '        <label style="color: red;">错误：</label>';
+                html += '        <span style="color: red;">' + config.last_error + '</span>';
+                html += '      </div>';
+                }
+                html += '    </div>';
+                html += '    <div class="storage-actions">';
+                html += '      <button class="layui-btn layui-btn-xs" onclick="event.stopPropagation(); editStorage(' + config.pk + ')">编辑</button>';
+                html += '      <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="event.stopPropagation(); testStorage(' + config.pk + ')">测试</button>';
+                if (!config.is_default) {
+                html += '      <button class="layui-btn layui-btn-xs" onclick="event.stopPropagation(); setDefaultStorage(' + config.pk + ')">默认</button>';
+                }
+                if (config.status === 'active') {
+                html += '      <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="event.stopPropagation(); toggleStorageStatus(' + config.pk + ', \'inactive\')">禁用</button>';
+                } else {
+                html += '      <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="event.stopPropagation(); toggleStorageStatus(' + config.pk + ', \'active\')">启用</button>';
+                }
+                html += '      <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation(); deleteStorage(' + config.pk + ')">删除</button>';
+                html += '    </div>';
+                html += '  </div>';
+                html += '</div>';
+            });
+            document.getElementById('storageConfigCards').innerHTML = html;
+        }
+        
+        window.testStorage = function(pk) {
+            var index = layer.open({
+                type: 1,
+                title: '测试连接',
+                skin: 'layui-layer-rim',
+                area: ['400px', '200px'],
+                content: '<div style="padding: 20px; text-align: center;"><i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop" style="font-size: 48px;"></i><p style="margin-top: 10px;">正在测试连接...</p></div>'
+            });
+
+            fetch('/system/storage/' + pk + '/test/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                layer.close(index);
+                if (data.status === 'success') {
+                    layer.alert(data.message, {icon: 1, title: '测试结果'});
+                } else {
+                    layer.alert(data.message, {icon: 2, title: '测试结果'});
+                }
+            })
+            .catch(function(error) {
+                layer.close(index);
+                layer.alert('测试失败: ' + error, {icon: 2, title: '错误'});
+            });
+        };
+        
+        window.setDefaultStorage = function(pk) {
+            layer.confirm('确定要将此存储配置设为默认吗？', {icon: 3, title: '确认'}, function(index){
+                var formData = new FormData();
+                formData.append('pk', pk);
+                fetch('/system/config/storage/set_default/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.code === 0) {
+                        layer.msg(data.msg, {icon: 1});
+                        setTimeout(function(){location.reload();}, 1000);
+                    } else {
+                        layer.msg(data.msg, {icon: 2});
+                    }
+                });
+                layer.close(index);
+            });
+        };
+        
+        window.toggleStorageStatus = function(pk, status) {
+            var statusText = status === 'active' ? '启用' : '禁用';
+            layer.confirm('确定要' + statusText + '此存储配置吗？', {icon: 3, title: '确认'}, function(index){
+                var formData = new FormData();
+                formData.append('pk', pk);
+                formData.append('status', status);
+                fetch('/system/config/storage/toggle/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.code === 0) {
+                        layer.msg(data.msg, {icon: 1});
+                        setTimeout(function(){location.reload();}, 1000);
+                    } else {
+                        layer.msg(data.msg, {icon: 2});
+                    }
+                });
+                layer.close(index);
+            });
+        };
+        
+        window.deleteStorage = function(pk) {
+            layer.confirm('确定要删除此存储配置吗？此操作不可恢复！', {icon: 3, title: '警告'}, function(index){
+                var formData = new FormData();
+                formData.append('pk', pk);
+                fetch('/system/config/storage/delete/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.code === 0) {
+                        layer.msg(data.msg, {icon: 1});
+                        setTimeout(function(){location.reload();}, 1000);
+                    } else {
+                        layer.msg(data.msg, {icon: 2});
+                    }
+                });
+                layer.close(index);
+            });
+        };
+        
+        window.editStorage = function(pk) {
+            layer.open({
+                type: 2,
+                title: '编辑存储配置',
+                area: ['80%', '90%'],
+                offset: 'r',
+                shadeClose: true,
+                content: '/system/storage/' + pk + '/',
+                end: function() {
+                    location.reload();
+                }
+            });
+        };
+        
+        document.getElementById('btnAddStorage').addEventListener('click', function() {
+            layer.open({
+                type: 2,
+                title: '新增存储配置',
+                area: ['80%', '90%'],
+                offset: 'r',
+                shadeClose: true,
+                content: '/system/storage/add/',
+                end: function() {
+                    location.reload();
+                }
+            });
         });
+        
+        document.getElementById('btnAddService').addEventListener('click', function() {
+            layer.open({
+                type: 2,
+                title: '新增服务配置',
+                area: ['700px', '550px'],
+                content: '/system/config/service/add/',
+                end: function() {
+                    location.reload();
+                }
+            });
+        });
+        
+        window.updateLogoPreview = function(url) {
+            var preview = document.getElementById('logoPreview');
+            if (preview && url) {
+                preview.innerHTML = '<img src="' + url + '" style="max-width: 100%; max-height: 100%;" onerror="this.parentElement.innerHTML=\'<span style=\\\'color: #999; font-size: 12px;\\\'>图片加载失败</span>\'">';
+            } else if (preview) {
+                preview.innerHTML = '<span style="color: #999; font-size: 12px;">暂无Logo</span>';
+            }
+        };
+        
+        function initLogoUpload() {
+            var uploadBtn = document.getElementById('logoUploadBtn');
+            if (!uploadBtn) {
+                console.log('Logo upload button not found');
+                return;
+            }
+            
+            console.log('Initializing logo upload...');
+            
+            if (window.logoUploadInstance) {
+                console.log('Upload instance already exists, reloading...');
+                try { window.logoUploadInstance.reload(); } catch(e) { console.error('Reload error:', e); }
+                return;
+            }
+            
+            window.logoUploadInstance = layui.upload.render({
+                elem: '#logoUploadBtn',
+                url: '/system/config/upload-logo/',
+                accept: 'images',
+                acceptMime: 'image/*',
+                size: 2048,
+                auto: true,
+                dataType: 'json',
+                parseData: function(res){
+                    return {
+                        "code": res.code,
+                        "msg": res.msg,
+                        "data": res.url
+                    };
+                },
+                done: function(res, index, upload) {
+                    console.log('Upload done, raw response:', res);
+                    console.log('Response type:', typeof res);
+                    var status = document.getElementById('logoUploadStatus');
+                    
+                    if (typeof res === 'string') {
+                        try {
+                            res = JSON.parse(res);
+                            console.log('Parsed response:', res);
+                        } catch(e) {
+                            console.error('JSON parse error:', e);
+                            status.innerHTML = '<span style="color: #ff5722;">解析响应失败</span>';
+                            return;
+                        }
+                    }
+                    
+                    if (res.code === 0) {
+                        var input = document.getElementById('logoInput');
+                        if (input) {
+                            input.value = res.url;
+                        }
+                        var preview = document.getElementById('logoPreview');
+                        if (preview && res.url) {
+                            preview.innerHTML = '<img src="' + res.url + '" style="max-width: 100%; max-height: 100%;" onerror="this.parentElement.innerHTML=\'<span style=\\\'color: #999; font-size: 12px;\\\'>图片加载失败</span>\'">';
+                        }
+                        
+                        var config = configs.find(function(c) { return c.key === 'system_logo'; });
+                        if (config) {
+                            config.value = res.url;
+                        }
+                        
+                        status.innerHTML = '<span style="color: #5ba636;">上传成功</span>';
+                    } else {
+                        status.innerHTML = '<span style="color: #ff5722;">上传失败: ' + res.msg + '</span>';
+                    }
+                },
+                error: function(index, upload) {
+                    console.log('Upload error callback triggered');
+                    var status = document.getElementById('logoUploadStatus');
+                    status.innerHTML = '<span style="color: #ff5722;">上传失败，请检查控制台</span>';
+                }
+            });
+            console.log('Upload instance created');
+        }
+        
+        function getCookie(name) {
+            var arr, reg = new RegExp('(^| )' + name + '=([^;]*)(;|$)');
+            if (arr = document.cookie.match(reg)) {
+                return unescape(arr[2]);
+            }
+            return null;
+        }
+        
+        renderSystemCards();
+        renderServiceCards();
+        renderStorageCards();
+    });
     </script>
 </body>
-
 </html>

@@ -48,7 +48,6 @@ class DepartmentListView(PermissionRequiredMixin, ListView):
                 departments.extend(build_department_tree(dept.id, level + 1))
             return departments
         
-        # 从顶级部门（pid=0）开始构建树形结构
         departments_with_level = build_department_tree()
         return departments_with_level
 

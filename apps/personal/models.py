@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from apps.department.models import Department
 from apps.oa.models import MeetingRecord
+from apps.oa.constants import MeetingTypeChoices
 
 User = get_user_model()
 
@@ -251,18 +252,13 @@ class PersonalContact(models.Model):
 
 
 class MeetingMinutes(models.Model):
-    """会议纪要"""
-    MEETING_TYPE_CHOICES = (
-        ('regular', '例会'),
-        ('project', '项目会议'),
-        ('training', '培训会议'),
-        ('review', '评审会议'),
-        ('emergency', '紧急会议'),
-        ('other', '其他'),
-    )
-    
     title = models.CharField(max_length=200, verbose_name='会议主题')
-    meeting_type = models.CharField(max_length=20, choices=MEETING_TYPE_CHOICES, default='regular', verbose_name='会议类型')
+    meeting_type = models.CharField(
+        max_length=20,
+        choices=MeetingTypeChoices.choices,
+        default=MeetingTypeChoices.REGULAR,
+        verbose_name='会议类型'
+    )
     meeting_date = models.DateTimeField(verbose_name='会议时间')
     location = models.CharField(max_length=200, blank=True, verbose_name='会议地点')
     host = models.CharField(max_length=100, blank=True, verbose_name='主持人')
@@ -286,3 +282,7 @@ class MeetingMinutes(models.Model):
 
     def __str__(self):
         return self.title
+    
+    @property
+    def meeting_type_display(self):
+        return MeetingTypeChoices.get_label(self.meeting_type)

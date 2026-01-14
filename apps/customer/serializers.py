@@ -46,7 +46,6 @@ class CustomerFieldSerializer(serializers.ModelSerializer):
                         raise serializers.ValidationError("选项格式应为[{label: '显示文本', value: '值'}, ...]")
                     parsed_options.append(option)
             except json.JSONDecodeError:
-                # JSON解析失败，尝试解析为每行一个选项的格式 (value:label)
                 lines = value.strip().split('\n')
                 for line in lines:
                     line = line.strip()

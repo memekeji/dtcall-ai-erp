@@ -89,6 +89,21 @@ function ajaxRequest(url, options = {}) {
                 } catch (e) {
                     resolve(xhr.responseText);
                 }
+            } else if (xhr.status === 401) {
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.data && response.data.redirect_url) {
+                        if (window.top !== window) {
+                            window.top.location.href = response.data.redirect_url;
+                        } else {
+                            window.location.href = response.data.redirect_url;
+                        }
+                    } else {
+                        window.location.href = '/user/login/';
+                    }
+                } catch (e) {
+                    window.location.href = '/user/login/';
+                }
             } else {
                 reject(new Error(`请求失败: ${xhr.status}`));
             }
@@ -119,8 +134,28 @@ function getCsrfToken() {
  * 页面加载完成后执行
  */
 document.addEventListener('DOMContentLoaded', function() {
-    // 初始化公共功能
     console.log('DTCall Common JS loaded');
+    
+    if (typeof jQuery !== 'undefined') {
+        jQuery(document).ajaxError(function(event, xhr, settings, error) {
+            if (xhr.status === 401) {
+                try {
+                    var response = JSON.parse(xhr.responseText);
+                    if (response.data && response.data.redirect_url) {
+                        if (window.top !== window) {
+                            window.top.location.href = response.data.redirect_url;
+                        } else {
+                            window.location.href = response.data.redirect_url;
+                        }
+                    } else {
+                        window.location.href = '/user/login/';
+                    }
+                } catch (e) {
+                    window.location.href = '/user/login/';
+                }
+            }
+        });
+    }
 });
 
 // 导出函数供其他模块使用

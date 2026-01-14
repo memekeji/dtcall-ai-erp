@@ -1,182 +1,799 @@
 <!DOCTYPE html>
-<html>
-	<head>
-    {% load static %}
-		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-		<meta name="renderer" content="webkit" />
-		<meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
-		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-		<title>{% if web_title %}{{ web_title }}{% else %}DTcall{% endif %}</title>
-		{% load static %}
-		<link rel="stylesheet" href="{% static 'layui/css/layui.css' %}" media="all">
-		<script type="text/javascript">
-			// 检测页面是否在iframe中加载
-			if (window !== window.top) {
-				// 如果在iframe中，强制在顶层窗口重定向到登录页面
-				var loginUrl = window.location.href;
-				window.top.location.href = loginUrl;
-			}
-		</script>
-		<style type="text/css">
-			html,body {width: 100%;height: 100%;background: #EAF3FF;}
-			canvas{display:block;width:100%;height:100%; position: fixed; top: 0;left: 0;}
-			input:-webkit-autofill {
-				-webkit-box-shadow: 0 0 0px 1000px white inset;
-			}
-			#container {width: 100%;height: 100%;position: fixed;top: 0;left: 0;z-index: 99;background: url("{% static 'img/bg.png' %}");background-size: cover;}
-			.login-wrap {position: relative;overflow: hidden; background-color:#ffffff00; width:800px; height: 448px; position: absolute;top: 50%;left: 50%;margin-top: -240px;margin-left: -400px; border-radius: 12px; display: flex;box-shadow: 0 0 16px rgba(31, 84, 167, 0.2);}
+<html lang="zh-CN">
+<head>
+{% load static %}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+<title>{% if web_title %}{{ web_title }}{% else %}DTcall - 登录{% endif %}</title>
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
 
-			.login-side {width:400px; height:440px; padding:4px}
-			.login-side .side-img{border-radius: 8px; width:100%; height:100%; background: url("{% static 'img/login.png' %}");background-size: cover;}
-			
-			.login-box{width: 392px;height: 404px;}
-			.login-box .top {width: 392px; padding:36px 0; text-align:center; border-bottom:1px solid #eee;}
-			.login-box .bottom {padding:32px;}
-			.layui-input,.layui-textarea {height: 44px;border: 1px solid #ddd;}
-			.captcha_img img{width:150px; height:44px; cursor:pointer;}
-			.layui-btn {height: 45px;font-size: 16px;margin-top: 6px;}
-			#login-submit {
-				background-color: #1E9FFF !important;
-				transition: all 0.3s ease;
-				border-radius: 4px;
-				font-weight: bold;
-			}
-			#login-submit:hover {
-				background-color: #0081FF !important;
-				transform: translateY(-2px);
-				box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-			}
-			#login-submit:active {
-				transform: translateY(0);
-				box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-			}
-			.foot {position: absolute; font-size: 12px; bottom: 24px;text-align: center;width: 100%;color: #458BF3;}
-		</style>
-	</head>
-	<body>
-		<div id="container">
-			<canvas id="canvas"></canvas>
-			<div class="login-wrap">
-				<div class="login-side"><div class="side-img"></div></div>
-				<div class="login-box">
-					<div class="top">
-						<img src="{% if web_logo %}{{ web_logo }}{% else %}{% static 'img/logo.png' %}{% endif %}" style="height: 66px;">
-					</div>
-					<div class="bottom">
-						<form class="layui-form" id="gougu-login" method="post" action="{% url 'user:login-submit' %}">
-							{% csrf_token %}
-							<!-- 隐藏的next参数，用于登录后重定向 -->
-							{% if request.GET.next %}
-							<input type="hidden" name="next" value="{{ request.GET.next }}">
-							{% endif %}
-							<div class="layui-form-item">
-								<input type="text" name="username" lay-verify="required" value="" placeholder="请输入账户或手机号码" lay-reqText="请输入账户或手机号码" autocomplete="off" class="layui-input">
-							</div>
-							<div class="layui-form-item">
-								<input type="password" name="password" lay-verify="required" value="" placeholder="请输入密码" lay-reqText="请输入密码" autocomplete="off" class="layui-input">
-							</div>
-							<div class="layui-form-item">
-							<div class="layui-input-inline" style="width:168px;">
-								<input type="text" name="captcha" lay-verify="required|number" placeholder="验证码（仅可输入3位数字）" lay-reqText="请输入验证码" autocomplete="off" class="layui-input" maxlength="3" oninput="this.value=this.value.replace(/[^\d]/g,'');" onfocus="this.placeholder='请输入3位数字验证码'" onblur="this.placeholder='验证码（仅可输入3位数字）'">
-							</div>
-							<div class="layui-input-inline captcha_img" style="width:142px; height:44px; margin-left:5px; margin-right:0">
-								<img src="{% url 'captcha-image' key=captcha_key %}" alt="captcha" id="captcha-img">
-<input type="hidden" name="captcha_key" value="{{ captcha_key }}"/>
-							</div>
-						</div>
-								
-							<button id="login-submit" class="layui-btn layui-btn-fluid layui-bg-cyan" lay-submit lay-filter="login-submit">登入系统</button>
-						</form>
-					</div>
-				</div>
-			</div>
-			<div class="foot">
-				Copyright © 2022-2024 米姆DTcall - {% if cms_version %}{{ cms_version }}{% endif %}  ，Powered by MEME，<a href="https://beian.miit.gov.cn/" target="_blank" rel="nofollow" style="color:#458BF3">{% if icp %}{{ icp }}{% endif %}</a><a target="_blank" rel="nofollow" style="margin-left: 15px;color:#458BF3" href="http://www.beian.gov.cn/portal/registerSystemInfo"> {% if beian %}{{ beian }}{% endif %}</a>
-			</div>
-		</div>
-		<script src="{% static 'layui/layui.js' %}"></script>
-		<script src="{% static 'js/jquery.min.js' %}"></script>
-		<script type="text/javascript">
-var canvas=document.querySelector("#canvas"),ctx=canvas.getContext("2d");canvas.width=window.innerWidth,canvas.height=window.innerHeight,ctx.lineWidth=.3,ctx.strokeStyle=new Color(150).style;var movePos={x:30*canvas.width/100,y:30*canvas.height/100},dots={nb:250,distance:100,d_radius:150,array:[]};
-function colorValue(t){return Math.floor(255*Math.random()+t)}function createColorStyle(t,o,i){return"rgba("+t+","+o+","+i+", 0.618)"}function mixComponents(t,o,i,a){return(t*o+i*a)/(o+a)}function averageColorStyles(t,o){var i=t.color,a=o.color,s=mixComponents(i.r,t.radius,a.r,o.radius),n=mixComponents(i.g,t.radius,a.g,o.radius),e=mixComponents(i.b,t.radius,a.b,o.radius);return createColorStyle(Math.floor(s),Math.floor(n),Math.floor(e))}function Color(t){t=t||0,this.r=colorValue(t),this.g=colorValue(t),this.b=colorValue(t),this.style=createColorStyle(this.r,this.g,this.b)}function Dot(){this.x=Math.random()*canvas.width,this.y=Math.random()*canvas.height,this.vx=-.5+Math.random(),this.vy=-.5+Math.random(),this.radius=3*Math.random(),this.color=new Color}function createDots(){for(i=0;i<dots.nb;i++)dots.array.push(new Dot)}function moveDots(){for(i=0;i<dots.nb;i++){var t=dots.array[i];t.y<0||t.y>canvas.height?(t.vx=t.vx,t.vy=-t.vy):(t.x<0||t.x>canvas.width)&&(t.vx=-t.vx,t.vy=t.vy),t.x+=t.vx,t.y+=t.vy}}function connectDots(){for(i=0;i<dots.nb;i++)for(j=0;j<dots.nb;j++)i_dot=dots.array[i],j_dot=dots.array[j],i_dot.x-j_dot.x<dots.distance&&i_dot.y-j_dot.y<dots.distance&&i_dot.x-j_dot.x>-dots.distance&&i_dot.y-j_dot.y>-dots.distance&&i_dot.x-movePos.x<dots.d_radius&&i_dot.y-movePos.y<dots.d_radius&&i_dot.x-movePos.x>-dots.d_radius&&i_dot.y-movePos.y>-dots.d_radius&&(ctx.beginPath(),ctx.strokeStyle=averageColorStyles(i_dot,j_dot),ctx.moveTo(i_dot.x,i_dot.y),ctx.lineTo(j_dot.x,j_dot.y),ctx.stroke(),ctx.closePath())}function drawDots(){for(i=0;i<dots.nb;i++){dots.array[i].draw()}}function runDots(){ctx.clearRect(0,0,canvas.width,canvas.height),moveDots(),connectDots(),drawDots(),requestAnimationFrame(runDots)}Dot.prototype={draw:function(){ctx.beginPath(),ctx.fillStyle=this.color.style,ctx.arc(this.x,this.y,this.radius,0,3*Math.PI,!1),ctx.fill()}};var can=document.querySelector("#canvas");can.addEventListener("mousemove",function(t){movePos.x=t.pageX,movePos.y=t.pageY}),can.addEventListener("mouseleave",function(t){movePos.x=canvas.width/2,movePos.y=canvas.height/2}),createDots(),requestAnimationFrame(runDots);
+html, body {
+    height: 100%;
+    width: 100%;
+}
 
-layui.use(['form'], function() {
-    var form = layui.form,
-        $ = layui.$,
-        layer = layui.layer;
-    form.on('submit(login-submit)', function(data) {
-        // 使用Django推荐的CSRF token处理方式
-        var csrfToken = $('input[name="csrfmiddlewaretoken"]').val();
-        var formData = $('#gougu-login').serialize();
-        
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow-x: hidden;
+}
+
+.bubbles-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+}
+
+.bubble {
+    position: absolute;
+    bottom: -100px;
+    border-radius: 50%;
+    animation: rise linear infinite;
+}
+
+.bubble:nth-child(1) { width: 50px; height: 50px; left: 3%; animation-duration: 20s; animation-delay: 0s; background: rgba(255, 160, 160, 0.25); }
+.bubble:nth-child(2) { width: 35px; height: 35px; left: 8%; animation-duration: 24s; animation-delay: 1s; background: rgba(160, 255, 160, 0.25); }
+.bubble:nth-child(3) { width: 60px; height: 60px; left: 12%; animation-duration: 22s; animation-delay: 2s; background: rgba(160, 160, 255, 0.25); }
+.bubble:nth-child(4) { width: 40px; height: 40px; left: 18%; animation-duration: 26s; animation-delay: 3s; background: rgba(255, 255, 160, 0.25); }
+.bubble:nth-child(5) { width: 55px; height: 55px; left: 23%; animation-duration: 21s; animation-delay: 4s; background: rgba(255, 160, 255, 0.25); }
+.bubble:nth-child(6) { width: 30px; height: 30px; left: 28%; animation-duration: 25s; animation-delay: 5s; background: rgba(160, 255, 255, 0.25); }
+.bubble:nth-child(7) { width: 65px; height: 65px; left: 33%; animation-duration: 23s; animation-delay: 0s; background: rgba(255, 200, 160, 0.25); }
+.bubble:nth-child(8) { width: 45px; height: 45px; left: 38%; animation-duration: 27s; animation-delay: 1s; background: rgba(200, 160, 255, 0.25); }
+.bubble:nth-child(9) { width: 70px; height: 70px; left: 43%; animation-duration: 19s; animation-delay: 2s; background: rgba(160, 255, 200, 0.25); }
+.bubble:nth-child(10) { width: 38px; height: 38px; left: 48%; animation-duration: 24s; animation-delay: 3s; background: rgba(255, 255, 200, 0.25); }
+.bubble:nth-child(11) { width: 52px; height: 52px; left: 53%; animation-duration: 22s; animation-delay: 4s; background: rgba(200, 255, 255, 0.25); }
+.bubble:nth-child(12) { width: 42px; height: 42px; left: 58%; animation-duration: 26s; animation-delay: 5s; background: rgba(255, 200, 255, 0.25); }
+.bubble:nth-child(13) { width: 58px; height: 58px; left: 63%; animation-duration: 20s; animation-delay: 0s; background: rgba(255, 160, 200, 0.25); }
+.bubble:nth-child(14) { width: 32px; height: 32px; left: 68%; animation-duration: 25s; animation-delay: 1s; background: rgba(200, 200, 255, 0.25); }
+.bubble:nth-child(15) { width: 62px; height: 62px; left: 73%; animation-duration: 23s; animation-delay: 2s; background: rgba(255, 255, 160, 0.25); }
+.bubble:nth-child(16) { width: 48px; height: 48px; left: 78%; animation-duration: 27s; animation-delay: 3s; background: rgba(160, 255, 255, 0.25); }
+.bubble:nth-child(17) { width: 55px; height: 55px; left: 83%; animation-duration: 21s; animation-delay: 4s; background: rgba(255, 200, 200, 0.25); }
+.bubble:nth-child(18) { width: 36px; height: 36px; left: 88%; animation-duration: 24s; animation-delay: 5s; background: rgba(200, 255, 200, 0.25); }
+.bubble:nth-child(19) { width: 68px; height: 68px; left: 93%; animation-duration: 22s; animation-delay: 0s; background: rgba(200, 160, 200, 0.25); }
+.bubble:nth-child(20) { width: 44px; height: 44px; left: 6%; animation-duration: 26s; animation-delay: 6s; background: rgba(160, 200, 255, 0.25); }
+.bubble:nth-child(21) { width: 52px; height: 52px; left: 16%; animation-duration: 20s; animation-delay: 7s; background: rgba(255, 160, 160, 0.25); }
+.bubble:nth-child(22) { width: 38px; height: 38px; left: 26%; animation-duration: 24s; animation-delay: 8s; background: rgba(160, 255, 200, 0.25); }
+.bubble:nth-child(23) { width: 60px; height: 60px; left: 36%; animation-duration: 22s; animation-delay: 6s; background: rgba(200, 160, 255, 0.25); }
+.bubble:nth-child(24) { width: 46px; height: 46px; left: 46%; animation-duration: 26s; animation-delay: 7s; background: rgba(255, 200, 160, 0.25); }
+.bubble:nth-child(25) { width: 54px; height: 54px; left: 56%; animation-duration: 21s; animation-delay: 8s; background: rgba(160, 160, 200, 0.25); }
+.bubble:nth-child(26) { width: 40px; height: 40px; left: 66%; animation-duration: 25s; animation-delay: 6s; background: rgba(255, 160, 255, 0.25); }
+.bubble:nth-child(27) { width: 58px; height: 58px; left: 76%; animation-duration: 23s; animation-delay: 7s; background: rgba(200, 255, 200, 0.25); }
+.bubble:nth-child(28) { width: 34px; height: 34px; left: 86%; animation-duration: 27s; animation-delay: 8s; background: rgba(160, 200, 160, 0.25); }
+.bubble:nth-child(29) { width: 62px; height: 62px; left: 96%; animation-duration: 19s; animation-delay: 6s; background: rgba(255, 200, 255, 0.25); }
+.bubble:nth-child(30) { width: 48px; height: 48px; left: 11%; animation-duration: 23s; animation-delay: 9s; background: rgba(160, 255, 160, 0.25); }
+.bubble:nth-child(31) { width: 36px; height: 36px; left: 31%; animation-duration: 21s; animation-delay: 10s; background: rgba(200, 160, 200, 0.25); }
+.bubble:nth-child(32) { width: 56px; height: 56px; left: 51%; animation-duration: 25s; animation-delay: 9s; background: rgba(160, 160, 255, 0.25); }
+.bubble:nth-child(33) { width: 42px; height: 42px; left: 71%; animation-duration: 22s; animation-delay: 10s; background: rgba(255, 255, 200, 0.25); }
+.bubble:nth-child(34) { width: 64px; height: 64px; left: 91%; animation-duration: 24s; animation-delay: 9s; background: rgba(200, 255, 255, 0.25); }
+.bubble:nth-child(35) { width: 38px; height: 38px; left: 21%; animation-duration: 26s; animation-delay: 11s; background: rgba(255, 160, 200, 0.25); }
+
+@keyframes rise {
+    0% {
+        transform: translateY(0) translateX(0);
+        opacity: 0;
+    }
+    10% {
+        opacity: 0.7;
+    }
+    50% {
+        opacity: 0.5;
+    }
+    90% {
+        opacity: 0.3;
+    }
+    100% {
+        transform: translateY(-130vh) translateX(40px);
+        opacity: 0;
+    }
+}
+
+.login-wrapper {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 920px;
+    padding: 20px;
+}
+
+.login-card {
+    display: flex;
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(30px) scale(0.98);
+    animation: cardEnter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes cardEnter {
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.quote-section {
+    flex: 0 0 320px;
+    background: linear-gradient(145deg, #667eea 0%, #764ba2 100%);
+    padding: 45px 35px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.quote-section::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 100%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 60%);
+    pointer-events: none;
+    animation: shimmer 8s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0%, 100% { transform: translateX(-10%) translateY(-10%); }
+    50% { transform: translateX(10%) translateY(10%); }
+}
+
+.quote-section::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 120px;
+    background: linear-gradient(to top, rgba(0,0,0,0.12) 0%, transparent 100%);
+    pointer-events: none;
+}
+
+.quote-brand {
+    margin-bottom: 40px;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(-10px);
+    animation: fadeInUp 0.5s ease-out 0.2s forwards;
+}
+
+@keyframes fadeInUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.quote-brand-logo {
+    display: inline-block;
+    max-width: 70px;
+    height: auto;
+    margin-bottom: 12px;
+    filter: brightness(0) invert(1);
+    opacity: 0.9;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.quote-brand-logo:hover {
+    transform: scale(1.05);
+    opacity: 1;
+}
+
+.quote-brand-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    letter-spacing: 3px;
+    opacity: 0;
+    animation: fadeIn 0.5s ease-out 0.35s forwards;
+}
+
+@keyframes fadeIn {
+    to { opacity: 0.9; }
+}
+
+.quote-display {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    opacity: 0;
+    transform: translateX(-15px);
+    animation: fadeInLeft 0.6s ease-out 0.4s forwards;
+}
+
+@keyframes fadeInLeft {
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.quote-icon {
+    font-size: 48px;
+    color: rgba(255, 255, 255, 0.15);
+    margin-bottom: 20px;
+    font-family: Georgia, serif;
+    line-height: 1;
+}
+
+.quote-text {
+    font-size: 18px;
+    font-weight: 500;
+    color: #fff;
+    line-height: 1.9;
+    position: relative;
+    padding-left: 24px;
+    margin-bottom: 25px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.08);
+}
+
+.quote-text::before {
+    content: '"';
+    position: absolute;
+    left: -5px;
+    top: -10px;
+    font-size: 60px;
+    color: rgba(255, 255, 255, 0.2);
+    font-family: Georgia, serif;
+    line-height: 1;
+}
+
+.quote-author {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.75);
+    text-align: right;
+    padding-left: 24px;
+    font-style: normal;
+    letter-spacing: 1px;
+}
+
+.quote-footer {
+    margin-top: auto;
+    padding-top: 30px;
+    text-align: center;
+    opacity: 0;
+    animation: fadeIn 0.5s ease-out 0.6s forwards;
+}
+
+.quote-date {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.login-section {
+    flex: 1;
+    padding: 45px 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    opacity: 0;
+    animation: fadeIn 0.6s ease-out 0.5s forwards;
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 35px;
+    opacity: 0;
+    transform: translateY(-10px);
+    animation: fadeInUp 0.5s ease-out 0.55s forwards;
+}
+
+.login-logo {
+    display: inline-block;
+    max-width: 85px;
+    height: auto;
+    margin-bottom: 12px;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.login-logo:hover {
+    transform: scale(1.08) rotate(2deg);
+}
+
+.login-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 6px;
+}
+
+.login-subtitle {
+    font-size: 14px;
+    color: #999;
+}
+
+.login-form {
+    width: 100%;
+}
+
+.form-group {
+    margin-bottom: 20px;
+    opacity: 0;
+    transform: translateY(15px);
+}
+
+.form-group:nth-child(1) { animation: fadeInUpStagger 0.5s ease-out 0.65s forwards; }
+.form-group:nth-child(2) { animation: fadeInUpStagger 0.5s ease-out 0.7s forwards; }
+.form-group:nth-child(3) { animation: fadeInUpStagger 0.5s ease-out 0.75s forwards; }
+
+@keyframes fadeInUpStagger {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.captcha-group {
+    margin-bottom: 20px;
+}
+
+.form-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: #555;
+    margin-bottom: 8px;
+}
+
+.captcha-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.captcha-input {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    height: 46px;
+    padding: 0 15px;
+    border: 2px solid #e8e8e8;
+    border-radius: 10px;
+    font-size: 15px;
+    color: #333;
+    background: #fafafa;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    outline: none;
+}
+
+.captcha-input:focus {
+    border-color: #667eea;
+    background: #fff;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.12);
+}
+
+.captcha-input::placeholder {
+    color: #aaa;
+}
+
+.captcha-img {
+    width: 110px;
+    height: 46px;
+    border-radius: 10px;
+    border: 2px solid #e8e8e8;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+    object-fit: cover;
+}
+
+.captcha-img:hover {
+    border-color: #667eea;
+}
+
+.submit-btn {
+    width: 100%;
+    height: 48px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-top: 8px;
+    letter-spacing: 3px;
+    opacity: 0;
+    transform: translateY(10px);
+    animation: fadeInUpStagger 0.5s ease-out 0.85s forwards;
+    position: relative;
+    overflow: hidden;
+}
+
+.submit-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+.submit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.35);
+}
+
+.submit-btn:hover::before {
+    left: 100%;
+}
+
+.submit-btn:active {
+    transform: translateY(0);
+}
+
+.submit-btn.loading {
+    opacity: 0.85;
+    cursor: wait;
+    pointer-events: none;
+}
+
+.login-footer {
+    text-align: center;
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #f0f0f0;
+    opacity: 0;
+    animation: fadeIn 0.5s ease-out 0.95s forwards;
+}
+
+.footer-text {
+    font-size: 12px;
+    color: #999;
+}
+
+.footer-text a {
+    color: #667eea;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.footer-text a:hover {
+    color: #764ba2;
+}
+
+.version-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 12px;
+    font-size: 10px;
+    color: #667eea;
+    margin-left: 6px;
+}
+
+@media (max-width: 768px) {
+    .login-wrapper {
+        max-width: 440px;
+        padding: 15px;
+    }
+
+    .login-card {
+        flex-direction: column;
+    }
+
+    .quote-section {
+        flex: none;
+        padding: 35px 30px;
+    }
+
+    .quote-brand {
+        margin-bottom: 25px;
+    }
+
+    .quote-brand-logo {
+        max-width: 55px;
+    }
+
+    .quote-brand-name {
+        font-size: 16px;
+    }
+
+    .quote-text {
+        font-size: 16px;
+        padding-left: 20px;
+    }
+
+    .quote-text::before {
+        font-size: 48px;
+        left: -3px;
+        top: -8px;
+    }
+
+    .quote-icon {
+        font-size: 36px;
+        margin-bottom: 15px;
+    }
+
+    .quote-footer {
+        padding-top: 20px;
+    }
+
+    .login-section {
+        padding: 35px 30px;
+    }
+
+    .login-title {
+        font-size: 22px;
+    }
+
+    .captcha-row {
+        flex-wrap: wrap;
+    }
+
+    .captcha-img {
+        width: 100%;
+        height: 42px;
+        margin-top: 10px;
+        order: 3;
+    }
+
+    .captcha-input {
+        flex: 1 1 100%;
+        height: 44px;
+        font-size: 14px;
+    }
+
+    .submit-btn {
+        height: 46px;
+        font-size: 15px;
+    }
+}
+
+@media (max-width: 420px) {
+    .login-section {
+        padding: 30px 22px;
+    }
+
+    .quote-section {
+        padding: 30px 22px;
+    }
+
+    .login-title {
+        font-size: 20px;
+    }
+
+    .form-label {
+        font-size: 13px;
+    }
+
+    .captcha-input {
+        height: 42px;
+    }
+}
+</style>
+</head>
+<body>
+<div class="bubbles-container">
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+</div>
+<div class="login-wrapper">
+    <div class="login-card">
+        <div class="quote-section">
+            <div class="quote-brand">
+                <img src="{% if web_logo %}{{ web_logo }}{% else %}{% static 'img/logo.png' %}{% endif %}" alt="Logo" class="quote-brand-logo">
+                <div class="quote-brand-name">DTCALL</div>
+            </div>
+            <div class="quote-display">
+                <div class="quote-icon">"</div>
+                <div class="quote-text" id="quote-text">{{ daily_quote.text|default:"每一发奋努力的背后，必有加倍的赏赐。" }}</div>
+                <div class="quote-author" id="quote-author">{{ daily_quote.author|default:"—— 拿破仑·希尔" }}</div>
+            </div>
+            <div class="quote-footer">
+                <div class="quote-date" id="current-date"></div>
+            </div>
+        </div>
+
+        <div class="login-section">
+            <div class="login-header">
+                <img src="{% if web_logo %}{{ web_logo }}{% else %}{% static 'img/logo.png' %}{% endif %}" alt="Logo" class="login-logo">
+                <h1 class="login-title">管理系统</h1>
+                <p class="login-subtitle">企业数字化管理平台</p>
+            </div>
+
+            <form class="login-form" id="login-form" method="post" action="{% url 'user:login-submit' %}">
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label class="form-label" for="username">用户名</label>
+                    <input type="text" id="username" name="username" class="captcha-input" placeholder="请输入用户名或手机号" required autocomplete="off">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="password">密码</label>
+                    <input type="password" id="password" name="password" class="captcha-input" placeholder="请输入密码" required autocomplete="off">
+                </div>
+
+                <div class="captcha-group">
+                    <label class="form-label" for="captcha">验证码</label>
+                    <div class="captcha-row">
+                        <input type="text" id="captcha" name="captcha" class="captcha-input" placeholder="请输入答案" required maxlength="2" autocomplete="off">
+                        <img src="{% url 'captcha-image' key=captcha_key %}" alt="验证码" class="captcha-img" id="captcha-img" title="点击刷新验证码">
+                        <input type="hidden" name="captcha_key" value="{{ captcha_key }}">
+                    </div>
+                </div>
+
+                <button type="submit" class="submit-btn" id="login-submit">登 录</button>
+            </form>
+
+            <div class="login-footer">
+                <p class="footer-text">
+                    Copyright © 2022-2024 DTcall
+                    <span class="version-badge">{% if cms_version %}{{ cms_version }}{% else %}v1.0{% endif %}</span>
+                </p>
+                <p class="footer-text" style="margin-top: 8px;">
+                    <a href="https://beian.miit.gov.cn/" target="_blank">{% if icp %}{{ icp }}{% else %}粤ICP备12345678号{% endif %}</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'js/jquery.min.js' %}"></script>
+<script>
+$(document).ready(function() {
+    function updateDate() {
+        var now = new Date();
+        var options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
+        var dateStr = now.toLocaleDateString('zh-CN', options);
+        $('#current-date').text(dateStr);
+    }
+    updateDate();
+
+    $('#login-form').on('submit', function(e) {
+        e.preventDefault();
+        var btn = $('#login-submit');
+        btn.addClass('loading').text('登录中...');
         $.ajax({
-            url: "/user/login-submit/",
-            data: formData,
+            url: '/user/login-submit/',
+            data: $(this).serialize(),
             type: 'POST',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': csrfToken
-            },
-            beforeSend: function(xhr) {
-                xhr.setRequestHeader("X-CSRFToken", csrfToken);
-            },
-            success: function(res, status, xhr) {
-                console.log('登录响应数据:', res);
+            dataType: 'json',
+            success: function(res) {
                 if (res.code === 0) {
-                    // 强制在顶层窗口重定向，确保页面不嵌套
-                    window.top.location.href = res.data.redirect_url;
+                    btn.text('登录成功').css({'background': 'linear-gradient(135deg, #28a745 0%, #20c997 100%)'});
+                    setTimeout(function() {
+                        window.top.location.href = res.data.redirect_url;
+                    }, 800);
                 } else {
-                    layer.msg(res.msg || '登录失败，请检查信息', {icon: 2, time: 2000});
-                    // 刷新验证码
-                    $.ajax({
-                        url: "/get-new-captcha/",
-                        type: 'GET',
-                        dataType: 'json',
-                        success: function(data) {
-                            var newUrl = "/captcha/image/__key__/".replace('__key__', data.key);
-                            $('#captcha-img').attr('src', newUrl + '?t=' + Math.random());
-                            $('input[name="captcha_key"]').val(data.key);
-                        }
-                    });
+                    btn.removeClass('loading').text('登 录');
+                    showError(res.msg || '登录失败，请检查信息');
+                    refreshCaptcha();
                 }
             },
-            error: function(xhr, status, error) {
-                console.log('Error:', xhr.responseText);
-                console.log('Status:', status);
-                console.log('Error:', error);
-                console.log('CSRF Token:', $('input[name="csrfmiddlewaretoken"]').val());
-                console.log('Request Headers:', xhr.getAllResponseHeaders());
-                
+            error: function(xhr) {
+                btn.removeClass('loading').text('登 录');
                 if (xhr.status === 403 && xhr.responseText.includes('CSRF')) {
-                    layer.msg('CSRF验证失败，请刷新页面重试', {icon: 2, time: 2000});
-                    // 强制刷新页面
+                    showError('登录过期，请刷新页面重试');
                     setTimeout(function() {
                         window.location.reload();
                     }, 2000);
                 } else {
-                    layer.msg('请求失败: ' + xhr.status + ' ' + error, {icon: 2, time: 2000});
+                    showError('请求失败，请稍后重试');
                 }
             }
         });
-        return false;
     });
-});
 
-// 验证码点击刷新事件（移至DOM加载完成后）
-$(document).ready(function() {
-    $('#captcha-img').click(function() {
-        $.ajax({
-            url: "/get-new-captcha/",
-            type: 'GET',
-            dataType: 'json',
-            success: function(data) {
-                var newUrl = "/captcha/image/__key__/".replace('__key__', data.key);
-                $('#captcha-img').attr('src', newUrl + '?t=' + Math.random());
-                $('input[name="captcha_key"]').val(data.key);
-            }
+    function showError(msg) {
+        $('<div class="error-message" style="color: #ff6b6b; font-size: 13px; margin-top: -10px; margin-bottom: 15px; text-align: center; animation: shake 0.5s ease;">' + msg + '</div>').insertBefore('.submit-btn');
+        setTimeout(function() {
+            $('.error-message').fadeOut(300, function() {
+                $(this).remove();
+            });
+        }, 2500);
+    }
+
+    function refreshCaptcha() {
+        $.get('/get-new-captcha/', function(data) {
+            $('#captcha-img').attr('src', '/captcha/image/' + data.key + '/?t=' + Math.random());
+            $('input[name="captcha_key"]').val(data.key);
         });
+    }
+
+    $('#captcha-img').on('click', function() {
+        var img = $(this);
+        img.css('transform', 'scale(0.95)');
+        setTimeout(function() {
+            img.css('transform', '');
+        }, 150);
+        refreshCaptcha();
     });
+
+    function loadDailyQuote() {
+        $.get('/api/common/daily-quote/', function(res) {
+            if (res.code === 0 && res.data) {
+                updateQuoteDisplay(res.data);
+            }
+        }).fail(function() {
+            var defaultQuotes = [
+                { text: "每一发奋努力的背后，必有加倍的赏赐。", author: "—— 拿破仑·希尔" },
+                { text: "成功不是将来才有的，而是从决定去做的那一刻起，持续累积而成。", author: "—— 佚名" },
+                { text: "人生没有彩排，每一天都是现场直播。", author: "—— 佚名" },
+                { text: "与其临渊羡鱼，不如退而结网。", author: "—— 佚名" },
+                { text: "态度决定高度，细节决定成败。", author: "—— 佚名" },
+                { text: "不为失败找借口，只为成功找方法。", author: "—— 佚名" }
+            ];
+            var quote = defaultQuotes[Math.floor(Math.random() * defaultQuotes.length)];
+            updateQuoteDisplay(quote);
+        });
+    }
+
+    function updateQuoteDisplay(quote) {
+        if (quote) {
+            $('#quote-text').text(quote.text);
+            if (quote.author) {
+                $('#quote-author').text(quote.author);
+            }
+        }
+    }
+
+    loadDailyQuote();
 });
 </script>
-	</body>
+<style>
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+    20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+</style>
+</body>
 </html>

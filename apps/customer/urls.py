@@ -6,7 +6,6 @@ urlpatterns = [
     # 客户管理路由
     path('', views.CustomerListView.as_view(), name='customer_list'),
     path('simple/', views.CustomerListSimpleView.as_view(), name='customer_list_simple'),
-    path('debug/', views.CustomerListDebugView.as_view(), name='customer_list_debug'),
     path('list/data/', views.CustomerListDataView.as_view(), name='customer_list_data'),
     path('create/', views.CustomerCreateView.as_view(), name='customer_create'),
     path('edit/<int:pk>/', views.CustomerUpdateView.as_view(), name='customer_edit'),

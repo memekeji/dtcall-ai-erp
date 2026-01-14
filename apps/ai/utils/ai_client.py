@@ -711,5 +711,3 @@ class AIClient:
             return LocalModelClient(base_url=base_url, api_key=api_key, model_config=config)
         else:
             raise AIClientError(f"不支持的AI提供商: {provider}")
-
-# 默认AI客户端实例化已移除，需要时通过AIClient()创建实例

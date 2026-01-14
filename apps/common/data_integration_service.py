@@ -132,8 +132,6 @@ class DataIntegrationService:
             # 如果项目关联了合同，验证预算是否合理
             if project.contract and new_budget > project.contract.amount:
                 logger.warning(f"项目{project.name}预算{new_budget}超过合同金额{project.contract.amount}")
-                # 这里可以选择抛出异常或仅记录警告
-                # raise ValueError(f"项目预算不能超过合同金额{project.contract.amount}")
             
             project.budget = new_budget
             project.save()

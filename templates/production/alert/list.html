@@ -1,0 +1,415 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>告警中心 - 生产管理系统</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .alert-card {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid;
+            background: #f8f9fa;
+        }
+        .alert-card.high {
+            border-color: #FF5722;
+            background: #fff5f5;
+        }
+        .alert-card.medium {
+            border-color: #FFB800;
+            background: #fffef5;
+        }
+        .alert-card.low {
+            border-color: #5FB878;
+            background: #f5fff5;
+        }
+        .alert-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .alert-title {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .alert-severity {
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: white;
+        }
+        .severity-high {
+            background: #FF5722;
+        }
+        .severity-medium {
+            background: #FFB800;
+        }
+        .severity-low {
+            background: #5FB878;
+        }
+        .alert-info {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        .alert-info span {
+            margin-right: 20px;
+        }
+        .alert-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .alert-action-btn {
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s ease;
+        }
+        .btn-acknowledge {
+            background: #5FB878;
+            color: white;
+        }
+        .btn-acknowledge:hover {
+            background: #419c68;
+        }
+        .btn-view {
+            background: #667eea;
+            color: white;
+        }
+        .btn-view:hover {
+            background: #5664c9;
+        }
+        .btn-ignore {
+            background: #999;
+            color: white;
+        }
+        .btn-ignore:hover {
+            background: #888;
+        }
+        .filter-bar {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .stats-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-item {
+            flex: 1;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            color: white;
+        }
+        .stat-high {
+            background: linear-gradient(135deg, #FF5722, #ff7043);
+        }
+        .stat-medium {
+            background: linear-gradient(135deg, #FFB800, #ffc107);
+        }
+        .stat-low {
+            background: linear-gradient(135deg, #5FB878, #7edc94);
+        }
+        .stat-total {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+        .stat-number {
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 0;
+            color: #999;
+        }
+        .empty-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            color: #e0e0e0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <h2 style="margin-bottom: 20px;">告警中心</h2>
+            </div>
+        </div>
+
+        <div class="stats-row">
+            <div class="stat-item stat-high">
+                <div class="stat-number" id="highCount">0</div>
+                <div class="stat-label">高优先级告警</div>
+            </div>
+            <div class="stat-item stat-medium">
+                <div class="stat-number" id="mediumCount">0</div>
+                <div class="stat-label">中优先级告警</div>
+            </div>
+            <div class="stat-item stat-low">
+                <div class="stat-number" id="lowCount">0</div>
+                <div class="stat-label">低优先级告警</div>
+            </div>
+            <div class="stat-item stat-total">
+                <div class="stat-number" id="totalCount">0</div>
+                <div class="stat-label">总告警数</div>
+            </div>
+        </div>
+
+        <div class="filter-bar">
+            <form class="layui-form" lay-filter="alertFilter">
+                <div class="layui-inline">
+                    <label class="layui-form-label" style="width: 80px;">优先级</label>
+                    <div class="layui-input-inline" style="width: 120px;">
+                        <select name="severity" id="severityFilter">
+                            <option value="">全部</option>
+                            <option value="high">高</option>
+                            <option value="medium">中</option>
+                            <option value="low">低</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="layui-inline">
+                    <label class="layui-form-label" style="width: 80px;">时间范围</label>
+                    <div class="layui-input-inline" style="width: 120px;">
+                        <select name="timeRange" id="timeRangeFilter">
+                            <option value="all">全部</option>
+                            <option value="today">今天</option>
+                            <option value="week">本周</option>
+                            <option value="month">本月</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="layui-inline">
+                    <button class="layui-btn" lay-submit lay-filter="searchFilter">
+                        <i class="layui-icon layui-icon-search"></i> 查询
+                    </button>
+                    <button class="layui-btn layui-btn-primary" type="button" onclick="resetFilter()">
+                        <i class="layui-icon layui-icon-refresh"></i> 重置
+                    </button>
+                </div>
+                <div class="layui-inline" style="float: right;">
+                    <button class="layui-btn layui-btn-danger" type="button" onclick="acknowledgeAll()">
+                        <i class="layui-icon layui-icon-ok"></i> 全部确认
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">告警列表</div>
+                    <div class="layui-card-body" id="alertList">
+                        <div class="empty-state">
+                            <div class="empty-icon">✓</div>
+                            <div>暂无告警</div>
+                            <div style="margin-top: 10px; font-size: 13px;">系统运行正常</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="layui-row" style="margin-top: 20px;">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">快捷导航</div>
+                    <div class="layui-card-body">
+                        <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:equipment_monitor_realtime' %}'">
+                            <i class="layui-icon layui-icon-chart-screen"></i> 设备监控
+                        </button>
+                        <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:performance_analysis' %}'">
+                            <i class="layui-icon layui-icon-chart"></i> 性能分析
+                        </button>
+                        <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:equipment_list' %}'">
+                            <i class="layui-icon layui-icon-engine"></i> 设备管理
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['layer', 'form'], function () {
+            var layer = layui.layer;
+            var form = layui.form;
+
+            form.on('submit(searchFilter)', function (data) {
+                loadAlerts();
+                return false;
+            });
+        });
+
+        var allAlerts = [];
+
+        $(document).ready(function() {
+            loadAlerts();
+        });
+
+        function loadAlerts() {
+            $.ajax({
+                url: '/production/alert/api/',
+                data: {
+                    severity: $('#severityFilter').val(),
+                    time_range: $('#timeRangeFilter').val()
+                },
+                success: function(response) {
+                    if (response.success) {
+                        allAlerts = response.alerts;
+                        updateAlertStats(response.alerts);
+                        renderAlerts(response.alerts);
+                    }
+                }
+            });
+        }
+
+        function updateAlertStats(alerts) {
+            var high = alerts.filter(function(a) { return a.severity === 'high'; }).length;
+            var medium = alerts.filter(function(a) { return a.severity === 'medium'; }).length;
+            var low = alerts.filter(function(a) { return a.severity === 'low'; }).length;
+            var total = alerts.length;
+
+            $('#highCount').text(high);
+            $('#mediumCount').text(medium);
+            $('#lowCount').text(low);
+            $('#totalCount').text(total);
+        }
+
+        function renderAlerts(alerts) {
+            var html = '';
+            if (alerts.length === 0) {
+                html = '<div class="empty-state">' +
+                    '<div class="empty-icon">✓</div>' +
+                    '<div>暂无告警</div>' +
+                    '<div style="margin-top: 10px; font-size: 13px;">系统运行正常</div>' +
+                    '</div>';
+            } else {
+                alerts.forEach(function(alert) {
+                    var severityClass = alert.severity || 'low';
+                    var severityLabel = severityClass === 'high' ? '高' : (severityClass === 'medium' ? '中' : '低');
+                    
+                    html += '<div class="alert-card ' + severityClass + '">';
+                    html += '<div class="alert-header">';
+                    html += '<div class="alert-title">' + alert.name + '</div>';
+                    html += '<span class="alert-severity severity-' + severityClass + '">' + severityLabel + '</span>';
+                    html += '</div>';
+                    html += '<div class="alert-info">';
+                    html += '<span><i class="layui-icon layui-icon-time"></i> ' + new Date(alert.timestamp).toLocaleString() + '</span>';
+                    if (alert.equipment_id) {
+                        html += '<span><i class="layui-icon layui-icon-engine"></i> 设备 #' + alert.equipment_id + '</span>';
+                    }
+                    html += '</div>';
+                    html += '<div style="margin-bottom: 10px; font-size: 14px; color: #333;">' + alert.message + '</div>';
+                    html += '<div class="alert-actions">';
+                    if (!alert.acknowledged) {
+                        html += '<button class="alert-action-btn btn-acknowledge" onclick="acknowledgeAlert(\'' + alert.id + '\')">' +
+                            '<i class="layui-icon layui-icon-ok"></i> 确认</button>';
+                    } else {
+                        html += '<span style="color: #5FB878; font-size: 12px;">' +
+                            '<i class="layui-icon layui-icon-ok-circle"></i> 已确认</span>';
+                    }
+                    html += '<button class="alert-action-btn btn-view" onclick="viewAlertDetail(\'' + alert.id + '\')">' +
+                        '<i class="layui-icon layui-icon-about"></i> 查看详情</button>';
+                    html += '</div>';
+                    html += '</div>';
+                });
+            }
+            $('#alertList').html(html);
+        }
+
+        function acknowledgeAlert(alertId) {
+            $.ajax({
+                url: '/production/alert/acknowledge/' + alertId + '/',
+                method: 'POST',
+                success: function(response) {
+                    if (response.success) {
+                        layer.msg('告警已确认', {icon: 1});
+                        loadAlerts();
+                    } else {
+                        layer.msg('操作失败', {icon: 2});
+                    }
+                }
+            });
+        }
+
+        function acknowledgeAll() {
+            layer.confirm('确定要确认所有告警吗？', {
+                icon: 3,
+                title: '提示'
+            }, function(index) {
+                var unacknowledged = allAlerts.filter(function(a) { return !a.acknowledged; });
+                var count = 0;
+                
+                unacknowledged.forEach(function(alert) {
+                    $.ajax({
+                        url: '/production/alert/acknowledge/' + alert.id + '/',
+                        method: 'POST',
+                        async: false,
+                        success: function(response) {
+                            if (response.success) count++;
+                        }
+                    });
+                });
+                
+                layer.close(index);
+                layer.msg('已确认 ' + count + ' 条告警', {icon: 1});
+                loadAlerts();
+            });
+        }
+
+        function viewAlertDetail(alertId) {
+            var alert = allAlerts.find(function(a) { return a.id === alertId; });
+            if (alert) {
+                var content = '<div style="padding: 20px;">' +
+                    '<table class="layui-table">' +
+                    '<tr><td style="width: 100px; font-weight: bold;">告警名称</td><td>' + alert.name + '</td></tr>' +
+                    '<tr><td style="font-weight: bold;">严重程度</td><td>' + alert.severity + '</td></tr>' +
+                    '<tr><td style="font-weight: bold;">告警信息</td><td>' + alert.message + '</td></tr>' +
+                    '<tr><td style="font-weight: bold;">发生时间</td><td>' + new Date(alert.timestamp).toLocaleString() + '</td></tr>';
+                
+                if (alert.acknowledged) {
+                    content += '<tr><td style="font-weight: bold;">确认状态</td><td>已确认</td></tr>';
+                } else {
+                    content += '<tr><td style="font-weight: bold;">确认状态</td><td>未确认</td></tr>';
+                }
+                
+                content += '</table></div>';
+                
+                layer.open({
+                    type: 1,
+                    title: '告警详情',
+                    area: ['500px', '350px'],
+                    content: content
+                });
+            }
+        }
+
+        function resetFilter() {
+            $('#severityFilter').val('');
+            $('#timeRangeFilter').val('all');
+            layui.form.render('select');
+            loadAlerts();
+        }
+    </script>
+</body>
+
+</html>

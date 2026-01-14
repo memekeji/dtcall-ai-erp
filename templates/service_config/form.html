@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{% if service %}编辑{% else %}新增{% endif %}服务配置</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <style>
+    .layui-form-item {
+        margin-bottom: 20px;
+    }
+    .layui-form-label {
+        width: 100px;
+    }
+    .layui-input-block {
+        margin-left: 130px;
+    }
+    .provider-select {
+        display: none;
+    }
+    .provider-select.active {
+        display: block;
+    }
+    .extra-config-area {
+        min-height: 100px;
+    }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <i class="layui-icon layui-icon技术服务" style="margin-right: 5px;"></i>
+                        <span>{% if service %}编辑{% else %}新增{% endif %}服务配置</span>
+                    </div>
+                    <div class="layui-card-body">
+                        <form class="layui-form" method="post" action="">
+                            {% csrf_token %}
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">配置名称</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="name" required lay-verify="required" placeholder="请输入配置名称" 
+                                           value="{{ service.name|default:'' }}" class="layui-input">
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">服务类别</label>
+                                <div class="layui-input-block">
+                                    <select name="category" lay-verify="required" lay-filter="categorySelect" id="categorySelect">
+                                        <option value="">请选择服务类别</option>
+                                        {% for value, text in categories %}
+                                        <option value="{{ value }}" {% if service.category == value %}selected{% endif %}>{{ text }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">服务商</label>
+                                <div class="layui-input-block">
+                                    <select name="provider" lay-verify="required" lay-filter="providerSelect" id="providerSelect">
+                                        <option value="">请先选择服务类别</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">API密钥</label>
+                                <div class="layui-input-block">
+                                    <input type="password" name="api_key" placeholder="请输入API密钥" 
+                                           value="{{ service.api_key|default:'' }}" class="layui-input">
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">API密钥Secret</label>
+                                <div class="layui-input-block">
+                                    <input type="password" name="api_secret" placeholder="请输入API密钥Secret（可选）" 
+                                           value="{{ service.api_secret|default:'' }}" class="layui-input">
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">接口地址</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="base_url" placeholder="请输入接口地址（可选，如不填则使用默认地址）" 
+                                           value="{{ service.base_url|default:'' }}" class="layui-input">
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">额外配置</label>
+                                <div class="layui-input-block">
+                                    <textarea name="extra_config" placeholder="请输入额外配置（JSON格式，可选）" 
+                                              class="layui-textarea extra-config-area">{{ service.extra_config|default:'' }}</textarea>
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">是否启用</label>
+                                <div class="layui-input-block">
+                                    <input type="checkbox" name="is_enabled" lay-skin="switch" lay-text="启用|禁用"
+                                           {% if service.is_enabled %}checked{% endif %}>
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">描述</label>
+                                <div class="layui-input-block">
+                                    <textarea name="description" placeholder="请输入描述（可选）" 
+                                              class="layui-textarea">{{ service.description|default:'' }}</textarea>
+                                </div>
+                            </div>
+                            
+                            <div class="layui-form-item">
+                                <div class="layui-input-block">
+                                    <button type="submit" class="layui-btn" lay-submit lay-filter="submitForm">
+                                        <i class="layui-icon layui-icon-ok"></i> 保存
+                                    </button>
+                                    <button type="reset" class="layui-btn layui-btn-primary">
+                                        <i class="layui-icon layui-icon-refresh"></i> 重置
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+    layui.use(['form', 'layer'], function(){
+        var form = layui.form;
+        var layer = layui.layer;
+        
+        var currentProvider = '{{ service.provider|default:'' }}';
+        var categoryProviders = {
+            'sms': [
+                {% for value, text in sms_providers %}
+                {value: '{{ value }}', text: '{{ text }}'},
+                {% endfor %}
+            ],
+            'stt': [
+                {% for value, text in stt_providers %}
+                {value: '{{ value }}', text: '{{ text }}'},
+                {% endfor %}
+            ],
+            'tts': [
+                {% for value, text in tts_providers %}
+                {value: '{{ value }}', text: '{{ text }}'},
+                {% endfor %}
+            ],
+            'ocr': [
+                {% for value, text in ocr_providers %}
+                {value: '{{ value }}', text: '{{ text }}'},
+                {% endfor %}
+            ],
+            'ai': [
+                {% for value, text in ai_providers %}
+                {value: '{{ value }}', text: '{{ text }}'},
+                {% endfor %}
+            ]
+        };
+        
+        function updateProviders(category) {
+            var providerSelect = document.getElementById('providerSelect');
+            providerSelect.innerHTML = '<option value="">请选择服务商</option>';
+            
+            if (category && categoryProviders[category]) {
+                categoryProviders[category].forEach(function(p) {
+                    var option = document.createElement('option');
+                    option.value = p.value;
+                    option.textContent = p.text;
+                    if (p.value === currentProvider) {
+                        option.selected = true;
+                    }
+                    providerSelect.appendChild(option);
+                });
+            }
+            
+            form.render('select');
+        }
+        
+        form.on('select(categorySelect)', function(data) {
+            currentProvider = '';
+            updateProviders(data.value);
+        });
+        
+        var initialCategory = document.getElementById('categorySelect').value;
+        if (initialCategory) {
+            updateProviders(initialCategory);
+        }
+        
+        form.on('submit(submitForm)', function(data) {
+            var formData = new FormData(data.form);
+            
+            fetch(data.form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(function(response) {
+                if (response.headers.get('content-type').indexOf('application/json') !== -1) {
+                    return response.json();
+                } else {
+                    return response.text().then(function(html) {
+                        return {isHtml: true, html: html};
+                    });
+                }
+            })
+            .then(function(result) {
+                if (result.isHtml) {
+                    var match = result.html.match(/<script>[\s\S]*?location\.reload\(\)[\s\S]*?<\/script>/);
+                    if (match) {
+                        layer.msg('保存成功', {icon: 1});
+                        setTimeout(function(){parent.location.reload();}, 1000);
+                    } else {
+                        document.body.innerHTML = result.html;
+                    }
+                } else if (result.success) {
+                    layer.msg(result.message, {icon: 1});
+                    setTimeout(function(){
+                        if (parent.layer) {
+                            parent.layer.closeAll();
+                            parent.location.reload();
+                        } else {
+                            window.location.href = '{% url "system:service_config_list" %}';
+                        }
+                    }, 1000);
+                } else {
+                    if (result.errors) {
+                        for (var field in result.errors) {
+                            layer.msg(result.errors[field], {icon: 2});
+                            return;
+                        }
+                    } else {
+                        layer.msg(result.message || '保存失败', {icon: 2});
+                    }
+                }
+            })
+            .catch(function(error) {
+                layer.msg('保存失败: ' + error, {icon: 2});
+            });
+            
+            return false;
+        });
+        
+        function getCookie(name) {
+            var arr, reg = new RegExp('(^| )' + name + '=([^;]*)(;|$)');
+            if (arr = document.cookie.match(reg)) {
+                return unescape(arr[2]);
+            }
+            return null;
+        }
+    });
+    </script>
+</body>
+</html>

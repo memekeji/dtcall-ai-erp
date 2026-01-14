@@ -307,8 +307,22 @@
             layer.open({
                 type: 2,
                 title: '文件上传',
-                area: ['800px', '600px'],
+                shadeClose: false,
+                shade: 0.3,
+                maxmin: true,
+                area: ['80%', '90%'],
+                offset: 'r',
+                anim: 2,
                 content: '/disk/upload/',
+                success: function(layero, index) {
+                    if (layero && typeof layero.css === 'function') {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    }
+                },
                 end: function() {
                     layer.msg('上传完成', {icon: 1});
                 }

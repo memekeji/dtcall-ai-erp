@@ -50,7 +50,6 @@ def clear_permission_cache_for_group(group_id):
         # 清除系统配置缓存（因为权限配置可能影响系统配置）
         cache.delete('system_configs')
         
-        print(f"已清除角色 {group.name}(ID:{group_id}) 相关缓存，用户数: {users.count()}")
         return True
     except Group.DoesNotExist:
         return False

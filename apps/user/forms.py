@@ -74,13 +74,13 @@ class EmployeeForm(forms.ModelForm):
     class Meta:
         model = Admin
         fields = [
-            'username', 'password', 'name', 'sex', 'mobile', 'email', 'did', 'secondary_departments',
+            'username', 'pwd', 'name', 'sex', 'mobile', 'email', 'did', 'secondary_departments',
             'position_id', 'pid', 'entry_time', 'is_staff', 'type', 'job_number', 'sip_account',
             'sip_password', 'status', 'desc', 'role_id'
         ]
         widgets = {
             'username': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入登录账号'}),
-            'password': forms.PasswordInput(attrs={'class': 'layui-input', 'placeholder': '请输入密码'}),
+            'pwd': forms.PasswordInput(attrs={'class': 'layui-input', 'placeholder': '请输入密码'}),
             'name': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入员工姓名'}),
             'mobile': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入手机号码'}),
             'email': forms.EmailInput(attrs={'class': 'layui-input', 'placeholder': '请输入电子邮箱'}),
@@ -94,7 +94,7 @@ class EmployeeForm(forms.ModelForm):
         }
         labels = {
             'username': '登录账号',
-            'password': '登录密码',
+            'pwd': '登录密码',
             'name': '员工姓名',
             'mobile': '手机号码',
             'email': '电子邮箱',
@@ -136,10 +136,10 @@ class EmployeeForm(forms.ModelForm):
     
     def save(self, commit=True):
         instance = super().save(commit=False)
-        # 处理密码加密
-        if self.cleaned_data.get('password'):
+        # 处理密码加密，统一存储到pwd字段
+        if self.cleaned_data.get('pwd'):
             from django.contrib.auth.hashers import make_password
-            instance.password = make_password(self.cleaned_data['password'])
+            instance.pwd = make_password(self.cleaned_data['pwd'])
         
         # 处理日期格式转换 - 修复entry_time字段处理
         if self.cleaned_data.get('entry_time'):

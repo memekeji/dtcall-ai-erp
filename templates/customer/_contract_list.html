@@ -70,11 +70,21 @@ function viewContract(contractId) {
         layer.open({
             type: 2,
             title: '合同详情',
-            area: ['900px', '700px'],
+            shadeClose: false,
+            shade: 0.3,
+            maxmin: true,
+            area: ['80%', '90%'],
+            offset: 'r',
+            anim: 2,
             content: '/contract/sales/view/' + contractId + '/',
-            zIndex: 2147483646,
             success: function(layero, index) {
-                layer.setTop(layero);
+                if (layero && typeof layero.css === 'function') {
+                    layero.css({
+                        'right': '0',
+                        'top': '0',
+                        'height': '100%'
+                    });
+                }
             }
         });
     });

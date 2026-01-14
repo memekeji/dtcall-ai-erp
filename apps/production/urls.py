@@ -104,8 +104,38 @@ urlpatterns = [
     path('process/detail/<int:pk>/', views.process_route_detail, name='process_route_detail'),
     path('process/copy/<int:pk>/', views.process_route_copy, name='process_route_copy'),
     
-    # 资源调度模块
+    # 资源调度
     path('technology/', views.resource_scheduling, name='resource_scheduling'),
+    path('scheduling/optimize/', views.scheduling_optimize, name='scheduling_optimize'),
+    path('scheduling/bottleneck/', views.scheduling_bottleneck_analysis, name='scheduling_bottleneck_analysis'),
+    path('scheduling/simulation/<int:plan_id>/', views.scheduling_simulation, name='scheduling_simulation'),
+    path('scheduling/gantt/', views.gantt_chart_data, name='gantt_chart_data'),
+    path('delivery/prediction/', views.delivery_prediction, name='delivery_prediction'),
+    path('delivery/prediction/<int:plan_id>/', views.delivery_prediction, name='delivery_prediction_detail'),
+    
+    # 实时监控
+    path('monitor/realtime/', views.equipment_monitor_realtime, name='equipment_monitor_realtime'),
+    path('monitor/status/<int:equipment_id>/', views.equipment_status_api, name='equipment_status_api'),
+    path('monitor/data/<int:equipment_id>/', views.equipment_data_history, name='equipment_data_history'),
+    path('monitor/oee/<int:equipment_id>/', views.equipment_oee, name='equipment_oee'),
+    path('monitor/progress/', views.production_progress, name='production_progress'),
+    path('monitor/progress/<int:plan_id>/', views.production_progress, name='production_progress_plan'),
+    
+    # 告警管理
+    path('alert/', views.alert_list, name='alert_list'),
+    path('alert/api/', views.alert_api, name='alert_api'),
+    path('alert/acknowledge/<str:alert_id>/', views.alert_acknowledge, name='alert_acknowledge'),
+    
+    # 统计分析
+    path('analysis/', views.performance_analysis, name='performance_analysis'),
+    path('statistics/summary/', views.statistics_production_summary, name='statistics_production_summary'),
+    path('statistics/trend/', views.statistics_production_trend, name='statistics_production_trend'),
+    path('statistics/quality/', views.statistics_quality, name='statistics_quality'),
+    path('statistics/equipment/', views.statistics_equipment_efficiency, name='statistics_equipment_efficiency'),
+    path('statistics/labor/', views.statistics_labor_efficiency, name='statistics_labor_efficiency'),
+    path('statistics/cost/', views.statistics_cost, name='statistics_cost'),
+    path('statistics/delivery/', views.statistics_on_time_delivery, name='statistics_on_time_delivery'),
+    path('statistics/report/', views.statistics_comprehensive_report, name='statistics_comprehensive_report'),
     
     # 生产订单变更
     path('order/change/', views.production_order_change_list, name='production_order_change_list'),

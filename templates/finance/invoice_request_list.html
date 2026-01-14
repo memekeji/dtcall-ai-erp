@@ -79,12 +79,25 @@
                 var layEvent = obj.event;
 
                 if (layEvent === 'view') {
-                    // 查看详情
                     layer.open({
                         type: 2,
                         title: '开票申请详情',
+                        shadeClose: false,
+                        shade: 0.3,
+                        maxmin: true,
+                        area: ['80%', '90%'],
+                        offset: 'r',
+                        anim: 2,
                         content: '/adm/finance/invoice-request/detail/' + data.id + '/',
-                        area: ['800px', '600px']
+                        success: function(layero, index) {
+                            if (layero && typeof layero.css === 'function') {
+                                layero.css({
+                                    'right': '0',
+                                    'top': '0',
+                                    'height': '100%'
+                                });
+                            }
+                        }
                     });
                 } else if (layEvent === 'approve') {
                     // 审批

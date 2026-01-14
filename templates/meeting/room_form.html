@@ -1,12 +1,12 @@
 {% extends 'include/common.html' %}
 {% load static %}
 
-{% block title %}{% if room %}编辑会议室{% else %}新增会议室{% endif %}{% endblock %}
+{% block title %}{% if form.instance.pk %}编辑会议室{% else %}新增会议室{% endif %}{% endblock %}
 
 {% block content %}
 <div class="layui-card">
     <div class="layui-card-header">
-        <h3>{% if room %}编辑会议室{% else %}新增会议室{% endif %}</h3>
+        <h3>{% if form.instance.pk %}编辑会议室{% else %}新增会议室{% endif %}</h3>
     </div>
     <div class="layui-card-body">
         <form class="layui-form" method="post">
@@ -22,9 +22,9 @@
                 </div>
                 <div class="layui-col-md6">
                     <div class="layui-form-item">
-                        <label class="layui-form-label">位置</label>
+                        <label class="layui-form-label">会议室编号</label>
                         <div class="layui-input-block">
-                            {{ form.location }}
+                            {{ form.code }}
                         </div>
                     </div>
                 </div>
@@ -33,17 +33,17 @@
             <div class="layui-row layui-col-space15">
                 <div class="layui-col-md6">
                     <div class="layui-form-item">
-                        <label class="layui-form-label">容纳人数</label>
+                        <label class="layui-form-label">位置</label>
                         <div class="layui-input-block">
-                            {{ form.capacity }}
+                            {{ form.location }}
                         </div>
                     </div>
                 </div>
                 <div class="layui-col-md6">
                     <div class="layui-form-item">
-                        <label class="layui-form-label">状态</label>
+                        <label class="layui-form-label">容纳人数</label>
                         <div class="layui-input-block">
-                            <input type="checkbox" name="status" {% if room.status %}checked{% endif %} lay-skin="switch" lay-text="可用|不可用">
+                            {{ form.capacity }}
                         </div>
                     </div>
                 </div>
@@ -52,12 +52,30 @@
             <div class="layui-form-item">
                 <label class="layui-form-label">设备配置</label>
                 <div class="layui-input-block">
-                    {{ form.equipment }}
+                    <input type="checkbox" name="has_projector" title="投影仪" {% if form.has_projector.value %}checked{% endif %}>
+                    <input type="checkbox" name="has_whiteboard" title="白板" {% if form.has_whiteboard.value %}checked{% endif %}>
+                    <input type="checkbox" name="has_tv" title="电视" {% if form.has_tv.value %}checked{% endif %}>
+                    <input type="checkbox" name="has_phone" title="电话" {% if form.has_phone.value %}checked{% endif %}>
+                    <input type="checkbox" name="has_wifi" title="WiFi" {% if form.has_wifi.value %}checked{% endif %}>
                 </div>
             </div>
             
             <div class="layui-form-item">
-                <label class="layui-form-label">备注</label>
+                <label class="layui-form-label">设备清单</label>
+                <div class="layui-input-block">
+                    {{ form.equipment_list }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">状态</label>
+                <div class="layui-input-block">
+                    {{ form.status }}
+                </div>
+            </div>
+            
+            <div class="layui-form-item">
+                <label class="layui-form-label">描述</label>
                 <div class="layui-input-block">
                     {{ form.description }}
                 </div>

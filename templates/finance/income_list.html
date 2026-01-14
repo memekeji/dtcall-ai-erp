@@ -67,15 +67,43 @@
                     layer.open({
                         type: 2,
                         title: '收入详情',
+                        shadeClose: false,
+                        shade: 0.3,
+                        maxmin: true,
+                        area: ['80%', '90%'],
+                        offset: 'r',
+                        anim: 2,
                         content: '/adm/finance/paymentreceive/view/' + data.id + '/',
-                        area: ['800px', '600px']
+                        success: function(layero, index) {
+                            if (layero && typeof layero.css === 'function') {
+                                layero.css({
+                                    'right': '0',
+                                    'top': '0',
+                                    'height': '100%'
+                                });
+                            }
+                        }
                     });
                 } else if (layEvent === 'edit') {
                     layer.open({
                         type: 2,
                         title: '编辑收入',
+                        shadeClose: false,
+                        shade: 0.3,
+                        maxmin: true,
+                        area: ['80%', '90%'],
+                        offset: 'r',
+                        anim: 2,
                         content: '/adm/finance/paymentreceive/edit/' + data.id + '/',
-                        area: ['700px', '500px'],
+                        success: function(layero, index) {
+                            if (layero && typeof layero.css === 'function') {
+                                layero.css({
+                                    'right': '0',
+                                    'top': '0',
+                                    'height': '100%'
+                                });
+                            }
+                        },
                         end: function() {
                             table.reload('incomeTable');
                         }
@@ -107,8 +135,22 @@
             layer.open({
                 type: 2,
                 title: '新增收入',
+                shadeClose: false,
+                shade: 0.3,
+                maxmin: true,
+                area: ['80%', '90%'],
+                offset: 'r',
+                anim: 2,
                 content: '/adm/finance/paymentreceive/add/',
-                area: ['700px', '500px'],
+                success: function(layero, index) {
+                    if (layero && typeof layero.css === 'function') {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    }
+                },
                 end: function() {
                     layui.table.reload('incomeTable');
                 }

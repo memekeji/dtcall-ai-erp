@@ -160,7 +160,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='customer',
-            constraint=models.CheckConstraint(condition=models.Q(('name__isnull', False), models.Q(('name', ''), _negated=True)), name='customer_name_not_empty'),
+            constraint=models.CheckConstraint(check=models.Q(('name__isnull', False), models.Q(('name', ''), _negated=True)), name='customer_name_not_empty'),
         ),
         migrations.AlterUniqueTogether(
             name='followrecordcustomfieldvalue',

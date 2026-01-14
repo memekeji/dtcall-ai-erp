@@ -138,7 +138,7 @@
                                         <i class="layui-icon layui-icon-add-1"></i> 新增菜单
                                     </a>
                                     <button id="sync-btn" class="layui-btn layui-btn-warm">
-                                        <i class="layui-icon layui-icon-refresh"></i> 同步数据
+                                        <i class="layui-icon layui-icon-refresh"></i> 导入配置
                                     </button>
                                 </div>
                             </div>
@@ -232,41 +232,21 @@
             }
         });
         
-        // 数据同步功能
+        // 数据同步功能 - 从menu_config.py导入菜单数据到数据库
         let syncInterval = null;
         let lastSyncTime = null;
+        let isSyncing = false;
         
         // 初始化同步功能
         function initSyncFeature() {
             // 添加手动同步按钮点击事件
             document.getElementById('sync-btn').addEventListener('click', function() {
-                syncMenuData(true);
+                if (!isSyncing) {
+                    syncMenuData(true);
+                }
             });
             
-            // 开始定期同步（每30秒）
-            startAutoSync();
-            
-            // 检查URL中是否有refresh参数，如果有则立即刷新菜单数据
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.has('refresh') && urlParams.get('refresh') === '1') {
-                // 移除URL参数，避免刷新页面后再次触发
-                urlParams.delete('refresh');
-                const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
-                window.history.replaceState({}, document.title, newUrl);
-                
-                // 立即刷新菜单数据
-                syncMenuData(true);
-            }
-        }
-        
-        // 开始自动同步
-        function startAutoSync() {
-            if (syncInterval) {
-                clearInterval(syncInterval);
-            }
-            syncInterval = setInterval(function() {
-                syncMenuData(false);
-            }, 30000); // 30秒同步一次
+            // 不再使用自动同步，因为现在是导入功能
         }
         
         // 停止自动同步
@@ -277,10 +257,16 @@
             }
         }
         
-        // 同步菜单数据
+        // 同步菜单数据 - 从menu_config.py导入到数据库
         function syncMenuData(showLoading) {
             const syncBtn = document.getElementById('sync-btn');
             const originalText = syncBtn.innerHTML;
+            
+            if (isSyncing) {
+                return;
+            }
+            
+            isSyncing = true;
             
             // 显示加载状态
             if (showLoading) {
@@ -288,28 +274,76 @@
                 syncBtn.disabled = true;
             }
             
-            // 发送请求获取最新菜单数据
-            fetch("{% url 'system:menu:menu_sync' %}")
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        updateMenuTable(data.data);
-                        updateSyncTime();
+            // 获取CSRF令牌
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
                     }
-                })
-                .catch(error => {
-                    console.error('菜单数据同步失败:', error);
-                    if (showLoading) {
-                        alert('数据同步失败，请重试');
+                }
+                return cookieValue;
+            }
+            
+            const csrftoken = getCookie('csrftoken');
+            
+            // 发送POST请求执行菜单导入
+            fetch("{% url 'system:menu:menu_sync' %}", {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'X-CSRFToken': csrftoken,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const result = data.data;
+                    let message = `同步完成！`;
+                    message += `<br>删除: ${result.deleted}个`;
+                    message += `<br>新增: ${result.created}个`;
+                    message += `<br>更新: ${result.updated}个`;
+                    message += `<br>总计: ${result.total}个菜单`;
+                    
+                    if (result.errors && result.errors.length > 0) {
+                        message += `<br><br>错误: ${result.errors.length}个`;
+                        result.errors.forEach(e => {
+                            message += `<br>- ${e.title}: ${e.error}`;
+                        });
                     }
-                })
-                .finally(() => {
-                    // 恢复按钮状态
-                    if (showLoading) {
-                        syncBtn.innerHTML = originalText;
-                        syncBtn.disabled = false;
-                    }
-                });
+                    
+                    layer.msg(message, {
+                        icon: result.errors && result.errors.length > 0 ? 1 : 1,
+                        time: 3000
+                    });
+                    
+                    updateSyncTime();
+                    
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    layer.msg('同步失败: ' + data.message, {icon: 2});
+                }
+            })
+            .catch(error => {
+                console.error('菜单同步失败:', error);
+                layer.msg('同步失败，请重试', {icon: 2});
+            })
+            .finally(() => {
+                isSyncing = false;
+                if (showLoading) {
+                    syncBtn.innerHTML = originalText;
+                    syncBtn.disabled = false;
+                }
+            });
         }
         
         // 更新同步时间显示

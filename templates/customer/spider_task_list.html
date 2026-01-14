@@ -77,9 +77,8 @@
                 <table id="spiderTaskTable" lay-filter="spiderTaskTable"></table>
             </div>
         </div>
-    </div> <!-- 修复：添加缺失的 layui-card 的闭合标签 -->
-
-        <!-- 表格渲染逻辑已合并至下方script块 -->
+    </div>
+    
         <script>
 layui.use(['table', 'layer', 'form', 'laytpl'], function() {
     const table = layui.table;
@@ -204,15 +203,25 @@ layui.use(['table', 'layer', 'form', 'laytpl'], function() {
         const checkStatus = table.checkStatus(obj.config.id);
         switch(obj.event) {
             case 'addTask':
-                // 添加任务逻辑
                 layer.open({
                     type: 2,
                     title: '添加爬虫任务',
-                    area: ['80%', '100%'],
-                    anim: 5,
-                    offset: 'rt',
-                    shadeClose: true,
-                    content: '{% url 'customer:spider_task_create' %}'
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '90%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: '{% url 'customer:spider_task_create' %}',
+                    success: function(layero, index) {
+                        if (layero && typeof layero.css === 'function') {
+                            layero.css({
+                                'right': '0',
+                                'top': '0',
+                                'height': '100%'
+                            });
+                        }
+                    }
                 });
                 break;
             case 'refresh':
