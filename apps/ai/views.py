@@ -409,9 +409,9 @@ class AIWorkflowJsonDetailView(LoginRequiredMixin, DetailView):
                 node_data = {
                     'id': str(node.id),
                     'name': node.name,
-                    'node_type': node.node_type or 'basic',
-                    'position_x': node.position_x if node.position_x else 100,
-                    'position_y': node.position_y if node.position_y else 200,
+                    'type': node.node_type or 'basic',
+                    'x': int(node.position_x) if node.position_x else 100,
+                    'y': int(node.position_y) if node.position_y else 200,
                     'config': parse_config(node.config)
                 }
                 nodes_data.append(node_data)
@@ -420,8 +420,8 @@ class AIWorkflowJsonDetailView(LoginRequiredMixin, DetailView):
             for conn in connections:
                 conn_data = {
                     'id': str(conn.id),
-                    'source_node': str(conn.source_node_id) if conn.source_node_id else None,
-                    'target_node': str(conn.target_node_id) if conn.target_node_id else None,
+                    'source': str(conn.source_node_id) if conn.source_node_id else None,
+                    'target': str(conn.target_node_id) if conn.target_node_id else None,
                     'source_handle': conn.source_handle or 'output',
                     'target_handle': conn.target_handle or 'input',
                     'config': parse_config(conn.config)

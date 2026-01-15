@@ -21,10 +21,25 @@ class BaseNodeProcessor(abc.ABC):
         """获取节点配置模式"""
         pass
     
-    @abc.abstractmethod
     def execute(self, config: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-        """执行节点逻辑"""
-        pass
+        """执行节点逻辑（默认实现，调用异步版本）"""
+        import asyncio
+        
+        if hasattr(self, 'execute_async'):
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            if loop.is_running():
+                # 如果已有事件循环，使用 create_task
+                future = asyncio.ensure_future(self.execute_async(config, context))
+                return future.result()
+            else:
+                return loop.run_until_complete(self.execute_async(config, context))
+        
+        raise NotImplementedError("子类必须实现 execute 或 execute_async 方法")
     
     def validate_config(self, config: Dict[str, Any]) -> List[str]:
         """验证配置参数"""
@@ -187,6 +202,23 @@ class BaseNodeProcessor(abc.ABC):
                 dependencies.extend(field_schema['depends_on'])
         
         return list(set(dependencies))
+    
+    @classmethod
+    def get_display_name(cls) -> str:
+        """获取节点显示名称"""
+        node_type = getattr(cls, 'node_type_code', cls.__name__)
+        return node_type.replace('_', ' ').title()
+    
+    @classmethod
+    def get_icon(cls) -> str:
+        """获取节点图标"""
+        return '⚙️'
+    
+    @classmethod
+    def get_description(cls) -> str:
+        """获取节点描述"""
+        node_type = getattr(cls, 'node_type_code', cls.__name__)
+        return f"处理 {node_type} 类型的节点"
 
 
 class NodeProcessorRegistry:

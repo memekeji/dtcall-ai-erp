@@ -3,6 +3,7 @@
 """
 
 import os
+from typing import Dict, Any, List
 from .base_processor import BaseNodeProcessor, NodeProcessorRegistry
 
 
@@ -518,16 +519,26 @@ class DataInputProcessor(BaseNodeProcessor):
     
     def _read_database_data(self, config: dict):
         """读取数据库数据"""
-        # 这里需要根据实际数据库连接实现
-        # 暂时返回模拟数据
         db_config = config.get('database_config', {})
         query = db_config.get('query', '')
         
         if not query:
             raise Exception("查询语句不能为空")
         
-        # 数据库查询结果
-        return []
+        from django.db import connection
+        from django.conf import settings
+        
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(query)
+                if query.strip().upper().startswith('SELECT'):
+                    columns = [col[0] for col in cursor.description]
+                    rows = cursor.fetchall()
+                    return [dict(zip(columns, row)) for row in rows]
+                else:
+                    return {'affected_rows': cursor.rowcount}
+        except Exception as e:
+            raise Exception(f"数据库查询失败: {str(e)}")
     
     def _read_api_data(self, config: dict):
         """读取API数据"""
@@ -2009,3 +2020,155 @@ class DataFormatProcessor(DataTransformationProcessor):
         # 默认设置格式化类型
         schema['transformation_type']['default'] = 'format'
         return schema
+
+
+@NodeProcessorRegistry.register('database_query')
+class DatabaseQueryProcessor(BaseNodeProcessor):
+    """数据库查询节点处理器 - 安全、高效的数据库访问"""
+    
+    def __init__(self, node_type_code: str):
+        super().__init__(node_type_code)
+        from django.db import connection
+    
+    @classmethod
+    def get_display_name(cls):
+        return "数据库查询"
+    
+    @classmethod
+    def get_icon(cls):
+        return "layui-icon-database"
+    
+    @classmethod
+    def get_description(cls):
+        return "执行SQL查询，返回查询结果"
+    
+    def _get_config_schema(self) -> Dict[str, Any]:
+        """获取数据库查询节点的配置模式"""
+        return {
+            'query': {
+                'type': 'string',
+                'required': True,
+                'label': 'SQL查询语句',
+                'placeholder': 'SELECT * FROM table WHERE condition',
+                'multiline': True,
+                'rows': 5,
+                'tooltip': '支持SELECT、INSERT、UPDATE、DELETE语句'
+            },
+            'output_variable': {
+                'type': 'string',
+                'required': False,
+                'label': '输出变量名',
+                'default': 'query_result',
+                'placeholder': '输入变量名'
+            },
+            'max_rows': {
+                'type': 'number',
+                'required': False,
+                'label': '最大返回行数',
+                'default': 1000,
+                'min': 1,
+                'max': 100000
+            },
+            'timeout': {
+                'type': 'number',
+                'required': False,
+                'label': '超时时间(秒)',
+                'default': 30,
+                'min': 1,
+                'max': 300
+            },
+            'cache_result': {
+                'type': 'boolean',
+                'required': False,
+                'label': '缓存查询结果',
+                'default': False
+            },
+            'cache_ttl': {
+                'type': 'number',
+                'required': False,
+                'label': '缓存时间(秒)',
+                'default': 300,
+                'min': 60,
+                'depends_on': 'cache_result'
+            }
+        }
+    
+    def execute(self, config: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        """执行数据库查询"""
+        from django.db import connection
+        from django.core.cache import cache
+        import hashlib
+        import json
+        
+        query = config.get('query', '').strip()
+        output_var = config.get('output_variable', 'query_result')
+        max_rows = config.get('max_rows', 1000)
+        timeout = config.get('timeout', 30)
+        cache_result = config.get('cache_result', False)
+        cache_ttl = config.get('cache_ttl', 300)
+        
+        if not query:
+            raise ValueError('SQL查询语句不能为空')
+        
+        # 验证查询安全性
+        query_upper = query.upper()
+        dangerous_keywords = ['DROP', 'DELETE', 'TRUNCATE', 'ALTER', 'CREATE', 'INSERT', 'UPDATE']
+        
+        if any(keyword in query_upper for keyword in dangerous_keywords):
+            if not query_upper.strip().startswith('SELECT'):
+                raise ValueError('出于安全考虑，只允许执行SELECT查询')
+        
+        # 检查缓存
+        if cache_result:
+            cache_key = f'workflow_db_query_{hashlib.md5(query.encode()).hexdigest()}'
+            cached_result = cache.get(cache_key)
+            if cached_result is not None:
+                return {
+                    output_var: cached_result,
+                    'cached': True,
+                    'row_count': len(cached_result) if isinstance(cached_result, list) else 1,
+                    'status': 'completed'
+                }
+        
+        # 执行查询
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(query)
+                
+                if query_upper.strip().startswith('SELECT'):
+                    columns = [col[0] for col in cursor.description]
+                    rows = cursor.fetchmany(max_rows)
+                    result = [dict(zip(columns, row)) for row in rows]
+                else:
+                    result = {'affected_rows': cursor.rowcount}
+                
+                # 缓存结果
+                if cache_result and query_upper.strip().startswith('SELECT'):
+                    cache.set(cache_key, result, cache_ttl)
+                
+                return {
+                    output_var: result,
+                    'cached': False,
+                    'row_count': len(result) if isinstance(result, list) else 1,
+                    'status': 'completed'
+                }
+        except Exception as e:
+            return {
+                'error': str(e),
+                'status': 'failed'
+            }
+    
+    def validate_config(self, config: Dict[str, Any]) -> List[str]:
+        """验证数据库查询配置"""
+        errors = []
+        query = config.get('query', '').strip()
+        
+        if not query:
+            errors.append('SQL查询语句不能为空')
+        else:
+            # 基础语法检查
+            if not query.upper().startswith(('SELECT', 'WITH')):
+                if not config.get('allow_write', False):
+                    errors.append('出于安全考虑，只允许执行SELECT查询语句')
+        
+        return errors

@@ -315,7 +315,7 @@
             this._initObservers();
         }
 
-        _initObservers: function() {
+        _initObservers() {
             if (typeof IntersectionObserver !== 'undefined') {
                 this.observer = new IntersectionObserver(
                     (entries) => this._handleIntersection(entries),
@@ -334,7 +334,7 @@
             }
         }
 
-        _handleIntersection: function(entries) {
+        _handleIntersection(entries) {
             entries.forEach(entry => {
                 const nodeId = entry.target.dataset.nodeId;
                 if (entry.isIntersecting) {
@@ -347,13 +347,13 @@
             });
         }
 
-        _handleResize: function(entries) {
+        _handleResize(entries) {
             entries.forEach(entry => {
                 this.vd._updateViewport();
             });
         }
 
-        observe: function(element) {
+        observe(element) {
             if (this.observer) {
                 this.observer.observe(element);
             }
@@ -362,7 +362,7 @@
             }
         }
 
-        disconnect: function() {
+        disconnect() {
             if (this.observer) {
                 this.observer.disconnect();
             }
@@ -406,7 +406,7 @@
             this.dirtyConnections = new Set();
         }
 
-        calculatePath: function(sourceX, sourceY, targetX, targetY) {
+        calculatePath(sourceX, sourceY, targetX, targetY) {
             const key = `${Math.round(sourceX)},${Math.round(sourceY)}->${Math.round(targetX)},${Math.round(targetY)}`;
             
             if (this.cache.has(key)) {
@@ -423,29 +423,29 @@
             return path;
         }
 
-        _computeBezierPath: function(x1, y1, x2, y2) {
+        _computeBezierPath(x1, y1, x2, y2) {
             const dx = Math.abs(x2 - x1) * 0.5;
             return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
         }
 
-        _pruneCache: function() {
+        _pruneCache() {
             const entries = Array.from(this.cache.entries());
             entries.slice(0, 500).forEach(([key]) => {
                 this.cache.delete(key);
             });
         }
 
-        markDirty: function(connId) {
+        markDirty(connId) {
             this.dirtyConnections.add(connId);
         }
 
-        getDirtyConnections: function() {
+        getDirtyConnections() {
             const dirty = Array.from(this.dirtyConnections);
             this.dirtyConnections.clear();
             return dirty;
         }
 
-        clear: function() {
+        clear() {
             this.cache.clear();
             this.dirtyConnections.clear();
         }
@@ -458,14 +458,14 @@
             this.batchSize = 50;
         }
 
-        add: function(renderFn) {
+        add(renderFn) {
             this.pending.push(renderFn);
             if (!this.processing) {
                 this._process();
             }
         }
 
-        _process: function() {
+        _process() {
             this.processing = true;
             
             const startTime = performance.now();
@@ -482,7 +482,7 @@
             }
         }
 
-        flush: function() {
+        flush() {
             while (this.pending.length > 0) {
                 const batch = this.pending.splice(0, this.batchSize);
                 batch.forEach(fn => fn());

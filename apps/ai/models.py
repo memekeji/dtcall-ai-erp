@@ -84,11 +84,15 @@ class AIWorkflow(models.Model):
 
 
 class WorkflowNode(models.Model):
-    """工作流节点"""
+    """工作流节点 - 严格的预定义节点类型"""
     NODE_TYPES = [
         ('ai_model', 'AI模型'),
-        ('ai_generate', 'AI生成'),
-        ('ai_classify', 'AI分类'),
+        ('ai_generation', 'AI生成'),
+        ('ai_classification', 'AI分类'),
+        ('ai_extraction', 'AI信息提取'),
+        ('knowledge_retrieval', '知识检索'),
+        ('intent_recognition', '意图识别'),
+        ('sentiment_analysis', '情感分析'),
         ('data_input', '数据输入'),
         ('data_output', '数据输出'),
         ('condition', '条件判断'),
@@ -97,26 +101,26 @@ class WorkflowNode(models.Model):
         ('iterator', '迭代器'),
         ('parallel', '并行处理'),
         ('delay', '延迟'),
+        ('wait', '等待'),
         ('webhook', 'Webhook'),
         ('api_call', 'API调用'),
         ('http_request', 'HTTP请求'),
         ('code_execution', '代码执行'),
         ('code_block', '代码块'),
         ('tool_call', '工具调用'),
-        ('database', '数据库'),
+        ('database_query', '数据库查询'),
         ('message_queue', '消息队列'),
         ('variable_aggregation', '变量聚合'),
         ('parameter_aggregator', '参数聚合'),
         ('variable_assign', '变量赋值'),
-        ('data_transformation', '数据转换V2'),
+        ('data_transformation', '数据转换'),
         ('data_filter', '数据过滤'),
         ('data_aggregation', '数据聚合'),
         ('data_format', '数据格式化'),
         ('text_processing', '文本处理'),
-        ('advanced_text_processing', '高级文本处理'),
-        ('document_extractor', '文档提取'),
         ('template', '模板渲染'),
         ('file_operation', '文件操作'),
+        ('document_extractor', '文档提取'),
         ('image_processing', '图片处理'),
         ('audio_processing', '音频处理'),
         ('notification', '通知'),
@@ -124,10 +128,12 @@ class WorkflowNode(models.Model):
         ('question_answer', '问答交互'),
         ('conversation_history', '对话历史'),
         ('workflow_trigger', '工作流触发'),
-        ('knowledge_retrieval', '知识检索'),
-        ('intent_recognition', '意图识别'),
-        ('sentiment_analysis', '情感分析'),
+        ('start', '开始'),
+        ('end', '结束'),
     ]
+    
+    # 有效的节点类型集合（用于快速验证）
+    VALID_NODE_TYPES = set(dict(NODE_TYPES).keys())
     
     id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False, verbose_name='ID')
     workflow = models.ForeignKey(AIWorkflow, on_delete=models.CASCADE, related_name='nodes', verbose_name='所属工作流')

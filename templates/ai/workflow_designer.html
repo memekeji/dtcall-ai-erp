@@ -193,16 +193,10 @@
             undoLimit: 50
         });
         
-        console.log('Designer初始化结果:', designer);
-        
         if (!designer) {
             layer.msg('工作流设计器初始化失败', { icon: 2 });
-            console.error('Designer初始化失败');
         } else if (workflowId && workflowId !== 'undefined' && workflowId !== 'None') {
-            console.log('开始加载工作流数据, ID:', workflowId);
             loadWorkflowData(workflowId, designer);
-        } else {
-            console.warn('没有工作流ID，当前值:', workflowId, typeof workflowId);
         }
         
         document.getElementById('save-btn').addEventListener('click', function() {
@@ -238,14 +232,12 @@
                 }
             })
             .then(response => {
-                console.log('API响应状态:', response.status);
                 if (!response.ok) {
                     throw new Error('API请求失败: ' + response.status);
                 }
                 return response.json();
             })
             .then(data => {
-                console.log('API返回数据:', data);
                 if (data.status === 'success' && data.workflow) {
                     const workflowData = {
                         id: id,
@@ -253,20 +245,14 @@
                         connections: data.workflow.connections || []
                     };
                     
-                    console.log('工作流数据:', workflowData);
-                    
                     if (workflowData.nodes.length > 0 || workflowData.connections.length > 0) {
                         designer._importWorkflow(workflowData);
-                    } else {
-                        console.warn('工作流没有节点数据');
                     }
                 } else {
-                    console.error('API返回错误:', data.message || '未知错误');
                     layer.msg('加载失败: ' + (data.message || '未知错误'), { icon: 2 });
                 }
             })
             .catch(error => {
-                console.error('加载工作流数据失败:', error);
                 layer.msg('加载失败: ' + error.message, { icon: 2 });
             })
             .finally(() => {

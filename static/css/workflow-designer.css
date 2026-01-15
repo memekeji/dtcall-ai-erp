@@ -701,6 +701,29 @@
     pointer-events: none;
 }
 
+/* ===== Selection Box ===== */
+.selection-box {
+    position: absolute;
+    border: 1px solid var(--primary-color);
+    background: rgba(24, 144, 255, 0.1);
+    pointer-events: none;
+    z-index: 1000;
+    display: none;
+}
+
+/* ===== Panning Cursor ===== */
+.designer-canvas.panning {
+    cursor: grabbing !important;
+}
+
+.canvas-container {
+    cursor: default;
+}
+
+.canvas-container:active {
+    cursor: grab;
+}
+
 /* ===== Execution Result ===== */
 .execution-result {
     background: var(--bg-base);

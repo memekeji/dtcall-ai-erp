@@ -199,6 +199,7 @@ class TextProcessingProcessor(BaseNodeProcessor):
             return text
 
 
+@NodeProcessorRegistry.register('document_extractor')
 class DocumentExtractorProcessor(BaseNodeProcessor):
     """Document extraction node for extracting content from various document formats"""
     
@@ -327,6 +328,7 @@ class DocumentExtractorProcessor(BaseNodeProcessor):
             return ''
 
 
+@NodeProcessorRegistry.register('http_request')
 class HttpRequestProcessor(BaseNodeProcessor):
     """Enhanced HTTP request node with more options"""
     
@@ -607,6 +609,7 @@ class TemplateProcessor(BaseNodeProcessor):
             return {output_var: '', 'error': str(e), 'status': 'failed'}
 
 
+@NodeProcessorRegistry.register('sentiment_analysis')
 class SentimentAnalysisProcessor(BaseNodeProcessor):
     """Sentiment analysis node for text sentiment classification"""
     
@@ -663,6 +666,7 @@ class SentimentAnalysisProcessor(BaseNodeProcessor):
             return {output_var: {'sentiment': 'unknown', 'score': 0}, 'error': str(e), 'status': 'failed'}
 
 
+@NodeProcessorRegistry.register('image_processing')
 class ImageProcessor(BaseNodeProcessor):
     """Image processing node for image manipulation"""
     
@@ -774,6 +778,7 @@ class ImageProcessor(BaseNodeProcessor):
         return "Image description requires vision model API"
 
 
+@NodeProcessorRegistry.register('audio_processing')
 class AudioProcessor(BaseNodeProcessor):
     """Audio processing node for speech and audio operations"""
     
