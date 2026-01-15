@@ -68,7 +68,9 @@ class AIWorkflow(models.Model):
     name = models.CharField(max_length=100, verbose_name='工作流名称')
     description = models.TextField(blank=True, null=True, verbose_name='工作流描述')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name='状态')
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, verbose_name='创建人')
+    is_public = models.BooleanField(default=False, verbose_name='是否公开')
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_workflows', verbose_name='拥有者')
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='created_workflows', verbose_name='创建人')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
     
@@ -85,18 +87,52 @@ class WorkflowNode(models.Model):
     """工作流节点"""
     NODE_TYPES = [
         ('ai_model', 'AI模型'),
+        ('ai_generate', 'AI生成'),
+        ('ai_classify', 'AI分类'),
         ('data_input', '数据输入'),
         ('data_output', '数据输出'),
         ('condition', '条件判断'),
-        ('loop', '循环'),
+        ('switch', '多条件分支'),
+        ('loop', '循环处理'),
+        ('iterator', '迭代器'),
+        ('parallel', '并行处理'),
         ('delay', '延迟'),
         ('webhook', 'Webhook'),
+        ('api_call', 'API调用'),
+        ('http_request', 'HTTP请求'),
+        ('code_execution', '代码执行'),
+        ('code_block', '代码块'),
+        ('tool_call', '工具调用'),
+        ('database', '数据库'),
+        ('message_queue', '消息队列'),
+        ('variable_aggregation', '变量聚合'),
+        ('parameter_aggregator', '参数聚合'),
+        ('variable_assign', '变量赋值'),
+        ('data_transformation', '数据转换V2'),
+        ('data_filter', '数据过滤'),
+        ('data_aggregation', '数据聚合'),
+        ('data_format', '数据格式化'),
+        ('text_processing', '文本处理'),
+        ('advanced_text_processing', '高级文本处理'),
+        ('document_extractor', '文档提取'),
+        ('template', '模板渲染'),
+        ('file_operation', '文件操作'),
+        ('image_processing', '图片处理'),
+        ('audio_processing', '音频处理'),
+        ('notification', '通知'),
+        ('scheduled_task', '定时任务'),
+        ('question_answer', '问答交互'),
+        ('conversation_history', '对话历史'),
+        ('workflow_trigger', '工作流触发'),
+        ('knowledge_retrieval', '知识检索'),
+        ('intent_recognition', '意图识别'),
+        ('sentiment_analysis', '情感分析'),
     ]
     
     id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False, verbose_name='ID')
     workflow = models.ForeignKey(AIWorkflow, on_delete=models.CASCADE, related_name='nodes', verbose_name='所属工作流')
     name = models.CharField(max_length=100, verbose_name='节点名称')
-    node_type = models.CharField(max_length=20, choices=NODE_TYPES, verbose_name='节点类型')
+    node_type = models.CharField(max_length=50, choices=NODE_TYPES, verbose_name='节点类型')
     config = models.JSONField(verbose_name='节点配置')
     position_x = models.IntegerField(default=0, verbose_name='X坐标')
     position_y = models.IntegerField(default=0, verbose_name='Y坐标')

@@ -1606,7 +1606,7 @@ def register_complete_nodes():
     registry = NodeProcessorRegistry.get_instance()
     
     processors = [
-        ('text_processing', TextProcessingProcessor, 'Text Processing'),
+        ('advanced_text_processing', TextProcessingProcessor, 'Advanced Text Processing'),
         ('document_extractor', DocumentExtractorProcessor, 'Document Extractor'),
         ('http_request', HttpRequestProcessor, 'HTTP Request'),
         ('database', DatabaseProcessor, 'Database'),

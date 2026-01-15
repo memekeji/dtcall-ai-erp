@@ -69,13 +69,14 @@ class AIWorkflowForm(forms.ModelForm):
     """AI工作流表单"""
     class Meta:
         model = AIWorkflow
-        fields = ['name', 'description', 'status']
+        fields = ['name', 'description', 'status', 'is_public']
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field in self.fields:
             self.fields[field].widget.attrs.update({'class': 'layui-input'})
         self.fields['description'].widget.attrs.update({'class': 'layui-textarea'})
+        self.fields['is_public'].widget.attrs.update({'lay-skin': 'switch', 'lay-text': '是|否'})
 
 
 class WorkflowNodeForm(forms.ModelForm):

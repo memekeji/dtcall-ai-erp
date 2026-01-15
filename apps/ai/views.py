@@ -7,6 +7,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMix
 from django.db import transaction
 from django.core.paginator import Paginator
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 import json
 
 from .services.workflow_service import WorkflowService
@@ -280,6 +282,7 @@ class AIWorkflowCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateVi
     success_url = reverse_lazy('ai:workflow_list')
     
     def form_valid(self, form):
+        form.instance.owner = self.request.user
         form.instance.created_by = self.request.user
         response = super().form_valid(form)
         messages.success(self.request, 'AI工作流创建成功')
@@ -299,16 +302,29 @@ class AIWorkflowUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateVi
         return response
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class AIWorkflowDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     model = AIWorkflow
-    template_name = 'ai/workflow_confirm_delete.html'
     permission_required = 'ai.delete_aiworkflow'
-    success_url = reverse_lazy('ai:workflow_list')
     
     def delete(self, request, *args, **kwargs):
-        response = super().delete(request, *args, **kwargs)
-        messages.success(self.request, 'AI工作流删除成功')
-        return response
+        workflow = self.get_object()
+        workflow_name = workflow.name
+        
+        try:
+            workflow.delete()
+            return JsonResponse({
+                'success': True,
+                'message': f'工作流 "{workflow_name}" 删除成功'
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'删除失败：{str(e)}'
+            }, status=500)
+    
+    def post(self, request, *args, **kwargs):
+        return self.delete(request, *args, **kwargs)
 
 
 class AIWorkflowDesignerView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
@@ -321,39 +337,6 @@ class AIWorkflowDesignerView(LoginRequiredMixin, PermissionRequiredMixin, Detail
         context = super().get_context_data(**kwargs)
         context['nodes'] = self.object.nodes.all()
         context['connections'] = self.object.connections.all()
-        return context
-
-
-class AIWorkflowDesignerV2View(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
-    model = AIWorkflow
-    template_name = 'ai/workflow_designer_v2.html'
-    permission_required = 'ai.change_aiworkflow'
-    context_object_name = 'workflow'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['nodes_json'] = json.dumps([
-            {
-                'id': str(node.id),
-                'type': node.node_type,
-                'name': node.name,
-                'x': node.x_position,
-                'y': node.y_position,
-                'config': node.config
-            }
-            for node in self.object.nodes.all()
-        ])
-        context['connections_json'] = json.dumps([
-            {
-                'id': str(conn.id),
-                'source': str(conn.source_node.id),
-                'target': str(conn.target_node.id),
-                'sourcePort': conn.source_port or 'out',
-                'targetPort': conn.target_port or 'in',
-                'condition': conn.config.get('condition') if conn.config else None
-            }
-            for conn in self.object.connections.all()
-        ])
         return context
 
 
@@ -391,6 +374,76 @@ class AIWorkflowDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailVi
         context['nodes'] = self.object.nodes.all()
         context['connections'] = self.object.connections.all()
         return context
+
+
+class AIWorkflowJsonDetailView(LoginRequiredMixin, DetailView):
+    """工作流JSON详情API，用于工作流设计器数据加载"""
+    model = AIWorkflow
+    
+    def get(self, request, *args, **kwargs):
+        try:
+            workflow = self.get_object()
+            
+            if not workflow.is_public:
+                if not request.user.is_authenticated:
+                    return JsonResponse({
+                        'status': 'error',
+                        'message': '请先登录'
+                    }, status=401)
+            
+            nodes = workflow.nodes.all()
+            connections = workflow.connections.all()
+            
+            def parse_config(config):
+                if config is None:
+                    return {}
+                if isinstance(config, str):
+                    try:
+                        return json.loads(config)
+                    except:
+                        return {}
+                return config if isinstance(config, dict) else {}
+            
+            nodes_data = []
+            for node in nodes:
+                node_data = {
+                    'id': str(node.id),
+                    'name': node.name,
+                    'node_type': node.node_type or 'basic',
+                    'position_x': node.position_x if node.position_x else 100,
+                    'position_y': node.position_y if node.position_y else 200,
+                    'config': parse_config(node.config)
+                }
+                nodes_data.append(node_data)
+            
+            connections_data = []
+            for conn in connections:
+                conn_data = {
+                    'id': str(conn.id),
+                    'source_node': str(conn.source_node_id) if conn.source_node_id else None,
+                    'target_node': str(conn.target_node_id) if conn.target_node_id else None,
+                    'source_handle': conn.source_handle or 'output',
+                    'target_handle': conn.target_handle or 'input',
+                    'config': parse_config(conn.config)
+                }
+                connections_data.append(conn_data)
+            
+            return JsonResponse({
+                'status': 'success',
+                'workflow': {
+                    'id': str(workflow.id),
+                    'name': workflow.name,
+                    'description': workflow.description or '',
+                    'status': workflow.status or 'draft',
+                    'nodes': nodes_data,
+                    'connections': connections_data
+                }
+            })
+        except Exception as e:
+            return JsonResponse({
+                'status': 'error',
+                'message': str(e)
+            }, status=500)
 
 
 class AIWorkflowExecuteView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):

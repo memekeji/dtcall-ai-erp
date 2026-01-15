@@ -82,7 +82,7 @@
             'parameter_aggregator': { name: '参数聚合', category: 'data', icon: '⊗', color: '#2f54eb' },
             'variable_assign': { name: '变量赋值', category: 'data', icon: '←', color: '#722ed1' },
             'data_conversion': { name: '数据转换', category: 'data', icon: '⇄', color: '#13c2c2' },
-            'text_processing': { name: '文本处理', category: 'data', icon: '📝', color: '#1890ff' },
+            'advanced_text_processing': { name: '高级文本处理', category: 'data', icon: '📝', color: '#1890ff' },
             'document_extractor': { name: '文档提取', category: 'data', icon: '📄', color: '#722ed1' },
             'template': { name: '模板渲染', category: 'data', icon: '📋', color: '#faad14' },
             'file_operation': { name: '文件操作', category: 'data', icon: '📁', color: '#722ed1' },
@@ -457,10 +457,18 @@
         },
         
         _renderNode: function(node) {
-            const typeConfig = this.nodeTypes[node.type];
+            const nodeType = node.type || node.node_type || 'basic';
+            const typeConfig = this.nodeTypes[nodeType] || {
+                name: '未知节点',
+                category: 'basic',
+                icon: '?',
+                color: '#999999',
+                description: '未配置的节点类型'
+            };
             const el = document.createElement('div');
             el.className = 'workflow-node';
             el.dataset.nodeId = node.id;
+            el.dataset.nodeType = nodeType;
             el.style.left = node.x + 'px';
             el.style.top = node.y + 'px';
             
