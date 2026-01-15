@@ -44,6 +44,7 @@ class AIConfigManager:
                     'name': config.name,
                     'provider': config.provider,
                     'model_type': config.model_type,
+                    'api_key': config.api_key,
                     'base_url': config.api_base,
                     'api_base': config.api_base,
                     'model_name': config.model_name,

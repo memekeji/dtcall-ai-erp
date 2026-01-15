@@ -354,11 +354,106 @@
         // 页面加载完成后的初始化操作
         $(function() {
             
-            // 运行工作流功能
+            // 运行工作流功能 - 支持参数输入
             $('.run-btn').on('click', function() {
                 var workflowId = $(this).data('workflow-id');
                 var workflowName = $(this).data('workflow-name');
                 
+                // 先获取工作流参数
+                $.ajax({
+                    url: '/ai/workflow/' + workflowId + '/parameters/',
+                    type: 'GET',
+                    dataType: 'json',
+                    success: function(paramResponse) {
+                        if (paramResponse.status === 'success' && paramResponse.parameters && paramResponse.parameters.length > 0) {
+                            // 有参数需要输入，显示参数输入对话框
+                            showParameterDialog(workflowId, workflowName, paramResponse.parameters);
+                        } else {
+                            // 无参数，直接运行
+                            runWorkflow(workflowId, workflowName, {});
+                        }
+                    },
+                    error: function() {
+                        // 获取参数失败，直接运行
+                        runWorkflow(workflowId, workflowName, {});
+                    }
+                });
+            });
+            
+            // 显示参数输入对话框
+            function showParameterDialog(workflowId, workflowName, parameters) {
+                var formItems = '';
+                parameters.forEach(function(param) {
+                    var requiredMark = param.is_required ? ' <span style="color:red">*</span>' : '';
+                    var defaultValue = param.default_value !== null ? param.default_value : '';
+                    var inputType = 'text';
+                    
+                    if (param.data_type === 'number') {
+                        inputType = 'number';
+                    } else if (param.data_type === 'boolean') {
+                        inputType = 'checkbox';
+                    }
+                    
+                    formItems += '<div class="layui-form-item">';
+                    formItems += '    <label class="layui-form-label">' + param.name + requiredMark + '</label>';
+                    formItems += '    <div class="layui-input-block">';
+                    
+                    if (param.data_type === 'boolean') {
+                        formItems += '        <input type="checkbox" name="' + param.name + '" value="true" lay-skin="switch" lay-text="是|否">';
+                    } else {
+                        formItems += '        <input type="' + inputType + '" name="' + param.name + '" value="' + defaultValue + '" placeholder="请输入' + param.name + '" class="layui-input">';
+                    }
+                    
+                    if (param.description) {
+                        formItems += '        <div class="layui-hint" style="color:#999;font-size:12px;margin-top:5px;">' + param.description + '</div>';
+                    }
+                    
+                    formItems += '    </div>';
+                    formItems += '</div>';
+                });
+                
+                layer.open({
+                    type: 1,
+                    title: '运行工作流 - ' + workflowName + '（输入参数）',
+                    area: ['500px', parameters.length > 3 ? '450px' : 'auto'],
+                    content: '<div style="padding:20px;"><form class="layui-form" lay-filter="param-form">' + formItems + '</form></div>',
+                    btn: ['确定运行', '取消'],
+                    yes: function(index) {
+                        var inputData = {};
+                        var hasError = false;
+                        
+                        parameters.forEach(function(param) {
+                            var value;
+                            if (param.data_type === 'boolean') {
+                                value = $('input[name="' + param.name + '"]').is(':checked');
+                            } else {
+                                value = $('input[name="' + param.name + '"]').val();
+                            }
+                            
+                            if (param.is_required && (value === '' || value === undefined || value === null)) {
+                                hasError = true;
+                            }
+                            
+                            if (param.data_type === 'number' && value !== '') {
+                                value = parseFloat(value);
+                            }
+                            
+                            inputData[param.name] = value;
+                        });
+                        
+                        if (hasError) {
+                            layer.msg('请填写所有必填参数', {icon: 2});
+                            return;
+                        }
+                        
+                        layer.close(index);
+                        runWorkflow(workflowId, workflowName, inputData);
+                    }
+                });
+            }
+            
+            // 执行工作流
+            function runWorkflow(workflowId, workflowName, inputData) {
                 layer.confirm('确定要运行工作流 "' + workflowName + '" 吗？', {
                     icon: 3,
                     title: '运行确认',
@@ -366,13 +461,14 @@
                 }, function(index) {
                     layer.close(index);
                     
-                    // 显示加载状态
                     var loadIndex = layer.load(1, {shade: [0.1, '#fff']});
                     
-                    // 发送AJAX请求
                     $.ajax({
                         url: '/ai/workflow/' + workflowId + '/run/',
                         type: 'POST',
+                        dataType: 'json',
+                        contentType: 'application/json',
+                        data: JSON.stringify({input_data: inputData}),
                         headers: {
                             'X-CSRFToken': '{{ csrf_token }}'
                         },
@@ -381,7 +477,7 @@
                             if (response.success) {
                                 layer.msg('工作流运行成功！执行ID: ' + response.execution_id, {icon: 1});
                             } else {
-                                layer.msg('运行失败: ' + response.error, {icon: 2});
+                                layer.msg('运行失败: ' + response.message, {icon: 2});
                             }
                         },
                         error: function(xhr, status, error) {
@@ -390,7 +486,7 @@
                         }
                     });
                 });
-            });
+            }
             
             // 删除工作流功能
             $('.delete-btn').on('click', function() {

@@ -1,0 +1,1212 @@
+/**
+ * DTCall Workflow Designer - Modern Frontend Solution
+ * Achieve interaction experience comparable to Dify and Coze platforms
+ * 
+ * Technical Architecture:
+ * - Native JavaScript + Modular Design
+ * - SVG/Canvas Hybrid Rendering
+ * - Virtualized List Optimization
+ * - Complete Undo/Redo System
+ */
+
+(function(global) {
+    'use strict';
+
+    const WorkflowDesigner = {
+        version: '2.0.0',
+        config: {
+            nodeWidth: 220,
+            nodeMinHeight: 80,
+            portRadius: 6,
+            connectionStrokeWidth: 2,
+            gridSize: 20,
+            snapToGrid: true,
+            animateConnections: true,
+            undoLimit: 50
+        },
+        
+        state: {
+            nodes: new Map(),
+            connections: new Map(),
+            selectedNodes: new Set(),
+            selectedConnections: new Set(),
+            history: [],
+            historyIndex: -1,
+            scale: 1,
+            offsetX: 0,
+            offsetY: 0,
+            isDragging: false,
+            isConnecting: false,
+            connectionStartNode: null,
+            connectionStartPort: null,
+            tempConnectionPath: null,
+            clipboard: null,
+            modified: false
+        },
+        
+        containers: {
+            canvas: null,
+            container: null,
+            nodesLayer: null,
+            connectionsLayer: null,
+            tempLayer: null,
+            toolPanel: null,
+            propertyPanel: null
+        },
+        
+        nodeTypes: {
+            'start': { name: '开始', category: 'basic', icon: '▶', color: '#52c41a' },
+            'end': { name: '结束', category: 'basic', icon: '◼', color: '#ff4d4f' },
+            'data_input': { name: '数据输入', category: 'basic', icon: '↓', color: '#1890ff' },
+            'data_output': { name: '数据输出', category: 'basic', icon: '↑', color: '#722ed1' },
+            'ai_model': { name: 'AI模型', category: 'ai', icon: '🤖', color: '#fa8c16' },
+            'ai_generate': { name: 'AI生成', category: 'ai', icon: '✨', color: '#eb2f96' },
+            'ai_classify': { name: 'AI分类', category: 'ai', icon: '📊', color: '#13c2c2' },
+            'knowledge_retrieval': { name: '知识检索', category: 'ai', icon: '📚', color: '#2f54eb' },
+            'intent_recognition': { name: '意图识别', category: 'ai', icon: '🎯', color: '#f5222d' },
+            'sentiment_analysis': { name: '情感分析', category: 'ai', icon: '💭', color: '#722ed1' },
+            'condition': { name: '条件判断', category: 'logic', icon: '?', color: '#faad14' },
+            'switch': { name: '多条件分支', category: 'logic', icon: '⇄', color: '#52c41a' },
+            'loop': { name: '循环处理', category: 'logic', icon: '↻', color: '#722ed1' },
+            'iterator': { name: '迭代器', category: 'logic', icon: '⟳', color: '#13c2c2' },
+            'parallel': { name: '并行处理', category: 'logic', icon: '∥', color: '#13c2c2' },
+            'api_call': { name: 'API调用', category: 'integration', icon: '🌐', color: '#1890ff' },
+            'http_request': { name: 'HTTP请求', category: 'integration', icon: '🔗', color: '#1890ff' },
+            'webhook': { name: 'Webhook', category: 'integration', icon: '🪝', color: '#eb2f96' },
+            'code_execution': { name: '代码执行', category: 'integration', icon: '⚡', color: '#fa8c16' },
+            'code_block': { name: '代码块', category: 'integration', icon: '{ }', color: '#fa8c16' },
+            'tool_call': { name: '工具调用', category: 'integration', icon: '🔧', color: '#52c41a' },
+            'database': { name: '数据库', category: 'integration', icon: '🗄️', color: '#2f54eb' },
+            'message_queue': { name: '消息队列', category: 'integration', icon: '📨', color: '#13c2c2' },
+            'variable_aggregation': { name: '变量聚合', category: 'data', icon: '⊕', color: '#2f54eb' },
+            'parameter_aggregator': { name: '参数聚合', category: 'data', icon: '⊗', color: '#2f54eb' },
+            'variable_assign': { name: '变量赋值', category: 'data', icon: '←', color: '#722ed1' },
+            'data_conversion': { name: '数据转换', category: 'data', icon: '⇄', color: '#13c2c2' },
+            'text_processing': { name: '文本处理', category: 'data', icon: '📝', color: '#1890ff' },
+            'document_extractor': { name: '文档提取', category: 'data', icon: '📄', color: '#722ed1' },
+            'template': { name: '模板渲染', category: 'data', icon: '📋', color: '#faad14' },
+            'file_operation': { name: '文件操作', category: 'data', icon: '📁', color: '#722ed1' },
+            'image_processing': { name: '图片处理', category: 'data', icon: '🖼️', color: '#eb2f96' },
+            'audio_processing': { name: '音频处理', category: 'data', icon: '🎵', color: '#52c41a' },
+            'notification': { name: '通知', category: 'system', icon: '🔔', color: '#faad14' },
+            'delay': { name: '延迟', category: 'system', icon: '⏱', color: '#8c8c8c' },
+            'scheduled_task': { name: '定时任务', category: 'system', icon: '⏰', color: '#722ed1' },
+            'question_answer': { name: '问答交互', category: 'interaction', icon: '💬', color: '#52c41a' },
+            'conversation_history': { name: '对话历史', category: 'interaction', icon: '📜', color: '#13c2c2' },
+            'workflow_trigger': { name: '工作流触发', category: 'interaction', icon: '🚀', color: '#f5222d' }
+        },
+        
+        init: function(containerId, options = {}) {
+            const container = document.getElementById(containerId);
+            if (!container) {
+                console.error(`Container with id "${containerId}" not found`);
+                return null;
+            }
+            
+            this.config = { ...this.config, ...options };
+            this.containers.container = container;
+            
+            this._createDOMStructure();
+            this._bindEvents();
+            this._initToolbar();
+            this._loadDefaultWorkflow();
+            
+            console.log('Workflow Designer initialized successfully');
+            return this;
+        },
+        
+        _createDOMStructure: function() {
+            const container = this.containers.container;
+            container.innerHTML = '';
+            container.className = 'workflow-designer';
+            
+            this.containers.toolPanel = this._createToolPanel();
+            this.containers.canvas = this._createCanvas();
+            this.containers.propertyPanel = this._createPropertyPanel();
+            
+            container.appendChild(this.containers.toolPanel);
+            container.appendChild(this.containers.canvas);
+            container.appendChild(this.containers.propertyPanel);
+        },
+        
+        _createToolPanel: function() {
+            const panel = document.createElement('div');
+            panel.className = 'designer-tool-panel';
+            panel.innerHTML = `
+                <div class="panel-header">
+                    <span class="panel-title">节点类型</span>
+                </div>
+                <div class="panel-content" id="node-type-list"></div>
+            `;
+            
+            const nodeList = panel.querySelector('#node-type-list');
+            const categories = {
+                'basic': { name: '基础节点', order: 1 },
+                'ai': { name: 'AI节点', order: 2 },
+                'logic': { name: '逻辑控制', order: 3 },
+                'integration': { name: '集成节点', order: 4 },
+                'data': { name: '数据处理', order: 5 },
+                'system': { name: '系统节点', order: 6 },
+                'interaction': { name: '交互节点', order: 7 }
+            };
+            
+            Object.entries(categories)
+                .sort((a, b) => a[1].order - b[1].order)
+                .forEach(([category, info]) => {
+                    const group = document.createElement('div');
+                    group.className = 'node-type-group';
+                    group.innerHTML = `<div class="group-title">${info.name}</div>`;
+                    
+                    Object.entries(this.nodeTypes)
+                        .filter(([type, config]) => config.category === category)
+                        .forEach(([type, config]) => {
+                            const item = document.createElement('div');
+                            item.className = 'node-type-item';
+                            item.dataset.nodeType = type;
+                            item.draggable = true;
+                            item.innerHTML = `
+                                <span class="node-icon">${config.icon}</span>
+                                <span class="node-name">${config.name}</span>
+                            `;
+                            group.appendChild(item);
+                        });
+                    
+                    nodeList.appendChild(group);
+                });
+            
+            return panel;
+        },
+        
+        _createCanvas: function() {
+            const canvas = document.createElement('div');
+            canvas.className = 'designer-canvas';
+            canvas.tabIndex = 0;
+            
+            canvas.innerHTML = `
+                <div class="canvas-toolbar">
+                    <button class="canvas-btn" data-action="zoom-in" title="放大 (Ctrl +)">
+                        <span>＋</span>
+                    </button>
+                    <button class="canvas-btn" data-action="zoom-out" title="缩小 (Ctrl -)">
+                        <span>－</span>
+                    </button>
+                    <button class="canvas-btn" data-action="zoom-reset" title="重置缩放 (Ctrl 0)">
+                        <span>⊞</span>
+                    </button>
+                    <span class="zoom-indicator">100%</span>
+                    <div class="canvas-divider"></div>
+                    <button class="canvas-btn" data-action="undo" title="撤销 (Ctrl Z)" disabled>
+                        <span>↶</span>
+                    </button>
+                    <button class="canvas-btn" data-action="redo" title="重做 (Ctrl Y)" disabled>
+                        <span>↷</span>
+                    </button>
+                    <div class="canvas-divider"></div>
+                    <button class="canvas-btn" data-action="delete" title="删除 (Delete)" disabled>
+                        <span>🗑</span>
+                    </button>
+                    <button class="canvas-btn" data-action="select-all" title="全选 (Ctrl A)">
+                        <span>☑</span>
+                    </button>
+                    <div class="canvas-divider"></div>
+                    <button class="canvas-btn" data-action="execute" title="执行工作流">
+                        <span>▶</span>
+                    </button>
+                    <button class="canvas-btn" data-action="debug" title="调试模式">
+                        <span>🐛</span>
+                    </button>
+                </div>
+                <div class="canvas-container">
+                    <svg class="connections-layer" id="connections-layer"></svg>
+                    <div class="nodes-layer" id="nodes-layer"></div>
+                    <svg class="temp-layer" id="temp-layer"></svg>
+                </div>
+                <div class="minimap" id="minimap">
+                    <div class="minimap-viewport"></div>
+                </div>
+                <div class="canvas-background" id="canvas-background"></div>
+            `;
+            
+            this.containers.nodesLayer = canvas.querySelector('#nodes-layer');
+            this.containers.connectionsLayer = canvas.querySelector('#connections-layer');
+            this.containers.tempLayer = canvas.querySelector('#temp-layer');
+            
+            return canvas;
+        },
+        
+        _createPropertyPanel: function() {
+            const panel = document.createElement('div');
+            panel.className = 'designer-property-panel';
+            panel.innerHTML = `
+                <div class="panel-header">
+                    <span class="panel-title">属性配置</span>
+                </div>
+                <div class="panel-content" id="property-content">
+                    <div class="no-selection">
+                        <div class="no-selection-icon">◇</div>
+                        <div class="no-selection-text">选择一个节点以编辑属性</div>
+                    </div>
+                </div>
+            `;
+            
+            return panel;
+        },
+        
+        _initToolbar: function() {
+            const toolbar = this.containers.canvas.querySelector('.canvas-toolbar');
+            toolbar.addEventListener('click', (e) => {
+                const btn = e.target.closest('.canvas-btn');
+                if (btn && !btn.disabled) {
+                    const action = btn.dataset.action;
+                    this._handleToolbarAction(action);
+                }
+            });
+        },
+        
+        _handleToolbarAction: function(action) {
+            switch (action) {
+                case 'zoom-in':
+                    this._setZoom(this.state.scale * 1.2);
+                    break;
+                case 'zoom-out':
+                    this._setZoom(this.state.scale / 1.2);
+                    break;
+                case 'zoom-reset':
+                    this._setZoom(1);
+                    break;
+                case 'undo':
+                    this._undo();
+                    break;
+                case 'redo':
+                    this._redo();
+                    break;
+                case 'delete':
+                    this._deleteSelected();
+                    break;
+                case 'select-all':
+                    this._selectAll();
+                    break;
+                case 'execute':
+                    this._executeWorkflow();
+                    break;
+                case 'debug':
+                    this._toggleDebugMode();
+                    break;
+            }
+        },
+        
+        _bindEvents: function() {
+            const container = this.containers.container;
+            const canvas = this.containers.canvas;
+            const nodeList = this.containers.toolPanel.querySelector('#node-type-list');
+            
+            nodeList.addEventListener('dragstart', (e) => {
+                if (e.target.classList.contains('node-type-item')) {
+                    e.dataTransfer.setData('nodeType', e.target.dataset.nodeType);
+                    e.dataTransfer.effectAllowed = 'copy';
+                }
+            });
+            
+            canvas.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+            });
+            
+            canvas.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const nodeType = e.dataTransfer.getData('nodeType');
+                if (nodeType && this.nodeTypes[nodeType]) {
+                    const rect = canvas.getBoundingClientRect();
+                    const x = (e.clientX - rect.left - this.state.offsetX) / this.state.scale;
+                    const y = (e.clientY - rect.top - this.state.offsetY) / this.state.scale;
+                    this._addNode(nodeType, x, y);
+                }
+            });
+            
+            canvas.addEventListener('keydown', (e) => {
+                this._handleKeydown(e);
+            });
+            
+            canvas.addEventListener('mousedown', (e) => {
+                if (e.target === canvas || e.target.classList.contains('canvas-background')) {
+                    this._clearSelection();
+                }
+            });
+            
+            canvas.addEventListener('mousemove', (e) => {
+                this._handleMouseMove(e);
+            });
+            
+            window.addEventListener('resize', () => {
+                this._updateMinimap();
+            });
+        },
+        
+        _handleKeydown: function(e) {
+            const key = e.key.toLowerCase();
+            const ctrl = e.ctrlKey || e.metaKey;
+            
+            if (ctrl && key === 'z') {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    this._redo();
+                } else {
+                    this._undo();
+                }
+            } else if (ctrl && key === 'y') {
+                e.preventDefault();
+                this._redo();
+            } else if (ctrl && key === 'a') {
+                e.preventDefault();
+                this._selectAll();
+            } else if (key === 'delete' || key === 'backspace') {
+                if (document.activeElement.tagName !== 'INPUT' && 
+                    document.activeElement.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    this._deleteSelected();
+                }
+            } else if (ctrl && key === '=') {
+                e.preventDefault();
+                this._setZoom(this.state.scale * 1.2);
+            } else if (ctrl && key === '-') {
+                e.preventDefault();
+                this._setZoom(this.state.scale / 1.2);
+            } else if (ctrl && key === '0') {
+                e.preventDefault();
+                this._setZoom(1);
+            } else if (key === 'escape') {
+                this._cancelConnection();
+                this._clearSelection();
+            }
+        },
+        
+        _handleMouseMove: function(e) {
+            if (this.state.isDragging && this.state.dragNode) {
+                const canvas = this.containers.canvas;
+                const rect = canvas.getBoundingClientRect();
+                const x = (e.clientX - rect.left - this.state.offsetX) / this.state.scale;
+                const y = (e.clientY - rect.top - this.state.offsetY) / this.state.scale;
+                
+                const snappedX = this.config.snapToGrid 
+                    ? Math.round(x / this.config.gridSize) * this.config.gridSize 
+                    : x;
+                const snappedY = this.config.snapToGrid 
+                    ? Math.round(y / this.config.gridSize) * this.config.gridSize 
+                    : y;
+                
+                this.state.dragNode.setPosition(snappedX, snappedY);
+                this._updateNodePosition(this.state.dragNode.id);
+                this._updateConnectedConnections(this.state.dragNode.id);
+                this._updateMinimap();
+            }
+            
+            if (this.state.isConnecting) {
+                this._updateTempConnection(e);
+            }
+        },
+        
+        _addNode: function(nodeType, x, y) {
+            const nodeId = this._generateId('node');
+            const typeConfig = this.nodeTypes[nodeType];
+            
+            const node = {
+                id: nodeId,
+                type: nodeType,
+                name: typeConfig.name,
+                x: x - this.config.nodeWidth / 2,
+                y: y - 40,
+                config: this._getDefaultNodeConfig(nodeType),
+                status: 'pending'
+            };
+            
+            this.state.nodes.set(nodeId, node);
+            this._renderNode(node);
+            this._saveHistory();
+            this.state.modified = true;
+            
+            return node;
+        },
+        
+        _getDefaultNodeConfig: function(nodeType) {
+            const configs = {
+                'start': { output_variables: [] },
+                'end': { input_variable: '' },
+                'data_input': { input_data: '', output_variable: 'input' },
+                'data_output': { input_variable: '', output_type: 'result' },
+                'ai_model': { model_id: '', prompt: '', output_variable: 'ai_result' },
+                'ai_generate': { model_id: '', content_type: 'text', output_variable: 'generated' },
+                'ai_classify': { model_id: '', categories: [], output_variable: 'category' },
+                'knowledge_retrieval': { knowledge_base_id: '', query_variable: '', top_k: 5 },
+                'intent_recognition': { input_variable: '', intents: [], output_intent: 'intent' },
+                'condition': { condition_variable: '', condition_type: 'if_else', expressions: [] },
+                'switch': { condition_variable: '', cases: [] },
+                'loop': { loop_type: 'for', iterable_variable: '', max_iterations: 100 },
+                'parallel': { tasks: [], max_concurrent: 3 },
+                'api_call': { url: '', method: 'GET', headers: {}, body: '' },
+                'webhook': { webhook_url: '', method: 'POST' },
+                'code_execution': { code: '', input_variables: [], output_variables: [] },
+                'variable_aggregation': { source_variables: [], aggregation_type: 'object' },
+                'data_conversion': { conversion_type: 'json_to_text', format: '' },
+                'file_operation': { operation: 'read', file_path: '', output_variable: 'file_content' },
+                'notification': { notification_type: 'toast', message: '' },
+                'delay': { delay_seconds: 5 },
+                'question_answer': { question: '', answer_variable: 'user_answer' }
+            };
+            
+            return configs[nodeType] || {};
+        },
+        
+        _renderNode: function(node) {
+            const typeConfig = this.nodeTypes[node.type];
+            const el = document.createElement('div');
+            el.className = 'workflow-node';
+            el.dataset.nodeId = node.id;
+            el.style.left = node.x + 'px';
+            el.style.top = node.y + 'px';
+            
+            el.innerHTML = `
+                <div class="node-header" style="border-left: 3px solid ${typeConfig.color}">
+                    <span class="node-icon">${typeConfig.icon}</span>
+                    <span class="node-name">${node.name}</span>
+                    <div class="node-actions">
+                        <button class="node-btn" data-action="config" title="配置">⚙</button>
+                        <button class="node-btn" data-action="delete" title="删除">×</button>
+                    </div>
+                </div>
+                <div class="node-content" id="content-${node.id}">
+                    ${this._getNodeContentPreview(node)}
+                </div>
+                <div class="node-status" id="status-${node.id}"></div>
+                <div class="node-ports">
+                    <div class="port in-port" data-port="in" data-node="${node.id}"></div>
+                    <div class="port out-port" data-port="out" data-node="${node.id}"></div>
+                </div>
+            `;
+            
+            el.addEventListener('mousedown', (e) => {
+                if (e.target.classList.contains('port')) return;
+                if (e.target.classList.contains('node-btn')) {
+                    this._handleNodeButtonClick(e, node);
+                    return;
+                }
+                
+                e.stopPropagation();
+                this._selectNode(node.id, e.shiftKey);
+                this.state.isDragging = true;
+                this.state.dragNode = node;
+            });
+            
+            el.addEventListener('dblclick', () => {
+                this._showNodeConfig(node.id);
+            });
+            
+            const inPort = el.querySelector('.in-port');
+            const outPort = el.querySelector('.out-port');
+            
+            inPort.addEventListener('mousedown', (e) => this._startConnection(e, node.id, 'in'));
+            outPort.addEventListener('mousedown', (e) => this._startConnection(e, node.id, 'out'));
+            
+            inPort.addEventListener('mouseup', (e) => this._endConnection(e, node.id, 'in'));
+            outPort.addEventListener('mouseup', (e) => this._endConnection(e, node.id, 'out'));
+            
+            this.containers.nodesLayer.appendChild(el);
+        },
+        
+        _getNodeContentPreview: function(node) {
+            const config = node.config;
+            switch (node.type) {
+                case 'ai_model':
+                    return config.model_id ? `模型: ${config.model_id}` : '未配置模型';
+                case 'knowledge_retrieval':
+                    return config.knowledge_base_id ? '已配置知识库' : '未选择知识库';
+                case 'api_call':
+                    return config.url || '未配置API';
+                case 'condition':
+                    return config.condition_variable || '未设置条件';
+                default:
+                    return '';
+            }
+        },
+        
+        _updateNodePosition: function(nodeId) {
+            const node = this.state.nodes.get(nodeId);
+            if (!node) return;
+            
+            const el = this.containers.nodesLayer.querySelector(`[data-node-id="${nodeId}"]`);
+            if (el) {
+                el.style.left = node.x + 'px';
+                el.style.top = node.y + 'px';
+            }
+        },
+        
+        _selectNode: function(nodeId, addToSelection = false) {
+            const node = this.state.nodes.get(nodeId);
+            if (!node) return;
+            
+            if (!addToSelection) {
+                this._clearSelection();
+            }
+            
+            this.state.selectedNodes.add(nodeId);
+            const el = this.containers.nodesLayer.querySelector(`[data-node-id="${nodeId}"]`);
+            if (el) el.classList.add('selected');
+            
+            this._updateToolbarButtons();
+            this._showNodeConfig(nodeId);
+        },
+        
+        _clearSelection: function() {
+            this.state.selectedNodes.forEach(nodeId => {
+                const el = this.containers.nodesLayer.querySelector(`[data-node-id="${nodeId}"]`);
+                if (el) el.classList.remove('selected');
+            });
+            this.state.selectedNodes.clear();
+            this._updatePropertyPanel();
+            this._updateToolbarButtons();
+        },
+        
+        _updateToolbarButtons: function() {
+            const toolbar = this.containers.canvas.querySelector('.canvas-toolbar');
+            const deleteBtn = toolbar.querySelector('[data-action="delete"]');
+            const undoBtn = toolbar.querySelector('[data-action="undo"]');
+            const redoBtn = toolbar.querySelector('[data-action="redo"]');
+            
+            deleteBtn.disabled = this.state.selectedNodes.size === 0;
+            undoBtn.disabled = this.state.historyIndex <= 0;
+            redoBtn.disabled = this.state.historyIndex >= this.state.history.length - 1;
+        },
+        
+        _handleNodeButtonClick: function(e, node) {
+            const action = e.target.dataset.action;
+            if (action === 'config' || action === undefined) {
+                this._showNodeConfig(node.id);
+            } else if (action === 'delete') {
+                this._deleteNode(node.id);
+            }
+        },
+        
+        _deleteNode: function(nodeId) {
+            const node = this.state.nodes.get(nodeId);
+            if (!node) return;
+            
+            this.state.connections.forEach((conn, connId) => {
+                if (conn.source === nodeId || conn.target === nodeId) {
+                    this._deleteConnection(connId);
+                }
+            });
+            
+            const el = this.containers.nodesLayer.querySelector(`[data-node-id="${nodeId}"]`);
+            if (el) el.remove();
+            
+            this.state.nodes.delete(nodeId);
+            this.state.selectedNodes.delete(nodeId);
+            
+            this._saveHistory();
+            this.state.modified = true;
+        },
+        
+        _deleteSelected: function() {
+            const nodesToDelete = Array.from(this.state.selectedNodes);
+            nodesToDelete.forEach(nodeId => this._deleteNode(nodeId));
+        },
+        
+        _selectAll: function() {
+            this.state.nodes.forEach((node, nodeId) => {
+                this.state.selectedNodes.add(nodeId);
+                const el = this.containers.nodesLayer.querySelector(`[data-node-id="${nodeId}"]`);
+                if (el) el.classList.add('selected');
+            });
+            this._updateToolbarButtons();
+        },
+        
+        _startConnection: function(e, nodeId, portType) {
+            e.stopPropagation();
+            this.state.isConnecting = true;
+            this.state.connectionStartNode = nodeId;
+            this.state.connectionStartPort = portType;
+            
+            const svg = this.containers.tempLayer;
+            while (svg.firstChild) svg.removeChild(svg.firstChild);
+            
+            this.containers.canvas.classList.add('connecting');
+        },
+        
+        _endConnection: function(e, nodeId, portType) {
+            if (!this.state.isConnecting) return;
+            
+            if (this.state.connectionStartNode !== nodeId) {
+                const sourceNode = this.state.connectionStartNode;
+                const sourcePort = this.state.connectionStartPort;
+                
+                if (sourcePort !== portType) {
+                    this._addConnection(sourceNode, nodeId, sourcePort, portType);
+                }
+            }
+            
+            this._cancelConnection();
+        },
+        
+        _cancelConnection: function() {
+            this.state.isConnecting = false;
+            this.state.connectionStartNode = null;
+            this.state.connectionStartPort = null;
+            
+            const svg = this.containers.tempLayer;
+            while (svg.firstChild) svg.removeChild(svg.firstChild);
+            
+            this.containers.canvas.classList.remove('connecting');
+        },
+        
+        _updateTempConnection: function(e) {
+            if (!this.state.isConnecting) return;
+            
+            const canvas = this.containers.canvas;
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = (e.clientX - rect.left - this.state.offsetX) / this.state.scale;
+            const mouseY = (e.clientY - rect.top - this.state.offsetY) / this.state.scale;
+            
+            const startNode = this.state.nodes.get(this.state.connectionStartNode);
+            if (!startNode) return;
+            
+            const startX = this.state.connectionStartPort === 'out' 
+                ? startNode.x + this.config.nodeWidth 
+                : startNode.x;
+            const startY = startNode.y + 40;
+            
+            const path = this._createBezierPath(startX, startY, mouseX, mouseY);
+            
+            let pathEl = this.containers.tempLayer.querySelector('path');
+            if (!pathEl) {
+                pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                pathEl.setAttribute('stroke', '#1890ff');
+                pathEl.setAttribute('stroke-width', '2');
+                pathEl.setAttribute('fill', 'none');
+                pathEl.setAttribute('stroke-dasharray', '5,5');
+                this.containers.tempLayer.appendChild(pathEl);
+            }
+            pathEl.setAttribute('d', path);
+        },
+        
+        _addConnection: function(sourceNodeId, targetNodeId, sourcePort, targetPort) {
+            const connId = this._generateId('conn');
+            
+            const connection = {
+                id: connId,
+                source: sourceNodeId,
+                target: targetNodeId,
+                sourcePort: sourcePort,
+                targetPort: targetPort,
+                condition: null
+            };
+            
+            this.state.connections.set(connId, connection);
+            this._renderConnection(connection);
+            this._saveHistory();
+            this.state.modified = true;
+            
+            return connection;
+        },
+        
+        _renderConnection: function(connection) {
+            const sourceNode = this.state.nodes.get(connection.source);
+            const targetNode = this.state.nodes.get(connection.target);
+            if (!sourceNode || !targetNode) return;
+            
+            const sourceX = connection.sourcePort === 'out' 
+                ? sourceNode.x + this.config.nodeWidth 
+                : sourceNode.x;
+            const sourceY = sourceNode.y + 40;
+            const targetX = connection.targetPort === 'out' 
+                ? targetNode.x + this.config.nodeWidth 
+                : targetNode.x;
+            const targetY = targetNode.y + 40;
+            
+            const pathData = this._createBezierPath(sourceX, sourceY, targetX, targetY);
+            
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('id', `conn-${connection.id}`);
+            path.setAttribute('d', pathData);
+            path.setAttribute('stroke', '#999');
+            path.setAttribute('stroke-width', '2');
+            path.setAttribute('fill', 'none');
+            path.dataset.connectionId = connection.id;
+            
+            path.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._selectConnection(connection.id);
+            });
+            
+            path.addEventListener('dblclick', () => {
+                this._showConnectionConfig(connection.id);
+            });
+            
+            const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+            marker.setAttribute('id', `arrow-${connection.id}`);
+            marker.setAttribute('markerWidth', '10');
+            marker.setAttribute('markerHeight', '10');
+            marker.setAttribute('refX', '9');
+            marker.setAttribute('refY', '5');
+            marker.setAttribute('orient', 'auto');
+            marker.innerHTML = '<path d="M0,0 L10,5 L0,10" fill="#999"/>';
+            
+            this.containers.connectionsLayer.appendChild(marker);
+            path.setAttribute('marker-end', `url(#arrow-${connection.id})`);
+            this.containers.connectionsLayer.appendChild(path);
+        },
+        
+        _createBezierPath: function(x1, y1, x2, y2) {
+            const dx = Math.abs(x2 - x1) * 0.5;
+            return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+        },
+        
+        _updateConnectedConnections: function(nodeId) {
+            this.state.connections.forEach((conn, connId) => {
+                if (conn.source === nodeId || conn.target === nodeId) {
+                    const path = this.containers.connectionsLayer.querySelector(`#conn-${connId}`);
+                    if (path) {
+                        const sourceNode = this.state.nodes.get(conn.source);
+                        const targetNode = this.state.nodes.get(conn.target);
+                        
+                        const sourceX = conn.sourcePort === 'out' 
+                            ? sourceNode.x + this.config.nodeWidth 
+                            : sourceNode.x;
+                        const sourceY = sourceNode.y + 40;
+                        const targetX = conn.targetPort === 'out' 
+                            ? targetNode.x + this.config.nodeWidth 
+                            : targetNode.x;
+                        const targetY = conn.targetNode ? targetNode.y + 40 : targetY;
+                        
+                        path.setAttribute('d', this._createBezierPath(sourceX, sourceY, targetX, targetY));
+                    }
+                }
+            });
+        },
+        
+        _deleteConnection: function(connId) {
+            const path = this.connectionsLayer.querySelector(`#conn-${connId}`);
+            const marker = this.connectionsLayer.querySelector(`#arrow-${connId}`);
+            if (path) path.remove();
+            if (marker) marker.remove();
+            
+            this.state.connections.delete(connId);
+            this._saveHistory();
+        },
+        
+        _selectConnection: function(connId) {
+            this.state.selectedConnections.add(connId);
+            const path = this.containers.connectionsLayer.querySelector(`#conn-${connId}`);
+            if (path) path.setAttribute('stroke', '#1890ff');
+        },
+        
+        _showNodeConfig: function(nodeId) {
+            const node = this.state.nodes.get(nodeId);
+            if (!node) return;
+            
+            const typeConfig = this.nodeTypes[node.type];
+            const panel = this.containers.propertyPanel.querySelector('#property-content');
+            
+            let html = `
+                <div class="config-node-header">
+                    <span class="node-icon" style="color: ${typeConfig.color}">${typeConfig.icon}</span>
+                    <span class="node-name">${node.name}</span>
+                    <span class="node-id">#${node.id.substring(0, 8)}</span>
+                </div>
+                <div class="config-form">
+                    <div class="form-group">
+                        <label>节点名称</label>
+                        <input type="text" id="node-name-input" value="${node.name}" />
+                    </div>
+            `;
+            
+            html += this._generateConfigForm(node.type, node.config);
+            
+            html += `
+                    <div class="config-actions">
+                        <button class="layui-btn layui-btn-primary" id="cancel-config">取消</button>
+                        <button class="layui-btn layui-btn-normal" id="save-config">保存</button>
+                    </div>
+                </div>
+            `;
+            
+            panel.innerHTML = html;
+            
+            panel.querySelector('#save-config').addEventListener('click', () => {
+                this._saveNodeConfig(nodeId);
+            });
+            
+            panel.querySelector('#cancel-config').addEventListener('click', () => {
+                this._updatePropertyPanel();
+            });
+        },
+        
+        _generateConfigForm: function(nodeType, config) {
+            let html = '';
+            
+            switch (nodeType) {
+                case 'ai_model':
+                    html += `
+                        <div class="form-group">
+                            <label>AI模型</label>
+                            <select id="config-model_id">
+                                <option value="">请选择模型...</option>
+                                <option value="gpt-3.5-turbo" ${config.model_id === 'gpt-3.5-turbo' ? 'selected' : ''}>GPT-3.5 Turbo</option>
+                                <option value="gpt-4" ${config.model_id === 'gpt-4' ? 'selected' : ''}>GPT-4</option>
+                                <option value="deepseek-chat" ${config.model_id === 'deepseek-chat' ? 'selected' : ''}>DeepSeek Chat</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>系统提示词</label>
+                            <textarea id="config-prompt" rows="4" placeholder="输入系统提示词，可以使用 {{变量名}} 引用变量">${config.prompt || ''}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>输出变量名</label>
+                            <input type="text" id="config-output_variable" value="${config.output_variable || 'ai_result'}" />
+                        </div>
+                    `;
+                    break;
+                    
+                case 'knowledge_retrieval':
+                    html += `
+                        <div class="form-group">
+                            <label>知识库</label>
+                            <select id="config-knowledge_base_id">
+                                <option value="">请选择知识库...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>查询变量</label>
+                            <input type="text" id="config-query_variable" value="${config.query_variable || ''}" placeholder="输入查询内容的变量名" />
+                        </div>
+                        <div class="form-group">
+                            <label>返回数量</label>
+                            <input type="number" id="config-top_k" value="${config.top_k || 5}" min="1" max="20" />
+                        </div>
+                    `;
+                    break;
+                    
+                case 'api_call':
+                    html += `
+                        <div class="form-group">
+                            <label>API地址</label>
+                            <input type="text" id="config-url" value="${config.url || ''}" placeholder="https://api.example.com/endpoint" />
+                        </div>
+                        <div class="form-group">
+                            <label>请求方法</label>
+                            <select id="config-method">
+                                <option value="GET" ${config.method === 'GET' ? 'selected' : ''}>GET</option>
+                                <option value="POST" ${config.method === 'POST' ? 'selected' : ''}>POST</option>
+                                <option value="PUT" ${config.method === 'PUT' ? 'selected' : ''}>PUT</option>
+                                <option value="DELETE" ${config.method === 'DELETE' ? 'selected' : ''}>DELETE</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>请求体 (JSON)</label>
+                            <textarea id="config-body" rows="4" placeholder='{"key": "value"}'>${config.body || ''}</textarea>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'condition':
+                    html += `
+                        <div class="form-group">
+                            <label>条件变量</label>
+                            <input type="text" id="config-condition_variable" value="${config.condition_variable || ''}" placeholder="输入条件判断的变量名" />
+                        </div>
+                        <div class="form-group">
+                            <label>条件类型</label>
+                            <select id="config-condition_type">
+                                <option value="if_else" ${config.condition_type === 'if_else' ? 'selected' : ''}>如果...否则...</option>
+                                <option value="switch" ${config.condition_type === 'switch' ? 'selected' : ''}>多条件分支</option>
+                            </select>
+                        </div>
+                    `;
+                    break;
+                    
+                default:
+                    html += `
+                        <div class="form-group">
+                            <label>此节点暂无额外配置</label>
+                        </div>
+                    `;
+            }
+            
+            return html;
+        },
+        
+        _saveNodeConfig: function(nodeId) {
+            const node = this.state.nodes.get(nodeId);
+            if (!node) return;
+            
+            const nameInput = document.getElementById('node-name-input');
+            if (nameInput) {
+                node.name = nameInput.value;
+            }
+            
+            const configFields = ['model_id', 'prompt', 'output_variable', 'knowledge_base_id', 
+                'query_variable', 'top_k', 'url', 'method', 'body', 'condition_variable', 
+                'condition_type', 'input_variable', 'input_data', 'output_type'];
+            
+            configFields.forEach(field => {
+                const input = document.getElementById(`config-${field}`);
+                if (input) {
+                    const value = input.type === 'number' ? parseInt(input.value) : input.value;
+                    node.config[field] = value;
+                }
+            });
+            
+            const contentEl = document.getElementById(`content-${nodeId}`);
+            if (contentEl) {
+                contentEl.textContent = this._getNodeContentPreview(node);
+            }
+            
+            const headerEl = this.containers.nodesLayer.querySelector(`[data-node-id="${nodeId}"] .node-name`);
+            if (headerEl) {
+                headerEl.textContent = node.name;
+            }
+            
+            this._saveHistory();
+            this.state.modified = true;
+            
+            layer.msg('配置已保存', { icon: 1, time: 1500 });
+        },
+        
+        _showConnectionConfig: function(connId) {
+            const connection = this.state.connections.get(connId);
+            if (!connection) return;
+            
+            const panel = this.containers.propertyPanel.querySelector('#property-content');
+            panel.innerHTML = `
+                <div class="config-node-header">
+                    <span class="node-name">连接配置</span>
+                </div>
+                <div class="form-group">
+                    <label>条件表达式 (可选)</label>
+                    <textarea id="conn-condition" rows="3" placeholder="例如: {{variable}} > 10">${connection.condition || ''}</textarea>
+                </div>
+                <div class="config-actions">
+                    <button class="layui-btn layui-btn-danger" id="delete-conn">删除连接</button>
+                    <button class="layui-btn layui-btn-normal" id="save-conn">保存</button>
+                </div>
+            `;
+            
+            panel.querySelector('#save-conn').addEventListener('click', () => {
+                const conditionInput = document.getElementById('conn-condition');
+                if (conditionInput) {
+                    connection.condition = conditionInput.value.trim() || null;
+                }
+                layer.msg('连接已更新', { icon: 1, time: 1500 });
+            });
+            
+            panel.querySelector('#delete-conn').addEventListener('click', () => {
+                this._deleteConnection(connId);
+                this._updatePropertyPanel();
+                layer.msg('连接已删除', { icon: 1, time: 1500 });
+            });
+        },
+        
+        _updatePropertyPanel: function() {
+            const panel = this.containers.propertyPanel.querySelector('#property-content');
+            panel.innerHTML = `
+                <div class="no-selection">
+                    <div class="no-selection-icon">◇</div>
+                    <div class="no-selection-text">选择一个节点以编辑属性</div>
+                </div>
+            `;
+        },
+        
+        _setZoom: function(scale) {
+            scale = Math.max(0.1, Math.min(3, scale));
+            this.state.scale = scale;
+            
+            this.containers.canvas.style.transform = `scale(${scale})`;
+            this.containers.canvas.style.transformOrigin = 'left top';
+            
+            const zoomIndicator = this.containers.canvas.querySelector('.zoom-indicator');
+            if (zoomIndicator) {
+                zoomIndicator.textContent = Math.round(scale * 100) + '%';
+            }
+            
+            this._updateMinimap();
+        },
+        
+        _updateMinimap: function() {
+            const minimap = this.containers.canvas.querySelector('#minimap');
+            if (!minimap) return;
+            
+            const nodes = Array.from(this.state.nodes.values());
+            if (nodes.length === 0) {
+                minimap.style.display = 'none';
+                return;
+            }
+            
+            minimap.style.display = 'block';
+            
+            const minX = Math.min(...nodes.map(n => n.x)) - 50;
+            const minY = Math.min(...nodes.map(n => n.y)) - 50;
+            const maxX = Math.max(...nodes.map(n => n.x)) + this.config.nodeWidth + 50;
+            const maxY = Math.max(...nodes.map(n => n.y)) + 100 + 50;
+            
+            const mapWidth = 200;
+            const mapHeight = (maxY - minY) / (maxX - minX) * mapWidth;
+            
+            minimap.style.width = mapWidth + 'px';
+            minimap.style.height = mapHeight + 'px';
+            
+            const scale = mapWidth / (maxX - minX);
+            
+            const viewport = minimap.querySelector('.minimap-viewport');
+            const containerRect = this.containers.canvas.querySelector('.canvas-container').getBoundingClientRect();
+            const canvasRect = this.containers.canvas.getBoundingClientRect();
+            
+            viewport.style.left = (-this.state.offsetX * scale) + 'px';
+            viewport.style.top = (-this.state.offsetY * scale) + 'px';
+            viewport.style.width = (containerRect.width * scale * this.state.scale) + 'px';
+            viewport.style.height = (containerRect.height * scale * this.state.scale) + 'px';
+        },
+        
+        _saveHistory: function() {
+            const stateSnapshot = {
+                nodes: Array.from(this.state.nodes.entries()),
+                connections: Array.from(this.state.connections.entries())
+            };
+            
+            this.state.history = this.state.history.slice(0, this.state.historyIndex + 1);
+            this.state.history.push(JSON.parse(JSON.stringify(stateSnapshot)));
+            
+            if (this.state.history.length > this.config.undoLimit) {
+                this.state.history.shift();
+            } else {
+                this.state.historyIndex++;
+            }
+            
+            this._updateToolbarButtons();
+        },
+        
+        _undo: function() {
+            if (this.state.historyIndex > 0) {
+                this.state.historyIndex--;
+                this._restoreHistory();
+            }
+        },
+        
+        _redo: function() {
+            if (this.state.historyIndex < this.state.history.length - 1) {
+                this.state.historyIndex++;
+                this._restoreHistory();
+            }
+        },
+        
+        _restoreHistory: function() {
+            const snapshot = this.state.history[this.state.historyIndex];
+            
+            this.containers.nodesLayer.innerHTML = '';
+            this.containers.connectionsLayer.innerHTML = '';
+            this.state.nodes.clear();
+            this.state.connections.clear();
+            
+            snapshot.nodes.forEach(([id, node]) => {
+                this.state.nodes.set(id, node);
+                this._renderNode(node);
+            });
+            
+            snapshot.connections.forEach(([id, conn]) => {
+                this.state.connections.set(id, conn);
+                this._renderConnection(conn);
+            });
+            
+            this._updateToolbarButtons();
+        },
+        
+        _executeWorkflow: function() {
+            const workflowData = this._exportWorkflow();
+            
+            fetch(`/ai/workflow/${workflowData.id}/enhanced-execute/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this._getCsrfToken()
+                },
+                body: JSON.stringify(workflowData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    layer.msg('工作流执行成功', { icon: 1, time: 3000 });
+                    this._showExecutionResult(data);
+                } else {
+                    layer.msg('工作流执行失败: ' + data.message, { icon: 2, time: 3000 });
+                }
+            })
+            .catch(error => {
+                console.error('执行工作流失败:', error);
+                layer.msg('执行工作流失败', { icon: 2, time: 3000 });
+            });
+        },
+        
+        _showExecutionResult: function(result) {
+            const panel = this.containers.propertyPanel.querySelector('#property-content');
+            panel.innerHTML = `
+                <div class="execution-result">
+                    <h4>执行结果</h4>
+                    <pre>${JSON.stringify(result.output_data, null, 2)}</pre>
+                </div>
+            `;
+        },
+        
+        _toggleDebugMode: function() {
+            this.containers.canvas.classList.toggle('debug-mode');
+            layer.msg(this.containers.canvas.classList.contains('debug-mode') ? '调试模式已开启' : '调试模式已关闭');
+        },
+        
+        _exportWorkflow: function() {
+            return {
+                id: this.containers.container.dataset.workflowId || '',
+                nodes: Array.from(this.state.nodes.values()),
+                connections: Array.from(this.state.connections.values())
+            };
+        },
+        
+        _importWorkflow: function(data) {
+            this._clearCanvas();
+            
+            data.nodes.forEach(node => {
+                this.state.nodes.set(node.id, node);
+                this._renderNode(node);
+            });
+            
+            data.connections.forEach(conn => {
+                this.state.connections.set(conn.id, conn);
+                this._renderConnection(conn);
+            });
+            
+            this._saveHistory();
+        },
+        
+        _clearCanvas: function() {
+            this.containers.nodesLayer.innerHTML = '';
+            this.containers.connectionsLayer.innerHTML = '';
+            this.state.nodes.clear();
+            this.state.connections.clear();
+            this.state.selectedNodes.clear();
+            this._updatePropertyPanel();
+        },
+        
+        _loadDefaultWorkflow: function() {
+            if (window.DEFAULT_WORKFLOW_DATA) {
+                this._importWorkflow(window.DEFAULT_WORKFLOW_DATA);
+            }
+        },
+        
+        _generateId: function(prefix) {
+            return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        },
+        
+        _getCsrfToken: function() {
+            const input = document.querySelector('[name="csrfmiddlewaretoken"]');
+            return input ? input.value : '';
+        }
+    };
+    
+    global.WorkflowDesigner = WorkflowDesigner;
+    
+})(typeof window !== 'undefined' ? window : this);

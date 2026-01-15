@@ -7,13 +7,11 @@ import importlib
 import logging
 from .base_processor import NodeProcessorRegistry
 
-# 配置日志
 logger = logging.getLogger(__name__)
 
 
 def register_all_processors():
     """注册所有节点处理器"""
-    # 导入所有处理器模块，确保它们被注册
     processor_modules = [
         'ai_model_processor',
         'condition_processor', 
@@ -21,7 +19,9 @@ def register_all_processors():
         'file_processor',
         'notification_processor',
         'basic_processor',
-        'data_processor'
+        'data_processor',
+        'enhanced_processors',
+        'complete_nodes'
     ]
     
     for module_name in processor_modules:

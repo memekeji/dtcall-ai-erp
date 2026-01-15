@@ -7,7 +7,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('message', '0002_initial'),
+        ('message', '0003_expand_message_models'),
     ]
 
     operations = [

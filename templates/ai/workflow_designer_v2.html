@@ -1,0 +1,379 @@
+{% extends 'home/iframe_base.html' %}
+{% load static %}
+
+{% block title %}工作流设计器 v2 - {{ workflow.name }} - DTCALL管理后台{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+<link rel="stylesheet" href="{% static 'css/workflow-designer.css' %}">
+<script src="{% static 'js/workflow-designer-virtualization.js' %}"></script>
+<style>
+    .designer-header-v2 {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 16px 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+    
+    .workflow-info-v2 {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+    
+    .workflow-title-v2 {
+        font-size: 20px;
+        font-weight: 600;
+        color: #fff;
+        margin: 0;
+    }
+    
+    .workflow-meta {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .workflow-status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        background: rgba(255, 255, 255, 0.2);
+        color: #fff;
+    }
+    
+    .workflow-status-badge.draft {
+        background: rgba(250, 173, 20, 0.3);
+    }
+    
+    .workflow-status-badge.published {
+        background: rgba(82, 196, 26, 0.3);
+    }
+    
+    .action-buttons-v2 {
+        display: flex;
+        gap: 12px;
+    }
+    
+    .action-buttons-v2 .layui-btn {
+        height: 36px;
+        line-height: 36px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 500;
+    }
+    
+    .action-buttons-v2 .btn-save {
+        background: rgba(255, 255, 255, 0.2);
+        color: #fff;
+    }
+    
+    .action-buttons-v2 .btn-save:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+    
+    .action-buttons-v2 .btn-publish {
+        background: #52c41a;
+        color: #fff;
+    }
+    
+    .action-buttons-v2 .btn-publish:hover {
+        background: #73d13d;
+    }
+    
+    .action-buttons-v2 .btn-preview {
+        background: rgba(255, 255, 255, 0.2);
+        color: #fff;
+    }
+    
+    .action-buttons-v2 .btn-preview:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+    
+    .version-indicator {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.7);
+        margin-left: 8px;
+    }
+    
+    /* Keyboard shortcuts hint */
+    .shortcuts-hint {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.75);
+        color: #fff;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 12px;
+        display: flex;
+        gap: 16px;
+        z-index: 1000;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+    
+    .shortcuts-hint.visible {
+        opacity: 1;
+    }
+    
+    .shortcut-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .shortcut-key {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="designer-header-v2">
+    <div class="workflow-info-v2">
+        <h2 class="workflow-title-v2">{{ workflow.name }}</h2>
+        <span class="workflow-status-badge {{ workflow.status }}">{{ workflow.get_status_display }}</span>
+        <span class="version-indicator">v2.0</span>
+    </div>
+    <div class="action-buttons-v2">
+        <button class="layui-btn btn-save" id="save-btn-v2">
+            <i class="layui-icon layui-icon-save"></i> 保存
+        </button>
+        {% if workflow.status == 'draft' %}
+        <button class="layui-btn btn-publish" id="publish-btn-v2">
+            <i class="layui-icon layui-icon-release"></i> 发布
+        </button>
+        {% endif %}
+        <button class="layui-btn btn-preview" id="preview-btn-v2">
+            <i class="layui-icon layui-icon-eye"></i> 预览
+        </button>
+        <button class="layui-btn btn-preview" id="help-btn-v2" title="键盘快捷键">
+            <i class="layui-icon layui-icon-help"></i>
+        </button>
+        <a href="{% url 'ai:workflow_update' workflow.id %}" class="layui-btn btn-preview">
+            <i class="layui-icon layui-icon-edit"></i> 编辑信息
+        </a>
+    </div>
+</div>
+
+<div id="workflow-designer-container" data-workflow-id="{{ workflow.id }}">
+    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+</div>
+
+<div class="shortcuts-hint" id="shortcuts-hint">
+    <div class="shortcut-item"><span class="shortcut-key">Ctrl + Z</span> 撤销</div>
+    <div class="shortcut-item"><span class="shortcut-key">Ctrl + Y</span> 重做</div>
+    <div class="shortcut-item"><span class="shortcut-key">Ctrl + A</span> 全选</div>
+    <div class="shortcut-item"><span class="shortcut-key">Delete</span> 删除</div>
+    <div class="shortcut-item"><span class="shortcut-key">Ctrl + +/-</span> 缩放</div>
+    <div class="shortcut-item"><span class="shortcut-key">Esc</span> 取消操作</div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loading-overlay" style="display: none;">
+    <div class="loading-spinner"></div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'layui/layui.js' %}"></script>
+<script src="{% static 'js/workflow-designer.js' %}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const container = document.getElementById('workflow-designer-container');
+        const workflowId = container.dataset.workflowId;
+        
+        layer.config({
+            offset: '20px'
+        });
+        
+        const designer = WorkflowDesigner.init('workflow-designer-container', {
+            nodeWidth: 220,
+            snapToGrid: true,
+            gridSize: 20,
+            undoLimit: 50
+        });
+        
+        if (designer && workflowId) {
+            loadWorkflowData(workflowId, designer);
+        }
+        
+        document.getElementById('save-btn-v2').addEventListener('click', function() {
+            saveWorkflow(workflowId, designer);
+        });
+        
+        document.getElementById('publish-btn-v2').addEventListener('click', function() {
+            publishWorkflow(workflowId, designer);
+        });
+        
+        document.getElementById('preview-btn-v2').addEventListener('click', function() {
+            previewWorkflow(designer);
+        });
+        
+        document.getElementById('help-btn-v2').addEventListener('click', function() {
+            showShortcuts();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === '?' && e.shiftKey) {
+                e.preventDefault();
+                showShortcuts();
+            }
+        });
+        
+        function loadWorkflowData(id, designer) {
+            showLoading(true);
+            
+            fetch(`/ai/workflow/detail/${id}/`, {
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': getCsrfToken()
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success' && data.workflow) {
+                    const workflowData = {
+                        id: id,
+                        nodes: data.workflow.nodes || [],
+                        connections: data.workflow.connections || []
+                    };
+                    
+                    if (workflowData.nodes.length > 0 || workflowData.connections.length > 0) {
+                        designer._importWorkflow(workflowData);
+                    }
+                    
+                    console.log('工作流数据加载成功');
+                }
+            })
+            .catch(error => {
+                console.error('加载工作流数据失败:', error);
+                layer.msg('加载工作流数据失败', { icon: 2 });
+            })
+            .finally(() => {
+                showLoading(false);
+            });
+        }
+        
+        function saveWorkflow(id, designer) {
+            const workflowData = designer._exportWorkflow();
+            
+            showLoading(true);
+            
+            fetch(`/ai/workflow/update/${id}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({
+                    nodes: workflowData.nodes,
+                    connections: workflowData.connections
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    layer.msg('保存成功', { icon: 1, time: 2000 });
+                } else {
+                    layer.msg('保存失败: ' + (data.message || '未知错误'), { icon: 2 });
+                }
+            })
+            .catch(error => {
+                console.error('保存工作流失败:', error);
+                layer.msg('保存失败', { icon: 2 });
+            })
+            .finally(() => {
+                showLoading(false);
+            });
+        }
+        
+        function publishWorkflow(id, designer) {
+            layer.confirm('确定要发布此工作流吗？发布后可以执行该工作流。', {
+                title: '确认发布',
+                btn: ['确定', '取消']
+            }, function(index) {
+                layer.close(index);
+                
+                showLoading(true);
+                
+                fetch(`/ai/workflow/${id}/publish/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCsrfToken()
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        layer.msg('发布成功', { icon: 1, time: 2000 }, function() {
+                            location.reload();
+                        });
+                    } else {
+                        layer.msg('发布失败: ' + (data.message || '未知错误'), { icon: 2 });
+                    }
+                })
+                .catch(error => {
+                    console.error('发布工作流失败:', error);
+                    layer.msg('发布失败', { icon: 2 });
+                })
+                .finally(() => {
+                    showLoading(false);
+                });
+            });
+        }
+        
+        function previewWorkflow(designer) {
+            const workflowData = designer._exportWorkflow();
+            
+            const previewWindow = window.open('', '_blank', 'width=800,height=600');
+            
+            previewWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>工作流预览</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; }
+                        pre { background: #f5f5f5; padding: 15px; border-radius: 8px; overflow: auto; }
+                    </style>
+                </head>
+                <body>
+                    <h2>工作流预览</h2>
+                    <pre>${JSON.stringify(workflowData, null, 2)}</pre>
+                </body>
+                </html>
+            `);
+            previewWindow.document.close();
+        }
+        
+        function showShortcuts() {
+            const hint = document.getElementById('shortcuts-hint');
+            hint.classList.add('visible');
+            
+            setTimeout(function() {
+                hint.classList.remove('visible');
+            }, 3000);
+        }
+        
+        function showLoading(show) {
+            document.getElementById('loading-overlay').style.display = show ? 'flex' : 'none';
+        }
+        
+        function getCsrfToken() {
+            const input = document.querySelector('[name="csrfmiddlewaretoken"]');
+            return input ? input.value : '';
+        }
+        
+        console.log('DTCall工作流设计器 v2 初始化完成');
+    });
+</script>
+{% endblock %}

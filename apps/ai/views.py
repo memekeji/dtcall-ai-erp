@@ -7,6 +7,9 @@ from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMix
 from django.db import transaction
 from django.core.paginator import Paginator
 from django.utils import timezone
+import json
+
+from .services.workflow_service import WorkflowService
 
 from .models import (
     AIModelConfig,
@@ -321,6 +324,62 @@ class AIWorkflowDesignerView(LoginRequiredMixin, PermissionRequiredMixin, Detail
         return context
 
 
+class AIWorkflowDesignerV2View(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    model = AIWorkflow
+    template_name = 'ai/workflow_designer_v2.html'
+    permission_required = 'ai.change_aiworkflow'
+    context_object_name = 'workflow'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['nodes_json'] = json.dumps([
+            {
+                'id': str(node.id),
+                'type': node.node_type,
+                'name': node.name,
+                'x': node.x_position,
+                'y': node.y_position,
+                'config': node.config
+            }
+            for node in self.object.nodes.all()
+        ])
+        context['connections_json'] = json.dumps([
+            {
+                'id': str(conn.id),
+                'source': str(conn.source_node.id),
+                'target': str(conn.target_node.id),
+                'sourcePort': conn.source_port or 'out',
+                'targetPort': conn.target_port or 'in',
+                'condition': conn.config.get('condition') if conn.config else None
+            }
+            for conn in self.object.connections.all()
+        ])
+        return context
+
+
+class AIWorkflowPublishView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    model = AIWorkflow
+    fields = ['status']
+    permission_required = 'ai.change_aiworkflow'
+    
+    def post(self, request, *args, **kwargs):
+        workflow = self.get_object()
+        
+        if workflow.status == 'published':
+            return JsonResponse({
+                'status': 'error',
+                'message': '工作流已经发布过了'
+            })
+        
+        workflow.status = 'published'
+        workflow.save()
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': '发布成功'
+        })
+
+
 class AIWorkflowDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     model = AIWorkflow
     template_name = 'ai/workflow_detail.html'
@@ -339,17 +398,74 @@ class AIWorkflowExecuteView(LoginRequiredMixin, PermissionRequiredMixin, DetailV
     permission_required = 'ai.change_aiworkflow'
     
     def post(self, request, *args, **kwargs):
+        import json
+        
         workflow = self.get_object()
-        input_data = request.POST.dict()
         
-        # 创建执行记录
-        execution = AIWorkflowExecution.objects.create(
-            workflow=workflow,
-            status='pending',
-            input_data=input_data
-        )
+        try:
+            # 尝试从JSON body获取输入数据
+            if request.content_type == 'application/json':
+                try:
+                    body_data = json.loads(request.body)
+                    input_data = body_data.get('input_data', {})
+                except json.JSONDecodeError:
+                    input_data = {}
+            else:
+                input_data = request.POST.dict()
+            
+            service = WorkflowService()
+            execution = service.execute_workflow(
+                workflow_id=str(workflow.id),
+                user=request.user,
+                input_data=input_data
+            )
+            return JsonResponse({
+                'status': 'success', 
+                'execution_id': str(execution.id),
+                'message': '工作流执行已启动'
+            })
+        except Exception as e:
+            return JsonResponse({
+                'status': 'error', 
+                'message': str(e)
+            }, status=400)
+
+
+class AIWorkflowParametersView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    model = AIWorkflow
+    permission_required = 'ai.change_aiworkflow'
+    
+    def get(self, request, *args, **kwargs):
+        workflow = self.get_object()
         
-        return JsonResponse({'status': 'success', 'execution_id': execution.id})
+        try:
+            # 从WorkflowVariable获取定义的参数
+            from apps.ai.models import WorkflowVariable
+            
+            variables = workflow.variables.all()
+            parameters = []
+            
+            for var in variables:
+                parameters.append({
+                    'name': var.name,
+                    'data_type': var.data_type,
+                    'default_value': var.default_value,
+                    'description': var.description,
+                    'is_required': var.is_required
+                })
+            
+            # 如果没有定义变量，返回空数组
+            return JsonResponse({
+                'status': 'success',
+                'parameters': parameters,
+                'workflow_name': workflow.name
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'status': 'error',
+                'message': str(e)
+            }, status=400)
 
 
 # AI聊天视图
@@ -1261,7 +1377,11 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
                 ai_response = rag_service.generate_response(request.user, message)
             elif intent == intent_recognition_service.INTENT_TYPES['AI_CHAT']:
                 # 5. 处理纯AI对话意图
-                ai_response = intent_recognition_service._handle_ai_chat(request.user, message)['result']
+                chat_result = intent_recognition_service._handle_ai_chat(request.user, message)
+                if chat_result.get('success'):
+                    ai_response = chat_result.get('result', '')
+                else:
+                    ai_response = chat_result.get('message', '抱歉，AI服务暂时不可用')
             else:
                 # 6. 处理意图识别失败情况
                 fallback_options = intent_result.get('fallback_options', [])

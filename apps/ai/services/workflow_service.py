@@ -364,7 +364,7 @@ class WorkflowService:
             execution_graph = self._build_execution_graph(nodes, connections)
             
             # 查找开始节点
-            start_node = next((node for node in nodes.values() if node.node_type.code == 'start'), None)
+            start_node = next((node for node in nodes.values() if node.node_type == 'start'), None)
             if not start_node:
                 raise ValueError('工作流中找不到开始节点')
             
@@ -466,7 +466,7 @@ class WorkflowService:
         Returns:
             dict: 执行结果
         """
-        node_type = node.node_type.code
+        node_type = node.node_type
         config = node.config
         
         # 使用新的处理器系统
@@ -503,7 +503,7 @@ class WorkflowService:
         Returns:
             dict: 执行结果
         """
-        node_type = node.node_type.code
+        node_type = node.node_type
         config = node.config
         output = {}
         
@@ -613,8 +613,9 @@ class WorkflowService:
             
             if source_id not in graph:
                 graph[source_id] = []
-                
-            graph[source_id].append((target_id, conn.condition))
+            
+            condition = conn.config.get('condition') if conn.config else None
+            graph[source_id].append((target_id, condition))
             
         return graph
     

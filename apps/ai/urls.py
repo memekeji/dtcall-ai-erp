@@ -1,6 +1,19 @@
 from django.urls import path
 from django.shortcuts import redirect
 from . import views
+from .enhanced_views import (
+    WorkflowEnhancedExecuteView,
+    WorkflowDebugView,
+    WorkflowMonitorView,
+    WorkflowPermissionView,
+    APIKeyManagementView,
+    APIKeyRevokeView,
+    ContentSecurityView,
+    AuditLogView,
+    ModelListView,
+    PerformanceAnalysisView,
+    WorkflowExecutionHistoryView
+)
 
 app_name = 'ai'
 
@@ -24,7 +37,32 @@ urlpatterns = [
     path('workflow/delete/<uuid:pk>/', views.AIWorkflowDeleteView.as_view(), name='workflow_delete'),
     path('workflow/detail/<uuid:pk>/', views.AIWorkflowDetailView.as_view(), name='workflow_detail'),
     path('workflow/designer/<uuid:pk>/', views.AIWorkflowDesignerView.as_view(), name='workflow_designer'),
+    path('workflow/designer/v2/<uuid:pk>/', views.AIWorkflowDesignerV2View.as_view(), name='workflow_designer_v2'),
     path('workflow/execute/<uuid:pk>/', views.AIWorkflowExecuteView.as_view(), name='workflow_execute'),
+    path('workflow/<uuid:pk>/run/', views.AIWorkflowExecuteView.as_view(), name='workflow_run'),
+    path('workflow/<uuid:pk>/parameters/', views.AIWorkflowParametersView.as_view(), name='workflow_parameters'),
+    path('workflow/<uuid:pk>/publish/', views.AIWorkflowPublishView.as_view(), name='workflow_publish'),
+    
+    # 增强工作流API
+    path('workflow/<uuid:pk>/enhanced-execute/', WorkflowEnhancedExecuteView.as_view(), name='workflow_enhanced_execute'),
+    path('workflow/<uuid:pk>/debug/', WorkflowDebugView.as_view(), name='workflow_debug'),
+    path('workflow/<uuid:pk>/monitor/', WorkflowMonitorView.as_view(), name='workflow_monitor'),
+    path('workflow/<uuid:pk>/permissions/', WorkflowPermissionView.as_view(), name='workflow_permissions'),
+    path('workflow/<uuid:pk>/performance/', PerformanceAnalysisView.as_view(), name='workflow_performance'),
+    path('workflow/<uuid:pk>/execution-history/', WorkflowExecutionHistoryView.as_view(), name='workflow_execution_history'),
+    
+    # API密钥管理
+    path('api-keys/', APIKeyManagementView.as_view(), name='api_keys'),
+    path('api-keys/<str:key_id>/revoke/', APIKeyRevokeView.as_view(), name='api_key_revoke'),
+    
+    # 内容安全
+    path('content-security/', ContentSecurityView.as_view(), name='content_security'),
+    
+    # 审计日志
+    path('audit-logs/', AuditLogView.as_view(), name='audit_logs'),
+    
+    # 模型管理
+    path('models/list/', ModelListView.as_view(), name='model_list'),
     
     # AI聊天
     path('chat/', views.AIChatView.as_view(), name='chat'),

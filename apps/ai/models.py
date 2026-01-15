@@ -149,8 +149,11 @@ class AIWorkflowExecution(models.Model):
     input_data = models.JSONField(blank=True, null=True, verbose_name='输入数据')
     output_data = models.JSONField(blank=True, null=True, verbose_name='输出数据')
     error_message = models.TextField(blank=True, verbose_name='错误信息')
-    started_at = models.DateTimeField(auto_now_add=True, verbose_name='开始时间')
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='执行人')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    started_at = models.DateTimeField(auto_now=True, verbose_name='开始时间')
     completed_at = models.DateTimeField(blank=True, null=True, verbose_name='完成时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
     
     class Meta:
         verbose_name = '工作流执行记录'
@@ -701,3 +704,41 @@ class WorkflowDataAccessConfig(models.Model):
     
     def __str__(self):
         return f"{self.workflow.name} - {self.resource_name}"
+
+
+class AITask(models.Model):
+    """AI任务记录"""
+    TASK_TYPES = [
+        ('customer_analysis', '客户智能分析'),
+        ('meeting_minutes', '会议纪要生成'),
+        ('project_risk', '项目风险评估'),
+        ('expense_audit', '费用审计'),
+        ('document_summary', '文档摘要'),
+        ('workflow_execution', '工作流执行'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('pending', '待执行'),
+        ('running', '执行中'),
+        ('completed', '已完成'),
+        ('failed', '执行失败'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='用户')
+    task_type = models.CharField(max_length=50, choices=TASK_TYPES, verbose_name='任务类型')
+    task_params = models.JSONField(verbose_name='任务参数')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='状态')
+    result = models.JSONField(blank=True, null=True, verbose_name='执行结果')
+    error_message = models.TextField(blank=True, null=True, verbose_name='错误信息')
+    started_at = models.DateTimeField(blank=True, null=True, verbose_name='开始时间')
+    completed_at = models.DateTimeField(blank=True, null=True, verbose_name='完成时间')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    
+    class Meta:
+        verbose_name = 'AI任务记录'
+        verbose_name_plural = verbose_name
+        db_table = 'ai_task'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.user} - {self.get_task_type_display()} - {self.get_status_display()}"
