@@ -9,6 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import ValidationError
+from datetime import timedelta
 from .models import (
     ProductionProcedure, ProcedureSet, ProcedureSetItem, BOM, BOMItem,
     Equipment, ProductionPlan, ProductionTask, QualityCheck, 
@@ -448,7 +449,7 @@ def production_plan_detail(request, pk):
 def production_task_list(request):
     """任务列表"""
     tasks = ProductionTask.objects.select_related(
-        'plan__product', 'procedure', 'equipment', 'assignee', 'department'
+        'plan__product', 'procedure', 'equipment', 'assignee', 'creator'
     ).all()
     page_obj, context = _get_paginated_queryset(
         request, tasks,

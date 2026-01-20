@@ -48,7 +48,7 @@
 
                     <!-- 操作按钮 -->
                     <div style="margin-bottom: 20px;">
-                        <a href="{% url 'production:data_mapping_form' data_source.id %}" class="layui-btn layui-btn-normal">
+                        <a href="{% url 'production:data_mapping_add' data_source.id %}" class="layui-btn layui-btn-normal">
                             <i class="layui-icon layui-icon-add-1"></i> 新增映射字段
                         </a>
                         <button class="layui-btn layui-btn-primary" onclick="batchImport()">
@@ -133,7 +133,7 @@
                                 <td colspan="8" style="text-align: center; padding: 50px;">
                                     <i class="layui-icon layui-icon-face-cry" style="font-size: 48px; color: #ccc;"></i>
                                     <p style="color: #999; margin-top: 10px;">暂无映射字段配置</p>
-                                    <a href="{% url 'production:data_mapping_form' data_source.id %}" class="layui-btn layui-btn-normal">
+                                    <a href="{% url 'production:data_mapping_add' data_source.id %}" class="layui-btn layui-btn-normal">
                                         <i class="layui-icon layui-icon-add-1"></i> 添加第一个映射字段
                                     </a>
                                 </td>

@@ -1,0 +1,134 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据采集记录</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .search-form {
+            margin-bottom: 15px;
+        }
+        .table-toolbar {
+            margin-bottom: 15px;
+        }
+        .status-normal {
+            color: #5FB878;
+        }
+        .status-warning {
+            color: #FFB800;
+        }
+        .status-error {
+            color: #FF5722;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <h2 style="margin-bottom: 20px;">数据采集记录</h2>
+            </div>
+        </div>
+
+        <div class="layui-row table-toolbar">
+            <div class="layui-col-md6">
+                <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:production_task_index' %}'">
+                    <i class="layui-icon layui-icon-return"></i> 返回
+                </button>
+            </div>
+            <div class="layui-col-md6" style="text-align: right;">
+                <form method="get" class="layui-form layui-form-pane" style="display: inline-block;">
+                    <div class="layui-input-group">
+                        <input type="text" name="search" value="{{ search }}" placeholder="搜索..." class="layui-input" style="width: 200px; display: inline-block;">
+                        <div class="layui-input-split layui-input-suffix">
+                            <button class="layui-btn" type="submit">
+                                <i class="layui-icon layui-icon-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-body" style="padding: 0;">
+                        <table class="layui-table" lay-skin="line">
+                            <thead>
+                                <tr>
+                                    <th>数据源</th>
+                                    <th>采集时间</th>
+                                    <th>参数名称</th>
+                                    <th>参数值</th>
+                                    <th>采集设备</th>
+                                    <th>操作员</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in page_obj %}
+                                <tr>
+                                    <td>{{ record.data_source.name|default:"-" }}</td>
+                                    <td>{{ record.collection_time|date:"Y-m-d H:i:s" }}</td>
+                                    <td>{{ record.parameter_name|default:"-" }}</td>
+                                    <td>{{ record.parameter_value|default:"-" }}</td>
+                                    <td>{{ record.equipment.name|default:"-" }}</td>
+                                    <td>{{ record.operator.username|default:"-" }}</td>
+                                    <td>
+                                        <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="location.href='{% url 'production:data_collection_record_detail' record.pk %}'">
+                                            <i class="layui-icon layui-icon-search"></i> 详情
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" style="text-align: center; padding: 40px; color: #999;">
+                                        暂无数据采集记录
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if page_obj.has_other_pages %}
+        <div class="layui-row" style="margin-top: 20px;">
+            <div class="layui-col-md12" style="text-align: center;">
+                <div id="pagination"></div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['layer', 'laypage'], function () {
+            var layer = layui.layer;
+            var laypage = layui.laypage;
+
+            {% if page_obj.has_other_pages %}
+            laypage.render({
+                elem: 'pagination',
+                count: {{ page_obj.paginator.count }},
+                limit: 20,
+                curr: {{ page_obj.number }},
+                jump: function(obj, first) {
+                    if (!first) {
+                        var url = new URL(window.location);
+                        url.searchParams.set('page', obj.curr);
+                        window.location.href = url.toString();
+                    }
+                }
+            });
+            {% endif %}
+        });
+    </script>
+</body>
+</html>

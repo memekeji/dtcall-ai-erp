@@ -1,0 +1,477 @@
+/**
+ * 工作流交互组件样式
+ */
+
+.workflow-interaction-dialog {
+    padding: 20px;
+}
+
+.workflow-interaction-dialog .interaction-description {
+    background: #f5f5f5;
+    padding: 12px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    color: #666;
+    font-size: 14px;
+}
+
+.workflow-interaction-dialog .required {
+    color: #ff4d4f;
+    margin-left: 4px;
+}
+
+.workflow-interaction-dialog .dialog-actions {
+    margin-top: 20px;
+    text-align: right;
+}
+
+.workflow-interaction-dialog .dialog-actions .layui-btn {
+    margin-left: 10px;
+}
+
+.pending-interactions-panel {
+    padding: 15px;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.pending-interactions-panel .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #999;
+}
+
+.pending-interactions-panel .empty-state i {
+    margin-bottom: 15px;
+    display: block;
+}
+
+.pending-interactions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.interaction-item {
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    padding: 12px 15px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.interaction-item:hover {
+    border-color: #1890ff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.interaction-item.priority-urgent {
+    border-left: 3px solid #ff4d4f;
+    background: #fff2f0;
+}
+
+.interaction-item.priority-high {
+    border-left: 3px solid #faad14;
+    background: #fffbe6;
+}
+
+.interaction-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.interaction-type {
+    background: #1890ff;
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.interaction-time {
+    color: #999;
+    font-size: 12px;
+}
+
+.interaction-title {
+    font-size: 14px;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.interaction-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.interaction-item .handle-btn {
+    background: #1890ff;
+    border-color: #1890ff;
+}
+
+.interaction-item .handle-btn:hover {
+    background: #40a9ff;
+    border-color: #40a9ff;
+}
+
+
+.workflow-execution-panel .execution-status {
+    padding: 15px;
+    background: #fafafa;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.workflow-execution-panel .status-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.workflow-execution-panel .status-item:last-child {
+    border-bottom: none;
+}
+
+.workflow-execution-panel .status-label {
+    width: 100px;
+    color: #666;
+}
+
+.workflow-execution-panel .status-value {
+    flex: 1;
+    font-weight: 500;
+}
+
+
+.node-execution-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.node-execution-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 6px;
+}
+
+.node-execution-item.status-pending {
+    opacity: 0.6;
+}
+
+.node-execution-item.status-running {
+    border-color: #1890ff;
+    background: #e6f7ff;
+}
+
+.node-execution-item.status-completed {
+    border-color: #52c41a;
+    background: #f6ffed;
+}
+
+.node-execution-item.status-failed {
+    border-color: #ff4d4f;
+    background: #fff2f0;
+}
+
+.node-execution-item.status-skipped {
+    border-color: #d9d9d9;
+    background: #f5f5f5;
+}
+
+.node-status-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+    font-size: 14px;
+}
+
+.status-pending .node-status-icon {
+    background: #d9d9d9;
+    color: #fff;
+}
+
+.status-running .node-status-icon {
+    background: #1890ff;
+    color: #fff;
+    animation: pulse 1.5s infinite;
+}
+
+.status-completed .node-status-icon {
+    background: #52c41a;
+    color: #fff;
+}
+
+.status-failed .node-status-icon {
+    background: #ff4d4f;
+    color: #fff;
+}
+
+.status-skipped .node-status-icon {
+    background: #d9d9d9;
+    color: #fff;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.node-execution-info {
+    flex: 1;
+}
+
+.node-execution-name {
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.node-execution-time {
+    font-size: 12px;
+    color: #999;
+}
+
+
+.interaction-form-container {
+    padding: 20px;
+}
+
+.interaction-form-container .form-section {
+    margin-bottom: 20px;
+}
+
+.interaction-form-container .form-section-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.interaction-form-container .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+
+.checkpoint-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+
+.checkpoint-item:hover {
+    border-color: #1890ff;
+}
+
+.checkpoint-icon {
+    width: 32px;
+    height: 32px;
+    background: #1890ff;
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+}
+
+.checkpoint-info {
+    flex: 1;
+}
+
+.checkpoint-name {
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.checkpoint-time {
+    font-size: 12px;
+    color: #999;
+}
+
+.checkpoint-actions {
+    display: flex;
+    gap: 8px;
+}
+
+
+.execution-timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.execution-timeline::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e8e8e8;
+}
+
+.timeline-item {
+    position: relative;
+    padding: 15px 0;
+}
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -24px;
+    top: 18px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #1890ff;
+}
+
+.timeline-item.completed::before {
+    background: #52c41a;
+    border-color: #52c41a;
+}
+
+.timeline-item.failed::before {
+    background: #ff4d4f;
+    border-color: #ff4d4f;
+}
+
+.timeline-item.current::before {
+    background: #1890ff;
+    border-color: #1890ff;
+    animation: pulse 1.5s infinite;
+}
+
+.timeline-content {
+    background: #fafafa;
+    padding: 12px;
+    border-radius: 6px;
+}
+
+.timeline-title {
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.timeline-time {
+    font-size: 12px;
+    color: #999;
+}
+
+.timeline-detail {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #666;
+}
+
+
+.workflow-variable-panel {
+    background: #fafafa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.variable-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.variable-item {
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+.variable-name {
+    color: #1890ff;
+    font-weight: 500;
+}
+
+.variable-value {
+    color: #666;
+    margin-left: 8px;
+}
+
+
+.interaction-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    min-width: 20px;
+    height: 20px;
+    background: #ff4d4f;
+    color: #fff;
+    border-radius: 10px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+}
+
+.workflow-running-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #e6f7ff;
+    border: 1px solid #91d5ff;
+    border-radius: 4px;
+    color: #1890ff;
+    font-size: 13px;
+}
+
+.workflow-running-indicator .loading-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #1890ff;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

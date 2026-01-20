@@ -136,11 +136,14 @@ class AIModelProcessor(BaseNodeProcessor):
         
         # 调用AI服务
         try:
-            ai_client = AIClient(
+            # 使用BaseAIClient而非AIClient，支持直接传递配置参数
+            from apps.ai.utils.ai_client import BaseAIClient
+            
+            ai_client = BaseAIClient(
                 provider=ai_config.get('provider'),
+                base_url=ai_config.get('api_base'),
                 api_key=ai_config.get('api_key'),
-                base_url=ai_config.get('base_url'),
-                model_params=ai_config.get('default_params', {})
+                model_config=ai_config
             )
             
             result = ai_client.chat_completion(

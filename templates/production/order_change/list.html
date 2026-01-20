@@ -1,0 +1,204 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生产订单变更</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .search-form {
+            margin-bottom: 15px;
+        }
+        .table-toolbar {
+            margin-bottom: 15px;
+        }
+        .status-pending {
+            color: #FFB800;
+        }
+        .status-approved {
+            color: #1E9FFF;
+        }
+        .status-executed {
+            color: #5FB878;
+        }
+        .status-rejected {
+            color: #FF5722;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <h2 style="margin-bottom: 20px;">生产订单变更</h2>
+            </div>
+        </div>
+
+        <div class="layui-row table-toolbar">
+            <div class="layui-col-md6">
+                <button class="layui-btn" onclick="location.href='{% url 'production:production_order_change_add' %}'">
+                    <i class="layui-icon layui-icon-add-1"></i> 新建变更
+                </button>
+                <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:production_task_index' %}'">
+                    <i class="layui-icon layui-icon-return"></i> 返回
+                </button>
+            </div>
+            <div class="layui-col-md6" style="text-align: right;">
+                <form method="get" class="layui-form layui-form-pane" style="display: inline-block;">
+                    <div class="layui-input-group">
+                        <select name="change_type" lay-search>
+                            <option value="">全部类型</option>
+                            <option value="quantity" {% if change_type == 'quantity' %}selected{% endif %}>数量变更</option>
+                            <option value="date" {% if change_type == 'date' %}selected{% endif %}>日期变更</option>
+                            <option value="spec" {% if change_type == 'spec' %}selected{% endif %}>规格变更</option>
+                            <option value="other" {% if change_type == 'other' %}selected{% endif %}>其他变更</option>
+                        </select>
+                        <input type="text" name="search" value="{{ search }}" placeholder="搜索变更原因..." class="layui-input" style="width: 200px; display: inline-block;">
+                        <div class="layui-input-split layui-input-suffix">
+                            <button class="layui-btn" type="submit">
+                                <i class="layui-icon layui-icon-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-body" style="padding: 0;">
+                        <table class="layui-table" lay-skin="line">
+                            <thead>
+                                <tr>
+                                    <th>变更编号</th>
+                                    <th>变更类型</th>
+                                    <th>变更原因</th>
+                                    <th>关联订单</th>
+                                    <th>申请人</th>
+                                    <th>申请时间</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for change in page_obj %}
+                                <tr>
+                                    <td>{{ change.code }}</td>
+                                    <td>
+                                        {% if change.change_type == 'quantity' %}
+                                            数量变更
+                                        {% elif change.change_type == 'date' %}
+                                            日期变更
+                                        {% elif change.change_type == 'spec' %}
+                                            规格变更
+                                        {% else %}
+                                            其他变更
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ change.change_reason|default:"-" }}</td>
+                                    <td>{{ change.production_order|default:"-" }}</td>
+                                    <td>{{ change.applicant.username|default:"-" }}</td>
+                                    <td>{{ change.created_at|date:"Y-m-d H:i" }}</td>
+                                    <td>
+                                        {% if change.status == 1 %}
+                                            <span class="status-pending">待审核</span>
+                                        {% elif change.status == 2 %}
+                                            <span class="status-approved">已审核</span>
+                                        {% elif change.status == 3 %}
+                                            <span class="status-executed">已执行</span>
+                                        {% elif change.status == 4 %}
+                                            <span class="status-rejected">已拒绝</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if change.status == 1 %}
+                                        <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="approveChange({{ change.pk }})">
+                                            <i class="layui-icon layui-icon-ok"></i> 审核
+                                        </button>
+                                        {% elif change.status == 2 %}
+                                        <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="executeChange({{ change.pk }})">
+                                            <i class="layui-icon layui-icon-play"></i> 执行
+                                        </button>
+                                        {% endif %}
+                                        <button class="layui-btn layui-btn-xs" onclick="location.href='{% url 'production:production_order_change_edit' change.pk %}'">
+                                            <i class="layui-icon layui-icon-edit"></i> 编辑
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" style="text-align: center; padding: 40px; color: #999;">
+                                        暂无生产订单变更记录
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if page_obj.has_other_pages %}
+        <div class="layui-row" style="margin-top: 20px;">
+            <div class="layui-col-md12" style="text-align: center;">
+                <div id="pagination"></div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['layer', 'laypage'], function () {
+            var layer = layui.layer;
+            var laypage = layui.laypage;
+
+            {% if page_obj.has_other_pages %}
+            laypage.render({
+                elem: 'pagination',
+                count: {{ page_obj.paginator.count }},
+                limit: 20,
+                curr: {{ page_obj.number }},
+                jump: function(obj, first) {
+                    if (!first) {
+                        var url = new URL(window.location);
+                        url.searchParams.set('page', obj.curr);
+                        window.location.href = url.toString();
+                    }
+                }
+            });
+            {% endif %}
+        });
+
+        function approveChange(id) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.confirm('确定要审核通过这个变更吗？', {
+                    icon: 3,
+                    title: '确认审核'
+                }, function(index) {
+                    window.location.href = '/adm/production/order/change/' + id + '/approve/';
+                    layer.close(index);
+                });
+            });
+        }
+
+        function executeChange(id) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.confirm('确定要执行这个变更吗？执行后变更将生效。', {
+                    icon: 3,
+                    title: '确认执行'
+                }, function(index) {
+                    window.location.href = '/adm/production/order/change/' + id + '/execute/';
+                    layer.close(index);
+                });
+            });
+        }
+    </script>
+</body>
+</html>

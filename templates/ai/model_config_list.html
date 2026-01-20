@@ -47,7 +47,7 @@
                         <a href="{% url 'ai:ai_model_config_detail' pk=config.id %}" class="layui-btn layui-btn-xs">查看</a>
                         <a href="{% url 'ai:model_config_update' pk=config.id %}" class="layui-btn layui-btn-xs layui-btn-normal">编辑</a>
                         <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="validateModelConfig({{ config.id }})">验证</button>
-                        <a href="{% url 'ai:ai_model_config_delete' pk=config.id %}" class="layui-btn layui-btn-xs layui-btn-danger">删除</a>
+                        <a href="{% url 'ai:model_config_delete' pk=config.id %}" class="layui-btn layui-btn-xs layui-btn-danger">删除</a>
                     </td>
                 </tr>
                 {% endfor %}
@@ -70,7 +70,7 @@
                         <a href="{% url 'ai:ai_model_config_detail' pk=config.id %}" class="layui-btn layui-btn-xs">查看</a>
                         <a href="{% url 'ai:model_config_update' pk=config.id %}" class="layui-btn layui-btn-xs layui-btn-normal">编辑</a>
                         <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="validateModelConfig({{ config.id }})">验证</button>
-                        <a href="{% url 'ai:ai_model_config_delete' pk=config.id %}" class="layui-btn layui-btn-xs layui-btn-danger">删除</a>
+                        <a href="{% url 'ai:model_config_delete' pk=config.id %}" class="layui-btn layui-btn-xs layui-btn-danger">删除</a>
                     </td>
                 </tr>
                 {% endfor %}

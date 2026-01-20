@@ -3,6 +3,7 @@ from django.shortcuts import redirect
 from . import views
 from .enhanced_views import (
     WorkflowEnhancedExecuteView,
+    WorkflowInputFieldsView,
     WorkflowDebugView,
     WorkflowMonitorView,
     WorkflowPermissionView,
@@ -13,6 +14,30 @@ from .enhanced_views import (
     ModelListView,
     PerformanceAnalysisView,
     WorkflowExecutionHistoryView
+)
+from .views import (
+    NodeConfigSchemaView,
+    NodeConfigFieldsView,
+    NodeInputSchemaView,
+    NodeOutputSchemaView,
+    KnowledgeBaseListAPIView,
+    ModelConfigListAPIView,
+    WorkflowModuleListAPIView,
+    NodeDynamicOptionsView
+)
+from .views_workflow_interaction import (
+    WorkflowInteractionListView,
+    WorkflowInteractionDetailView,
+    WorkflowInteractionCompleteView,
+    WorkflowInteractionCancelView,
+    PendingInteractionListView,
+    InteractionFormSchemaView,
+    InteractionTemplateListView,
+    CreateInteractionFromTemplateView,
+    WorkflowCheckpointListView,
+    WorkflowCheckpointRestoreView,
+    InteractionNotificationsView,
+    WorkflowExecutionInteractionsView
 )
 
 app_name = 'ai'
@@ -43,6 +68,7 @@ urlpatterns = [
     
     # 增强工作流API
     path('workflow/<uuid:pk>/enhanced-execute/', WorkflowEnhancedExecuteView.as_view(), name='workflow_enhanced_execute'),
+    path('workflow/<uuid:pk>/input-fields/', WorkflowInputFieldsView.as_view(), name='workflow_input_fields'),
     path('workflow/<uuid:pk>/debug/', WorkflowDebugView.as_view(), name='workflow_debug'),
     path('workflow/<uuid:pk>/monitor/', WorkflowMonitorView.as_view(), name='workflow_monitor'),
     path('workflow/<uuid:pk>/permissions/', WorkflowPermissionView.as_view(), name='workflow_permissions'),
@@ -125,4 +151,31 @@ urlpatterns = [
     path('parse-file-content/', views.ParseFileContentView.as_view(), name='parse_file_content'),
     # AI聊天流
     path('chat/stream/', views.AIChatStreamView.as_view(), name='chat_stream'),
+    
+    # 节点配置Schema API
+    path('workflow/nodes/', NodeConfigSchemaView.as_view(), name='node_config_list'),
+    path('workflow/nodes/<str:node_type>/schema/', NodeConfigSchemaView.as_view(), name='node_config_schema'),
+    path('workflow/nodes/<str:node_type>/fields/', NodeConfigFieldsView.as_view(), name='node_config_fields'),
+    path('workflow/nodes/<str:node_type>/input-schema/', NodeInputSchemaView.as_view(), name='node_input_schema'),
+    path('workflow/nodes/<str:node_type>/output-schema/', NodeOutputSchemaView.as_view(), name='node_output_schema'),
+    path('workflow/nodes/<str:node_type>/options/', NodeDynamicOptionsView.as_view(), name='node_dynamic_options'),
+    
+    # 动态数据API
+    path('knowledge-base/list/api/', KnowledgeBaseListAPIView.as_view(), name='knowledge_base_list_api'),
+    path('model-config/list/api/', ModelConfigListAPIView.as_view(), name='model_config_list_api'),
+    path('workflow/list/api/', WorkflowModuleListAPIView.as_view(), name='workflow_list_api'),
+    
+    # 工作流交互API
+    path('workflow/interaction/list/', WorkflowInteractionListView.as_view(), name='interaction_list'),
+    path('workflow/interaction/<uuid:interaction_id>/', WorkflowInteractionDetailView.as_view(), name='interaction_detail'),
+    path('workflow/interaction/<uuid:interaction_id>/complete/', WorkflowInteractionCompleteView.as_view(), name='interaction_complete'),
+    path('workflow/interaction/<uuid:interaction_id>/cancel/', WorkflowInteractionCancelView.as_view(), name='interaction_cancel'),
+    path('workflow/interaction/pending/', PendingInteractionListView.as_view(), name='interaction_pending'),
+    path('workflow/interaction/<uuid:interaction_id>/schema/', InteractionFormSchemaView.as_view(), name='interaction_schema'),
+    path('workflow/interaction/template/list/', InteractionTemplateListView.as_view(), name='interaction_template_list'),
+    path('workflow/interaction/template/create/', CreateInteractionFromTemplateView.as_view(), name='interaction_template_create'),
+    path('workflow/execution/<uuid:execution_id>/checkpoint/', WorkflowCheckpointListView.as_view(), name='checkpoint_list'),
+    path('workflow/checkpoint/<uuid:checkpoint_id>/restore/', WorkflowCheckpointRestoreView.as_view(), name='checkpoint_restore'),
+    path('workflow/interaction/notifications/', InteractionNotificationsView.as_view(), name='interaction_notifications'),
+    path('workflow/execution/<uuid:execution_id>/interactions/', WorkflowExecutionInteractionsView.as_view(), name='execution_interactions'),
 ]

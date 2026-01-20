@@ -113,6 +113,164 @@ class WorkflowEnhancedExecuteView(View):
 
 
 @method_decorator(csrf_exempt, name='dispatch')
+class WorkflowInputFieldsView(View):
+    """获取工作流输入字段API"""
+    
+    def get(self, request, pk):
+        """获取工作流需要的输入字段"""
+        try:
+            workflow = AIWorkflow.objects.get(id=pk)
+            nodes = workflow.nodes.all()
+            
+            input_fields = []
+            
+            for node in nodes:
+                # 查找开始节点（data_input类型）
+                if node.node_type == 'data_input' or node.node_type == 'start':
+                    config = node.config or {}
+                    
+                    # 如果是数据输入节点，提取输入配置
+                    if node.node_type == 'data_input':
+                        input_type = config.get('input_type', 'text')
+                        output_variable = config.get('output_variable', 'input_data')
+                        
+                        field = {
+                            'node_id': str(node.id),
+                            'node_name': node.name,
+                            'variable_name': output_variable,
+                            'input_type': input_type,
+                            'label': config.get('label', node.name),
+                            'placeholder': config.get('placeholder', ''),
+                            'required': config.get('required', True)
+                        }
+                        
+                        # 根据输入类型添加额外配置
+                        if input_type == 'text':
+                            field['type'] = 'text'
+                            field['default_value'] = config.get('text_config', {}).get('default_value', '')
+                        elif input_type == 'form':
+                            # 表单类型：返回完整的表单配置
+                            form_config = config.get('form_config', {})
+                            field['type'] = 'form'
+                            field['form_config'] = {
+                                'title': form_config.get('title', '请填写表单'),
+                                'description': form_config.get('description', '请根据下方提示填写相关信息'),
+                                'fields': form_config.get('fields', []),
+                                'submit_text': form_config.get('submit_text', '提交'),
+                                'show_reset': form_config.get('show_reset', False),
+                                'form_schema': self._generate_form_schema(form_config)
+                            }
+                        elif input_type == 'json':
+                            field['type'] = 'textarea'
+                            field['default_value'] = config.get('json_config', {}).get('sample_json', '{}')
+                        elif input_type == 'file':
+                            field['type'] = 'file'
+                            field['accept'] = config.get('file_config', {}).get('accept', '*/*')
+                        else:
+                            field['type'] = 'text'
+                        
+                        input_fields.append(field)
+            
+            return JsonResponse({
+                'status': 'success',
+                'input_fields': input_fields
+            })
+            
+        except AIWorkflow.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': '工作流不存在'}, status=404)
+        except Exception as e:
+            logger.error(f"获取工作流输入字段失败: {e}", exc_info=True)
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    
+    def _generate_form_schema(self, form_config: dict) -> dict:
+        """生成表单JSON Schema"""
+        fields = form_config.get('fields', [])
+        
+        schema = {
+            'type': 'object',
+            'properties': {},
+            'required': [],
+            'ui': {}
+        }
+        
+        for field in fields:
+            field_id = field.get('id')
+            field_type = field.get('type', 'text')
+            
+            # 构建JSON Schema属性
+            schema['properties'][field_id] = {
+                'type': self._map_field_type(field_type),
+                'title': field.get('name', field_id),
+                'description': field.get('help_text', '')
+            }
+            
+            # 添加验证规则
+            validation = field.get('validation', {})
+            if validation:
+                if validation.get('min_length'):
+                    schema['properties'][field_id]['minLength'] = validation['min_length']
+                if validation.get('max_length'):
+                    schema['properties'][field_id]['maxLength'] = validation['max_length']
+                if validation.get('min') is not None:
+                    schema['properties'][field_id]['minimum'] = validation['min']
+                if validation.get('max') is not None:
+                    schema['properties'][field_id]['maximum'] = validation['max']
+                if validation.get('pattern'):
+                    schema['properties'][field_id]['pattern'] = validation['pattern']
+            
+            # 添加选项（用于select/radio/checkbox）
+            options = field.get('options', [])
+            if options:
+                schema['properties'][field_id]['enum'] = [opt.get('value') for opt in options]
+                schema['properties'][field_id]['enumNames'] = [opt.get('label') for opt in options]
+            
+            # 处理必填字段
+            if field.get('required', False):
+                schema['required'].append(field_id)
+            
+            # 构建UI Schema
+            schema['ui'][field_id] = {
+                'ui:widget': self._map_field_widget(field_type),
+                'ui:options': {
+                    'placeholder': field.get('placeholder', '')
+                }
+            }
+        
+        return schema
+    
+    def _map_field_type(self, field_type: str) -> str:
+        """映射字段类型到JSON Schema类型"""
+        type_mapping = {
+            'text': 'string',
+            'textarea': 'string',
+            'number': 'number',
+            'integer': 'integer',
+            'date': 'string',
+            'datetime': 'string',
+            'select': 'string',
+            'checkbox': 'boolean',
+            'radio': 'string',
+            'file': 'string'
+        }
+        return type_mapping.get(field_type, 'string')
+    
+    def _map_field_widget(self, field_type: str) -> str:
+        """映射字段类型到UI Widget"""
+        widget_mapping = {
+            'text': 'text',
+            'textarea': 'textarea',
+            'number': 'updown',
+            'date': 'date',
+            'datetime': 'datetime',
+            'select': 'select',
+            'checkbox': 'checkbox',
+            'radio': 'radio',
+            'file': 'file'
+        }
+        return widget_mapping.get(field_type, 'text')
+
+
+@method_decorator(csrf_exempt, name='dispatch')
 class WorkflowDebugView(View):
     """工作流调试API"""
     

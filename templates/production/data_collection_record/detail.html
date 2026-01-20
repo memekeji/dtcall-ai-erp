@@ -1,0 +1,87 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据采集记录详情</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <h2 style="margin-bottom: 20px;">数据采集记录详情</h2>
+            </div>
+        </div>
+
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-body">
+                        <div class="layui-row">
+                            <div class="layui-col-md6">
+                                <table class="layui-table">
+                                    <tr>
+                                        <th style="width: 120px;">数据源</th>
+                                        <td>{{ record.data_source.name|default:"-" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>采集时间</th>
+                                        <td>{{ record.collection_time|date:"Y-m-d H:i:s" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>参数名称</th>
+                                        <td>{{ record.parameter_name|default:"-" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>参数值</th>
+                                        <td>{{ record.parameter_value|default:"-" }}</td>
+                                    </tr>
+                                </table>
+                            </div>
+                            <div class="layui-col-md6">
+                                <table class="layui-table">
+                                    <tr>
+                                        <th style="width: 120px;">采集设备</th>
+                                        <td>{{ record.equipment.name|default:"-" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>操作员</th>
+                                        <td>{{ record.operator.username|default:"-" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>状态</th>
+                                        <td>
+                                            {% if record.status == 1 %}
+                                                <span style="color: #5FB878;">正常</span>
+                                            {% elif record.status == 2 %}
+                                                <span style="color: #FFB800;">警告</span>
+                                            {% else %}
+                                                <span style="color: #FF5722;">异常</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>创建时间</th>
+                                        <td>{{ record.created_at|date:"Y-m-d H:i:s" }}</td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 20px;">
+                            <button class="layui-btn layui-btn-primary" onclick="history.back();">
+                                <i class="layui-icon layui-icon-return"></i> 返回
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+</body>
+</html>

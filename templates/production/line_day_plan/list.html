@@ -1,0 +1,173 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生产线日计划</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .search-form {
+            margin-bottom: 15px;
+        }
+        .table-toolbar {
+            margin-bottom: 15px;
+        }
+        .status-pending {
+            color: #FFB800;
+        }
+        .status-active {
+            color: #1E9FFF;
+        }
+        .status-completed {
+            color: #5FB878;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <h2 style="margin-bottom: 20px;">生产线日计划</h2>
+            </div>
+        </div>
+
+        <div class="layui-row table-toolbar">
+            <div class="layui-col-md6">
+                <button class="layui-btn" onclick="location.href='{% url 'production:production_line_day_plan_add' %}'">
+                    <i class="layui-icon layui-icon-add-1"></i> 新建日计划
+                </button>
+                <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:production_task_index' %}'">
+                    <i class="layui-icon layui-icon-return"></i> 返回
+                </button>
+            </div>
+            <div class="layui-col-md6" style="text-align: right;">
+                <form method="get" class="layui-form layui-form-pane" style="display: inline-block;">
+                    <div class="layui-input-group">
+                        <input type="text" name="search" value="{{ search }}" placeholder="搜索计划名称或编号..." class="layui-input" style="width: 200px; display: inline-block;">
+                        <div class="layui-input-split layui-input-suffix">
+                            <button class="layui-btn" type="submit">
+                                <i class="layui-icon layui-icon-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-body" style="padding: 0;">
+                        <table class="layui-table" lay-skin="line">
+                            <thead>
+                                <tr>
+                                    <th>计划编号</th>
+                                    <th>计划名称</th>
+                                    <th>计划日期</th>
+                                    <th>生产线</th>
+                                    <th>计划产量</th>
+                                    <th>实际产量</th>
+                                    <th>完成率</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for plan in page_obj %}
+                                <tr>
+                                    <td>{{ plan.code }}</td>
+                                    <td>{{ plan.name }}</td>
+                                    <td>{{ plan.plan_date|date:"Y-m-d" }}</td>
+                                    <td>{{ plan.production_line|default:"-" }}</td>
+                                    <td>{{ plan.planned_quantity }}</td>
+                                    <td>{{ plan.actual_quantity|default:0 }}</td>
+                                    <td>
+                                        {% if plan.completion_rate >= 100 %}
+                                            <span style="color: #5FB878;">{{ plan.completion_rate }}%</span>
+                                        {% elif plan.completion_rate >= 50 %}
+                                            <span style="color: #FFB800;">{{ plan.completion_rate }}%</span>
+                                        {% else %}
+                                            <span style="color: #FF5722;">{{ plan.completion_rate }}%</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if plan.status == 1 %}
+                                            <span class="status-pending">待执行</span>
+                                        {% elif plan.status == 2 %}
+                                            <span class="status-active">进行中</span>
+                                        {% elif plan.status == 3 %}
+                                            <span class="status-completed">已完成</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="layui-btn layui-btn-xs" onclick="location.href='{% url 'production:production_line_day_plan_edit' plan.pk %}'">
+                                            <i class="layui-icon layui-icon-edit"></i> 编辑
+                                        </button>
+                                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deletePlan({{ plan.pk }})">
+                                            <i class="layui-icon layui-icon-delete"></i> 删除
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" style="text-align: center; padding: 40px; color: #999;">
+                                        暂无生产线日计划
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if page_obj.has_other_pages %}
+        <div class="layui-row" style="margin-top: 20px;">
+            <div class="layui-col-md12" style="text-align: center;">
+                <div id="pagination"></div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['layer', 'laypage'], function () {
+            var layer = layui.layer;
+            var laypage = layui.laypage;
+
+            {% if page_obj.has_other_pages %}
+            laypage.render({
+                elem: 'pagination',
+                count: {{ page_obj.paginator.count }},
+                limit: 20,
+                curr: {{ page_obj.number }},
+                jump: function(obj, first) {
+                    if (!first) {
+                        var url = new URL(window.location);
+                        url.searchParams.set('page', obj.curr);
+                        window.location.href = url.toString();
+                    }
+                }
+            });
+            {% endif %}
+        });
+
+        function deletePlan(id) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.confirm('确定要删除这个日计划吗？', {
+                    icon: 3,
+                    title: '确认删除'
+                }, function(index) {
+                    window.location.href = '/adm/production/line/dayplan/' + id + '/delete/';
+                    layer.close(index);
+                });
+            });
+        }
+    </script>
+</body>
+</html>

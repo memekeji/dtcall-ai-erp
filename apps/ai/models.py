@@ -1,8 +1,50 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 
 User = get_user_model()
+
+
+class EncryptedAPIKeyField(models.CharField):
+    """加密的API密钥字段"""
+    
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('max_length', 500)
+        kwargs.setdefault('blank', True)
+        kwargs.setdefault('null', True)
+        kwargs.setdefault('verbose_name', 'API密钥')
+        super().__init__(*args, **kwargs)
+    
+    def get_prep_value(self, value):
+        """保存时加密"""
+        if value and not value.startswith('enc_'):
+            from django.conf import settings
+            from cryptography.fernet import Fernet
+            
+            try:
+                key = settings.SECRET_KEY.encode()[:32]
+                f = Fernet(key)
+                encrypted = f.encrypt(value.encode())
+                return 'enc_' + encrypted.decode()
+            except Exception:
+                return value
+        return value
+    
+    def to_python(self, value):
+        """读取时解密"""
+        if value and value.startswith('enc_'):
+            from django.conf import settings
+            from cryptography.fernet import Fernet
+            
+            try:
+                key = settings.SECRET_KEY.encode()[:32]
+                f = Fernet(key)
+                decrypted = f.decrypt(value[4:].encode())
+                return decrypted.decode()
+            except Exception:
+                return value
+        return value
 
 
 class AIModelConfig(models.Model):
@@ -32,7 +74,7 @@ class AIModelConfig(models.Model):
     provider = models.CharField(max_length=50, choices=PROVIDERS, verbose_name='提供商')
     model_type = models.CharField(max_length=20, choices=MODEL_TYPES, verbose_name='模型类型')
     model_name = models.CharField(max_length=100, default='', verbose_name='模型标识')
-    api_key = models.CharField(max_length=200, blank=True, null=True, verbose_name='API密钥')
+    api_key = EncryptedAPIKeyField(verbose_name='API密钥')
     api_base = models.URLField(max_length=200, blank=True, null=True, verbose_name='API基础URL')
     organization = models.CharField(max_length=100, blank=True, null=True, verbose_name='组织ID')
     project = models.CharField(max_length=100, blank=True, null=True, verbose_name='项目ID')

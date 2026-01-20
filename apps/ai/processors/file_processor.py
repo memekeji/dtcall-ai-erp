@@ -218,6 +218,17 @@ class FileOperationProcessor(BaseNodeProcessor):
         
         with open(path, 'w', encoding=encoding) as f:
             f.write(content)
+    
+    def _replace_variables(self, text: str, context: dict) -> str:
+        """替换文本中的变量占位符"""
+        if not isinstance(text, str):
+            return text
+        
+        for key, value in context.items():
+            placeholder = f'{{{{{key}}}}}'
+            text = text.replace(placeholder, str(value))
+        
+        return text
 
 
 @NodeProcessorRegistry.register('code_execution')

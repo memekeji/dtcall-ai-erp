@@ -340,8 +340,8 @@ class ProductionStatisticsService:
                 end = task.actual_end_time or timezone.now()
                 running_hours += (end - task.actual_start_time).total_seconds() / 3600
         
-        good_units = tasks.aggregate(total=Sum('qualified_quantity'))['total'] or 0
-        total_units = tasks.aggregate(total=Sum('quantity'))['total'] or 0
+        good_units = float(tasks.aggregate(total=Sum('qualified_quantity'))['total'] or 0)
+        total_units = float(tasks.aggregate(total=Sum('quantity'))['total'] or 0)
         
         availability = (planned_hours / total_available_hours * 100) if total_available_hours > 0 else 0
         performance = (running_hours / planned_hours * 100) if planned_hours > 0 else 0

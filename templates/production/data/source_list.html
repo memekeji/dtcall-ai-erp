@@ -32,7 +32,7 @@
                                 </button>
                             </div>
                             <div class="layui-col-md5" style="text-align: right;">
-                                <a href="{% url 'production:data_source_form' %}" class="layui-btn layui-btn-normal">
+                                <a href="{% url 'production:data_source_add' %}" class="layui-btn layui-btn-normal">
                                     <i class="layui-icon layui-icon-add-1"></i> 新增数据源
                                 </a>
                             </div>
@@ -107,7 +107,7 @@
                                         </button>
                                     </div>
                                     <div class="layui-btn-group" style="margin-top: 5px;">
-                                        <a href="{% url 'production:data_source_form' source.id %}" class="layui-btn layui-btn-xs">
+                                        <a href="{% url 'production:data_source_edit' source.id %}" class="layui-btn layui-btn-xs">
                                             <i class="layui-icon layui-icon-edit"></i> 编辑
                                         </a>
                                         <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteSource({{ source.id }})">

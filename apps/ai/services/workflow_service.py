@@ -173,60 +173,76 @@ class WorkflowService:
         try:
             workflow = AIWorkflow.objects.get(id=workflow_id)
             
-            # 获取现有的节点和连接
-            existing_node_ids = set(WorkflowNode.objects.filter(workflow=workflow).values_list('id', flat=True))
+            existing_nodes = WorkflowNode.objects.filter(workflow=workflow)
+            existing_node_ids = {str(node.id) for node in existing_nodes}
             node_ids_to_keep = set()
             
-            # 更新或创建节点
+            new_node_ids_map = {}
+            
             for node_data in nodes_data:
                 node_id = node_data.get('id')
                 
-                if node_id and str(node_id) in map(str, existing_node_ids):
-                    # 更新现有节点
-                    node = WorkflowNode.objects.get(id=node_id)
-                    node.name = node_data.get('name', node.name)
-                    node.description = node_data.get('description', node.description)
-                    node.position_x = node_data.get('position_x', node.position_x)
-                    node.position_y = node_data.get('position_y', node.position_y)
-                    node.config = node_data.get('config', node.config)
-                    node.is_active = node_data.get('is_active', node.is_active)
-                    node.save()
-                    node_ids_to_keep.add(str(node.id))
+                if node_id and node_id in existing_node_ids:
+                    existing_node = existing_nodes.get(id=node_id)
+                    existing_node.name = node_data.get('name', existing_node.name)
+                    existing_node.position_x = node_data.get('x', node_data.get('position_x', 0))
+                    existing_node.position_y = node_data.get('y', node_data.get('position_y', 0))
+                    existing_node.config = node_data.get('config', existing_node.config)
+                    existing_node.is_active = node_data.get('is_active', existing_node.is_active)
+                    existing_node.save()
+                    node_ids_to_keep.add(str(existing_node.id))
                 else:
-                    # 创建新节点
-                    node_type_code = node_data['node_type']
-                    node = WorkflowNode.objects.create(
+                    node_type = node_data.get('type') or node_data.get('node_type')
+                    if not node_type:
+                        logger.warning(f'节点缺少类型信息: {node_data}')
+                        continue
+                        
+                    new_node = WorkflowNode.objects.create(
                         workflow=workflow,
-                        node_type=node_type_code,
-                        name=node_data.get('name', f'节点 {node_type_code}'),
-                        description=node_data.get('description', ''),
-                        position_x=node_data.get('position_x', 0),
-                        position_y=node_data.get('position_y', 0),
-                        config=node_data.get('config', {})
+                        node_type=node_type,
+                        name=node_data.get('name', f"节点 {node_type}"),
+                        position_x=node_data.get('x', node_data.get('position_x', 0)),
+                        position_y=node_data.get('y', node_data.get('position_y', 0)),
+                        config=node_data.get('config', {}),
+                        is_active=node_data.get('is_active', True)
                     )
-                    
-                    node_ids_to_keep.add(str(node.id))
+                    new_node_ids_map[str(node_id)] = str(new_node.id)
+                    node_ids_to_keep.add(str(new_node.id))
             
-            # 删除不存在的节点
-            nodes_to_delete = list(existing_node_ids - set(map(lambda x: uuid.UUID(x), node_ids_to_keep)))
+            nodes_to_delete = existing_node_ids - node_ids_to_keep
             if nodes_to_delete:
-                WorkflowNode.objects.filter(id__in=nodes_to_delete).delete()
+                WorkflowNode.objects.filter(id__in=list(nodes_to_delete)).delete()
             
-            # 删除所有现有连接
             WorkflowConnection.objects.filter(workflow=workflow).delete()
             
-            # 创建新连接
             for conn_data in connections_data:
-                source_node = WorkflowNode.objects.get(id=conn_data['source_node_id'])
-                target_node = WorkflowNode.objects.get(id=conn_data['target_node_id'])
+                source_id = new_node_ids_map.get(
+                    conn_data.get('source'), 
+                    conn_data.get('source') or conn_data.get('source_node_id')
+                )
+                target_id = new_node_ids_map.get(
+                    conn_data.get('target'), 
+                    conn_data.get('target') or conn_data.get('target_node_id')
+                )
+                
+                if not source_id or not target_id:
+                    logger.warning(f'连接数据不完整: {conn_data}')
+                    continue
+                
+                source_node = WorkflowNode.objects.get(id=source_id)
+                target_node = WorkflowNode.objects.get(id=target_id)
+                
+                conn_config = {}
+                if conn_data.get('condition'):
+                    conn_config['condition'] = conn_data['condition']
                 
                 WorkflowConnection.objects.create(
                     workflow=workflow,
                     source_node=source_node,
                     target_node=target_node,
-                    source_handle=conn_data.get('source_handle'),
-                    target_handle=conn_data.get('target_handle'),
-                    condition=conn_data.get('condition')
+                    source_handle=conn_data.get('sourcePort') or conn_data.get('source_handle'),
+                    target_handle=conn_data.get('targetPort') or conn_data.get('target_handle'),
+                    config=conn_config if conn_config else None
                 )
             
             logger.info(f'更新工作流节点和连接成功: {workflow.name}, ID: {workflow.id}')
@@ -363,30 +379,58 @@ class WorkflowService:
             # 构建执行图
             execution_graph = self._build_execution_graph(nodes, connections)
             
-            # 查找开始节点
-            start_node = next((node for node in nodes.values() if node.node_type == 'start'), None)
+            # 查找开始节点 - 支持多种开始节点类型
+            start_node = next((node for node in nodes.values() 
+                             if node.node_type == 'start' 
+                             or (node.node_type == 'data_input' and node.name == '开始')), None)
             if not start_node:
                 raise ValueError('工作流中找不到开始节点')
             
-            # 初始化执行上下文
-            context = execution.input_data.copy()
+            # 初始化执行上下文 - 确保使用外部输入数据
+            input_data = execution.input_data or {}
+            if not isinstance(input_data, dict):
+                input_data = {'input_data': input_data}
+            
+            # 标记开始节点
+            if start_node.node_type == 'data_input':
+                start_node.config['is_start_node'] = True
+                start_node.config['trigger_type'] = 'manual'
+            
+            context = input_data.copy()
+            
+            # 初始化失败跟踪
+            execution._node_failures = []
             
             # 递归执行节点
-            self._execute_node(start_node, execution, execution_graph, context, nodes)
+            self._execute_node_recursive(start_node, execution, execution_graph, context, nodes)
             
-            # 更新执行状态为完成
-            execution.status = 'completed'
+            # 检查是否有节点失败
+            if execution._node_failures:
+                execution.status = 'failed'
+                error_summary = '; '.join([
+                    f"{n['node_name']}: {n['error']}" 
+                    for n in execution._node_failures
+                ])
+                execution.error_message = f"部分节点执行失败: {error_summary}"
+            else:
+                execution.status = 'completed'
+            
             execution.output_data = context
             execution.completed_at = timezone.now()
             execution.save()
-            
+
         except Exception as e:
-            logger.error(f'异步执行工作流失败: {str(e)}')
-            execution = AIWorkflowExecution.objects.get(id=execution_id)
-            execution.status = 'failed'
-            execution.error_message = str(e)
-            execution.completed_at = timezone.now()
-            execution.save()
+            logger.error(f'异步执行工作流失败: {str(e)}', exc_info=True)
+            try:
+                execution = AIWorkflowExecution.objects.get(id=execution_id)
+                execution.status = 'failed'
+                execution.error_message = str(e)
+                execution.completed_at = timezone.now()
+                execution.save()
+            except AIWorkflowExecution.DoesNotExist:
+                logger.error(f'执行记录不存在: {execution_id}')
+            except Exception as save_error:
+                logger.error(f'保存执行状态失败: {str(save_error)}')
     
     def _execute_node(self, node, execution, execution_graph, context, nodes):
         """
@@ -398,6 +442,9 @@ class WorkflowService:
             execution_graph: 执行图
             context: 执行上下文
             nodes: 所有节点的字典
+            
+        Returns:
+            tuple: (执行结果, 是否有错误)
         """
         # 创建节点执行记录
         node_execution = NodeExecution.objects.create(
@@ -407,7 +454,154 @@ class WorkflowService:
         )
         
         # 执行节点逻辑
-        self._execute_node_logic(node, node_execution, context)
+        result = self._execute_node_logic(node, node_execution, context)
+        
+        # 检查执行结果
+        if isinstance(result, dict) and result.get('success') == False:
+            # 节点执行失败
+            node_execution.status = 'failed'
+            node_execution.error_message = result.get('error', '未知错误')
+            node_execution.completed_at = timezone.now()
+            node_execution.output_data = result
+            node_execution.save()
+            
+            # 记录失败信息到执行
+            if not hasattr(execution, '_node_failures'):
+                execution._node_failures = []
+            execution._node_failures.append({
+                'node_id': str(node.id),
+                'node_name': node.name,
+                'error': result.get('error', '未知错误')
+            })
+            
+            return result, True
+        
+        # 更新节点执行记录
+        node_execution.status = 'completed'
+        node_execution.output_data = result
+        node_execution.completed_at = timezone.now()
+        node_execution.save()
+        
+        return result, False
+    
+    def _execute_node_recursive(self, node, execution, execution_graph, context, nodes):
+        """
+        递归执行节点及其后续节点
+        
+        Args:
+            node: 当前节点
+            execution: 执行实例
+            execution_graph: 执行图
+            context: 执行上下文
+            nodes: 所有节点的字典
+        """
+        # 执行当前节点
+        result, has_error = self._execute_node(node, execution, execution_graph, context, nodes)
+        
+        if has_error:
+            # 当前节点失败，继续执行后续节点（如果有的话）
+            # 但不更新上下文
+            pass
+        else:
+            # 当前节点成功，更新上下文
+            context.update(result if isinstance(result, dict) else {})
+        
+        # 获取当前节点的后续节点
+        next_nodes = execution_graph.get(str(node.id), [])
+        
+        for next_node_id in next_nodes:
+            if next_node_id in nodes:
+                next_node = nodes[next_node_id]
+                
+                # 检查是否为条件节点
+                if next_node.node_type == 'condition':
+                    self._execute_condition_node(next_node, execution, execution_graph, context, nodes, result)
+                else:
+                    self._execute_node_recursive(next_node, execution, execution_graph, context, nodes)
+    
+    def _execute_condition_node(self, node, execution, execution_graph, context, nodes, parent_result):
+        """
+        执行条件节点并根据条件结果选择分支
+        
+        Args:
+            node: 条件节点
+            execution: 执行实例
+            execution_graph: 执行图
+            context: 执行上下文
+            nodes: 所有节点的字典
+            parent_result: 父节点执行结果
+        """
+        config = node.config or {}
+        condition_config = config.get('condition', {})
+        
+        # 评估条件
+        condition_variable = condition_config.get('variable', '')
+        condition_value = condition_config.get('value', '')
+        condition_operator = condition_config.get('operator', '==')
+        
+        # 获取上下文中的值
+        context_value = context.get(condition_variable, '')
+        
+        # 评估条件
+        condition_met = self._evaluate_condition(context_value, condition_operator, condition_value)
+        
+        # 根据条件结果选择分支
+        true_branch_id = condition_config.get('true_branch')
+        false_branch_id = condition_config.get('false_branch')
+        
+        if condition_met and true_branch_id and true_branch_id in nodes:
+            true_node = nodes[true_branch_id]
+            self._execute_node_recursive(true_node, execution, execution_graph, context, nodes)
+        elif not condition_met and false_branch_id and false_branch_id in nodes:
+            false_node = nodes[false_branch_id]
+            self._execute_node_recursive(false_node, execution, execution_graph, context, nodes)
+    
+    def _evaluate_condition(self, context_value, operator, condition_value):
+        """
+        评估条件
+        
+        Args:
+            context_value: 上下文中的值
+            operator: 操作符
+            condition_value: 条件值
+            
+        Returns:
+            bool: 条件是否满足
+        """
+        if operator == '==':
+            return str(context_value) == str(condition_value)
+        elif operator == '!=':
+            return str(context_value) != str(condition_value)
+        elif operator == '>':
+            try:
+                return float(context_value) > float(condition_value)
+            except (ValueError, TypeError):
+                return False
+        elif operator == '<':
+            try:
+                return float(context_value) < float(condition_value)
+            except (ValueError, TypeError):
+                return False
+        elif operator == '>=':
+            try:
+                return float(context_value) >= float(condition_value)
+            except (ValueError, TypeError):
+                return False
+        elif operator == '<=':
+            try:
+                return float(context_value) <= float(condition_value)
+            except (ValueError, TypeError):
+                return False
+        elif operator == 'contains':
+            return str(condition_value) in str(context_value)
+        elif operator == 'not_contains':
+            return str(condition_value) not in str(context_value)
+        elif operator == 'empty':
+            return not context_value or str(context_value).strip() == ''
+        elif operator == 'not_empty':
+            return context_value and str(context_value).strip() != ''
+        
+        return False
     
     def get_processor_for_node_type(self, node_type_code):
         """

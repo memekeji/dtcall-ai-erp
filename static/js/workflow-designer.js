@@ -1154,6 +1154,94 @@
         _generateConfigForm: function(nodeType, config) {
             let html = '';
             
+            // 尝试从后端API获取节点配置Schema
+            fetch(`/ai/workflow/nodes/${nodeType}/fields/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && Object.keys(data.data || {}).length > 0) {
+                        this._renderSchemaForm(nodeType, config, data.data);
+                    } else {
+                        this._renderHardcodedForm(nodeType, config);
+                    }
+                })
+                .catch(error => {
+                    console.warn('获取节点配置失败，使用默认表单:', error);
+                    this._renderHardcodedForm(nodeType, config);
+                });
+            
+            // 立即返回加载中的状态
+            return `
+                <div class="form-group">
+                    <label>正在加载配置...</label>
+                    <div id="config-form-container" class="config-form-container">
+                        ${this._renderHardcodedForm(nodeType, config, true)}
+                    </div>
+                </div>
+            `;
+        },
+        
+        _renderSchemaForm: function(nodeType, config, schema) {
+            const container = document.getElementById('config-form-container');
+            if (!container) return;
+            
+            let html = '';
+            
+            for (const [fieldName, fieldSchema] of Object.entries(schema)) {
+                const fieldId = `config-${fieldName}`;
+                const value = config[fieldName] !== undefined ? config[fieldName] : fieldSchema.default;
+                
+                let inputHtml = '';
+                const tooltip = fieldSchema.description ? `<span class="field-tooltip" title="${fieldSchema.description}">?</span>` : '';
+                const desc = fieldSchema.description ? `<div class="field-description">${fieldSchema.description}</div>` : '';
+                
+                switch (fieldSchema.type) {
+                    case 'select':
+                        const options = (fieldSchema.options || []).map(opt => 
+                            `<option value="${opt.value}" ${value === opt.value ? 'selected' : ''}>${opt.label}</option>`
+                        ).join('');
+                        inputHtml = `<select id="${fieldId}" name="${fieldName}" class="form-input">${options}</select>`;
+                        break;
+                        
+                    case 'number':
+                        const minAttr = fieldSchema.min_value !== undefined ? `min="${fieldSchema.min_value}"` : '';
+                        const maxAttr = fieldSchema.max_value !== undefined ? `max="${fieldSchema.max_value}"` : '';
+                        inputHtml = `<input type="number" id="${fieldId}" name="${fieldName}" class="form-input" ${minAttr} ${maxAttr} value="${value || ''}">`;
+                        break;
+                        
+                    case 'boolean':
+                        inputHtml = `<input type="checkbox" id="${fieldId}" name="${fieldName}" ${value ? 'checked' : ''}>`;
+                        break;
+                        
+                    case 'text':
+                    case 'string':
+                    default:
+                        inputHtml = `<input type="text" id="${fieldId}" name="${fieldName}" class="form-input" placeholder="${fieldSchema.placeholder || ''}" value="${value || ''}">`;
+                }
+                
+                html += `
+                    <div class="form-group">
+                        <label for="${fieldId}">${fieldSchema.label || fieldName} ${tooltip}</label>
+                        ${inputHtml}
+                        ${desc}
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html || '<div class="form-group"><label>此节点无需额外配置</label></div>';
+        },
+        
+        _renderHardcodedForm: function(nodeType, config, returnOnly = false) {
+            let html = '';
+            
+            // 需要动态加载选项的节点类型
+            const dynamicOptionNodes = ['ai_model', 'ai_generation', 'ai_classification', 'ai_extraction', 
+                                       'knowledge_retrieval', 'intent_recognition', 'sentiment_analysis'];
+            
+            // 获取动态选项
+            if (dynamicOptionNodes.includes(nodeType)) {
+                html += '<div id="dynamic-options-loading" class="form-group"><label>正在加载选项...</label></div>';
+            }
+            
             switch (nodeType) {
                 case 'ai_model':
                     html += `
@@ -1173,6 +1261,70 @@
                         <div class="form-group">
                             <label>输出变量名</label>
                             <input type="text" id="config-output_variable" value="${config.output_variable || 'ai_result'}" />
+                        </div>
+                    `;
+                    break;
+                    
+                case 'ai_generation':
+                    html += `
+                        <div class="form-group">
+                            <label>模型</label>
+                            <select id="config-model_id">
+                                <option value="">请选择模型...</option>
+                                <option value="gpt-3.5-turbo" ${config.model_id === 'gpt-3.5-turbo' ? 'selected' : ''}>GPT-3.5 Turbo</option>
+                                <option value="gpt-4" ${config.model_id === 'gpt-4' ? 'selected' : ''}>GPT-4</option>
+                                <option value="deepseek-chat" ${config.model_id === 'deepseek-chat' ? 'selected' : ''}>DeepSeek Chat</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>提示词</label>
+                            <textarea id="config-prompt" rows="4" placeholder="输入提示词">${config.prompt || ''}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>输出变量名</label>
+                            <input type="text" id="config-output_variable" value="${config.output_variable || 'result'}" />
+                        </div>
+                    `;
+                    break;
+                    
+                case 'ai_classification':
+                    html += `
+                        <div class="form-group">
+                            <label>模型</label>
+                            <select id="config-model_id">
+                                <option value="">请选择模型...</option>
+                                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                                <option value="gpt-4">GPT-4</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>分类类别</label>
+                            <textarea id="config-categories" rows="3" placeholder="每行一个类别">${config.categories ? config.categories.join('\n') : ''}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>输出变量名</label>
+                            <input type="text" id="config-output_variable" value="${config.output_variable || 'category'}" />
+                        </div>
+                    `;
+                    break;
+                    
+                case 'ai_extraction':
+                    html += `
+                        <div class="form-group">
+                            <label>模型</label>
+                            <select id="config-model_id">
+                                <option value="">请选择模型...</option>
+                                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                                <option value="gpt-4">GPT-4</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>提取Schema</label>
+                            <textarea id="config-extraction_schema" rows="4" placeholder='{"name": "姓名", "age": "年龄"}'>${JSON.stringify(config.extraction_schema || {}, null, 2)}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>输出变量名</label>
+                            <input type="text" id="config-output_variable" value="${config.output_variable || 'extraction'}" />
                         </div>
                     `;
                     break;
@@ -1197,6 +1349,7 @@
                     break;
                     
                 case 'api_call':
+                case 'http_request':
                     html += `
                         <div class="form-group">
                             <label>API地址</label>
@@ -1212,8 +1365,21 @@
                             </select>
                         </div>
                         <div class="form-group">
+                            <label>Content-Type</label>
+                            <select id="config-content_type">
+                                <option value="application/json" ${config.content_type === 'application/json' ? 'selected' : ''}>application/json</option>
+                                <option value="application/x-www-form-urlencoded" ${config.content_type === 'application/x-www-form-urlencoded' ? 'selected' : ''}>application/x-www-form-urlencoded</option>
+                                <option value="multipart/form-data" ${config.content_type === 'multipart/form-data' ? 'selected' : ''}>multipart/form-data</option>
+                                <option value="text/plain" ${config.content_type === 'text/plain' ? 'selected' : ''}>text/plain</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
                             <label>请求体 (JSON)</label>
                             <textarea id="config-body" rows="4" placeholder='{"key": "value"}'>${config.body || ''}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>输出变量名</label>
+                            <input type="text" id="config-output_variable" value="${config.output_variable || 'response'}" />
                         </div>
                     `;
                     break;
@@ -1232,17 +1398,184 @@
                             </select>
                         </div>
                     `;
+                    
+                    if (config.condition_type === 'switch') {
+                        html += `
+                            <div class="form-group">
+                                <label>分支配置</label>
+                                <textarea id="config-cases" rows="4" placeholder='[{"value": "A", "output": "result_a"}, {"value": "B", "output": "result_b"}]'>${JSON.stringify(config.cases || [], null, 2)}</textarea>
+                            </div>
+                        `;
+                    }
+                    break;
+                    
+                case 'multi_condition':
+                    html += `
+                        <div class="form-group">
+                            <label>条件表达式</label>
+                            <textarea id="config-expressions" rows="4" placeholder='[{"expression": "{{value}} > 10", "output": "result_a"}]'>${JSON.stringify(config.expressions || [], null, 2)}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>默认输出</label>
+                            <input type="text" id="config-default_output" value="${config.default_output || ''}" placeholder="默认输出值" />
+                        </div>
+                    `;
+                    break;
+                    
+                case 'data_input':
+                    html += `
+                        <div class="form-group">
+                            <label>输入数据</label>
+                            <textarea id="config-input_data" rows="3" placeholder="输入数据内容">${config.input_data || ''}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>输出变量名</label>
+                            <input type="text" id="config-output_variable" value="${config.output_variable || 'input'}" />
+                        </div>
+                    `;
+                    break;
+                    
+                case 'data_output':
+                    html += `
+                        <div class="form-group">
+                            <label>输入变量</label>
+                            <input type="text" id="config-input_variable" value="${config.input_variable || ''}" placeholder="输入变量名" />
+                        </div>
+                        <div class="form-group">
+                            <label>输出类型</label>
+                            <select id="config-output_type">
+                                <option value="result" ${config.output_type === 'result' ? 'selected' : ''}>结果</option>
+                                <option value="json" ${config.output_type === 'json' ? 'selected' : ''}>JSON</option>
+                            </select>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'database_query':
+                    html += `
+                        <div class="form-group">
+                            <label>SQL查询</label>
+                            <textarea id="config-query" rows="4" placeholder="SELECT * FROM table">${config.query || ''}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>数据源</label>
+                            <select id="config-datasource_id">
+                                <option value="">默认数据源</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>输出变量名</label>
+                            <input type="text" id="config-output_variable" value="${config.output_variable || 'query_result'}" />
+                        </div>
+                    `;
+                    break;
+                    
+                case 'delay':
+                    html += `
+                        <div class="form-group">
+                            <label>延迟秒数</label>
+                            <input type="number" id="config-delay_seconds" value="${config.delay_seconds || 5}" min="1" />
+                        </div>
+                    `;
+                    break;
+                    
+                case 'notification':
+                    html += `
+                        <div class="form-group">
+                            <label>通知类型</label>
+                            <select id="config-notification_type">
+                                <option value="toast" ${config.notification_type === 'toast' ? 'selected' : ''}>Toast提示</option>
+                                <option value="email" ${config.notification_type === 'email' ? 'selected' : ''}>邮件</option>
+                                <option value="sms" ${config.notification_type === 'sms' ? 'selected' : ''}>短信</option>
+                                <option value="webhook" ${config.notification_type === 'webhook' ? 'selected' : ''}>Webhook</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>通知内容</label>
+                            <textarea id="config-message" rows="3">${config.message || ''}</textarea>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'workflow_trigger':
+                    html += `
+                        <div class="form-group">
+                            <label>触发类型</label>
+                            <select id="config-trigger_type">
+                                <option value="manual" ${config.trigger_type === 'manual' ? 'selected' : ''}>手动触发</option>
+                                <option value="webhook" ${config.trigger_type === 'webhook' ? 'selected' : ''}>Webhook触发</option>
+                                <option value="schedule" ${config.trigger_type === 'schedule' ? 'selected' : ''}>定时触发</option>
+                                <option value="event" ${config.trigger_type === 'event' ? 'selected' : ''}>事件触发</option>
+                            </select>
+                        </div>
+                    `;
                     break;
                     
                 default:
                     html += `
                         <div class="form-group">
                             <label>此节点暂无额外配置</label>
+                            <p class="config-hint">节点类型: ${nodeType}</p>
                         </div>
                     `;
             }
             
+            if (returnOnly) {
+                return html;
+            }
+            
+            const container = document.getElementById('config-form-container');
+            if (container) {
+                container.innerHTML = html;
+                
+                // 动态加载选项
+                if (dynamicOptionNodes.includes(nodeType)) {
+                    this._loadDynamicOptions(nodeType);
+                }
+            }
+            
             return html;
+        },
+        
+        _loadDynamicOptions: function(nodeType) {
+            const self = this;
+            
+            // 获取动态选项
+            fetch(`/ai/workflow/nodes/${nodeType}/options/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.options) {
+                        for (const [fieldName, options] of Object.entries(data.options)) {
+                            const select = document.getElementById(`config-${fieldName}`);
+                            if (select && options.length > 0) {
+                                // 保留第一个空选项
+                                const firstOption = select.options[0];
+                                select.innerHTML = '';
+                                select.appendChild(firstOption);
+                                
+                                // 添加动态选项
+                                options.forEach(opt => {
+                                    const option = document.createElement('option');
+                                    option.value = opt.value;
+                                    option.textContent = opt.label || opt.value;
+                                    
+                                    // 添加provider或knowledge_type属性
+                                    if (opt.provider) {
+                                        option.setAttribute('data-provider', opt.provider);
+                                    }
+                                    if (opt.knowledge_type) {
+                                        option.setAttribute('data-knowledge-type', opt.knowledge_type);
+                                    }
+                                    
+                                    select.appendChild(option);
+                                });
+                            }
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.warn('加载动态选项失败:', error);
+                });
         },
         
         _saveNodeConfig: function(nodeId) {
@@ -1254,18 +1587,31 @@
                 node.name = nameInput.value;
             }
             
-            const configFields = ['model_id', 'prompt', 'output_variable', 'knowledge_base_id', 
+            const configFields = [
+                'model_id', 'prompt', 'output_variable', 'knowledge_base_id', 
                 'query_variable', 'top_k', 'url', 'method', 'body', 'condition_variable', 
-                'condition_type', 'input_variable', 'input_data', 'output_type'];
+                'condition_type', 'input_variable', 'input_data', 'output_type',
+                'delay_seconds', 'notification_type', 'message', 'trigger_type',
+                'categories', 'extraction_schema', 'query', 'delay_seconds'
+            ];
             
             configFields.forEach(field => {
                 const input = document.getElementById(`config-${field}`);
                 if (input) {
-                    const value = input.type === 'number' ? parseInt(input.value) : input.value;
+                    let value;
+                    if (input.type === 'number') {
+                        value = parseInt(input.value);
+                    } else if (input.type === 'checkbox') {
+                        value = input.checked;
+                    } else if (field === 'categories') {
+                        value = input.value.split('\n').filter(v => v.trim());
+                    } else {
+                        value = input.value;
+                    }
                     node.config[field] = value;
                 }
             });
-            
+
             const contentEl = document.getElementById(`content-${nodeId}`);
             if (contentEl) {
                 contentEl.textContent = this._getNodeContentPreview(node);
@@ -1279,7 +1625,11 @@
             this._saveHistory();
             this.state.modified = true;
             
-            layer.msg('配置已保存', { icon: 1, time: 1500 });
+            if (typeof layer !== 'undefined') {
+                layer.msg('配置已保存', { icon: 1, time: 1500 });
+            } else {
+                alert('配置已保存');
+            }
         },
         
         _showConnectionConfig: function(connId) {
@@ -1528,8 +1878,35 @@
         },
         
         _getCsrfToken: function() {
-            const input = document.querySelector('[name="csrfmiddlewaretoken"]');
-            return input ? input.value : '';
+            let token = '';
+            
+            // 尝试从cookie获取
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.indexOf('csrftoken=') === 0) {
+                    token = cookie.substring('csrftoken='.length, cookie.length);
+                    break;
+                }
+            }
+            
+            // 如果cookie中没有，尝试从DOM获取
+            if (!token) {
+                const input = document.querySelector('[name="csrfmiddlewaretoken"]');
+                if (input) {
+                    token = input.value;
+                }
+            }
+            
+            // 尝试从meta标签获取
+            if (!token) {
+                const meta = document.querySelector('meta[name="csrf-token"]');
+                if (meta) {
+                    token = meta.getAttribute('content');
+                }
+            }
+            
+            return token;
         }
     };
     

@@ -15,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from django.db import transaction
 from django.utils import timezone
 from django.core.cache import cache
+from asgiref.sync import sync_to_async
 
 from apps.ai.models import (
     AIWorkflow, WorkflowNode, WorkflowConnection, 
@@ -65,6 +66,8 @@ class ExecutionContext:
     error_info: Optional[Dict[str, Any]] = None
     started_at: datetime = field(default_factory=datetime.now)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    has_node_failures: bool = False
+    failed_nodes: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -147,8 +150,8 @@ class EnhancedWorkflowEngine:
             execution_mode: 执行模式
             timeout: 超时时间（秒）
         """
-        execution = AIWorkflowExecution.objects.get(id=execution_id)
-        workflow = execution.workflow
+        execution = await sync_to_async(AIWorkflowExecution.objects.get)(id=execution_id)
+        workflow = await sync_to_async(lambda: execution.workflow)()
         
         if workflow.status != 'published':
             raise ValueError("只能执行已发布的工作流")
@@ -157,13 +160,16 @@ class EnhancedWorkflowEngine:
         
         execution.status = 'running'
         execution.started_at = timezone.now()
-        execution.save()
+        await sync_to_async(execution.save)()
         
         try:
+            # 初始化执行上下文，将外部输入数据复制到variables中
+            input_data = execution.input_data or {}
             context = ExecutionContext(
                 execution_id=str(execution.id),
                 workflow_id=str(workflow.id),
-                input_data=execution.input_data or {}
+                input_data=input_data,
+                variables=input_data.copy()  # 将外部输入数据复制到variables，供节点使用
             )
             
             await self._notify_subscribers('workflow_started', {
@@ -180,14 +186,30 @@ class EnhancedWorkflowEngine:
             else:
                 result = await self._execute_sync(context, workflow, timeout)
             
-            execution.status = 'completed'
+            if result.has_node_failures:
+                execution.status = 'failed'
+                error_summary = '; '.join([
+                    f"{n['node_name']}: {n['error']}" 
+                    for n in result.failed_nodes
+                ])
+                execution.error_message = f"部分节点执行失败: {error_summary}"
+            else:
+                execution.status = 'completed'
+            
             execution.output_data = result.output_data
             execution.completed_at = timezone.now()
             
-            await self._notify_subscribers('workflow_completed', {
-                'execution_id': str(execution.id),
-                'output_data': result.output_data
-            })
+            if result.has_node_failures:
+                await self._notify_subscribers('workflow_completed_with_errors', {
+                    'execution_id': str(execution.id),
+                    'output_data': result.output_data,
+                    'failed_nodes': result.failed_nodes
+                })
+            else:
+                await self._notify_subscribers('workflow_completed', {
+                    'execution_id': str(execution.id),
+                    'output_data': result.output_data
+                })
             
         except asyncio.TimeoutError:
             execution.status = 'timeout'
@@ -210,7 +232,7 @@ class EnhancedWorkflowEngine:
                 'error': str(e)
             })
         
-        execution.save()
+        await sync_to_async(execution.save)()
         return execution
     
     async def _execute_sync(
@@ -220,8 +242,9 @@ class EnhancedWorkflowEngine:
         timeout: int
     ) -> ExecutionContext:
         """同步执行工作流"""
-        nodes = {str(node.id): node for node in workflow.nodes.filter(is_active=True)}
-        connections = list(workflow.connections.all())
+        nodes_list = await sync_to_async(list)(workflow.nodes.filter(is_active=True))
+        nodes = {str(node.id): node for node in nodes_list}
+        connections = await sync_to_async(list)(workflow.connections.all())
         
         execution_graph = self._build_execution_graph(nodes, connections)
         
@@ -252,8 +275,9 @@ class EnhancedWorkflowEngine:
     
     async def _execute_async(self, context: ExecutionContext, workflow: AIWorkflow, timeout: int):
         """异步执行工作流"""
-        nodes = {str(node.id): node for node in workflow.nodes.filter(is_active=True)}
-        connections = list(workflow.connections.all())
+        nodes_list = await sync_to_async(list)(workflow.nodes.filter(is_active=True))
+        nodes = {str(node.id): node for node in nodes_list}
+        connections = await sync_to_async(list)(workflow.connections.all())
         
         execution_graph = self._build_execution_graph(nodes, connections)
         start_node = self._find_start_node(nodes)
@@ -285,8 +309,9 @@ class EnhancedWorkflowEngine:
     
     async def _execute_parallel(self, context: ExecutionContext, workflow: AIWorkflow, timeout: int):
         """并行执行工作流"""
-        nodes = {str(node.id): node for node in workflow.nodes.filter(is_active=True)}
-        connections = list(workflow.connections.all())
+        nodes_list = await sync_to_async(list)(workflow.nodes.filter(is_active=True))
+        nodes = {str(node.id): node for node in nodes_list}
+        connections = await sync_to_async(list)(workflow.connections.all())
         
         execution_graph = self._build_execution_graph(nodes, connections)
         start_node = self._find_start_node(nodes)
@@ -337,7 +362,7 @@ class EnhancedWorkflowEngine:
                 node_state.status = NodeStatus.RUNNING
                 node_state.started_at = datetime.now()
                 
-                node_execution = NodeExecution.objects.create(
+                node_execution = await sync_to_async(NodeExecution.objects.create)(
                     workflow_execution_id=context.execution_id,
                     node=node,
                     status='running',
@@ -346,10 +371,18 @@ class EnhancedWorkflowEngine:
                 
                 processor = get_processor_for_node_type(node.node_type)
                 if processor:
-                    result = await asyncio.wait_for(
-                        processor.execute_async(node.config, context.variables),
-                        timeout=timeout
-                    )
+                    # 检查处理器是否有execute_async方法
+                    if hasattr(processor, 'execute_async'):
+                        result = await asyncio.wait_for(
+                            processor.execute_async(node.config, context.variables),
+                            timeout=timeout
+                        )
+                    else:
+                        # 如果没有execute_async方法，使用同步的execute方法
+                        result = await asyncio.wait_for(
+                            asyncio.to_thread(processor.execute, node.config, context.variables),
+                            timeout=timeout
+                        )
                 else:
                     result = await self._execute_node_legacy(node, context.variables)
                 
@@ -365,7 +398,7 @@ class EnhancedWorkflowEngine:
                 node_execution.output_data = result
                 node_execution.completed_at = timezone.now()
                 node_execution.execution_time = node_state.execution_time
-                node_execution.save()
+                await sync_to_async(node_execution.save)()
                 
                 await self._notify_subscribers('node_completed', {
                     'execution_id': context.execution_id,
@@ -405,16 +438,23 @@ class EnhancedWorkflowEngine:
         node_state: NodeExecutionState
     ):
         """处理节点执行失败"""
-        node_execution = NodeExecution.objects.filter(
+        node_execution = await sync_to_async(lambda: NodeExecution.objects.filter(
             workflow_execution_id=context.execution_id,
             node=node
-        ).order_by('-created_at').first()
+        ).order_by('-started_at').first())()
         
         if node_execution:
             node_execution.status = 'failed'
             node_execution.error_message = node_state.error_message
             node_execution.completed_at = timezone.now()
-            node_execution.save()
+            await sync_to_async(node_execution.save)()
+        
+        context.has_node_failures = True
+        context.failed_nodes.append({
+            'node_id': str(node.id),
+            'node_name': node.name,
+            'error': node_state.error_message
+        })
         
         await self._notify_subscribers('node_failed', {
             'execution_id': context.execution_id,
@@ -518,9 +558,14 @@ class EnhancedWorkflowEngine:
     def _build_execution_graph(self, nodes: Dict[str, WorkflowNode], connections: List[WorkflowConnection]) -> Dict[str, List[tuple]]:
         """构建执行图"""
         graph = {}
+        
+        # 预构建节点ID映射，避免在异步上下文中访问related fields
+        node_id_map = {str(node.id): node for node in nodes.values()}
+        
         for conn in connections:
-            source_id = str(conn.source_node.id)
-            target_id = str(conn.target_node.id)
+            # 直接使用缓存的节点ID，避免触发数据库查询
+            source_id = str(conn.source_node_id)
+            target_id = str(conn.target_node_id)
             
             if source_id not in graph:
                 graph[source_id] = []

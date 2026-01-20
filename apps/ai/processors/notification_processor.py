@@ -193,6 +193,17 @@ class NotificationProcessor(BaseNodeProcessor):
             }
         }
     
+    def _replace_variables(self, text: str, context: dict) -> str:
+        """替换文本中的变量占位符"""
+        if not isinstance(text, str):
+            return text
+        
+        for key, value in context.items():
+            placeholder = f'{{{{{key}}}}}'
+            text = text.replace(placeholder, str(value))
+        
+        return text
+    
     def execute(self, config: dict, context: dict) -> dict:
         """执行通知节点逻辑"""
         notification_type = config.get('notification_type', 'system')
@@ -426,6 +437,17 @@ class DelayProcessor(BaseNodeProcessor):
             result['message'] = f"延迟执行失败: {str(e)}"
         
         return result
+    
+    def _replace_variables(self, text: str, context: dict) -> str:
+        """替换文本中的变量占位符"""
+        if not isinstance(text, str):
+            return text
+        
+        for key, value in context.items():
+            placeholder = f'{{{{{key}}}}}'
+            text = text.replace(placeholder, str(value))
+        
+        return text
     
     def _evaluate_delay_expression(self, expression: str, context: dict) -> int:
         """计算动态延迟表达式"""

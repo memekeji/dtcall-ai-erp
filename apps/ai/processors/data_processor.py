@@ -32,6 +32,7 @@ class DataInputProcessor(BaseNodeProcessor):
                 'label': '输入类型',
                 'options': [
                     {'value': 'text', 'label': '文本输入'},
+                    {'value': 'form', 'label': '表单输入'},
                     {'value': 'image', 'label': '图片上传'},
                     {'value': 'file', 'label': '文件上传'},
                     {'value': 'json', 'label': 'JSON数据'},
@@ -92,6 +93,146 @@ class DataInputProcessor(BaseNodeProcessor):
                     }
                 },
                 'depends_on': {'input_type': 'text'}
+            },
+            'form_config': {
+                'type': 'object',
+                'required': False,
+                'label': '表单配置',
+                'description': '配置表单字段，支持用户自定义输入',
+                'properties': {
+                    'title': {
+                        'type': 'string',
+                        'required': False,
+                        'label': '表单标题',
+                        'default': '请填写表单'
+                    },
+                    'description': {
+                        'type': 'string',
+                        'required': False,
+                        'label': '表单描述',
+                        'default': '请根据下方提示填写相关信息'
+                    },
+                    'fields': {
+                        'type': 'array',
+                        'required': True,
+                        'label': '表单字段',
+                        'description': '定义表单中的输入字段',
+                        'items': {
+                            'type': 'object',
+                            'properties': {
+                                'id': {
+                                    'type': 'string',
+                                    'required': True,
+                                    'label': '字段ID',
+                                    'description': '字段唯一标识符'
+                                },
+                                'name': {
+                                    'type': 'string',
+                                    'required': True,
+                                    'label': '字段名称',
+                                    'description': '字段显示名称'
+                                },
+                                'type': {
+                                    'type': 'string',
+                                    'required': True,
+                                    'label': '字段类型',
+                                    'options': [
+                                        {'value': 'text', 'label': '文本'},
+                                        {'value': 'textarea', 'label': '多行文本'},
+                                        {'value': 'number', 'label': '数字'},
+                                        {'value': 'date', 'label': '日期'},
+                                        {'value': 'datetime', 'label': '日期时间'},
+                                        {'value': 'select', 'label': '下拉选择'},
+                                        {'value': 'checkbox', 'label': '复选框'},
+                                        {'value': 'radio', 'label': '单选框'},
+                                        {'value': 'file', 'label': '文件上传'}
+                                    ]
+                                },
+                                'required': {
+                                    'type': 'boolean',
+                                    'required': False,
+                                    'label': '是否必填',
+                                    'default': False
+                                },
+                                'placeholder': {
+                                    'type': 'string',
+                                    'required': False,
+                                    'label': '占位符',
+                                    'description': '输入提示文字'
+                                },
+                                'default_value': {
+                                    'type': 'string',
+                                    'required': False,
+                                    'label': '默认值'
+                                },
+                                'options': {
+                                    'type': 'array',
+                                    'required': False,
+                                    'label': '选项列表',
+                                    'description': '用于select/radio/checkbox类型',
+                                    'items': {
+                                        'type': 'object',
+                                        'properties': {
+                                            'value': {'type': 'string'},
+                                            'label': {'type': 'string'}
+                                        }
+                                    }
+                                },
+                                'validation': {
+                                    'type': 'object',
+                                    'required': False,
+                                    'label': '验证规则',
+                                    'properties': {
+                                        'min_length': {
+                                            'type': 'number',
+                                            'required': False,
+                                            'label': '最小长度'
+                                        },
+                                        'max_length': {
+                                            'type': 'number',
+                                            'required': False,
+                                            'label': '最大长度'
+                                        },
+                                        'min': {
+                                            'type': 'number',
+                                            'required': False,
+                                            'label': '最小值'
+                                        },
+                                        'max': {
+                                            'type': 'number',
+                                            'required': False,
+                                            'label': '最大值'
+                                        },
+                                        'pattern': {
+                                            'type': 'string',
+                                            'required': False,
+                                            'label': '正则表达式'
+                                        }
+                                    }
+                                },
+                                'help_text': {
+                                    'type': 'string',
+                                    'required': False,
+                                    'label': '帮助提示',
+                                    'description': '显示在字段下方的提示文字'
+                                }
+                            }
+                        }
+                    },
+                    'submit_text': {
+                        'type': 'string',
+                        'required': False,
+                        'label': '提交按钮文字',
+                        'default': '提交'
+                    },
+                    'show_reset': {
+                        'type': 'boolean',
+                        'required': False,
+                        'label': '显示重置按钮',
+                        'default': False
+                    }
+                },
+                'depends_on': {'input_type': 'form'}
             },
             'image_config': {
                 'type': 'object',
@@ -410,8 +551,58 @@ class DataInputProcessor(BaseNodeProcessor):
         output_var = config.get('output_variable', 'input_data')
         
         try:
+            # 检查是否是开始节点（使用外部输入数据）
+            is_start_node = config.get('is_start_node', False) or config.get('trigger_type') == 'manual'
+            
+            # 如果是开始节点，优先从外部输入数据读取
+            if is_start_node and context:
+                if isinstance(context, dict):
+                    # 尝试多种方式获取外部输入数据
+                    external_input = None
+                    
+                    # 方式1: context.input_data (如果context是ExecutionContext对象)
+                    if hasattr(context, 'input_data'):
+                        external_input = context.input_data
+                    
+                    # 方式2: context.get('input_data')
+                    if not external_input:
+                        external_input = context.get('input_data')
+                    
+                    # 方式3: context.get('data')
+                    if not external_input:
+                        external_input = context.get('data')
+                    
+                    # 方式4: 如果output_var在context中，直接使用
+                    if output_var in context:
+                        external_input = context[output_var]
+                    
+                    # 方式5: 如果context本身就是输入数据（字典），使用它
+                    if not external_input and isinstance(context, dict) and len(context) > 0:
+                        # 查找与output_var匹配的数据
+                        for key, value in context.items():
+                            if key == output_var or key in ['input_data', 'data']:
+                                external_input = value
+                                break
+                        # 如果没找到匹配的，使用整个context
+                        if not external_input:
+                            external_input = context
+                    
+                    if external_input and external_input != context:
+                        context[output_var] = external_input
+                        return {
+                            'input_type': input_type,
+                            'success': True,
+                            'message': f"使用外部输入数据成功",
+                            'data_size': len(str(external_input)) if external_input else 0,
+                            'output_variable': output_var,
+                            'is_external_input': True
+                        }
+            
+            # 非开始节点或没有外部输入，使用配置读取数据
             if input_type == 'text':
                 data = self._read_text_data(config)
+            elif input_type == 'form':
+                data = self._read_form_data(config)
             elif input_type == 'image':
                 data = self._read_image_data(config)
             elif input_type == 'file':
@@ -435,7 +626,8 @@ class DataInputProcessor(BaseNodeProcessor):
                 'success': True,
                 'message': f"数据输入成功，类型: {input_type}",
                 'data_size': len(str(data)) if data else 0,
-                'output_variable': output_var
+                'output_variable': output_var,
+                'is_external_input': False
             }
             
         except Exception as e:
@@ -446,10 +638,120 @@ class DataInputProcessor(BaseNodeProcessor):
                 'output_variable': output_var
             }
     
+    async def execute_async(self, config: dict, context: dict) -> dict:
+        """异步执行数据输入节点逻辑"""
+        return self.execute(config, context)
+    
     def _read_text_data(self, config: dict):
         """读取文本输入数据"""
         text_config = config.get('text_config', {})
         return text_config.get('default_value', '')
+    
+    def _read_form_data(self, config: dict):
+        """读取表单配置数据"""
+        form_config = config.get('form_config', {})
+        return {
+            'title': form_config.get('title', '请填写表单'),
+            'description': form_config.get('description', '请根据下方提示填写相关信息'),
+            'fields': form_config.get('fields', []),
+            'submit_text': form_config.get('submit_text', '提交'),
+            'show_reset': form_config.get('show_reset', False),
+            'form_schema': self._generate_form_schema(form_config)
+        }
+    
+    def _generate_form_schema(self, form_config: dict) -> dict:
+        """生成表单JSON Schema（用于前端表单渲染）"""
+        fields = form_config.get('fields', [])
+        
+        schema = {
+            'type': 'object',
+            'properties': {},
+            'required': [],
+            'ui': {}
+        }
+        
+        for field in fields:
+            field_id = field.get('id')
+            field_type = field.get('type', 'text')
+            
+            # 构建JSON Schema属性
+            schema['properties'][field_id] = {
+                'type': self._map_field_type(field_type),
+                'title': field.get('name', field_id),
+                'description': field.get('help_text', '')
+            }
+            
+            # 添加验证规则
+            validation = field.get('validation', {})
+            if validation:
+                if validation.get('min_length'):
+                    schema['properties'][field_id]['minLength'] = validation['min_length']
+                if validation.get('max_length'):
+                    schema['properties'][field_id]['maxLength'] = validation['max_length']
+                if validation.get('min') is not None:
+                    schema['properties'][field_id]['minimum'] = validation['min']
+                if validation.get('max') is not None:
+                    schema['properties'][field_id]['maximum'] = validation['max']
+                if validation.get('pattern'):
+                    schema['properties'][field_id]['pattern'] = validation['pattern']
+            
+            # 添加选项（用于select/radio/checkbox）
+            options = field.get('options', [])
+            if options:
+                schema['properties'][field_id]['enum'] = [opt.get('value') for opt in options]
+                schema['properties'][field_id]['enumNames'] = [opt.get('label') for opt in options]
+            
+            # 添加默认值
+            default_value = field.get('default_value')
+            if default_value is not None:
+                schema['properties'][field_id]['default'] = default_value
+            
+            # 处理必填字段
+            if field.get('required', False):
+                schema['required'].append(field_id)
+            
+            # 构建UI Schema
+            schema['ui'] = schema.get('ui', {})
+            schema['ui'][field_id] = {
+                'ui:widget': self._map_field_widget(field_type),
+                'ui:options': {
+                    'placeholder': field.get('placeholder', ''),
+                    'rows': field.get('rows', 4) if field_type == 'textarea' else None
+                }
+            }
+        
+        return schema
+    
+    def _map_field_type(self, field_type: str) -> str:
+        """映射字段类型到JSON Schema类型"""
+        type_mapping = {
+            'text': 'string',
+            'textarea': 'string',
+            'number': 'number',
+            'integer': 'integer',
+            'date': 'string',
+            'datetime': 'string',
+            'select': 'string',
+            'checkbox': 'boolean',
+            'radio': 'string',
+            'file': 'string'
+        }
+        return type_mapping.get(field_type, 'string')
+    
+    def _map_field_widget(self, field_type: str) -> str:
+        """映射字段类型到UI Widget"""
+        widget_mapping = {
+            'text': 'text',
+            'textarea': 'textarea',
+            'number': 'updown',
+            'date': 'date',
+            'datetime': 'datetime',
+            'select': 'select',
+            'checkbox': 'checkbox',
+            'radio': 'radio',
+            'file': 'file'
+        }
+        return widget_mapping.get(field_type, 'text')
     
     def _read_image_data(self, config: dict):
         """读取图片上传数据"""
@@ -639,119 +941,6 @@ class DataInputProcessor(BaseNodeProcessor):
                 result = element.text.strip()
         
         return result
-
-
-@NodeProcessorRegistry.register('database_query')
-class DatabaseQueryProcessor(BaseNodeProcessor):
-    """数据库查询节点处理器"""
-    
-    @classmethod
-    def get_display_name(cls):
-        return "数据库查询"
-    
-    @classmethod
-    def get_icon(cls):
-        return "layui-icon-table"
-    
-    @classmethod
-    def get_description(cls):
-        return "执行数据库查询操作"
-    
-    def _get_config_schema(self) -> dict:
-        """获取数据库查询节点的配置模式"""
-        return {
-            'database_type': {
-                'type': 'string',
-                'required': True,
-                'label': '数据库类型',
-                'options': [
-                    {'value': 'mysql', 'label': 'MySQL'},
-                    {'value': 'postgresql', 'label': 'PostgreSQL'},
-                    {'value': 'sqlite', 'label': 'SQLite'},
-                    {'value': 'oracle', 'label': 'Oracle'}
-                ],
-                'description': '选择数据库类型'
-            },
-            'connection_string': {
-                'type': 'string',
-                'required': True,
-                'label': '连接字符串',
-                'description': '数据库连接字符串'
-            },
-            'query': {
-                'type': 'string',
-                'required': True,
-                'label': '查询语句',
-                'multiline': True,
-                'rows': 5,
-                'description': 'SQL查询语句'
-            },
-            'parameters': {
-                'type': 'object',
-                'required': False,
-                'label': '查询参数',
-                'default': {},
-                'description': '查询参数键值对'
-            },
-            'timeout': {
-                'type': 'number',
-                'required': False,
-                'label': '超时时间(秒)',
-                'default': 30,
-                'min': 1
-            },
-            'output_variable': {
-                'type': 'string',
-                'required': True,
-                'label': '输出变量名',
-                'default': 'query_result',
-                'description': '存储查询结果的变量名'
-            }
-        }
-    
-    def execute(self, config: dict, context: dict) -> dict:
-        """执行数据库查询节点逻辑"""
-        database_type = config.get('database_type', 'mysql')
-        connection_string = config.get('connection_string', '')
-        query = config.get('query', '')
-        parameters = config.get('parameters', {})
-        timeout = config.get('timeout', 30)
-        output_var = config.get('output_variable', 'query_result')
-        
-        if not query:
-            return {
-                'database_type': database_type,
-                'success': False,
-                'message': '查询语句不能为空',
-                'output_variable': output_var
-            }
-        
-        try:
-            # 这里需要根据实际数据库连接实现
-            # 暂时返回模拟数据
-            result_data = [
-                {'id': 1, 'name': '示例数据1'},
-                {'id': 2, 'name': '示例数据2'}
-            ]
-            
-            # 将结果存储到上下文中
-            context[output_var] = result_data
-            
-            return {
-                'database_type': database_type,
-                'success': True,
-                'message': f"数据库查询成功，返回 {len(result_data)} 条记录",
-                'output_variable': output_var,
-                'record_count': len(result_data)
-            }
-            
-        except Exception as e:
-            return {
-                'database_type': database_type,
-                'success': False,
-                'message': f"数据库查询失败: {str(e)}",
-                'output_variable': output_var
-            }
 
 
 @NodeProcessorRegistry.register('data_output')

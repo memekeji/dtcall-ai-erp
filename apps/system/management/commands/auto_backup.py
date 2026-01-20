@@ -220,7 +220,7 @@ class Command(BaseCommand):
             
             # 创建备份记录
             backup = SystemBackup.objects.create(
-                name=f"自动备份_{datetime.now().strftime('%Y%m%d_%H%M%S')",
+                name=f"自动备份_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
                 backup_type=policy.backup_type,
                 file_path=backup_file_path,
                 file_size=file_size,

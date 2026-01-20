@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView, TemplateView
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView, TemplateView, View
 from django.urls import reverse_lazy
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
@@ -46,6 +46,13 @@ from .forms import (
 )
 from .utils.ai_config_manager import get_ai_config_manager
 from .utils.ai_client import AIClient
+from .services.complete_node_config import (
+    get_node_config,
+    get_node_config_schema,
+    get_node_full_config,
+    get_all_node_configs,
+    get_nodes_by_category
+)
 
 
 # AI模型配置视图
@@ -81,7 +88,7 @@ class AIModelConfigListView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
                         "name": obj.name,
                         "provider": obj.provider,
                         "model_type": obj.model_type,
-                        "api_key": obj.api_key,
+                        "api_key": "***",  # 脱敏处理，不返回实际API密钥
                         "api_base": obj.api_base,
                         "is_active": obj.is_active,
                         "created_at": obj.created_at.strftime('%Y-%m-%d %H:%M:%S')
@@ -239,7 +246,7 @@ class AIWorkflowListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     paginate_by = 10
     
     def get_queryset(self):
-        return AIWorkflow.objects.order_by('-created_at')
+        return AIWorkflow.objects.select_related('owner', 'created_by').order_by('-created_at')
     
     def get(self, request, *args, **kwargs):
         # 检查是否为AJAX请求
@@ -289,6 +296,7 @@ class AIWorkflowCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateVi
         return response
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class AIWorkflowUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = AIWorkflow
     form_class = AIWorkflowForm
@@ -300,6 +308,39 @@ class AIWorkflowUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateVi
         response = super().form_valid(form)
         messages.success(self.request, 'AI工作流更新成功')
         return response
+    
+    def post(self, request, *args, **kwargs):
+        """处理AJAX请求保存工作流节点数据"""
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            try:
+                workflow = self.get_object()
+                data = json.loads(request.body)
+                
+                nodes_data = data.get('nodes', [])
+                connections_data = data.get('connections', [])
+                
+                service = WorkflowService()
+                service.update_workflow_nodes(workflow.id, nodes_data, connections_data)
+                
+                return JsonResponse({
+                    'status': 'success',
+                    'message': '工作流保存成功',
+                    'node_count': len(nodes_data),
+                    'connection_count': len(connections_data)
+                })
+            except json.JSONDecodeError:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '无效的JSON数据'
+                }, status=400)
+            except Exception as e:
+                logger.error(f'保存工作流失败: {e}', exc_info=True)
+                return JsonResponse({
+                    'status': 'error',
+                    'message': str(e)
+                }, status=500)
+        
+        return super().post(request, *args, **kwargs)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -677,7 +718,7 @@ class AIKnowledgeBaseListView(LoginRequiredMixin, PermissionRequiredMixin, ListV
     paginate_by = 10
     
     def get_queryset(self):
-        return AIKnowledgeBase.objects.order_by('-created_at')
+        return AIKnowledgeBase.objects.select_related('creator').order_by('-created_at')
     
     def get(self, request, *args, **kwargs):
         # 检查是否为AJAX请求
@@ -775,7 +816,9 @@ class AIKnowledgeItemListView(LoginRequiredMixin, PermissionRequiredMixin, ListV
     def get_queryset(self):
         knowledge_base_id = self.request.GET.get('knowledge_base')
         if knowledge_base_id:
-            return AIKnowledgeItem.objects.filter(knowledge_base_id=knowledge_base_id).order_by('-created_at')
+            return AIKnowledgeItem.objects.select_related('knowledge_base').filter(
+                knowledge_base_id=knowledge_base_id
+            ).order_by('-created_at')
         return AIKnowledgeItem.objects.order_by('-created_at')
     
     def get_context_data(self, **kwargs):
@@ -1511,16 +1554,45 @@ class AIWorkflowExecutionListView(LoginRequiredMixin, PermissionRequiredMixin, L
     
     def get_queryset(self):
         """获取工作流执行记录，按开始时间倒序排列"""
-        return AIWorkflowExecution.objects.order_by('-started_at')
+        queryset = AIWorkflowExecution.objects.select_related(
+            'workflow', 'created_by'
+        ).prefetch_related('node_executions').order_by('-started_at')
+        
+        # 添加入口参数过滤
+        workflow_id = self.request.GET.get('workflow_id')
+        status = self.request.GET.get('status')
+        
+        if workflow_id:
+            queryset = queryset.filter(workflow_id=workflow_id)
+        if status:
+            queryset = queryset.filter(status=status)
+        
+        return queryset
     
     def get_context_data(self, **kwargs):
         """添加额外的上下文数据"""
         context = super().get_context_data(**kwargs)
-        # 添加统计信息
-        context['total_executions'] = AIWorkflowExecution.objects.count()
-        context['running_executions'] = AIWorkflowExecution.objects.filter(status='running').count()
-        context['completed_executions'] = AIWorkflowExecution.objects.filter(status='completed').count()
-        context['failed_executions'] = AIWorkflowExecution.objects.filter(status='failed').count()
+        # 使用缓存避免重复查询
+        from django.core.cache import cache
+        
+        stats_cache_key = 'workflow_execution_stats'
+        stats = cache.get(stats_cache_key)
+        
+        if stats is None:
+            stats = {
+                'total_executions': AIWorkflowExecution.objects.count(),
+                'running_executions': AIWorkflowExecution.objects.filter(status='running').count(),
+                'completed_executions': AIWorkflowExecution.objects.filter(status='completed').count(),
+                'failed_executions': AIWorkflowExecution.objects.filter(status='failed').count(),
+            }
+            cache.set(stats_cache_key, stats, 300)  # 缓存5分钟
+        
+        context.update({
+            'total_executions': stats['total_executions'],
+            'running_executions': stats['running_executions'],
+            'completed_executions': stats['completed_executions'],
+            'failed_executions': stats['failed_executions'],
+        })
         return context
 
 
@@ -1530,3 +1602,262 @@ class AIWorkflowExecutionDetailView(LoginRequiredMixin, PermissionRequiredMixin,
     template_name = 'ai/workflow_execution_detail.html'
     permission_required = 'ai.view_aiworkflowexecution'
     context_object_name = 'execution'
+
+
+# ============================================================================
+# 节点配置Schema API视图
+# ============================================================================
+
+class NodeConfigSchemaView(View):
+    """
+    获取节点配置Schema的API视图
+    支持获取单个节点配置或所有节点配置列表
+    """
+    
+    def get(self, request, node_type=None):
+        """处理GET请求"""
+        if node_type:
+            # 获取单个节点的配置Schema
+            config = get_node_full_config(node_type)
+            if not config:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'未找到节点类型: {node_type}'
+                }, status=404)
+            return JsonResponse({
+                'success': True,
+                'data': config
+            })
+        else:
+            # 获取所有节点配置列表
+            all_nodes = get_all_node_configs()
+            nodes_list = []
+            for node_type_key, config in all_nodes.items():
+                nodes_list.append({
+                    'node_type': node_type_key,
+                    'name': config.name,
+                    'description': config.description,
+                    'category': config.category,
+                })
+            return JsonResponse({
+                'success': True,
+                'data': {
+                    'nodes': nodes_list,
+                    'categories': list(get_nodes_by_category().keys())
+                }
+            })
+
+
+class NodeConfigFieldsView(View):
+    """
+    获取节点配置字段详情（用于前端动态表单生成）
+    """
+    
+    def get(self, request, node_type):
+        """获取指定节点的配置字段详情"""
+        schema = get_node_config_schema(node_type)
+        
+        # 如果未找到配置，尝试从处理器注册表获取
+        if not schema:
+            from .processors import get_processor_for_node_type
+            processor = get_processor_for_node_type(node_type)
+            if processor and hasattr(processor, 'config_schema'):
+                schema = processor.config_schema
+            
+            # 如果还是没有找到配置，返回空对象而不是404
+            if not schema:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'未找到节点类型: {node_type}'
+                }, status=404)
+        
+        return JsonResponse({
+            'success': True,
+            'data': schema
+        })
+
+
+class NodeInputSchemaView(View):
+    """获取节点输入Schema"""
+    
+    def get(self, request, node_type):
+        """获取指定节点的输入Schema"""
+        from .services.complete_node_config import get_node_input_schema
+        schema = get_node_input_schema(node_type)
+        return JsonResponse({
+            'success': True,
+            'data': schema
+        })
+
+
+class NodeOutputSchemaView(View):
+    """获取节点输出Schema"""
+    
+    def get(self, request, node_type):
+        """获取指定节点的输出Schema"""
+        from .services.complete_node_config import get_node_output_schema
+        schema = get_node_output_schema(node_type)
+        return JsonResponse({
+            'success': True,
+            'data': schema
+        })
+
+
+class KnowledgeBaseListAPIView(View):
+    """知识库列表API - 获取可用的知识库"""
+    
+    def get(self, request):
+        """获取知识库列表"""
+        try:
+            from .models import AIKnowledgeBase
+            knowledge_bases = AIKnowledgeBase.objects.filter(
+                status='published'
+            ).values('id', 'name', 'description')
+            
+            kb_list = []
+            for kb in knowledge_bases:
+                kb_list.append({
+                    'id': str(kb['id']),
+                    'title': kb['name'],
+                    'description': kb['description'] or '',
+                    'knowledge_type': 'generic'
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'data': kb_list,
+                'total': len(kb_list)
+            })
+            
+        except Exception as e:
+            logger.error(f'获取知识库列表失败: {e}', exc_info=True)
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)
+
+
+class ModelConfigListAPIView(View):
+    """模型配置列表API - 获取可用的AI模型配置"""
+    
+    def get(self, request):
+        """获取模型配置列表"""
+        try:
+            model_configs = AIModelConfig.objects.filter(
+                is_active=True
+            ).values('id', 'name', 'provider', 'model_name')
+            
+            model_list = []
+            for config in model_configs:
+                model_list.append({
+                    'id': str(config['id']),
+                    'name': config['name'],
+                    'provider': config['provider'],
+                    'model_name': config['model_name']
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'data': model_list,
+                'total': len(model_list)
+            })
+            
+        except Exception as e:
+            logger.error(f'获取模型配置列表失败: {e}', exc_info=True)
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)
+
+
+class WorkflowModuleListAPIView(View):
+    """工作流模块列表API - 获取可用的工作流"""
+    
+    def get(self, request):
+        """获取工作流列表"""
+        try:
+            workflows = AIWorkflow.objects.filter(
+                is_active=True
+            ).values('id', 'name', 'description', 'category')
+            
+            wf_list = []
+            for wf in workflows:
+                wf_list.append({
+                    'id': str(wf['id']),
+                    'name': wf['name'],
+                    'description': wf['description'] or '',
+                    'category': wf['category'] or '未分类'
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'data': wf_list,
+                'total': len(wf_list)
+            })
+            
+        except Exception as e:
+            logger.error(f'获取工作流列表失败: {e}', exc_info=True)
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)
+
+
+class NodeDynamicOptionsView(View):
+    """节点动态选项API - 根据节点类型获取动态下拉选项"""
+    
+    def get(self, request, node_type):
+        """获取指定节点的动态选项"""
+        try:
+            from .models import AIKnowledgeBase, AIModelConfig, AIWorkflow
+            options = {}
+            
+            if node_type in ['ai_generation', 'ai_model', 'ai_classification', 'ai_extraction', 
+                            'intent_recognition', 'sentiment_analysis']:
+                model_configs = AIModelConfig.objects.filter(is_active=True)
+                options['model_id'] = [
+                    {'value': str(config.id), 'label': f"{config.name} ({config.provider})", 'provider': config.provider}
+                    for config in model_configs
+                ]
+                
+            elif node_type in ['knowledge_retrieval', 'ai_knowledge_retrieval']:
+                knowledge_bases = AIKnowledgeBase.objects.filter(status='published')
+                options['knowledge_base_id'] = [
+                    {'value': str(kb.id), 'label': kb.name, 'knowledge_type': getattr(kb, 'knowledge_type', 'generic')}
+                    for kb in knowledge_bases
+                ]
+                
+            elif node_type == 'workflow_trigger':
+                workflows = AIWorkflow.objects.filter(is_active=True)
+                options['workflow_id'] = [
+                    {'value': str(wf.id), 'label': wf.name, 'category': getattr(wf, 'category', '未分类')}
+                    for wf in workflows
+                ]
+                
+            elif node_type in ['http_request', 'api_call']:
+                options['method'] = [
+                    {'value': 'GET', 'label': 'GET'},
+                    {'value': 'POST', 'label': 'POST'},
+                    {'value': 'PUT', 'label': 'PUT'},
+                    {'value': 'DELETE', 'label': 'DELETE'},
+                    {'value': 'PATCH', 'label': 'PATCH'}
+                ]
+                options['content_type'] = [
+                    {'value': 'application/json', 'label': 'JSON'},
+                    {'value': 'application/x-www-form-urlencoded', 'label': 'Form URL Encoded'},
+                    {'value': 'multipart/form-data', 'label': 'Multipart Form'},
+                    {'value': 'text/plain', 'label': 'Plain Text'}
+                ]
+                
+            return JsonResponse({
+                'success': True,
+                'node_type': node_type,
+                'options': options
+            })
+            
+        except Exception as e:
+            logger.error(f'获取节点动态选项失败: {e}', exc_info=True)
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)
