@@ -454,13 +454,11 @@ def finance_dashboard(request):
         # 费用类型分析 - 按费用类型统计
         expense_by_category = Expense.objects.filter(
             create_time__gte=current_month_ts
-        ).annotate(
-            type_name=models_Value('费用支出', output_field=CharField())
-        ).values('type_name').annotate(total=Sum('cost'))
+        ).aggregate(total=Sum('cost')) or {'total': 0}
         
         expense_category = {
-            'labels': json.dumps([item['type_name'] for item in expense_by_category]),
-            'data': json.dumps([float(item['total'] or 0) for item in expense_by_category])
+            'labels': json.dumps(['费用支出']),
+            'data': json.dumps([float(expense_by_category['total'] or 0)])
         }
         
         # 回款统计
@@ -492,11 +490,11 @@ def finance_dashboard(request):
         try:
             receivables = Invoice.objects.filter(
                 enter_status__in=[0, 1]
-            ).select_related('customer').order_by('-amount')[:5]
+            ).order_by('-amount')[:5]
             
             for r in receivables:
                 accounts_receivable.append({
-                    'customer_name': r.customer.name if r.customer else '未知客户',
+                    'customer_name': f'客户{r.customer_id}' if r.customer_id else '未知客户',
                     'amount': float(r.amount)
                 })
         except Exception as e:
@@ -504,15 +502,13 @@ def finance_dashboard(request):
             accounts_receivable = []
         
         # ============ 费用分析（按类型） ============
-        expense_by_type = Expense.objects.filter(
+        expense_by_type_total = Expense.objects.filter(
             create_time__gte=current_month_ts
-        ).annotate(
-            type_name=models_Value('费用支出', output_field=CharField())
-        ).values('type_name').annotate(total=Sum('cost'))
+        ).aggregate(total=Sum('cost')) or {'total': 0}
         
         expense_analysis = {
-            'labels': json.dumps([item['type_name'] for item in expense_by_type]),
-            'data': json.dumps([float(item['total'] or 0) for item in expense_by_type])
+            'labels': json.dumps(['费用支出']),
+            'data': json.dumps([float(expense_by_type_total['total'] or 0)])
         }
         
         # 财务预警
@@ -956,7 +952,7 @@ def production_dashboard(request):
             
             for plan in plans:
                 tasks = ProductionTask.objects.filter(
-                    production_plan=plan
+                    plan=plan
                 )
                 total = tasks.count()
                 completed = tasks.filter(status=3).count()

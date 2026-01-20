@@ -99,7 +99,7 @@
                                         <button class="layui-btn layui-btn-xs">
                                             <i class="layui-icon layui-icon-search"></i> 预览
                                         </button>
-                                        <a href="{% url 'production:data_mapping_list' source.id %}" class="layui-btn layui-btn-xs">
+                                        <a href="{% url 'production:data_mapping_list' %}" class="layui-btn layui-btn-xs">
                                             <i class="layui-icon layui-icon-set"></i> 映射
                                         </a>
                                         <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="manualCollect({{ source.id }})">
