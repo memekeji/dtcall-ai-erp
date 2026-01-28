@@ -1,0 +1,186 @@
+/* 全局样式重置 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #333;
+  background-color: #f5f7fa;
+  overflow: hidden;
+}
+
+/* 全局滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 链接样式 */
+a {
+  color: #1890ff;
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+a:hover {
+  color: #40a9ff;
+}
+
+/* 按钮基础样式 */
+button {
+  cursor: pointer;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+button:hover {
+  opacity: 0.8;
+  transform: translateY(-1px);
+}
+
+/* 表单元素基础样式 */
+input, select, textarea {
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+/* 清除浮动 */
+.clearfix::after {
+  content: '';
+  display: table;
+  clear: both;
+}
+
+/* 文本截断 */
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 容器样式 */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* Element Plus 组件样式优化 */
+.el-card {
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1) !important;
+  border-radius: 8px !important;
+  transition: all 0.3s ease;
+}
+
+.el-card:hover {
+  box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.15) !important;
+}
+
+.el-button:hover {
+  opacity: 0.8;
+  transform: translateY(-1px);
+}
+
+.el-table__row:hover {
+  background-color: #f5f7fa !important;
+}
+
+.el-tag {
+  margin-right: 4px;
+  font-weight: 500;
+}
+
+.el-progress {
+  margin: 4px 0;
+}
+
+.el-loading-mask {
+  background-color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.el-menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.el-form-item {
+  margin-bottom: 16px !important;
+}
+
+.el-input__wrapper:focus-within {
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+}
+
+/* 状态标签颜色 */
+.status-tag {
+  font-weight: 500;
+}
+
+/* 任务卡片悬停效果 */
+.task-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+/* 看板列样式 */
+.kanban-column {
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.kanban-column:hover {
+  background-color: #eaeaea;
+}
+
+/* 项目统计卡片 */
+.stat-card {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* 甘特图容器 */
+#ganttChart {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* 平滑过渡效果 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
