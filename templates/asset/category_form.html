@@ -1,0 +1,397 @@
+{% extends 'home/iframe_base.html' %}
+{% load static %}
+
+{% block title %}{% if object %}编辑资产分类{% else %}新增资产分类{% endif %}{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    background: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.shadcn-form-container {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    margin: 0;
+    background: #f8fafc;
+}
+
+.shadcn-form-header {
+    flex-shrink: 0;
+    padding: 20px 24px;
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.shadcn-form-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #0f172a;
+    letter-spacing: -0.025em;
+}
+
+.shadcn-form-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    background: #f8fafc;
+}
+
+.shadcn-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.shadcn-card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #fafbfc;
+}
+
+.shadcn-card-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #0f172a;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.shadcn-card-title::before {
+    content: '';
+    width: 4px;
+    height: 18px;
+    background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+    border-radius: 2px;
+}
+
+.shadcn-card-content {
+    padding: 20px;
+}
+
+.shadcn-form-item {
+    margin-bottom: 20px;
+}
+
+.shadcn-form-item:last-child {
+    margin-bottom: 0;
+}
+
+.shadcn-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: #0f172a;
+    margin-bottom: 6px;
+}
+
+.shadcn-label .required {
+    color: #ef4444;
+    margin-left: 2px;
+}
+
+.shadcn-input {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #0f172a;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    outline: none;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.shadcn-input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.shadcn-input::placeholder {
+    color: #94a3b8;
+}
+
+.shadcn-textarea {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #0f172a;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    outline: none;
+    transition: all 0.2s ease;
+    resize: vertical;
+    min-height: 80px;
+    box-sizing: border-box;
+}
+
+.shadcn-textarea:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.shadcn-textarea::placeholder {
+    color: #94a3b8;
+}
+
+.shadcn-switch {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.shadcn-switch input {
+    display: none;
+}
+
+.shadcn-switch-track {
+    width: 42px;
+    height: 24px;
+    background: #e2e8f0;
+    border-radius: 12px;
+    position: relative;
+    transition: background 0.2s ease;
+}
+
+.shadcn-switch-track::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.shadcn-switch input:checked + .shadcn-switch-track {
+    background: #22c55e;
+}
+
+.shadcn-switch input:checked + .shadcn-switch-track::after {
+    transform: translateX(18px);
+}
+
+.shadcn-switch-label {
+    margin-left: 10px;
+    font-size: 14px;
+    color: #64748b;
+}
+
+.shadcn-btn-group {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.shadcn-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.shadcn-btn-primary {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.shadcn-btn-primary:hover {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+    transform: translateY(-1px);
+}
+
+.shadcn-btn-primary:active {
+    transform: translateY(0);
+}
+
+.shadcn-btn-secondary {
+    background: #fff;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+}
+
+.shadcn-btn-secondary:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #1e293b;
+}
+
+.shadcn-btn-secondary:active {
+    background: #f1f5f9;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+@media (max-width: 640px) {
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+.help-text {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 4px;
+}
+
+.status-active {
+    color: #22c55e;
+}
+
+.status-inactive {
+    color: #64748b;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="shadcn-form-container">
+    <div class="shadcn-form-header">
+        <h3>{% if object %}编辑资产分类{% else %}新增资产分类{% endif %}</h3>
+    </div>
+    <div class="shadcn-form-body">
+        <div class="shadcn-card">
+            <div class="shadcn-card-header">
+                <h4 class="shadcn-card-title">分类信息</h4>
+            </div>
+            <div class="shadcn-card-content">
+                <form class="layui-form" method="post" id="categoryForm">
+                    {% csrf_token %}
+                    
+                    <div class="form-row">
+                        <div class="shadcn-form-item">
+                            <label class="shadcn-label">
+                                分类编码 <span class="required">*</span>
+                            </label>
+                            <input type="text" name="code" id="id_code" class="shadcn-input" 
+                                value="{{ object.code|default:'' }}" placeholder="请输入分类编码" required maxlength="50">
+                        </div>
+                        
+                        <div class="shadcn-form-item">
+                            <label class="shadcn-label">
+                                分类名称 <span class="required">*</span>
+                            </label>
+                            <input type="text" name="name" id="id_name" class="shadcn-input" 
+                                value="{{ object.name|default:'' }}" placeholder="请输入分类名称" required maxlength="100">
+                        </div>
+                    </div>
+                    
+                    <div class="shadcn-form-item">
+                        <label class="shadcn-label">描述</label>
+                        <textarea name="description" id="id_description" class="shadcn-textarea" 
+                            rows="3" placeholder="请输入描述信息">{{ object.description|default:'' }}</textarea>
+                    </div>
+                    
+                    <div class="shadcn-form-item">
+                        <label class="shadcn-label">状态</label>
+                        <label class="shadcn-switch">
+                            <input type="checkbox" name="is_active" id="id_is_active" 
+                                {% if object.is_active|default:true %}checked{% endif %}>
+                            <span class="shadcn-switch-track"></span>
+                            <span id="status-label" class="shadcn-switch-label status-active">启用</span>
+                        </label>
+                    </div>
+                    
+                    <div class="shadcn-btn-group">
+                        <button type="button" class="shadcn-btn shadcn-btn-secondary" onclick="closeForm()">
+                            <i class="layui-icon layui-icon-close"></i> 取消
+                        </button>
+                        <button type="button" class="shadcn-btn shadcn-btn-primary" onclick="submitForm()">
+                            <i class="layui-icon layui-icon-ok"></i> 保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'layui/layui.js' %}"></script>
+<script>
+layui.use(['layer', 'form'], function(){
+    var layer = layui.layer;
+    var form = layui.form;
+    
+    form.render();
+    
+    var statusSwitch = document.getElementById('id_is_active');
+    var statusLabel = document.getElementById('status-label');
+    
+    statusSwitch.addEventListener('change', function() {
+        if (this.checked) {
+            statusLabel.textContent = '启用';
+            statusLabel.className = 'shadcn-switch-label status-active';
+        } else {
+            statusLabel.textContent = '停用';
+            statusLabel.className = 'shadcn-switch-label status-inactive';
+        }
+    });
+    
+    window.submitForm = function() {
+        var code = document.getElementById('id_code').value.trim();
+        var name = document.getElementById('id_name').value.trim();
+        
+        if (!code) {
+            layer.msg('请输入分类编码', { icon: 2 });
+            document.getElementById('id_code').focus();
+            return;
+        }
+        
+        if (!name) {
+            layer.msg('请输入分类名称', { icon: 2 });
+            document.getElementById('id_name').focus();
+            return;
+        }
+        
+        document.getElementById('categoryForm').submit();
+    };
+    
+    window.closeForm = function() {
+        var index = parent.layer.getFrameIndex(window.name);
+        parent.layer.close(index);
+    };
+});
+</script>
+{% endblock %}

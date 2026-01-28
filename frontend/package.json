@@ -17,7 +17,7 @@
     "echarts": "^5.5.1",
     "dayjs": "^1.11.13",
     "vuedraggable": "^4.1.0",
-    "@element-plus/icons-vue": "^2.5.2"
+    "@element-plus/icons-vue": "^2.3.1"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.1",

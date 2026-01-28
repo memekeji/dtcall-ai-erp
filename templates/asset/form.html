@@ -1,156 +1,612 @@
-{% extends 'include/common.html' %}
+{% extends 'home/iframe_base.html' %}
 {% load static %}
 
 {% block title %}{% if asset %}编辑资产{% else %}新增资产{% endif %}{% endblock %}
 
+{% block css %}
+<link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    background: #fff;
+}
+
+.layui-form-container {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    margin: 0;
+}
+
+.layui-form-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+}
+
+.layui-form-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.header-action {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-regenerate {
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.3s;
+}
+
+.btn-regenerate:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+.layui-form-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    background: #fff;
+}
+
+.form-section {
+    margin-bottom: 20px;
+}
+
+.section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    padding: 8px 0;
+    border-bottom: 2px solid #667eea;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.section-title::before {
+    content: '';
+    width: 4px;
+    height: 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 2px;
+}
+
+.form-row {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0 -8px;
+}
+
+.form-col {
+    flex: 0 0 50%;
+    padding: 0 8px;
+    box-sizing: border-box;
+}
+
+.form-col-33 {
+    flex: 0 0 33.333333%;
+    padding: 0 8px;
+    box-sizing: border-box;
+}
+
+.form-item {
+    margin-bottom: 16px;
+}
+
+.layui-form-label {
+    float: left;
+    display: block;
+    padding: 9px 15px;
+    width: 100px;
+    font-weight: 400;
+    text-align: right;
+    color: #666;
+    box-sizing: border-box;
+}
+
+.layui-form-label .required {
+    color: #f56c6c;
+    margin-left: 2px;
+}
+
+.layui-input-block {
+    margin-left: 100px;
+    min-height: 36px;
+}
+
+.layui-input, .layui-select, .layui-textarea {
+    display: block;
+    width: 100%;
+    padding-left: 15px;
+    height: 38px;
+    line-height: 38px;
+    line-height: 1.3;
+    border: 1px solid #e6e6e6;
+    border-radius: 2px;
+    background-color: #fff;
+    color: #333;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.layui-input:focus, .layui-input:active, .layui-textarea:focus {
+    border-color: #667eea !important;
+    outline: none;
+}
+
+.layui-textarea {
+    resize: vertical;
+    min-height: 80px;
+    padding: 9px 15px;
+    line-height: 1.3;
+}
+
+.layui-input.is-error {
+    border-color: #f56c6c !important;
+}
+
+.layui-input.is-success {
+    border-color: #67c23a !important;
+}
+
+.help-text {
+    font-size: 12px;
+    color: #909399;
+    margin-top: 4px;
+}
+
+.asset-number-wrapper {
+    position: relative;
+}
+
+.asset-number-wrapper .layui-input {
+    padding-right: 90px;
+}
+
+.btn-auto-generate {
+    position: absolute;
+    right: 4px;
+    top: 4px;
+    bottom: 4px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    border: none;
+    padding: 0 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: opacity 0.3s;
+}
+
+.btn-auto-generate:hover {
+    opacity: 0.9;
+}
+
+.btn-auto-generate:disabled {
+    background: #c0c4cc;
+    cursor: not-allowed;
+}
+
+.layui-form-footer {
+    flex-shrink: 0;
+    padding: 15px 20px;
+    background: #fafafa;
+    border-top: 1px solid #e6e6e6;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.layui-btn {
+    display: inline-block;
+    height: 38px;
+    line-height: 38px;
+    padding: 0 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    white-space: nowrap;
+    text-align: center;
+    font-size: 14px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.layui-btn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.layui-btn:active {
+    transform: translateY(0);
+}
+
+.layui-btn-primary {
+    background: #fff;
+    color: #606266;
+    border: 1px solid #dcdfe6;
+}
+
+.layui-btn-primary:hover {
+    color: #667eea;
+    border-color: #667eea;
+}
+
+@media screen and (max-width: 768px) {
+    .form-col, .form-col-33 {
+        flex: 0 0 100%;
+    }
+    
+    .layui-form-label {
+        float: none;
+        width: auto;
+        padding: 9px 15px;
+        text-align: left;
+    }
+    
+    .layui-input-block {
+        margin-left: 0;
+    }
+}
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="layui-card">
-    <div class="layui-card-header">
+<div class="layui-form-container">
+    <div class="layui-form-header">
         <h3>{% if asset %}编辑资产{% else %}新增资产{% endif %}</h3>
+        <div class="header-action">
+            <button type="button" class="btn-regenerate" id="btnRegenerate" onclick="generateAssetNumber()">
+                <i class="layui-icon layui-icon-refresh"></i> 重新生成编号
+            </button>
+        </div>
     </div>
-    <div class="layui-card-body">
-        <form class="layui-form" method="post">
+    
+    <div class="layui-form-body">
+        <form class="layui-form" id="assetForm" method="post">
             {% csrf_token %}
-            <div class="layui-row layui-col-space15">
-                <div class="layui-col-md6">
-                    <div class="layui-form-item">
-                        <label class="layui-form-label">资产编号 <span style="color: red;">*</span></label>
-                        <div class="layui-input-block">
-                            {{ form.asset_number }}
+            
+            <div class="form-section">
+                <div class="section-title">基本信息</div>
+                <div class="form-row">
+                    <div class="form-col">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">资产编号 <span class="required">*</span></label>
+                            <div class="layui-input-block asset-number-wrapper">
+                                <input type="text" name="asset_number" id="id_asset_number" class="layui-input" 
+                                    placeholder="自动生成或手动输入" value="{{ form.asset_number.value|default:'' }}" maxlength="50">
+                                <button type="button" class="btn-auto-generate" id="btnGenerate" onclick="generateAssetNumber()">
+                                    自动生成
+                                </button>
+                            </div>
+                            <div class="help-text">格式：ZC20250001，字母+年份+4位序号</div>
                         </div>
                     </div>
-                </div>
-                <div class="layui-col-md6">
-                    <div class="layui-form-item">
-                        <label class="layui-form-label">资产名称 <span style="color: red;">*</span></label>
-                        <div class="layui-input-block">
-                            {{ form.name }}
+                    <div class="form-col">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">资产名称 <span class="required">*</span></label>
+                            <div class="layui-input-block">
+                                <input type="text" name="name" id="id_name" class="layui-input" 
+                                    placeholder="请输入资产名称" value="{{ form.name.value|default:'' }}" maxlength="200">
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <div class="layui-row layui-col-space15">
-                <div class="layui-col-md4">
-                    <div class="layui-form-item">
-                        <label class="layui-form-label">资产分类</label>
-                        <div class="layui-input-block">
-                            {{ form.category }}
+            <div class="form-section">
+                <div class="section-title">规格信息</div>
+                <div class="form-row">
+                    <div class="form-col-33">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">资产分类</label>
+                            <div class="layui-input-block">
+                                <select name="category" id="id_category" class="layui-input">
+                                    <option value="">请选择分类</option>
+                                    {% for choice in form.category.field.choices %}
+                                    <option value="{{ choice.0 }}" {% if form.category.value == choice.0 %}selected{% endif %}>{{ choice.1 }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-col-33">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">品牌</label>
+                            <div class="layui-input-block">
+                                <select name="brand" id="id_brand" class="layui-input">
+                                    <option value="">请选择品牌</option>
+                                    {% for choice in form.brand.field.choices %}
+                                    <option value="{{ choice.0 }}" {% if form.brand.value == choice.0 %}selected{% endif %}>{{ choice.1 }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-col-33">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">型号</label>
+                            <div class="layui-input-block">
+                                <input type="text" name="model" id="id_model" class="layui-input" 
+                                    placeholder="请输入型号" value="{{ form.model.value|default:'' }}" maxlength="100">
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="layui-col-md4">
-                    <div class="layui-form-item">
-                        <label class="layui-form-label">品牌</label>
-                        <div class="layui-input-block">
-                            {{ form.brand }}
+                
+                <div class="layui-form-item">
+                    <label class="layui-form-label">规格参数</label>
+                    <div class="layui-input-block">
+                        <textarea name="specification" id="id_specification" class="layui-textarea" 
+                            rows="2" placeholder="请输入规格参数">{{ form.specification.value|default:'' }}</textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <div class="section-title">采购信息</div>
+                <div class="form-row">
+                    <div class="form-col-33">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">购买日期</label>
+                            <div class="layui-input-block">
+                                <input type="date" name="purchase_date" id="id_purchase_date" class="layui-input" 
+                                    value="{{ form.purchase_date.value|date:'Y-m-d'|default:'' }}">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-col-33">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">购买价格</label>
+                            <div class="layui-input-block">
+                                <input type="number" name="purchase_price" id="id_purchase_price" class="layui-input" 
+                                    placeholder="0.00" step="0.01" min="0" value="{{ form.purchase_price.value|default:'' }}">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-col-33">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">保修期(月)</label>
+                            <div class="layui-input-block">
+                                <input type="number" name="warranty_period" id="id_warranty_period" class="layui-input" 
+                                    placeholder="0" min="0" value="{{ form.warranty_period.value|default:'' }}">
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="layui-col-md4">
-                    <div class="layui-form-item">
-                        <label class="layui-form-label">型号</label>
-                        <div class="layui-input-block">
-                            {{ form.model }}
+                
+                <div class="form-row">
+                    <div class="form-col">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">供应商</label>
+                            <div class="layui-input-block">
+                                <input type="text" name="supplier" id="id_supplier" class="layui-input" 
+                                    placeholder="请输入供应商" value="{{ form.supplier.value|default:'' }}" maxlength="200">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-col">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">存放位置</label>
+                            <div class="layui-input-block">
+                                <input type="text" name="location" id="id_location" class="layui-input" 
+                                    placeholder="请输入存放位置" value="{{ form.location.value|default:'' }}" maxlength="200">
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <div class="layui-form-item">
-                <label class="layui-form-label">规格参数</label>
-                <div class="layui-input-block">
-                    {{ form.specification }}
-                </div>
-            </div>
-            
-            <div class="layui-row layui-col-space15">
-                <div class="layui-col-md4">
-                    <div class="layui-form-item">
-                        <label class="layui-form-label">购买日期</label>
-                        <div class="layui-input-block">
-                            {{ form.purchase_date }}
+            <div class="form-section">
+                <div class="section-title">管理信息</div>
+                <div class="form-row">
+                    <div class="form-col-33">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">责任人</label>
+                            <div class="layui-input-block">
+                                <select name="responsible_person" id="id_responsible_person" class="layui-input">
+                                    <option value="">请选择责任人</option>
+                                    {% for choice in form.responsible_person.field.choices %}
+                                    <option value="{{ choice.0 }}" {% if form.responsible_person.value == choice.0 %}selected{% endif %}>{{ choice.1 }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="layui-col-md4">
-                    <div class="layui-form-item">
-                        <label class="layui-form-label">购买价格</label>
-                        <div class="layui-input-block">
-                            {{ form.purchase_price }}
+                    <div class="form-col-33">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">所属部门</label>
+                            <div class="layui-input-block">
+                                <select name="department" id="id_department" class="layui-input">
+                                    <option value="">请选择部门</option>
+                                    {% for choice in form.department.field.choices %}
+                                    <option value="{{ choice.0 }}" {% if form.department.value == choice.0 %}selected{% endif %}>{{ choice.1 }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="layui-col-md4">
-                    <div class="layui-form-item">
-                        <label class="layui-form-label">保修期(月)</label>
-                        <div class="layui-input-block">
-                            {{ form.warranty_period }}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="layui-row layui-col-space15">
-                <div class="layui-col-md6">
-                    <div class="layui-form-item">
-                        <label class="layui-form-label">供应商</label>
-                        <div class="layui-input-block">
-                            {{ form.supplier }}
-                        </div>
-                    </div>
-                </div>
-                <div class="layui-col-md6">
-                    <div class="layui-form-item">
-                        <label class="layui-form-label">存放位置</label>
-                        <div class="layui-input-block">
-                            {{ form.location }}
+                    <div class="form-col-33">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">资产状态</label>
+                            <div class="layui-input-block">
+                                <select name="status" id="id_status" class="layui-input">
+                                    {% for choice in form.status.field.choices %}
+                                    <option value="{{ choice.0 }}" {% if form.status.value == choice.0 %}selected{% endif %}>{{ choice.1 }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <div class="layui-row layui-col-space15">
-                <div class="layui-col-md4">
-                    <div class="layui-form-item">
-                        <label class="layui-form-label">责任人</label>
-                        <div class="layui-input-block">
-                            {{ form.responsible_person }}
-                        </div>
+            <div class="form-section">
+                <div class="section-title">备注说明</div>
+                <div class="layui-form-item">
+                    <div class="layui-input-block">
+                        <textarea name="description" id="id_description" class="layui-textarea" 
+                            rows="3" placeholder="请输入备注说明">{{ form.description.value|default:'' }}</textarea>
                     </div>
-                </div>
-                <div class="layui-col-md4">
-                    <div class="layui-form-item">
-                        <label class="layui-form-label">所属部门</label>
-                        <div class="layui-input-block">
-                            {{ form.department }}
-                        </div>
-                    </div>
-                </div>
-                <div class="layui-col-md4">
-                    <div class="layui-form-item">
-                        <label class="layui-form-label">资产状态</label>
-                        <div class="layui-input-block">
-                            {{ form.status }}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="layui-form-item">
-                <label class="layui-form-label">备注说明</label>
-                <div class="layui-input-block">
-                    {{ form.description }}
-                </div>
-            </div>
-            
-            <div class="layui-form-item">
-                <div class="layui-input-block">
-                    <button class="layui-btn" type="submit">保存</button>
-                    <a href="{% url 'system:admin_office:asset_list' %}" class="layui-btn layui-btn-primary">返回</a>
                 </div>
             </div>
         </form>
     </div>
+    
+    <div class="layui-form-footer">
+        <button type="button" class="layui-btn layui-btn-primary" onclick="closeForm()">取消</button>
+        <button type="button" class="layui-btn" onclick="submitForm()">保存</button>
+    </div>
 </div>
+
+<script src="{% static 'layui/layui.js' %}"></script>
+<script>
+var assetNumberGenerated = false;
+var isEditMode = {% if asset %}true{% else %}false{% endif %};
+var assetId = {% if asset %}{{ asset.pk }}{% else %}null{% endif %};
+
+document.addEventListener('DOMContentLoaded', function() {
+    if (!isEditMode) {
+        generateAssetNumber();
+    }
+});
+
+layui.use(['form', 'laydate'], function() {
+    var form = layui.form;
+    var laydate = layui.laydate;
+    
+    laydate.render({
+        elem: '#id_purchase_date',
+        format: 'yyyy-MM-dd'
+    });
+    
+    form.render();
+});
+
+function generateAssetNumber() {
+    var btnGenerate = document.getElementById('btnGenerate');
+    var btnRegenerate = document.getElementById('btnRegenerate');
+    var input = document.getElementById('id_asset_number');
+    
+    btnGenerate.disabled = true;
+    btnGenerate.textContent = '生成中...';
+    
+    fetch('{% url "system:admin_office:asset_generate_number" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.code === 200) {
+                input.value = data.data.asset_number;
+                input.classList.add('is-success');
+                input.classList.remove('is-error');
+                assetNumberGenerated = true;
+                layer.msg('资产编号已生成：' + data.data.asset_number, { icon: 1 });
+            } else {
+                layer.msg('生成失败，请稍后重试', { icon: 2 });
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            layer.msg('生成失败，请稍后重试', { icon: 2 });
+        })
+        .finally(() => {
+            btnGenerate.disabled = false;
+            btnGenerate.textContent = '自动生成';
+        });
+}
+
+function submitForm() {
+    var form = document.getElementById('assetForm');
+    var input = document.getElementById('id_asset_number');
+    var value = input.value.trim();
+    
+    if (!value) {
+        layer.msg('请输入资产编号', { icon: 2 });
+        input.focus();
+        return;
+    }
+    
+    var pattern = /^[A-Z]{2}\d{8}$/;
+    if (!pattern.test(value)) {
+        layer.msg('编号格式不正确，示例：ZC20250001', { icon: 2 });
+        input.focus();
+        return;
+    }
+    
+    var nameInput = document.getElementById('id_name');
+    if (!nameInput.value.trim()) {
+        layer.msg('请输入资产名称', { icon: 2 });
+        nameInput.focus();
+        return;
+    }
+    
+    var formData = new FormData(form);
+    var url = isEditMode 
+        ? '/system/admin_office/asset/' + assetId + '/update/'
+        : '{% url "system:admin_office:asset_create" %}';
+    
+    fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': form.querySelector('[name="csrfmiddlewaretoken"]').value
+        }
+    })
+    .then(response => {
+        if (response.redirected) {
+            layer.msg('保存成功', { icon: 1 });
+            setTimeout(function() {
+                if (parent.layer) {
+                    parent.layer.close(parent.layer.getFrameIndex(window.name));
+                    parent.location.reload();
+                }
+            }, 500);
+        } else {
+            return response.text();
+        }
+    })
+    .then(html => {
+        if (html && html.includes('layui-form-container')) {
+            document.open();
+            document.write(html);
+            document.close();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        layer.msg('保存失败，请稍后重试', { icon: 2 });
+    });
+}
+
+function closeForm() {
+    if (parent.layer) {
+        parent.layer.close(parent.layer.getFrameIndex(window.name));
+    }
+}
+</script>
 {% endblock %}

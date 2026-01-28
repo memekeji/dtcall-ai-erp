@@ -188,15 +188,23 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
+        var isTaskSubmitting = false;
+
         layui.use(['form', 'layer'], function () {
             var form = layui.form;
             var layer = layui.layer;
 
-            // 监听表单提交
             form.on('submit(submitBtn)', function (data) {
-                var loadIndex = layer.load(2);
+                if (isTaskSubmitting) {
+                    return false;
+                }
+                isTaskSubmitting = true;
                 
-                // 添加CSRF token
+                var loadIndex = layer.load(2);
+                var submitBtn = $(this);
+                submitBtn.prop('disabled', true).addClass('layui-btn-disabled');
+                submitBtn.html('<i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 提交中...');
+                
                 var formData = data.field;
                 formData.csrfmiddlewaretoken = $('[name=csrfmiddlewaretoken]').val();
                 
@@ -212,18 +220,30 @@
                         layer.close(loadIndex);
                         if (res.code === 0) {
                             layer.msg(res.msg, { icon: 1 }, function () {
-                                // 关闭弹窗并刷新父页面
                                 var index = parent.layer.getFrameIndex(window.name);
                                 parent.layer.close(index);
-                                parent.layui.table.reload('taskTable');
                             });
                         } else {
+                            isTaskSubmitting = false;
+                            submitBtn.prop('disabled', false).removeClass('layui-btn-disabled');
+                            {% if is_edit %}
+                            submitBtn.html('更新任务');
+                            {% else %}
+                            submitBtn.html('创建任务');
+                            {% endif %}
                             layer.msg(res.msg, { icon: 2 });
                         }
                     },
                     error: function (xhr, status, error) {
                         console.log('Task error:', xhr.responseText);
                         layer.close(loadIndex);
+                        isTaskSubmitting = false;
+                        submitBtn.prop('disabled', false).removeClass('layui-btn-disabled');
+                        {% if is_edit %}
+                        submitBtn.html('更新任务');
+                        {% else %}
+                        submitBtn.html('创建任务');
+                        {% endif %}
                         layer.msg('网络错误，请重试: ' + error, { icon: 2 });
                     }
                 });

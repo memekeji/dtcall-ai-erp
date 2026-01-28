@@ -73,6 +73,10 @@ class StorageConfigFormView(BaseAdminView, View):
             config.description = request.POST.get('description', '')
             config.creator = request.user
             
+            # 设置默认状态
+            if not pk:
+                config.status = 'inactive'
+            
             if not config.name:
                 messages.error(request, '配置名称不能为空')
                 return redirect('system:storage_config_list')
@@ -81,6 +85,7 @@ class StorageConfigFormView(BaseAdminView, View):
                 messages.error(request, '请选择存储类型')
                 return redirect('system:storage_config_list')
             
+            # 仅当非本地存储时进行测试
             if config.storage_type != 'local':
                 test_result = self._test_config_from_form(request)
                 if not test_result['success']:
@@ -90,6 +95,11 @@ class StorageConfigFormView(BaseAdminView, View):
                     config.status = 'active'
                     config.last_error = ''
                     config.last_test_time = timezone.now()
+            else:
+                # 本地存储直接设置为活跃状态
+                config.status = 'active'
+                config.last_error = ''
+                config.last_test_time = timezone.now()
             
             config.save()
             
@@ -97,7 +107,8 @@ class StorageConfigFormView(BaseAdminView, View):
             return redirect('system:storage_config_list')
             
         except Exception as e:
-            messages.error(request, f'保存失败: {str(e)}')
+            import traceback
+            messages.error(request, f'保存失败: {str(e)}\n{traceback.format_exc()}')
             return redirect('system:storage_config_list')
     
     def _test_config_from_form(self, request):
@@ -250,6 +261,7 @@ class StorageConfigTestFormView(BaseAdminView, View):
 
 class StorageConfigSetDefaultView(BaseAdminView, View):
     """设置默认存储配置"""
+    permission_required = ()
     
     def post(self, request, pk):
         try:

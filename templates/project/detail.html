@@ -525,7 +525,10 @@
                 shade: 0.3,
                 area: ['75%', '90%'],
                 offset: 'r',
-                content: url
+                content: url,
+                end: function() {
+                    window.location.reload();
+                }
             });
         }
 

@@ -122,15 +122,6 @@ def _get_menus_for_user(request):
     Returns:
         tuple: (top_menus, menus)
     """
-    from django.core.cache import cache
-    
-    cache_key = f'dashboard_menu_{request.user.id}'
-    
-    cached_menu_data = cache.get(cache_key)
-    
-    if cached_menu_data:
-        return cached_menu_data['top_menus'], cached_menu_data['menus']
-    
     all_menus = Menu.objects.filter(status=1).select_related('module').order_by('sort')
     
     available_menus = []
@@ -145,8 +136,6 @@ def _get_menus_for_user(request):
         top_menus, menus = _build_menu_tree(available_menus, None, True)
     else:
         top_menus, menus = _build_menu_tree(available_menus, user_permissions, False)
-    
-    cache.set(cache_key, {'top_menus': top_menus, 'menus': menus}, 10 * 60)
     
     return top_menus, menus
 

@@ -26,6 +26,8 @@ urlpatterns = [
     
     # 附件管理
     path('attachment/', views.attachment_list, name='attachment_list'),
+    # 禁用尾随斜杠重定向，允许精确匹配文件路径
+    path('attachment/<path:file_path>', views.attachment_download, name='attachment_download'),
     
     # 数据备份
     path('backup/', views.backup_list, name='backup_list'),

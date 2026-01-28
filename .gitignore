@@ -96,3 +96,14 @@ $RECYCLE.BIN/
 .directory
 .Trash-*
 .nfs*
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.nuxt/
+
+# Zip files
+dtcall.zip
+
+# Trae AI
+trae-ai-

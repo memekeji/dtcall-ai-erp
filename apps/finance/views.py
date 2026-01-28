@@ -134,6 +134,36 @@ class ReimbursementListView(LoginRequiredMixin, View):
         return render(request, 'finance/expense_list.html')
 
 
+class ExpenseCreateView(LoginRequiredMixin, View):
+    """创建报销"""
+    login_url = '/user/login/'
+
+    def get(self, request):
+        return render(request, 'finance/expense_form.html')
+
+    def post(self, request):
+        try:
+            data = request.POST.dict()
+            data['admin_id'] = request.user.id
+            
+            # 生成报销编码
+            from django.utils import timezone
+            import random
+            code = f'BX{timezone.now().strftime("%Y%m%d%H%M%S")}{random.randint(1000, 9999)}'
+            data['code'] = data.get('code', code)
+            
+            expense = Expense.objects.create(**data)
+            
+            return JsonResponse({
+                'code': ApiResponseCode.CODE_SUCCESS,
+                'msg': '创建成功',
+                'data': {'id': expense.id}
+            })
+        except Exception as e:
+            logger.error(f'创建报销失败: {str(e)}', exc_info=True)
+            return build_error_response(f'创建失败: {str(e)}')
+
+
 class ExpenseSubmitView(LoginRequiredMixin, FinancePermissionMixin, View):
     """提交报销审批"""
     login_url = '/user/login/'

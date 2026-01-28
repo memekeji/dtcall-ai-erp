@@ -3,17 +3,20 @@ import logging
 from datetime import timedelta
 
 from django.shortcuts import render, get_object_or_404, redirect
+from django.template.loader import render_to_string
+from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+from apps.system.decorators.module_check import module_active_required
 from django.views.decorators.csrf import csrf_exempt
 from django.core.paginator import Paginator
 from django.db.models import Q
 
 from apps.user.models import SystemConfiguration, SystemModule, SystemLog, Admin
 from apps.department.models import Department
-from apps.system.forms import SystemConfigForm
+from apps.system.forms import SystemConfigForm, SystemModuleForm, SystemBackupForm, SystemTaskForm
 from apps.system.config_service import config_service
 from apps.system.models import StorageConfiguration, ServiceConfiguration, SystemAttachment, SystemBackup, SystemTask, BackupPolicy
 
@@ -135,6 +138,7 @@ STATIC_SYSTEM_CONFIGS = [
 
 
 @login_required
+@module_active_required()
 def config_list(request):
     """系统配置列表"""
     from apps.user.models import SystemConfiguration
@@ -184,6 +188,7 @@ def config_list(request):
 
 
 @login_required
+@module_active_required()
 def config_form(request, pk=None):
     """系统配置表单"""
     from apps.common.cache_service import SystemCache
@@ -214,6 +219,7 @@ def config_form(request, pk=None):
 
 @login_required
 @require_http_methods(['POST'])
+@module_active_required()
 def config_toggle(request):
     """切换配置状态"""
     from apps.user.models import SystemConfiguration
@@ -239,6 +245,7 @@ def config_toggle(request):
 @login_required
 @require_http_methods(['POST'])
 @csrf_exempt
+@module_active_required()
 def config_upload_logo(request):
     """上传系统Logo"""
     import traceback
@@ -322,6 +329,7 @@ def config_upload_logo(request):
 
 @login_required
 @require_http_methods(['POST'])
+@module_active_required()
 def config_update(request):
     """更新配置值"""
     from apps.user.models import SystemConfiguration
@@ -347,6 +355,7 @@ def config_update(request):
 
 @login_required
 @require_http_methods(['POST'])
+@module_active_required()
 def storage_config_toggle(request):
     """切换存储配置状态"""
     pk = request.POST.get('pk')
@@ -371,6 +380,7 @@ def storage_config_toggle(request):
 
 @login_required
 @require_http_methods(['POST'])
+@module_active_required()
 def storage_config_set_default(request):
     """设置默认存储配置"""
     pk = request.POST.get('pk')
@@ -392,6 +402,7 @@ def storage_config_set_default(request):
 
 @login_required
 @require_http_methods(['POST'])
+@module_active_required()
 def storage_config_delete(request):
     """删除存储配置"""
     pk = request.POST.get('pk')
@@ -410,6 +421,7 @@ def storage_config_delete(request):
 
 
 @login_required
+@module_active_required()
 def module_list(request):
     """功能模块列表"""
     search = request.GET.get('search', '')
@@ -459,6 +471,7 @@ def module_list(request):
 
 
 @login_required
+@module_active_required()
 def module_form(request, pk=None):
     """功能模块表单"""
     module = None
@@ -548,6 +561,10 @@ def module_form(request, pk=None):
                     related_module.is_active = is_active
                     related_module.save()
                         
+            # 8. 立即清除菜单缓存，确保模块状态变化立即生效
+            from apps.user.models.menu import clear_menu_cache_data
+            clear_menu_cache_data()
+            
             messages.success(request, '功能模块保存成功！')
             
             # 记录操作日志
@@ -598,6 +615,7 @@ def module_form(request, pk=None):
 
 
 @login_required
+@module_active_required()
 def log_list(request):
     """操作日志列表"""
     from django.core.paginator import Paginator
@@ -669,6 +687,7 @@ def log_list(request):
 
 
 @login_required
+@module_active_required()
 def attachment_list(request):
     """附件管理列表"""
     search = request.GET.get('search', '')
@@ -761,6 +780,118 @@ def attachment_list(request):
 
 
 @login_required
+@module_active_required()
+def attachment_download(request, file_path):
+    """附件下载视图"""
+    from django.http import FileResponse, Http404
+    from django.conf import settings
+    import os
+    
+    try:
+        logger.info(f'附件下载请求: file_path={file_path}, 请求URL={request.get_full_path()}')
+        
+        # 1. 处理可能的URL编码问题
+        import urllib.parse
+        file_path = urllib.parse.unquote(file_path)
+        logger.info(f'URL解码后file_path={file_path}')
+        
+        # 2. 移除可能存在的尾部斜杠
+        file_path = file_path.rstrip('/')
+        logger.info(f'移除尾部斜杠后file_path={file_path}')
+        
+        # 3. 尝试根据文件路径查询对应的SystemAttachment记录
+        # 首先获取文件名，用于查询
+        file_name = os.path.basename(file_path)
+        logger.info(f'从路径中提取的文件名: {file_name}')
+        
+        # 查询SystemAttachment记录，使用file_path或file_name进行匹配
+        attachment = None
+        try:
+            # 尝试直接匹配file_path
+            attachment = SystemAttachment.objects.filter(file_path=file_path).first()
+            if not attachment:
+                # 尝试匹配file_path包含文件名的情况
+                attachment = SystemAttachment.objects.filter(file_path__contains=file_name).first()
+            logger.info(f'查询到的附件记录: {attachment}')
+        except Exception as db_error:
+            logger.error(f'查询附件记录失败: {str(db_error)}')
+        
+        # 4. 构建完整的文件路径
+        # 检查是否已经是绝对路径
+        if os.path.isabs(file_path):
+            full_file_path = file_path
+        else:
+            # 尝试从MEDIA_ROOT构建路径
+            full_file_path = os.path.join(settings.MEDIA_ROOT, file_path)
+        
+        logger.info(f'构建的文件路径: {full_file_path}')
+        
+        # 5. 检查文件是否存在
+        if not os.path.exists(full_file_path):
+            # 尝试从STATIC_ROOT构建路径
+            static_file_path = os.path.join(settings.STATIC_ROOT, file_path)
+            logger.info(f'检查静态文件路径: {static_file_path}')
+            if os.path.exists(static_file_path):
+                full_file_path = static_file_path
+            else:
+                # 尝试检查当前工作目录
+                cwd_file_path = os.path.join(os.getcwd(), file_path)
+                logger.info(f'检查当前工作目录路径: {cwd_file_path}')
+                if os.path.exists(cwd_file_path):
+                    full_file_path = cwd_file_path
+                else:
+                    # 尝试从项目根目录构建路径
+                    project_root_file_path = os.path.join(settings.BASE_DIR, file_path)
+                    logger.info(f'检查项目根目录路径: {project_root_file_path}')
+                    if os.path.exists(project_root_file_path):
+                        full_file_path = project_root_file_path
+                    else:
+                        # 尝试直接从file_path构建（用于知识文件）
+                        full_file_path = file_path
+                        if not os.path.exists(full_file_path):
+                            logger.error(f'所有路径尝试均失败，无法找到文件: {file_path}')
+                            raise Http404("文件不存在")
+        
+        logger.info(f'最终使用的文件路径: {full_file_path}')
+        
+        # 6. 验证文件存在且可读取
+        if not os.path.exists(full_file_path):
+            logger.error(f'文件不存在: {full_file_path}')
+            raise Http404("文件不存在")
+        
+        if not os.access(full_file_path, os.R_OK):
+            logger.error(f'文件不可读取: {full_file_path}')
+            raise Http404("文件不存在")
+        
+        # 7. 确定返回的文件名
+        # 优先使用数据库中的original_name
+        if attachment and attachment.original_name:
+            response_file_name = attachment.original_name
+            logger.info(f'使用数据库中的原始文件名: {response_file_name}')
+        else:
+            # 否则使用路径中的文件名
+            response_file_name = file_name
+            logger.info(f'使用路径中的文件名: {response_file_name}')
+        
+        # 8. 直接返回FileResponse，Django会自动处理文件关闭
+        # 创建文件响应，不使用with语句，避免文件提前关闭
+        f = open(full_file_path, 'rb')
+        response = FileResponse(f)
+        # 设置响应头
+        # 使用urllib.parse.quote对文件名进行URL编码，确保中文文件名正确
+        import urllib.parse
+        encoded_file_name = urllib.parse.quote(response_file_name)
+        response['Content-Disposition'] = f'attachment; filename="{encoded_file_name}"; filename*=UTF-8''{encoded_file_name}'
+        response['Content-Type'] = 'application/octet-stream'
+        response['Content-Length'] = os.path.getsize(full_file_path)
+        return response
+    except Exception as e:
+        logger.error(f'附件下载失败: {str(e)}')
+        raise Http404("文件不存在")
+
+
+@login_required
+@module_active_required()
 def backup_list(request):
     """数据备份列表"""
     search = request.GET.get('search', '')
@@ -791,6 +922,7 @@ def backup_list(request):
 
 
 @login_required
+@module_active_required()
 def backup_form(request, pk=None):
     """数据备份表单"""
     backup = None
@@ -1107,6 +1239,7 @@ def backup_form(request, pk=None):
 
 
 @login_required
+@module_active_required()
 def task_list(request):
     """定时任务列表"""
     search = request.GET.get('search', '')
@@ -1137,6 +1270,7 @@ def task_list(request):
 
 
 @login_required
+@module_active_required()
 def task_form(request, pk=None):
     """定时任务表单"""
     task = None
@@ -1160,6 +1294,7 @@ def task_form(request, pk=None):
 
 @login_required
 @require_http_methods(["POST"])
+@module_active_required()
 def task_toggle(request, pk):
     """切换任务状态"""
     task = get_object_or_404(SystemTask, pk=pk)
@@ -1181,6 +1316,7 @@ def task_toggle(request, pk):
 
 
 @login_required
+@module_active_required()
 def restore_list(request):
     """数据还原列表"""
     backups = SystemBackup.objects.select_related('creator').order_by('-created_at')
@@ -1198,6 +1334,7 @@ def restore_list(request):
 
 @login_required
 @require_http_methods(["POST"])
+@module_active_required()
 def restore_backup(request, pk):
     """还原备份"""
     backup = get_object_or_404(SystemBackup, pk=pk)

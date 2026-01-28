@@ -1,745 +1,1074 @@
 {% load static %}
 {% block content %}
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>岗位职称管理</title>
-    <link rel="stylesheet" href="/static/layui/css/layui.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
-    <style>
-        /* 全局样式 */
-        :root {
-            --primary: #3b82f6;
-            --primary-hover: #2563eb;
-            --success: #10b981;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --gray-50: #f9fafb;
-            --gray-100: #f3f4f6;
-            --gray-200: #e5e7eb;
-            --gray-300: #d1d5db;
-            --gray-400: #9ca3af;
-            --gray-500: #6b7280;
-            --gray-600: #4b5563;
-            --gray-700: #374151;
-            --gray-800: #1f2937;
-            --gray-900: #111827;
-            --border-radius: 8px;
-            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            --transition: all 0.3s ease;
-        }
+<!-- LayUI CSS -->
+<link rel="stylesheet" href="/static/layui/css/layui.css">
+<!-- Font Awesome 本地 -->
+<link rel="stylesheet" href="/static/css/font-awesome.min.css">
 
-        body {
-            background-color: var(--gray-50);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            color: var(--gray-800);
-        }
-
-        /* 页面容器 */
-        .position-container {
-            max-width: 100%;
-            margin: 0 auto;
-            padding: 24px;
-        }
-
-        /* 页面标题 */
-        .page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 24px;
-        }
-
-        .page-title {
-            font-size: 24px;
-            font-weight: 600;
-            color: var(--gray-900);
-            margin: 0;
-            display: flex;
-            align-items: center;
-        }
-
-        .page-title i {
-            margin-right: 8px;
-            color: var(--primary);
-            font-size: 28px;
-        }
-
-        /* 工具栏 */
-        .toolbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: white;
-            padding: 16px 20px;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow-sm);
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-
-        .search-group {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex: 1;
-            min-width: 300px;
-        }
-
-        .search-input {
-            position: relative;
-            flex: 1;
-            min-width: 200px;
-        }
-
-        .search-input .layui-input {
-            padding-left: 40px;
-            height: 40px;
-            border-radius: var(--border-radius);
-            border: 1px solid var(--gray-300);
-            transition: var(--transition);
-        }
-
-        .search-input .layui-input:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-
-        .search-input i {
-            position: absolute;
-            left: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--gray-400);
-        }
-
-        .status-filter {
-            width: 120px;
-        }
-
-        .status-filter .layui-select {
-            border-radius: var(--border-radius);
-            height: 40px;
-            border: 1px solid var(--gray-300);
-        }
-
-        .btn-add {
-            background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-            color: white;
-            border: none;
-            border-radius: var(--border-radius);
-            padding: 0 20px;
-            height: 40px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: var(--transition);
-            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .btn-add:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
-            color: white;
-        }
-
-        /* 表格容器 */
-        .table-container {
-            background: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow-sm);
-            overflow: hidden;
-        }
-
-        /* 自定义表格样式 */
-        .layui-table {
-            margin: 0;
-            border-radius: var(--border-radius);
-            overflow: hidden;
-        }
-
-        .layui-table th {
-            background-color: var(--gray-50);
-            font-weight: 600;
-            color: var(--gray-700);
-            padding: 12px 16px;
-            border-bottom: 1px solid var(--gray-200);
-            text-align: left;
-        }
-
-        .layui-table td {
-            padding: 10px 16px;
-            border-bottom: 1px solid var(--gray-200);
-            transition: var(--transition);
-        }
-
-        .layui-table tbody tr:hover {
-            background-color: var(--gray-50);
-        }
-
-        /* 状态标签 */
-        .status-badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 50px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        .status-active {
-            background-color: rgba(16, 185, 129, 0.1);
-            color: var(--success);
-        }
-
-        .status-inactive {
-            background-color: rgba(107, 114, 128, 0.1);
-            color: var(--gray-500);
-        }
-
-        /* 操作按钮组 */
-        .action-buttons {
-            display: flex;
-            gap: 6px;
-            justify-content: flex-end;
-        }
-
-        .action-btn {
-            padding: 4px 12px;
-            border-radius: var(--border-radius);
-            font-size: 12px;
-            border: none;
-            cursor: pointer;
-            transition: var(--transition);
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .btn-edit {
-            background-color: #ecfdf5;
-            color: var(--success);
-        }
-
-        .btn-edit:hover {
-            background-color: #d1fae5;
-        }
-
-        .btn-disable {
-            background-color: #fef3c7;
-            color: var(--warning);
-        }
-
-        .btn-disable:hover {
-            background-color: #fde68a;
-        }
-
-        .btn-enable {
-            background-color: #dbeafe;
-            color: var(--primary);
-        }
-
-        .btn-enable:hover {
-            background-color: #bfdbfe;
-        }
-
-        .btn-delete {
-            background-color: #fee2e2;
-            color: var(--danger);
-        }
-
-        .btn-delete:hover {
-            background-color: #fecaca;
-        }
-
-        /* 分页 */
-        .pagination-container {
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
-            padding: 16px 20px;
-            background: white;
-            border-top: 1px solid var(--gray-200);
-        }
-
-        /* 空状态 */
-        .empty-state {
-            padding: 60px 20px;
-            text-align: center;
-            color: var(--gray-500);
-        }
-
-        .empty-state i {
-            font-size: 48px;
-            margin-bottom: 16px;
-            opacity: 0.5;
-        }
-
-        .empty-state p {
-            margin: 0;
-            font-size: 14px;
-        }
-
-        /* 加载动画 */
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(2px);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            display: none;
-        }
-
-        .loading-spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid var(--gray-200);
-            border-top: 3px solid var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* 确认对话框 */
-        .confirm-dialog {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow-lg);
-            width: 90%;
-            max-width: 400px;
-            z-index: 1000;
-            display: none;
-        }
-
-        .confirm-header {
-            padding: 20px 24px;
-            border-bottom: 1px solid var(--gray-200);
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--gray-900);
-        }
-
-        .confirm-body {
-            padding: 20px 24px;
-            color: var(--gray-700);
-        }
-
-        .confirm-footer {
-            padding: 16px 24px;
-            border-top: 1px solid var(--gray-200);
-            display: flex;
-            justify-content: flex-end;
-            gap: 12px;
-        }
-
-        .confirm-footer button {
-            padding: 8px 20px;
-            border-radius: var(--border-radius);
-            border: none;
-            cursor: pointer;
-            font-size: 14px;
-            transition: var(--transition);
-        }
-
-        .btn-cancel {
-            background-color: var(--gray-100);
-            color: var(--gray-700);
-        }
-
-        .btn-cancel:hover {
-            background-color: var(--gray-200);
-        }
-
-        .btn-confirm {
-            background-color: var(--danger);
-            color: white;
-        }
-
-        .btn-confirm:hover {
-            background-color: #dc2626;
-            color: white;
-        }
-
-        /* 响应式设计 */
-        @media (max-width: 768px) {
-            .position-container {
-                padding: 12px;
-            }
-
-            .toolbar {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .search-group {
-                min-width: auto;
-            }
-
-            .status-filter {
-                width: 100%;
-            }
-
-            .btn-add {
-                justify-content: center;
-            }
-
-            .action-buttons {
-                flex-direction: column;
-            }
-
-            .action-btn {
-                justify-content: center;
-            }
-
-            .layui-table-responsive {
-                margin-bottom: 0;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="position-container">
-        <!-- 工具栏 -->
-        <div class="toolbar">
-            <div class="search-group">
-                <div class="search-input">
-                    <i class="fa fa-search"></i>
-                    <input type="text" id="search-input" placeholder="搜索岗位名称" class="layui-input">
-                </div>
-                <div class="status-filter">
-                    <select id="status-filter" class="layui-select">
-                        <option value="">全部状态</option>
-                        <option value="1">启用</option>
-                        <option value="0">禁用</option>
-                    </select>
-                </div>
-            </div>
-            <button id="add-position-btn" class="btn-add">
-                <i class="fa fa-plus"></i>新增岗位
+<div id="position-app" class="position-container">
+    <!-- 页面头部 -->
+    <div class="page-header">
+        <div class="header-left">
+            <h1 class="page-title">
+                <i class="fa fa-sitemap"></i>
+                岗位职称管理
+            </h1>
+        </div>
+        <div class="header-right">
+            <button class="btn-add" @click="openAddForm">
+                <i class="fa fa-plus"></i>
+                新增岗位
             </button>
         </div>
-
-        <!-- 表格容器 -->
-        <div class="table-container">
-            <table id="position-table" class="layui-table">
-                <thead>
-                    <tr>
-                        <th>岗位名称</th>
-                        <th>状态</th>
-                        <th>创建时间</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody id="position-table-body">
-                    <!-- 表格数据将通过JavaScript动态加载 -->
-                </tbody>
-            </table>
-        </div>
-
-        <!-- 分页 -->
-        <div class="pagination-container">
-            <div id="pagination" class="layui-laypage"></div>
-        </div>
     </div>
 
-    <!-- 加载动画 -->
-    <div class="loading-overlay" id="loading-overlay">
-        <div class="loading-spinner"></div>
-    </div>
-
-    <!-- 确认对话框 -->
-    <div class="confirm-dialog" id="confirm-dialog">
-        <div class="confirm-header" id="confirm-title">确认操作</div>
-        <div class="confirm-body" id="confirm-message">您确定要执行此操作吗？</div>
-        <div class="confirm-footer">
-            <button id="cancel-confirm" class="btn-cancel">取消</button>
-            <button id="confirm-action" class="btn-confirm">确认</button>
+    <!-- 工具栏 -->
+    <div class="toolbar">
+        <div class="search-group">
+            <div class="search-input">
+                <i class="fa fa-search"></i>
+                <input 
+                    type="text" 
+                    v-model="searchKeyword" 
+                    placeholder="搜索岗位名称"
+                    @input="handleSearch"
+                    class="layui-input"
+                >
+            </div>
+            <div class="status-filter">
+                <select v-model="statusFilter" @change="loadPositions" class="layui-select">
+                    <option value="">全部状态</option>
+                    <option value="1">启用</option>
+                    <option value="0">禁用</option>
+                </select>
+            </div>
+        </div>
+        <div class="toolbar-info">
+            <span class="total-count">共 {{ totalCount }} 个岗位</span>
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="/static/layui/layui.js"></script>
-    <script>
-        layui.use(['form', 'laypage', 'layer'], function() {
-            const form = layui.form;
-            const laypage = layui.laypage;
-            const layer = layui.layer;
-            let currentPage = 1;
-            const pageSize = 10;
-            let currentAction = null;
-            let currentPositionId = null;
-
-            // 加载岗位数据
-            function loadPositionData(page = 1, keyword = '', status = '') {
-                showLoading();
-                
-                // 构建查询参数
-                const params = {
-                    keyword: keyword,
-                    status: status,
-                    page: page
-                };
-                
-                // 发送AJAX请求获取真实数据
-                $.ajax({
-                    url: '/position/list-data/',
-                    type: 'GET',
-                    data: params,
-                    beforeSend: function(xhr) {
-                        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-                    },
-                    success: function(response) {
-                        if (response.code === 0) {
-                            renderTable(response.data);
-                            renderPagination(response.count, page);
-                        } else {
-                            layer.msg(response.msg || '数据加载失败', {icon: 2, time: 1500});
-                            renderTable([]);
-                            renderPagination(0, 1);
-                        }
-                        hideLoading();
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('AJAX请求错误:', error);
-                        layer.msg('网络错误，请稍后重试', {icon: 2, time: 1500});
-                        renderTable([]);
-                        renderPagination(0, 1);
-                        hideLoading();
-                    }
-                });
-            }
-
-            // 渲染表格
-            function renderTable(data) {
-                const tableBody = document.getElementById('position-table-body');
-                
-                if (data.length === 0) {
-                    tableBody.innerHTML = `
-                        <tr>
-                            <td colspan="4" class="empty-state">
-                                <i class="fa fa-folder-open-o"></i>
-                                <p>暂无岗位数据</p>
-                            </td>
-                        </tr>
-                    `;
-                    return;
-                }
-
-                tableBody.innerHTML = data.map(item => `
-                    <tr>
-                        <td>${item.title}</td>
+    <!-- 表格容器 -->
+    <div class="table-container">
+        <table class="layui-table">
+            <thead>
+                <tr>
+                    <th>岗位名称</th>
+                    <th>状态</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-if="loading">
+                    <td colspan="4" class="loading-cell">
+                        <div class="loading-spinner"></div>
+                        <span>加载中...</span>
+                    </td>
+                </tr>
+                <tr v-else-if="positions.length === 0">
+                    <td colspan="4" class="empty-cell">
+                        <i class="fa fa-folder-open-o"></i>
+                        <p>暂无岗位数据</p>
+                    </td>
+                </tr>
+                <template v-else>
+                    <tr 
+                        v-for="(position, index) in positions" 
+                        :key="position.id"
+                        class="position-row"
+                        :style="{ animationDelay: index * 50 + 'ms' }"
+                    >
+                        <td>{{ position.title }}</td>
                         <td>
-                            <span class="status-badge ${item.status ? 'status-active' : 'status-inactive'}">
-                                ${item.status ? '启用' : '禁用'}
+                            <span 
+                                class="status-badge"
+                                :class="{ 'status-active': position.status, 'status-inactive': !position.status }"
+                            >
+                                <template v-if="position.status">启用</template>
+                                <template v-else>禁用</template>
                             </span>
                         </td>
-                        <td>${item.create_time}</td>
+                        <td>{{ position.create_time }}</td>
                         <td>
                             <div class="action-buttons">
-                                <button class="action-btn btn-edit" onclick="editPosition(${item.id})"><i class="fa fa-pencil"></i>编辑</button>
-                                ${item.status ? 
-                                    `<button class="action-btn btn-disable" onclick="disablePosition(${item.id})"><i class="fa fa-ban"></i>禁用</button>` : 
-                                    `<button class="action-btn btn-enable" onclick="enablePosition(${item.id})"><i class="fa fa-check"></i>启用</button>`
-                                }
-                                <button class="action-btn btn-delete" onclick="deletePosition(${item.id})"><i class="fa fa-trash"></i>删除</button>
+                                <button 
+                                    class="action-btn btn-edit" 
+                                    @click="openEditForm(position)"
+                                    title="编辑"
+                                >
+                                    <i class="fa fa-pencil"></i>
+                                </button>
+                                <button 
+                                    v-if="position.status"
+                                    class="action-btn btn-disable" 
+                                    @click="disablePosition(position)"
+                                    title="禁用"
+                                >
+                                    <i class="fa fa-ban"></i>
+                                </button>
+                                <button 
+                                    v-else
+                                    class="action-btn btn-enable" 
+                                    @click="enablePosition(position)"
+                                    title="启用"
+                                >
+                                    <i class="fa fa-check"></i>
+                                </button>
+                                <button 
+                                    class="action-btn btn-delete" 
+                                    @click="deletePosition(position)"
+                                    title="删除"
+                                >
+                                    <i class="fa fa-trash"></i>
+                                </button>
                             </div>
                         </td>
                     </tr>
-                `).join('');
-            }
+                </template>
+            </tbody>
+        </table>
+    </div>
 
-            // 渲染分页
-            function renderPagination(total, current) {
-                laypage.render({
-                    elem: 'pagination',
-                    count: total,
-                    curr: current,
-                    limit: pageSize,
-                    layout: ['count', 'prev', 'page', 'next', 'skip'],
-                    jump: function(obj, first) {
-                        if (!first) {
-                            currentPage = obj.curr;
-                            const keyword = document.getElementById('search-input').value;
-                            const status = document.getElementById('status-filter').value;
-                            loadPositionData(obj.curr, keyword, status);
-                        }
-                    }
-                });
-            }
+    <!-- 分页 -->
+    <div class="pagination-container" v-if="totalCount > 0">
+        <div class="pagination-info">
+            显示第 {{ paginationStart }} 到第 {{ paginationEnd }} 条，共 {{ totalCount }} 条
+        </div>
+        <div class="pagination-controls">
+            <button 
+                class="pagination-btn"
+                :disabled="currentPage === 1"
+                @click="changePage(1)"
+            >
+                首页
+            </button>
+            <button 
+                class="pagination-btn"
+                :disabled="currentPage === 1"
+                @click="changePage(currentPage - 1)"
+            >
+                上一页
+            </button>
+            
+            <span class="pagination-page-info">
+                第 {{ currentPage }} / {{ totalPages }} 页
+            </span>
+            
+            <button 
+                class="pagination-btn"
+                :disabled="currentPage === totalPages"
+                @click="changePage(currentPage + 1)"
+            >
+                下一页
+            </button>
+            <button 
+                class="pagination-btn"
+                :disabled="currentPage === totalPages"
+                @click="changePage(totalPages)"
+            >
+                末页
+            </button>
+            
+            <select v-model="pageSize" @change="loadPositions" class="pagination-size">
+                <option :value="10">10条/页</option>
+                <option :value="20">20条/页</option>
+                <option :value="50">50条/页</option>
+            </select>
+        </div>
+    </div>
 
-            // 显示加载动画
-            function showLoading() {
-                document.getElementById('loading-overlay').style.display = 'flex';
-            }
+    <!-- 确认对话框 -->
+    <transition name="fade">
+        <div class="modal-overlay" v-if="showConfirmDialog" @click="hideConfirmDialog">
+            <div class="confirm-dialog" @click.stop>
+                <div class="confirm-header">
+                    <i :class="confirmConfig.icon"></i>
+                    <span>{{ confirmConfig.title }}</span>
+                </div>
+                <div class="confirm-body">
+                    {{ confirmConfig.message }}
+                </div>
+                <div class="confirm-footer">
+                    <button class="btn-cancel" @click="hideConfirmDialog">取消</button>
+                    <button 
+                        class="btn-confirm" 
+                        :style="{ backgroundColor: confirmConfig.color }"
+                        @click="executeConfirmAction"
+                    >
+                        确认
+                    </button>
+                </div>
+            </div>
+        </div>
+    </transition>
 
-            // 隐藏加载动画
-            function hideLoading() {
-                document.getElementById('loading-overlay').style.display = 'none';
-            }
+    <!-- 消息提示 -->
+    <transition name="slide-up">
+        <div class="toast-message" v-if="toastMessage">
+            <i :class="toastConfig.icon"></i>
+            <span>{{ toastMessage }}</span>
+        </div>
+    </transition>
+</div>
 
-            // 显示确认对话框
-            function showConfirmDialog(title, message, action, positionId) {
-                document.getElementById('confirm-title').textContent = title;
-                document.getElementById('confirm-message').textContent = message;
-                document.getElementById('confirm-dialog').style.display = 'block';
-                currentAction = action;
-                currentPositionId = positionId;
-            }
+<!-- Vue.js 3 本地 -->
+<script src="/static/js/lib/vue.global.prod.js"></script>
+<!-- Axios 本地 -->
+<script src="/static/js/lib/axios.min.js"></script>
+<!-- LayUI JS -->
+<script src="/static/layui/layui.js"></script>
 
-            // 隐藏确认对话框
-            function hideConfirmDialog() {
-                document.getElementById('confirm-dialog').style.display = 'none';
-                currentAction = null;
-                currentPositionId = null;
-            }
+<script>
+    const { createApp, ref, computed, onMounted, watch } = Vue;
 
-            // 获取CSRF令牌
-            function getCSRFToken() {
+    const PositionApp = {
+        setup() {
+            // 响应式数据
+            const positions = ref([]);
+            const loading = ref(false);
+            const searchKeyword = ref('');
+            const statusFilter = ref('');
+            const currentPage = ref(1);
+            const pageSize = ref(10);
+            const totalCount = ref(0);
+            
+            // 确认对话框
+            const showConfirmDialog = ref(false);
+            const confirmConfig = ref({
+                title: '确认操作',
+                message: '确定要执行此操作吗？',
+                action: null,
+                position: null,
+                icon: 'fa fa-question-circle',
+                color: '#ef4444'
+            });
+            
+            // 消息提示
+            const toastMessage = ref('');
+            const toastConfig = ref({ icon: 'fa fa-check-circle', duration: 1500 });
+            
+            // 计算属性
+            const totalPages = computed(() => Math.ceil(totalCount.value / pageSize.value));
+            
+            // 分页起始和结束计算
+            const paginationStart = computed(() => {
+                return (currentPage.value - 1) * pageSize.value + 1;
+            });
+            
+            const paginationEnd = computed(() => {
+                return Math.min(currentPage.value * pageSize.value, totalCount.value);
+            });
+            
+            // 获取CSRF Token
+            const getCSRFToken = () => {
                 const cookieValue = document.cookie
                     .split('; ')
                     .find(row => row.startsWith('csrftoken='))
                     ?.split('=')[1];
                 return cookieValue || '';
-            }
-
+            };
+            
+            // 加载岗位数据
+            const loadPositions = async () => {
+                loading.value = true;
+                try {
+                    const params = {
+                        keyword: searchKeyword.value,
+                        status: statusFilter.value,
+                        page: currentPage.value,
+                        page_size: pageSize.value
+                    };
+                    
+                    const response = await axios.get('/position/list-data/', { params });
+                    
+                    if (response.data.code === 0) {
+                        positions.value = response.data.data;
+                        totalCount.value = response.data.count;
+                    } else {
+                        showToast(response.data.msg || '数据加载失败', 'error');
+                    }
+                } catch (error) {
+                    console.error('加载岗位数据失败:', error);
+                    showToast('网络错误，请稍后重试', 'error');
+                } finally {
+                    loading.value = false;
+                }
+            };
+            
+            // 搜索处理（防抖）
+            let searchTimeout = null;
+            const handleSearch = () => {
+                if (searchTimeout) clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    currentPage.value = 1;
+                    loadPositions();
+                }, 300);
+            };
+            
+            // 分页切换
+            const changePage = (page) => {
+                if (page >= 1 && page <= totalPages.value) {
+                    currentPage.value = page;
+                    loadPositions();
+                }
+            };
+            
+            // 打开岗位表单（新增或编辑）
+            window.openPositionForm = function(isEdit, positionId, title) {
+                const formTitle = title || (isEdit ? '编辑岗位' : '新增岗位');
+                const url = isEdit 
+                    ? `/position/edit/${positionId}/?edit=true&id=${positionId}`
+                    : '/position/add/';
+                
+                if (window.layer) {
+                    window.layer.open({
+                        type: 2,
+                        title: formTitle,
+                        area: ['80%', '100%'],
+                        offset: 'r',
+                        anim: 'slide',
+                        shade: 0.3,
+                        shadeClose: true,
+                        content: [url, 'no'],
+                        end: function() {
+                            loadPositions(currentPage, document.getElementById('search-input')?.value || '', document.getElementById('status-filter')?.value || '');
+                        }
+                    });
+                }
+            };
+            
+            // 打开新增表单
+            const openAddForm = () => {
+                window.openPositionForm(false);
+            };
+            
+            // 打开编辑表单
+            const openEditForm = (position) => {
+                window.openPositionForm(true, position.id);
+            };
+            
+            // 将方法挂载到window对象，供子iframe调用
+            window.refreshPositionList = loadPositions;
+            
+            // 显示确认对话框
+            const showConfirm = (config) => {
+                confirmConfig.value = config;
+                showConfirmDialog.value = true;
+            };
+            
+            // 隐藏确认对话框
+            const hideConfirmDialog = () => {
+                showConfirmDialog.value = false;
+            };
+            
             // 执行确认操作
-            function executeConfirmAction() {
-                if (!currentAction || currentPositionId === null) return;
-
+            const executeConfirmAction = async () => {
+                hideConfirmDialog();
+                const { action, position } = confirmConfig.value;
+                
+                if (!action || !position) return;
+                
                 showLoading();
                 
-                // 根据操作类型确定API URL
-                let apiUrl = '';
-                switch (currentAction) {
-                    case 'delete':
-                        apiUrl = `/position/delete/${currentPositionId}/`;
-                        break;
-                    case 'disable':
-                        apiUrl = '/position/disable/';
-                        break;
-                    case 'enable':
-                        apiUrl = '/position/enable/';
-                        break;
-                    default:
-                        hideLoading();
-                        hideConfirmDialog();
-                        return;
-                }
-                
-                // 构建请求参数
-                let params = null;
-                if (currentAction !== 'delete') {
-                    params = {
-                        id: currentPositionId
-                    };
-                }
-                
-                // 发送AJAX请求到后端API
-                $.ajax({
-                    url: apiUrl,
-                    type: currentAction === 'delete' ? 'DELETE' : 'POST',
-                    data: params,
-                    beforeSend: function(xhr) {
-                        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-                        // 所有非GET请求都需要CSRF令牌
-                        xhr.setRequestHeader('X-CSRFToken', getCSRFToken());
-                    },
-                    success: function(response) {
-                        hideLoading();
-                        hideConfirmDialog();
-                        
-                        if (response.code === 0) {
-                            // 重新加载数据
-                            const keyword = document.getElementById('search-input').value;
-                            const status = document.getElementById('status-filter').value;
-                            loadPositionData(currentPage, keyword, status);
-                            
-                            // 显示操作成功提示
-                            layer.msg(response.msg || (currentAction === 'delete' ? '岗位删除成功' : 
-                                      currentAction === 'disable' ? '岗位禁用成功' : '岗位启用成功'), {
-                                icon: 1,
-                                time: 1500
-                            });
-                        } else {
-                            layer.msg(response.msg || '操作失败', {icon: 2, time: 1500});
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('AJAX请求错误:', error);
-                        hideLoading();
-                        hideConfirmDialog();
-                        layer.msg('网络错误，请稍后重试', {icon: 2, time: 1500});
+                try {
+                    let apiUrl = '';
+                    let method = 'POST';
+                    let params = { id: position.id };
+                    
+                    switch (action) {
+                        case 'delete':
+                            apiUrl = `/position/delete/${position.id}/`;
+                            method = 'DELETE';
+                            params = null;
+                            break;
+                        case 'disable':
+                            apiUrl = '/position/disable/';
+                            break;
+                        case 'enable':
+                            apiUrl = '/position/enable/';
+                            break;
                     }
-                });
-            }
-
-            // 添加岗位
-            document.getElementById('add-position-btn').addEventListener('click', function() {
-                window.location.href = '/position/add/';
-            });
-
-            // 搜索功能
-            document.getElementById('search-input').addEventListener('input', function() {
-                const keyword = this.value;
-                const status = document.getElementById('status-filter').value;
-                loadPositionData(1, keyword, status);
-            });
-
-            // 状态筛选
-            form.on('select(status-filter)', function(data) {
-                const status = data.value;
-                const keyword = document.getElementById('search-input').value;
-                loadPositionData(1, keyword, status);
-            });
-
-            // 确认对话框事件
-            document.getElementById('cancel-confirm').addEventListener('click', hideConfirmDialog);
-            document.getElementById('confirm-action').addEventListener('click', executeConfirmAction);
-
-            // 编辑岗位
-            window.editPosition = function(id) {
-                window.location.href = `/position/edit/${id}/`;
+                    
+                    const response = await axios({
+                        url: apiUrl,
+                        method: method,
+                        data: params,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRFToken': getCSRFToken()
+                        }
+                    });
+                    
+                    if (response.data.code === 0) {
+                        showToast(response.data.msg || '操作成功');
+                        loadPositions();
+                    } else {
+                        showToast(response.data.msg || '操作失败', 'error');
+                    }
+                } catch (error) {
+                    console.error('操作失败:', error);
+                    showToast('网络错误，请稍后重试', 'error');
+                } finally {
+                    hideLoading();
+                }
             };
-
+            
             // 禁用岗位
-            window.disablePosition = function(id) {
-                showConfirmDialog('禁用岗位', '确定要禁用此岗位吗？禁用后将无法被使用。', 'disable', id);
+            const disablePosition = (position) => {
+                showConfirm({
+                    title: '禁用岗位',
+                    message: '确定要禁用此岗位吗？禁用后将无法被使用。',
+                    action: 'disable',
+                    position: position,
+                    icon: 'fa fa-ban',
+                    color: '#f59e0b'
+                });
             };
-
+            
             // 启用岗位
-            window.enablePosition = function(id) {
-                showConfirmDialog('启用岗位', '确定要启用此岗位吗？', 'enable', id);
+            const enablePosition = (position) => {
+                showConfirm({
+                    title: '启用岗位',
+                    message: '确定要启用此岗位吗？',
+                    action: 'enable',
+                    position: position,
+                    icon: 'fa fa-check-circle',
+                    color: '#10b981'
+                });
             };
-
+            
             // 删除岗位
-            window.deletePosition = function(id) {
-                showConfirmDialog('删除岗位', '确定要删除此岗位吗？此操作不可撤销。', 'delete', id);
+            const deletePosition = (position) => {
+                showConfirm({
+                    title: '删除岗位',
+                    message: '确定要删除此岗位吗？此操作不可撤销。',
+                    action: 'delete',
+                    position: position,
+                    icon: 'fa fa-trash',
+                    color: '#ef4444'
+                });
             };
+            
+            // 显示消息提示
+            const showToast = (message, type = 'success') => {
+                toastMessage.value = message;
+                toastConfig.value = {
+                    icon: type === 'success' ? 'fa fa-check-circle' : 'fa fa-times-circle',
+                    duration: 1500
+                };
+                
+                setTimeout(() => {
+                    toastMessage.value = '';
+                }, 1500);
+            };
+            
+            // 加载状态
+            let loadingCount = 0;
+            const showLoading = () => {
+                loadingCount++;
+                if (loadingCount === 1) {
+                    document.body.classList.add('loading');
+                }
+            };
+            
+            const hideLoading = () => {
+                loadingCount--;
+                if (loadingCount <= 0) {
+                    loadingCount = 0;
+                    document.body.classList.remove('loading');
+                }
+            };
+            
+            // 监听筛选变化
+            watch(statusFilter, () => {
+                currentPage.value = 1;
+                loadPositions();
+            });
+            
+            // 初始化
+            onMounted(() => {
+                loadPositions();
+            });
+            
+            return {
+                // 响应式数据
+                positions,
+                loading,
+                searchKeyword,
+                statusFilter,
+                currentPage,
+                pageSize,
+                totalCount,
+                
+                // 计算属性
+                totalPages,
+                paginationStart,
+                paginationEnd,
+                
+                // 方法
+                loadPositions,
+                handleSearch,
+                changePage,
+                openAddForm,
+                openEditForm,
+                disablePosition,
+                enablePosition,
+                deletePosition,
+                
+                // 确认对话框
+                showConfirmDialog,
+                confirmConfig,
+                hideConfirmDialog,
+                executeConfirmAction,
+                
+                // 消息提示
+                toastMessage,
+                toastConfig
+            };
+        }
+    };
+    
+    const app = createApp(PositionApp);
+    app.mount('#position-app');
+    
+    // 初始化LayUI模块
+    layui.use(['layer'], function() {
+        window.layer = layui.layer;
+    });
+</script>
 
-            // 初始加载数据
-            loadPositionData();
-        });
-    </script>
-</body>
-</html>
+<style>
+    /* 全局样式重置 */
+    html, body {
+        margin: 0;
+        padding: 0;
+    }
+    
+    /* 全局样式 */
+    .position-container {
+        --primary: #3b82f6;
+        --primary-hover: #2563eb;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-300: #d1d5db;
+        --gray-400: #9ca3af;
+        --gray-500: #6b7280;
+        --gray-600: #4b5563;
+        --gray-700: #374151;
+        --gray-800: #1f2937;
+        --gray-900: #111827;
+        --border-radius: 8px;
+        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        --transition: all 0.3s ease;
+        
+        max-width: 100%;
+        margin: 0 auto;
+        padding: 24px;
+        background-color: var(--gray-50);
+        min-height: 100vh;
+    }
+    
+    /* 页面头部 */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+    
+    .page-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin: 0;
+        display: flex;
+        align-items: center;
+    }
+    
+    .page-title i {
+        margin-right: 8px;
+        color: var(--primary);
+        font-size: 28px;
+    }
+    
+    /* 新增按钮 */
+    .btn-add {
+        background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+        color: white;
+        border: none;
+        border-radius: var(--border-radius);
+        padding: 0 20px;
+        height: 40px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: var(--transition);
+        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .btn-add:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+        color: white;
+    }
+    
+    /* 工具栏 */
+    .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: white;
+        padding: 16px 20px;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    
+    .search-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+        min-width: 300px;
+    }
+    
+    .search-input {
+        position: relative;
+        flex: 1;
+        min-width: 200px;
+    }
+    
+    .search-input .layui-input {
+        padding-left: 40px;
+        height: 40px;
+        border-radius: var(--border-radius);
+        border: 1px solid var(--gray-300);
+        transition: var(--transition);
+    }
+    
+    .search-input .layui-input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .search-input i {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--gray-400);
+    }
+    
+    .status-filter {
+        width: 120px;
+    }
+    
+    .status-filter .layui-select {
+        border-radius: var(--border-radius);
+        height: 40px;
+        border: 1px solid var(--gray-300);
+    }
+    
+    .toolbar-info {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+    
+    .total-count {
+        color: var(--gray-600);
+        font-size: 14px;
+    }
+    
+    /* 表格容器 */
+    .table-container {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-sm);
+        overflow: hidden;
+    }
+    
+    .layui-table {
+        margin: 0;
+        border-radius: var(--border-radius);
+        overflow: hidden;
+    }
+    
+    .layui-table th {
+        background-color: var(--gray-50);
+        font-weight: 600;
+        color: var(--gray-700);
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--gray-200);
+        text-align: left;
+    }
+    
+    .layui-table td {
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--gray-200);
+        transition: var(--transition);
+    }
+    
+    .layui-table tbody tr:hover {
+        background-color: var(--gray-50);
+    }
+    
+    /* 行动画 */
+    .position-row {
+        animation: fadeInUp 0.3s ease forwards;
+        opacity: 0;
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* 加载状态 */
+    .loading-cell,
+    .empty-cell {
+        padding: 60px 20px !important;
+        text-align: center;
+        color: var(--gray-500);
+    }
+    
+    .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid var(--gray-200);
+        border-top: 3px solid var(--primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 16px;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .empty-cell i {
+        font-size: 48px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+    
+    /* 状态标签 */
+    .status-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 50px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+    
+    .status-active {
+        background-color: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+    }
+    
+    .status-inactive {
+        background-color: rgba(107, 114, 128, 0.1);
+        color: var(--gray-500);
+    }
+    
+    /* 操作按钮组 */
+    .action-buttons {
+        display: flex;
+        gap: 6px;
+        justify-content: flex-end;
+    }
+    
+    .action-btn {
+        padding: 4px 12px;
+        border-radius: var(--border-radius);
+        font-size: 12px;
+        border: none;
+        cursor: pointer;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .btn-edit {
+        background-color: #ecfdf5;
+        color: var(--success);
+    }
+    
+    .btn-edit:hover {
+        background-color: #d1fae5;
+    }
+    
+    .btn-disable {
+        background-color: #fef3c7;
+        color: var(--warning);
+    }
+    
+    .btn-disable:hover {
+        background-color: #fde68a;
+    }
+    
+    .btn-enable {
+        background-color: #dbeafe;
+        color: var(--primary);
+    }
+    
+    .btn-enable:hover {
+        background-color: #bfdbfe;
+    }
+    
+    .btn-delete {
+        background-color: #fee2e2;
+        color: var(--danger);
+    }
+    
+    .btn-delete:hover {
+        background-color: #fecaca;
+    }
+    
+    /* 分页 */
+    .pagination-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        background: white;
+        border-top: 1px solid var(--gray-200);
+        margin-top: -1px;
+        border-radius: 0 0 var(--border-radius) var(--border-radius);
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    
+    .pagination-info {
+        color: var(--gray-600);
+        font-size: 14px;
+    }
+    
+    .pagination-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .pagination-btn {
+        padding: 8px 16px;
+        border: 1px solid var(--gray-300);
+        background: white;
+        border-radius: var(--border-radius);
+        cursor: pointer;
+        transition: var(--transition);
+        font-size: 14px;
+    }
+    
+    .pagination-btn:hover:not(:disabled) {
+        border-color: var(--primary);
+        color: var(--primary);
+    }
+    
+    .pagination-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    .pagination-page-info {
+        padding: 0 16px;
+        color: var(--gray-600);
+    }
+    
+    .pagination-size {
+        padding: 8px 12px;
+        border: 1px solid var(--gray-300);
+        border-radius: var(--border-radius);
+        background: white;
+        font-size: 14px;
+    }
+    
+    /* 确认对话框 */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+    
+    .confirm-dialog {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-lg);
+        width: 90%;
+        max-width: 400px;
+    }
+    
+    .confirm-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--gray-200);
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--gray-900);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .confirm-header i {
+        font-size: 20px;
+        color: var(--warning);
+    }
+    
+    .confirm-body {
+        padding: 20px 24px;
+        color: var(--gray-700);
+    }
+    
+    .confirm-footer {
+        padding: 16px 24px;
+        border-top: 1px solid var(--gray-200);
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+    }
+    
+    .confirm-footer button {
+        padding: 8px 20px;
+        border-radius: var(--border-radius);
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        transition: var(--transition);
+    }
+    
+    .btn-cancel {
+        background-color: var(--gray-100);
+        color: var(--gray-700);
+    }
+    
+    .btn-cancel:hover {
+        background-color: var(--gray-200);
+    }
+    
+    .btn-confirm {
+        color: white;
+    }
+    
+    /* 消息提示 */
+    .toast-message {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: var(--gray-800);
+        color: white;
+        padding: 12px 24px;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-lg);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        z-index: 2000;
+    }
+    
+    .toast-message i {
+        font-size: 16px;
+    }
+    
+    /* 过渡动画 */
+    .fade-enter-active,
+    .fade-leave-active {
+        transition: opacity 0.3s ease;
+    }
+    
+    .fade-enter-from,
+    .fade-leave-to {
+        opacity: 0;
+    }
+    
+    .slide-up-enter-active,
+    .slide-up-leave-active {
+        transition: all 0.3s ease;
+    }
+    
+    .slide-up-enter-from,
+    .slide-up-leave-to {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+    }
+    
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+        .position-container {
+            padding: 12px;
+        }
+        
+        .toolbar {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .search-group {
+            min-width: auto;
+        }
+        
+        .status-filter {
+            width: 100%;
+        }
+        
+        .btn-add {
+            justify-content: center;
+        }
+        
+        .action-buttons {
+            flex-wrap: wrap;
+        }
+        
+        .pagination-container {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .pagination-controls {
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+    }
+    
+    /* 全局加载状态 */
+    body.loading::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(2px);
+        z-index: 999;
+    }
+</style>
 {% endblock %}

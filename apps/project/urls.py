@@ -1,9 +1,11 @@
-from django.urls import path
+from django.urls import path, include
 from . import views, ai_views
 
 app_name = 'project'
 
 urlpatterns = [
+    # API路由
+    path('api/', include('apps.project.api_urls')),
     # 项目管理路由
     path('', views.ProjectListView.as_view(), name='project_list'),
     path('datalist/', views.ProjectListView.as_view(), name='project_datalist'),

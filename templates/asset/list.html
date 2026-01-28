@@ -52,9 +52,9 @@
                             <!-- 左侧工具栏 -->
                             <div class="layui-col-xs12 layui-col-sm6 layui-col-md4">
                                 <div class="toolbar-left">
-                                    <a href="{% url 'system:admin_office:asset_create' %}" class="layui-btn layui-btn-sm">
+                                    <button type="button" class="layui-btn layui-btn-sm" onclick="openAssetForm()">
                                         <i class="layui-icon layui-icon-add-1"></i> 新增资产
-                                    </a>
+                                    </button>
                                 </div>
                             </div>
                             <!-- 右侧搜索表单 -->
@@ -114,8 +114,7 @@
                                     </td>
                                     <td>{{ asset.purchase_date|date:"Y-m-d" }}</td>
                                     <td>
-                                        <a href="{% url 'system:admin_office:asset_update' asset.pk %}"
-                                            class="layui-btn layui-btn-xs">编辑</a>
+                                        <button type="button" class="layui-btn layui-btn-xs" onclick="editAsset('{{ asset.pk }}')">编辑</button>
                                         <a href="{% url 'system:admin_office:asset_repair_create' %}?asset_id={{ asset.pk }}"
                                             class="layui-btn layui-btn-xs layui-btn-warm">报修</a>
                                     </td>
@@ -141,6 +140,146 @@
     <script src="/static/layui/layui.js"></script>
     <script>
     //<![CDATA[
+    var assetCreateUrl = '{% url "system:admin_office:asset_create" %}';
+    var assetUpdateUrl = '{% url "system:admin_office:asset_update" 0 %}'.replace('0', '');
+
+    function openAssetForm() {
+        layer.open({
+            type: 2,
+            title: '新增资产',
+            shadeClose: false,
+            shade: 0.3,
+            maxmin: true,
+            area: ['80%', '100%'],
+            offset: 'r',
+            anim: 2,
+            content: assetCreateUrl,
+            success: function(layero, index) {
+                layero.css({
+                    'right': '0',
+                    'top': '0',
+                    'bottom': '0',
+                    'height': 'auto !important',
+                    'margin': '0',
+                    'padding': '0',
+                    'border': 'none'
+                });
+                layero[0].style.setProperty('height', '100%', 'important');
+                
+                var iframe = layero.find('iframe');
+                if (iframe.length) {
+                    iframe.css({
+                        'height': '100%',
+                        'width': '100%'
+                    });
+                }
+                
+                var content = layero.find('.layui-layer-content');
+                if (content.length) {
+                    content.css({
+                        'height': '100%',
+                        'overflow': 'hidden',
+                        'padding': '0',
+                        'margin': '0'
+                    });
+                    content[0].style.setProperty('height', '100%', 'important');
+                }
+                
+                var setIframeHeight = function() {
+                    var iframeDoc = iframe[0].contentWindow.document;
+                    var iframeBody = iframeDoc.body;
+                    var iframeHtml = iframeDoc.documentElement;
+                    var iframeHeight = Math.max(
+                        iframeBody.scrollHeight,
+                        iframeDoc.documentElement.scrollHeight,
+                        iframeBody.offsetHeight,
+                        iframeDoc.documentElement.offsetHeight,
+                        iframeBody.clientHeight,
+                        iframeDoc.documentElement.clientHeight
+                    );
+                    if (iframeHeight > 0) {
+                        iframe.css('height', iframeHeight + 'px');
+                    }
+                };
+                
+                setTimeout(setIframeHeight, 100);
+                setTimeout(setIframeHeight, 500);
+                setTimeout(setIframeHeight, 1000);
+            },
+            end: function() {
+                window.location.reload();
+            }
+        });
+    }
+
+    function editAsset(id) {
+        layer.open({
+            type: 2,
+            title: '编辑资产',
+            shadeClose: false,
+            shade: 0.3,
+            maxmin: true,
+            area: ['80%', '100%'],
+            offset: 'r',
+            anim: 2,
+            content: assetUpdateUrl + id + '/update/',
+            success: function(layero, index) {
+                layero.css({
+                    'right': '0',
+                    'top': '0',
+                    'bottom': '0',
+                    'height': 'auto !important',
+                    'margin': '0',
+                    'padding': '0',
+                    'border': 'none'
+                });
+                layero[0].style.setProperty('height', '100%', 'important');
+                
+                var iframe = layero.find('iframe');
+                if (iframe.length) {
+                    iframe.css({
+                        'height': '100%',
+                        'width': '100%'
+                    });
+                }
+                
+                var content = layero.find('.layui-layer-content');
+                if (content.length) {
+                    content.css({
+                        'height': '100%',
+                        'overflow': 'hidden',
+                        'padding': '0',
+                        'margin': '0'
+                    });
+                    content[0].style.setProperty('height', '100%', 'important');
+                }
+                
+                var setIframeHeight = function() {
+                    var iframeDoc = iframe[0].contentWindow.document;
+                    var iframeBody = iframeDoc.body;
+                    var iframeHeight = Math.max(
+                        iframeBody.scrollHeight,
+                        iframeDoc.documentElement.scrollHeight,
+                        iframeBody.offsetHeight,
+                        iframeDoc.documentElement.offsetHeight,
+                        iframeBody.clientHeight,
+                        iframeDoc.documentElement.clientHeight
+                    );
+                    if (iframeHeight > 0) {
+                        iframe.css('height', iframeHeight + 'px');
+                    }
+                };
+                
+                setTimeout(setIframeHeight, 100);
+                setTimeout(setIframeHeight, 500);
+                setTimeout(setIframeHeight, 1000);
+            },
+            end: function() {
+                window.location.reload();
+            }
+        });
+    }
+
     layui.use(['laypage', 'form'], function() {
         var laypage = layui.laypage;
         var form = layui.form;

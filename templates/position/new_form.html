@@ -1,542 +1,632 @@
 {% load static %}
 {% block content %}
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title }} - 岗位职称管理</title>
-    <link rel="stylesheet" href="/static/layui/css/layui.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <style>
-        /* 全局样式 */
-        :root {
-            --primary: #3b82f6;
-            --primary-hover: #2563eb;
-            --success: #10b981;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --gray-50: #f9fafb;
-            --gray-100: #f3f4f6;
-            --gray-200: #e5e7eb;
-            --gray-300: #d1d5db;
-            --gray-400: #9ca3af;
-            --gray-500: #6b7280;
-            --gray-600: #4b5563;
-            --gray-700: #374151;
-            --gray-800: #1f2937;
-            --gray-900: #111827;
-            --border-radius: 8px;
-            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            --transition: all 0.3s ease;
-        }
+<!-- LayUI CSS -->
+<link rel="stylesheet" href="/static/layui/css/layui.css">
+<!-- Font Awesome 本地 -->
+<link rel="stylesheet" href="/static/css/font-awesome.min.css">
 
-        body {
-            background-color: var(--gray-50);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            color: var(--gray-800);
-        }
-
-        /* 页面容器 */
-        .position-form-container {
-            max-width: 100%;
-            margin: 0 auto;
-            padding: 24px;
-        }
-
-        /* 页面标题 */
-        .page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 24px;
-        }
-
-        .page-title {
-            font-size: 24px;
-            font-weight: 600;
-            color: var(--gray-900);
-            margin: 0;
-            display: flex;
-            align-items: center;
-        }
-
-        .page-title i {
-            margin-right: 8px;
-            color: var(--primary);
-            font-size: 28px;
-        }
-
-        /* 返回按钮 */
-        .back-button {
-            background-color: var(--gray-100);
-            color: var(--gray-700);
-            border: none;
-            border-radius: var(--border-radius);
-            padding: 0 16px;
-            height: 36px;
-            cursor: pointer;
-            transition: var(--transition);
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 14px;
-        }
-
-        .back-button:hover {
-            background-color: var(--gray-200);
-        }
-
-        /* 表单卡片 */
-        .form-card {
-            background: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow-sm);
-            padding: 24px;
-        }
-
-        /* 表单标题 */
-        .form-title {
-            font-size: 18px;
-            font-weight: 600;
-            color: var(--gray-800);
-            margin-bottom: 20px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid var(--gray-200);
-        }
-
-        /* 表单字段容器 */
-        .form-field {
-            margin-bottom: 20px;
-        }
-
-        .form-field-label {
-            display: block;
-            font-size: 14px;
-            font-weight: 500;
-            color: var(--gray-700);
-            margin-bottom: 8px;
-        }
-
-        .form-field-label.required::after {
-            content: " *";
-            color: var(--danger);
-        }
-
-        /* 输入框样式 */
-        .layui-input,
-        .layui-select,
-        .layui-textarea {
-            border-radius: var(--border-radius);
-            border: 1px solid var(--gray-300);
-            transition: var(--transition);
-        }
-
-        .layui-input:focus,
-        .layui-select:focus,
-        .layui-textarea:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-
-        /* 文本域 */
-        .layui-textarea {
-            resize: vertical;
-            min-height: 100px;
-        }
-
-        /* 开关样式 */
-        .layui-form-switch {
-            border-radius: 20px;
-            background-color: var(--gray-300);
-            transition: var(--transition);
-        }
-
-        .layui-form-switch:hover {
-            background-color: var(--gray-400);
-        }
-
-        .layui-form-onswitch {
-            background-color: var(--primary);
-        }
-
-        .layui-form-switch i {
-            border-radius: 50%;
-        }
-
-        /* 错误信息 */
-        .error-message {
-            color: var(--danger);
-            font-size: 12px;
-            margin-top: 6px;
-            display: none;
-        }
-
-        .form-error {
-            border-color: var(--danger) !important;
-        }
-
-        .form-error:focus {
-            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
-        }
-
-        /* 按钮容器 */
-        .button-container {
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
-            padding-top: 20px;
-            border-top: 1px solid var(--gray-200);
-        }
-
-        /* 表单按钮 */
-        .form-button {
-            padding: 8px 24px;
-            border-radius: var(--border-radius);
-            border: none;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: var(--transition);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .btn-save {
-            background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-            color: white;
-            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
-        }
-
-        .btn-save:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
-            color: white;
-        }
-
-        .btn-cancel {
-            background-color: var(--gray-100);
-            color: var(--gray-700);
-        }
-
-        .btn-cancel:hover {
-            background-color: var(--gray-200);
-        }
-
-        /* 加载状态 */
-        .form-loading {
-            display: none;
-            padding: 40px;
-            text-align: center;
-            color: var(--gray-500);
-        }
-
-        .form-loading i {
-            font-size: 48px;
-            margin-bottom: 16px;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* 响应式设计 */
-        @media (max-width: 768px) {
-            .position-form-container {
-                padding: 12px;
-            }
-
-            .form-card {
-                padding: 16px;
-            }
-
-            .button-container {
-                flex-direction: column;
-            }
-
-            .form-button {
-                justify-content: center;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="position-form-container">
-        <!-- 页面标题 -->
-        <div class="page-header">
-            <h1 class="page-title"><i class="fa fa-sitemap"></i>{{ title }}</h1>
-            <button class="back-button" onclick="window.history.back()">
-                <i class="fa fa-arrow-left"></i>返回
-            </button>
-        </div>
-
-        <!-- 表单卡片 -->
-        <div class="form-card">
-            <h2 class="form-title">{{ title }}</h2>
+<div id="position-form-app" class="position-form-container">
+    <!-- 表单卡片 -->
+    <div class="form-card">
+        <h2 class="form-title">
+            <template v-if="isEdit">编辑岗位</template>
+            <template v-else>新增岗位</template>
+        </h2>
+        
+        <form @submit.prevent="submitForm" class="layui-form">
+            <!-- 隐藏字段 -->
+            <input type="hidden" v-model="formData.position_id">
+            <input type="hidden" v-model="formData.is_edit">
             
-            <!-- 表单 -->
-            <form id="position-form" class="layui-form">
-                <!-- 岗位名称 -->
-                <div class="form-field">
-                    <label class="form-field-label required">岗位名称</label>
-                    <input type="text" id="title" name="title" class="layui-input" placeholder="请输入岗位名称" required>
-                    <div class="error-message" id="title-error"></div>
-                </div>
-
-                <!-- 排序 -->
-                <div class="form-field">
-                    <label class="form-field-label">排序</label>
-                    <input type="number" id="sort" name="sort" class="layui-input" placeholder="请输入排序号" min="0" value="0">
-                </div>
-
-                <!-- 状态 -->
-                <div class="form-field">
-                    <label class="form-field-label">状态</label>
-                    <select id="status" name="status" class="layui-select">
-                        <option value="1">启用</option>
-                        <option value="0">禁用</option>
-                    </select>
-                </div>
-
-                <!-- 岗位描述 -->
-                <div class="form-field">
-                    <label class="form-field-label">岗位描述</label>
-                    <textarea id="desc" name="desc" class="layui-textarea" placeholder="请输入岗位描述（选填）"></textarea>
-                </div>
-
-                <!-- 按钮容器 -->
-                <div class="button-container">
-                    <button type="button" class="form-button btn-cancel" onclick="window.history.back()">取消</button>
-                    <button type="submit" class="form-button btn-save">
-                        <i class="fa fa-check"></i>保存
-                    </button>
-                </div>
-            </form>
-        </div>
+            <!-- 岗位名称 -->
+            <div class="form-field">
+                <label class="form-field-label required">岗位名称</label>
+                <input 
+                    type="text" 
+                    v-model="formData.title" 
+                    class="layui-input"
+                    :class="{ 'form-error': errors.title }"
+                    placeholder="请输入岗位名称"
+                    @blur="validateField('title')"
+                >
+                <div class="error-message" v-if="errors.title">{{ errors.title }}</div>
+            </div>
+            
+            <!-- 部门ID -->
+            <div class="form-field">
+                <label class="form-field-label required">部门ID</label>
+                <input 
+                    type="number" 
+                    v-model.number="formData.did" 
+                    class="layui-input"
+                    :class="{ 'form-error': errors.did }"
+                    placeholder="请输入部门ID"
+                    @blur="validateField('did')"
+                >
+                <div class="error-message" v-if="errors.did">{{ errors.did }}</div>
+            </div>
+            
+            <!-- 排序 -->
+            <div class="form-field">
+                <label class="form-field-label">排序</label>
+                <input 
+                    type="number" 
+                    v-model.number="formData.sort" 
+                    class="layui-input"
+                    placeholder="请输入排序号"
+                    min="0"
+                >
+            </div>
+            
+            <!-- 状态 -->
+            <div class="form-field">
+                <label class="form-field-label">状态</label>
+                <select v-model="formData.status" class="layui-select">
+                    <option :value="1">启用</option>
+                    <option :value="0">禁用</option>
+                </select>
+            </div>
+            
+            <!-- 岗位描述 -->
+            <div class="form-field">
+                <label class="form-field-label">岗位描述</label>
+                <textarea 
+                    v-model="formData.desc" 
+                    class="layui-textarea"
+                    placeholder="请输入岗位描述（选填）"
+                    rows="3"
+                ></textarea>
+            </div>
+            
+            <!-- 按钮容器 -->
+            <div class="button-container">
+                <button type="button" class="form-button btn-cancel" @click="closeForm">取消</button>
+                <button type="submit" class="form-button btn-save" :disabled="submitting">
+                    <i class="fa fa-check"></i>
+                    <template v-if="submitting">保存中...</template>
+                    <template v-else>保存</template>
+                </button>
+            </div>
+        </form>
     </div>
-
+    
     <!-- 加载状态 -->
-    <div class="form-loading" id="form-loading">
-        <i class="fa fa-circle-o-notch"></i>
-        <p>提交中...</p>
-    </div>
+    <transition name="fade">
+        <div class="form-loading" v-if="submitting">
+            <i class="fa fa-circle-o-notch fa-spin"></i>
+            <p>提交中...</p>
+        </div>
+    </transition>
+    
+    <!-- 消息提示 -->
+    <transition name="slide-up">
+        <div class="toast-message" v-if="toastMessage">
+            <i :class="toastConfig.icon"></i>
+            <span>{{ toastMessage }}</span>
+        </div>
+    </transition>
+</div>
 
-    <script src="/static/layui/layui.js"></script>
-    <script>
-        layui.use(['form', 'layer'], function() {
-            const form = layui.form;
-            const layer = layui.layer;
-            const isEdit = '{{ is_edit|default:False|lower }}' === 'true';
-            const positionId = parseInt('{{ position_id|default:0 }}', 10);
+<!-- Vue.js 3 本地 -->
+<script src="/static/js/lib/vue.global.prod.js"></script>
+<!-- Axios 本地 -->
+<script src="/static/js/lib/axios.min.js"></script>
+<!-- LayUI JS -->
+<script src="/static/layui/layui.js"></script>
 
-            // 初始渲染表单
-            form.render();
+<script>
+    const { createApp, ref, reactive, computed, onMounted } = Vue;
 
-            // 如果是编辑模式，加载岗位数据
-            if (isEdit) {
-                loadPositionData();
-            }
-
-            // 加载岗位数据（编辑模式）
-            function loadPositionData() {
-                $.ajax({
-                    url: `/position/api/${positionId}/`,
-                    type: 'GET',
-                    dataType: 'json',
-                    beforeSend: function(xhr) {
-                        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-                        xhr.setRequestHeader('X-CSRFToken', getCSRFToken());
-                    },
-                    success: function(response) {
-                        if (response && response.code === 0 && response.data) {
-                            const data = response.data;
-                            document.getElementById('title').value = data.title || '';
-                            document.getElementById('sort').value = data.sort || 0;
-                            document.getElementById('status').value = data.status ? '1' : '0';
-                            document.getElementById('desc').value = data.desc || '';
-                            form.render();
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('加载岗位数据失败:', status, error);
-                        layer.msg('加载岗位数据失败，请稍后重试', {
-                            icon: 2,
-                            time: 1500
-                        });
-                    }
-                });
-            }
-
-            // 表单验证
-            function validateForm() {
-                let isValid = true;
-                
-                // 验证岗位名称
-                const title = document.getElementById('title').value.trim();
-                if (!title) {
-                    showError('title', '请输入岗位名称');
-                    isValid = false;
-                } else {
-                    hideError('title');
-                }
-
-                return isValid;
-            }
-
-            // 显示错误信息
-            function showError(fieldId, message) {
-                const field = document.getElementById(fieldId);
-                const errorElement = document.getElementById(`${fieldId}-error`);
-                
-                field.classList.add('form-error');
-                errorElement.textContent = message;
-                errorElement.style.display = 'block';
-            }
-
-            // 隐藏错误信息
-            function hideError(fieldId) {
-                const field = document.getElementById(fieldId);
-                const errorElement = document.getElementById(`${fieldId}-error`);
-                
-                field.classList.remove('form-error');
-                errorElement.style.display = 'none';
-            }
-
-            // 提交表单
-            function submitForm() {
-                if (!validateForm()) {
-                    return;
-                }
-
-                // 获取表单数据
-                const formData = new FormData();
-                formData.append('title', document.getElementById('title').value.trim());
-                formData.append('sort', document.getElementById('sort').value || 0);
-                formData.append('status', document.getElementById('status').value);
-                formData.append('desc', document.getElementById('desc').value.trim());
-                formData.append('csrfmiddlewaretoken', getCSRFToken());
-
-                // 显示加载状态
-                document.getElementById('form-loading').style.display = 'block';
-
-                // 构建URL
-                const url = isEdit ? `/position/edit/${positionId}/` : '/position/add/';
-                const method = 'POST';
-
-                // 实际提交表单数据到服务器
-                $.ajax({
-                    url: url,
-                    type: method,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    success: function(response) {
-                        // 隐藏加载状态
-                        document.getElementById('form-loading').style.display = 'none';
-
-                        // 记录完整响应信息到控制台
-                        console.log('完整响应对象:', response);
-                        console.log('响应类型:', typeof response);
-                        console.log('响应字符串化:', JSON.stringify(response));
-
-                        // 验证返回数据
-                        if (response && typeof response === 'object') {
-                            if (response.code === 0) {
-                                // 显示成功提示
-                                layer.msg(response.msg || (isEdit ? '岗位信息更新成功' : '岗位创建成功'), {
-                                    icon: 1,
-                                    time: 1500,
-                                    end: function() {
-                                        // 跳转回列表页
-                                        window.location.href = '/position/';
-                                    }
-                                });
-                            } else {
-                                // 显示错误提示
-                                if (response.errors && response.errors.length > 0) {
-                                    // 如果有具体错误信息，显示详细错误列表
-                                    const errorMsg = response.errors.join('\n');
-                                    layer.alert(errorMsg, {
-                                        title: '表单验证失败',
-                                        icon: 2
-                                    });
-                                } else {
-                                    // 显示通用错误信息
-                                    layer.msg(response.msg || '保存失败，服务器返回错误', {
-                                        icon: 2,
-                                        time: 1500
-                                    });
-                                }
-                            }
-                        } else {
-                            // 显示错误提示
-                            layer.msg('保存失败，服务器返回格式异常', {
-                                icon: 2,
-                                time: 1500
-                            });
-                            console.error('服务器返回格式异常:', response);
-                            // 注意：在success回调中无法直接访问xhr对象
-                            console.log('响应字符串化:', JSON.stringify(response));
-                            }
-                    },
-                    error: function(xhr, status, error) {
-                        // 隐藏加载状态
-                        document.getElementById('form-loading').style.display = 'none';
-
-                        // 显示错误提示
-                        layer.msg('保存失败，请重试', {
-                            icon: 2,
-                            time: 1500
-                        });
-                        console.error('AJAX请求错误:', status, error);
-                        console.log('错误响应状态码:', xhr.status);
-                        console.log('错误响应内容:', xhr.responseText);
-                        console.log('错误响应头:', xhr.getAllResponseHeaders());
-                    }
-                });
-            }
-
+    const PositionFormApp = {
+        setup() {
+            // 获取页面参数
+            const getUrlParams = () => {
+                const params = new URLSearchParams(window.location.search);
+                return {
+                    isEdit: params.get('edit') === 'true' || window.isEdit === true,
+                    positionId: parseInt(params.get('id') || window.positionId || 0, 10)
+                };
+            };
+            
+            const { isEdit, positionId } = getUrlParams();
+            
+            // 响应式数据
+            const submitting = ref(false);
+            const toastMessage = ref('');
+            const toastConfig = ref({ icon: 'fa fa-check-circle' });
+            
+            // 表单数据
+            const formData = reactive({
+                position_id: positionId,
+                is_edit: isEdit,
+                title: '',
+                did: null,
+                sort: 0,
+                status: 1,
+                desc: ''
+            });
+            
+            // 表单验证错误
+            const errors = reactive({
+                title: '',
+                did: ''
+            });
+            
+            // 计算属性
+            const isEditMode = computed(() => formData.is_edit);
+            
             // 获取CSRF Token
-            function getCSRFToken() {
+            const getCSRFToken = () => {
                 const cookieValue = document.cookie
-                    .split('; ') 
-                    .find(row => row.startsWith('csrftoken=')) 
+                    .split('; ')
+                    .find(row => row.startsWith('csrftoken='))
                     ?.split('=')[1];
                 return cookieValue || '';
-            }
-
-            // 表单提交事件
-            document.getElementById('position-form').addEventListener('submit', function(e) {
-                e.preventDefault();
-                submitForm();
-            });
-
-            // 输入框失焦事件
-            document.getElementById('title').addEventListener('blur', function() {
-                if (this.value.trim()) {
-                    hideError('title');
+            };
+            
+            // 验证单个字段
+            const validateField = (field) => {
+                errors[field] = '';
+                
+                switch (field) {
+                    case 'title':
+                        if (!formData.title || !formData.title.trim()) {
+                            errors.title = '请输入岗位名称';
+                            return false;
+                        }
+                        if (formData.title.length > 50) {
+                            errors.title = '岗位名称不能超过50个字符';
+                            return false;
+                        }
+                        break;
+                        
+                    case 'did':
+                        if (formData.did === null || formData.did === '' || formData.did === undefined) {
+                            errors.did = '请输入部门ID';
+                            return false;
+                        }
+                        if (isNaN(formData.did)) {
+                            errors.did = '部门ID必须为数字';
+                            return false;
+                        }
+                        break;
                 }
-            });
-
-            document.getElementById('hourly_rate').addEventListener('blur', function() {
-                if (this.value && parseFloat(this.value) >= 0) {
-                    hideError('hourly_rate');
+                
+                return true;
+            };
+            
+            // 验证整个表单
+            const validateForm = () => {
+                let isValid = true;
+                
+                if (!validateField('title')) isValid = false;
+                if (!validateField('did')) isValid = false;
+                
+                return isValid;
+            };
+            
+            // 加载岗位数据（编辑模式）
+            const loadPositionData = async () => {
+                if (!isEditMode || !formData.position_id) return;
+                
+                try {
+                    const response = await axios.get(`/position/api/${formData.position_id}/`);
+                    
+                    if (response.data.code === 0 && response.data.data) {
+                        const data = response.data.data;
+                        formData.title = data.title || '';
+                        formData.did = data.did || null;
+                        formData.sort = data.sort || 0;
+                        formData.status = data.status || 1;
+                        formData.desc = data.desc || '';
+                    } else {
+                        showToast('加载岗位数据失败', 'error');
+                    }
+                } catch (error) {
+                    console.error('加载岗位数据失败:', error);
+                    showToast('网络错误，请稍后重试', 'error');
                 }
-            });
-
+            };
+            
+            // 提交表单
+            const submitForm = async () => {
+                if (!validateForm()) return;
+                
+                submitting.value = true;
+                
+                try {
+                    const formDataObj = new FormData();
+                    formDataObj.append('title', formData.title.trim());
+                    formDataObj.append('did', formData.did);
+                    formDataObj.append('sort', formData.sort || 0);
+                    formDataObj.append('status', formData.status);
+                    formDataObj.append('desc', formData.desc.trim());
+                    formDataObj.append('csrfmiddlewaretoken', getCSRFToken());
+                    
+                    const url = isEditMode 
+                        ? `/position/edit/${formData.position_id}/` 
+                        : '/position/add/';
+                    
+                    const response = await axios.post(url, formDataObj, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        processData: false,
+                        contentType: false
+                    });
+                    
+                    if (response.data && response.data.code === 0) {
+                        showToast(response.data.msg || (isEditMode ? '岗位信息更新成功' : '岗位创建成功'));
+                        setTimeout(() => {
+                            // 刷新父页面列表
+                            if (window.parent.refreshPositionList) {
+                                window.parent.refreshPositionList();
+                            }
+                            closeForm();
+                        }, 1500);
+                    } else {
+                        if (response.data.errors && response.data.errors.length > 0) {
+                            const errorMsg = response.data.errors.join('\n');
+                            showToast(errorMsg, 'error');
+                        } else {
+                            showToast(response.data.msg || '保存失败', 'error');
+                        }
+                    }
+                } catch (error) {
+                    console.error('提交表单失败:', error);
+                    showToast('保存失败，请重试', 'error');
+                } finally {
+                    submitting.value = false;
+                }
+            };
+            
+            // 显示消息提示
+            const showToast = (message, type = 'success') => {
+                toastMessage.value = message;
+                toastConfig.value = {
+                    icon: type === 'success' ? 'fa fa-check-circle' : 'fa fa-times-circle'
+                };
+                
+                setTimeout(() => {
+                    toastMessage.value = '';
+                }, 2000);
+            };
+            
+            // 关闭表单
+            const closeForm = () => {
+                const parentLayer = parent.layer;
+                const index = parent.layer.getFrameIndex(window.name);
+                if (index) {
+                    parentLayer.close(index);
+                } else {
+                    window.parent.location.reload();
+                }
+            };
+            
             // 初始化
-            loadRoles();
-        });
-    </script>
-</body>
-</html>
+            onMounted(() => {
+                if (isEditMode) {
+                    loadPositionData();
+                }
+            });
+            
+            return {
+                // 响应式数据
+                formData,
+                errors,
+                submitting,
+                toastMessage,
+                toastConfig,
+                
+                // 计算属性
+                isEdit: isEditMode,
+                
+                // 方法
+                validateField,
+                validateForm,
+                submitForm,
+                closeForm
+            };
+        }
+    };
+    
+    const app = createApp(PositionFormApp);
+    app.mount('#position-form-app');
+</script>
+
+<style>
+    /* 全局样式重置 - 针对iframe内嵌环境 */
+    html, body {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        background-color: var(--gray-50);
+    }
+    
+    .position-form-container {
+        --primary: #3b82f6;
+        --primary-hover: #2563eb;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-300: #d1d5db;
+        --gray-400: #9ca3af;
+        --gray-500: #6b7280;
+        --gray-600: #4b5563;
+        --gray-700: #374151;
+        --gray-800: #1f2937;
+        --gray-900: #111827;
+        --border-radius: 8px;
+        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        --transition: all 0.3s ease;
+        
+        max-width: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: var(--gray-50);
+        min-height: calc(100vh - 48px);
+        display: flex;
+        flex-direction: column;
+    }
+    
+    /* 页面标题 */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+    
+    .page-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin: 0;
+        display: flex;
+        align-items: center;
+    }
+    
+    .page-title i {
+        margin-right: 8px;
+        color: var(--primary);
+        font-size: 28px;
+    }
+    
+    /* 返回/关闭按钮 */
+    .back-button {
+        background-color: var(--gray-100);
+        color: var(--gray-700);
+        border: none;
+        border-radius: var(--border-radius);
+        padding: 0 16px;
+        height: 36px;
+        cursor: pointer;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 14px;
+    }
+    
+    .back-button:hover {
+        background-color: var(--gray-200);
+    }
+    
+    /* 表单卡片 */
+    .form-card {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-sm);
+        padding: 16px 24px;
+        margin: 16px;
+        flex: 1;
+    }
+    
+    /* 表单标题 */
+    .form-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--gray-800);
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--gray-200);
+    }
+    
+    /* 表单字段容器 */
+    .form-field {
+        margin-bottom: 20px;
+    }
+    
+    .form-field-label {
+        display: block;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--gray-700);
+        margin-bottom: 8px;
+    }
+    
+    .form-field-label.required::after {
+        content: " *";
+        color: var(--danger);
+    }
+    
+    /* 输入框样式 */
+    .layui-input,
+    .layui-select,
+    .layui-textarea {
+        border-radius: var(--border-radius);
+        border: 1px solid var(--gray-300);
+        transition: var(--transition);
+    }
+    
+    .layui-input:focus,
+    .layui-select:focus,
+    .layui-textarea:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .form-error {
+        border-color: var(--danger) !important;
+    }
+    
+    .form-error:focus {
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+    }
+    
+    /* 文本域 */
+    .layui-textarea {
+        resize: vertical;
+        min-height: 100px;
+    }
+    
+    /* 错误信息 */
+    .error-message {
+        color: var(--danger);
+        font-size: 12px;
+        margin-top: 6px;
+    }
+    
+    /* 按钮容器 */
+    .button-container {
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+        padding-top: 20px;
+        border-top: 1px solid var(--gray-200);
+    }
+    
+    /* 表单按钮 */
+    .form-button {
+        padding: 8px 24px;
+        border-radius: var(--border-radius);
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .btn-save {
+        background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+        color: white;
+        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+    }
+    
+    .btn-save:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+        color: white;
+    }
+    
+    .btn-save:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    .btn-cancel {
+        background-color: var(--gray-100);
+        color: var(--gray-700);
+    }
+    
+    .btn-cancel:hover {
+        background-color: var(--gray-200);
+    }
+    
+    /* 加载状态 */
+    .form-loading {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(255, 255, 255, 0.8);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+    
+    .form-loading i {
+        font-size: 48px;
+        color: var(--primary);
+        margin-bottom: 16px;
+    }
+    
+    .form-loading p {
+        color: var(--gray-600);
+        font-size: 14px;
+    }
+    
+    /* 消息提示 */
+    .toast-message {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: var(--gray-800);
+        color: white;
+        padding: 12px 24px;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-lg);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        z-index: 2000;
+    }
+    
+    .toast-message i {
+        font-size: 16px;
+    }
+    
+    /* 过渡动画 */
+    .fade-enter-active,
+    .fade-leave-active {
+        transition: opacity 0.3s ease;
+    }
+    
+    .fade-enter-from,
+    .fade-leave-to {
+        opacity: 0;
+    }
+    
+    .slide-up-enter-active,
+    .slide-up-leave-active {
+        transition: all 0.3s ease;
+    }
+    
+    .slide-up-enter-from,
+    .slide-up-leave-to {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+    }
+    
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+        .position-form-container {
+            padding: 12px;
+        }
+        
+        .form-card {
+            padding: 16px;
+        }
+        
+        .button-container {
+            flex-direction: column;
+        }
+        
+        .form-button {
+            justify-content: center;
+        }
+    }
+</style>
 {% endblock %}

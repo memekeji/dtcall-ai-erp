@@ -324,8 +324,6 @@ class NotificationPreferenceViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
     
     def get_queryset(self):
-        if not self.request.user.has_perm('message.view_message_preference'):
-            return NotificationPreference.objects.none()
         return NotificationPreference.objects.filter(user=self.request.user)
     
     def get_object(self):
@@ -336,30 +334,22 @@ class NotificationPreferenceViewSet(viewsets.ModelViewSet):
     
     def list(self, request, *args, **kwargs):
         """获取当前用户的通知偏好"""
-        if not request.user.has_perm('message.view_message_preference'):
-            return JsonResponse({'code': 403, 'msg': '您没有权限查看通知偏好'})
         preference = self.get_object()
         serializer = self.get_serializer(preference)
         return JsonResponse({'code': 200, 'msg': 'success', 'data': serializer.data})
     
     def retrieve(self, request, *args, **kwargs):
         """获取单个偏好设置"""
-        if not self.request.user.has_perm('message.view_message_preference'):
-            return JsonResponse({'code': 403, 'msg': '您没有权限查看通知偏好'})
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         return JsonResponse({'code': 200, 'msg': 'success', 'data': serializer.data})
     
     def create(self, request, *args, **kwargs):
         """创建设置"""
-        if not request.user.has_perm('message.change_message_preference'):
-            return JsonResponse({'code': 403, 'msg': '您没有权限修改通知偏好'})
         return self.update(request, *args, **kwargs)
     
     def update(self, request, *args, **kwargs):
         """更新设置"""
-        if not request.user.has_perm('message.change_message_preference'):
-            return JsonResponse({'code': 403, 'msg': '您没有权限修改通知偏好'})
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
@@ -370,17 +360,12 @@ class NotificationPreferenceViewSet(viewsets.ModelViewSet):
     
     def partial_update(self, request, *args, **kwargs):
         """部分更新"""
-        if not self.request.user.has_perm('message.change_message_preference'):
-            return JsonResponse({'code': 403, 'msg': '您没有权限修改通知偏好'})
         kwargs['partial'] = True
         return self.update(request, *args, **kwargs)
     
     @action(detail=False, methods=['post'])
     def update_settings(self, request):
         """更新用户偏好设置（POST /message/preferences/update_settings/）"""
-        if not self.request.user.has_perm('message.change_message_preference'):
-            return JsonResponse({'code': 403, 'msg': '您没有权限修改通知偏好'})
-        
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         

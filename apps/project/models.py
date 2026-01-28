@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
+from django.contrib.contenttypes.fields import GenericForeignKey, ContentType
 from apps.department.models import Department
 from apps.customer.models import CustomerContract
 
@@ -294,3 +295,32 @@ class ProjectDocument(models.Model):
 
     def __str__(self):
         return f"{self.project.name} - {self.title}"
+
+
+class Comment(models.Model):
+    """评论模型，支持对多种对象的评论"""
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, verbose_name='关联对象类型')
+    object_id = models.BigIntegerField(verbose_name='关联对象ID')
+    content_object = GenericForeignKey('content_type', 'object_id')
+    
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, verbose_name='评论用户')
+    content = models.TextField(verbose_name='评论内容')
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies', verbose_name='父评论')
+    
+    create_time = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    update_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+    delete_time = models.DateTimeField(null=True, blank=True, verbose_name='删除时间')
+    
+    class Meta:
+        db_table = 'comment'
+        verbose_name = '评论'
+        verbose_name_plural = verbose_name
+        ordering = ['-create_time']
+        indexes = [
+            models.Index(fields=['content_type', 'object_id']),
+            models.Index(fields=['user']),
+            models.Index(fields=['parent']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.content[:50]}"

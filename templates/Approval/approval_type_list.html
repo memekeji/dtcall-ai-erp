@@ -38,69 +38,6 @@ var tableColumns = [
 {% endblock %}
 
 {% block extra_js %}
-window.addItem = function() {
-    layer.open({
-        type: 2,
-        title: '新增审批类型',
-        content: '/approval/approval_type/add/',
-        area: ['80%', '80%'],
-        end: function() {
-            refreshTable();
-        }
-    });
-};
-
-window.editType = function(id) {
-    layer.open({
-        type: 2,
-        title: '编辑审批类型',
-        content: '/approval/approval_type/' + id + '/edit/',
-        area: ['80%', '80%'],
-        end: function() {
-            refreshTable();
-        }
-    });
-};
-
-window.deleteType = function(id) {
-    layer.confirm('确认删除这个审批类型吗？', function(index) {
-        var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        $.ajax({
-            url: '/approval/delete/approvaltype/' + id + '/',
-            type: 'POST',
-            data: {csrfmiddlewaretoken: csrfToken},
-            success: function(res) {
-                if (res.success) {
-                    layer.msg('删除成功');
-                    refreshTable();
-                } else {
-                    layer.msg(res.message || '删除失败');
-                }
-            },
-            error: function() {
-                layer.msg('网络错误');
-            }
-        });
-        layer.close(index);
-    });
-};
-
-layui.use(['table', 'form', 'layer', 'jquery'], function() {
-    var table = layui.table;
-    var layer = layui.layer;
-    var $ = layui.jquery;
-    
-    table.on('tool(dataTable)', function(obj) {
-        var data = obj.data;
-        var layEvent = obj.event;
-        
-        if (layEvent === 'edit') {
-            editType(data.id);
-        } else if (layEvent === 'delete') {
-            deleteType(data.id);
-        }
-    });
-});
 {% endblock %}
 
 {% block table_headers %}

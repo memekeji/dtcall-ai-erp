@@ -59,15 +59,13 @@ class DataSyncService:
                     employee_file, created = EmployeeFile.objects.get_or_create(
                         employee=user,
                         defaults={
-                            'phone': user.phone or '',
+                            'phone': user.mobile or '',
                             'email': user.email or '',
-                            # 添加其他必要的默认值
                         }
                     )
                     
                     if not created:
-                        # 更新现有记录
-                        employee_file.phone = user.phone or ''
+                        employee_file.phone = user.mobile or ''
                         employee_file.email = user.email or ''
                         employee_file.save()
                 

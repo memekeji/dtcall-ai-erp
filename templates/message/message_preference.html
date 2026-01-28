@@ -104,6 +104,7 @@
         </div>
         
         <form class="layui-form" lay-filter="preferenceForm" id="preferenceForm">
+            {% csrf_token %}
             <div class="preference-item">
                 <div class="preference-info">
                     <h4><i class="layui-icon layui-icon-email icon"></i> 邮件通知</h4>
@@ -144,6 +145,7 @@
         </div>
         
         <form class="layui-form" lay-filter="notifyTypeForm" id="notifyTypeForm">
+            {% csrf_token %}
             <div class="preference-item">
                 <div class="preference-info">
                     <h4><i class="layui-icon layui-icon-speaker" style="color: #1890ff;"></i> 公告通知</h4>
@@ -226,8 +228,9 @@
         function loadPreference() {
             fetch('/message/preferences/')
                 .then(function(response) { return response.json(); })
-                .then(function(data) {
-                    if (data && Object.keys(data).length > 0) {
+                .then(function(res) {
+                    if (res.code === 200 && res.data) {
+                        var data = res.data;
                         form.val('preferenceForm', {
                             enable_email: data.enable_email,
                             enable_browser: data.enable_browser
@@ -250,6 +253,7 @@
                 })
                 .catch(function(error) {
                     console.error('加载偏好设置失败:', error);
+                    layer.msg('加载偏好设置失败', {icon: 2});
                 });
         }
         

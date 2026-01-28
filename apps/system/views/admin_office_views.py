@@ -11,12 +11,12 @@ from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMix
 from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.db import transaction
-from django.http import JsonResponse
 
 from apps.system.models import (
     Notice, MeetingReservation, Seal, SealApplication,
     Document, DocumentCategory, DocumentReview, Asset, AssetRepair,
-    Vehicle, VehicleMaintenance, VehicleFee, VehicleOil
+    Vehicle, VehicleMaintenance, VehicleFee, VehicleOil,
+    AssetCategory, AssetBrand
 )
 from apps.oa.models import MeetingRoom
 from apps.system.forms.admin_office_forms import NoticeForm
@@ -588,7 +588,7 @@ class AssetCreateView(LoginRequiredMixin, CreateView):
     """创建资产视图"""
     model = Asset
     template_name = 'asset/form.html'
-    fields = ['name', 'code', 'category', 'model', 'specification', 'purchase_date', 'purchase_price', 'status', 'location', 'responsible_person', 'description']
+    fields = ['asset_number', 'name', 'category', 'model', 'specification', 'purchase_date', 'purchase_price', 'status', 'location', 'responsible_person', 'description']
     success_url = reverse_lazy('system:admin_office:asset_list')
     
     def form_valid(self, form):
@@ -600,7 +600,7 @@ class AssetUpdateView(LoginRequiredMixin, UpdateView):
     """更新资产视图"""
     model = Asset
     template_name = 'asset/form.html'
-    fields = ['name', 'code', 'category', 'model', 'specification', 'purchase_date', 'purchase_price', 'status', 'location', 'responsible_person', 'description']
+    fields = ['asset_number', 'name', 'category', 'model', 'specification', 'purchase_date', 'purchase_price', 'status', 'location', 'responsible_person', 'description']
     success_url = reverse_lazy('system:admin_office:asset_list')
     
     def form_valid(self, form):
@@ -856,3 +856,260 @@ class VehicleOilDeleteView(LoginRequiredMixin, DeleteView):
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, '车辆加油记录删除成功')
         return super().delete(request, *args, **kwargs)
+
+
+class GenerateAssetNumberView(LoginRequiredMixin, View):
+    """生成资产编号API"""
+    
+    def get(self, request):
+        from django.utils import timezone
+        from datetime import datetime
+        
+        prefix = 'ZC'
+        year = timezone.now().strftime('%Y')
+        
+        existing_numbers = Asset.objects.filter(
+            asset_number__startswith=f'{prefix}{year}'
+        ).values_list('asset_number', flat=True)
+        
+        if existing_numbers:
+            max_seq = 0
+            for num in existing_numbers:
+                try:
+                    seq_str = num.replace(f'{prefix}{year}', '')
+                    if seq_str.isdigit():
+                        seq = int(seq_str)
+                        if seq > max_seq:
+                            max_seq = seq
+                except (ValueError, AttributeError):
+                    continue
+            new_seq = max_seq + 1
+        else:
+            new_seq = 1
+        
+        new_number = f'{prefix}{year}{str(new_seq).zfill(4)}'
+        
+        return JsonResponse({
+            'code': 200,
+            'data': {
+                'asset_number': new_number
+            }
+        })
+
+
+class AssetCategoryListView(LoginRequiredMixin, ListView):
+    """资产分类列表视图"""
+    model = AssetCategory
+    template_name = 'asset/category_list.html'
+    context_object_name = 'categories'
+    paginate_by = 20
+
+
+class AssetCategoryCreateView(LoginRequiredMixin, CreateView):
+    """创建资产分类视图"""
+    model = AssetCategory
+    template_name = 'asset/category_form.html'
+    fields = ['code', 'name', 'description', 'is_active']
+    success_url = reverse_lazy('system:admin_office:asset_category_list')
+    
+    def form_valid(self, form):
+        messages.success(self.request, '资产分类创建成功')
+        return super().form_valid(form)
+
+
+class AssetCategoryUpdateView(LoginRequiredMixin, UpdateView):
+    """更新资产分类视图"""
+    model = AssetCategory
+    template_name = 'asset/category_form.html'
+    fields = ['code', 'name', 'description', 'is_active']
+    success_url = reverse_lazy('system:admin_office:asset_category_list')
+    
+    def form_valid(self, form):
+        messages.success(self.request, '资产分类更新成功')
+        return super().form_valid(form)
+
+
+class AssetCategoryDeleteView(LoginRequiredMixin, DeleteView):
+    """删除资产分类视图"""
+    model = AssetCategory
+    template_name = 'asset/category_list.html'
+    success_url = reverse_lazy('system:admin_office:asset_category_list')
+    
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, '资产分类删除成功')
+        return super().delete(request, *args, **kwargs)
+
+
+class AssetBrandListView(LoginRequiredMixin, ListView):
+    """资产品牌列表视图"""
+    model = AssetBrand
+    template_name = 'asset/brand_list.html'
+    context_object_name = 'brands'
+    paginate_by = 20
+
+
+class AssetBrandCreateView(LoginRequiredMixin, CreateView):
+    """创建资产品牌视图"""
+    model = AssetBrand
+    template_name = 'asset/brand_form.html'
+    fields = ['code', 'name', 'description', 'is_active']
+    success_url = reverse_lazy('system:admin_office:asset_brand_list')
+    
+    def form_valid(self, form):
+        messages.success(self.request, '资产品牌创建成功')
+        return super().form_valid(form)
+
+
+class AssetBrandUpdateView(LoginRequiredMixin, UpdateView):
+    """更新资产品牌视图"""
+    model = AssetBrand
+    template_name = 'asset/brand_form.html'
+    fields = ['code', 'name', 'description', 'is_active']
+    success_url = reverse_lazy('system:admin_office:asset_brand_list')
+    
+    def form_valid(self, form):
+        messages.success(self.request, '资产品牌更新成功')
+        return super().form_valid(form)
+
+
+class AssetBrandDeleteView(LoginRequiredMixin, DeleteView):
+    """删除资产品牌视图"""
+    model = AssetBrand
+    template_name = 'asset/brand_list.html'
+    success_url = reverse_lazy('system:admin_office:asset_brand_list')
+    
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, '资产品牌删除成功')
+        return super().delete(request, *args, **kwargs)
+
+
+class AssetCategoryDataAPIView(LoginRequiredMixin, View):
+    """资产分类数据API"""
+    
+    def get(self, request):
+        try:
+            keyword = request.GET.get('keyword', '')
+            status = request.GET.get('status', '')
+            page = int(request.GET.get('page', 1))
+            page_size = int(request.GET.get('page_size', 10))
+            
+            queryset = AssetCategory.objects.all()
+            
+            if keyword:
+                queryset = queryset.filter(
+                    models.Q(name__icontains=keyword) | 
+                    models.Q(code__icontains=keyword)
+                )
+            
+            if status:
+                is_active = status == '1'
+                queryset = queryset.filter(is_active=is_active)
+            
+            total_count = queryset.count()
+            start = (page - 1) * page_size
+            end = start + page_size
+            categories = queryset.order_by('-created_at')[start:end]
+            
+            data = [{
+                'id': cat.id,
+                'code': cat.code,
+                'name': cat.name,
+                'description': cat.description or '',
+                'is_active': cat.is_active,
+                'create_time': cat.created_at.strftime('%Y-%m-%d %H:%M') if cat.created_at else '-'
+            } for cat in categories]
+            
+            return JsonResponse({
+                'code': 0,
+                'msg': 'success',
+                'data': data,
+                'count': total_count
+            })
+        except Exception as e:
+            return JsonResponse({
+                'code': 500,
+                'msg': str(e)
+            })
+
+
+class AssetCategoryDeleteAPIView(LoginRequiredMixin, View):
+    """资产分类删除API"""
+    
+    def delete(self, request, pk):
+        try:
+            category = AssetCategory.objects.get(pk=pk)
+            category.delete()
+            return JsonResponse({'code': 0, 'msg': '删除成功'})
+        except AssetCategory.DoesNotExist:
+            return JsonResponse({'code': 404, 'msg': '分类不存在'})
+        except Exception as e:
+            return JsonResponse({'code': 500, 'msg': str(e)})
+    
+    def post(self, request, pk):
+        return self.delete(request, pk)
+
+
+class AssetBrandDataAPIView(LoginRequiredMixin, View):
+    """资产品牌数据API"""
+    
+    def get(self, request):
+        try:
+            keyword = request.GET.get('keyword', '')
+            status = request.GET.get('status', '')
+            page = int(request.GET.get('page', 1))
+            page_size = int(request.GET.get('page_size', 10))
+            
+            queryset = AssetBrand.objects.all()
+            
+            if keyword:
+                queryset = queryset.filter(
+                    models.Q(name__icontains=keyword) | 
+                    models.Q(code__icontains=keyword)
+                )
+            
+            if status:
+                is_active = status == '1'
+                queryset = queryset.filter(is_active=is_active)
+            
+            total_count = queryset.count()
+            start = (page - 1) * page_size
+            end = start + page_size
+            brands = queryset.order_by('-created_at')[start:end]
+            
+            data = [{
+                'id': brand.id,
+                'code': brand.code,
+                'name': brand.name,
+                'description': brand.description or '',
+                'is_active': brand.is_active,
+                'create_time': brand.created_at.strftime('%Y-%m-%d %H:%M') if brand.created_at else '-'
+            } for brand in brands]
+            
+            return JsonResponse({
+                'code': 0,
+                'msg': 'success',
+                'data': data,
+                'count': total_count
+            })
+        except Exception as e:
+            return JsonResponse({
+                'code': 500,
+                'msg': str(e)
+            })
+
+
+class AssetBrandDeleteAPIView(LoginRequiredMixin, View):
+    """资产品牌删除API"""
+    
+    def delete(self, request, pk):
+        try:
+            brand = AssetBrand.objects.get(pk=pk)
+            brand.delete()
+            return JsonResponse({'code': 0, 'msg': '删除成功'})
+        except AssetBrand.DoesNotExist:
+            return JsonResponse({'code': 404, 'msg': '品牌不存在'})
+        except Exception as e:
+            return JsonResponse({'code': 500, 'msg': str(e)})
+    
+    def post(self, request, pk):
+        return self.delete(request, pk)

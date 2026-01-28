@@ -363,7 +363,7 @@ system_menus = {
     1156: {
         "id": 1156,
         "title": "资产分类",
-        "src": "/system/admin_office/asset/",
+        "src": "/system/admin_office/asset/category/",
         "pid_id": 1122,
         "sort": 48,
         "status": 1
@@ -371,7 +371,7 @@ system_menus = {
     1157: {
         "id": 1157,
         "title": "资产品牌",
-        "src": "/system/admin_office/asset/",
+        "src": "/system/admin_office/asset/brand/",
         "pid_id": 1122,
         "sort": 49,
         "status": 1

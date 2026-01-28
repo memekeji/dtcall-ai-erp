@@ -62,6 +62,21 @@ urlpatterns = [
     path('asset/create/', admin_office_views.AssetCreateView.as_view(), name='asset_create'),
     path('asset/update/<int:pk>/', admin_office_views.AssetUpdateView.as_view(), name='asset_update'),
     path('asset/delete/<int:pk>/', admin_office_views.AssetDeleteView.as_view(), name='asset_delete'),
+    path('asset/generate_number/', admin_office_views.GenerateAssetNumberView.as_view(), name='asset_generate_number'),
+    
+    # 资产分类管理路由
+    path('asset/category/', admin_office_views.AssetCategoryListView.as_view(), name='asset_category_list'),
+    path('asset/category/create/', admin_office_views.AssetCategoryCreateView.as_view(), name='asset_category_create'),
+    path('asset/category/<int:pk>/update/', admin_office_views.AssetCategoryUpdateView.as_view(), name='asset_category_update'),
+    path('asset/category/<int:pk>/delete/', admin_office_views.AssetCategoryDeleteView.as_view(), name='asset_category_delete'),
+    path('asset/category/data/', admin_office_views.AssetCategoryDataAPIView.as_view(), name='asset_category_data'),
+    
+    # 资产品牌管理路由
+    path('asset/brand/', admin_office_views.AssetBrandListView.as_view(), name='asset_brand_list'),
+    path('asset/brand/create/', admin_office_views.AssetBrandCreateView.as_view(), name='asset_brand_create'),
+    path('asset/brand/<int:pk>/update/', admin_office_views.AssetBrandUpdateView.as_view(), name='asset_brand_update'),
+    path('asset/brand/<int:pk>/delete/', admin_office_views.AssetBrandDeleteView.as_view(), name='asset_brand_delete'),
+    path('asset/brand/data/', admin_office_views.AssetBrandDataAPIView.as_view(), name='asset_brand_data'),
     
     # 资产维修管理路由
     path('asset_repair/', admin_office_views.AssetRepairListView.as_view(), name='asset_repair_list'),

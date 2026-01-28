@@ -14,6 +14,7 @@ urlpatterns = [
     # 报销管理 - 新路由
     path('expense/', views.ExpenseListView.as_view(), name='expense_list'),
     path('expense/datalist/', views.ExpenseListView.as_view(), name='expense_datalist'),
+    path('expense/add/', views.ExpenseCreateView.as_view(), name='expense_add'),
     path('expense/submit/', views.ExpenseSubmitView.as_view(), name='expense_submit'),
     path('expense/approve/', views.ExpenseApproveView.as_view(), name='expense_approve'),
     path('expense/batch-approve/', views.BatchApprovalView.as_view(), name='expense_batch_approve'),
@@ -23,6 +24,7 @@ urlpatterns = [
     # 报销管理 - 旧路由兼容
     path('reimbursement/', views.ReimbursementListView.as_view(), name='reimbursement_list'),
     path('reimbursement/datalist/', views.ExpenseListView.as_view(), name='reimbursement_datalist'),
+    path('reimbursement/add/', views.ExpenseCreateView.as_view(), name='reimbursement_add'),
     path('reimbursement/submit/', views.ExpenseSubmitView.as_view(), name='reimbursement_submit'),
     path('reimbursement/approve/', views.ExpenseApproveView.as_view(), name='reimbursement_approve'),
     path('reimbursement/batch/', views.BatchApprovalView.as_view(), name='reimbursement_batch'),

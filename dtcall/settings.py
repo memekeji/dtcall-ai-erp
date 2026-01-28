@@ -43,6 +43,9 @@ USE_X_FORWARDED_PORT = True        # 启用代理传递的端口
 FORCE_SCRIPT_NAME = ''             # 应用子路径（如'/app'），默认为根路径
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')  # HTTPS代理头
 
+# URL设置
+APPEND_SLASH = False               # 禁用自动添加尾随斜杠，解决附件下载路径问题
+
 # HTTPS设置
 # SECURE_SSL_REDIRECT = True  # 强制HTTPS重定向，生产环境应启用
 

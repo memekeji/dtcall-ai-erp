@@ -4,6 +4,7 @@ from django.db.models import Prefetch
 from django.shortcuts import redirect
 from django.http import JsonResponse, HttpResponse
 from apps.user.models import Menu
+from apps.system.decorators.module_check import ModuleActiveCheckMixin
 
 
 class CustomLoginRequiredMixin(LoginRequiredMixin):
@@ -41,7 +42,7 @@ class CustomLoginRequiredMixin(LoginRequiredMixin):
         return super().dispatch(request, *args, **kwargs)
 
 
-class BaseAdminView(CustomLoginRequiredMixin, PermissionRequiredMixin):
+class BaseAdminView(CustomLoginRequiredMixin, PermissionRequiredMixin, ModuleActiveCheckMixin):
     """系统管理视图基类"""
     permission_required = None  # 由子类设置具体权限
     raise_exception = True  # 权限不足时直接抛出异常，不重定向到登录页

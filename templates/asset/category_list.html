@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>资产分类管理</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <style>
+        .layui-table-cell {
+            height: 40px !important;
+            line-height: 40px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .layui-table tr {
+            height: 40px !important;
+        }
+        
+        .toolbar-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: nowrap;
+            margin-bottom: 15px;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 10px 15px;
+            border-radius: 4px;
+        }
+        
+        .button-group {
+            flex-shrink: 0;
+            margin-right: 15px;
+        }
+        
+        .search-group {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .search-inputs {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .search-inputs .layui-input {
+            flex: 1;
+            min-width: 80px;
+        }
+        
+        .search-inputs .search-btn {
+            flex-shrink: 0;
+        }
+        
+        .action-buttons {
+            white-space: nowrap;
+        }
+        
+        .status-normal { color: #5FB878; }
+        .status-disabled { color: #FF5722; }
+        
+        .status-tag {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-tag.active {
+            background: rgba(16, 185, 129, 0.1);
+            color: #059669;
+        }
+        
+        .status-tag.inactive {
+            background: rgba(107, 114, 128, 0.1);
+            color: #6b7280;
+        }
+        
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .layui-card-body {
+            display: flex;
+            flex-direction: column;
+            padding: 0 15px !important;
+            margin: 0 !important;
+            box-sizing: border-box;
+            min-height: 120px;
+        }
+        
+        #viewContainer {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        
+        #tableView {
+            margin-top: 0 !important;
+            padding: 0 !important;
+        }
+        
+        .layui-table-view {
+            margin-top: 0 !important;
+            padding: 0 !important;
+        }
+        
+        .layui-table-view {
+            position: relative;
+        }
+        
+        .layui-table-header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: white;
+        }
+        
+        .layui-table-body {
+            overflow: auto;
+        }
+        
+        .layui-table-box {
+            height: auto !important;
+        }
+        
+        .layui-table-view .layui-table {
+            margin-bottom: 0 !important;
+        }
+        
+        @media (max-width: 768px) {
+            .toolbar-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .button-group {
+                margin-right: 0;
+                margin-bottom: 10px;
+            }
+            
+            .search-inputs {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-body">
+                        <div class="toolbar-container">
+                            <div class="button-group">
+                                <div class="layui-btn-group">
+                                    <button type="button" class="layui-btn layui-btn-sm" id="addCategory">
+                                        <i class="layui-icon layui-icon-add-1"></i> 添加分类
+                                    </button>
+                                    <button type="button" class="layui-btn layui-btn-sm layui-btn-danger" id="batchDelete">
+                                        <i class="layui-icon layui-icon-delete"></i> 批量删除
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="search-group">
+                                <form class="layui-form" id="searchForm" lay-filter="searchForm">
+                                    <div class="search-inputs">
+                                        <input type="text" name="keyword" placeholder="分类编码/名称" class="layui-input">
+                                        <button type="submit" class="layui-btn layui-btn-sm search-btn">
+                                            <i class="layui-icon layui-icon-search"></i> 搜索
+                                        </button>
+                                        <button type="reset" class="layui-btn layui-btn-sm layui-btn-primary search-btn">
+                                            <i class="layui-icon layui-icon-refresh"></i> 重置
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        <div id="viewContainer">
+                            <div id="tableView" class="view-section">
+                                <table class="layui-hide" id="categoryTable" lay-filter="categoryTable"></table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/html" id="barDemo">
+        <div class="action-buttons">
+            <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
+            <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="del">删除</a>
+        </div>
+    </script>
+
+    <script src="/static/js/jquery.min.js"></script>
+    <script src="/static/layui/layui.js"></script>
+    <script>
+    //<![CDATA[
+        function getStatusHtml(isActive) {
+            if (isActive) {
+                return '<span class="status-tag active">启用</span>';
+            } else {
+                return '<span class="status-tag inactive">停用</span>';
+            }
+        }
+        
+        layui.use(['table', 'form', 'layer'], function(){
+            var table = layui.table;
+            var form = layui.form;
+            var layer = layui.layer;
+            
+            var columns = [
+                {type: 'checkbox', fixed: 'left'},
+                {field: 'id', title: 'ID', width: 80, fixed: 'left', sort: true},
+                {field: 'code', title: '分类编码', width: 150, sort: true},
+                {field: 'name', title: '分类名称', width: 200, sort: true},
+                {field: 'description', title: '描述', width: 200},
+                {field: 'is_active', title: '状态', width: 100, templet: function(d) { return getStatusHtml(d.is_active); }},
+                {field: 'create_time', title: '创建时间', width: 160, sort: true},
+                {title: '操作', width: 150, fixed: 'right', align: 'center', toolbar: '#barDemo'}
+            ];
+            
+            function initTable() {
+                table.render({
+                    elem: '#categoryTable',
+                    url: '/system/admin_office/asset/category/data/',
+                    method: 'get',
+                    cols: [columns],
+                    page: true,
+                    limits: [10, 20, 50, 100],
+                    limit: 20,
+                    loading: true,
+                    even: true,
+                    text: {
+                        none: '暂无相关数据'
+                    },
+                    request: {
+                        pageName: 'page',
+                        limitName: 'page_size'
+                    },
+                    where: {}
+                });
+            }
+            
+            initTable();
+            
+            form.render();
+            
+            form.on('submit(searchForm)', function(data) {
+                var keyword = data.field.keyword;
+                table.reload('categoryTable', {
+                    url: '/system/admin_office/asset/category/data/',
+                    where: { keyword: keyword },
+                    page: {curr: 1}
+                });
+                return false;
+            });
+            
+            $('#searchForm button[type="reset"]').click(function() {
+                $('#searchForm')[0].reset();
+                table.reload('categoryTable', {
+                    url: '/system/admin_office/asset/category/data/',
+                    where: {},
+                    page: {curr: 1}
+                });
+                return false;
+            });
+            
+            $('#addCategory').click(function() {
+                layer.open({
+                    type: 2,
+                    title: '<i class="layui-icon layui-icon-add-1"></i> 新增分类',
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    content: '/system/admin_office/asset/category/create/',
+                    success: function(layero, index) {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'bottom': '0',
+                            'height': 'auto !important',
+                            'margin': '0',
+                            'padding': '0',
+                            'border': 'none'
+                        });
+                        layero[0].style.setProperty('height', '100%', 'important');
+                        
+                        var iframe = layero.find('iframe');
+                        if (iframe.length) {
+                            iframe.css({
+                                'height': '100%',
+                                'width': '100%'
+                            });
+                        }
+                        
+                        var content = layero.find('.layui-layer-content');
+                        if (content.length) {
+                            content.css({
+                                'height': '100%',
+                                'overflow': 'hidden',
+                                'padding': '0',
+                                'margin': '0'
+                            });
+                            content[0].style.setProperty('height', '100%', 'important');
+                        }
+                        
+                        var setIframeHeight = function() {
+                            var iframeDoc = iframe[0].contentWindow.document;
+                            var iframeBody = iframeDoc.body;
+                            var iframeHeight = Math.max(
+                                iframeBody.scrollHeight,
+                                iframeDoc.documentElement.scrollHeight,
+                                iframeBody.offsetHeight,
+                                iframeDoc.documentElement.offsetHeight,
+                                iframeBody.clientHeight,
+                                iframeDoc.documentElement.clientHeight
+                            );
+                            if (iframeHeight > 0) {
+                                iframe.css('height', iframeHeight + 'px');
+                            }
+                        };
+                        
+                        setTimeout(setIframeHeight, 100);
+                        setTimeout(setIframeHeight, 500);
+                        setTimeout(setIframeHeight, 1000);
+                    },
+                    end: function() {
+                        table.reload('categoryTable');
+                    }
+                });
+            });
+            
+            table.on('tool(categoryTable)', function(obj) {
+                var data = obj.data;
+                switch(obj.event) {
+                    case 'edit':
+                        layer.open({
+                            type: 2,
+                            title: '<i class="layui-icon layui-icon-edit"></i> 编辑分类',
+                            shadeClose: false,
+                            shade: 0.3,
+                            maxmin: true,
+                            area: ['80%', '100%'],
+                            offset: 'r',
+                            content: '/system/admin_office/asset/category/' + data.id + '/update/',
+                            success: function(layero, index) {
+                                layero.css({
+                                    'right': '0',
+                                    'top': '0',
+                                    'bottom': '0',
+                                    'height': 'auto !important',
+                                    'margin': '0',
+                                    'padding': '0',
+                                    'border': 'none'
+                                });
+                                layero[0].style.setProperty('height', '100%', 'important');
+                                
+                                var iframe = layero.find('iframe');
+                                if (iframe.length) {
+                                    iframe.css({
+                                        'height': '100%',
+                                        'width': '100%'
+                                    });
+                                }
+                                
+                                var content = layero.find('.layui-layer-content');
+                                if (content.length) {
+                                    content.css({
+                                        'height': '100%',
+                                        'overflow': 'hidden',
+                                        'padding': '0',
+                                        'margin': '0'
+                                    });
+                                    content[0].style.setProperty('height', '100%', 'important');
+                                }
+                                
+                                var setIframeHeight = function() {
+                                    var iframeDoc = iframe[0].contentWindow.document;
+                                    var iframeBody = iframeDoc.body;
+                                    var iframeHeight = Math.max(
+                                        iframeBody.scrollHeight,
+                                        iframeDoc.documentElement.scrollHeight,
+                                        iframeBody.offsetHeight,
+                                        iframeDoc.documentElement.offsetHeight,
+                                        iframeBody.clientHeight,
+                                        iframeDoc.documentElement.clientHeight
+                                    );
+                                    if (iframeHeight > 0) {
+                                        iframe.css('height', iframeHeight + 'px');
+                                    }
+                                };
+                                
+                                setTimeout(setIframeHeight, 100);
+                                setTimeout(setIframeHeight, 500);
+                                setTimeout(setIframeHeight, 1000);
+                            },
+                            end: function() {
+                                table.reload('categoryTable');
+                            }
+                        });
+                        break;
+                    case 'del':
+                        layer.confirm('确定删除分类 "' + data.name + '" 吗？删除后无法恢复。', function(index) {
+                            deleteCategory(data.id);
+                            layer.close(index);
+                        });
+                        break;
+                }
+            });
+            
+            function deleteCategory(id) {
+                $.ajax({
+                    url: '/system/admin_office/asset/category/' + id + '/delete/',
+                    type: 'POST',
+                    data: {
+                        csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+                    },
+                    success: function(res) {
+                        if (res.code === 0) {
+                            layer.msg('删除成功', {icon: 1});
+                            table.reload('categoryTable');
+                        } else {
+                            layer.msg(res.msg || '删除失败', {icon: 2});
+                        }
+                    },
+                    error: function() {
+                        layer.msg('网络错误，请稍后重试', {icon: 2});
+                    }
+                });
+            }
+            
+            $('#batchDelete').click(function() {
+                var checkStatus = table.checkStatus('categoryTable');
+                var data = checkStatus.data;
+                if (data.length === 0) {
+                    layer.msg('请选择要删除的数据');
+                    return;
+                }
+                
+                layer.confirm('确定删除选中的 ' + data.length + ' 个分类吗？', function(index) {
+                    var ids = data.map(function(item) { return item.id; });
+                    batchDelete(ids);
+                    layer.close(index);
+                });
+            });
+            
+            function batchDelete(ids) {
+                if (ids.length === 0) return;
+                
+                layer.msg('批量删除功能开发中', {icon: 2});
+            }
+        });
+    //]]>
+    </script>
+</body>
+</html>
