@@ -206,11 +206,18 @@ class ProjectDetailView(LoginRequiredMixin, View):
         
         # 任务状态统计
         from django.db import models
+        from datetime import date
+        today = date.today()
         task_stats = tasks.aggregate(
             total_tasks=Count('id'),
             completed_tasks=Count('id', filter=models.Q(status=3)),
             in_progress_tasks=Count('id', filter=models.Q(status=2)),
-            pending_tasks=Count('id', filter=models.Q(status=1))
+            pending_tasks=Count('id', filter=models.Q(status=1)),
+            overdue_tasks=Count('id', filter=models.Q(status__in=[1, 2], end_date__lt=today)),
+            low_priority_tasks=Count('id', filter=models.Q(priority=1)),
+            medium_priority_tasks=Count('id', filter=models.Q(priority=2)),
+            high_priority_tasks=Count('id', filter=models.Q(priority=3)),
+            urgent_priority_tasks=Count('id', filter=models.Q(priority=4))
         )
         
         # 计算项目进度
@@ -218,6 +225,67 @@ class ProjectDetailView(LoginRequiredMixin, View):
             project_progress = round((task_stats['completed_tasks'] / task_stats['total_tasks']) * 100)
         else:
             project_progress = 0
+        
+        # 获取所有参与项目的成员（项目成员 + 任务成员）
+        all_members = set()
+        
+        # 添加项目成员
+        for member in project.members.all():
+            all_members.add(member)
+        
+        # 添加任务负责人
+        for task in tasks:
+            if task.assignee:
+                all_members.add(task.assignee)
+            # 添加任务参与者
+            for participant in task.participants.all():
+                all_members.add(participant)
+        
+        # 将set转换为list
+        all_members = list(all_members)
+        
+        # 计算任务完成趋势（最近6个月）
+        import datetime
+        from django.db.models.functions import ExtractMonth, ExtractYear
+        task_trend_data = {'months': [], 'created': [], 'completed': []}
+        for i in range(5, -1, -1):
+            target_date = today - datetime.timedelta(days=30 * i)
+            month_start = target_date.replace(day=1)
+            if i == 0:
+                month_end = today
+            else:
+                next_month = month_start.replace(day=28) + datetime.timedelta(days=4)
+                month_end = next_month.replace(day=1) - datetime.timedelta(days=1)
+            
+            month_label = month_start.strftime('%Y-%m')
+            task_trend_data['months'].append(f"{target_date.month}月")
+            
+            # 统计该月新增任务数
+            created_count = tasks.filter(create_time__gte=month_start, create_time__lte=month_end).count()
+            task_trend_data['created'].append(created_count)
+            
+            # 统计该月完成任务数
+            completed_count = tasks.filter(status=3, update_time__gte=month_start, update_time__lte=month_end).count()
+            task_trend_data['completed'].append(completed_count)
+        
+        # 计算团队成员工作量
+        member_workload = []
+        for member in all_members:
+            if member:
+                member_tasks = tasks.filter(
+                    models.Q(assignee=member) | models.Q(participants=member)
+                ).distinct().count()
+                member_workload.append({
+                    'name': member.username if hasattr(member, 'username') else str(member),
+                    'task_count': member_tasks
+                })
+        # 按任务数降序排序
+        member_workload.sort(key=lambda x: x['task_count'], reverse=True)
+        
+        # 序列化数据为JSON字符串，供前端使用
+        import json
+        task_trend_data_json = json.dumps(task_trend_data)
+        member_workload_json = json.dumps(member_workload)
         
         # 获取关联客户、合同、订单和供应商信息
         related_customers = []
@@ -287,38 +355,28 @@ class ProjectDetailView(LoginRequiredMixin, View):
         except Exception as e:
             pass
         
-        # 获取所有参与项目的成员（项目成员 + 任务成员）
-        all_members = set()
-        
-        # 添加项目成员
-        for member in project.members.all():
-            all_members.add(member)
-        
-        # 添加任务负责人
-        for task in tasks:
-            if task.assignee:
-                all_members.add(task.assignee)
-            # 添加任务参与者
-            for participant in task.participants.all():
-                all_members.add(participant)
-        
-        # 将set转换为list
-        all_members = list(all_members)
+        # 获取项目的content_type ID
+        from django.contrib.contenttypes.models import ContentType
+        project_content_type = ContentType.objects.get_for_model(Project)
+        project_content_type_id = project_content_type.id
         
         context = {
             'project': project,
             'tasks': tasks,
             'documents': documents,
-            'work_hours': work_hours[:20],  # 最近20条工时记录
+            'work_hours': work_hours[:20],
             'total_hours': total_hours,
             'member_hours': member_hours,
             'task_stats': task_stats,
+            'task_trend_data_json': task_trend_data_json,
+            'member_workload_json': member_workload_json,
             'project_progress': project_progress,
             'related_customers': related_customers,
             'related_contracts': related_contracts,
             'related_orders': related_orders,
             'related_suppliers': related_suppliers,
-            'all_members': all_members
+            'all_members': all_members,
+            'project_content_type_id': project_content_type_id
         }
         return render(request, 'project/detail.html', context)
     

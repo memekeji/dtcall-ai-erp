@@ -392,6 +392,19 @@ layui.use(['layer', 'form'], function(){
         var index = parent.layer.getFrameIndex(window.name);
         parent.layer.close(index);
     };
+    
+    var formBody = document.querySelector('.shadcn-form-body');
+    formBody.addEventListener('wheel', function(e) {
+        var scrollTop = this.scrollTop;
+        var scrollHeight = this.scrollHeight;
+        var clientHeight = this.clientHeight;
+        
+        if ((scrollTop === 0 && e.deltaY < 0) || 
+            (scrollTop + clientHeight >= scrollHeight && e.deltaY > 0)) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    }, { passive: false });
 });
 </script>
 {% endblock %}

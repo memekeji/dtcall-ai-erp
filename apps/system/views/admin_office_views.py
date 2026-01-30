@@ -19,7 +19,7 @@ from apps.system.models import (
     AssetCategory, AssetBrand
 )
 from apps.oa.models import MeetingRoom
-from apps.system.forms.admin_office_forms import NoticeForm
+from apps.system.forms.admin_office_forms import NoticeForm, AssetForm
 from apps.message.services import NoticeNotificationService
 
 
@@ -588,7 +588,7 @@ class AssetCreateView(LoginRequiredMixin, CreateView):
     """创建资产视图"""
     model = Asset
     template_name = 'asset/form.html'
-    fields = ['asset_number', 'name', 'category', 'model', 'specification', 'purchase_date', 'purchase_price', 'status', 'location', 'responsible_person', 'description']
+    form_class = AssetForm
     success_url = reverse_lazy('system:admin_office:asset_list')
     
     def form_valid(self, form):
@@ -600,7 +600,7 @@ class AssetUpdateView(LoginRequiredMixin, UpdateView):
     """更新资产视图"""
     model = Asset
     template_name = 'asset/form.html'
-    fields = ['asset_number', 'name', 'category', 'model', 'specification', 'purchase_date', 'purchase_price', 'status', 'location', 'responsible_person', 'description']
+    form_class = AssetForm
     success_url = reverse_lazy('system:admin_office:asset_list')
     
     def form_valid(self, form):

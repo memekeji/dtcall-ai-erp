@@ -97,20 +97,24 @@ class ProjectDocumentSerializer(serializers.ModelSerializer):
 
 class CommentSerializer(serializers.ModelSerializer):
     """评论序列化器"""
-    user = serializers.StringRelatedField(read_only=True)
-    user_id = serializers.PrimaryKeyRelatedField(write_only=True, queryset=User.objects.all(), source='user')
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
+    content_type_id = serializers.IntegerField(write_only=True, required=False)
     content_type_display = serializers.SerializerMethodField()
-    replies = serializers.SerializerMethodField()
     
     class Meta:
         model = Comment
-        fields = '__all__'
-        extra_fields = ['user_id', 'content_type_display', 'replies']
+        fields = ['id', 'user_id', 'username', 'content_type_id', 'content', 'content_type', 'content_type_display', 'object_id', 'parent', 'parent_id', 'create_time', 'update_time']
     
     def get_content_type_display(self, obj):
         return obj.content_type.name
     
-    def get_replies(self, obj):
-        # 获取所有未删除的回复
-        replies = Comment.objects.filter(parent=obj, delete_time__isnull=True)
-        return CommentSerializer(replies, many=True).data
+    def validate_content_type_id(self, value):
+        if value is None:
+            return value
+        from django.contrib.contenttypes.models import ContentType
+        try:
+            ContentType.objects.get(id=value)
+        except ContentType.DoesNotExist:
+            raise serializers.ValidationError("Invalid content type ID")
+        return value

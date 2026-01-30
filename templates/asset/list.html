@@ -141,7 +141,7 @@
     <script>
     //<![CDATA[
     var assetCreateUrl = '{% url "system:admin_office:asset_create" %}';
-    var assetUpdateUrl = '{% url "system:admin_office:asset_update" 0 %}'.replace('0', '');
+    var assetUpdatePrefix = '{% url "system:admin_office:asset_update" 0 %}'.replace('/0/', '/');
 
     function openAssetForm() {
         layer.open({
@@ -222,7 +222,7 @@
             area: ['80%', '100%'],
             offset: 'r',
             anim: 2,
-            content: assetUpdateUrl + id + '/update/',
+            content: assetUpdatePrefix + id + '/',
             success: function(layero, index) {
                 layero.css({
                     'right': '0',

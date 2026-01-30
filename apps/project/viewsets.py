@@ -214,15 +214,144 @@ class WorkTypeViewSet(viewsets.ModelViewSet):
         return super().list(request, *args, **kwargs)
 
 
+class CommentPermission(permissions.BasePermission):
+    """评论权限控制"""
+    def has_object_permission(self, request, view, obj):
+        # 超级用户可以管理所有评论
+        if request.user.is_superuser:
+            return True
+        # 评论作者可以修改和删除自己的评论
+        return obj.user == request.user
+
 class CommentViewSet(viewsets.ModelViewSet):
     """评论视图集"""
     queryset = Comment.objects.filter(delete_time__isnull=True)
     serializer_class = CommentSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, CommentPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['content_type', 'object_id', 'user', 'parent']
     search_fields = ['content']
     ordering_fields = ['create_time', 'update_time']
+    
+    def get_queryset(self):
+        """优化查询，预取相关数据"""
+        queryset = super().get_queryset()
+        # 预取用户数据，避免N+1查询问题
+        queryset = queryset.select_related('user', 'content_type', 'parent')
+        return queryset
+    
+    def create(self, request, *args, **kwargs):
+        """创建评论"""
+        try:
+            # 获取content_type_id参数
+            content_type_id = request.data.get('content_type_id')
+            object_id = request.data.get('object_id')
+            content = request.data.get('content')
+            parent_id = request.data.get('parent_id')
+            
+            if not content_type_id or not object_id or not content:
+                return Response({'error': 'Missing required parameters: content_type_id, object_id and content'}, status=400)
+            
+            # 获取ContentType对象
+            from django.contrib.contenttypes.models import ContentType
+            try:
+                content_type = ContentType.objects.get(id=int(content_type_id))
+            except ContentType.DoesNotExist:
+                return Response({'error': 'Invalid content_type_id'}, status=400)
+            except ValueError as e:
+                return Response({'error': f'Invalid content_type_id format: {str(e)}'}, status=400)
+            
+            # 创建评论
+            comment = Comment.objects.create(
+                user=request.user,
+                content=content,
+                content_type=content_type,
+                object_id=object_id,
+                parent_id=parent_id
+            )
+            
+            # 如果是回复，发送通知
+            if parent_id:
+                self._send_reply_notification(comment)
+            
+            # 返回创建的评论
+            serializer = self.get_serializer(comment)
+            return Response(serializer.data, status=201)
+            
+        except Exception as e:
+            import traceback
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f'[CommentError] {str(e)}')
+            logger.error(f'[CommentError] Traceback: {traceback.format_exc()}')
+            return Response({'error': str(e)}, status=400)
+    
+    def _send_reply_notification(self, comment):
+        """发送评论回复通知"""
+        try:
+            from apps.message.models import Message, MessageCategory
+            
+            parent_comment = comment.parent
+            if not parent_comment:
+                return
+            
+            if parent_comment.user == comment.user:
+                return
+            
+            category, created = MessageCategory.objects.get_or_create(
+                code='comment',
+                defaults={
+                    'name': '评论回复通知',
+                    'type': 'comment',
+                    'icon': 'layui-icon-reply-fill'
+                }
+            )
+            
+            Message.objects.create(
+                category=category,
+                user=parent_comment.user,
+                sender=comment.user,
+                title=f'评论回复通知',
+                content=f'{comment.user.username}回复了你的评论：\n\n"{parent_comment.content[:100]}{"..." if len(parent_comment.content) > 100 else ""}"',
+                priority=2,
+                related_object_type='comment',
+                related_object_id=comment.id,
+                action_url=f'/project/detail/{comment.object_id}/#comment-{comment.id}'
+            )
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f'[CommentNotificationError] 发送评论通知失败: {str(e)}')
+    
+    def update(self, request, *args, **kwargs):
+        """更新评论"""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        
+        # 检查权限
+        if not request.user.is_superuser and instance.user != request.user:
+            return Response({'error': '您没有权限修改此评论'}, status=403)
+        
+        # 更新内容
+        instance.content = request.data.get('content', instance.content)
+        instance.save()
+        
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+    
+    def destroy(self, request, *args, **kwargs):
+        """删除评论（软删除）"""
+        instance = self.get_object()
+        
+        # 检查权限
+        if not request.user.is_superuser and instance.user != request.user:
+            return Response({'error': '您没有权限删除此评论'}, status=403)
+        
+        # 软删除
+        instance.delete_time = timezone.now()
+        instance.save()
+        
+        return Response({'message': '评论已删除'}, status=200)
     
     def perform_create(self, serializer):
         # 自动设置当前用户为评论者
@@ -231,22 +360,36 @@ class CommentViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def by_object(self, request):
         """根据对象获取评论"""
-        content_type = request.query_params.get('content_type')
+        content_type_param = request.query_params.get('content_type')
         object_id = request.query_params.get('object_id')
         
-        if not content_type or not object_id:
-            return Response({'error': 'Missing required parameters'}, status=400)
+        if not content_type_param or not object_id:
+            return Response({'error': 'Missing required parameters: content_type and object_id'}, status=400)
         
         try:
+            from django.contrib.contenttypes.models import ContentType
+            
+            # 支持两种参数格式：ID或模型名
+            if content_type_param.isdigit():
+                # 如果是数字，则按ID查询
+                content_type = ContentType.objects.get(id=int(content_type_param))
+            else:
+                # 如果是字符串，则按模型名查询
+                content_type = ContentType.objects.get(model=content_type_param.lower())
+            
             # 获取根评论（没有父评论的评论）
             comments = Comment.objects.filter(
-                content_type__model=content_type,
-                object_id=object_id,
+                content_type=content_type,
+                object_id=int(object_id),
                 parent__isnull=True,
                 delete_time__isnull=True
             ).order_by('-create_time')
             
             serializer = self.get_serializer(comments, many=True)
             return Response(serializer.data)
+        except ContentType.DoesNotExist:
+            return Response({'error': 'Invalid content_type'}, status=400)
+        except ValueError:
+            return Response({'error': 'Invalid object_id format'}, status=400)
         except Exception as e:
             return Response({'error': str(e)}, status=400)

@@ -124,6 +124,10 @@
                 <li>团队成员</li>
                 <li>工时统计</li>
                 <li>项目文档</li>
+                <li>评论系统</li>
+                <li>甘特图视图</li>
+                <li>看板视图</li>
+                <li>统计分析</li>
             </ul>
             <div class="layui-tab-content">
                 <!-- 基本信息 -->
@@ -485,6 +489,208 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- 评论系统 -->
+                <div class="layui-tab-item">
+                    <div class="layui-card">
+                        <div class="layui-card-header">项目评论</div>
+                        <div class="layui-card-body">
+                            <div id="comments-container">
+                                <!-- 评论系统内容 -->
+                                <div style="margin-bottom: 20px;">
+                                    <textarea id="comment-content" placeholder="请输入评论内容" class="layui-textarea" style="width: 100%;"></textarea>
+                                    <button id="submit-comment" class="layui-btn layui-btn-normal" style="margin-top: 10px;">发布评论</button>
+                                </div>
+                                
+                                <div id="comments-list" style="margin-top: 30px;">
+                                    <h4 style="margin-bottom: 15px;">评论列表</h4>
+                                    <div id="comments-loading" style="text-align: center; padding: 20px;">
+                                        <i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 加载中...
+                                    </div>
+                                    <div id="comments-empty" style="text-align: center; padding: 40px; color: #999; display: none;">
+                                        暂无评论，快来发表第一条评论吧！
+                                    </div>
+                                    <ul id="comments-ul" style="display: none;"></ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 甘特图视图 -->
+                <div class="layui-tab-item">
+                    <div class="layui-card">
+                        <div class="layui-card-header">
+                            项目甘特图
+                            <div class="layui-btn-group" style="float: right;">
+                                <button class="layui-btn layui-btn-sm" id="export-gantt">导出甘特图</button>
+                            </div>
+                        </div>
+                        <div class="layui-card-body">
+                            <div id="gantt-container" style="height: 600px;">
+                                <div id="gantt-loading" style="text-align: center; padding: 100px;">
+                                    <i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 加载甘特图中...
+                                </div>
+                                <div id="gantt-chart" style="height: 600px; display: none;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 看板视图 -->
+                <div class="layui-tab-item">
+                    <div class="layui-card">
+                        <div class="layui-card-header">
+                            项目看板
+                            <div class="layui-btn-group" style="float: right;">
+                                <button class="layui-btn layui-btn-sm" id="add-kanban-task">新增任务</button>
+                            </div>
+                        </div>
+                        <div class="layui-card-body">
+                            <div id="kanban-container" style="display: flex; gap: 20px; overflow-x: auto; padding: 20px;">
+                                <!-- 待开始 -->
+                                <div class="kanban-column" data-status="1" style="min-width: 300px; background: #f5f5f5; border-radius: 8px; padding: 15px;">
+                                    <h4 style="margin-top: 0; margin-bottom: 15px; font-size: 14px; font-weight: bold;">待开始</h4>
+                                    <div class="kanban-tasks" id="status-1-tasks">
+                                        <div class="kanban-loading" style="text-align: center; padding: 40px; color: #999;">
+                                            加载中...
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 进行中 -->
+                                <div class="kanban-column" data-status="2" style="min-width: 300px; background: #e6f7ff; border-radius: 8px; padding: 15px;">
+                                    <h4 style="margin-top: 0; margin-bottom: 15px; font-size: 14px; font-weight: bold;">进行中</h4>
+                                    <div class="kanban-tasks" id="status-2-tasks">
+                                        <div class="kanban-loading" style="text-align: center; padding: 40px; color: #999;">
+                                            加载中...
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 已完成 -->
+                                <div class="kanban-column" data-status="3" style="min-width: 300px; background: #f6ffed; border-radius: 8px; padding: 15px;">
+                                    <h4 style="margin-top: 0; margin-bottom: 15px; font-size: 14px; font-weight: bold;">已完成</h4>
+                                    <div class="kanban-tasks" id="status-3-tasks">
+                                        <div class="kanban-loading" style="text-align: center; padding: 40px; color: #999;">
+                                            加载中...
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 已延期 -->
+                                <div class="kanban-column" data-status="4" style="min-width: 300px; background: #fff1f0; border-radius: 8px; padding: 15px;">
+                                    <h4 style="margin-top: 0; margin-bottom: 15px; font-size: 14px; font-weight: bold;">已延期</h4>
+                                    <div class="kanban-tasks" id="status-4-tasks">
+                                        <div class="kanban-loading" style="text-align: center; padding: 40px; color: #999;">
+                                            加载中...
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 已取消 -->
+                                <div class="kanban-column" data-status="5" style="min-width: 300px; background: #fafafa; border-radius: 8px; padding: 15px;">
+                                    <h4 style="margin-top: 0; margin-bottom: 15px; font-size: 14px; font-weight: bold;">已取消</h4>
+                                    <div class="kanban-tasks" id="status-5-tasks">
+                                        <div class="kanban-loading" style="text-align: center; padding: 40px; color: #999;">
+                                            加载中...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 统计分析 -->
+                <div class="layui-tab-item">
+                    <div class="layui-card">
+                        <div class="layui-card-header">项目统计分析</div>
+                        <div class="layui-card-body">
+                            <div class="layui-row layui-col-space20">
+                                <!-- 统计卡片 -->
+                                <div class="layui-col-md3">
+                                    <div class="layui-card layui-bg-blue">
+                                        <div class="layui-card-body" style="color: white;">
+                                            <div style="font-size: 24px; font-weight: bold;">{{ task_stats.total_tasks }}</div>
+                                            <div style="font-size: 14px; opacity: 0.9;">总任务数</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="layui-col-md3">
+                                    <div class="layui-card layui-bg-green">
+                                        <div class="layui-card-body" style="color: white;">
+                                            <div style="font-size: 24px; font-weight: bold;">{{ task_stats.completed_tasks }}</div>
+                                            <div style="font-size: 14px; opacity: 0.9;">已完成任务</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="layui-col-md3">
+                                    <div class="layui-card layui-bg-orange">
+                                        <div class="layui-card-body" style="color: white;">
+                                            <div style="font-size: 24px; font-weight: bold;">{{ task_stats.in_progress_tasks }}</div>
+                                            <div style="font-size: 14px; opacity: 0.9;">进行中任务</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="layui-col-md3">
+                                    <div class="layui-card layui-bg-red">
+                                        <div class="layui-card-body" style="color: white;">
+                                            <div style="font-size: 24px; font-weight: bold;">{{ task_stats.overdue_tasks }}</div>
+                                            <div style="font-size: 14px; opacity: 0.9;">逾期任务</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="layui-row layui-col-space20" style="margin-top: 20px;">
+                                <!-- 任务状态分布 -->
+                                <div class="layui-col-md6">
+                                    <div class="layui-card">
+                                        <div class="layui-card-header">任务状态分布</div>
+                                        <div class="layui-card-body">
+                                            <div id="task-status-chart" style="height: 300px;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 任务优先级分布 -->
+                                <div class="layui-col-md6">
+                                    <div class="layui-card">
+                                        <div class="layui-card-header">任务优先级分布</div>
+                                        <div class="layui-card-body">
+                                            <div id="task-priority-chart" style="height: 300px;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="layui-row layui-col-space20" style="margin-top: 20px;">
+                                <!-- 任务完成趋势 -->
+                                <div class="layui-col-md12">
+                                    <div class="layui-card">
+                                        <div class="layui-card-header">任务完成趋势</div>
+                                        <div class="layui-card-body">
+                                            <div id="task-trend-chart" style="height: 300px;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="layui-row layui-col-space20" style="margin-top: 20px;">
+                                <!-- 团队成员工作量 -->
+                                <div class="layui-col-md12">
+                                    <div class="layui-card">
+                                        <div class="layui-card-header">团队成员工作量</div>
+                                        <div class="layui-card-body">
+                                            <div id="member-workload-chart" style="height: 300px;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -497,10 +703,13 @@
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/lib/axios.min.js' %}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <script>
-        layui.use(['element', 'layer'], function () {
+        layui.use(['element', 'layer', 'form'], function () {
             var element = layui.element;
             var layer = layui.layer;
+            var form = layui.form;
         });
 
         function editProject() {
@@ -592,6 +801,948 @@
             var index = parent.layer.getFrameIndex(window.name);
             parent.layer.close(index);
         }
+
+        // 评论系统
+        $(document).ready(function() {
+            // 加载评论
+            loadComments();
+            
+            // 发布评论
+            $('#submit-comment').on('click', function() {
+                var content = $('#comment-content').val().trim();
+                if (!content) {
+                    layer.msg('请输入评论内容', {icon: 5});
+                    return;
+                }
+                
+                submitComment(content);
+            });
+        });
+
+        function loadComments() {
+            axios.get('/api/project/comments/by_object/', {
+                params: {
+                    content_type: 'project',
+                    object_id: '{{ project.id }}'
+                },
+                headers: {
+                    'X-CSRFToken': getCsrfToken()
+                }
+            })
+                .then(function(response) {
+                    console.log('[CommentDebug] 加载评论响应:', response.data);
+                    console.log('[CommentDebug] API响应数据:', response.data);
+                    var comments = response.data;
+                    var commentsList = $('#comments-ul');
+                    var commentsLoading = $('#comments-loading');
+                    var commentsEmpty = $('#comments-empty');
+                    
+                    commentsLoading.hide();
+                    
+                    if (!Array.isArray(comments) || comments.length === 0) {
+                        commentsEmpty.show();
+                        commentsList.hide();
+                        return;
+                    }
+                    
+                    commentsEmpty.hide();
+                    commentsList.show();
+                    commentsList.empty();
+                    
+                    comments.forEach(function(comment) {
+                        if (!comment || !comment.username) {
+                            console.warn('[CommentDebug] 无效的评论数据:', comment);
+                            return;
+                        }
+                        
+                        var isOwner = comment.user_id === {{ request.user.id }};
+                        var firstChar = comment.username ? comment.username.charAt(0) : '?';
+                        var displayName = comment.username || '未知用户';
+                        
+                        var actionButtons = '';
+                        
+                        if (isOwner || {{ request.user.is_superuser|yesno:"true,false" }}) {
+                            actionButtons = `
+                                <div style="display: flex; gap: 5px;">
+                                    <button class="layui-btn layui-btn-xs layui-btn-primary edit-comment-btn" data-id="${comment.id}" data-content="${encodeURIComponent(comment.content || '')}">编辑</button>
+                                    <button class="layui-btn layui-btn-xs layui-btn-danger delete-comment-btn" data-id="${comment.id}">删除</button>
+                                </div>
+                            `;
+                        }
+                        
+                        var commentHtml = `
+                            <li style="margin-bottom: 20px; padding: 15px; border: 1px solid #e6e6e6; border-radius: 8px;">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                                    <div style="display: flex; align-items: center;">
+                                        <div class="member-avatar">${firstChar}</div>
+                                        <div>
+                                            <div style="font-weight: bold;">${displayName}</div>
+                                            <div style="font-size: 12px; color: #999;">${comment.create_time || ''}</div>
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <button class="layui-btn layui-btn-xs layui-btn-primary reply-btn" data-id="${comment.id}">回复</button>
+                                        ${actionButtons}
+                                    </div>
+                                </div>
+                                <div style="margin-bottom: 10px;">${comment.content || ''}</div>
+                                <div class="comment-replies" style="margin-left: 40px; margin-top: 15px;">
+                                </div>
+                                <div class="reply-form" style="display: none; margin-top: 10px; margin-left: 40px;">
+                                    <textarea class="layui-textarea reply-content" placeholder="请输入回复内容" style="width: 100%; height: 80px;"></textarea>
+                                    <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+                                        <button class="layui-btn layui-btn-xs layui-btn-primary cancel-reply">取消</button>
+                                        <button class="layui-btn layui-btn-xs layui-btn-normal submit-reply" data-id="${comment.id}">发布回复</button>
+                                    </div>
+                                </div>
+                                <div class="edit-form" style="display: none; margin-top: 10px; margin-left: 40px;">
+                                    <textarea class="layui-textarea edit-content" placeholder="请输入评论内容" style="width: 100%; height: 80px;">${comment.content || ''}</textarea>
+                                    <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+                                        <button class="layui-btn layui-btn-xs layui-btn-primary cancel-edit">取消</button>
+                                        <button class="layui-btn layui-btn-xs layui-btn-normal save-edit" data-id="${comment.id}">保存</button>
+                                    </div>
+                                </div>
+                            </li>
+                        `;
+                        commentsList.append(commentHtml);
+                    });
+                    
+                    // 绑定回复按钮事件
+                    $(document).off('click', '.reply-btn').on('click', '.reply-btn', function() {
+                        var commentId = $(this).data('id');
+                        var replyForm = $(this).closest('li').find('.reply-form');
+                        var editForm = $(this).closest('li').find('.edit-form');
+                        editForm.hide();
+                        replyForm.toggle();
+                    });
+                    
+                    // 绑定取消回复按钮事件
+                    $(document).off('click', '.cancel-reply').on('click', '.cancel-reply', function() {
+                        $(this).closest('.reply-form').hide();
+                    });
+                    
+                    // 绑定编辑评论按钮事件
+                    $(document).off('click', '.edit-comment-btn').on('click', '.edit-comment-btn', function() {
+                        var commentId = $(this).data('id');
+                        var replyForm = $(this).closest('li').find('.reply-form');
+                        var editForm = $(this).closest('li').find('.edit-form');
+                        replyForm.hide();
+                        editForm.toggle();
+                    });
+                    
+                    // 绑定取消编辑按钮事件
+                    $(document).off('click', '.cancel-edit').on('click', '.cancel-edit', function() {
+                        $(this).closest('.edit-form').hide();
+                    });
+                    
+                    // 绑定保存编辑按钮事件
+                    $(document).off('click', '.save-edit').on('click', '.save-edit', function() {
+                        var commentId = $(this).data('id');
+                        var content = $(this).closest('.edit-form').find('.edit-content').val().trim();
+                        if (!content) {
+                            layer.msg('请输入评论内容', {icon: 5});
+                            return;
+                        }
+                        
+                        updateComment(commentId, content);
+                    });
+                    
+                    // 绑定删除评论按钮事件
+                    $(document).off('click', '.delete-comment-btn').on('click', '.delete-comment-btn', function() {
+                        var commentId = $(this).data('id');
+                        layer.confirm('确定要删除这条评论吗？', {
+                            icon: 3,
+                            title: '确认删除'
+                        }, function(index) {
+                            deleteComment(commentId);
+                            layer.close(index);
+                        });
+                    });
+                    
+                    // 绑定提交回复按钮事件
+                    $(document).off('click', '.submit-reply').on('click', '.submit-reply', function() {
+                        var commentId = $(this).data('id');
+                        var content = $(this).closest('.reply-form').find('.reply-content').val().trim();
+                        if (!content) {
+                            layer.msg('请输入回复内容', {icon: 5});
+                            return;
+                        }
+                        
+                        submitReply(commentId, content);
+                    });
+                })
+                .catch(function(error) {
+                    console.error('加载评论失败:', error);
+                    $('#comments-loading').hide();
+                    $('#comments-empty').show();
+                });
+        }
+        
+        function updateComment(commentId, content) {
+            axios.put('/api/project/comments/' + commentId + '/', {
+                content: content
+            }, {
+                headers: {
+                    'X-CSRFToken': getCsrfToken()
+                }
+            })
+            .then(function(response) {
+                layer.msg('评论更新成功', {icon: 6});
+                loadComments();
+            })
+            .catch(function(error) {
+                console.error('更新评论失败:', error);
+                if (error.response && error.response.data && error.response.data.error) {
+                    layer.msg('更新评论失败: ' + error.response.data.error, {icon: 5});
+                } else {
+                    layer.msg('更新评论失败，请重试', {icon: 5});
+                }
+            });
+        }
+        
+        function deleteComment(commentId) {
+            axios.delete('/api/project/comments/' + commentId + '/', {
+                headers: {
+                    'X-CSRFToken': getCsrfToken()
+                }
+            })
+            .then(function(response) {
+                layer.msg('评论已删除', {icon: 6});
+                loadComments();
+            })
+            .catch(function(error) {
+                console.error('删除评论失败:', error);
+                if (error.response && error.response.data && error.response.data.error) {
+                    layer.msg('删除评论失败: ' + error.response.data.error, {icon: 5});
+                } else {
+                    layer.msg('删除评论失败，请重试', {icon: 5});
+                }
+            });
+        }
+
+        function submitComment(content) {
+            axios.post('/api/project/comments/', {
+                content: content,
+                object_id: '{{ project.id }}',
+                content_type_id: '{{ project_content_type_id }}'
+            }, {
+                headers: {
+                    'X-CSRFToken': getCsrfToken()
+                }
+            })
+            .then(function(response) {
+                layer.msg('评论发布成功', {icon: 6});
+                $('#comment-content').val('');
+                loadComments();
+            })
+            .catch(function(error) {
+                console.error('发布评论失败:', error);
+                if (error.response) {
+                    layer.msg('发布评论失败: ' + (error.response.data.error || '服务器错误'), {icon: 5});
+                } else {
+                    layer.msg('发布评论失败，请重试', {icon: 5});
+                }
+            });
+        }
+
+        function submitReply(commentId, content) {
+            axios.post('/api/project/comments/', {
+                content: content,
+                parent_id: commentId,
+                object_id: '{{ project.id }}',
+                content_type_id: '{{ project_content_type_id }}'
+            }, {
+                headers: {
+                    'X-CSRFToken': getCsrfToken()
+                }
+            })
+            .then(function(response) {
+                layer.msg('回复发布成功', {icon: 6});
+                loadComments();
+            })
+            .catch(function(error) {
+                console.error('发布回复失败:', error);
+                if (error.response) {
+                    layer.msg('发布回复失败: ' + (error.response.data.error || '服务器错误'), {icon: 5});
+                } else {
+                    layer.msg('发布回复失败，请重试', {icon: 5});
+                }
+            });
+        }
+
+        function getCsrfToken() {
+            var cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = jQuery.trim(cookies[i]);
+                    if (cookie.substring(0, 10) === 'csrftoken=') {
+                        cookieValue = decodeURIComponent(cookie.substring(10));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // 甘特图视图
+        $(document).ready(function() {
+            $('#export-gantt').on('click', function() {
+                exportGanttChart();
+            });
+        });
+        
+        // 图表重试配置
+        window.ganttRetryCount = 0;
+        window.ganttMaxRetries = 10;
+        
+        function initGanttChart() {
+            var chartDom = document.getElementById('gantt-chart');
+            if (!chartDom) {
+                console.error('[GanttDebug] 甘特图容器不存在');
+                return;
+            }
+            
+            // 首先确保容器可见
+            $(chartDom).show();
+            
+            // 强制布局更新
+            chartDom.offsetHeight;  // 触发重排
+            
+            // 检查容器是否可见且有尺寸
+            var rect = chartDom.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) {
+                // 如果外层容器也隐藏，需要让整个tab内容可见
+                var $ganttContainer = $('#gantt-container');
+                $ganttContainer.show();
+                $ganttContainer.closest('.layui-tab-item').show();
+                
+                // 再次检查
+                chartDom.offsetHeight;
+                rect = chartDom.getBoundingClientRect();
+                
+                if (rect.width === 0 || rect.height === 0) {
+                    window.ganttRetryCount = (window.ganttRetryCount || 0) + 1;
+                    if (window.ganttRetryCount > window.ganttMaxRetries) {
+                        console.warn('[GanttDebug] 甘特图容器重试次数过多，停止重试');
+                        window.ganttRetryCount = 0;
+                        return;
+                    }
+                    console.log('[GanttDebug] 甘特图容器尺寸为0，延迟初始化...(' + window.ganttRetryCount + '/' + window.ganttMaxRetries + ')');
+                    setTimeout(initGanttChart, 300);
+                    return;
+                }
+            }
+            
+            window.ganttRetryCount = 0;
+            
+            // 如果已经有图表实例，resize并显示
+            var existingChart = echarts.getInstanceByDom(chartDom);
+            if (existingChart) {
+                existingChart.resize();
+                $('#gantt-chart').show();
+                $('#gantt-loading').hide();
+                console.log('[GanttDebug] 甘特图已resize并显示');
+                return;
+            }
+            
+            var myChart = echarts.init(chartDom);
+            if (!myChart) {
+                console.error('ECharts初始化失败');
+                return;
+            }
+            
+            axios.get('/api/project/tasks/', {
+                params: {
+                    project: '{{ project.id }}',
+                    limit: 1000
+                },
+                headers: {
+                    'X-CSRFToken': getCsrfToken()
+                }
+            })
+                .then(function(response) {
+                    console.log('[GanttDebug] 甘特图响应:', response.data);
+                    
+                    // 处理分页格式数据
+                    var responseData = response.data;
+                    var tasks = [];
+                    
+                    if (Array.isArray(responseData)) {
+                        // 直接数组格式
+                        tasks = responseData;
+                    } else if (responseData.results && Array.isArray(responseData.results)) {
+                        // 分页格式 {count, results, ...}
+                        tasks = responseData.results;
+                    } else if (typeof responseData === 'object') {
+                        // 尝试其他可能的格式
+                        console.warn('[GanttDebug] 未知数据格式:', responseData);
+                        tasks = [];
+                    }
+                    
+                    if (!Array.isArray(tasks) || tasks.length === 0) {
+                        $('#gantt-loading').html('<div style="text-align: center; padding: 100px; color: #999;">暂无任务数据</div>');
+                        return;
+                    }
+                    
+                    var ganttData = [];
+                    var categoryData = [];
+                    
+                    tasks.forEach(function(task) {
+                        if (!task) return;
+                        categoryData.push(task.title || '未命名任务');
+                        
+                        // 转换日期字符串为时间戳
+                        var startDate = task.start_date ? new Date(task.start_date) : new Date();
+                        var endDate = task.end_date ? new Date(task.end_date) : new Date();
+                        
+                        ganttData.push({
+                            name: task.title || '未命名任务',
+                            value: [
+                                startDate.getTime(),
+                                endDate.getTime(),
+                                task.progress || 0,
+                                categoryData.length - 1
+                            ],
+                            itemStyle: {
+                                color: getTaskColor(task.status)
+                            }
+                        });
+                    });
+                    
+                    var chartDom = document.getElementById('gantt-chart');
+                    if (!chartDom) {
+                        console.error('[GanttDebug] 甘特图容器不存在');
+                        return;
+                    }
+                    
+                    var myChart = echarts.getInstanceByDom(chartDom);
+                    if (!myChart) {
+                        myChart = echarts.init(chartDom);
+                    }
+                    
+                    if (myChart) {
+                        var option = {
+                            tooltip: {
+                                formatter: function(params) {
+                                    var data = params.data;
+                                    if (!data) return '';
+                                    var startDate = new Date(data.value[0]);
+                                    var endDate = new Date(data.value[1]);
+                                    return `
+                                        <div style="font-weight: bold;">${data.name}</div>
+                                        <div>开始时间: ${startDate.toLocaleDateString()}</div>
+                                        <div>结束时间: ${endDate.toLocaleDateString()}</div>
+                                        <div>进度: ${data.value[2]}%</div>
+                                    `;
+                                }
+                            },
+                            grid: {
+                                left: '3%',
+                                right: '4%',
+                                bottom: '3%',
+                                containLabel: true
+                            },
+                            xAxis: {
+                                type: 'time',
+                                axisLabel: {
+                                    formatter: '{MM}-{dd}'
+                                }
+                            },
+                            yAxis: {
+                                type: 'category',
+                                data: categoryData
+                            },
+                            series: [{
+                                type: 'custom',
+                                renderItem: function(params, api) {
+                                    var categoryIndex = api.value(3);
+                                    var start = api.coord([api.value(0), categoryIndex]);
+                                    var end = api.coord([api.value(1), categoryIndex]);
+                                    var height = api.size([0, 1])[1] * 0.6;
+                                    
+                                    var rectShape = echarts.graphic.clipRectByRect({
+                                        x: start[0],
+                                        y: start[1] - height / 2,
+                                        width: end[0] - start[0],
+                                        height: height
+                                    }, {
+                                        x: params.coordSys.x,
+                                        y: params.coordSys.y,
+                                        width: params.coordSys.width,
+                                        height: params.coordSys.height
+                                    });
+                                    
+                                    return rectShape && {
+                                        type: 'rect',
+                                        shape: rectShape,
+                                        style: api.style()
+                                    };
+                                },
+                                data: ganttData
+                            }]
+                        };
+                        
+                        myChart.setOption(option, true);
+                    }
+                    
+                    $('#gantt-loading').hide();
+                    $('#gantt-chart').show();
+                })
+                .catch(function(error) {
+                    console.error('加载甘特图失败:', error);
+                    $('#gantt-loading').html('<div style="color: #ff4d4f;">加载甘特图失败，请重试</div>');
+                });
+        }
+
+        function getTaskColor(status) {
+            switch(status) {
+                case 1: return '#ffc107'; // 待开始
+                case 2: return '#17a2b8'; // 进行中
+                case 3: return '#28a745'; // 已完成
+                case 4: return '#dc3545'; // 已延期
+                case 5: return '#6c757d'; // 已取消
+                default: return '#6c757d';
+            }
+        }
+
+        function exportGanttChart() {
+            var chartDom = document.getElementById('gantt-chart');
+            var myChart = echarts.getInstanceByDom(chartDom);
+            
+            if (myChart) {
+                var url = myChart.getDataURL({ type: 'png', pixelRatio: 2 });
+                var link = document.createElement('a');
+                link.href = url;
+                link.download = '项目甘特图.png';
+                link.click();
+                layer.msg('甘特图导出成功', {icon: 6});
+            } else {
+                layer.msg('甘特图未初始化', {icon: 5});
+            }
+        }
+
+        // 看板视图
+        $(document).ready(function() {
+            $('#add-kanban-task').on('click', function() {
+                addTask();
+            });
+        });
+
+        function loadKanbanTasks() {
+            // 检查看板容器是否存在
+            var kanbanContainer = $('#kanban-container');
+            if (kanbanContainer.length === 0) {
+                console.log('[KanbanDebug] 看板容器不存在，跳过加载');
+                return;
+            }
+            
+            // 首先确保容器可见
+            kanbanContainer.show();
+            
+            // 强制布局更新
+            kanbanContainer[0].offsetHeight;
+            
+            // 检查容器是否可见
+            var containerDom = kanbanContainer[0];
+            var rect = containerDom.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) {
+                // 如果外层容器也隐藏，需要让整个tab内容可见
+                kanbanContainer.closest('.layui-tab-item').show();
+                
+                // 再次检查
+                containerDom.offsetHeight;
+                rect = containerDom.getBoundingClientRect();
+                
+                if (rect.width === 0 || rect.height === 0) {
+                    console.log('[KanbanDebug] 看板容器尺寸为0，延迟加载...');
+                    setTimeout(loadKanbanTasks, 300);
+                    return;
+                }
+            }
+            
+            axios.get('/api/project/tasks/', {
+                params: {
+                    project: '{{ project.id }}',
+                    limit: 1000
+                },
+                headers: {
+                    'X-CSRFToken': getCsrfToken()
+                }
+            })
+                .then(function(response) {
+                    console.log('[KanbanDebug] 看板响应:', response.data);
+                    
+                    // 处理分页格式数据
+                    var responseData = response.data;
+                    var tasks = [];
+                    
+                    if (Array.isArray(responseData)) {
+                        // 直接数组格式
+                        tasks = responseData;
+                    } else if (responseData.results && Array.isArray(responseData.results)) {
+                        // 分页格式 {count, results, ...}
+                        tasks = responseData.results;
+                    } else {
+                        console.warn('[KanbanDebug] 未知数据格式:', responseData);
+                        tasks = [];
+                    }
+                    
+                    if (!Array.isArray(tasks) || tasks.length === 0) {
+                        for (var i = 1; i <= 5; i++) {
+                            $('#status-' + i + '-tasks').html('<div style="text-align: center; padding: 40px; color: #999;">暂无任务</div>');
+                        }
+                        return;
+                    }
+                    
+                    // 清空所有列
+                    for (var i = 1; i <= 5; i++) {
+                        $('#status-' + i + '-tasks').html('');
+                    }
+                    
+                    // 按状态分组任务
+                    var tasksByStatus = {};
+                    for (var i = 1; i <= 5; i++) {
+                        tasksByStatus[i] = [];
+                    }
+                    
+                    tasks.forEach(function(task) {
+                        if (!task) return;
+                        var status = task.status || 1;
+                        if (status >= 1 && status <= 5) {
+                            tasksByStatus[status].push(task);
+                        }
+                    });
+                    
+                    // 填充任务到对应列
+                    for (var status = 1; status <= 5; status++) {
+                        var statusTasks = tasksByStatus[status];
+                        var tasksContainer = $('#status-' + status + '-tasks');
+                        
+                        if (tasksContainer.length === 0) {
+                            continue;
+                        }
+                        
+                        if (statusTasks.length === 0) {
+                            tasksContainer.html('<div style="text-align: center; padding: 40px; color: #999;">暂无任务</div>');
+                            continue;
+                        }
+                        
+                        statusTasks.forEach(function(task) {
+                            var taskHtml = `
+                                <div class="kanban-task" data-id="${task.id}" style="background: white; border-radius: 6px; padding: 15px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: pointer;">
+                                    <div style="font-weight: bold; margin-bottom: 10px;">${task.title || '未命名任务'}</div>
+                                    <div style="font-size: 12px; color: #999; margin-bottom: 10px;">
+                                        负责人: ${task.assignee ? task.assignee.username : '未指定'}
+                                    </div>
+                                    <div style="font-size: 12px; color: #999; margin-bottom: 10px;">
+                                        截止日期: ${task.end_date || '未设置'}
+                                    </div>
+                                    <div class="progress-bar" style="height: 4px; background: #f0f0f0; border-radius: 2px; overflow: hidden; margin-bottom: 5px;">
+                                        <div class="progress-fill" style="height: 100%; background: ${getTaskColor(task.status)}; width: ${task.progress || 0}%;"></div>
+                                    </div>
+                                    <div style="font-size: 11px; color: #999;">进度: ${task.progress || 0}%</div>
+                                </div>
+                            `;
+                            tasksContainer.append(taskHtml);
+                        });
+                    }
+                    
+                    // 绑定任务点击事件
+                    $(document).off('click', '.kanban-task').on('click', '.kanban-task', function() {
+                        var taskId = $(this).data('id');
+                        viewTaskDetail(taskId);
+                    });
+                })
+                .catch(function(error) {
+                    console.error('加载看板任务失败:', error);
+                    for (var i = 1; i <= 5; i++) {
+                        $('#status-' + i + '-tasks').html('<div style="text-align: center; padding: 40px; color: #999;">加载失败</div>');
+                    }
+                });
+        }
+
+        function viewTaskDetail(taskId) {
+            var url = '/adm/task/detail/' + taskId + '/';
+            parent.layer.open({
+                type: 2,
+                title: '任务详情',
+                shadeClose: true,
+                shade: 0.3,
+                area: ['75%', '90%'],
+                offset: 'r',
+                content: url
+            });
+        }
+
+        // 全局统计数据（由Django模板渲染）
+        var taskStats = {
+            total_tasks: {{ task_stats.total_tasks|default:0 }},
+            completed_tasks: {{ task_stats.completed_tasks|default:0 }},
+            in_progress_tasks: {{ task_stats.in_progress_tasks|default:0 }},
+            pending_tasks: {{ task_stats.pending_tasks|default:0 }},
+            overdue_tasks: {{ task_stats.overdue_tasks|default:0 }},
+            low_priority_tasks: {{ task_stats.low_priority_tasks|default:0 }},
+            medium_priority_tasks: {{ task_stats.medium_priority_tasks|default:0 }},
+            high_priority_tasks: {{ task_stats.high_priority_tasks|default:0 }},
+            urgent_priority_tasks: {{ task_stats.urgent_priority_tasks|default:0 }}
+        };
+        
+        // 任务趋势数据（由Django模板渲染，JSON格式）
+        var taskTrendData = {{ task_trend_data_json|safe }};
+        
+        // 团队成员工作量数据（由Django模板渲染，JSON格式）
+        var memberWorkload = {{ member_workload_json|safe }};
+        
+        console.log('[StatsDebug] 任务统计数据:', taskStats);
+        console.log('[StatsDebug] 任务趋势数据:', taskTrendData);
+        console.log('[StatsDebug] 团队成员工作量:', memberWorkload);
+
+        // 统计分析
+        var statsInitialized = false;
+        
+        function initStatsCharts() {
+            // 获取图表容器
+            var statusChartDom = document.getElementById('task-status-chart');
+            var priorityChartDom = document.getElementById('task-priority-chart');
+            
+            // 检查容器是否存在
+            if (!statusChartDom || !priorityChartDom) {
+                console.warn('[StatsDebug] 图表容器不存在');
+                return;
+            }
+            
+            // 首先确保容器可见
+            $(statusChartDom).show();
+            $(priorityChartDom).show();
+            
+            // 强制布局更新
+            statusChartDom.offsetHeight;
+            priorityChartDom.offsetHeight;
+            
+            var statusRect = statusChartDom.getBoundingClientRect();
+            var priorityRect = priorityChartDom.getBoundingClientRect();
+            
+            // 如果容器不可见或尺寸为0，延迟重试
+            if (statusRect.width === 0 || statusRect.height === 0 || 
+                priorityRect.width === 0 || priorityRect.height === 0) {
+                console.log('[StatsDebug] 图表容器尺寸为0，延迟初始化...');
+                if (statsInitTimer) clearTimeout(statsInitTimer);
+                statsInitTimer = setTimeout(initStatsCharts, 300);
+                return;
+            }
+            
+            if (statsInitialized) {
+                // 重新调整图表尺寸
+                setTimeout(function() {
+                    var statusChart = echarts.getInstanceByDom(statusChartDom);
+                    var priorityChart = echarts.getInstanceByDom(priorityChartDom);
+                    var trendChart = echarts.getInstanceByDom(document.getElementById('task-trend-chart'));
+                    var workloadChart = echarts.getInstanceByDom(document.getElementById('member-workload-chart'));
+                    if (statusChart) statusChart.resize();
+                    if (priorityChart) priorityChart.resize();
+                    if (trendChart) trendChart.resize();
+                    if (workloadChart) workloadChart.resize();
+                    console.log('[StatsDebug] 图表已调整尺寸');
+                }, 100);
+                return;
+            }
+            
+            statsInitialized = true;
+            console.log('[StatsDebug] 开始初始化统计图表');
+            
+            // 任务状态分布
+            var statusChart = echarts.init(statusChartDom);
+            var statusOption = {
+                tooltip: {
+                    trigger: 'item'
+                },
+                legend: {
+                    orient: 'vertical',
+                    left: 'left'
+                },
+                series: [{
+                    name: '任务状态',
+                    type: 'pie',
+                    radius: '50%',
+                    data: [
+                        {value: taskStats.pending_tasks, name: '待开始'},
+                        {value: taskStats.in_progress_tasks, name: '进行中'},
+                        {value: taskStats.completed_tasks, name: '已完成'},
+                        {value: taskStats.overdue_tasks, name: '已延期'}
+                    ],
+                    emphasis: {
+                        itemStyle: {
+                            shadowBlur: 10,
+                            shadowOffsetX: 0,
+                            shadowColor: 'rgba(0, 0, 0, 0.5)'
+                        }
+                    }
+                }]
+            };
+            statusChart.setOption(statusOption);
+            
+            // 任务优先级分布
+            var priorityChart = echarts.init(priorityChartDom);
+            var priorityOption = {
+                tooltip: {
+                    trigger: 'item'
+                },
+                legend: {
+                    orient: 'vertical',
+                    left: 'left'
+                },
+                series: [{
+                    name: '任务优先级',
+                    type: 'pie',
+                    radius: '50%',
+                    data: [
+                        {value: taskStats.low_priority_tasks, name: '低'},
+                        {value: taskStats.medium_priority_tasks, name: '中'},
+                        {value: taskStats.high_priority_tasks, name: '高'},
+                        {value: taskStats.urgent_priority_tasks, name: '紧急'}
+                    ],
+                    emphasis: {
+                        itemStyle: {
+                            shadowBlur: 10,
+                            shadowOffsetX: 0,
+                            shadowColor: 'rgba(0, 0, 0, 0.5)'
+                        }
+                    }
+                }]
+            };
+            priorityChart.setOption(priorityOption);
+            
+            // 任务完成趋势
+            var trendChart = echarts.init(document.getElementById('task-trend-chart'));
+            var trendOption = {
+                tooltip: {
+                    trigger: 'axis'
+                },
+                legend: {
+                    data: ['新增任务', '完成任务']
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: taskTrendData.months
+                },
+                yAxis: {
+                    type: 'value'
+                },
+                series: [
+                    {
+                        name: '新增任务',
+                        type: 'line',
+                        stack: 'Total',
+                        areaStyle: {opacity: 0.1},
+                        data: taskTrendData.created,
+                        itemStyle: {color: '#1890ff'}
+                    },
+                    {
+                        name: '完成任务',
+                        type: 'line',
+                        stack: 'Total',
+                        areaStyle: {opacity: 0.1},
+                        data: taskTrendData.completed,
+                        itemStyle: {color: '#52c41a'}
+                    }
+                ]
+            };
+            trendChart.setOption(trendOption);
+            
+            // 团队成员工作量
+            var workloadChart = echarts.init(document.getElementById('member-workload-chart'));
+            
+            // 准备数据
+            var workloadNames = memberWorkload.map(function(item) { return item.name; });
+            var workloadCounts = memberWorkload.map(function(item) { return item.task_count; });
+            
+            var workloadOption = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'shadow'
+                    }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'value'
+                },
+                yAxis: {
+                    type: 'category',
+                    data: workloadNames
+                },
+                series: [{
+                    name: '任务数',
+                    type: 'bar',
+                    data: workloadCounts,
+                    itemStyle: {
+                        color: function(params) {
+                            var colors = ['#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#13c2c2', '#eb2f96', '#fa8c16'];
+                            return colors[params.dataIndex % colors.length];
+                        }
+                    },
+                    label: {
+                        show: true,
+                        position: 'right'
+                    }
+                }]
+            };
+            workloadChart.setOption(workloadOption);
+        }
+
+        // 监听选项卡切换
+        layui.use('element', function() {
+            var element = layui.element;
+            
+            element.on('tab(projectDetailTab)', function(data) {
+                var tabIndex = data.index;
+                var $tabContent = $(this).parents('.layui-tab').find('.layui-tab-content');
+                
+                // 当切换到甘特图视图时初始化甘特图
+                if (tabIndex === 6) {
+                    setTimeout(function() {
+                        // 强制显示甘特图容器
+                        $('#gantt-chart').css('display', 'block');
+                        // 重置重试计数器
+                        window.ganttRetryCount = 0;
+                        initGanttChart();
+                    }, 300);
+                }
+                
+                // 当切换到看板视图时加载看板任务
+                if (tabIndex === 7) {
+                    setTimeout(function() {
+                        // 强制显示看板容器
+                        $('#kanban-container').css('display', 'flex');
+                        loadKanbanTasks();
+                    }, 300);
+                }
+                
+                // 当切换到统计分析视图时初始化统计图表
+                if (tabIndex === 9) {
+                    setTimeout(function() {
+                        // 强制显示统计图表容器
+                        $('#task-status-chart, #task-priority-chart, #task-trend-chart, #member-workload-chart').parent().show();
+                        // 重置统计图表初始化状态
+                        window.statsInitialized = false;
+                        initStatsCharts();
+                    }, 300);
+                }
+            });
+        });
     </script>
 </body>
 

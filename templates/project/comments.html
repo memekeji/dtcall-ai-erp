@@ -1,0 +1,422 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>项目评论系统</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/common.css' %}">
+    <style>
+        .comment-container {
+            padding: 20px;
+        }
+        
+        .comment-list {
+            margin-top: 20px;
+        }
+        
+        .comment-item {
+            padding: 15px;
+            border: 1px solid #e6e6e6;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            background: #f9f9f9;
+        }
+        
+        .comment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .comment-user {
+            font-weight: bold;
+            color: #1890ff;
+        }
+        
+        .comment-time {
+            font-size: 12px;
+            color: #999;
+        }
+        
+        .comment-content {
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+        
+        .comment-actions {
+            display: flex;
+            gap: 10px;
+            font-size: 12px;
+        }
+        
+        .comment-action {
+            color: #1890ff;
+            cursor: pointer;
+        }
+        
+        .comment-action:hover {
+            text-decoration: underline;
+        }
+        
+        .reply-list {
+            margin-top: 15px;
+            margin-left: 40px;
+        }
+        
+        .reply-item {
+            padding: 10px;
+            border: 1px solid #e6e6e6;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            background: #f0f0f0;
+        }
+        
+        .comment-form {
+            margin-top: 20px;
+            padding: 20px;
+            border: 1px solid #e6e6e6;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        
+        .reply-form {
+            margin-top: 10px;
+        }
+        
+        .form-textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 10px;
+            border: 1px solid #e6e6e6;
+            border-radius: 4px;
+            resize: vertical;
+        }
+        
+        .form-actions {
+            margin-top: 10px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+        }
+        
+        .error {
+            text-align: center;
+            padding: 20px;
+            color: #ff4d4f;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <h2>项目评论系统</h2>
+                <div class="layui-btn-group">
+                    <button class="layui-btn layui-btn-sm" onclick="closeWindow()">
+                        <i class="layui-icon layui-icon-close"></i> 关闭
+                    </button>
+                </div>
+            </div>
+            <div class="layui-card-body">
+                <div id="app">
+                    <!-- 评论表单 -->
+                    <div class="comment-form">
+                        <h3>发表评论</h3>
+                        <textarea v-model="newComment.content" class="form-textarea" placeholder="请输入评论内容..."></textarea>
+                        <div class="form-actions">
+                            <button class="layui-btn layui-btn-primary" @click="cancelComment">取消</button>
+                            <button class="layui-btn layui-btn-normal" @click="submitComment" :disabled="!newComment.content.trim()">
+                                <i class="layui-icon layui-icon-ok"></i> 发表
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 评论列表 -->
+                    <div class="comment-list" v-if="!loading">
+                        <div v-if="comments.length === 0" class="error">暂无评论，快来发表第一条评论吧！</div>
+                        <div v-else>
+                            <div v-for="comment in comments" :key="comment.id" class="comment-item">
+                                <div class="comment-header">
+                                    <span class="comment-user">{{ comment.user.username }}</span>
+                                    <span class="comment-time">{{ formatTime(comment.create_time) }}</span>
+                                </div>
+                                <div class="comment-content">{{ comment.content }}</div>
+                                <div class="comment-actions">
+                                    <span class="comment-action" @click="replyComment(comment)">回复</span>
+                                    <span v-if="comment.user.id === currentUserId" class="comment-action" @click="editComment(comment)">编辑</span>
+                                    <span v-if="comment.user.id === currentUserId" class="comment-action" @click="deleteComment(comment)">删除</span>
+                                </div>
+                                
+                                <!-- 回复表单 -->
+                                <div v-if="replyTarget && replyTarget.id === comment.id" class="reply-form">
+                                    <textarea v-model="replyContent" class="form-textarea" placeholder="请输入回复内容..."></textarea>
+                                    <div class="form-actions">
+                                        <button class="layui-btn layui-btn-primary" @click="cancelReply">取消</button>
+                                        <button class="layui-btn layui-btn-normal" @click="submitReply(comment)" :disabled="!replyContent.trim()">
+                                            <i class="layui-icon layui-icon-ok"></i> 回复
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- 编辑表单 -->
+                                <div v-if="editingComment && editingComment.id === comment.id" class="reply-form">
+                                    <textarea v-model="editingContent" class="form-textarea" placeholder="请输入评论内容..."></textarea>
+                                    <div class="form-actions">
+                                        <button class="layui-btn layui-btn-primary" @click="cancelEdit">取消</button>
+                                        <button class="layui-btn layui-btn-normal" @click="submitEdit(comment)" :disabled="!editingContent.trim()">
+                                            <i class="layui-icon layui-icon-ok"></i> 保存
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- 回复列表 -->
+                                <div class="reply-list" v-if="comment.replies && comment.replies.length > 0">
+                                    <div v-for="reply in comment.replies" :key="reply.id" class="reply-item">
+                                        <div class="comment-header">
+                                            <span class="comment-user">{{ reply.user.username }}</span>
+                                            <span class="comment-time">{{ formatTime(reply.create_time) }}</span>
+                                        </div>
+                                        <div class="comment-content">{{ reply.content }}</div>
+                                        <div class="comment-actions">
+                                            <span class="comment-action" @click="replyComment(reply, comment)">回复</span>
+                                            <span v-if="reply.user.id === currentUserId" class="comment-action" @click="editComment(reply)">编辑</span>
+                                            <span v-if="reply.user.id === currentUserId" class="comment-action" @click="deleteComment(reply)">删除</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 加载状态 -->
+                    <div v-if="loading" class="loading">
+                        <i class="layui-icon layui-icon-loading layui-icon layui-anim layui-anim-rotate layui-anim-loop"></i> 加载中...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/lib/vue.global.prod.js' %}"></script>
+    <script src="{% static 'js/lib/axios.min.js' %}"></script>
+    <script>
+        layui.use(['layer'], function() {
+            window.layer = layui.layer;
+        });
+        
+        const { createApp } = Vue;
+        
+        createApp({
+            data() {
+                return {
+                    comments: [],
+                    loading: true,
+                    newComment: {
+                        content: ''
+                    },
+                    replyTarget: null,
+                    replyContent: '',
+                    editingComment: null,
+                    editingContent: '',
+                    currentUserId: {{ request.user.id }},
+                    objectType: '{{ object_type }}',
+                    objectId: {{ object_id }}
+                };
+            },
+            mounted() {
+                this.loadComments();
+            },
+            methods: {
+                // 加载评论列表
+                async loadComments() {
+                    this.loading = true;
+                    try {
+                        const response = await axios.get('/project/api/comments/by_object/', {
+                            params: {
+                                content_type: this.objectType,
+                                object_id: this.objectId
+                            }
+                        });
+                        this.comments = response.data;
+                        // 加载每个评论的回复
+                        for (const comment of this.comments) {
+                            await this.loadReplies(comment);
+                        }
+                    } catch (error) {
+                        console.error('加载评论失败:', error);
+                        layer.msg('加载评论失败，请刷新页面重试', { icon: 5 });
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                
+                // 加载评论的回复
+                async loadReplies(comment) {
+                    try {
+                        const response = await axios.get('/project/api/comments/', {
+                            params: {
+                                parent: comment.id
+                            }
+                        });
+                        comment.replies = response.data.results;
+                    } catch (error) {
+                        console.error('加载回复失败:', error);
+                    }
+                },
+                
+                // 提交评论
+                async submitComment() {
+                    if (!this.newComment.content.trim()) return;
+                    
+                    try {
+                        const response = await axios.post('/project/api/comments/', {
+                            content: this.newComment.content.trim(),
+                            content_type: 'project',
+                            object_id: this.objectId
+                        });
+                        this.comments.unshift(response.data);
+                        this.newComment.content = '';
+                        layer.msg('评论发表成功', { icon: 6 });
+                    } catch (error) {
+                        console.error('发表评论失败:', error);
+                        layer.msg('发表评论失败，请重试', { icon: 5 });
+                    }
+                },
+                
+                // 取消评论
+                cancelComment() {
+                    this.newComment.content = '';
+                },
+                
+                // 回复评论
+                replyComment(comment, parentComment = null) {
+                    this.replyTarget = comment;
+                    this.replyContent = '';
+                },
+                
+                // 提交回复
+                async submitReply(comment) {
+                    if (!this.replyContent.trim()) return;
+                    
+                    try {
+                        const response = await axios.post('/project/api/comments/', {
+                            content: this.replyContent.trim(),
+                            content_type: 'project',
+                            object_id: this.objectId,
+                            parent: comment.id
+                        });
+                        
+                        if (!comment.replies) {
+                            comment.replies = [];
+                        }
+                        comment.replies.unshift(response.data);
+                        this.replyTarget = null;
+                        this.replyContent = '';
+                        layer.msg('回复发表成功', { icon: 6 });
+                    } catch (error) {
+                        console.error('发表回复失败:', error);
+                        layer.msg('发表回复失败，请重试', { icon: 5 });
+                    }
+                },
+                
+                // 取消回复
+                cancelReply() {
+                    this.replyTarget = null;
+                    this.replyContent = '';
+                },
+                
+                // 编辑评论
+                editComment(comment) {
+                    this.editingComment = comment;
+                    this.editingContent = comment.content;
+                },
+                
+                // 提交编辑
+                async submitEdit(comment) {
+                    if (!this.editingContent.trim()) return;
+                    
+                    try {
+                        const response = await axios.put(`/project/api/comments/${comment.id}/`, {
+                            content: this.editingContent.trim()
+                        });
+                        comment.content = response.data.content;
+                        comment.update_time = response.data.update_time;
+                        this.editingComment = null;
+                        this.editingContent = '';
+                        layer.msg('评论编辑成功', { icon: 6 });
+                    } catch (error) {
+                        console.error('编辑评论失败:', error);
+                        layer.msg('编辑评论失败，请重试', { icon: 5 });
+                    }
+                },
+                
+                // 取消编辑
+                cancelEdit() {
+                    this.editingComment = null;
+                    this.editingContent = '';
+                },
+                
+                // 删除评论
+                async deleteComment(comment) {
+                    layer.confirm('确定要删除这条评论吗？删除后不可恢复', {
+                        title: '确认删除',
+                        btn: ['确定', '取消']
+                    }, async (index) => {
+                        try {
+                            await axios.delete(`/project/api/comments/${comment.id}/`);
+                            
+                            // 从列表中移除评论
+                            if (comment.parent) {
+                                // 如果是回复，从回复列表中移除
+                                const parentComment = this.comments.find(c => c.id === comment.parent.id);
+                                if (parentComment && parentComment.replies) {
+                                    parentComment.replies = parentComment.replies.filter(r => r.id !== comment.id);
+                                }
+                            } else {
+                                // 如果是根评论，从评论列表中移除
+                                this.comments = this.comments.filter(c => c.id !== comment.id);
+                            }
+                            
+                            layer.msg('评论删除成功', { icon: 6 });
+                            layer.close(index);
+                        } catch (error) {
+                            console.error('删除评论失败:', error);
+                            layer.msg('删除评论失败，请重试', { icon: 5 });
+                            layer.close(index);
+                        }
+                    });
+                },
+                
+                // 格式化时间
+                formatTime(timeString) {
+                    const date = new Date(timeString);
+                    return date.toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                }
+            }
+        }).mount('#app');
+        
+        function closeWindow() {
+            var index = parent.layer.getFrameIndex(window.name);
+            parent.layer.close(index);
+        }
+    </script>
+</body>
+</html>

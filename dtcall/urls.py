@@ -64,6 +64,10 @@ urlpatterns = [
     path('task/', include('apps.task.urls', namespace='task')),
     path('project/task/', include('apps.task.urls', namespace='project_task')),
     
+    # 项目管理前端路由
+    path('project-mgmt/', TemplateView.as_view(template_name='project-mgmt/index.html'), name='project-mgmt'),
+    path('project-mgmt/<path:path>', TemplateView.as_view(template_name='project-mgmt/index.html'), name='project-mgmt-path'),
+    
     # 审批流程模块
     path('approval/', include('apps.approval.urls', namespace='approval')),
     
@@ -442,6 +446,7 @@ urlpatterns = [
     
     # API路由
     path('api/', include('apps.contract.api_urls')),
+    path('api/project/', include('apps.project.api_urls')),
     # 通用API路由
     path('api/common/', include('apps.common.urls')),
     # JWT认证路由

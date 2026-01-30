@@ -235,7 +235,7 @@ class AssetForm(forms.ModelForm):
     class Meta:
         model = Asset
         fields = ['asset_number', 'name', 'category', 'brand', 'model', 'purchase_date', 
-                 'purchase_price', 'status', 'location', 'responsible_person', 'description']
+                 'purchase_price', 'status', 'location', 'responsible_person', 'department', 'description']
         widgets = {
             'asset_number': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入资产编号'}),
             'name': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入资产名称'}),
@@ -247,6 +247,7 @@ class AssetForm(forms.ModelForm):
             'status': forms.Select(attrs={'class': 'layui-select'}),
             'location': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入存放位置'}),
             'responsible_person': forms.Select(attrs={'class': 'layui-select'}),
+            'department': forms.Select(attrs={'class': 'layui-select'}),
             'description': forms.Textarea(attrs={'class': 'layui-textarea', 'placeholder': '请输入描述信息', 'rows': 5}),
         }
         labels = {
@@ -260,6 +261,7 @@ class AssetForm(forms.ModelForm):
             'status': '状态',
             'location': '存放位置',
             'responsible_person': '责任人',
+            'department': '所属部门',
             'description': '描述信息',
         }
 
