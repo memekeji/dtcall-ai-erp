@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>类别表单</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href="/static/layui/css/layui.css" rel="stylesheet">
+    <link href="/static/css/common.css" rel="stylesheet">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header layui-elem-quote" id="cardTitle">新增类别</div>
+            <div class="layui-card-body">
+                <form class="layui-form" id="categoryForm">
+                    <input type="hidden" name="id" id="id">
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">类别编码</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="code" id="code" required lay-verify="required" placeholder="请输入类别编码" class="layui-input">
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">类别名称</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="name" id="name" required lay-verify="required" placeholder="请输入类别名称" class="layui-input">
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">类别类型</label>
+                        <div class="layui-input-block">
+                            <select name="category_type" id="category_type" lay-verify="required">
+                                <option value="material">原材料</option>
+                                <option value="product">产成品</option>
+                                <option value="semi">半成品</option>
+                                <option value="pack">包装物</option>
+                                <option value="consumable">消耗品</option>
+                                <option value="other">其他</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">上级类别</label>
+                        <div class="layui-input-block">
+                            <select name="parent_id" id="parent_id">
+                                <option value="">无</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">排序</label>
+                        <div class="layui-input-block">
+                            <input type="number" name="sort" id="sort" value="0" class="layui-input">
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">状态</label>
+                        <div class="layui-input-block">
+                            <select name="status" id="status">
+                                <option value="1">启用</option>
+                                <option value="0">禁用</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">描述</label>
+                        <div class="layui-input-block">
+                            <textarea name="description" id="description" placeholder="请输入描述" class="layui-textarea"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <div class="layui-input-block">
+                            <button type="submit" class="layui-btn" lay-submit lay-filter="submitBtn">保存</button>
+                            <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/lib/jquery.min.js"></script>
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['form', 'layer'], function(){
+            var form = layui.form;
+            var layer = layui.layer;
+            
+            var id = getQueryParam('id');
+            
+            if(id){
+                $('#cardTitle').text('编辑类别');
+                loadData(id);
+            } else {
+                loadParentCategories();
+            }
+            
+            function getQueryParam(name) {
+                var reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)');
+                var r = window.location.search.substr(1).match(reg);
+                if(r != null) return unescape(r[2]);
+                return null;
+            }
+            
+            function loadParentCategories(){
+                $.ajax({
+                    url: '/api/inventory/category/',
+                    type: 'GET',
+                    success: function(res){
+                        if(res.code === 0){
+                            var html = '<option value="">无</option>';
+                            res.data.forEach(function(item){
+                                html += '<option value="' + item.id + '">' + item.name + '</option>';
+                            });
+                            $('#parent_id').html(html);
+                            form.render('select');
+                        }
+                    }
+                });
+            }
+            
+            function loadData(id){
+                $.ajax({
+                    url: '/api/inventory/category/' + id + '/',
+                    type: 'GET',
+                    success: function(res){
+                        if(res.code === 0){
+                            var data = res.data;
+                            $('#id').val(data.id);
+                            $('#code').val(data.code);
+                            $('#name').val(data.name);
+                            $('#category_type').val(data.category_type);
+                            $('#sort').val(data.sort);
+                            $('#status').val(data.status);
+                            $('#description').val(data.description || '');
+                            
+                            loadParentCategories();
+                            
+                            setTimeout(function(){
+                                $('#parent_id').val(data.parent_id || '');
+                                form.render('select');
+                            }, 500);
+                        }
+                    }
+                });
+            }
+            
+            form.on('submit(submitBtn)', function(data){
+                var url = id ? '/api/inventory/category/' + id + '/' : '/api/inventory/category/';
+                var type = id ? 'PUT' : 'POST';
+                
+                $.ajax({
+                    url: url,
+                    type: type,
+                    contentType: 'application/json',
+                    data: JSON.stringify(data.field),
+                    success: function(res){
+                        if(res.code === 0){
+                            layer.msg('保存成功', {icon: 1});
+                            var index = parent.layer.getFrameIndex(window.name);
+                            parent.layer.close(index);
+                            parent.table.reload('categoryTable');
+                        } else {
+                            layer.msg(res.msg, {icon: 2});
+                        }
+                    }
+                });
+                return false;
+            });
+        });
+    </script>
+</body>
+</html>

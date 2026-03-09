@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>库存变动报表</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href="/static/layui/css/layui.css" rel="stylesheet">
+    <link href="/static/css/common.css" rel="stylesheet">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header layui-elem-quote">
+                库存变动明细报表
+                <button class="layui-btn layui-btn-sm" id="exportBtn" style="float: right;">
+                    <i class="layui-icon">&#xe67c;</i> 导出报表
+                </button>
+            </div>
+            <div class="layui-card-body">
+                <div class="layui-form layui-inline" style="margin-bottom: 15px;">
+                    <div class="layui-input-inline">
+                        <input type="date" id="startDate" class="layui-input" placeholder="开始日期">
+                    </div>
+                    <div class="layui-input-inline">
+                        <input type="date" id="endDate" class="layui-input" placeholder="结束日期">
+                    </div>
+                    <div class="layui-input-inline">
+                        <select id="searchType">
+                            <option value="">全部类型</option>
+                            <option value="stock_in">入库</option>
+                            <option value="stock_out">出库</option>
+                            <option value="transfer">调拨</option>
+                            <option value="adjustment">调整</option>
+                            <option value="check">盘点</option>
+                        </select>
+                    </div>
+                    <button class="layui-btn" id="searchBtn">
+                        <i class="layui-icon">&#xe615;</i> 查询
+                    </button>
+                </div>
+                
+                <div class="report-card" style="margin-bottom: 15px;">
+                    <div class="report-title">变动汇总</div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalIn">0</div>
+                        <div class="stat-label">总入库数量</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalOut">0</div>
+                        <div class="stat-label">总出库数量</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="netChange">0</div>
+                        <div class="stat-label">净变动</div>
+                    </div>
+                </div>
+                
+                <table id="transactionTable" lay-filter="transactionTable"></table>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/lib/jquery.min.js"></script>
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['table', 'layer', 'form'], function(){
+            var table = layui.table;
+            var layer = layui.layer;
+            var form = layui.form;
+            
+            var today = new Date().toISOString().split('T')[0];
+            $('#startDate').val(today);
+            $('#endDate').val(today);
+            
+            table.render({
+                elem: '#transactionTable',
+                url: '/api/inventory/report/transaction/',
+                page: true,
+                where: {
+                    start_date: $('#startDate').val(),
+                    end_date: $('#endDate').val()
+                },
+                cols: [[
+                    {field: 'id', title: 'ID', width: 80, sort: true},
+                    {field: 'transaction_type_display', title: '变动类型', width: 100},
+                    {field: 'transaction_code', title: '单据编号', width: 160},
+                    {field: 'item_code', title: '物料编码', width: 120},
+                    {field: 'item_name', title: '物料名称', width: 150},
+                    {field: 'warehouse_name', title: '仓库', width: 120},
+                    {field: 'quantity', title: '变动数量', width: 100, templet: function(d){
+                        var color = d.quantity > 0 ? '#009688' : '#FF5722';
+                        return '<span style="color:' + color + '">' + d.quantity + '</span>';
+                    }},
+                    {field: 'before_quantity', title: '变动前', width: 90},
+                    {field: 'after_quantity', title: '变动后', width: 90},
+                    {field: 'operator_name', title: '操作人', width: 90},
+                    {field: 'create_time', title: '操作时间', width: 160}
+                ]]
+            });
+            
+            $('#searchBtn').click(function(){
+                table.reload('transactionTable', {
+                    where: {
+                        start_date: $('#startDate').val(),
+                        end_date: $('#endDate').val(),
+                        transaction_type: $('#searchType').val()
+                    }
+                });
+                loadSummary();
+            });
+            
+            function loadSummary(){
+                $.ajax({
+                    url: '/api/inventory/report/transaction/',
+                    type: 'GET',
+                    data: {
+                        start_date: $('#startDate').val(),
+                        end_date: $('#endDate').val(),
+                        transaction_type: $('#searchType').val()
+                    },
+                    success: function(res){
+                        if(res.code === 0){
+                            var data = res.data;
+                            $('#totalIn').text(data.summary.total_in);
+                            $('#totalOut').text(data.summary.total_out);
+                            $('#netChange').text((parseFloat(data.summary.total_in) - parseFloat(data.summary.total_out)).toFixed(4));
+                        }
+                    }
+                });
+            }
+            
+            loadSummary();
+            
+            $('#exportBtn').click(function(){
+                layer.msg('导出功能开发中');
+            });
+        });
+    </script>
+</body>
+</html>

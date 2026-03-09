@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>物料表单</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href="/static/layui/css/layui.css" rel="stylesheet">
+    <link href="/static/css/common.css" rel="stylesheet">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header layui-elem-quote" id="cardTitle">新增物料</div>
+            <div class="layui-card-body">
+                <form class="layui-form" id="itemForm">
+                    <input type="hidden" name="id" id="id">
+                    
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">物料编码</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="code" id="code" required lay-verify="required" placeholder="请输入物料编码" class="layui-input">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">物料名称</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="name" id="name" required lay-verify="required" placeholder="请输入物料名称" class="layui-input">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">物料分类</label>
+                                <div class="layui-input-block">
+                                    <select name="category_id" id="category_id">
+                                        <option value="">请选择分类</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">规格型号</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="specification" id="specification" placeholder="请输入规格型号" class="layui-input">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">计量单位</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="unit" id="unit" required lay-verify="required" placeholder="请输入单位" class="layui-input">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">标准成本</label>
+                                <div class="layui-input-block">
+                                    <input type="number" name="standard_cost" id="standard_cost" step="0.01" placeholder="请输入标准成本" class="layui-input">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">最近成本</label>
+                                <div class="layui-input-block">
+                                    <input type="number" name="latest_cost" id="latest_cost" step="0.01" placeholder="请输入最近成本" class="layui-input">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">零售价格</label>
+                                <div class="layui-input-block">
+                                    <input type="number" name="retail_price" id="retail_price" step="0.01" placeholder="请输入零售价格" class="layui-input">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">批发价格</label>
+                                <div class="layui-input-block">
+                                    <input type="number" name="wholesale_price" id="wholesale_price" step="0.01" placeholder="请输入批发价格" class="layui-input">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">保质期(天)</label>
+                                <div class="layui-input-block">
+                                    <input type="number" name="shelf_life" id="shelf_life" placeholder="请输入保质期" class="layui-input">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">最低库存</label>
+                                <div class="layui-input-block">
+                                    <input type="number" name="min_stock" id="min_stock" step="0.01" placeholder="请输入最低库存" class="layui-input">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">最高库存</label>
+                                <div class="layui-input-block">
+                                    <input type="number" name="max_stock" id="max_stock" step="0.01" placeholder="请输入最高库存" class="layui-input">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">安全库存</label>
+                                <div class="layui-input-block">
+                                    <input type="number" name="safety_stock" id="safety_stock" step="0.01" placeholder="请输入安全库存" class="layui-input">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">再订货点</label>
+                                <div class="layui-input-block">
+                                    <input type="number" name="reorder_point" id="reorder_point" step="0.01" placeholder="请输入再订货点" class="layui-input">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">条形码</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="barcode" id="barcode" placeholder="请输入条形码" class="layui-input">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">状态</label>
+                                <div class="layui-input-block">
+                                    <select name="status" id="status">
+                                        <option value="1">启用</option>
+                                        <option value="0">禁用</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">物料描述</label>
+                        <div class="layui-input-block">
+                            <textarea name="description" id="description" placeholder="请输入物料描述" class="layui-textarea"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <div class="layui-input-block">
+                            <button type="submit" class="layui-btn" lay-submit lay-filter="submitBtn">保存</button>
+                            <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/lib/jquery.min.js"></script>
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['form', 'layer'], function(){
+            var form = layui.form;
+            var layer = layui.layer;
+            
+            var id = getQueryParam('id');
+            
+            if(id){
+                $('#cardTitle').text('编辑物料');
+                loadData(id);
+            } else {
+                loadCategories();
+            }
+            
+            function getQueryParam(name) {
+                var reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)');
+                var r = window.location.search.substr(1).match(reg);
+                if(r != null) return unescape(r[2]);
+                return null;
+            }
+            
+            function loadCategories(){
+                $.ajax({
+                    url: '/api/inventory/category/',
+                    type: 'GET',
+                    success: function(res){
+                        if(res.code === 0){
+                            var html = '<option value="">请选择分类</option>';
+                            res.data.forEach(function(item){
+                                html += '<option value="' + item.id + '">' + item.name + '</option>';
+                            });
+                            $('#category_id').html(html);
+                            form.render('select');
+                        }
+                    }
+                });
+            }
+            
+            function loadData(id){
+                $.ajax({
+                    url: '/api/inventory/item/' + id + '/',
+                    type: 'GET',
+                    success: function(res){
+                        if(res.code === 0){
+                            var data = res.data;
+                            $('#id').val(data.id);
+                            $('#code').val(data.code);
+                            $('#name').val(data.name);
+                            $('#category_id').val(data.category_id || '');
+                            $('#specification').val(data.specification || '');
+                            $('#unit').val(data.unit);
+                            $('#standard_cost').val(data.standard_cost);
+                            $('#latest_cost').val(data.latest_cost);
+                            $('#retail_price').val(data.retail_price);
+                            $('#wholesale_price').val(data.wholesale_price);
+                            $('#min_stock').val(data.min_stock);
+                            $('#max_stock').val(data.max_stock);
+                            $('#safety_stock').val(data.safety_stock);
+                            $('#reorder_point').val(data.reorder_point);
+                            $('#shelf_life').val(data.shelf_life);
+                            $('#barcode').val(data.barcode || '');
+                            $('#status').val(data.status);
+                            $('#description').val(data.description || '');
+                            
+                            loadCategories();
+                            form.render();
+                        }
+                    }
+                });
+            }
+            
+            form.on('submit(submitBtn)', function(data){
+                var url = id ? '/api/inventory/item/' + id + '/' : '/api/inventory/item/';
+                var type = id ? 'PUT' : 'POST';
+                
+                $.ajax({
+                    url: url,
+                    type: type,
+                    contentType: 'application/json',
+                    data: JSON.stringify(data.field),
+                    success: function(res){
+                        if(res.code === 0){
+                            layer.msg('保存成功', {icon: 1});
+                            var index = parent.layer.getFrameIndex(window.name);
+                            parent.layer.close(index);
+                            parent.table.reload('itemTable');
+                        } else {
+                            layer.msg(res.msg, {icon: 2});
+                        }
+                    }
+                });
+                return false;
+            });
+        });
+    </script>
+</body>
+</html>

@@ -10,6 +10,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from datetime import timedelta
+from apps.user.models import Admin
 from .models import (
     ProductionProcedure, ProcedureSet, ProcedureSetItem, BOM, BOMItem,
     Equipment, ProductionPlan, ProductionTask, QualityCheck, 

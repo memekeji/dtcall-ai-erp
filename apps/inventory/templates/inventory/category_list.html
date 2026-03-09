@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>库存类别管理</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href="/static/layui/css/layui.css" rel="stylesheet">
+    <link href="/static/css/common.css" rel="stylesheet">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header layui-elem-quote">
+                库存类别列表
+                <button class="layui-btn layui-btn-sm layui-btn-primary" id="addBtn" style="float: right;">
+                    <i class="layui-icon">&#xe654;</i> 新增类别
+                </button>
+            </div>
+            <div class="layui-card-body">
+                <table id="categoryTable" lay-filter="categoryTable"></table>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/lib/jquery.min.js"></script>
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['table', 'layer', 'form'], function(){
+            var table = layui.table;
+            var layer = layui.layer;
+            var form = layui.form;
+            
+            table.render({
+                elem: '#categoryTable',
+                url: '/api/inventory/category/',
+                page: true,
+                treeColIndex: 1,
+                treeSpid: null,
+                treeIdName: 'id',
+                treePidName: 'parent_id',
+                cols: [[
+                    {field: 'id', title: 'ID', width: 80, sort: true},
+                    {field: 'name', title: '类别名称', minWidth: 200},
+                    {field: 'code', title: '类别编码', width: 120},
+                    {field: 'category_type', title: '类别类型', width: 100},
+                    {field: 'parent_name', title: '上级类别', width: 120},
+                    {field: 'status_display', title: '状态', width: 80},
+                    {field: 'sort', title: '排序', width: 80},
+                    {title: '操作', width: 150, templet: function(d){
+                        var html = '<button class="layui-btn layui-btn-xs" lay-event="edit">编辑</button>';
+                        html += '<button class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</button>';
+                        return html;
+                    }}
+                ]]
+            });
+            
+            table.on('tool(categoryTable)', function(obj){
+                if(obj.event === 'edit'){
+                    openForm(obj.data.id);
+                } else if(obj.event === 'delete'){
+                    layer.confirm('确定要删除该类别吗？', function(index){
+                        $.ajax({
+                            url: '/api/inventory/category/' + obj.data.id + '/',
+                            type: 'DELETE',
+                            success: function(res){
+                                if(res.code === 0){
+                                    layer.msg('删除成功');
+                                    table.reload('categoryTable');
+                                } else {
+                                    layer.msg(res.msg);
+                                }
+                            }
+                        });
+                    });
+                }
+            });
+            
+            $('#addBtn').click(function(){
+                openForm();
+            });
+            
+            function openForm(id){
+                var title = id ? '编辑类别' : '新增类别';
+                var url = id ? '/inventory/category/' + id + '/' : '/inventory/category/add/';
+                layer.open({
+                    type: 2,
+                    title: title,
+                    area: ['600px', '500px'],
+                    content: url,
+                    end: function(){
+                        table.reload('categoryTable');
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

@@ -426,7 +426,7 @@ class StockTransfer(models.Model):
     total_quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='总数量')
     total_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='总金额')
     status = models.IntegerField(choices=STATUS_CHOICES, default=1, verbose_name='状态')
-   requester = models.ForeignKey(Admin, on_delete=models.SET_NULL, null=True, related_name='requested_transfers', verbose_name='申请人')
+    requester = models.ForeignKey(Admin, on_delete=models.SET_NULL, null=True, related_name='requested_transfers', verbose_name='申请人')
     request_time = models.DateTimeField(auto_now_add=True, verbose_name='申请时间')
     checker = models.ForeignKey(Admin, on_delete=models.SET_NULL, null=True, blank=True, related_name='checked_transfers', verbose_name='审核人')
     check_time = models.DateTimeField(null=True, blank=True, verbose_name='审核时间')

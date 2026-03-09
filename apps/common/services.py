@@ -56,18 +56,14 @@ class DataSyncService:
             for user in users:
                 # 同步用户档案
                 if 'EmployeeFile' in globals():
-                    employee_file, created = EmployeeFile.objects.get_or_create(
-                        employee=user,
-                        defaults={
-                            'phone': user.mobile or '',
-                            'email': user.email or '',
-                        }
-                    )
-                    
-                    if not created:
-                        employee_file.phone = user.mobile or ''
-                        employee_file.email = user.email or ''
-                        employee_file.save()
+                    # EmployeeFile 模型没有 phone 和 email 字段，跳过这些字段的同步
+                    try:
+                        employee_file, created = EmployeeFile.objects.get_or_create(
+                            employee=user,
+                        )
+                        logger.debug(f"员工档案：{'创建' if created else '更新'} - {user.username}")
+                    except Exception as e:
+                        logger.warning(f"创建员工档案失败 {user.username}: {e}")
                 
             logger.info(f"用户档案同步完成，共同步 {users.count()} 个用户")
         except Exception as e:

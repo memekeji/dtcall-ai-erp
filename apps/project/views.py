@@ -1040,14 +1040,19 @@ class ProjectCategoryListView(LoginRequiredMixin, View):
             
             data_list = []
             for category in categories:
+                create_time_str = ''
+                if hasattr(category, 'create_time'):
+                    create_time_str = category.create_time.strftime('%Y-%m-%d %H:%M')
+                elif hasattr(category, 'created_at'):
+                    create_time_str = category.created_at.strftime('%Y-%m-%d %H:%M')
                 data_list.append({
                     'id': category.id,
                     'name': category.name,
                     'description': category.description,
-                    'sort': category.sort,
+                    'sort': category.sort_order,
                     'status': category.is_active,
-            'status_display': '启用' if category.is_active else '禁用',
-                    'create_time': category.create_time.strftime('%Y-%m-%d %H:%M')
+                    'status_display': '启用' if category.is_active else '禁用',
+                    'create_time': create_time_str
                 })
             
             return JsonResponse({

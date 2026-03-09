@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>库存汇总报表</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href="/static/layui/css/layui.css" rel="stylesheet">
+    <link href="/static/css/common.css" rel="stylesheet">
+    <style>
+        .report-card { background: #fff; border-radius: 4px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .report-title { font-size: 16px; font-weight: bold; color: #333; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+        .stat-item { display: inline-block; width: 33%; text-align: center; padding: 15px 0; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #009688; }
+        .stat-label { font-size: 14px; color: #999; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header layui-elem-quote">
+                库存汇总报表
+                <button class="layui-btn layui-btn-sm" id="exportBtn" style="float: right;">
+                    <i class="layui-icon">&#xe67c;</i> 导出报表
+                </button>
+            </div>
+            <div class="layui-card-body">
+                <div class="layui-form layui-inline" style="margin-bottom: 15px;">
+                    <div class="layui-input-inline">
+                        <select id="searchWarehouse">
+                            <option value="">全部仓库</option>
+                        </select>
+                    </div>
+                    <div class="layui-input-inline">
+                        <select id="searchCategory">
+                            <option value="">全部分类</option>
+                        </select>
+                    </div>
+                    <button class="layui-btn" id="searchBtn">
+                        <i class="layui-icon">&#xe615;</i> 查询
+                    </button>
+                </div>
+                
+                <div class="report-card">
+                    <div class="report-title">库存概览</div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalItems">0</div>
+                        <div class="stat-label">物料种类</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalQuantity">0</div>
+                        <div class="stat-label">库存总量</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalValue">0</div>
+                        <div class="stat-label">库存价值(元)</div>
+                    </div>
+                </div>
+                
+                <div class="layui-row layui-col-space20">
+                    <div class="layui-col-md6">
+                        <div class="report-card">
+                            <div class="report-title">按仓库分布</div>
+                            <table class="layui-table" id="warehouseTable">
+                                <thead>
+                                    <tr>
+                                        <th>仓库</th>
+                                        <th>库存数量</th>
+                                        <th>库存价值</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="layui-col-md6">
+                        <div class="report-card">
+                            <div class="report-title">按分类分布</div>
+                            <table class="layui-table" id="categoryTable">
+                                <thead>
+                                    <tr>
+                                        <th>分类</th>
+                                        <th>库存数量</th>
+                                        <th>库存价值</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/lib/jquery.min.js"></script>
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['layer', 'form'], function(){
+            var layer = layui.layer;
+            var form = layui.form;
+            
+            loadWarehouses();
+            loadCategories();
+            loadReportData();
+            
+            function loadWarehouses(){
+                $.ajax({
+                    url: '/api/inventory/warehouse/',
+                    type: 'GET',
+                    success: function(res){
+                        if(res.code === 0){
+                            var html = '<option value="">全部仓库</option>';
+                            res.data.forEach(function(item){
+                                html += '<option value="' + item.id + '">' + item.name + '</option>';
+                            });
+                            $('#searchWarehouse').html(html);
+                            form.render('select');
+                        }
+                    }
+                });
+            }
+            
+            function loadCategories(){
+                $.ajax({
+                    url: '/api/inventory/category/',
+                    type: 'GET',
+                    success: function(res){
+                        if(res.code === 0){
+                            var html = '<option value="">全部分类</option>';
+                            res.data.forEach(function(item){
+                                html += '<option value="' + item.id + '">' + item.name + '</option>';
+                            });
+                            $('#searchCategory').html(html);
+                            form.render('select');
+                        }
+                    }
+                });
+            }
+            
+            $('#searchBtn').click(function(){
+                loadReportData();
+            });
+            
+            function loadReportData(){
+                var params = {};
+                if($('#searchWarehouse').val()){
+                    params.warehouse_id = $('#searchWarehouse').val();
+                }
+                if($('#searchCategory').val()){
+                    params.category_id = $('#searchCategory').val();
+                }
+                
+                $.ajax({
+                    url: '/api/inventory/report/summary/',
+                    type: 'GET',
+                    data: params,
+                    success: function(res){
+                        if(res.code === 0){
+                            var data = res.data;
+                            $('#totalItems').text(data.summary.total_items);
+                            $('#totalQuantity').text(parseFloat(data.summary.total_quantity).toLocaleString());
+                            $('#totalValue').text(parseFloat(data.summary.total_value).toLocaleString());
+                            
+                            var warehouseHtml = '';
+                            data.by_warehouse.forEach(function(item){
+                                warehouseHtml += '<tr>';
+                                warehouseHtml += '<td>' + (item.warehouse__name || '未知') + '</td>';
+                                warehouseHtml += '<td>' + parseFloat(item.quantity || 0).toLocaleString() + '</td>';
+                                warehouseHtml += '<td>' + parseFloat(item.value || 0).toFixed(2) + '</td>';
+                                warehouseHtml += '</tr>';
+                            });
+                            $('#warehouseTable tbody').html(warehouseHtml);
+                            
+                            var categoryHtml = '';
+                            data.by_category.forEach(function(item){
+                                categoryHtml += '<tr>';
+                                categoryHtml += '<td>' + (item.item__category__name || '未知') + '</td>';
+                                categoryHtml += '<td>' + parseFloat(item.quantity || 0).toLocaleString() + '</td>';
+                                categoryHtml += '<td>' + parseFloat(item.value || 0).toFixed(2) + '</td>';
+                                categoryHtml += '</tr>';
+                            });
+                            $('#categoryTable tbody').html(categoryHtml);
+                        }
+                    }
+                });
+            }
+            
+            $('#exportBtn').click(function(){
+                layer.msg('导出功能开发中');
+            });
+        });
+    </script>
+</body>
+</html>

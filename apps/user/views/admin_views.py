@@ -6,6 +6,7 @@ from django.urls import reverse_lazy
 from django.http import JsonResponse, Http404
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib import messages
+from django.core.cache import cache
 from ..models import Admin
 from apps.department.models import Department
 from ..models.permission import DepartmentGroup
@@ -544,7 +545,7 @@ def login_view(request):
 
 
 def get_client_ip(request):
-    """获取客户端IP地址"""
+    """获取客户端 IP 地址"""
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
     if x_forwarded_for:
         ip = x_forwarded_for.split(',')[0]
@@ -553,155 +554,153 @@ def get_client_ip(request):
     return ip
 
 
-def login_submit(request):
-    """登录表单提交处理"""
-    if request.method == 'POST':
-        # 从POST数据中获取参数，并进行安全验证
-        username = request.POST.get('username', '').strip()
-        password = request.POST.get('password', '').strip()
+def verify_captcha(request, captcha_value, captcha_key):
+    """验证验证码"""
+    try:
+        from captcha.models import CaptchaStore
+        from django.utils import timezone
         
-        # 验证码验证
-        captcha_key = request.POST.get('captcha_key', '')
-        captcha_value = request.POST.get('captcha', '').strip().lower()
+        captcha_value = captcha_value.strip().lower()
         
         # 验证输入完整性
-        if not username or not password or not captcha_key or not captcha_value:
-            return JsonResponse({'code': 1, 'msg': '用户名、密码和验证码不能为空'}, json_dumps_params={'ensure_ascii': False})
+        if not captcha_key or not captcha_value:
+            return False
         
         # 验证验证码
-        try:
-            from captcha.models import CaptchaStore
-            from django.utils import timezone
-            captcha = CaptchaStore.objects.get(hashkey=captcha_key, expiration__gt=timezone.now())
-            if captcha.response != captcha_value:
-                return JsonResponse({'code': 1, 'msg': '验证码错误'}, json_dumps_params={'ensure_ascii': False})
-        except CaptchaStore.DoesNotExist:
-            return JsonResponse({'code': 1, 'msg': '验证码已过期，请刷新'}, json_dumps_params={'ensure_ascii': False})
+        captcha = CaptchaStore.objects.get(hashkey=captcha_key, expiration__gt=timezone.now())
+        if captcha.response != captcha_value:
+            return False
         
-        # 暴力破解防护：使用缓存跟踪登录失败次数
-        from django.core.cache import cache
-        from django.conf import settings
+        # 验证码正确，删除验证码记录
+        captcha.delete()
+        return True
+    except CaptchaStore.DoesNotExist:
+        return False
+    except Exception as e:
+        logger.warning(f"验证码验证失败：{e}")
+        return False
+
+
+def login_submit(request):
+    """登录表单提交处理"""
+    if request.method != 'POST':
+        return JsonResponse({'code': 1, 'msg': '请求方法错误'}, json_dumps_params={'ensure_ascii': False})
+    
+    # 获取表单数据
+    username = request.POST.get('username', '').strip()
+    password = request.POST.get('password', '')
+    captcha = request.POST.get('captcha', '')
+    captcha_key = request.POST.get('captcha_key', '')
+    
+    if not username or not password:
+        return JsonResponse({'code': 1, 'msg': '用户名和密码不能为空'}, json_dumps_params={'ensure_ascii': False})
+    
+    # 验证验证码
+    if not verify_captcha(request, captcha, captcha_key):
+        return JsonResponse({'code': 1, 'msg': '验证码错误'}, json_dumps_params={'ensure_ascii': False})
         
-        # 获取客户端IP
-        client_ip = get_client_ip(request)
+    # 获取客户端 IP
+    client_ip = get_client_ip(request)
+    
+    # 检查 IP 维度的全局锁定（防止暴力破解攻击）
+    ip_lock_key = f'login_ip_lock:{client_ip}'
+    if cache.get(ip_lock_key):
+        return JsonResponse({
+            'code': 1, 
+            'msg': '登录失败次数过多，请 30 分钟后再试'
+        }, json_dumps_params={'ensure_ascii': False})
+    
+    # 构造缓存键
+    login_attempts_key = f'login_attempts:{client_ip}:{username}'
+    login_lock_key = f'login_lock:{client_ip}:{username}'
+    
+    # 检查账户是否被锁定
+    if cache.get(login_lock_key):
+        return JsonResponse({
+            'code': 1, 
+            'msg': '登录失败次数过多，请 15 分钟后再试'
+        }, json_dumps_params={'ensure_ascii': False})
+    
+    try:
+        # 使用 Django 内置的 authenticate 函数进行认证，自动处理模型匹配
+        from django.contrib.auth import authenticate, login
         
-        # 检查IP维度的全局锁定（防止暴力破解攻击）
-        ip_lock_key = f'login_ip_lock:{client_ip}'
-        if cache.get(ip_lock_key):
-            remaining_time = cache.ttl(ip_lock_key)
-            return JsonResponse({
-                'code': 1, 
-                'msg': f'登录失败次数过多，请{int(remaining_time / 60)}分钟后再试'
-            }, json_dumps_params={'ensure_ascii': False})
+        # 认证用户
+        user = authenticate(request, username=username, password=password)
         
-        # 构造缓存键
-        login_attempts_key = f'login_attempts:{client_ip}:{username}'
-        login_lock_key = f'login_lock:{client_ip}:{username}'
-        
-        # 检查账户是否被锁定
-        if cache.get(login_lock_key):
-            remaining_time = cache.ttl(login_lock_key)
-            return JsonResponse({
-                'code': 1, 
-                'msg': f'登录失败次数过多，请{int(remaining_time / 60)}分钟后再试'
-            }, json_dumps_params={'ensure_ascii': False})
-        
-        try:
-            # 使用Django内置的authenticate函数进行认证，自动处理模型匹配
-            from django.contrib.auth import authenticate, login
+        if user:
+            # 登录成功，清除失败次数记录
+            cache.delete(login_attempts_key)
+            cache.delete(login_lock_key)
             
-            # 认证用户
-            user = authenticate(request, username=username, password=password)
+            # 安全会话管理：登录前重置会话，防止会话固定攻击
+            request.session.cycle_key()
             
-            if user:
-                # 登录成功，清除失败次数记录
-                cache.delete(login_attempts_key)
-                cache.delete(login_lock_key)
-                
-                # 安全会话管理：登录前重置会话，防止会话固定攻击
-                request.session.cycle_key()
-                
-                # 使用Django认证系统登录，确保安全会话管理
-                login(request, user)
-                
-                # 继承用户所属部门的默认角色
-                _inherit_user_department_roles(user)
-                
-                # 同时设置自定义会话（保持兼容性）
-                request.session['admin_id'] = user.id
-                request.session['admin_name'] = getattr(user, 'name', user.username)
-                request.session['admin_username'] = user.username
-                
-                # 记录登录日志
-                from ..models import AdminLog
-                AdminLog.objects.create(
-                    admin_id=user.id,
-                    username=user.username,
-                    title='用户登录',
-                    content=f'用户 {getattr(user, "name", user.username)} 登录系统',
-                    ip=client_ip,
-                    user_agent=request.META.get('HTTP_USER_AGENT', '')
-                )
-                
-                # 使用Django内置的权限系统，无需手动清除权限缓存
-                
-                # 安全会话管理：使用settings.py中配置的会话超时时间和自动更新机制
-                
-                return JsonResponse({
-                    'code': 0, 
-                    'msg': '登录成功',
-                    'data': {
-                        'id': user.id,
-                        'name': getattr(user, 'name', user.username),
-                        'username': user.username,
-                        'redirect_url': settings.LOGIN_REDIRECT_URL
-                    }
-                }, json_dumps_params={'ensure_ascii': False})
-            else:
-                # 登录失败，增加失败次数
-                attempts = cache.get(login_attempts_key, 0) + 1
-                cache.set(login_attempts_key, attempts, 300)  # 5分钟内有效
-                
-                # 检查IP维度的全局失败次数
-                ip_attempts_key = f'login_ip_attempts:{client_ip}'
-                ip_attempts = cache.get(ip_attempts_key, 0) + 1
-                cache.set(ip_attempts_key, ip_attempts, 300)  # 5分钟内有效
-                
-                if attempts >= 5:
-                    # 超过5次失败，锁定15分钟
-                    cache.set(login_lock_key, True, 900)  # 15分钟锁定
-                    return JsonResponse({
-                        'code': 1, 
-                        'msg': '登录失败次数过多，请15分钟后再试'
-                    }, json_dumps_params={'ensure_ascii': False})
-                
-                # 如果IP维度的失败次数超过20次，锁定该IP 30分钟
-                if ip_attempts >= 20:
-                    cache.set(ip_lock_key, True, 1800)  # 30分钟锁定
-                    return JsonResponse({
-                        'code': 1, 
-                        'msg': '登录失败次数过多，请30分钟后再试'
-                    }, json_dumps_params={'ensure_ascii': False})
-                
-                return JsonResponse({
-                    'code': 1, 
-                    'msg': '用户名或密码错误'
-                }, json_dumps_params={'ensure_ascii': False})
-                
-        except Admin.DoesNotExist:
-            # 用户名不存在，同样增加失败次数
+            # 使用 Django 认证系统登录，确保安全会话管理
+            login(request, user)
+            
+            # 继承用户所属部门的默认角色
+            _inherit_user_department_roles(user)
+            
+            # 同时设置自定义会话（保持兼容性）
+            request.session['admin_id'] = user.id
+            request.session['admin_name'] = getattr(user, 'name', user.username)
+            request.session['admin_username'] = user.username
+            
+            # 记录登录日志
+            from ..models import AdminLog
+            AdminLog.objects.create(
+                admin_id=user.id,
+                username=user.username,
+                title='用户登录',
+                content=f'用户 {getattr(user, "name", user.username)} 登录系统',
+                ip=client_ip,
+                user_agent=request.META.get('HTTP_USER_AGENT', '')
+            )
+            
+            return JsonResponse({
+                'code': 0, 
+                'msg': '登录成功',
+                'data': {
+                    'id': user.id,
+                    'name': getattr(user, 'name', user.username),
+                    'username': user.username,
+                    'redirect_url': '/home/main/'
+                }
+            }, json_dumps_params={'ensure_ascii': False})
+        else:
+            # 登录失败，增加失败次数
             attempts = cache.get(login_attempts_key, 0) + 1
-            cache.set(login_attempts_key, attempts, 300)  # 5分钟内有效
+            cache.set(login_attempts_key, attempts, 300)  # 5 分钟内有效
+            
+            # 检查 IP 维度的全局失败次数
+            ip_attempts_key = f'login_ip_attempts:{client_ip}'
+            ip_attempts = cache.get(ip_attempts_key, 0) + 1
+            cache.set(ip_attempts_key, ip_attempts, 300)  # 5 分钟内有效
             
             if attempts >= 5:
-                # 超过5次失败，锁定15分钟
-                cache.set(login_lock_key, True, 900)  # 15分钟锁定
-                return JsonResponse({'code': 1, 'msg': '登录失败次数过多，请15分钟后再试'}, json_dumps_params={'ensure_ascii': False})
+                # 超过 5 次失败，锁定 15 分钟
+                cache.set(login_lock_key, True, 900)  # 15 分钟锁定
+                return JsonResponse({
+                    'code': 1, 
+                    'msg': '登录失败次数过多，请 15 分钟后再试'
+                }, json_dumps_params={'ensure_ascii': False})
             
-            return JsonResponse({'code': 1, 'msg': '用户名或密码错误'}, json_dumps_params={'ensure_ascii': False})
-        except Exception as e:
-            logger.error(f'登录提交失败: {str(e)}')
-            return JsonResponse({'code': 1, 'msg': '登录失败，请稍后重试'}, json_dumps_params={'ensure_ascii': False})
+            # 如果 IP 维度的失败次数超过 20 次，锁定该 IP 30 分钟
+            if ip_attempts >= 20:
+                cache.set(ip_lock_key, True, 1800)  # 30 分钟锁定
+                return JsonResponse({
+                    'code': 1, 
+                    'msg': '登录失败次数过多，请 30 分钟后再试'
+                }, json_dumps_params={'ensure_ascii': False})
+            
+            return JsonResponse({
+                'code': 1, 
+                'msg': '用户名或密码错误'
+            }, json_dumps_params={'ensure_ascii': False})
+    except Exception as e:
+        logger.error(f'登录提交失败：{str(e)}')
+        return JsonResponse({'code': 1, 'msg': '登录失败，请稍后重试'}, json_dumps_params={'ensure_ascii': False})
     
     else:
         # 非POST请求，返回错误

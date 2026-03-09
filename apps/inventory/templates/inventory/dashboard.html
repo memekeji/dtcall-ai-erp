@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>进销存管理</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href="/static/layui/css/layui.css" rel="stylesheet">
+    <link href="/static/css/common.css" rel="stylesheet">
+    <style>
+        .inventory-card {
+            background: #fff;
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .inventory-card-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .stat-item {
+            display: inline-block;
+            width: 25%;
+            text-align: center;
+            padding: 10px 0;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #009688;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #999;
+            margin-top: 5px;
+        }
+        .quick-menu {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .quick-menu-item {
+            width: 120px;
+            height: 80px;
+            background: linear-gradient(135deg, #009688 0%, #5FB878 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .quick-menu-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .quick-menu-item.blue {
+            background: linear-gradient(135deg, #1E9FFF 0%, #3BB8FF 100%);
+        }
+        .quick-menu-item.orange {
+            background: linear-gradient(135deg, #FFB800 0%, #FFC542 100%);
+        }
+        .quick-menu-item.red {
+            background: linear-gradient(135deg, #FF5722 0%, #FF7849 100%);
+        }
+        .quick-menu-item.purple {
+            background: linear-gradient(135deg, #2F4F4F 0%, #5F9EA0 100%);
+        }
+        .alert-item {
+            padding: 10px 15px;
+            border-left: 3px solid #FF5722;
+            background: #fff5f5;
+            margin-bottom: 10px;
+            border-radius: 0 4px 4px 0;
+        }
+        .chart-container {
+            height: 300px;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space20">
+            <div class="layui-col-md12">
+                <div class="inventory-card">
+                    <div class="inventory-card-title">库存概览</div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalItems">0</div>
+                        <div class="stat-label">物料种类</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalQuantity">0</div>
+                        <div class="stat-label">库存总量</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalValue">0</div>
+                        <div class="stat-label">库存价值(元)</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="alertCount">0</div>
+                        <div class="stat-label">待处理预警</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="layui-row layui-col-space20">
+            <div class="layui-col-md8">
+                <div class="inventory-card">
+                    <div class="inventory-card-title">快捷操作</div>
+                    <div class="quick-menu">
+                        <a href="/inventory/stockin/add/" class="quick-menu-item">入库管理</a>
+                        <a href="/inventory/stockout/add/" class="quick-menu-item blue">出库管理</a>
+                        <a href="/inventory/transfer/add/" class="quick-menu-item orange">库存调拨</a>
+                        <a href="/inventory/check/add/" class="quick-menu-item red">库存盘点</a>
+                        <a href="/inventory/purchase/add/" class="quick-menu-item purple">采购订单</a>
+                        <a href="/inventory/sales/add/" class="quick-menu-item">销售订单</a>
+                        <a href="/inventory/inventory/" class="quick-menu-item blue">库存查询</a>
+                        <a href="/inventory/report/summary/" class="quick-menu-item orange">库存报表</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layui-col-md4">
+                <div class="inventory-card">
+                    <div class="inventory-card-title">库存预警</div>
+                    <div id="alertList">
+                        <div style="text-align: center; color: #999; padding: 30px 0;">暂无预警</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="layui-row layui-col-space20">
+            <div class="layui-col-md6">
+                <div class="inventory-card">
+                    <div class="inventory-card-title">最近入库</div>
+                    <table class="layui-table" id="recentStockInTable">
+                        <thead>
+                            <tr>
+                                <th>单号</th>
+                                <th>类型</th>
+                                <th>数量</th>
+                                <th>状态</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="layui-col-md6">
+                <div class="inventory-card">
+                    <div class="inventory-card-title">最近出库</div>
+                    <table class="layui-table" id="recentStockOutTable">
+                        <thead>
+                            <tr>
+                                <th>单号</th>
+                                <th>类型</th>
+                                <th>数量</th>
+                                <th>状态</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/lib/jquery.min.js"></script>
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['layer', 'form'], function(){
+            var layer = layui.layer;
+            var form = layui.form;
+            
+            loadDashboardData();
+            
+            function loadDashboardData() {
+                $.ajax({
+                    url: '/api/inventory/',
+                    type: 'GET',
+                    data: {},
+                    success: function(res){
+                        if(res.code === 0){
+                            $('#totalItems').text(res.data.length);
+                            var totalQty = 0;
+                            var totalVal = 0;
+                            res.data.forEach(function(item){
+                                totalQty += parseFloat(item.quantity || 0);
+                                totalVal += parseFloat(item.total_cost || 0);
+                            });
+                            $('#totalQuantity').text(totalQty.toLocaleString());
+                            $('#totalValue').text(totalVal.toLocaleString());
+                        }
+                    }
+                });
+                
+                $.ajax({
+                    url: '/api/inventory/alert/',
+                    type: 'GET',
+                    data: {status: 1},
+                    success: function(res){
+                        if(res.code === 0){
+                            $('#alertCount').text(res.count);
+                            var html = '';
+                            res.data.slice(0, 5).forEach(function(item){
+                                html += '<div class="alert-item">';
+                                html += '<div style="font-weight: bold;">' + item.item_code + ' ' + item.item_name + '</div>';
+                                html += '<div style="color: #666; margin-top: 5px;">' + item.alert_type_display + ': ' + item.message + '</div>';
+                                html += '</div>';
+                            });
+                            if(res.data.length === 0){
+                                html = '<div style="text-align: center; color: #999; padding: 30px 0;">暂无预警</div>';
+                            }
+                            $('#alertList').html(html);
+                        }
+                    }
+                });
+                
+                $.ajax({
+                    url: '/api/inventory/stockin/',
+                    type: 'GET',
+                    data: {limit: 5},
+                    success: function(res){
+                        if(res.code === 0){
+                            var html = '';
+                            res.data.slice(0, 5).forEach(function(item){
+                                html += '<tr>';
+                                html += '<td>' + item.code + '</td>';
+                                html += '<td>' + item.stock_in_type_display + '</td>';
+                                html += '<td>' + item.total_quantity + '</td>';
+                                html += '<td>' + item.status_display + '</td>';
+                                html += '</tr>';
+                            });
+                            $('#recentStockInTable tbody').html(html);
+                        }
+                    }
+                });
+                
+                $.ajax({
+                    url: '/api/inventory/stockout/',
+                    type: 'GET',
+                    data: {limit: 5},
+                    success: function(res){
+                        if(res.code === 0){
+                            var html = '';
+                            res.data.slice(0, 5).forEach(function(item){
+                                html += '<tr>';
+                                html += '<td>' + item.code + '</td>';
+                                html += '<td>' + item.stock_out_type_display + '</td>';
+                                html += '<td>' + item.total_quantity + '</td>';
+                                html += '<td>' + item.status_display + '</td>';
+                                html += '</tr>';
+                            });
+                            $('#recentStockOutTable tbody').html(html);
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

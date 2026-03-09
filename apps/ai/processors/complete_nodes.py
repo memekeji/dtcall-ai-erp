@@ -938,15 +938,9 @@ class MessageQueueProcessor(BaseNodeProcessor):
         
         try:
             if queue_type == 'redis':
-                r = redis.Redis(host='localhost', port=6379, db=0)
-                
-                if operation == 'publish':
-                    msg = message or self._get_variable_value(message_var, context)
-                    r.rpush(queue_name, msg)
-                    return {output_var: {'status': 'published', 'queue': queue_name}, 'status': 'completed'}
-                else:
-                    msg = r.blpop(queue_name, timeout=1)
-                    return {output_var: {'status': 'consumed', 'message': msg}, 'status': 'completed'}
+                # Redis 缓存已移除，消息队列功能暂时禁用
+                logger.warning("Redis 消息队列功能已禁用")
+                return {output_var: {'status': 'disabled', 'message': 'Redis queue is disabled'}, 'status': 'completed'}
             
             return {output_var: {'status': 'not_implemented'}, 'status': 'completed'}
         except Exception as e:

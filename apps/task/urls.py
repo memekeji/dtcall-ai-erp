@@ -25,4 +25,8 @@ urlpatterns = [
     path('adm/workhour/add/', views.WorkHourAddView.as_view(), name='workhour_add_adm'),
     path('adm/workhour/edit/<int:workhour_id>/', views.WorkHourEditView.as_view(), name='workhour_edit_adm'),
     path('adm/workhour/delete/<int:workhour_id>/', views.WorkHourDeleteView.as_view(), name='workhour_delete_adm'),
+    
+    # 工时统计路由
+    path('workhour/stats/', views.WorkHourStatsView.as_view(), name='workhour_stats'),
+    path('adm/workhour/stats/', views.WorkHourStatsView.as_view(), name='workhour_stats_adm'),
 ]

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>仓库管理</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href="/static/layui/css/layui.css" rel="stylesheet">
+    <link href="/static/css/common.css" rel="stylesheet">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header layui-elem-quote">
+                仓库列表
+                <button class="layui-btn layui-btn-sm layui-btn-primary" id="addBtn" style="float: right;">
+                    <i class="layui-icon">&#xe654;</i> 新增仓库
+                </button>
+            </div>
+            <div class="layui-card-body">
+                <table id="warehouseTable" lay-filter="warehouseTable"></table>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/lib/jquery.min.js"></script>
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['table', 'layer', 'form'], function(){
+            var table = layui.table;
+            var layer = layui.layer;
+            var form = layui.form;
+            
+            table.render({
+                elem: '#warehouseTable',
+                url: '/api/inventory/warehouse/',
+                page: true,
+                cols: [[
+                    {field: 'id', title: 'ID', width: 80, sort: true},
+                    {field: 'code', title: '仓库编码', width: 120},
+                    {field: 'name', title: '仓库名称', width: 150},
+                    {field: 'warehouse_type', title: '仓库类型', width: 100},
+                    {field: 'address', title: '地址', minWidth: 200},
+                    {field: 'manager', title: '管理员', width: 100},
+                    {field: 'status_display', title: '状态', width: 80},
+                    {field: 'usage_rate', title: '使用率', width: 100, templet: function(d){
+                        return d.usage_rate.toFixed(2) + '%';
+                    }},
+                    {field: 'create_time', title: '创建时间', width: 160},
+                    {title: '操作', width: 200, templet: function(d){
+                        var html = '<button class="layui-btn layui-btn-xs" lay-event="edit">编辑</button>';
+                        html += '<button class="layui-btn layui-btn-xs layui-btn-warm" lay-event="location">库位</button>';
+                        html += '<button class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</button>';
+                        return html;
+                    }}
+                ]]
+            });
+            
+            table.on('tool(warehouseTable)', function(obj){
+                if(obj.event === 'edit'){
+                    openForm(obj.data.id);
+                } else if(obj.event === 'location'){
+                    layer.open({
+                        type: 2,
+                        title: '库位管理 - ' + obj.data.name,
+                        area: ['800px', '600px'],
+                        content: '/inventory/location/?warehouse_id=' + obj.data.id
+                    });
+                } else if(obj.event === 'delete'){
+                    layer.confirm('确定要删除该仓库吗？', function(index){
+                        $.ajax({
+                            url: '/api/inventory/warehouse/' + obj.data.id + '/',
+                            type: 'DELETE',
+                            success: function(res){
+                                if(res.code === 0){
+                                    layer.msg('删除成功');
+                                    table.reload('warehouseTable');
+                                } else {
+                                    layer.msg(res.msg);
+                                }
+                            }
+                        });
+                    });
+                }
+            });
+            
+            $('#addBtn').click(function(){
+                openForm();
+            });
+            
+            function openForm(id){
+                var title = id ? '编辑仓库' : '新增仓库';
+                var url = id ? '/inventory/warehouse/' + id + '/' : '/inventory/warehouse/add/';
+                layer.open({
+                    type: 2,
+                    title: title,
+                    area: ['600px', '500px'],
+                    content: url,
+                    end: function(){
+                        table.reload('warehouseTable');
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

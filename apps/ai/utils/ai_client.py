@@ -20,15 +20,31 @@ class BaseAIClient:
         # 只使用传入的配置参数，不依赖settings配置
         self.api_key = api_key or ''
         self.base_url = base_url or ''
+        self.api_base = base_url or ''  # 添加 api_base 属性
         self.model_config = model_config or {}
         self.provider_specific_config = {}
         
         # 如果model_config是数据库模型配置对象，则使用其配置
-        if model_config and hasattr(model_config, 'api_key') and hasattr(model_config, 'api_base'):
-            self.api_key = model_config.api_key or self.api_key
-            self.base_url = model_config.api_base or self.base_url
-            self.api_base = model_config.api_base or self.api_base
-            self.model_name = model_config.model_name or ''
+        if model_config:
+            # 判断是字典还是模型对象
+            if hasattr(model_config, 'api_key') and hasattr(model_config, 'api_base'):
+                # Django 模型对象
+                self.api_key = model_config.api_key or self.api_key
+                self.base_url = model_config.api_base or self.base_url
+                self.api_base = model_config.api_base or self.api_base
+                self.model_name = model_config.model_name or ''
+                # 更新 model_config 字典以便 chat_completion 使用
+                if isinstance(self.model_config, dict):
+                    self.model_config['chat'] = model_config.model_name or ''
+            elif isinstance(model_config, dict):
+                # 字典配置
+                self.api_key = model_config.get('api_key') or self.api_key
+                self.base_url = model_config.get('api_base') or model_config.get('base_url') or self.base_url
+                self.api_base = model_config.get('api_base') or model_config.get('base_url') or self.api_base
+                self.model_name = model_config.get('model_name') or ''
+                # 更新 model_config['chat'] 以便 chat_completion 使用
+                if isinstance(self.model_config, dict) and 'chat' not in self.model_config:
+                    self.model_config['chat'] = model_config.get('model_name') or ''
         
         # 请求配置
         self.timeout = 60
@@ -155,6 +171,56 @@ class OpenAIClient(BaseAIClient):
             logger.error(f"创建OpenAI客户端失败: {str(e)}")
             return False
     
+    def _call_responses_api(self, messages, params):
+        """调用新的 /v1/responses API"""
+        # 服务商支持的模型名称列表
+        fallback_models = ['gpt-5.4', 'gpt-5.3-codex', 'gpt-5.2-codex', 'gpt-5.1-codex', 'gpt-5-codex']
+        current_model = params.get('model', 'gpt-5.4')
+        
+        try:
+            response = self.client.responses.create(
+                model=current_model,
+                input=messages,
+                temperature=params.get('temperature', 0.7),
+                max_output_tokens=params.get('max_tokens', 2000),
+            )
+            if hasattr(response, 'output') and response.output:
+                for item in response.output:
+                    if hasattr(item, 'content') and item.content:
+                        if isinstance(item.content, list):
+                            for content_item in item.content:
+                                if hasattr(content_item, 'text'):
+                                    return content_item.text
+                        elif hasattr(item.content, 'text'):
+                            return item.content.text
+            if hasattr(response, 'text'):
+                return response.text
+            return str(response)
+        except Exception as e:
+            error_msg = str(e)
+            # 如果是 502 错误且包含 "unknown provider"，尝试备用模型
+            if '502' in error_msg and 'unknown provider' in error_msg.lower():
+                for fallback_model in fallback_models:
+                    if fallback_model != current_model:
+                        try:
+                            params['model'] = fallback_model
+                            response = self.client.responses.create(**params)
+                            if hasattr(response, 'output') and response.output:
+                                for item in response.output:
+                                    if hasattr(item, 'content') and item.content:
+                                        if isinstance(item.content, list):
+                                            for content_item in item.content:
+                                                if hasattr(content_item, 'text'):
+                                                    return f"[使用模型 {fallback_model}] " + content_item.text
+                                        elif hasattr(item.content, 'text'):
+                                            return f"[使用模型 {fallback_model}] " + item.content.text
+                            if hasattr(response, 'text'):
+                                return f"[使用模型 {fallback_model}] " + response.text
+                        except Exception:
+                            continue
+                raise AIClientError(f"Responses API 调用失败：未找到可用的模型。请检查模型名称是否正确。错误详情：{error_msg}")
+            raise AIClientError(f"Responses API 调用失败：{error_msg}")
+
     def chat_completion(self, messages, **kwargs):
         """生成聊天完成内容"""
         params = {
@@ -164,33 +230,32 @@ class OpenAIClient(BaseAIClient):
             'messages': messages
         }
         params.update(kwargs)
-        
-        # 懒加载客户端
+
         if not self._ensure_client():
-            raise AIClientError("无法初始化OpenAI客户端")
-        
+            raise AIClientError("无法初始化 OpenAI 客户端")
+
         try:
-            # 优先尝试新版API调用方式
+            # 尝试顺序：
+            # 1. 新的 Responses API (/v1/responses)
+            # 2. Chat Completions API (/v1/chat/completions)
+            # 3. 旧版 ChatCompletion.create
             try:
-                response = self.client.chat.completions.create(**params)
-                return response.choices[0].message.content
-            except Exception as new_api_error:
-                # 如果新版API调用失败，尝试旧版API调用方式作为后备
+                return self._call_responses_api(messages, params)
+            except Exception as responses_error:
                 try:
-                    # 确保旧版API调用参数正确
-                    old_params = params.copy()
-                    if 'messages' in old_params:
-                        old_params['messages'] = messages
-                    
-                    # 使用self._openai而不是直接引用openai
-                    response = self._openai.ChatCompletion.create(**old_params)
-                    return response['choices'][0]['message']['content']
-                except Exception:
-                    # 如果两种方式都失败，抛出原始的新版API错误
-                    raise new_api_error
+                    response = self.client.chat.completions.create(**params)
+                    return response.choices[0].message.content
+                except Exception as chat_error:
+                    try:
+                        old_params = params.copy()
+                        if 'messages' in old_params:
+                            old_params['messages'] = messages
+                        response = self._openai.ChatCompletion.create(**old_params)
+                        return response['choices'][0]['message']['content']
+                    except Exception:
+                        raise responses_error
         except Exception as e:
-            raise AIClientError(f"OpenAI API调用失败: {str(e)}")
-    
+            raise AIClientError(f"OpenAI API 调用失败：{str(e)}")
     def text_completion(self, prompt, **kwargs):
         """生成文本完成内容"""
         params = {
@@ -605,15 +670,28 @@ class AIClient:
     def _create_client(self):
         """根据提供商创建客户端实例"""
         # 准备传递给客户端的配置参数
-        base_url = self.model_config.api_base if self.model_config else None
-        api_key = self.model_config.api_key if self.model_config else None
-        # 使用新的模型配置字段，而不是default_params
+        # 支持模型对象和字典两种格式
+        if hasattr(self.model_config, 'api_base'):
+            base_url = self.model_config.api_base
+            api_key = self.model_config.api_key
+            model_name = self.model_config.model_name
+            temperature = self.model_config.temperature
+            max_tokens = self.model_config.max_tokens
+            top_p = self.model_config.top_p
+        else:
+            base_url = self.model_config.get('api_base') if self.model_config else None
+            api_key = self.model_config.get('api_key') if self.model_config else None
+            model_name = self.model_config.get('model_name') if self.model_config else 'gpt-3.5-turbo'
+            temperature = self.model_config.get('temperature') if self.model_config else 0.7
+            max_tokens = self.model_config.get('max_tokens') if self.model_config else 2000
+            top_p = self.model_config.get('top_p') if self.model_config else 1.0
+        
         model_config = {
-            'chat': self.model_config.model_name if self.model_config else 'gpt-3.5-turbo',
-            'temperature': self.model_config.temperature if self.model_config else 0.7,
-            'max_tokens': self.model_config.max_tokens if self.model_config else 2000,
-            'top_p': self.model_config.top_p if self.model_config else 1.0
-        } if self.model_config else None
+            'chat': model_name,
+            'temperature': temperature,
+            'max_tokens': max_tokens,
+            'top_p': top_p
+        }
         
         if self.provider == 'openai':
             client = OpenAIClient(base_url=base_url, api_key=api_key, model_config=model_config)

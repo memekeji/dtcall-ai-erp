@@ -98,6 +98,7 @@ INSTALLED_APPS = [
     'apps.production',
     'apps.ai',
     'apps.finance_new',
+    'apps.inventory',
 ]
 
 # 验证码配置
@@ -148,23 +149,16 @@ TEMPLATES = [
     },
 ]
 
-# Redis缓存配置
+# 本地内存缓存配置（完全移除 Redis 依赖）
 CACHES = {
     "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://192.168.1.149:6379/0",
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "CONNECTION_POOL_KWARGS": {
-                "max_connections": 50,
-                "retry_on_timeout": True,
-            },
-            "SOCKET_CONNECT_TIMEOUT": 5,
-            "SOCKET_TIMEOUT": 5,
-            "COMPRESSOR": "django_redis.compressors.zlib.ZlibCompressor",
-        },
-        "KEY_PREFIX": "dtcall",
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "dtcall-default-cache",
         "TIMEOUT": 300,
+        "OPTIONS": {
+            "MAX_ENTRIES": 1000,  # 最大缓存条目数
+            "CULL_FREQUENCY": 3,  # 缓存清理频率（1/3）
+        }
     }
 }
 
@@ -176,19 +170,17 @@ WSGI_APPLICATION = 'dtcall.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'django.db.backends.mysql',
         'NAME': 'dtcall',  # 数据库名：dtcall
         'USER': 'dtcall',  # 数据库用户名：dtcall
-        'PASSWORD': 'dtcall',  # 数据库密码：dtcall
-        'HOST': '192.168.1.149',  # 数据库连接地址：192.168.1.149
-        'PORT': '5432',  # 数据库端口：5432
+        'PASSWORD': 'KE67mFswSGhf2CK6',  # 数据库密码：siCHeyJLhWXCDetH
+        'HOST': '192.168.1.167',  # 数据库连接地址：192.168.1.149
+        'PORT': '3306',  # 数据库端口：3306
         'CONN_MAX_AGE': 1800,  # 数据库连接最大保持时间（秒），生产环境建议30分钟
         'OPTIONS': {
-            'options': '-c search_path=dtcall_schema',
-            'keepalives': 1,
-            'keepalives_idle': 30,
-            'keepalives_interval': 10,
-            'keepalives_count': 5,
+            'charset': 'utf8mb4',
+            'init_command': "SET sql_mode='NO_ENGINE_SUBSTITUTION'",
+            'autocommit': True,
         }
     }
 }
@@ -421,3 +413,6 @@ STT_MAX_FILE_SIZE = 25 * 1024 * 1024  # 最大文件大小（25MB）
 
 # 音频文件格式支持
 SUPPORTED_AUDIO_FORMATS = ['.wav', '.mp3', '.m4a', '.amr', '.pcm']
+
+# AI配置自动加载开关（迁移时设置为False以避免数据库不存在错误）
+AI_AUTO_LOAD_CONFIG = True

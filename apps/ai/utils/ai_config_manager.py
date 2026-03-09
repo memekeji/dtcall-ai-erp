@@ -28,6 +28,11 @@ class AIConfigManager:
         if self._loaded:
             return
         
+        # 检查是否允许自动加载配置
+        if not getattr(settings, 'AI_AUTO_LOAD_CONFIG', True):
+            logger.debug("AI配置自动加载已禁用")
+            return
+            
         cached_config = AICache.get_config()
         if cached_config is not None:
             self._configs = cached_config

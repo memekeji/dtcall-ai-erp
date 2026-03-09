@@ -1,9 +1,6 @@
 from django.db import models
-from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-
-User = get_user_model()
 
 
 class EncryptedAPIKeyField(models.CharField):
@@ -48,7 +45,7 @@ class EncryptedAPIKeyField(models.CharField):
 
 
 class AIModelConfig(models.Model):
-    """AI模型配置"""
+    """AI 模型配置"""
     PROVIDERS = [
         ('openai', 'OpenAI'),
         ('azure', 'Azure OpenAI'),
@@ -59,6 +56,7 @@ class AIModelConfig(models.Model):
         ('tencent', '腾讯混元'),
         ('deepseek', 'DeepSeek'),
         ('doubao', '字节跳动豆包'),
+        ('ollama', 'Ollama (本地模型)'),
         ('local', '本地模型'),
     ]
     
@@ -111,8 +109,8 @@ class AIWorkflow(models.Model):
     description = models.TextField(blank=True, null=True, verbose_name='工作流描述')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name='状态')
     is_public = models.BooleanField(default=False, verbose_name='是否公开')
-    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_workflows', verbose_name='拥有者')
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='created_workflows', verbose_name='创建人')
+    owner = models.ForeignKey('user.Admin', on_delete=models.CASCADE, related_name='owned_workflows', verbose_name='拥有者')
+    created_by = models.ForeignKey('user.Admin', on_delete=models.CASCADE, null=True, blank=True, related_name='created_workflows', verbose_name='创建人')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
     
@@ -233,7 +231,7 @@ class AIWorkflowExecution(models.Model):
     input_data = models.JSONField(blank=True, null=True, verbose_name='输入数据')
     output_data = models.JSONField(blank=True, null=True, verbose_name='输出数据')
     error_message = models.TextField(blank=True, verbose_name='错误信息')
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='执行人')
+    created_by = models.ForeignKey('user.Admin', on_delete=models.SET_NULL, null=True, blank=True, verbose_name='执行人')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     started_at = models.DateTimeField(auto_now=True, verbose_name='开始时间')
     completed_at = models.DateTimeField(blank=True, null=True, verbose_name='完成时间')
@@ -250,7 +248,7 @@ class AIWorkflowExecution(models.Model):
 
 class AIChat(models.Model):
     """AI聊天记录"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='用户')
+    user = models.ForeignKey('user.Admin', on_delete=models.CASCADE, verbose_name='用户')
     session_id = models.CharField(max_length=100, verbose_name='会话ID')
     title = models.CharField(max_length=200, blank=True, verbose_name='会话标题')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
@@ -299,7 +297,7 @@ class AIKnowledgeBase(models.Model):
     name = models.CharField(max_length=100, verbose_name='知识库名称')
     description = models.TextField(blank=True, verbose_name='知识库描述')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name='状态')
-    creator = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='创建人')
+    creator = models.ForeignKey('user.Admin', on_delete=models.CASCADE, verbose_name='创建人')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
     
@@ -337,7 +335,8 @@ class AIKnowledgeItem(models.Model):
     file_size = models.IntegerField(blank=True, null=True, verbose_name='文件大小(字节)')
     knowledge_type = models.CharField(max_length=20, choices=KNOWLEDGE_TYPES, default='other', verbose_name='知识类型')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name='状态')
-    creator = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='创建人')
+    creator = models.ForeignKey('user.Admin', on_delete=models.CASCADE, related_name='created_knowledge_items', verbose_name='创建人')
+    uploaded_by = models.ForeignKey('user.Admin', on_delete=models.SET_NULL, null=True, related_name='uploaded_knowledge_items', verbose_name='上传人')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
     tags = models.JSONField(blank=True, null=True, verbose_name='标签')
@@ -410,8 +409,13 @@ class AISalesStrategy(models.Model):
 
 
 class AIIntentRecognition(models.Model):
-    """AI意图识别"""
+    """AI 意图识别"""
     INTENT_TYPES = [
+        ('DATA_QUERY', '数据查询'),
+        ('DATA_CREATE', '数据创建'),
+        ('DATA_UPDATE', '数据修改'),
+        ('KNOWLEDGE_BASE', '知识库查询'),
+        ('AI_CHAT', 'AI 对话'),
         ('inquiry', '询价'),
         ('comparison', '比价'),
         ('complaint', '投诉'),
@@ -421,16 +425,19 @@ class AIIntentRecognition(models.Model):
         ('other', '其他'),
     ]
     
-    intent_type = models.CharField(max_length=20, choices=INTENT_TYPES, verbose_name='意图类型')
-    keywords = models.JSONField(verbose_name='关键词列表')
-    examples = models.JSONField(verbose_name='示例句子')
+    intent_type = models.CharField(max_length=30, choices=INTENT_TYPES, verbose_name='意图类型')
+    keywords = models.JSONField(default=list, verbose_name='关键词列表')
+    examples = models.JSONField(default=list, verbose_name='示例句子')
     description = models.TextField(blank=True, verbose_name='意图描述')
+    confidence_threshold = models.FloatField(default=0.65, verbose_name='置信度阈值')
     is_active = models.BooleanField(default=True, verbose_name='是否激活')
+    training_count = models.IntegerField(default=0, verbose_name='训练次数', help_text='用于记录该意图被用于训练的次数')
+    accuracy_rate = models.FloatField(default=0.0, verbose_name='准确率', help_text='意图识别准确率')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
     
     class Meta:
-        verbose_name = 'AI意图识别'
+        verbose_name = 'AI 意图识别'
         verbose_name_plural = verbose_name
         db_table = 'ai_intent_recognition'
     
@@ -524,7 +531,7 @@ class AIActionTrigger(models.Model):
 
 
 class AILog(models.Model):
-    """AI操作日志"""
+    """AI 操作日志"""
     LOG_TYPES = [
         ('model_call', '模型调用'),
         ('knowledge_access', '知识库访问'),
@@ -537,19 +544,51 @@ class AILog(models.Model):
     ]
     
     log_type = models.CharField(max_length=20, choices=LOG_TYPES, verbose_name='日志类型')
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name='操作用户')
+    user = models.ForeignKey('user.Admin', on_delete=models.SET_NULL, null=True, verbose_name='操作用户')
     content = models.JSONField(verbose_name='日志内容')
-    ip_address = models.GenericIPAddressField(blank=True, null=True, verbose_name='IP地址')
+    ip_address = models.GenericIPAddressField(blank=True, null=True, verbose_name='IP 地址')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     
     class Meta:
-        verbose_name = 'AI操作日志'
+        verbose_name = 'AI 操作日志'
         verbose_name_plural = verbose_name
         db_table = 'ai_log'
         ordering = ['-created_at']
     
     def __str__(self):
         return f"{self.get_log_type_display()} - {self.created_at}"
+
+
+class AIIntentRecognitionLog(models.Model):
+    """AI 意图识别日志 - 用于持续学习和优化"""
+    RECOGNITION_RESULTS = [
+        ('success', '成功'),
+        ('failure', '失败'),
+        ('uncertain', '不确定'),
+        ('confirmed', '已确认'),
+    ]
+    
+    user = models.ForeignKey('user.Admin', on_delete=models.SET_NULL, null=True, verbose_name='用户')
+    query_text = models.TextField(verbose_name='用户查询文本')
+    recognized_intent = models.CharField(max_length=30, verbose_name='识别的意图类型')
+    confidence = models.FloatField(verbose_name='置信度')
+    actual_intent = models.CharField(max_length=30, blank=True, verbose_name='实际意图类型', help_text='用户确认后的实际意图')
+    entities = models.JSONField(default=dict, verbose_name='识别到的实体')
+    action_taken = models.CharField(max_length=20, verbose_name='采取的操作', help_text='query/create/update/chat 等')
+    result = models.CharField(max_length=20, choices=RECOGNITION_RESULTS, default='success', verbose_name='识别结果')
+    user_feedback = models.TextField(blank=True, verbose_name='用户反馈')
+    is_correct = models.BooleanField(default=True, verbose_name='是否正确')
+    used_for_training = models.BooleanField(default=False, verbose_name='是否用于训练')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    
+    class Meta:
+        verbose_name = 'AI 意图识别日志'
+        verbose_name_plural = verbose_name
+        db_table = 'ai_intent_recognition_log'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.user.username if self.user else 'Anonymous'} - {self.recognized_intent} - {self.created_at}"
 
 
 class AIFeedback(models.Model):
@@ -576,7 +615,7 @@ class AIFeedback(models.Model):
     
     task_id = models.CharField(max_length=100, verbose_name='任务ID')
     task_type = models.CharField(max_length=30, choices=TASK_TYPES, default='other', verbose_name='任务类型')
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name='反馈用户')
+    user = models.ForeignKey('user.Admin', on_delete=models.SET_NULL, null=True, verbose_name='反馈用户')
     rating = models.IntegerField(choices=RATING_CHOICES, verbose_name='评分')
     comment = models.TextField(blank=True, verbose_name='反馈内容')
     ai_output = models.TextField(verbose_name='AI输出内容')
@@ -607,7 +646,7 @@ class AIBatchTest(models.Model):
     name = models.CharField(max_length=100, verbose_name='测试名称')
     description = models.TextField(blank=True, verbose_name='测试描述')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name='测试状态')
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='创建人')
+    created_by = models.ForeignKey('user.Admin', on_delete=models.CASCADE, verbose_name='创建人')
     start_time = models.DateTimeField(null=True, blank=True, verbose_name='开始时间')
     end_time = models.DateTimeField(null=True, blank=True, verbose_name='结束时间')
     traffic_allocation = models.JSONField(verbose_name='流量分配', help_text='如：{"variant_a": 50, "variant_b": 50}')
@@ -808,7 +847,7 @@ class AITask(models.Model):
         ('failed', '执行失败'),
     ]
     
-    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='用户')
+    user = models.ForeignKey('user.Admin', on_delete=models.CASCADE, verbose_name='用户')
     task_type = models.CharField(max_length=50, choices=TASK_TYPES, verbose_name='任务类型')
     task_params = models.JSONField(verbose_name='任务参数')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='状态')

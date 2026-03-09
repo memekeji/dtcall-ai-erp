@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>库存变动记录</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href="/static/layui/css/layui.css" rel="stylesheet">
+    <link href="/static/css/common.css" rel="stylesheet">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header layui-elem-quote">
+                库存变动记录
+            </div>
+            <div class="layui-card-body">
+                <div class="layui-form layui-inline" style="margin-bottom: 15px;">
+                    <div class="layui-input-inline">
+                        <select id="searchType">
+                            <option value="">全部类型</option>
+                            <option value="stock_in">入库</option>
+                            <option value="stock_out">出库</option>
+                            <option value="transfer">调拨</option>
+                            <option value="adjustment">调整</option>
+                            <option value="check">盘点</option>
+                            <option value="return">退货</option>
+                            <option value="scrap">报废</option>
+                        </select>
+                    </div>
+                    <div class="layui-input-inline">
+                        <input type="text" id="searchItemCode" placeholder="物料编码" class="layui-input">
+                    </div>
+                    <div class="layui-input-inline">
+                        <input type="date" id="startDate" class="layui-input" placeholder="开始日期">
+                    </div>
+                    <div class="layui-input-inline">
+                        <input type="date" id="endDate" class="layui-input" placeholder="结束日期">
+                    </div>
+                    <button class="layui-btn" id="searchBtn">
+                        <i class="layui-icon">&#xe615;</i> 查询
+                    </button>
+                </div>
+                <table id="transactionTable" lay-filter="transactionTable"></table>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/lib/jquery.min.js"></script>
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['table', 'layer', 'form'], function(){
+            var table = layui.table;
+            var layer = layui.layer;
+            var form = layui.form;
+            
+            var today = new Date().toISOString().split('T')[0];
+            $('#startDate').val(today);
+            $('#endDate').val(today);
+            
+            table.render({
+                elem: '#transactionTable',
+                url: '/api/inventory/transaction/',
+                page: true,
+                cols: [[
+                    {field: 'id', title: 'ID', width: 80, sort: true},
+                    {field: 'transaction_type_display', title: '变动类型', width: 100},
+                    {field: 'transaction_code', title: '单据编号', width: 160},
+                    {field: 'item_code', title: '物料编码', width: 120},
+                    {field: 'item_name', title: '物料名称', width: 150},
+                    {field: 'warehouse_name', title: '仓库', width: 120},
+                    {field: 'location_name', title: '库位', width: 100},
+                    {field: 'batch_number', title: '批次号', width: 100},
+                    {field: 'quantity', title: '变动数量', width: 100, templet: function(d){
+                        var color = d.quantity > 0 ? '#009688' : '#FF5722';
+                        return '<span style="color:' + color + '; font-weight: bold;">' + d.quantity + '</span>';
+                    }},
+                    {field: 'before_quantity', title: '变动前', width: 90},
+                    {field: 'after_quantity', title: '变动后', width: 90},
+                    {field: 'unit_cost', title: '单位成本', width: 90},
+                    {field: 'operator_name', title: '操作人', width: 90},
+                    {field: 'create_time', title: '操作时间', width: 160}
+                ]]
+            });
+            
+            $('#searchBtn').click(function(){
+                table.reload('transactionTable', {
+                    where: {
+                        transaction_type: $('#searchType').val(),
+                        item_code: $('#searchItemCode').val(),
+                        start_date: $('#startDate').val(),
+                        end_date: $('#endDate').val()
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

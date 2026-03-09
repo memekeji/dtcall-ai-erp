@@ -641,3 +641,187 @@ class WorkHourDeleteView(LoginRequiredMixin, View):
             work_hour.task.creator == user or
             (work_hour.task.project and work_hour.task.project.creator == user)
         )
+
+
+class WorkHourStatsView(LoginRequiredMixin, View):
+    """工时统计视图"""
+    login_url = '/user/login/'
+    
+    def get(self, request):
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return self.get_stats_data(request)
+        
+        try:
+            tasks = Task.objects.filter(delete_time__isnull=True)
+            users = Admin.objects.filter(status=1)
+            return render(request, 'project/workhour_stats.html', {
+                'tasks': tasks,
+                'users': users
+            })
+        except Exception as e:
+            return render(request, 'project/workhour_stats.html', {
+                'tasks': [],
+                'users': []
+            })
+    
+    def get_stats_data(self, request):
+        try:
+            stats_type = request.GET.get('type', 'overview')
+            start_date = request.GET.get('start_date', '')
+            end_date = request.GET.get('end_date', '')
+            user_id = request.GET.get('user_id', '')
+            project_id = request.GET.get('project_id', '')
+            
+            base_query = WorkHour.objects.all()
+            
+            if start_date:
+                base_query = base_query.filter(work_date__gte=start_date)
+            if end_date:
+                base_query = base_query.filter(work_date__lte=end_date)
+            if user_id:
+                base_query = base_query.filter(user_id=user_id)
+            if project_id:
+                base_query = base_query.filter(task__project_id=project_id)
+            
+            if not request.user.is_superuser:
+                base_query = base_query.filter(
+                    models.Q(user=request.user) |
+                    models.Q(task__assignee=request.user) |
+                    models.Q(task__creator=request.user) |
+                    models.Q(task__project__manager=request.user)
+                ).distinct()
+            
+            if stats_type == 'overview':
+                total_hours = base_query.aggregate(total=Sum('hours'))['total'] or 0
+                total_records = base_query.count()
+                total_users = base_query.values('user').distinct().count()
+                total_tasks = base_query.values('task').distinct().count()
+                
+                return JsonResponse({
+                    'code': 0,
+                    'msg': 'success',
+                    'data': {
+                        'total_hours': float(total_hours),
+                        'total_records': total_records,
+                        'total_users': total_users,
+                        'total_tasks': total_tasks
+                    }
+                })
+            
+            elif stats_type == 'by_user':
+                user_stats = base_query.values(
+                    'user__id',
+                    'user__username'
+                ).annotate(
+                    total_hours=Sum('hours'),
+                    task_count=models.Count('task', distinct=True),
+                    record_count=models.Count('id')
+                ).order_by('-total_hours')[:20]
+                
+                data_list = []
+                for item in user_stats:
+                    data_list.append({
+                        'user_id': item['user__id'],
+                        'user_name': item['user__username'],
+                        'total_hours': float(item['total_hours']),
+                        'task_count': item['task_count'],
+                        'record_count': item['record_count']
+                    })
+                
+                return JsonResponse({
+                    'code': 0,
+                    'msg': 'success',
+                    'data': data_list
+                })
+            
+            elif stats_type == 'by_project':
+                project_stats = base_query.values(
+                    'task__project__id',
+                    'task__project__name'
+                ).annotate(
+                    total_hours=Sum('hours'),
+                    task_count=models.Count('task', distinct=True),
+                    user_count=models.Count('user', distinct=True),
+                    record_count=models.Count('id')
+                ).order_by('-total_hours')[:20]
+                
+                data_list = []
+                for item in project_stats:
+                    if item['task__project__id']:
+                        data_list.append({
+                            'project_id': item['task__project__id'],
+                            'project_name': item['task__project__name'] or '无项目',
+                            'total_hours': float(item['total_hours']),
+                            'task_count': item['task_count'],
+                            'user_count': item['user_count'],
+                            'record_count': item['record_count']
+                        })
+                
+                return JsonResponse({
+                    'code': 0,
+                    'msg': 'success',
+                    'data': data_list
+                })
+            
+            elif stats_type == 'by_task':
+                task_stats = base_query.values(
+                    'task__id',
+                    'task__title'
+                ).annotate(
+                    total_hours=Sum('hours'),
+                    user_count=models.Count('user', distinct=True),
+                    record_count=models.Count('id')
+                ).order_by('-total_hours')[:20]
+                
+                data_list = []
+                for item in task_stats:
+                    data_list.append({
+                        'task_id': item['task__id'],
+                        'task_title': item['task__title'],
+                        'total_hours': float(item['total_hours']),
+                        'user_count': item['user_count'],
+                        'record_count': item['record_count']
+                    })
+                
+                return JsonResponse({
+                    'code': 0,
+                    'msg': 'success',
+                    'data': data_list
+                })
+            
+            elif stats_type == 'by_month':
+                from django.db import functions
+                
+                monthly_stats = base_query.annotate(
+                    month=functions.TruncMonth('work_date')
+                ).values('month').annotate(
+                    total_hours=Sum('hours'),
+                    record_count=models.Count('id')
+                ).order_by('month')[:12]
+                
+                data_list = []
+                for item in monthly_stats:
+                    data_list.append({
+                        'month': item['month'].strftime('%Y-%m') if item['month'] else '',
+                        'total_hours': float(item['total_hours']),
+                        'record_count': item['record_count']
+                    })
+                
+                return JsonResponse({
+                    'code': 0,
+                    'msg': 'success',
+                    'data': data_list
+                })
+            
+            else:
+                return JsonResponse({
+                    'code': 1,
+                    'msg': '未知统计类型'
+                })
+                
+        except Exception as e:
+            return JsonResponse({
+                'code': 1,
+                'msg': f'获取统计数据失败: {str(e)}',
+                'data': []
+            })

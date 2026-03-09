@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>库存查询</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href="/static/layui/css/layui.css" rel="stylesheet">
+    <link href="/static/css/common.css" rel="stylesheet">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header layui-elem-quote">
+                库存列表
+            </div>
+            <div class="layui-card-body">
+                <div class="layui-form layui-inline">
+                    <div class="layui-input-inline">
+                        <input type="text" id="searchItemCode" placeholder="物料编码" class="layui-input">
+                    </div>
+                    <div class="layui-input-inline">
+                        <input type="text" id="searchItemName" placeholder="物料名称" class="layui-input">
+                    </div>
+                    <div class="layui-input-inline">
+                        <select id="searchWarehouse">
+                            <option value="">全部仓库</option>
+                        </select>
+                    </div>
+                    <div class="layui-input-inline">
+                        <select id="searchStatus">
+                            <option value="">全部状态</option>
+                            <option value="normal">正常</option>
+                            <option value="locked">锁定</option>
+                            <option value="quarantine">隔离</option>
+                        </select>
+                    </div>
+                    <button class="layui-btn" id="searchBtn">
+                        <i class="layui-icon">&#xe615;</i> 查询
+                    </button>
+                    <button class="layui-btn layui-btn-warm" id="exportBtn">
+                        <i class="layui-icon">&#xe67c;</i> 导出
+                    </button>
+                </div>
+                <table id="inventoryTable" lay-filter="inventoryTable"></table>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/lib/jquery.min.js"></script>
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['table', 'layer', 'form'], function(){
+            var table = layui.table;
+            var layer = layui.layer;
+            var form = layui.form;
+            
+            var itemId = getQueryParam('item_id');
+            loadWarehouses();
+            
+            table.render({
+                elem: '#inventoryTable',
+                url: '/api/inventory/',
+                page: true,
+                where: itemId ? {item_id: itemId} : {},
+                cols: [[
+                    {field: 'id', title: 'ID', width: 80, sort: true},
+                    {field: 'item_code', title: '物料编码', width: 120},
+                    {field: 'item_name', title: '物料名称', width: 150},
+                    {field: 'category_name', title: '分类', width: 100},
+                    {field: 'warehouse_name', title: '仓库', width: 120},
+                    {field: 'location_name', title: '库位', width: 100},
+                    {field: 'batch_number', title: '批次号', width: 100},
+                    {field: 'quantity', title: '库存数量', width: 100},
+                    {field: 'locked_quantity', title: '锁定数量', width: 90},
+                    {field: 'available_quantity', title: '可用数量', width: 90},
+                    {field: 'unit_cost', title: '单位成本', width: 100, templet: function(d){
+                        return parseFloat(d.unit_cost).toFixed(4);
+                    }},
+                    {field: 'total_cost', title: '总成本', width: 100, templet: function(d){
+                        return parseFloat(d.total_cost).toFixed(2);
+                    }},
+                    {field: 'status_display', title: '状态', width: 80},
+                    {field: 'expiry_date', title: '过期日期', width: 110}
+                ]],
+                totalRow: true
+            });
+            
+            function getQueryParam(name) {
+                var reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)');
+                var r = window.location.search.substr(1).match(reg);
+                if(r != null) return unescape(r[2]);
+                return null;
+            }
+            
+            function loadWarehouses(){
+                $.ajax({
+                    url: '/api/inventory/warehouse/',
+                    type: 'GET',
+                    success: function(res){
+                        if(res.code === 0){
+                            var html = '<option value="">全部仓库</option>';
+                            res.data.forEach(function(item){
+                                html += '<option value="' + item.id + '">' + item.name + '</option>';
+                            });
+                            $('#searchWarehouse').html(html);
+                            form.render('select');
+                        }
+                    }
+                });
+            }
+            
+            $('#searchBtn').click(function(){
+                table.reload('inventoryTable', {
+                    where: {
+                        item_code: $('#searchItemCode').val(),
+                        item_name: $('#searchItemName').val(),
+                        warehouse_id: $('#searchWarehouse').val(),
+                        status: $('#searchStatus').val()
+                    }
+                });
+            });
+            
+            $('#exportBtn').click(function(){
+                layer.msg('导出功能开发中');
+            });
+        });
+    </script>
+</body>
+</html>

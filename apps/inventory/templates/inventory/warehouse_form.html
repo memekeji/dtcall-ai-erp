@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>仓库表单</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href="/static/layui/css/layui.css" rel="stylesheet">
+    <link href="/static/css/common.css" rel="stylesheet">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header layui-elem-quote" id="cardTitle">新增仓库</div>
+            <div class="layui-card-body">
+                <form class="layui-form" id="warehouseForm">
+                    <input type="hidden" name="id" id="id">
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">仓库编码</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="code" id="code" required lay-verify="required" placeholder="请输入仓库编码" class="layui-input">
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">仓库名称</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="name" id="name" required lay-verify="required" placeholder="请输入仓库名称" class="layui-input">
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">仓库类型</label>
+                        <div class="layui-input-block">
+                            <select name="warehouse_type" id="warehouse_type">
+                                <option value="main">主仓库</option>
+                                <option value="branch">分仓库</option>
+                                <option value="virtual">虚拟仓库</option>
+                                <option value="production">生产仓库</option>
+                                <option value="quality">质检仓库</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">地址</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="address" id="address" placeholder="请输入仓库地址" class="layui-input">
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">管理员</label>
+                        <div class="layui-input-block">
+                            <select name="manager_id" id="manager_id">
+                                <option value="">请选择管理员</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">联系电话</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="phone" id="phone" placeholder="请输入联系电话" class="layui-input">
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">邮箱</label>
+                        <div class="layui-input-block">
+                            <input type="email" name="email" id="email" placeholder="请输入电子邮箱" class="layui-input">
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">仓库容量</label>
+                        <div class="layui-input-block">
+                            <input type="number" name="capacity" id="capacity" placeholder="请输入仓库容量" class="layui-input">
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">状态</label>
+                        <div class="layui-input-block">
+                            <select name="status" id="status">
+                                <option value="1">启用</option>
+                                <option value="0">禁用</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">默认仓库</label>
+                        <div class="layui-input-block">
+                            <input type="checkbox" name="is_default" id="is_default" lay-skin="switch" lay-text="是|否">
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">备注</label>
+                        <div class="layui-input-block">
+                            <textarea name="remark" id="remark" placeholder="请输入备注" class="layui-textarea"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <div class="layui-input-block">
+                            <button type="submit" class="layui-btn" lay-submit lay-filter="submitBtn">保存</button>
+                            <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/lib/jquery.min.js"></script>
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['form', 'layer'], function(){
+            var form = layui.form;
+            var layer = layui.layer;
+            
+            var id = getQueryParam('id');
+            
+            if(id){
+                $('#cardTitle').text('编辑仓库');
+                loadData(id);
+            }
+            
+            function getQueryParam(name) {
+                var reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)');
+                var r = window.location.search.substr(1).match(reg);
+                if(r != null) return unescape(r[2]);
+                return null;
+            }
+            
+            function loadData(id){
+                $.ajax({
+                    url: '/api/inventory/warehouse/' + id + '/',
+                    type: 'GET',
+                    success: function(res){
+                        if(res.code === 0){
+                            var data = res.data;
+                            $('#id').val(data.id);
+                            $('#code').val(data.code);
+                            $('#name').val(data.name);
+                            $('#warehouse_type').val(data.warehouse_type);
+                            $('#address').val(data.address);
+                            $('#phone').val(data.phone);
+                            $('#email').val(data.email);
+                            $('#capacity').val(data.capacity);
+                            $('#status').val(data.status);
+                            $('#is_default').prop('checked', data.is_default);
+                            $('#remark').val(data.remark);
+                            
+                            loadManagers(data.manager_id);
+                            form.render();
+                        }
+                    }
+                });
+            }
+            
+            function loadManagers(selectedId){
+                $.ajax({
+                    url: '/api/user/employee/',
+                    type: 'GET',
+                    success: function(res){
+                        if(res.code === 0){
+                            var html = '<option value="">请选择管理员</option>';
+                            res.data.forEach(function(item){
+                                html += '<option value="' + item.id + '">' + item.name + '</option>';
+                            });
+                            $('#manager_id').html(html);
+                            if(selectedId){
+                                $('#manager_id').val(selectedId);
+                            }
+                            form.render();
+                        }
+                    }
+                });
+            }
+            
+            loadManagers();
+            
+            form.on('submit(submitBtn)', function(data){
+                var url = id ? '/api/inventory/warehouse/' + id + '/' : '/api/inventory/warehouse/';
+                var type = id ? 'PUT' : 'POST';
+                
+                $.ajax({
+                    url: url,
+                    type: type,
+                    contentType: 'application/json',
+                    data: JSON.stringify(data.field),
+                    success: function(res){
+                        if(res.code === 0){
+                            layer.msg('保存成功', {icon: 1});
+                            var index = parent.layer.getFrameIndex(window.name);
+                            parent.layer.close(index);
+                            parent.table.reload('warehouseTable');
+                        } else {
+                            layer.msg(res.msg, {icon: 2});
+                        }
+                    }
+                });
+                return false;
+            });
+        });
+    </script>
+</body>
+</html>

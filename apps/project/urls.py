@@ -40,6 +40,15 @@ urlpatterns = [
     path('document/detail/<int:doc_id>/', views.ProjectDocumentDetailView.as_view(), name='project_document_detail'),
     path('document/upload/', views.ProjectDocumentUploadView.as_view(), name='project_document_upload'),
     
+    # adm前缀的项目文档路由（解决前端POST重定向问题）
+    path('adm/project/document/', views.ProjectDocumentListView.as_view(), name='adm_project_document'),
+    path('adm/project/document/datalist/', views.ProjectDocumentListView.as_view(), name='adm_project_document_datalist'),
+    path('adm/project/document/add/', views.ProjectDocumentAddView.as_view(), name='adm_project_document_add'),
+    path('adm/project/document/edit/<int:doc_id>/', views.ProjectDocumentEditView.as_view(), name='adm_project_document_edit'),
+    path('adm/project/document/delete/<int:doc_id>/', views.ProjectDocumentDeleteView.as_view(), name='adm_project_document_delete'),
+    path('adm/project/document/detail/<int:doc_id>/', views.ProjectDocumentDetailView.as_view(), name='adm_project_document_detail'),
+    path('adm/project/document/upload/', views.ProjectDocumentUploadView.as_view(), name='adm_project_document_upload'),
+    
     # AI分析功能 - 页面视图
     path('ai/progress-analysis/<int:project_id>/', ai_views.AIProgressAnalysisView.as_view(), name='ai_progress_analysis_page'),
     path('ai/risk-prediction/<int:project_id>/', ai_views.AIRiskPredictionView.as_view(), name='ai_risk_prediction_page'),

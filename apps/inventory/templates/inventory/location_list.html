@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>库位管理</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href="/static/layui/css/layui.css" rel="stylesheet">
+    <link href="/static/css/common.css" rel="stylesheet">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header layui-elem-quote">
+                库位列表
+                <span id="warehouseName" style="margin-left: 20px; color: #666;"></span>
+                <button class="layui-btn layui-btn-sm layui-btn-primary" id="addBtn" style="float: right;">
+                    <i class="layui-icon">&#xe654;</i> 新增库位
+                </button>
+            </div>
+            <div class="layui-card-body">
+                <table id="locationTable" lay-filter="locationTable"></table>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/lib/jquery.min.js"></script>
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['table', 'layer', 'form'], function(){
+            var table = layui.table;
+            var layer = layui.layer;
+            var form = layui.form;
+            
+            var warehouseId = getQueryParam('warehouse_id');
+            
+            if(warehouseId){
+                loadWarehouseInfo();
+                table.render({
+                    elem: '#locationTable',
+                    url: '/api/inventory/location/',
+                    where: {warehouse_id: warehouseId},
+                    page: true,
+                    cols: [[
+                        {field: 'id', title: 'ID', width: 80, sort: true},
+                        {field: 'code', title: '库位编码', width: 120},
+                        {field: 'name', title: '库位名称', width: 150},
+                        {field: 'location_type', title: '库位类型', width: 100},
+                        {field: 'parent_name', title: '上级库位', width: 100},
+                        {field: 'capacity', title: '容量', width: 100},
+                        {field: 'status_display', title: '状态', width: 80},
+                        {field: 'sort', title: '排序', width: 80},
+                        {title: '操作', width: 150, templet: function(d){
+                            var html = '<button class="layui-btn layui-btn-xs" lay-event="edit">编辑</button>';
+                            html += '<button class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</button>';
+                            return html;
+                        }}
+                    ]]
+                });
+            } else {
+                table.render({
+                    elem: '#locationTable',
+                    url: '/api/inventory/location/',
+                    page: true,
+                    cols: [[
+                        {field: 'id', title: 'ID', width: 80, sort: true},
+                        {field: 'warehouse_name', title: '仓库', width: 120},
+                        {field: 'code', title: '库位编码', width: 120},
+                        {field: 'name', title: '库位名称', width: 150},
+                        {field: 'location_type', title: '库位类型', width: 100},
+                        {field: 'parent_name', title: '上级库位', width: 100},
+                        {field: 'status_display', title: '状态', width: 80},
+                        {title: '操作', width: 150, templet: function(d){
+                            var html = '<button class="layui-btn layui-btn-xs" lay-event="edit">编辑</button>';
+                            html += '<button class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</button>';
+                            return html;
+                        }}
+                    ]]
+                });
+            }
+            
+            function getQueryParam(name) {
+                var reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)');
+                var r = window.location.search.substr(1).match(reg);
+                if(r != null) return unescape(r[2]);
+                return null;
+            }
+            
+            function loadWarehouseInfo(){
+                $.ajax({
+                    url: '/api/inventory/warehouse/' + warehouseId + '/',
+                    type: 'GET',
+                    success: function(res){
+                        if(res.code === 0){
+                            $('#warehouseName').text('仓库: ' + res.data.name);
+                        }
+                    }
+                });
+            }
+            
+            table.on('tool(locationTable)', function(obj){
+                if(obj.event === 'edit'){
+                    openForm(obj.data.id);
+                } else if(obj.event === 'delete'){
+                    layer.confirm('确定要删除该库位吗？', function(index){
+                        $.ajax({
+                            url: '/api/inventory/location/' + obj.data.id + '/',
+                            type: 'DELETE',
+                            success: function(res){
+                                if(res.code === 0){
+                                    layer.msg('删除成功');
+                                    table.reload('locationTable');
+                                } else {
+                                    layer.msg(res.msg);
+                                }
+                            }
+                        });
+                    });
+                }
+            });
+            
+            $('#addBtn').click(function(){
+                openForm();
+            });
+            
+            function openForm(id){
+                var title = id ? '编辑库位' : '新增库位';
+                var url = '/inventory/location/add/';
+                if(warehouseId){
+                    url += '?warehouse_id=' + warehouseId;
+                }
+                if(id){
+                    url += (url.indexOf('?') > -1 ? '&' : '?') + 'id=' + id;
+                }
+                layer.open({
+                    type: 2,
+                    title: title,
+                    area: ['600px', '450px'],
+                    content: url,
+                    end: function(){
+                        table.reload('locationTable');
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

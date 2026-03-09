@@ -72,6 +72,12 @@ class MenuCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
         else:
             form.fields['pid'].queryset = Menu.objects.order_by('sort')
         return form
+    
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        from apps.user.models.menu import clear_menu_cache_data
+        clear_menu_cache_data()
+        return response
 
 class MenuUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     login_url = '/user/login/'
@@ -89,8 +95,15 @@ class MenuUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         # 排除当前正在编辑的菜单作为父菜单选项
-        form.fields['pid'].queryset = Menu.objects.exclude(id=self.object.id).order_by('sort')
+        if hasattr(self, 'object') and self.object:
+            form.fields['pid'].queryset = Menu.objects.exclude(id=self.object.id).order_by('sort')
         return form
+    
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        from apps.user.models.menu import clear_menu_cache_data
+        clear_menu_cache_data()
+        return response
 
 class MenuDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     login_url = '/user/login/'
@@ -106,6 +119,8 @@ class MenuDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
         try:
             self.object = self.get_object()
             self.object.delete()
+            from apps.user.models.menu import clear_menu_cache_data
+            clear_menu_cache_data()
             return HttpResponseRedirect(self.get_success_url())
         except SessionInterrupted:
             logger.warning("会话在删除菜单操作中被中断，用户可能已登出或会话已过期")
@@ -246,10 +261,13 @@ class MenuOrderAPIView(LoginRequiredMixin, PermissionRequiredMixin, View):
             for index, menu_id in enumerate(ordered_menu_ids):
                 try:
                     menu = Menu.objects.get(id=int(menu_id))
-                    menu.sort = index + 1  # 排序从1开始
+                    menu.sort = index + 1
                     menu.save()
                 except Menu.DoesNotExist:
                     continue
+            
+            from apps.user.models.menu import clear_menu_cache_data
+            clear_menu_cache_data()
             
             return JsonResponse({'status': 'success', 'message': '菜单排序更新成功'})
         except Exception as e:

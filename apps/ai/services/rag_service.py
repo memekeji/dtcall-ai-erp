@@ -13,7 +13,12 @@ class EnhancedRAGService:
     """增强版RAG服务，支持混合检索、查询改写和重排序"""
     
     def __init__(self):
-        self.ai_client = AIClient.from_config(get_ai_config_manager().get_recommended_config())
+        config = get_ai_config_manager().get_recommended_config()
+        if config:
+            self.ai_client = AIClient.from_config(config)
+        else:
+            self.ai_client = None
+            logger.warning("没有有效的AI配置，RAG服务将使用降级模式")
         self.max_relevant_items = 10  # 最多返回的相关知识条目数量
         self.similarity_threshold = 0.3  # 相似度阈值
         self.hybrid_weight = 0.6  # 语义检索权重，关键词检索权重为 1-hybrid_weight
@@ -84,6 +89,10 @@ class EnhancedRAGService:
                 {"role": "system", "content": "你是一个专业的知识库检索助手，擅长改写查询以提高检索准确率。"},
                 {"role": "user", "content": prompt}
             ]
+            
+            if self.ai_client is None:
+                logger.warning("AI客户端未初始化，跳过查询改写")
+                return query
             
             rewritten_query = self.ai_client.chat_completion(messages=messages)
             
@@ -281,6 +290,10 @@ class EnhancedRAGService:
                 {"role": "user", "content": prompt}
             ]
             
+            if self.ai_client is None:
+                logger.warning("AI客户端未初始化，跳过重排序")
+                return items
+            
             rerank_result = self.ai_client.chat_completion(messages=messages)
             
             # 解析重排序结果
@@ -320,7 +333,20 @@ class RAGService:
     """RAG服务类，实现完整的RAG流程"""
     
     def __init__(self):
-        self.ai_client = AIClient.from_config(get_ai_config_manager().get_recommended_config())
+        # 检查是否允许自动加载配置
+        if not getattr(settings, 'AI_AUTO_LOAD_CONFIG', True):
+            self.ai_client = None
+            self.max_relevant_items = 5
+            self.similarity_threshold = 0.5
+            self.enhanced_service = None
+            return
+            
+        config = get_ai_config_manager().get_recommended_config()
+        if config:
+            self.ai_client = AIClient.from_config(config)
+        else:
+            self.ai_client = None
+            logger.warning("没有有效的AI配置，RAG服务将使用降级模式")
         self.max_relevant_items = 5  # 最多返回的相关知识条目数量
         self.similarity_threshold = 0.5  # 相似度阈值，低于此值的条目将被过滤
         self.enhanced_service = EnhancedRAGService()
@@ -356,6 +382,9 @@ class RAGService:
     def _generate_vector(self, text):
         """生成文本向量"""
         try:
+            if self.ai_client is None:
+                logger.warning("AI客户端未初始化，无法生成向量")
+                return []
             return self.ai_client.embedding(text)
         except Exception as e:
             logger.error(f"生成向量失败: {str(e)}")
@@ -480,6 +509,9 @@ class RAGService:
         ]
         
         try:
+            if self.ai_client is None:
+                logger.warning("AI客户端未初始化，无法生成回复")
+                return "抱歉，AI服务暂时不可用，请配置有效的AI模型后重试。"
             return self.ai_client.chat_completion(messages=messages)
         except Exception as e:
             logger.error(f"生成AI回复失败: {str(e)}")

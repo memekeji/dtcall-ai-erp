@@ -35,6 +35,10 @@ urlpatterns = [
     # 业务应用路由
     path('adm/task/workhour/', RedirectView.as_view(url='/task/workhour/', permanent=True)),
     path('adm/task/workhour/datalist/', RedirectView.as_view(url='/task/workhour/datalist/', permanent=True)),
+    path('adm/task/workhour/add/', RedirectView.as_view(url='/task/workhour/add/', permanent=True)),
+    path('adm/task/workhour/edit/<int:workhour_id>/', RedirectView.as_view(url='/task/workhour/edit/%(workhour_id)s/', permanent=True)),
+    path('adm/task/workhour/delete/<int:workhour_id>/', RedirectView.as_view(url='/task/workhour/delete/%(workhour_id)s/', permanent=True)),
+    path('adm/task/workhour/stats/', RedirectView.as_view(url='/task/workhour/stats/', permanent=True)),
     path('adm/', RedirectView.as_view(url='/system/', permanent=True)),  # 将adm应用重定向到system应用
     path('oa/', include('apps.oa.urls')),  # OA系统
     # path('', include('apps.department.urls')),  # 部门管理 - 已迁移到adm应用
@@ -355,7 +359,11 @@ urlpatterns = [
     path('adm/project/detail/<int:project_id>/', RedirectView.as_view(url='/project/detail/%(project_id)s/', permanent=True)),
     path('adm/project/edit/<int:project_id>/', RedirectView.as_view(url='/project/edit/%(project_id)s/', permanent=True)),
     path('adm/project/add/', RedirectView.as_view(url='/project/add/', permanent=True, query_string=True)),
-    path('adm/project/document/add/', RedirectView.as_view(url='/project/document/add/', permanent=True, query_string=True)),
+    path('adm/project/document/add/', RedirectView.as_view(url='/project/document/add/', permanent=False, query_string=True)),
+    path('adm/project/document/upload/', RedirectView.as_view(url='/project/document/upload/', permanent=False)),
+    path('adm/project/document/edit/<int:doc_id>/', RedirectView.as_view(url='/project/document/edit/%(doc_id)s/', permanent=False)),
+    path('adm/project/document/delete/<int:doc_id>/', RedirectView.as_view(url='/project/document/delete/%(doc_id)s/', permanent=False)),
+    path('adm/project/document/detail/<int:doc_id>/', RedirectView.as_view(url='/project/document/detail/%(doc_id)s/', permanent=False)),
     
     # 修复任务相关404错误
     # 新增任务URL重定向，使用path替代re_path以正确保留query_string

@@ -665,13 +665,13 @@ class AIChatMessageCreateView(LoginRequiredMixin, PermissionRequiredMixin, Creat
         try:
             # 1. 调用意图识别服务
             from apps.ai.services.intent_recognition_service import intent_recognition_service
-            intent_result = intent_recognition_service.recognize_intent(self.request.user, message_content)
+            intent_result = intent_recognition_service.process_request(self.request.user, message_content)
             
             # 2. 获取意图特定处理器
-            intent = intent_result['intent']
+            intent = intent_result.get('intent_type', 'ai_chat')
             
             # 直接处理意图，避免handler绑定问题
-            if intent == intent_recognition_service.INTENT_TYPES['DATA_QUERY']:
+            if intent == 'data_query':
                 # 3. 执行数据查询服务
                 from apps.ai.services.query_service import query_service
                 result = query_service.process_query(self.request.user, message_content)
@@ -680,10 +680,10 @@ class AIChatMessageCreateView(LoginRequiredMixin, PermissionRequiredMixin, Creat
                     ai_response = result['result']
                 else:
                     ai_response = result.get('message', '抱歉，我无法处理您的请求')
-            elif intent == intent_recognition_service.INTENT_TYPES['KNOWLEDGE_BASE']:
+            elif intent == 'knowledge_base':
                 from apps.ai.services.rag_service import rag_service
                 ai_response = rag_service.generate_response(self.request.user, message_content)
-            elif intent == intent_recognition_service.INTENT_TYPES['AI_CHAT']:
+            elif intent == 'ai_chat':
                 # 5. 处理纯AI对话意图
                 ai_response = intent_recognition_service._handle_ai_chat(self.request.user, message_content)['result']
             else:
@@ -1450,43 +1450,28 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
             if not message:
                 return JsonResponse({'status': 'error', 'message': '消息不能为空'})
             
-            # 1. 调用意图识别服务
+            # 1. 调用意图识别服务（使用新的 AI 分类器）
             from apps.ai.services.intent_recognition_service import intent_recognition_service
-            intent_result = intent_recognition_service.recognize_intent(request.user, message)
+            intent_result = intent_recognition_service.process_request(request.user, message)
             
-            # 2. 获取意图特定处理器
-            intent = intent_result['intent']
+            # 2. 获取意图
+            intent = intent_result.get('intent_type', 'ai_chat')
             
-            # 直接处理意图，避免handler绑定问题
-            if intent == intent_recognition_service.INTENT_TYPES['DATA_QUERY']:
-                # 3. 执行数据查询服务
-                from apps.ai.services.query_service import query_service
-                result = query_service.process_query(request.user, message)
+            # 3. 处理响应
+            if intent_result.get('success'):
+                ai_response = intent_result.get('result', intent_result.get('message', ''))
                 
-                if result['success']:
-                    ai_response = result['result']
-                else:
-                    ai_response = result.get('message', '抱歉，我无法处理您的请求')
-            elif intent == intent_recognition_service.INTENT_TYPES['KNOWLEDGE_BASE']:
-                # 4. 处理知识库调用意图
-                from apps.ai.services.rag_service import rag_service
-                ai_response = rag_service.generate_response(request.user, message)
-            elif intent == intent_recognition_service.INTENT_TYPES['AI_CHAT']:
-                # 5. 处理纯AI对话意图
-                chat_result = intent_recognition_service._handle_ai_chat(request.user, message)
-                if chat_result.get('success'):
-                    ai_response = chat_result.get('result', '')
-                else:
-                    ai_response = chat_result.get('message', '抱歉，AI服务暂时不可用')
+                # 如果是确认请求，返回选项
+                if intent_result.get('requires_confirmation'):
+                    ai_response = intent_result.get('message', '请选择您要执行的操作：')
             else:
-                # 6. 处理意图识别失败情况
-                fallback_options = intent_result.get('fallback_options', [])
-                if fallback_options:
-                    ai_response = "我不太确定您的需求，请选择以下选项：\n"
-                    for i, option in enumerate(fallback_options, 1):
-                        ai_response += f"{i}. {option['text']}\n"
+                # 处理失败情况
+                if intent_result.get('requires_confirmation'):
+                    ai_response = intent_result.get('message', '我不太确定您的意图，请选择：')
+                elif intent_result.get('requires_permission'):
+                    ai_response = f"{intent_result.get('message', '您没有权限执行此操作')}。{intent_result.get('suggestion', '请联系管理员获取相应权限')}"
                 else:
-                    ai_response = "抱歉，我无法理解您的请求，请尝试更明确的表述"
+                    ai_response = intent_result.get('message', '抱歉，我无法处理您的请求')
             
             try:
                 # 5. 保存聊天记录
