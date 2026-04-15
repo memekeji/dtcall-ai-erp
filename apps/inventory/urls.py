@@ -1,87 +1,177 @@
 from django.urls import path
 from . import views
+from .ai_views import ai_inventory_forecast
+
 
 app_name = 'inventory'
 
 urlpatterns = [
+    # AI 路由
+    path('api/ai/forecast/<int:inventory_id>/', ai_inventory_forecast, name='ai_inventory_forecast'),
+
     path('', views.inventory_dashboard, name='dashboard'),
-    
+
     path('warehouse/', views.warehouse_list, name='warehouse_list'),
     path('warehouse/add/', views.warehouse_form, name='warehouse_add'),
     path('warehouse/<int:pk>/', views.warehouse_form, name='warehouse_detail'),
-    path('api/warehouse/', views.WarehouseView.as_view({'get': 'list', 'post': 'create'}), name='api_warehouse_list'),
-    path('api/warehouse/<int:pk>/', views.WarehouseView.as_view({'get': 'get', 'put': 'update', 'delete': 'delete'}), name='api_warehouse_detail'),
-    
+    path('api/warehouse/',
+         views.WarehouseView.as_view({'get': 'list',
+                                      'post': 'create'}),
+         name='api_warehouse_list'),
+    path('api/warehouse/<int:pk>/',
+         views.WarehouseView.as_view({'get': 'get',
+                                      'put': 'update',
+                                      'delete': 'delete'}),
+         name='api_warehouse_detail'),
+
     path('location/', views.location_list, name='location_list'),
     path('location/add/', views.location_form, name='location_add'),
     path('location/<int:pk>/', views.location_form, name='location_detail'),
-    path('api/location/', views.WarehouseLocationView.as_view({'get': 'list', 'post': 'create'}), name='api_location_list'),
-    path('api/location/<int:pk>/', views.WarehouseLocationView.as_view({'get': 'get', 'put': 'update', 'delete': 'delete'}), name='api_location_detail'),
-    
+    path('api/location/',
+         views.WarehouseLocationView.as_view({'get': 'list',
+                                              'post': 'create'}),
+         name='api_location_list'),
+    path('api/location/<int:pk>/',
+         views.WarehouseLocationView.as_view({'get': 'get',
+                                              'put': 'update',
+                                              'delete': 'delete'}),
+         name='api_location_detail'),
+
     path('category/', views.category_list, name='category_list'),
     path('category/add/', views.category_form, name='category_add'),
     path('category/<int:pk>/', views.category_form, name='category_detail'),
-    path('api/category/', views.InventoryCategoryView.as_view({'get': 'list', 'post': 'create'}), name='api_category_list'),
-    path('api/category/<int:pk>/', views.InventoryCategoryView.as_view({'get': 'get', 'put': 'update', 'delete': 'delete'}), name='api_category_detail'),
-    
+    path('api/category/',
+         views.InventoryCategoryView.as_view({'get': 'list',
+                                              'post': 'create'}),
+         name='api_category_list'),
+    path('api/category/<int:pk>/',
+         views.InventoryCategoryView.as_view({'get': 'get',
+                                              'put': 'update',
+                                              'delete': 'delete'}),
+         name='api_category_detail'),
+
     path('item/', views.item_list, name='item_list'),
     path('item/add/', views.item_form, name='item_add'),
     path('item/<int:pk>/', views.item_form, name='item_detail'),
-    path('api/item/', views.InventoryItemView.as_view({'get': 'list', 'post': 'create'}), name='api_item_list'),
-    path('api/item/<int:pk>/', views.InventoryItemView.as_view({'get': 'get', 'put': 'update', 'delete': 'delete'}), name='api_item_detail'),
-    
+    path('api/item/',
+         views.InventoryItemView.as_view({'get': 'list',
+                                          'post': 'create'}),
+         name='api_item_list'),
+    path('api/item/<int:pk>/',
+         views.InventoryItemView.as_view({'get': 'get',
+                                          'put': 'update',
+                                          'delete': 'delete'}),
+         name='api_item_detail'),
+
     path('inventory/', views.inventory_list, name='inventory_list'),
-    path('api/inventory/', views.InventoryView.as_view({'get': 'list'}), name='api_inventory_list'),
-    
+    path('api/inventory/',
+         views.InventoryView.as_view({'get': 'list'}),
+         name='api_inventory_list'),
+
     path('transaction/', views.transaction_list, name='transaction_list'),
-    path('api/transaction/', views.StockTransactionView.as_view({'get': 'list'}), name='api_transaction_list'),
-    
+    path('api/transaction/',
+         views.StockTransactionView.as_view({'get': 'list'}),
+         name='api_transaction_list'),
+
     path('stockin/', views.stock_in_list, name='stock_in_list'),
     path('stockin/add/', views.stock_in_form, name='stock_in_add'),
     path('stockin/<int:pk>/', views.stock_in_form, name='stock_in_detail'),
-    path('api/stockin/', views.StockInView.as_view({'get': 'list', 'post': 'create'}), name='api_stock_in_list'),
-    path('api/stockin/<int:pk>/', views.StockInView.as_view({'get': 'get'}), name='api_stock_in_detail'),
-    path('api/stockin/<int:pk>/check/', views.StockInView.as_view({'post': 'check'}), name='api_stock_in_check'),
-    path('api/stockin/<int:pk>/stock/', views.StockInView.as_view({'post': 'stock_in'}), name='api_stock_in_execute'),
-    
+    path('api/stockin/',
+         views.StockInView.as_view({'get': 'list',
+                                    'post': 'create'}),
+         name='api_stock_in_list'),
+    path('api/stockin/<int:pk>/',
+         views.StockInView.as_view({'get': 'get'}),
+         name='api_stock_in_detail'),
+    path('api/stockin/<int:pk>/check/',
+         views.StockInView.as_view({'post': 'check'}),
+         name='api_stock_in_check'),
+    path('api/stockin/<int:pk>/stock/',
+         views.StockInView.as_view({'post': 'stock_in'}),
+         name='api_stock_in_execute'),
+
     path('stockout/', views.stock_out_list, name='stock_out_list'),
     path('stockout/add/', views.stock_out_form, name='stock_out_add'),
     path('stockout/<int:pk>/', views.stock_out_form, name='stock_out_detail'),
-    path('api/stockout/', views.StockOutView.as_view({'get': 'list', 'post': 'create'}), name='api_stock_out_list'),
-    path('api/stockout/<int:pk>/', views.StockOutView.as_view({'get': 'get'}), name='api_stock_out_detail'),
-    path('api/stockout/<int:pk>/check/', views.StockOutView.as_view({'post': 'check'}), name='api_stock_out_check'),
-    path('api/stockout/<int:pk>/stock/', views.StockOutView.as_view({'post': 'stock_out'}), name='api_stock_out_execute'),
-    
+    path('api/stockout/',
+         views.StockOutView.as_view({'get': 'list',
+                                     'post': 'create'}),
+         name='api_stock_out_list'),
+    path('api/stockout/<int:pk>/',
+         views.StockOutView.as_view({'get': 'get'}),
+         name='api_stock_out_detail'),
+    path('api/stockout/<int:pk>/check/',
+         views.StockOutView.as_view({'post': 'check'}),
+         name='api_stock_out_check'),
+    path('api/stockout/<int:pk>/stock/',
+         views.StockOutView.as_view({'post': 'stock_out'}),
+         name='api_stock_out_execute'),
+
     path('transfer/', views.transfer_list, name='transfer_list'),
     path('transfer/add/', views.transfer_form, name='transfer_add'),
     path('transfer/<int:pk>/', views.transfer_form, name='transfer_detail'),
-    path('api/transfer/', views.StockTransferView.as_view({'get': 'list', 'post': 'create'}), name='api_transfer_list'),
-    path('api/transfer/<int:pk>/', views.StockTransferView.as_view({'get': 'list'}), name='api_transfer_detail'),
-    
+    path('api/transfer/',
+         views.StockTransferView.as_view({'get': 'list',
+                                          'post': 'create'}),
+         name='api_transfer_list'),
+    path('api/transfer/<int:pk>/',
+         views.StockTransferView.as_view({'get': 'list'}),
+         name='api_transfer_detail'),
+
     path('check/', views.check_list, name='check_list'),
     path('check/add/', views.check_form, name='check_add'),
     path('check/<int:pk>/', views.check_form, name='check_detail'),
-    path('api/check/', views.StockCheckView.as_view({'get': 'list', 'post': 'create'}), name='api_check_list'),
-    path('api/check/<int:pk>/', views.StockCheckView.as_view({'get': 'list'}), name='api_check_detail'),
-    
+    path('api/check/',
+         views.StockCheckView.as_view({'get': 'list',
+                                       'post': 'create'}),
+         name='api_check_list'),
+    path('api/check/<int:pk>/',
+         views.StockCheckView.as_view({'get': 'list'}),
+         name='api_check_detail'),
+
     path('purchase/', views.purchase_order_list, name='purchase_order_list'),
-    path('purchase/add/', views.purchase_order_form, name='purchase_order_add'),
-    path('purchase/<int:pk>/', views.purchase_order_form, name='purchase_order_detail'),
-    path('api/purchase/', views.PurchaseOrderView.as_view({'get': 'list', 'post': 'create'}), name='api_purchase_list'),
-    path('api/purchase/<int:pk>/', views.PurchaseOrderView.as_view({'get': 'list'}), name='api_purchase_detail'),
-    
+    path(
+        'purchase/add/',
+        views.purchase_order_form,
+        name='purchase_order_add'),
+    path(
+        'purchase/<int:pk>/',
+        views.purchase_order_form,
+        name='purchase_order_detail'),
+    path('api/purchase/',
+         views.PurchaseOrderView.as_view({'get': 'list',
+                                          'post': 'create'}),
+         name='api_purchase_list'),
+    path('api/purchase/<int:pk>/',
+         views.PurchaseOrderView.as_view({'get': 'list'}),
+         name='api_purchase_detail'),
+
     path('sales/', views.sales_order_list, name='sales_order_list'),
     path('sales/add/', views.sales_order_form, name='sales_order_add'),
     path('sales/<int:pk>/', views.sales_order_form, name='sales_order_detail'),
-    path('api/sales/', views.SalesOrderView.as_view({'get': 'list', 'post': 'create'}), name='api_sales_list'),
-    path('api/sales/<int:pk>/', views.SalesOrderView.as_view({'get': 'list'}), name='api_sales_detail'),
-    
+    path('api/sales/',
+         views.SalesOrderView.as_view({'get': 'list',
+                                       'post': 'create'}),
+         name='api_sales_list'),
+    path('api/sales/<int:pk>/',
+         views.SalesOrderView.as_view({'get': 'list'}),
+         name='api_sales_detail'),
+
     path('alert/', views.alert_list, name='alert_list'),
-    path('api/alert/', views.InventoryAlertView.as_view({'get': 'list'}), name='api_alert_list'),
-    
+    path('api/alert/',
+         views.InventoryAlertView.as_view({'get': 'list'}),
+         name='api_alert_list'),
+
     path('report/summary/', views.report_summary, name='report_summary'),
-    path('api/report/summary/', views.InventoryReportView.as_view({'get': 'summary'}), name='api_report_summary'),
-    
-    path('report/transaction/', views.report_transaction, name='report_transaction'),
-    path('api/report/transaction/', views.InventoryReportView.as_view({'get': 'transaction'}), name='api_report_transaction'),
+    path('api/report/summary/',
+         views.InventoryReportView.as_view({'get': 'summary'}),
+         name='api_report_summary'),
+
+    path(
+        'report/transaction/',
+        views.report_transaction,
+        name='report_transaction'),
+    path('api/report/transaction/',
+         views.InventoryReportView.as_view({'get': 'transaction'}),
+         name='api_report_transaction'),
 ]

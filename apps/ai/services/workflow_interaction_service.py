@@ -3,36 +3,29 @@
 提供工作流执行过程中的用户交互管理
 """
 
-import json
 import logging
-import uuid
-from typing import Dict, Any, List, Optional, Callable
-from datetime import datetime, timedelta
-from django.db import transaction
+from typing import Dict, Any, List, Optional
+from django.db import transaction, models
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 
 from apps.ai.models import (
-    AIWorkflow, WorkflowNode, WorkflowConnection,
-    AIWorkflowExecution, NodeExecution, WorkflowVariable
+    WorkflowNode, AIWorkflowExecution, NodeExecution
 )
 from apps.ai.models_workflow_interaction import (
     WorkflowInteraction,
-    WorkflowInteractionTemplate,
-    NodeInputForm,
     WorkflowCheckpoint
 )
-from apps.ai.processors import get_processor_for_node_type
 
 logger = logging.getLogger(__name__)
 
 
 class WorkflowInteractionService:
     """工作流交互服务"""
-    
+
     def __init__(self):
         self.pending_interactions = {}
-    
+
     def create_interaction(
         self,
         workflow_execution: AIWorkflowExecution,
@@ -54,21 +47,21 @@ class WorkflowInteractionService:
                 interaction_type=interaction_type,
                 title=title,
                 description=description,
-                input_schema=input_schema or self._get_default_input_schema(interaction_type),
+                input_schema=input_schema or self._get_default_input_schema(
+                    interaction_type),
                 requester=requester,
                 handler=handler,
                 timeout=timeout,
                 priority=priority,
-                status='pending'
-            )
-            
+                status='pending')
+
             logger.info(f"创建工作流交互成功: {interaction.id}")
             return interaction
-            
+
         except Exception as e:
             logger.error(f"创建工作流交互失败: {e}")
             raise
-    
+
     def _get_default_input_schema(self, interaction_type: str) -> Dict:
         """获取默认输入Schema"""
         schemas = {
@@ -146,8 +139,10 @@ class WorkflowInteractionService:
                 'required': []
             }
         }
-        return schemas.get(interaction_type, {'type': 'object', 'properties': {}})
-    
+        return schemas.get(
+            interaction_type, {
+                'type': 'object', 'properties': {}})
+
     @transaction.atomic
     def complete_interaction(
         self,
@@ -160,18 +155,18 @@ class WorkflowInteractionService:
         """完成工作流交互"""
         try:
             interaction = WorkflowInteraction.objects.select_for_update().get(id=interaction_id)
-            
+
             if interaction.status == 'completed':
                 raise ValidationError('该交互已经完成')
-            
+
             if not interaction.can_complete(user):
                 raise ValidationError('您没有权限处理此交互')
-            
+
             if interaction.is_expired:
                 interaction.status = 'timeout'
                 interaction.save()
                 raise ValidationError('该交互已超时')
-            
+
             interaction.input_data = input_data
             interaction.result = result
             interaction.comment = comment
@@ -179,16 +174,16 @@ class WorkflowInteractionService:
             interaction.status = 'completed'
             interaction.responded_at = timezone.now()
             interaction.save()
-            
+
             logger.info(f"完成工作流交互成功: {interaction.id}")
             return interaction
-            
+
         except WorkflowInteraction.DoesNotExist:
             raise ValidationError('交互不存在')
         except Exception as e:
             logger.error(f"完成工作流交互失败: {e}")
             raise
-    
+
     def cancel_interaction(
         self,
         interaction_id: str,
@@ -198,22 +193,22 @@ class WorkflowInteractionService:
         """取消工作流交互"""
         try:
             interaction = WorkflowInteraction.objects.get(id=interaction_id)
-            
+
             if interaction.requester_id != user.id:
                 raise ValidationError('您没有权限取消此交互')
-            
+
             if interaction.status == 'completed':
                 raise ValidationError('已完成的交互不能取消')
-            
+
             interaction.status = 'cancelled'
             interaction.comment = reason
             interaction.save()
-            
+
             return interaction
-            
+
         except WorkflowInteraction.DoesNotExist:
             raise ValidationError('交互不存在')
-    
+
     def get_pending_interactions(
         self,
         user: Optional[Any] = None,
@@ -223,22 +218,23 @@ class WorkflowInteractionService:
         queryset = WorkflowInteraction.objects.filter(
             status__in=['pending', 'in_progress']
         )
-        
+
         if user:
             queryset = queryset.filter(
                 models.Q(requester=user) | models.Q(handler=user)
             )
-        
+
         if workflow_execution_id:
-            queryset = queryset.filter(workflow_execution_id=workflow_execution_id)
-        
+            queryset = queryset.filter(
+                workflow_execution_id=workflow_execution_id)
+
         return list(queryset.order_by('-priority', '-created_at'))
-    
+
     def get_interaction_status(self, interaction_id: str) -> Dict[str, Any]:
         """获取交互状态"""
         try:
             interaction = WorkflowInteraction.objects.get(id=interaction_id)
-            
+
             return {
                 'id': str(interaction.id),
                 'type': interaction.interaction_type,
@@ -254,10 +250,10 @@ class WorkflowInteractionService:
                 'created_at': interaction.created_at,
                 'responded_at': interaction.responded_at
             }
-            
+
         except WorkflowInteraction.DoesNotExist:
             return None
-    
+
     def create_approval_interaction(
         self,
         workflow_execution: AIWorkflowExecution,
@@ -281,7 +277,7 @@ class WorkflowInteractionService:
             timeout=timeout,
             priority='high'
         )
-    
+
     def create_input_interaction(
         self,
         workflow_execution: AIWorkflowExecution,
@@ -300,12 +296,12 @@ class WorkflowInteractionService:
             interaction_type='input',
             title=title or '请输入信息',
             description=description,
-            input_schema=input_schema or self._get_default_input_schema('input'),
+            input_schema=input_schema or self._get_default_input_schema(
+                'input'),
             requester=requester,
             handler=handler,
-            timeout=timeout
-        )
-    
+            timeout=timeout)
+
     def create_confirmation_interaction(
         self,
         workflow_execution: AIWorkflowExecution,
@@ -328,7 +324,7 @@ class WorkflowInteractionService:
             handler=handler,
             timeout=timeout
         )
-    
+
     def create_selection_interaction(
         self,
         workflow_execution: AIWorkflowExecution,
@@ -351,7 +347,7 @@ class WorkflowInteractionService:
             },
             'required': ['selected_option']
         }
-        
+
         return self.create_interaction(
             workflow_execution=workflow_execution,
             node_execution=node_execution,
@@ -366,11 +362,11 @@ class WorkflowInteractionService:
 
 class WorkflowInteractionEngine:
     """工作流交互引擎 - 在工作流执行过程中处理用户交互"""
-    
+
     def __init__(self):
         self.interaction_service = WorkflowInteractionService()
         self.waiting_for_interaction = {}
-    
+
     async def wait_for_approval(
         self,
         node: WorkflowNode,
@@ -384,17 +380,17 @@ class WorkflowInteractionEngine:
         title = config.get('approval_title', f'请审批: {node.name}')
         description = config.get('approval_description', '')
         approver_id = config.get('approver_id')
-        
+
         from django.contrib.auth import get_user_model
         User = get_user_model()
-        
+
         approver = None
         if approver_id:
             try:
                 approver = User.objects.get(id=approver_id)
             except User.DoesNotExist:
                 pass
-        
+
         interaction = self.interaction_service.create_approval_interaction(
             workflow_execution=workflow_execution,
             node_execution=node_execution,
@@ -404,18 +400,18 @@ class WorkflowInteractionEngine:
             handler=approver,
             timeout=timeout
         )
-        
+
         self.waiting_for_interaction[str(interaction.id)] = {
             'interaction': interaction,
             'context': context,
             'node': node
         }
-        
+
         return {
             'waiting_interaction_id': str(interaction.id),
             'status': 'waiting_for_approval'
         }
-    
+
     async def wait_for_input(
         self,
         node: WorkflowNode,
@@ -429,9 +425,9 @@ class WorkflowInteractionEngine:
         config = node.config or {}
         title = config.get('input_title', f'请输入: {node.name}')
         description = config.get('input_description', '')
-        
+
         schema = input_schema or config.get('input_schema', {})
-        
+
         interaction = self.interaction_service.create_input_interaction(
             workflow_execution=workflow_execution,
             node_execution=node_execution,
@@ -441,19 +437,19 @@ class WorkflowInteractionEngine:
             requester=context.get('user'),
             timeout=timeout
         )
-        
+
         self.waiting_for_interaction[str(interaction.id)] = {
             'interaction': interaction,
             'context': context,
             'node': node
         }
-        
+
         return {
             'waiting_interaction_id': str(interaction.id),
             'status': 'waiting_for_input',
             'input_schema': interaction.input_schema
         }
-    
+
     async def wait_for_confirmation(
         self,
         node: WorkflowNode,
@@ -471,18 +467,18 @@ class WorkflowInteractionEngine:
             requester=context.get('user'),
             timeout=timeout
         )
-        
+
         self.waiting_for_interaction[str(interaction.id)] = {
             'interaction': interaction,
             'context': context,
             'node': node
         }
-        
+
         return {
             'waiting_interaction_id': str(interaction.id),
             'status': 'waiting_for_confirmation'
         }
-    
+
     async def wait_for_selection(
         self,
         node: WorkflowNode,
@@ -502,23 +498,23 @@ class WorkflowInteractionEngine:
             requester=context.get('user'),
             timeout=timeout
         )
-        
+
         self.waiting_for_interaction[str(interaction.id)] = {
             'interaction': interaction,
             'context': context,
             'node': node
         }
-        
+
         return {
             'waiting_interaction_id': str(interaction.id),
             'status': 'waiting_for_selection',
             'options': options
         }
-    
+
     def get_waiting_interaction(self, interaction_id: str) -> Optional[Dict]:
         """获取等待中的交互"""
         return self.waiting_for_interaction.get(interaction_id)
-    
+
     def process_interaction_response(
         self,
         interaction_id: str,
@@ -529,27 +525,27 @@ class WorkflowInteractionEngine:
         waiting = self.waiting_for_interaction.get(interaction_id)
         if not waiting:
             return {'success': False, 'error': '交互不存在或已过期'}
-        
-        interaction = waiting['interaction']
-        
+
+        waiting['interaction']
+
         try:
             completed_interaction = self.interaction_service.complete_interaction(
                 interaction_id=interaction_id,
                 user=user,
                 input_data=response_data
             )
-            
+
             del self.waiting_for_interaction[interaction_id]
-            
+
             return {
                 'success': True,
                 'interaction': completed_interaction,
                 'result': completed_interaction.result
             }
-            
+
         except Exception as e:
             return {'success': False, 'error': str(e)}
-    
+
     def create_checkpoint(
         self,
         workflow_execution: AIWorkflowExecution,
@@ -566,10 +562,10 @@ class WorkflowInteractionEngine:
             context_data=context,
             node_states=node_states
         )
-        
+
         logger.info(f"创建工作流检查点: {checkpoint.id}")
         return checkpoint
-    
+
     def restore_from_checkpoint(
         self,
         checkpoint_id: str
@@ -584,7 +580,7 @@ class WorkflowInteractionEngine:
 
 class NodeInteractionHandler:
     """节点交互处理器 - 处理特定节点类型的交互需求"""
-    
+
     @staticmethod
     async def handle_approval_node(
         node: WorkflowNode,
@@ -595,12 +591,12 @@ class NodeInteractionHandler:
     ) -> Dict[str, Any]:
         """处理审批节点"""
         config = node.config or {}
-        
+
         if not config.get('require_approval', False):
             return {'approved': True, 'skipped': True}
-        
+
         timeout = config.get('approval_timeout', 3600)
-        
+
         result = await engine.wait_for_approval(
             node=node,
             context=context,
@@ -608,9 +604,9 @@ class NodeInteractionHandler:
             node_execution=node_execution,
             timeout=timeout
         )
-        
+
         return result
-    
+
     @staticmethod
     async def handle_input_node(
         node: WorkflowNode,
@@ -623,7 +619,7 @@ class NodeInteractionHandler:
         config = node.config or {}
         input_schema = config.get('input_schema', {})
         timeout = config.get('input_timeout', 3600)
-        
+
         result = await engine.wait_for_input(
             node=node,
             context=context,
@@ -632,9 +628,9 @@ class NodeInteractionHandler:
             input_schema=input_schema,
             timeout=timeout
         )
-        
+
         return result
-    
+
     @staticmethod
     async def handle_confirmation_node(
         node: WorkflowNode,
@@ -647,7 +643,7 @@ class NodeInteractionHandler:
         config = node.config or {}
         message = config.get('confirmation_message', f'请确认执行: {node.name}')
         timeout = config.get('confirmation_timeout', 3600)
-        
+
         result = await engine.wait_for_confirmation(
             node=node,
             context=context,
@@ -656,9 +652,9 @@ class NodeInteractionHandler:
             message=message,
             timeout=timeout
         )
-        
+
         return result
-    
+
     @staticmethod
     async def handle_selection_node(
         node: WorkflowNode,
@@ -672,7 +668,7 @@ class NodeInteractionHandler:
         options = config.get('selection_options', [])
         title = config.get('selection_title', f'请选择: {node.name}')
         timeout = config.get('selection_timeout', 3600)
-        
+
         result = await engine.wait_for_selection(
             node=node,
             context=context,
@@ -682,7 +678,7 @@ class NodeInteractionHandler:
             title=title,
             timeout=timeout
         )
-        
+
         return result
 
 

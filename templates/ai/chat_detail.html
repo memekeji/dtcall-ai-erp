@@ -1,0 +1,35 @@
+{% extends "home/base.html" %}
+{% load static %}
+
+{% block title %}AI聊天 - {{ chat.title }}{% endblock %}
+
+{% block content %}
+<div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-col-md12">
+            <div class="layui-card">
+                <div class="layui-card-header" style="display:flex;align-items:center;justify-content:space-between;">
+                    <span>{{ chat.title }}</span>
+                    <a class="layui-btn layui-btn-sm layui-btn-primary" href="{% url 'ai:chat' %}">返回列表</a>
+                </div>
+                <div class="layui-card-body" style="background:#fafafa;">
+                    {% if messages %}
+                        {% for msg in messages %}
+                            <div style="margin-bottom:12px;text-align:{% if msg.role == 'user' %}right{% else %}left{% endif %};">
+                                <div style="display:inline-block;max-width:80%;text-align:left;background:{% if msg.role == 'user' %}#e6f4ff{% else %}#fff{% endif %};border:1px solid #eee;border-radius:8px;padding:10px 12px;">
+                                    <div style="font-size:12px;color:#666;margin-bottom:6px;">{% if msg.role == 'user' %}我{% else %}AI{% endif %}</div>
+                                    <div style="white-space:pre-wrap;word-break:break-word;">{{ msg.content }}</div>
+                                    <div style="font-size:12px;color:#999;margin-top:6px;">{{ msg.created_at|date:"Y-m-d H:i:s" }}</div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div style="color:#999;">暂无消息</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

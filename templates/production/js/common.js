@@ -68,7 +68,7 @@ layui.define(['layer', 'form'], function(exports){
             layer.open({
                 type: 2,
                 title: title,
-                area: [width + 'px', height + 'px'],
+                area: ['80%', '100%'],
                 content: url,
                 end: function() {
                     if (callback) callback();

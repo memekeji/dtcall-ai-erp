@@ -3,26 +3,25 @@ API调用节点处理器
 """
 
 import requests
-import json
 from .base_processor import BaseNodeProcessor, NodeProcessorRegistry
 
 
 @NodeProcessorRegistry.register('api_call')
 class APICallProcessor(BaseNodeProcessor):
     """API调用节点处理器"""
-    
+
     @classmethod
     def get_display_name(cls):
         return "API调用节点"
-    
+
     @classmethod
     def get_icon(cls):
         return "layui-icon-link"
-    
+
     @classmethod
     def get_description(cls):
         return "调用外部API接口"
-    
+
     def _get_config_schema(self) -> dict:
         """获取API调用节点的配置模式"""
         return {
@@ -100,7 +99,7 @@ class APICallProcessor(BaseNodeProcessor):
                 'description': '期望的响应数据格式'
             }
         }
-    
+
     def execute(self, config: dict, context: dict) -> dict:
         """执行API调用节点逻辑"""
         url = config.get('url', '')
@@ -111,35 +110,35 @@ class APICallProcessor(BaseNodeProcessor):
         timeout = config.get('timeout', 30)
         retry_count = config.get('retry_count', 3)
         response_format = config.get('response_format', 'json')
-        
+
         # 替换URL和参数中的变量
         url = self._replace_variables(url, context)
         headers = self._replace_variables_in_dict(headers, context)
         params = self._replace_variables_in_dict(params, context)
         body = self._replace_variables_in_dict(body, context)
-        
+
         # 准备请求参数
         request_kwargs = {
             'timeout': timeout,
             'headers': headers
         }
-        
+
         if method == 'GET':
             request_kwargs['params'] = params
         else:
             if body:
                 request_kwargs['json'] = body
-        
+
         # 执行API调用（支持重试）
         response_data = None
         status_code = None
         error_message = None
-        
+
         for attempt in range(retry_count + 1):
             try:
                 response = requests.request(method, url, **request_kwargs)
                 status_code = response.status_code
-                
+
                 if response.status_code == 200:
                     # 根据响应格式处理数据
                     if response_format == 'json':
@@ -153,7 +152,7 @@ class APICallProcessor(BaseNodeProcessor):
                     break
                 else:
                     error_message = f"HTTP {response.status_code}: {response.text}"
-                    
+
             except requests.exceptions.Timeout:
                 error_message = "请求超时"
             except requests.exceptions.ConnectionError:
@@ -162,12 +161,12 @@ class APICallProcessor(BaseNodeProcessor):
                 error_message = f"请求异常: {str(e)}"
             except Exception as e:
                 error_message = f"未知错误: {str(e)}"
-            
+
             # 如果不是最后一次尝试，等待后重试
             if attempt < retry_count and error_message:
                 import time
                 time.sleep(1)  # 简单的重试间隔
-        
+
         return {
             'success': response_data is not None,
             'status_code': status_code,
@@ -176,23 +175,23 @@ class APICallProcessor(BaseNodeProcessor):
             'url_used': url,
             'method_used': method
         }
-    
+
     def _replace_variables(self, text: str, context: dict) -> str:
         """替换文本中的变量占位符"""
         if not isinstance(text, str):
             return text
-        
+
         for key, value in context.items():
             placeholder = f'{{{{{key}}}}}'
             text = text.replace(placeholder, str(value))
-        
+
         return text
-    
+
     def _replace_variables_in_dict(self, data: dict, context: dict) -> dict:
         """替换字典中的变量占位符"""
         if not isinstance(data, dict):
             return data
-        
+
         result = {}
         for key, value in data.items():
             if isinstance(value, str):
@@ -200,10 +199,17 @@ class APICallProcessor(BaseNodeProcessor):
             elif isinstance(value, dict):
                 result[key] = self._replace_variables_in_dict(value, context)
             elif isinstance(value, list):
-                result[key] = [self._replace_variables_in_dict(item, context) if isinstance(item, dict) 
-                              else self._replace_variables(item, context) if isinstance(item, str) 
-                              else item for item in value]
+                result[key] = [
+                    self._replace_variables_in_dict(
+                        item,
+                        context) if isinstance(
+                        item,
+                        dict) else self._replace_variables(
+                        item,
+                        context) if isinstance(
+                        item,
+                        str) else item for item in value]
             else:
                 result[key] = value
-        
+
         return result

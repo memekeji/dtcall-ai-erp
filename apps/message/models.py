@@ -16,9 +16,16 @@ class MessageCategory(models.Model):
 
     name = models.CharField(max_length=50, verbose_name='分类名称')
     code = models.CharField(max_length=30, unique=True, verbose_name='分类代码')
-    type = models.CharField(max_length=20, choices=TYPE_CHOICES, verbose_name='消息类型')
-    icon = models.CharField(max_length=50, default='layui-icon-notice', verbose_name='图标')
-    description = models.CharField(max_length=200, blank=True, verbose_name='描述')
+    type = models.CharField(
+        max_length=20,
+        choices=TYPE_CHOICES,
+        verbose_name='消息类型')
+    icon = models.CharField(
+        max_length=50,
+        default='layui-icon-notice',
+        verbose_name='图标')
+    description = models.CharField(
+        max_length=200, blank=True, verbose_name='描述')
     sort_order = models.IntegerField(default=0, verbose_name='排序')
     is_active = models.BooleanField(default=True, verbose_name='是否启用')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
@@ -66,18 +73,39 @@ class Message(models.Model):
     )
     title = models.CharField(max_length=200, verbose_name='消息标题')
     content = models.TextField(verbose_name='消息内容')
-    priority = models.IntegerField(default=2, choices=PRIORITY_CHOICES, verbose_name='优先级')
+    priority = models.IntegerField(
+        default=2,
+        choices=PRIORITY_CHOICES,
+        verbose_name='优先级')
     is_broadcast = models.BooleanField(default=False, verbose_name='是否广播消息')
-    target_users = models.TextField(blank=True, default='', help_text='目标用户ID列表，JSON格式', verbose_name='目标用户')
-    target_departments = models.TextField(blank=True, default='', help_text='目标部门ID列表，JSON格式', verbose_name='目标部门')
-    
-    related_object_type = models.CharField(max_length=100, blank=True, verbose_name='关联对象类型')
-    related_object_id = models.BigIntegerField(null=True, blank=True, verbose_name='关联对象ID')
-    action_url = models.CharField(max_length=500, blank=True, verbose_name='跳转链接')
-    
-    expire_time = models.DateTimeField(null=True, blank=True, verbose_name='过期时间')
+    target_users = models.TextField(
+        blank=True,
+        default='',
+        help_text='目标用户ID列表，JSON格式',
+        verbose_name='目标用户')
+    target_departments = models.TextField(
+        blank=True,
+        default='',
+        help_text='目标部门ID列表，JSON格式',
+        verbose_name='目标部门')
+
+    related_object_type = models.CharField(
+        max_length=100, blank=True, verbose_name='关联对象类型')
+    related_object_id = models.BigIntegerField(
+        null=True, blank=True, verbose_name='关联对象ID')
+    action_url = models.CharField(
+        max_length=500,
+        blank=True,
+        verbose_name='跳转链接')
+
+    expire_time = models.DateTimeField(
+        null=True, blank=True, verbose_name='过期时间')
     is_active = models.BooleanField(default=True, verbose_name='是否有效')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+
+    # AI功能
+    ai_summary = models.TextField(blank=True, null=True, verbose_name='AI消息摘要')
+    ai_suggested_replies = models.JSONField(blank=True, null=True, verbose_name='AI建议回复', default=list)
 
     class Meta:
         db_table = 'message'
@@ -110,7 +138,8 @@ class MessageUserRelation(models.Model):
     )
     is_read = models.BooleanField(default=False, verbose_name='是否已读')
     is_starred = models.BooleanField(default=False, verbose_name='是否标星')
-    read_time = models.DateTimeField(null=True, blank=True, verbose_name='阅读时间')
+    read_time = models.DateTimeField(
+        null=True, blank=True, verbose_name='阅读时间')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
 
     class Meta:
@@ -137,9 +166,12 @@ class NotificationPreference(models.Model):
     )
     enable_email = models.BooleanField(default=True, verbose_name='启用邮件通知')
     enable_browser = models.BooleanField(default=True, verbose_name='启用浏览器通知')
-    quiet_hours_start = models.TimeField(null=True, blank=True, verbose_name='免打扰开始时间')
-    quiet_hours_end = models.TimeField(null=True, blank=True, verbose_name='免打扰结束时间')
-    notify_announcement = models.BooleanField(default=True, verbose_name='公告通知')
+    quiet_hours_start = models.TimeField(
+        null=True, blank=True, verbose_name='免打扰开始时间')
+    quiet_hours_end = models.TimeField(
+        null=True, blank=True, verbose_name='免打扰结束时间')
+    notify_announcement = models.BooleanField(
+        default=True, verbose_name='公告通知')
     notify_approval = models.BooleanField(default=True, verbose_name='审批通知')
     notify_task = models.BooleanField(default=True, verbose_name='任务通知')
     notify_comment = models.BooleanField(default=True, verbose_name='评论通知')

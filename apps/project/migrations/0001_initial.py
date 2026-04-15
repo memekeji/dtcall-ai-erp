@@ -27,7 +27,8 @@ class Migration(migrations.Migration):
                 ("content", models.TextField(verbose_name="评论内容")),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",
@@ -35,7 +36,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "delete_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="删除时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="删除时间"),
                 ),
             ],
             options={
@@ -60,16 +62,19 @@ class Migration(migrations.Migration):
                 ("name", models.CharField(max_length=255, verbose_name="项目名称")),
                 (
                     "code",
-                    models.CharField(max_length=100, unique=True, verbose_name="项目编号"),
+                    models.CharField(
+                        max_length=100, unique=True, verbose_name="项目编号"),
                 ),
                 ("description", models.TextField(blank=True, verbose_name="项目描述")),
                 (
                     "start_date",
-                    models.DateField(blank=True, null=True, verbose_name="开始日期"),
+                    models.DateField(
+                        blank=True, null=True, verbose_name="开始日期"),
                 ),
                 (
                     "end_date",
-                    models.DateField(blank=True, null=True, verbose_name="结束日期"),
+                    models.DateField(
+                        blank=True, null=True, verbose_name="结束日期"),
                 ),
                 (
                     "budget",
@@ -108,7 +113,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "progress",
-                    models.PositiveSmallIntegerField(default=0, verbose_name="完成进度(%)"),
+                    models.PositiveSmallIntegerField(
+                        default=0, verbose_name="完成进度(%)"),
                 ),
                 (
                     "create_time",
@@ -122,7 +128,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "delete_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="删除时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="删除时间"),
                 ),
                 (
                     "auto_generated",
@@ -151,18 +158,22 @@ class Migration(migrations.Migration):
                 ("name", models.CharField(max_length=100, verbose_name="分类名称")),
                 (
                     "code",
-                    models.CharField(max_length=50, unique=True, verbose_name="分类代码"),
+                    models.CharField(
+                        max_length=50, unique=True, verbose_name="分类代码"),
                 ),
                 ("description", models.TextField(blank=True, verbose_name="分类描述")),
                 (
                     "color",
-                    models.CharField(blank=True, max_length=20, verbose_name="颜色标识"),
+                    models.CharField(
+                        blank=True, max_length=20, verbose_name="颜色标识"),
                 ),
                 ("sort_order", models.IntegerField(default=0, verbose_name="排序")),
-                ("is_active", models.BooleanField(default=True, verbose_name="是否启用")),
+                ("is_active", models.BooleanField(
+                    default=True, verbose_name="是否启用")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
             ],
             options={
@@ -188,11 +199,13 @@ class Migration(migrations.Migration):
                 ("content", models.TextField(blank=True, verbose_name="文档内容")),
                 (
                     "file_path",
-                    models.CharField(blank=True, max_length=500, verbose_name="文件路径"),
+                    models.CharField(
+                        blank=True, max_length=500, verbose_name="文件路径"),
                 ),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",
@@ -200,7 +213,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "delete_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="删除时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="删除时间"),
                 ),
             ],
             options={
@@ -225,14 +239,17 @@ class Migration(migrations.Migration):
                 ("name", models.CharField(max_length=100, verbose_name="阶段名称")),
                 (
                     "code",
-                    models.CharField(max_length=50, unique=True, verbose_name="阶段代码"),
+                    models.CharField(
+                        max_length=50, unique=True, verbose_name="阶段代码"),
                 ),
                 ("description", models.TextField(blank=True, verbose_name="阶段描述")),
                 ("sort_order", models.IntegerField(default=0, verbose_name="排序")),
-                ("is_active", models.BooleanField(default=True, verbose_name="是否启用")),
+                ("is_active", models.BooleanField(
+                    default=True, verbose_name="是否启用")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
             ],
             options={
@@ -258,11 +275,13 @@ class Migration(migrations.Migration):
                 ("description", models.TextField(blank=True, verbose_name="阶段描述")),
                 (
                     "start_date",
-                    models.DateField(blank=True, null=True, verbose_name="开始日期"),
+                    models.DateField(
+                        blank=True, null=True, verbose_name="开始日期"),
                 ),
                 (
                     "end_date",
-                    models.DateField(blank=True, null=True, verbose_name="结束日期"),
+                    models.DateField(
+                        blank=True, null=True, verbose_name="结束日期"),
                 ),
                 ("sort", models.SmallIntegerField(default=0, verbose_name="排序")),
                 (
@@ -271,7 +290,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "progress",
-                    models.PositiveSmallIntegerField(default=0, verbose_name="完成进度(%)"),
+                    models.PositiveSmallIntegerField(
+                        default=0, verbose_name="完成进度(%)"),
                 ),
                 (
                     "create_time",
@@ -307,19 +327,23 @@ class Migration(migrations.Migration):
                 ("description", models.TextField(blank=True, verbose_name="任务描述")),
                 (
                     "start_date",
-                    models.DateField(blank=True, null=True, verbose_name="开始日期"),
+                    models.DateField(
+                        blank=True, null=True, verbose_name="开始日期"),
                 ),
                 (
                     "end_date",
-                    models.DateField(blank=True, null=True, verbose_name="结束日期"),
+                    models.DateField(
+                        blank=True, null=True, verbose_name="结束日期"),
                 ),
                 (
                     "estimated_hours",
-                    models.PositiveIntegerField(default=0, verbose_name="预估工时(小时)"),
+                    models.PositiveIntegerField(
+                        default=0, verbose_name="预估工时(小时)"),
                 ),
                 (
                     "actual_hours",
-                    models.PositiveIntegerField(default=0, verbose_name="实际工时(小时)"),
+                    models.PositiveIntegerField(
+                        default=0, verbose_name="实际工时(小时)"),
                 ),
                 (
                     "status",
@@ -345,7 +369,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "progress",
-                    models.PositiveSmallIntegerField(default=0, verbose_name="完成进度(%)"),
+                    models.PositiveSmallIntegerField(
+                        default=0, verbose_name="完成进度(%)"),
                 ),
                 (
                     "create_time",
@@ -359,7 +384,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "delete_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="删除时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="删除时间"),
                 ),
             ],
             options={
@@ -384,7 +410,8 @@ class Migration(migrations.Migration):
                 ("name", models.CharField(max_length=100, verbose_name="类别名称")),
                 (
                     "code",
-                    models.CharField(max_length=50, unique=True, verbose_name="类别代码"),
+                    models.CharField(
+                        max_length=50, unique=True, verbose_name="类别代码"),
                 ),
                 ("description", models.TextField(blank=True, verbose_name="类别描述")),
                 (
@@ -398,10 +425,12 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 ("sort_order", models.IntegerField(default=0, verbose_name="排序")),
-                ("is_active", models.BooleanField(default=True, verbose_name="是否启用")),
+                ("is_active", models.BooleanField(
+                    default=True, verbose_name="是否启用")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
             ],
             options={
@@ -430,10 +459,12 @@ class Migration(migrations.Migration):
                         decimal_places=2, max_digits=5, verbose_name="工作时长(小时)"
                     ),
                 ),
-                ("description", models.TextField(blank=True, verbose_name="工作内容描述")),
+                ("description", models.TextField(
+                    blank=True, verbose_name="工作内容描述")),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="记录时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="记录时间"),
                 ),
                 (
                     "update_time",

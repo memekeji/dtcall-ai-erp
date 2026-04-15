@@ -13,11 +13,11 @@ def _check_permission_format(user, permission_code):
         return False
     if user.is_superuser:
         return True
-    
+
     full_perm = permission_code
     if '.' not in full_perm:
         full_perm = f'user.{permission_code}'
-    
+
     return user.has_perm(full_perm)
 
 

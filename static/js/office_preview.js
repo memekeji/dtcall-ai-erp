@@ -136,7 +136,7 @@ function standardOfficePreview(data) {
             type: 1,
             title: '文档预览：' + (data.name || '未知文件名'),
             shade: 0.8,
-            area: ['90%', '90%'],
+            area: ['80%', '100%'],
             content: '<div style="padding:20px;">' + 
                      infoText +
                      fullContent + 

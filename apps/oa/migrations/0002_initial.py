@@ -314,7 +314,9 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="oamessagereadrecord",
-            index=models.Index(fields=["message"], name="idx_msg_read_message"),
+            index=models.Index(
+                fields=["message"],
+                name="idx_msg_read_message"),
         ),
         migrations.AddIndex(
             model_name="oamessagereadrecord",
@@ -370,7 +372,9 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="meetingrecord",
-            index=models.Index(fields=["meeting_date"], name="idx_meeting_date"),
+            index=models.Index(
+                fields=["meeting_date"],
+                name="idx_meeting_date"),
         ),
         migrations.AddIndex(
             model_name="meetingrecord",
@@ -398,7 +402,9 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="approvalrequest",
-            index=models.Index(fields=["applicant"], name="idx_approval_applicant"),
+            index=models.Index(
+                fields=["applicant"],
+                name="idx_approval_applicant"),
         ),
         migrations.AddIndex(
             model_name="approvalrequest",
@@ -410,19 +416,27 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="approvalrequest",
-            index=models.Index(fields=["submit_time"], name="idx_approval_submit"),
+            index=models.Index(
+                fields=["submit_time"],
+                name="idx_approval_submit"),
         ),
         migrations.AddIndex(
             model_name="approvalrecord",
-            index=models.Index(fields=["request"], name="idx_approval_rec_request"),
+            index=models.Index(
+                fields=["request"],
+                name="idx_approval_rec_request"),
         ),
         migrations.AddIndex(
             model_name="approvalrecord",
-            index=models.Index(fields=["approver"], name="idx_approval_rec_approver"),
+            index=models.Index(
+                fields=["approver"],
+                name="idx_approval_rec_approver"),
         ),
         migrations.AddIndex(
             model_name="approvalrecord",
-            index=models.Index(fields=["result"], name="idx_approval_rec_result"),
+            index=models.Index(
+                fields=["result"],
+                name="idx_approval_rec_result"),
         ),
         migrations.AddIndex(
             model_name="approvalflow",

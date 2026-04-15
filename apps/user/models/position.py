@@ -1,5 +1,6 @@
 from django.db import models
 
+
 class Position(models.Model):
     """职位模型"""
     title = models.CharField(max_length=50, verbose_name="职位名称", default='')

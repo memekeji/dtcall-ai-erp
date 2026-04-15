@@ -2,7 +2,6 @@
 自定义会话中间件
 处理会话相关的异常，提供友好的错误处理和用户体验
 """
-from django.conf import settings
 from django.contrib.sessions.middleware import SessionMiddleware as DjangoSessionMiddleware
 from django.contrib.sessions.exceptions import SessionInterrupted
 from django.http import HttpResponseRedirect, JsonResponse, HttpResponse
@@ -25,7 +24,8 @@ class SessionMiddleware(DjangoSessionMiddleware):
         except SessionInterrupted:
             return self._handle_session_interrupted(request, response)
         except Exception as e:
-            if 'session' in str(e).lower() or 'SessionInterrupted' in str(type(e).__name__):
+            if 'session' in str(e).lower() or 'SessionInterrupted' in str(
+                    type(e).__name__):
                 return self._handle_session_interrupted(request, response)
             raise
 
@@ -40,7 +40,9 @@ class SessionMiddleware(DjangoSessionMiddleware):
             f"方法: {request.method}"
         )
 
-        is_ajax = request.META.get('HTTP_X_REQUESTED_WITH', '') == 'XMLHttpRequest'
+        is_ajax = request.META.get(
+            'HTTP_X_REQUESTED_WITH',
+            '') == 'XMLHttpRequest'
         login_url = reverse('user:login') + f'?next={request.path}'
 
         if is_ajax:

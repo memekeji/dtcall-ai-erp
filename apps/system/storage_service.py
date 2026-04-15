@@ -5,7 +5,6 @@ from abc import ABC, abstractmethod
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
-from django.utils import timezone
 from apps.system.models import StorageProvider
 
 logger = logging.getLogger(__name__)
@@ -17,37 +16,30 @@ class StorageBackend(ABC):
     @abstractmethod
     def save(self, name, content):
         """保存文件"""
-        pass
 
     @abstractmethod
     def open(self, name, mode='rb'):
         """打开文件"""
-        pass
 
     @abstractmethod
     def delete(self, name):
         """删除文件"""
-        pass
 
     @abstractmethod
     def exists(self, name):
         """检查文件是否存在"""
-        pass
 
     @abstractmethod
     def url(self, name):
         """获取文件URL"""
-        pass
 
     @abstractmethod
     def size(self, name):
         """获取文件大小"""
-        pass
 
     @abstractmethod
     def test_connection(self):
         """测试连接"""
-        pass
 
 
 class LocalStorageBackend(StorageBackend):
@@ -55,7 +47,8 @@ class LocalStorageBackend(StorageBackend):
 
     def __init__(self, config):
         self.config = config
-        self.base_path = config.local_path or os.path.join(settings.MEDIA_ROOT, 'uploads')
+        self.base_path = config.local_path or os.path.join(
+            settings.MEDIA_ROOT, 'uploads')
 
     def _get_full_path(self, name):
         return os.path.join(self.base_path, name)
@@ -131,7 +124,7 @@ class AliyunOSSBackend(StorageBackend):
 
     def save(self, name, content):
         full_name = f"{self.base_path}/{name}" if self.base_path else name
-        result = self.bucket.put_object(full_name, content.read())
+        self.bucket.put_object(full_name, content.read())
         return name
 
     def open(self, name, mode='rb'):
@@ -367,8 +360,6 @@ class BaiduBOSBackend(StorageBackend):
     def _get_client(self):
         try:
             from baidubce.services.bos.bos_client import BosClient
-            from baidubce import bce_http_client
-            from baidubce.auth import bce_v1_signer
             client = BosClient({
                 'credentials': {
                     'accessKeyId': self.config.access_key,
@@ -485,7 +476,6 @@ class QiniuKODOBackend(StorageBackend):
 
     def open(self, name, mode='rb'):
         full_name = f"{self.base_path}/{name}" if self.base_path else name
-        import qiniu
         bucket_manager = self._get_bucket_manager()
         ret, info = bucket_manager.fetch(
             f"http://{self.bucket_name}.{self.domain or 'qiniu.com'}/{full_name}",
@@ -496,13 +486,11 @@ class QiniuKODOBackend(StorageBackend):
 
     def delete(self, name):
         full_name = f"{self.base_path}/{name}" if self.base_path else name
-        import qiniu
         bucket_manager = self._get_bucket_manager()
         bucket_manager.delete(self.bucket_name, full_name)
 
     def exists(self, name):
         full_name = f"{self.base_path}/{name}" if self.base_path else name
-        import qiniu
         bucket_manager = self._get_bucket_manager()
         ret, info = bucket_manager.stat(self.bucket_name, full_name)
         return ret is not None
@@ -515,7 +503,6 @@ class QiniuKODOBackend(StorageBackend):
 
     def size(self, name):
         full_name = f"{self.base_path}/{name}" if self.base_path else name
-        import qiniu
         bucket_manager = self._get_bucket_manager()
         ret, info = bucket_manager.stat(self.bucket_name, full_name)
         if ret:
@@ -725,7 +712,8 @@ class WebDAVBackend(StorageBackend):
     def open(self, name, mode='rb'):
         full_path = f"{self.base_path}/{name}" if self.base_path else name
         import io
-        data = self.client.download_sync(local_path=full_path, remote_path=full_path)
+        data = self.client.download_sync(
+            local_path=full_path, remote_path=full_path)
         if isinstance(data, str):
             data = data.encode('utf-8')
         return io.BytesIO(data)
@@ -809,7 +797,8 @@ class StorageService:
             backend = self.get_backend(config)
             file_ext = os.path.splitext(file_obj.name)[1]
             unique_name = f"{uuid.uuid4().hex}{file_ext}"
-            full_path = os.path.join(path, unique_name) if path else unique_name
+            full_path = os.path.join(
+                path, unique_name) if path else unique_name
             return backend.save(full_path, file_obj)
         else:
             return default_storage.save(path, ContentFile(file_obj.read()))
@@ -836,7 +825,8 @@ class StorageService:
             return backend.exists(file_path)
         return default_storage.exists(file_path)
 
-    def test_cloud_storage(self, storage_type, access_key, secret_key, bucket_name, region='', endpoint=''):
+    def test_cloud_storage(self, storage_type, access_key,
+                           secret_key, bucket_name, region='', endpoint=''):
         """测试云存储配置"""
         try:
             if storage_type == 'aliyun':
@@ -846,35 +836,43 @@ class StorageService:
                 bucket = Bucket(auth, endpoint, bucket_name)
                 bucket.get_bucket_info()
                 return {'success': True, 'message': '阿里云OSS连接成功'}
-            
+
             elif storage_type == 'tencent':
                 from qcloud_cos import CosConfig, CosS3Client
                 region = region or 'ap-guangzhou'
-                config = CosConfig(secret_id=access_key, secret_key=secret_key, region=region)
+                config = CosConfig(
+                    secret_id=access_key,
+                    secret_key=secret_key,
+                    region=region)
                 client = CosS3Client(config)
                 client.head_object(Bucket=bucket_name, Key='test')
                 return {'success': True, 'message': '腾讯云COS连接成功'}
-            
+
             elif storage_type == 'huawei':
                 from obs import ObsClient
                 endpoint = endpoint or f'obs.{region}.myhuaweicloud.com' if region else 'obs.cn-north-4.myhuaweicloud.com'
-                obs_client = ObsClient(access_key=access_key, secret_key=secret_key, server=f'https://{endpoint}')
+                obs_client = ObsClient(
+                    access_key=access_key,
+                    secret_key=secret_key,
+                    server=f'https://{endpoint}')
                 obs_client.getBucketMetadata(bucketName=bucket_name)
                 return {'success': True, 'message': '华为云OBS连接成功'}
-            
+
             elif storage_type == 'baidu':
                 from baidubce.services.bos.bos_client import BosClient
-                from baidubce import bce_http_response
-                bos_client = BosClient(credentials={'access_key_id': access_key, 'secret_access_key': secret_key})
+                bos_client = BosClient(
+                    credentials={
+                        'access_key_id': access_key,
+                        'secret_access_key': secret_key})
                 bos_client.get_bucket_metadata(bucket_name)
                 return {'success': True, 'message': '百度云BOS连接成功'}
-            
+
             elif storage_type == 'qiniu':
                 from qiniu import Auth
                 auth = Auth(access_key, secret_key)
                 bucket = auth.bucket(bucket_name)
                 return {'success': True, 'message': '七牛云KODO连接成功'}
-            
+
             elif storage_type == 'aws':
                 import boto3
                 s3_client = boto3.client(
@@ -885,9 +883,9 @@ class StorageService:
                 )
                 s3_client.head_bucket(Bucket=bucket_name)
                 return {'success': True, 'message': 'AWS S3连接成功'}
-            
+
             return {'success': False, 'message': f'不支持的云存储类型: {storage_type}'}
-            
+
         except ImportError as e:
             return {'success': False, 'message': f'缺少依赖库: {str(e)}'}
         except Exception as e:
@@ -896,21 +894,18 @@ class StorageService:
     def test_nas_storage(self, host, port, share_path):
         """测试NAS存储配置"""
         try:
-            import smb
-            from smb.SMBHandler import SMBHandler
-            from urllib.request import build_opener
             import os
-            
+
             if port and port > 0:
                 mount_path = f"\\\\{host}:{port}\\{share_path}"
             else:
                 mount_path = f"\\\\{host}\\{share_path}"
-            
+
             if os.path.exists(mount_path):
                 return {'success': True, 'message': 'NAS存储路径可访问'}
-            
+
             return {'success': True, 'message': 'NAS配置已保存（请确保网络可达）'}
-            
+
         except Exception as e:
             return {'success': False, 'message': str(e)}
 
@@ -919,23 +914,23 @@ class StorageService:
         try:
             import requests
             from requests.auth import HTTPBasicAuth
-            import os
-            
+
             if not webdav_url.startswith('http'):
                 webdav_url = 'https://' + webdav_url
-            
+
             response = requests.request(
                 'OPTIONS',
                 webdav_url,
                 auth=HTTPBasicAuth(username, password) if username else None,
                 timeout=10
             )
-            
+
             if response.status_code in [200, 207]:
                 return {'success': True, 'message': 'WebDAV连接成功'}
             else:
-                return {'success': False, 'message': f'WebDAV连接失败: HTTP {response.status_code}'}
-                
+                return {'success': False,
+                        'message': f'WebDAV连接失败: HTTP {response.status_code}'}
+
         except requests.exceptions.ConnectionError:
             return {'success': False, 'message': '无法连接到WebDAV服务器'}
         except Exception as e:
@@ -944,32 +939,32 @@ class StorageService:
     def sync_file_to_all_storages(self, file_path, content):
         """同步文件到所有有效存储位置"""
         from apps.system.models import StorageConfiguration
-        
+
         success_count = 0
         fail_count = 0
         errors = []
-        
+
         active_configs = StorageConfiguration.objects.filter(status='active')
-        
+
         for config in active_configs:
             try:
                 backend = self.get_backend(config)
                 backend.save(file_path, content)
                 success_count += 1
-                
+
                 if config.sync_to_local:
                     try:
                         default_storage.save(file_path, content)
                     except Exception as local_err:
                         logger.warning(f'同步到本地存储失败: {local_err}')
-                        
+
             except Exception as e:
                 logger.error(f'同步文件到存储配置{config.pk}失败: {e}')
                 fail_count += 1
                 errors.append(f'{config.name}: {str(e)}')
-        
+
         return {
-            'success_count': success_count, 
+            'success_count': success_count,
             'fail_count': fail_count,
             'errors': errors,
             'total': success_count + fail_count
@@ -978,40 +973,41 @@ class StorageService:
     def save_file_with_sync(self, file_obj, path=''):
         """保存文件到默认存储，并可选同步到其他存储位置"""
         config = self.get_default_storage()
-        
+
         file_ext = os.path.splitext(file_obj.name)[1]
         unique_name = f"{uuid.uuid4().hex}{file_ext}"
         full_path = os.path.join(path, unique_name) if path else unique_name
-        
+
         if config:
             backend = self.get_backend(config)
             content = ContentFile(file_obj.read())
             backend.save(full_path, content)
-            
+
             if config.sync_to_local:
                 try:
                     default_storage.save(full_path, content)
                 except Exception as e:
                     logger.warning(f'同步到本地存储失败: {e}')
-            
+
             self._sync_to_secondary_storages(full_path, content)
-            
+
             return full_path
         else:
-            return default_storage.save(full_path, ContentFile(file_obj.read()))
+            return default_storage.save(
+                full_path, ContentFile(file_obj.read()))
 
     def _sync_to_secondary_storages(self, file_path, content):
         """将文件同步到辅助存储位置（除默认存储外的其他活动存储）"""
         from apps.system.models import StorageConfiguration
-        
+
         default_config = self.get_default_storage()
         if not default_config:
             return
-        
+
         secondary_configs = StorageConfiguration.objects.filter(
             status='active'
         ).exclude(pk=default_config.pk)
-        
+
         for config in secondary_configs:
             try:
                 if config.sync_to_local and config.storage_type == 'local':
@@ -1025,12 +1021,12 @@ class StorageService:
     def delete_file_from_all_storages(self, file_path):
         """从所有存储位置删除文件"""
         from apps.system.models import StorageConfiguration
-        
+
         deleted_count = 0
         fail_count = 0
-        
+
         configs = StorageConfiguration.objects.filter(status='active')
-        
+
         for config in configs:
             try:
                 backend = self.get_backend(config)
@@ -1039,12 +1035,12 @@ class StorageService:
             except Exception as e:
                 logger.error(f'从存储配置{config.pk}删除文件失败: {e}')
                 fail_count += 1
-        
+
         try:
             default_storage.delete(file_path)
         except Exception as e:
             logger.warning(f'从默认存储删除文件失败: {e}')
-        
+
         return {'deleted_count': deleted_count, 'fail_count': fail_count}
 
     def get_file_url(self, file_path):
@@ -1071,7 +1067,8 @@ class StorageService:
             return backend.size(file_path)
         return 0
 
-    def copy_file_to_storage(self, source_path, dest_path='', storage_config=None):
+    def copy_file_to_storage(
+            self, source_path, dest_path='', storage_config=None):
         """复制文件到指定存储"""
         if storage_config:
             backend = self.get_backend(storage_config)
@@ -1083,7 +1080,8 @@ class StorageService:
                 logger.error(f'复制文件到存储失败: {e}')
                 return None
         else:
-            return default_storage.save(dest_path, ContentFile(default_storage.open(source_path).read()))
+            return default_storage.save(dest_path, ContentFile(
+                default_storage.open(source_path).read()))
 
 
 storage_service = StorageService()

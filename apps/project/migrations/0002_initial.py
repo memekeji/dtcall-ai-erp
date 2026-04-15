@@ -248,10 +248,14 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="comment",
-            index=models.Index(fields=["user"], name="comment_user_id_bdf487_idx"),
+            index=models.Index(
+                fields=["user"],
+                name="comment_user_id_bdf487_idx"),
         ),
         migrations.AddIndex(
             model_name="comment",
-            index=models.Index(fields=["parent"], name="comment_parent__834718_idx"),
+            index=models.Index(
+                fields=["parent"],
+                name="comment_parent__834718_idx"),
         ),
     ]

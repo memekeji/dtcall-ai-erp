@@ -196,7 +196,7 @@ class WorkflowInteractionManager {
         layui.layer.open({
             type: 1,
             title: interaction.title,
-            area: ['500px', 'auto'],
+            area: ['80%', '100%'],
             content: dialog,
             maxmin: true,
             resize: true
@@ -395,7 +395,7 @@ class WorkflowInteractionManager {
         layui.layer.open({
             type: 1,
             title: '待处理交互',
-            area: ['400px', '500px'],
+            area: ['80%', '100%'],
             content: panel,
             shade: 0.3,
             maxmin: true

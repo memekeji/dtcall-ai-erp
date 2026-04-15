@@ -17,7 +17,13 @@ class ProjectStageForm(forms.ModelForm):
 class ProjectCategoryForm(forms.ModelForm):
     class Meta:
         model = ProjectCategory
-        fields = ['name', 'code', 'description', 'color', 'sort_order', 'is_active']
+        fields = [
+            'name',
+            'code',
+            'description',
+            'color',
+            'sort_order',
+            'is_active']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入分类名称'}),
             'code': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入分类代码'}),
@@ -30,7 +36,13 @@ class ProjectCategoryForm(forms.ModelForm):
 class WorkTypeForm(forms.ModelForm):
     class Meta:
         model = WorkType
-        fields = ['name', 'code', 'description', 'hourly_rate', 'sort_order', 'is_active']
+        fields = [
+            'name',
+            'code',
+            'description',
+            'hourly_rate',
+            'sort_order',
+            'is_active']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入类别名称'}),
             'code': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入类别代码'}),

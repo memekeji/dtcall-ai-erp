@@ -5,6 +5,7 @@ try:
 except ImportError:
     SystemConfig = None
 
+
 def validate_config_title(value, instance=None):
     """
     验证配置名称是否唯一
@@ -16,7 +17,8 @@ def validate_config_title(value, instance=None):
         queryset = queryset.exclude(pk=instance.pk)
     if queryset.exists():
         raise ValidationError(_('同样的配置名称已经存在'))
-        
+
+
 def validate_config_name(value, instance=None):
     """
     验证配置标识是否唯一
@@ -29,14 +31,15 @@ def validate_config_name(value, instance=None):
     if queryset.exists():
         raise ValidationError(_('同样的配置标识已经存在'))
 
+
 class SystemConfigValidator:
     @staticmethod
     def validate_add(data):
         errors = {}
-        
+
         if not SystemConfig:
             return errors
-        
+
         # 验证配置名称
         if not data.get('title'):
             errors['title'] = _('配置名称不能为空')
@@ -45,7 +48,7 @@ class SystemConfigValidator:
                 validate_config_title(data['title'])
             except ValidationError as e:
                 errors['title'] = str(e)
-                
+
         # 验证配置标识
         if not data.get('name'):
             errors['name'] = _('配置标识不能为空')
@@ -54,20 +57,20 @@ class SystemConfigValidator:
                 validate_config_name(data['name'])
             except ValidationError as e:
                 errors['name'] = str(e)
-                
+
         return errors
 
     @staticmethod
     def validate_edit(data):
         errors = {}
-        
+
         if not SystemConfig:
             return errors
-        
+
         # 验证ID
         if not data.get('id'):
             errors['id'] = _('缺少更新条件')
-            
+
         # 验证配置名称
         if not data.get('title'):
             errors['title'] = _('配置名称不能为空')
@@ -79,7 +82,7 @@ class SystemConfigValidator:
                 errors['id'] = _('无效的ID')
             except ValidationError as e:
                 errors['title'] = str(e)
-                
+
         # 验证配置标识
         if not data.get('name'):
             errors['name'] = _('配置标识不能为空')
@@ -91,5 +94,5 @@ class SystemConfigValidator:
                 errors['id'] = _('无效的ID')
             except ValidationError as e:
                 errors['name'] = str(e)
-                
+
         return errors

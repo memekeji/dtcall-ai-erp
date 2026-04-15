@@ -1,7 +1,7 @@
 {% extends "home/base.html" %}
 {% load static %}
 
-{% block title %}{{ page_title }}{% endblock %}
+{% block title %}{% if object %}编辑产品{% else %}新增产品{% endif %}{% endblock %}
 
 {% block css %}
 <style>
@@ -42,7 +42,7 @@
 {% block content %}
 <div class="layui-card">
     <div class="layui-card-header">
-        <h2>{{ page_title }}</h2>
+        <h2>{% if object %}编辑产品{% else %}新增产品{% endif %}</h2>
     </div>
     <div class="layui-card-body">
         <form class="layui-form" method="post">
@@ -91,12 +91,12 @@
             </div>
             
             <div class="layui-form-item">
-                <label class="layui-form-label">{{ form.category.label }}</label>
+                <label class="layui-form-label">{{ form.cate.label }}</label>
                 <div class="layui-input-block">
-                    {{ form.category }}
-                    {% if form.category.errors %}
+                    {{ form.cate }}
+                    {% if form.cate.errors %}
                     <div class="layui-form-mid layui-word-aux" style="color: #FF5722;">
-                        {% for error in form.category.errors %}
+                        {% for error in form.cate.errors %}
                         {{ error }}
                         {% endfor %}
                     </div>
@@ -105,12 +105,12 @@
             </div>
             
             <div class="layui-form-item">
-                <label class="layui-form-label">{{ form.specification.label }}</label>
+                <label class="layui-form-label">{{ form.specs.label }}</label>
                 <div class="layui-input-block">
-                    {{ form.specification }}
-                    {% if form.specification.errors %}
+                    {{ form.specs }}
+                    {% if form.specs.errors %}
                     <div class="layui-form-mid layui-word-aux" style="color: #FF5722;">
-                        {% for error in form.specification.errors %}
+                        {% for error in form.specs.errors %}
                         {{ error }}
                         {% endfor %}
                     </div>
@@ -147,40 +147,12 @@
             </div>
             
             <div class="layui-form-item">
-                <label class="layui-form-label">{{ form.cost.label }}</label>
+                <label class="layui-form-label">{{ form.remark.label }}</label>
                 <div class="layui-input-block">
-                    {{ form.cost }}
-                    {% if form.cost.errors %}
+                    {{ form.remark }}
+                    {% if form.remark.errors %}
                     <div class="layui-form-mid layui-word-aux" style="color: #FF5722;">
-                        {% for error in form.cost.errors %}
-                        {{ error }}
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <div class="layui-form-item">
-                <label class="layui-form-label">{{ form.is_active.label }}</label>
-                <div class="layui-input-block">
-                    {{ form.is_active }}
-                    {% if form.is_active.errors %}
-                    <div class="layui-form-mid layui-word-aux" style="color: #FF5722;">
-                        {% for error in form.is_active.errors %}
-                        {{ error }}
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <div class="layui-form-item">
-                <label class="layui-form-label">{{ form.description.label }}</label>
-                <div class="layui-input-block">
-                    {{ form.description }}
-                    {% if form.description.errors %}
-                    <div class="layui-form-mid layui-word-aux" style="color: #FF5722;">
-                        {% for error in form.description.errors %}
+                        {% for error in form.remark.errors %}
                         {{ error }}
                         {% endfor %}
                     </div>

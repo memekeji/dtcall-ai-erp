@@ -4,7 +4,7 @@ from apps.message.models import MessageCategory
 
 class Command(BaseCommand):
     help = '初始化消息分类数据'
-    
+
     def handle(self, *args, **options):
         categories = [
             {
@@ -48,7 +48,7 @@ class Command(BaseCommand):
                 'sort_order': 5
             }
         ]
-        
+
         for cat_data in categories:
             category, created = MessageCategory.objects.get_or_create(
                 code=cat_data['code'],
@@ -62,7 +62,7 @@ class Command(BaseCommand):
                 self.stdout.write(
                     self.style.WARNING(f'消息分类已存在: {category.name}')
                 )
-        
+
         self.stdout.write(
             self.style.SUCCESS('消息分类初始化完成!')
         )

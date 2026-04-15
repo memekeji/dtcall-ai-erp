@@ -8,16 +8,12 @@ from datetime import datetime, timedelta
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.exceptions import ValidationError
 from django.db import models, transaction
-from django.db.models import Prefetch, Exists, OuterRef, Q, Count
+from django.db.models import Prefetch, Q, Count
 from django.http import JsonResponse, HttpResponseRedirect
-from django.shortcuts import render, redirect, get_object_or_404
-from django.urls import reverse_lazy, reverse
+from django.shortcuts import render, get_object_or_404
+from django.urls import reverse_lazy
 from django.utils import timezone
-from django.utils.decorators import method_decorator
-from django.views.decorators.cache import never_cache
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.views.generic import (
     View, ListView, CreateView, DetailView, 
@@ -33,17 +29,15 @@ from apps.common.services import CommonService
 from .models import (
     Customer, CustomerGrade, CustomerSource, CustomerIntent, SpiderTask, 
     Contact, FollowRecord, CustomerField, CustomerCustomFieldValue,
-    CustomerOrder, CustomerContract, CustomerInvoice, CustomerOrderCustomFieldValue,
-    FollowField, OrderField
+    CustomerOrder, CustomerContract, CustomerOrderCustomFieldValue, FollowField,
+    OrderField
 )
 # 财务模块导入
-from apps.finance.models import Income, Payment
 # 用户模型导入
 from apps.user.models.admin import Admin
 from .forms import CustomerForm, ContactFormSet, CustomerFieldForm, FollowFieldForm, OrderFieldForm
 from .forms import CustomerSourceForm, CustomerGradeForm, CustomerIntentForm
 from .serializers import CustomerFieldSerializer
-from .filters import CustomerFilter
 
 logger = logging.getLogger(__name__)
 
@@ -56,8 +50,8 @@ class CustomerListView(LoginRequiredMixin, ListView):
     context_object_name = 'customers'
     
     def get_queryset(self):
-        # 只返回未删除的客户记录
-        queryset = super().get_queryset()
+        # 只返回未删除的客户记录，并预加载关联外键以解决 N+1 查询问题
+        queryset = super().get_queryset().select_related('customer_source', 'grade', 'industry')
         queryset = queryset.filter(delete_time=0)
         
         # 添加数据权限过滤
@@ -549,7 +543,7 @@ class CustomerCreateView(LoginRequiredMixin, CreateView):
             if project_record and hasattr(project_record, 'id'):
                 invoice_data['project_id'] = project_record.id
             
-            invoice_record = Invoice.objects.create(**invoice_data)
+            Invoice.objects.create(**invoice_data)
         except Exception as e:
             logger.error(f"创建发票记录失败: {e}")
     
@@ -773,7 +767,7 @@ class CustomerDetailView(LoginRequiredMixin, DetailView):
         
         # 获取客户发票记录 - 整合客户模块和财务模块的发票记录
         try:
-            from apps.finance.models_new import Invoice as FinanceInvoice
+            from apps.finance.models import Invoice as FinanceInvoice
             from apps.customer.models import CustomerInvoice
             customer_invoices = CustomerInvoice.objects.filter(customer_id=self.object.id, delete_time=0)[:5]
             
@@ -799,7 +793,7 @@ class CustomerDetailView(LoginRequiredMixin, DetailView):
         
         # 获取客户财务往来记录 - 直接列表显示（按日期排序）
         try:
-            from apps.finance.models_new import Invoice as FinanceInvoice, Income, Payment
+            from apps.finance.models import Invoice as FinanceInvoice, Income, Payment
             from apps.customer.models import CustomerInvoice
             all_invoices = CustomerInvoice.objects.filter(customer=self.object.id, delete_time=0).order_by('-id')[:20]
             
@@ -1212,8 +1206,8 @@ class PublicCustomerListView(LoginRequiredMixin, ListView):
     context_object_name = 'customers'
 
     def get_queryset(self):
-        # 公海客户：没有归属人且未废弃的客户
-        return Customer.objects.filter(delete_time=0, belong_uid=0, discard_time=0)
+        # 公海客户：没有归属人且未废弃的客户，并预加载关联外键以解决 N+1 查询问题
+        return Customer.objects.select_related('customer_source', 'grade', 'industry').filter(delete_time=0, belong_uid=0, discard_time=0)
 
 class PublicCustomerListDataView(LoginRequiredMixin, View):
     """公海客户列表数据API"""
@@ -1695,7 +1689,7 @@ class CustomerOrderListView(LoginRequiredMixin, ListView):
         user = self.request.user
         if hasattr(user, 'is_superuser') and user.is_superuser:
             # 超级管理员可以查看所有订单
-            return CustomerOrder.objects.filter(delete_time=0)
+            return CustomerOrder.objects.select_related('customer').filter(delete_time=0)
         else:
             # 获取当前用户有权限查看的客户
             allowed_customers = Customer.objects.filter(
@@ -1703,7 +1697,7 @@ class CustomerOrderListView(LoginRequiredMixin, ListView):
                 models.Q(share_ids__contains=str(user.id))
             ).filter(delete_time=0)
             # 只显示这些客户的订单
-            return CustomerOrder.objects.filter(
+            return CustomerOrder.objects.select_related('customer').filter(
                 customer__in=allowed_customers,
                 delete_time=0
             )
@@ -1792,7 +1786,7 @@ class CustomerOrderCreateView(LoginRequiredMixin, View):
                 contracts = customer.contracts.filter(delete_time=0)
                 
                 # 获取产品分类和产品数据
-                from apps.contract.models import ProductCate, Product
+                from apps.contract.models import ProductCate
                 product_categories = ProductCate.objects.filter(status=1).prefetch_related('product_set')
                 
                 # 获取所有启用的自定义订单字段
@@ -1977,8 +1971,7 @@ class CustomerOrderCreateView(LoginRequiredMixin, View):
         
         # 3. 生成待收款记录
         try:
-            from apps.finance.models_new import Invoice as FinanceInvoice
-            from apps.customer.models import CustomerInvoice
+            from apps.finance.models import Invoice as FinanceInvoice
             invoice_data = {
                 'code': f"INV-ORD-{order.order_number}-{int(time.time())}",
                 'customer_id': order.customer_id,
@@ -2664,7 +2657,6 @@ class CallRecordListDataView(LoginRequiredMixin, View):
 
 # 批量导入相关功能
 import os
-import tempfile
 import pandas as pd
 from django.http import HttpResponse
 from django.core.cache import cache
@@ -2796,7 +2788,7 @@ def process_import(request):
         task_id = str(uuid.uuid4())
         
         # 异步处理导入（这里简化为同步处理）
-        result = _process_import_data(file_info['file_path'], field_mapping, request.user, task_id)
+        _process_import_data(file_info['file_path'], field_mapping, request.user, task_id)
         
         return JsonResponse({
             'code': 0,
@@ -3255,10 +3247,8 @@ def sip_call(request):
     """SIP拨号接口"""
     import requests
     import time
-    import json
     from django.http import JsonResponse
     from .models import CallRecord
-    from apps.user.models.admin import Admin
     from apps.system.config_service import config_service
     
     try:
@@ -3853,7 +3843,6 @@ class ContractAddView(LoginRequiredMixin, View):
     def post(self, request):
         """处理合同添加表单提交"""
         from django.http import JsonResponse
-        from django.forms.models import model_to_dict
         import json
         
         try:
@@ -4125,7 +4114,6 @@ from django.http import JsonResponse
 from django.db.models import Q
 from django.utils import timezone
 from django.core.paginator import Paginator
-from decimal import Decimal
 from datetime import datetime
 import json
 

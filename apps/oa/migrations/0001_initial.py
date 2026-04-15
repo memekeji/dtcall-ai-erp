@@ -22,7 +22,8 @@ class Migration(migrations.Migration):
                         verbose_name="ID",
                     ),
                 ),
-                ("action_id", models.IntegerField(default=0, verbose_name="审批内容ID")),
+                ("action_id", models.IntegerField(
+                    default=0, verbose_name="审批内容ID")),
                 (
                     "check_type",
                     models.SmallIntegerField(
@@ -40,7 +41,8 @@ class Migration(migrations.Migration):
                 ("flow_id", models.IntegerField(default=0, verbose_name="审批流程ID")),
                 ("step_id", models.IntegerField(default=0, verbose_name="审批步骤ID")),
                 ("check_uid", models.IntegerField(default=0, verbose_name="审批人ID")),
-                ("check_time", models.BigIntegerField(default=0, verbose_name="审批时间")),
+                ("check_time", models.BigIntegerField(
+                    default=0, verbose_name="审批时间")),
                 (
                     "check_status",
                     models.SmallIntegerField(
@@ -51,9 +53,11 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "content",
-                    models.CharField(default="", max_length=500, verbose_name="审批意见"),
+                    models.CharField(
+                        default="", max_length=500, verbose_name="审批意见"),
                 ),
-                ("delete_time", models.BigIntegerField(default=0, verbose_name="删除时间")),
+                ("delete_time", models.BigIntegerField(
+                    default=0, verbose_name="删除时间")),
             ],
             options={
                 "verbose_name": "审批记录",
@@ -100,7 +104,8 @@ class Migration(migrations.Migration):
                 ("name", models.CharField(max_length=100, verbose_name="流程名称")),
                 (
                     "code",
-                    models.CharField(max_length=50, unique=True, verbose_name="流程代码"),
+                    models.CharField(
+                        max_length=50, unique=True, verbose_name="流程代码"),
                 ),
                 ("description", models.TextField(blank=True, verbose_name="流程描述")),
                 (
@@ -118,7 +123,8 @@ class Migration(migrations.Migration):
                         verbose_name="流程类型",
                     ),
                 ),
-                ("is_active", models.BooleanField(default=True, verbose_name="是否启用")),
+                ("is_active", models.BooleanField(
+                    default=True, verbose_name="是否启用")),
                 (
                     "is_default",
                     models.BooleanField(default=False, verbose_name="是否默认流程"),
@@ -170,7 +176,8 @@ class Migration(migrations.Migration):
                 ("comment", models.TextField(blank=True, verbose_name="审批意见")),
                 (
                     "approval_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="审批时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="审批时间"),
                 ),
             ],
             options={
@@ -236,11 +243,13 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "submit_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="提交时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="提交时间"),
                 ),
                 (
                     "complete_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="完成时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="完成时间"),
                 ),
                 ("attachments", models.TextField(blank=True, verbose_name="附件列表")),
             ],
@@ -291,8 +300,10 @@ class Migration(migrations.Migration):
                         verbose_name="审批人类型",
                     ),
                 ),
-                ("is_required", models.BooleanField(default=True, verbose_name="是否必须")),
-                ("can_skip", models.BooleanField(default=False, verbose_name="是否可跳过")),
+                ("is_required", models.BooleanField(
+                    default=True, verbose_name="是否必须")),
+                ("can_skip", models.BooleanField(
+                    default=False, verbose_name="是否可跳过")),
                 (
                     "timeout_hours",
                     models.IntegerField(default=24, verbose_name="超时时间(小时)"),
@@ -360,10 +371,12 @@ class Migration(migrations.Migration):
                 ),
                 ("meeting_date", models.DateTimeField(verbose_name="会议开始时间")),
                 ("meeting_end_time", models.DateTimeField(verbose_name="会议结束时间")),
-                ("duration", models.IntegerField(default=60, verbose_name="会议时长(分钟)")),
+                ("duration", models.IntegerField(
+                    default=60, verbose_name="会议时长(分钟)")),
                 (
                     "location",
-                    models.CharField(blank=True, max_length=200, verbose_name="会议地点"),
+                    models.CharField(
+                        blank=True, max_length=200, verbose_name="会议地点"),
                 ),
                 (
                     "status",
@@ -388,7 +401,8 @@ class Migration(migrations.Migration):
                 ("action_items", models.TextField(blank=True, verbose_name="行动项")),
                 (
                     "next_meeting",
-                    models.DateTimeField(blank=True, null=True, verbose_name="下次会议时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="下次会议时间"),
                 ),
                 ("attachments", models.TextField(blank=True, verbose_name="会议附件")),
                 (
@@ -404,7 +418,8 @@ class Migration(migrations.Migration):
                     "rating",
                     models.IntegerField(
                         blank=True,
-                        choices=[(1, "1分"), (2, "2分"), (3, "3分"), (4, "4分"), (5, "5分")],
+                        choices=[
+                            (1, "1分"), (2, "2分"), (3, "3分"), (4, "4分"), (5, "5分")],
                         null=True,
                         verbose_name="会议评分",
                     ),
@@ -514,7 +529,8 @@ class Migration(migrations.Migration):
                 ("name", models.CharField(max_length=100, verbose_name="会议室名称")),
                 (
                     "code",
-                    models.CharField(max_length=50, unique=True, verbose_name="会议室编号"),
+                    models.CharField(
+                        max_length=50, unique=True, verbose_name="会议室编号"),
                 ),
                 ("location", models.CharField(max_length=200, verbose_name="会议室位置")),
                 ("capacity", models.IntegerField(default=10, verbose_name="容纳人数")),
@@ -527,9 +543,12 @@ class Migration(migrations.Migration):
                     models.BooleanField(default=False, verbose_name="是否有白板"),
                 ),
                 ("has_tv", models.BooleanField(default=False, verbose_name="是否有电视")),
-                ("has_phone", models.BooleanField(default=False, verbose_name="是否有电话")),
-                ("has_wifi", models.BooleanField(default=True, verbose_name="是否有WiFi")),
-                ("equipment_list", models.TextField(blank=True, verbose_name="设备清单")),
+                ("has_phone", models.BooleanField(
+                    default=False, verbose_name="是否有电话")),
+                ("has_wifi", models.BooleanField(
+                    default=True, verbose_name="是否有WiFi")),
+                ("equipment_list", models.TextField(
+                    blank=True, verbose_name="设备清单")),
                 ("description", models.TextField(blank=True, verbose_name="会议室描述")),
                 (
                     "status",
@@ -627,10 +646,12 @@ class Migration(migrations.Migration):
                         verbose_name="优先级",
                     ),
                 ),
-                ("is_draft", models.BooleanField(default=False, verbose_name="是否草稿")),
+                ("is_draft", models.BooleanField(
+                    default=False, verbose_name="是否草稿")),
                 (
                     "send_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="发送时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="发送时间"),
                 ),
                 ("attachments", models.TextField(blank=True, verbose_name="附件列表")),
             ],
@@ -655,30 +676,38 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "work_id",
-                    models.PositiveIntegerField(default=0, verbose_name="汇报工作ID"),
+                    models.PositiveIntegerField(
+                        default=0, verbose_name="汇报工作ID"),
                 ),
                 (
                     "title",
-                    models.CharField(default="", max_length=255, verbose_name="标题"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="标题"),
                 ),
                 ("start_time", models.DateTimeField(verbose_name="开始时间")),
                 ("end_time", models.DateTimeField(verbose_name="结束时间")),
                 ("labor_time", models.FloatField(default=0.0, verbose_name="工时")),
                 ("admin_id", models.IntegerField(default=1, verbose_name="用户ID")),
                 ("did", models.IntegerField(default=1, verbose_name="部门ID")),
-                ("labor_type", models.IntegerField(default=1, verbose_name="工作类型")),
+                ("labor_type", models.IntegerField(
+                    default=1, verbose_name="工作类型")),
                 (
                     "cid",
-                    models.IntegerField(blank=True, null=True, verbose_name="工作分类ID"),
+                    models.IntegerField(
+                        blank=True, null=True, verbose_name="工作分类ID"),
                 ),
                 (
                     "tid",
-                    models.IntegerField(blank=True, null=True, verbose_name="任务ID"),
+                    models.IntegerField(
+                        blank=True, null=True, verbose_name="任务ID"),
                 ),
                 ("content", models.TextField(blank=True, verbose_name="内容")),
-                ("delete_time", models.BigIntegerField(default=0, verbose_name="删除时间")),
-                ("create_time", models.BigIntegerField(default=0, verbose_name="创建时间")),
-                ("update_time", models.BigIntegerField(default=0, verbose_name="更新时间")),
+                ("delete_time", models.BigIntegerField(
+                    default=0, verbose_name="删除时间")),
+                ("create_time", models.BigIntegerField(
+                    default=0, verbose_name="创建时间")),
+                ("update_time", models.BigIntegerField(
+                    default=0, verbose_name="更新时间")),
             ],
             options={
                 "verbose_name": "工作日程",
@@ -713,7 +742,8 @@ class Migration(migrations.Migration):
                 ("is_read", models.BooleanField(default=False, verbose_name="是否已读")),
                 (
                     "read_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="阅读时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="阅读时间"),
                 ),
                 (
                     "message",

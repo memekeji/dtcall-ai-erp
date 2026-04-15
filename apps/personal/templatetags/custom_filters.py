@@ -2,6 +2,7 @@ from django import template
 
 register = template.Library()
 
+
 @register.filter(name='splitlines')
 def splitlines(value):
     """将文本按换行符分割成列表"""

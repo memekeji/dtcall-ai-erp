@@ -4,6 +4,7 @@ from captcha.models import CaptchaStore
 from captcha.helpers import captcha_image_url
 import json
 
+
 @require_GET
 def captcha_image(request, key):
     try:
@@ -18,6 +19,7 @@ def captcha_image(request, key):
             'status': 0,
             'error': 'Invalid captcha key'
         }), status=400)
+
 
 @require_GET
 def refresh_captcha(request):

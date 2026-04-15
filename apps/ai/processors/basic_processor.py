@@ -8,19 +8,19 @@ from .base_processor import BaseNodeProcessor, NodeProcessorRegistry
 @NodeProcessorRegistry.register('start')
 class StartProcessor(BaseNodeProcessor):
     """开始节点处理器"""
-    
+
     @classmethod
     def get_display_name(cls):
         return "开始节点"
-    
+
     @classmethod
     def get_icon(cls):
         return "layui-icon-play"
-    
+
     @classmethod
     def get_description(cls):
         return "工作流开始节点"
-    
+
     def _get_config_schema(self) -> dict:
         """获取开始节点的配置模式"""
         return {
@@ -253,14 +253,14 @@ class StartProcessor(BaseNodeProcessor):
                 'depends_on': {'trigger_type': 'api'}
             }
         }
-    
+
     def execute(self, config: dict, context: dict) -> dict:
         """执行开始节点逻辑"""
         trigger_type = config.get('trigger_type', 'manual')
         input_config = config.get('input_config', {})
         input_type = input_config.get('input_type', 'text')
         output_var = input_config.get('output_variable', 'input_data')
-        
+
         # 处理不同类型的输入
         input_data = {}
         if input_type == 'text':
@@ -275,12 +275,12 @@ class StartProcessor(BaseNodeProcessor):
         elif input_type == 'image':
             image_config = input_config.get('image_config', {})
             input_data = {
-                'type': 'image',
-                'accept_types': image_config.get('accept_types', ['jpg', 'jpeg', 'png', 'gif', 'webp']),
-                'max_size': image_config.get('max_size', 10),
-                'min_width': image_config.get('min_width', 0),
-                'min_height': image_config.get('min_height', 0)
-            }
+                'type': 'image', 'accept_types': image_config.get(
+                    'accept_types', [
+                        'jpg', 'jpeg', 'png', 'gif', 'webp']), 'max_size': image_config.get(
+                    'max_size', 10), 'min_width': image_config.get(
+                    'min_width', 0), 'min_height': image_config.get(
+                        'min_height', 0)}
         elif input_type == 'file':
             file_config = input_config.get('file_config', {})
             input_data = {
@@ -306,10 +306,10 @@ class StartProcessor(BaseNodeProcessor):
                 'default_value': default_value,
                 'value': context.get(var_name, default_value)
             }
-        
+
         # 将输入数据存储到上下文中
         context[output_var] = input_data
-        
+
         return {
             'trigger_type': trigger_type,
             'input_type': input_type,
@@ -323,19 +323,19 @@ class StartProcessor(BaseNodeProcessor):
 @NodeProcessorRegistry.register('end')
 class EndProcessor(BaseNodeProcessor):
     """结束节点处理器"""
-    
+
     @classmethod
     def get_display_name(cls):
         return "结束节点"
-    
+
     @classmethod
     def get_icon(cls):
         return "layui-icon-ok"
-    
+
     @classmethod
     def get_description(cls):
         return "工作流结束节点"
-    
+
     def _get_config_schema(self) -> dict:
         """获取结束节点的配置模式"""
         return {
@@ -394,17 +394,17 @@ class EndProcessor(BaseNodeProcessor):
                 'depends_on': {'notify_on_complete': True}
             }
         }
-    
+
     def execute(self, config: dict, context: dict) -> dict:
         """执行结束节点逻辑"""
         result_type = config.get('result_type', 'success')
         output_data = config.get('output_data', {})
         save_result = config.get('save_result', True)
         notify_on_complete = config.get('notify_on_complete', False)
-        
+
         # 合并输出数据到结果中
         result_data = {**context, **output_data}
-        
+
         result = {
             'result_type': result_type,
             'success': True,
@@ -413,31 +413,32 @@ class EndProcessor(BaseNodeProcessor):
             'save_result': save_result,
             'notify_on_complete': notify_on_complete
         }
-        
+
         return result
 
 
 @NodeProcessorRegistry.register('loop')
 class LoopProcessor(BaseNodeProcessor):
     """循环节点处理器 - 使用 enhanced_processors 中的增强版本"""
-    
+
     @classmethod
     def get_display_name(cls):
         return "循环处理"
-    
+
     @classmethod
     def get_icon(cls):
         return "layui-icon-refresh"
-    
+
     @classmethod
     def get_description(cls):
         return "循环执行子节点，支持For/While/Foreach循环"
-    
+
     def _get_config_schema(self) -> dict:
         """获取循环节点的配置模式"""
         from .enhanced_processors import LoopProcessor as EnhancedLoopProcessor
-        return EnhancedLoopProcessor(node_type_code='loop')._get_config_schema()
-    
+        return EnhancedLoopProcessor(
+            node_type_code='loop')._get_config_schema()
+
     def execute(self, config: dict, context: dict) -> dict:
         """执行循环节点逻辑"""
         from .enhanced_processors import LoopProcessor as EnhancedLoopProcessor
@@ -452,19 +453,19 @@ class LoopProcessor(BaseNodeProcessor):
 @NodeProcessorRegistry.register('parallel')
 class ParallelProcessor(BaseNodeProcessor):
     """并行处理节点处理器"""
-    
+
     @classmethod
     def get_display_name(cls):
         return "并行处理节点"
-    
+
     @classmethod
     def get_icon(cls):
         return "layui-icon-layer"
-    
+
     @classmethod
     def get_description(cls):
         return "并行执行多个子节点"
-    
+
     def _get_config_schema(self) -> dict:
         """获取并行处理节点的配置模式"""
         return {
@@ -533,7 +534,7 @@ class ParallelProcessor(BaseNodeProcessor):
                 'depends_on': {'join_strategy': 'custom'}
             }
         }
-    
+
     def execute(self, config: dict, context: dict) -> dict:
         """执行并行处理节点逻辑"""
         parallel_type = config.get('parallel_type', 'all')
@@ -541,7 +542,7 @@ class ParallelProcessor(BaseNodeProcessor):
         timeout = config.get('timeout', 300)
         error_handling = config.get('error_handling', 'fail_fast')
         join_strategy = config.get('join_strategy', 'merge')
-        
+
         return {
             'parallel_type': parallel_type,
             'max_parallel': max_parallel,

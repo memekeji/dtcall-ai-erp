@@ -13,12 +13,15 @@ User = get_user_model()
 class EmployeeForm(forms.ModelForm):
     """员工表单 - 用于Admin模型的创建和编辑"""
     password = forms.CharField(
-        max_length=128, 
-        required=False, 
-        widget=forms.PasswordInput(attrs={'class': 'layui-input', 'placeholder': '请输入密码'}),
+        max_length=128,
+        required=False,
+        widget=forms.PasswordInput(
+            attrs={
+                'class': 'layui-input',
+                'placeholder': '请输入密码'}),
         label='密码'
     )
-    
+
     class Meta:
         model = Admin
         fields = [
@@ -46,28 +49,32 @@ class EmployeeForm(forms.ModelForm):
             'sip_password': forms.PasswordInput(attrs={'class': 'layui-input', 'placeholder': '请输入SIP密码'}),
             'desc': forms.Textarea(attrs={'class': 'layui-textarea', 'placeholder': '请输入备注信息', 'rows': 4}),
         }
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # 设置部门选择框的选项
         departments = Department.objects.filter(status=1).order_by('name')
-        self.fields['did'].widget.choices = [(0, '请选择主部门')] + [(dept.id, dept.name) for dept in departments]
+        self.fields['did'].widget.choices = [
+            (0, '请选择主部门')] + [(dept.id, dept.name) for dept in departments]
         self.fields['did'].required = True  # 主部门必填
-        
+
         # 设置次要部门选择框的查询集
-        self.fields['secondary_departments'].queryset = Department.objects.filter(status=1).order_by('name')
+        self.fields['secondary_departments'].queryset = Department.objects.filter(
+            status=1).order_by('name')
         self.fields['secondary_departments'].required = False  # 次要部门非必填
-        
+
         # 设置岗位职称选择框的选项
         positions = Position.objects.filter(status=True).order_by('title')
-        self.fields['position_id'].widget.choices = [(0, '请选择岗位职称')] + [(pos.id, pos.title) for pos in positions]
+        self.fields['position_id'].widget.choices = [
+            (0, '请选择岗位职称')] + [(pos.id, pos.title) for pos in positions]
         self.fields['position_id'].required = True  # 岗位职称必填
-        
+
         # 设置上级主管选择框的选项
         admins = Admin.objects.filter(status=1).order_by('name')
-        self.fields['pid'].widget.choices = [(0, '请选择上级主管')] + [(admin.id, admin.name) for admin in admins]
+        self.fields['pid'].widget.choices = [
+            (0, '请选择上级主管')] + [(admin.id, admin.name) for admin in admins]
         self.fields['pid'].required = False  # 上级主管非必填
-        
+
         # 设置员工类型选择
         self.fields['type'].widget.choices = [
             ('', '请选择员工类型'),
@@ -77,7 +84,7 @@ class EmployeeForm(forms.ModelForm):
             ('外包员工', '外包员工'),
         ]
         self.fields['type'].required = True  # 员工类型必填
-        
+
         # 设置状态选择
         self.fields['status'].choices = [
             (1, '正常'),
@@ -86,28 +93,29 @@ class EmployeeForm(forms.ModelForm):
             (2, '离职'),
         ]
         self.fields['status'].required = True  # 状态必填
-        
+
         # 设置其他必填字段
         self.fields['username'].required = True  # 登录账号必填
         self.fields['name'].required = True  # 员工姓名必填
         self.fields['mobile'].required = True  # 手机号码必填
         self.fields['entry_time'].required = True  # 入职日期必填
-        
+
         # 密码字段处理
         if self.instance and self.instance.pk:
             # 编辑模式：密码非必填
             self.fields['password'].required = False
-            
+
             # 显示当前SIP密码（明文存储）
             self.initial['sip_password'] = self.instance.sip_password
-            
+
             # 初始化次要部门
             if self.instance.secondary_departments.exists():
-                self.initial['secondary_departments'] = list(self.instance.secondary_departments.values_list('id', flat=True))
+                self.initial['secondary_departments'] = list(
+                    self.instance.secondary_departments.values_list('id', flat=True))
         else:
             # 创建模式：密码必填
             self.fields['password'].required = True
-        
+
         # 非必填字段
         self.fields['email'].required = False  # 电子邮箱非必填
         self.fields['thumb'].required = False  # 头像非必填
@@ -116,48 +124,50 @@ class EmployeeForm(forms.ModelForm):
         self.fields['sip_account'].required = False  # SIP账号非必填
         self.fields['sip_password'].required = False  # SIP密码非必填
         self.fields['desc'].required = False  # 备注信息非必填
-    
+
     def clean(self):
         cleaned_data = super().clean()
-        
+
         if self.instance and self.instance.pk:
             # 处理登录密码
             if not cleaned_data.get('password'):
                 # 密码字段为空，移除密码字段，避免覆盖原密码
                 cleaned_data.pop('password', None)
-            
+
             # 处理SIP密码
             if not cleaned_data.get('sip_password'):
                 # SIP密码字段为空，移除SIP密码字段，避免覆盖原SIP密码
                 cleaned_data.pop('sip_password', None)
-        
+
         return cleaned_data
-    
+
     def save(self, commit=True):
         user = super().save(commit=False)
-        
+
         # 只有在提供了新密码时，才设置密码
         if 'password' in self.cleaned_data and self.cleaned_data['password']:
             user.set_password(self.cleaned_data['password'])
-        
+
         # 只有在提供了新SIP密码时，才设置SIP密码
         if 'sip_password' in self.cleaned_data and self.cleaned_data['sip_password']:
             user.sip_password = self.cleaned_data['sip_password']
-        
+
         # 更新position_name字段为对应Position模型的title
         if 'position_id' in self.cleaned_data and self.cleaned_data['position_id']:
             try:
-                position = Position.objects.get(id=self.cleaned_data['position_id'])
+                position = Position.objects.get(
+                    id=self.cleaned_data['position_id'])
                 user.position_name = position.title
             except Position.DoesNotExist:
                 user.position_name = ''
-        
+
         if commit:
             user.save()
             # 处理次要部门
             if 'secondary_departments' in self.cleaned_data:
-                user.secondary_departments.set(self.cleaned_data['secondary_departments'])
-        
+                user.secondary_departments.set(
+                    self.cleaned_data['secondary_departments'])
+
         return user
 
 
@@ -197,14 +207,15 @@ class EmployeeFileForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['employee'].queryset = Admin.objects.filter(status=1).order_by('username')
+        self.fields['employee'].queryset = Admin.objects.filter(
+            status=1).order_by('username')
 
 
 class EmployeeTransferForm(forms.ModelForm):
     class Meta:
         model = EmployeeTransfer
         fields = [
-            'employee', 'from_department', 'to_department', 'from_position', 
+            'employee', 'from_department', 'to_department', 'from_position',
             'to_position', 'transfer_reason', 'transfer_date'
         ]
         widgets = {
@@ -219,16 +230,19 @@ class EmployeeTransferForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['employee'].queryset = Admin.objects.filter(status=1).order_by('username')
-        self.fields['from_department'].queryset = Department.objects.filter(status=1).order_by('name')
-        self.fields['to_department'].queryset = Department.objects.filter(status=1).order_by('name')
+        self.fields['employee'].queryset = Admin.objects.filter(
+            status=1).order_by('username')
+        self.fields['from_department'].queryset = Department.objects.filter(
+            status=1).order_by('name')
+        self.fields['to_department'].queryset = Department.objects.filter(
+            status=1).order_by('name')
 
 
 class EmployeeDimissionForm(forms.ModelForm):
     class Meta:
         model = EmployeeDimission
         fields = [
-            'employee', 'dimission_type', 'dimission_reason', 'apply_date', 
+            'employee', 'dimission_type', 'dimission_reason', 'apply_date',
             'dimission_date', 'handover_person', 'handover_content'
         ]
         widgets = {
@@ -243,8 +257,10 @@ class EmployeeDimissionForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['employee'].queryset = Admin.objects.filter(status=1).order_by('username')
-        self.fields['handover_person'].queryset = Admin.objects.filter(status=1).order_by('username')
+        self.fields['employee'].queryset = Admin.objects.filter(
+            status=1).order_by('username')
+        self.fields['handover_person'].queryset = Admin.objects.filter(
+            status=1).order_by('username')
         self.fields['handover_person'].empty_label = "请选择交接人"
 
 
@@ -252,7 +268,7 @@ class RewardPunishmentForm(forms.ModelForm):
     class Meta:
         model = RewardPunishment
         fields = [
-            'employee', 'type', 'level', 'title', 'reason', 
+            'employee', 'type', 'level', 'title', 'reason',
             'amount', 'effective_date', 'remarks'
         ]
         widgets = {
@@ -268,14 +284,15 @@ class RewardPunishmentForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['employee'].queryset = Admin.objects.filter(status=1).order_by('username')
+        self.fields['employee'].queryset = Admin.objects.filter(
+            status=1).order_by('username')
 
 
 class EmployeeCareForm(forms.ModelForm):
     class Meta:
         model = EmployeeCare
         fields = [
-            'employee', 'care_type', 'title', 'content', 
+            'employee', 'care_type', 'title', 'content',
             'care_date', 'amount', 'remarks'
         ]
         widgets = {
@@ -290,14 +307,15 @@ class EmployeeCareForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['employee'].queryset = Admin.objects.filter(status=1).order_by('username')
+        self.fields['employee'].queryset = Admin.objects.filter(
+            status=1).order_by('username')
 
 
 class EmployeeContractForm(forms.ModelForm):
     class Meta:
         model = EmployeeContract
         fields = [
-            'employee', 'contract_type', 'contract_number', 'start_date', 
+            'employee', 'contract_type', 'contract_number', 'start_date',
             'end_date', 'salary', 'position', 'department', 'remarks'
         ]
         widgets = {
@@ -314,4 +332,5 @@ class EmployeeContractForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['employee'].queryset = Admin.objects.filter(status=1).order_by('username')
+        self.fields['employee'].queryset = Admin.objects.filter(
+            status=1).order_by('username')

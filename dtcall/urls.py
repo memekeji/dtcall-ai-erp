@@ -8,9 +8,9 @@ from django.urls import path, include, re_path
 from django.views.generic import RedirectView, TemplateView
 import apps.user.views.captcha_views
 from apps.user.views import admin_views
+from apps.project import views as project_views
 from django.conf import settings
 from django.conf.urls.static import static
-from django.views.generic.base import RedirectView
 from apps.home import views as home_views
 # JWT认证视图
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView, TokenVerifyView
@@ -359,11 +359,13 @@ urlpatterns = [
     path('adm/project/detail/<int:project_id>/', RedirectView.as_view(url='/project/detail/%(project_id)s/', permanent=True)),
     path('adm/project/edit/<int:project_id>/', RedirectView.as_view(url='/project/edit/%(project_id)s/', permanent=True)),
     path('adm/project/add/', RedirectView.as_view(url='/project/add/', permanent=True, query_string=True)),
-    path('adm/project/document/add/', RedirectView.as_view(url='/project/document/add/', permanent=False, query_string=True)),
-    path('adm/project/document/upload/', RedirectView.as_view(url='/project/document/upload/', permanent=False)),
-    path('adm/project/document/edit/<int:doc_id>/', RedirectView.as_view(url='/project/document/edit/%(doc_id)s/', permanent=False)),
-    path('adm/project/document/delete/<int:doc_id>/', RedirectView.as_view(url='/project/document/delete/%(doc_id)s/', permanent=False)),
-    path('adm/project/document/detail/<int:doc_id>/', RedirectView.as_view(url='/project/document/detail/%(doc_id)s/', permanent=False)),
+    path('adm/project/document/', project_views.ProjectDocumentListView.as_view(), name='adm_project_document'),
+    path('adm/project/document/datalist/', project_views.ProjectDocumentListView.as_view(), name='adm_project_document_datalist'),
+    path('adm/project/document/add/', project_views.ProjectDocumentAddView.as_view(), name='adm_project_document_add'),
+    path('adm/project/document/upload/', project_views.ProjectDocumentUploadView.as_view(), name='adm_project_document_upload'),
+    path('adm/project/document/edit/<int:doc_id>/', project_views.ProjectDocumentEditView.as_view(), name='adm_project_document_edit'),
+    path('adm/project/document/delete/<int:doc_id>/', project_views.ProjectDocumentDeleteView.as_view(), name='adm_project_document_delete'),
+    path('adm/project/document/detail/<int:doc_id>/', project_views.ProjectDocumentDetailView.as_view(), name='adm_project_document_detail'),
     
     # 修复任务相关404错误
     # 新增任务URL重定向，使用path替代re_path以正确保留query_string

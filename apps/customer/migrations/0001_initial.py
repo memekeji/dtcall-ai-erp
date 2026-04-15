@@ -30,18 +30,22 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "call_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="拨号时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="拨号时间"),
                 ),
-                ("duration", models.IntegerField(default=0, verbose_name="通话时长(秒)")),
+                ("duration", models.IntegerField(
+                    default=0, verbose_name="通话时长(秒)")),
                 (
                     "status",
                     models.IntegerField(
-                        choices=[(0, "未接通"), (1, "已通话"), (2, "呼叫失败"), (3, "通话中")],
+                        choices=[
+                            (0, "未接通"), (1, "已通话"), (2, "呼叫失败"), (3, "通话中")],
                         default=0,
                         verbose_name="通话状态",
                     ),
                 ),
-                ("call_count", models.IntegerField(default=0, verbose_name="拨通次数")),
+                ("call_count", models.IntegerField(
+                    default=0, verbose_name="拨通次数")),
                 (
                     "flow_id",
                     models.CharField(
@@ -116,15 +120,18 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "grade_id",
-                    models.PositiveIntegerField(default=0, verbose_name="客户等级ID"),
+                    models.PositiveIntegerField(
+                        default=0, verbose_name="客户等级ID"),
                 ),
                 (
                     "industry_id",
-                    models.PositiveIntegerField(default=0, verbose_name="所属行业ID"),
+                    models.PositiveIntegerField(
+                        default=0, verbose_name="所属行业ID"),
                 ),
                 (
                     "services_id",
-                    models.PositiveIntegerField(default=0, verbose_name="客户意向ID"),
+                    models.PositiveIntegerField(
+                        default=0, verbose_name="客户意向ID"),
                 ),
                 (
                     "province",
@@ -188,11 +195,13 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "distribute_time",
-                    models.PositiveBigIntegerField(default=0, verbose_name="最新分配时间"),
+                    models.PositiveBigIntegerField(
+                        default=0, verbose_name="最新分配时间"),
                 ),
                 (
                     "follow_time",
-                    models.PositiveBigIntegerField(default=0, verbose_name="最新跟进时间"),
+                    models.PositiveBigIntegerField(
+                        default=0, verbose_name="最新跟进时间"),
                 ),
                 (
                     "next_time",
@@ -202,7 +211,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "discard_time",
-                    models.BigIntegerField(blank=True, default=0, verbose_name="废弃时间"),
+                    models.BigIntegerField(
+                        blank=True, default=0, verbose_name="废弃时间"),
                 ),
                 (
                     "share_ids",
@@ -252,7 +262,8 @@ class Migration(migrations.Migration):
                 ("is_lock", models.BooleanField(default=False, verbose_name="锁定状态")),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",
@@ -260,7 +271,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "delete_time",
-                    models.PositiveBigIntegerField(default=0, verbose_name="删除时间"),
+                    models.PositiveBigIntegerField(
+                        default=0, verbose_name="删除时间"),
                 ),
             ],
             options={
@@ -283,10 +295,12 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "contract_number",
-                    models.CharField(max_length=100, unique=True, verbose_name="合同编号"),
+                    models.CharField(
+                        max_length=100, unique=True, verbose_name="合同编号"),
                 ),
                 ("name", models.CharField(max_length=255, verbose_name="合同名称")),
-                ("category_id", models.IntegerField(default=0, verbose_name="分类id")),
+                ("category_id", models.IntegerField(
+                    default=0, verbose_name="分类id")),
                 (
                     "amount",
                     models.DecimalField(
@@ -296,7 +310,8 @@ class Migration(migrations.Migration):
                 ("sign_date", models.DateField(verbose_name="签订日期")),
                 (
                     "end_date",
-                    models.DateField(blank=True, null=True, verbose_name="到期日期"),
+                    models.DateField(
+                        blank=True, null=True, verbose_name="到期日期"),
                 ),
                 (
                     "status",
@@ -334,7 +349,8 @@ class Migration(migrations.Migration):
                 ("remark", models.TextField(blank=True, verbose_name="备注信息")),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",
@@ -342,7 +358,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "delete_time",
-                    models.PositiveBigIntegerField(default=0, verbose_name="删除时间"),
+                    models.PositiveBigIntegerField(
+                        default=0, verbose_name="删除时间"),
                 ),
                 (
                     "auto_generated",
@@ -391,7 +408,8 @@ class Migration(migrations.Migration):
                 ("name", models.CharField(max_length=100, verbose_name="字段名称")),
                 (
                     "field_name",
-                    models.CharField(max_length=50, unique=True, verbose_name="字段标识"),
+                    models.CharField(
+                        max_length=50, unique=True, verbose_name="字段标识"),
                 ),
                 (
                     "field_type",
@@ -412,13 +430,15 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "options",
-                    models.TextField(blank=True, null=True, verbose_name="选项配置"),
+                    models.TextField(
+                        blank=True, null=True, verbose_name="选项配置"),
                 ),
                 (
                     "is_required",
                     models.BooleanField(default=False, verbose_name="是否必填"),
                 ),
-                ("is_unique", models.BooleanField(default=False, verbose_name="是否唯一")),
+                ("is_unique", models.BooleanField(
+                    default=False, verbose_name="是否唯一")),
                 (
                     "is_list_display",
                     models.BooleanField(default=False, verbose_name="是否列表显示"),
@@ -427,7 +447,8 @@ class Migration(migrations.Migration):
                 ("status", models.BooleanField(default=True, verbose_name="是否启用")),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",
@@ -435,7 +456,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "delete_time",
-                    models.PositiveBigIntegerField(default=0, verbose_name="删除时间"),
+                    models.PositiveBigIntegerField(
+                        default=0, verbose_name="删除时间"),
                 ),
             ],
             options={
@@ -455,16 +477,19 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "title",
-                    models.CharField(default="", max_length=100, verbose_name="客户等级名称"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="客户等级名称"),
                 ),
                 ("sort", models.IntegerField(default=0, verbose_name="排序")),
                 (
                     "status",
-                    models.PositiveSmallIntegerField(default=1, verbose_name="状态"),
+                    models.PositiveSmallIntegerField(
+                        default=1, verbose_name="状态"),
                 ),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",
@@ -472,7 +497,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "delete_time",
-                    models.PositiveBigIntegerField(default=0, verbose_name="删除时间"),
+                    models.PositiveBigIntegerField(
+                        default=0, verbose_name="删除时间"),
                 ),
             ],
             options={
@@ -492,16 +518,19 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "name",
-                    models.CharField(default="", max_length=100, verbose_name="意向名称"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="意向名称"),
                 ),
                 ("sort", models.IntegerField(default=0, verbose_name="排序")),
                 (
                     "status",
-                    models.PositiveSmallIntegerField(default=1, verbose_name="状态"),
+                    models.PositiveSmallIntegerField(
+                        default=1, verbose_name="状态"),
                 ),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",
@@ -509,7 +538,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "delete_time",
-                    models.PositiveBigIntegerField(default=0, verbose_name="删除时间"),
+                    models.PositiveBigIntegerField(
+                        default=0, verbose_name="删除时间"),
                 ),
             ],
             options={
@@ -532,7 +562,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "invoice_number",
-                    models.CharField(max_length=100, unique=True, verbose_name="发票编号"),
+                    models.CharField(
+                        max_length=100, unique=True, verbose_name="发票编号"),
                 ),
                 (
                     "amount",
@@ -584,13 +615,15 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "contract_number",
-                    models.CharField(blank=True, max_length=100, verbose_name="关联合同编号"),
+                    models.CharField(
+                        blank=True, max_length=100, verbose_name="关联合同编号"),
                 ),
                 ("content", models.TextField(blank=True, verbose_name="发票内容")),
                 ("remark", models.TextField(blank=True, verbose_name="备注信息")),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",
@@ -598,7 +631,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "delete_time",
-                    models.PositiveBigIntegerField(default=0, verbose_name="删除时间"),
+                    models.PositiveBigIntegerField(
+                        default=0, verbose_name="删除时间"),
                 ),
                 (
                     "auto_generated",
@@ -626,9 +660,11 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "order_number",
-                    models.CharField(max_length=100, unique=True, verbose_name="订单编号"),
+                    models.CharField(
+                        max_length=100, unique=True, verbose_name="订单编号"),
                 ),
-                ("product_name", models.CharField(max_length=255, verbose_name="产品名称")),
+                ("product_name", models.CharField(
+                    max_length=255, verbose_name="产品名称")),
                 (
                     "amount",
                     models.DecimalField(
@@ -684,11 +720,13 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "invoice_request_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="开票申请时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="开票申请时间"),
                 ),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",
@@ -696,7 +734,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "delete_time",
-                    models.PositiveBigIntegerField(default=0, verbose_name="删除时间"),
+                    models.PositiveBigIntegerField(
+                        default=0, verbose_name="删除时间"),
                 ),
                 (
                     "auto_generated",
@@ -741,16 +780,19 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "title",
-                    models.CharField(default="", max_length=100, verbose_name="客户渠道名称"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="客户渠道名称"),
                 ),
                 ("sort", models.IntegerField(default=0, verbose_name="排序")),
                 (
                     "status",
-                    models.PositiveSmallIntegerField(default=1, verbose_name="状态"),
+                    models.PositiveSmallIntegerField(
+                        default=1, verbose_name="状态"),
                 ),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",
@@ -758,7 +800,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "delete_time",
-                    models.PositiveBigIntegerField(default=0, verbose_name="删除时间"),
+                    models.PositiveBigIntegerField(
+                        default=0, verbose_name="删除时间"),
                 ),
             ],
             options={
@@ -800,16 +843,19 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 ("options", models.TextField(blank=True, verbose_name="选项值")),
-                ("is_required", models.BooleanField(default=True, verbose_name="是否必填")),
+                ("is_required", models.BooleanField(
+                    default=True, verbose_name="是否必填")),
                 (
                     "is_list_display",
                     models.BooleanField(default=True, verbose_name="是否列表显示"),
                 ),
                 ("sort_order", models.IntegerField(default=0, verbose_name="排序")),
-                ("is_active", models.BooleanField(default=True, verbose_name="是否启用")),
+                ("is_active", models.BooleanField(
+                    default=True, verbose_name="是否启用")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
             ],
             options={
@@ -849,15 +895,18 @@ class Migration(migrations.Migration):
                 ("content", models.TextField(verbose_name="跟进内容")),
                 (
                     "follow_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="跟进时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="跟进时间"),
                 ),
                 (
                     "next_follow_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="下次跟进时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="下次跟进时间"),
                 ),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",
@@ -865,7 +914,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "delete_time",
-                    models.PositiveBigIntegerField(default=0, verbose_name="删除时间"),
+                    models.PositiveBigIntegerField(
+                        default=0, verbose_name="删除时间"),
                 ),
             ],
             options={
@@ -928,7 +978,8 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 ("options", models.TextField(blank=True, verbose_name="选项值")),
-                ("is_required", models.BooleanField(default=True, verbose_name="是否必填")),
+                ("is_required", models.BooleanField(
+                    default=True, verbose_name="是否必填")),
                 (
                     "is_summary",
                     models.BooleanField(default=False, verbose_name="是否统计字段"),
@@ -938,10 +989,12 @@ class Migration(migrations.Migration):
                     models.BooleanField(default=True, verbose_name="是否列表显示"),
                 ),
                 ("sort_order", models.IntegerField(default=0, verbose_name="排序")),
-                ("is_active", models.BooleanField(default=True, verbose_name="是否启用")),
+                ("is_active", models.BooleanField(
+                    default=True, verbose_name="是否启用")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
             ],
             options={
@@ -1020,11 +1073,13 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "delete_time",
-                    models.PositiveBigIntegerField(default=0, verbose_name="删除时间"),
+                    models.PositiveBigIntegerField(
+                        default=0, verbose_name="删除时间"),
                 ),
             ],
             options={

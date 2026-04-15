@@ -6,9 +6,11 @@ register = template.Library()
 
 # 这里可以添加自定义过滤器和标签
 
+
 @register.filter(name='get_item')
 def get_item(dictionary, key):
     return dictionary.get(key)
+
 
 @register.filter(name='basename')
 def basename(path):
@@ -17,20 +19,23 @@ def basename(path):
         return os.path.basename(path)
     return ''
 
+
 @register.filter(name='json_load')
 def json_load(value):
     try:
         return json.loads(value)
-    except:
+    except BaseException:
         return {}
+
 
 @register.filter(name='parse_json')
 def parse_json(value):
     """解析JSON字符串为Python对象"""
     try:
         return json.loads(value)
-    except:
+    except BaseException:
         return []
+
 
 @register.filter(name='split')
 def split(value, separator=','):

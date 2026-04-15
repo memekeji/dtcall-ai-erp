@@ -25,7 +25,8 @@ class Migration(migrations.Migration):
                 ("description", models.TextField(blank=True, verbose_name="任务描述")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "updated_at",

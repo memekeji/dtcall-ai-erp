@@ -7,11 +7,26 @@ class ApprovalTypeForm(forms.ModelForm):
         model = ApprovalType
         fields = ['name', 'description', 'icon', 'sort_order', 'is_active']
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入类型名称'}),
-            'description': forms.Textarea(attrs={'class': 'layui-textarea', 'placeholder': '请输入类型描述', 'rows': 3}),
-            'icon': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入图标类名'}),
-            'sort_order': forms.NumberInput(attrs={'class': 'layui-input', 'placeholder': '排序号'}),
-            'is_active': forms.CheckboxInput(attrs={'class': 'layui-input'}),
+            'name': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '请输入类型名称'}),
+            'description': forms.Textarea(
+                attrs={
+                    'class': 'layui-textarea',
+                    'placeholder': '请输入类型描述',
+                    'rows': 3}),
+            'icon': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '请输入图标类名'}),
+            'sort_order': forms.NumberInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '排序号'}),
+            'is_active': forms.CheckboxInput(
+                attrs={
+                    'class': 'layui-input'}),
         }
 
     def save(self, commit=True):
@@ -26,7 +41,7 @@ class ApprovalTypeForm(forms.ModelForm):
         last_approval = ApprovalType.objects.filter(
             code__startswith='APPROVAL_'
         ).order_by('-code').first()
-        
+
         if last_approval and last_approval.code.startswith('APPROVAL_'):
             try:
                 last_num = int(last_approval.code.split('_')[1])
@@ -35,7 +50,7 @@ class ApprovalTypeForm(forms.ModelForm):
                 new_num = 1
         else:
             new_num = 1
-        
+
         return f'APPROVAL_{new_num:03d}'
 
 
@@ -44,10 +59,22 @@ class ApprovalFlowForm(forms.ModelForm):
         model = ApprovalFlow
         fields = ['name', 'code', 'description', 'is_active']
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入流程名称'}),
-            'code': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入流程代码'}),
-            'description': forms.Textarea(attrs={'class': 'layui-textarea', 'placeholder': '请输入流程描述', 'rows': 3}),
-            'is_active': forms.CheckboxInput(attrs={'class': 'layui-input'}),
+            'name': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '请输入流程名称'}),
+            'code': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '请输入流程代码'}),
+            'description': forms.Textarea(
+                attrs={
+                    'class': 'layui-textarea',
+                    'placeholder': '请输入流程描述',
+                    'rows': 3}),
+            'is_active': forms.CheckboxInput(
+                attrs={
+                    'class': 'layui-input'}),
         }
 
 
@@ -55,13 +82,25 @@ class ApprovalStepForm(forms.ModelForm):
     class Meta:
         model = ApprovalStep
         fields = [
-            'step_name', 'step_order', 'step_type', 'action_type',
-            'approver_role', 'approver_department', 'approver_level',
-            'cc_roles', 'cc_departments',
-            'condition_field', 'condition_operator', 'condition_value',
-            'time_limit_hours', 'auto_approve_on_timeout',
-            'description', 'is_required', 'is_parallel', 'allow_delegate', 'allow_skip'
-        ]
+            'step_name',
+            'step_order',
+            'step_type',
+            'action_type',
+            'approver_role',
+            'approver_department',
+            'approver_level',
+            'cc_roles',
+            'cc_departments',
+            'condition_field',
+            'condition_operator',
+            'condition_value',
+            'time_limit_hours',
+            'auto_approve_on_timeout',
+            'description',
+            'is_required',
+            'is_parallel',
+            'allow_delegate',
+            'allow_skip']
         widgets = {
             'step_name': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入步骤名称'}),
             'step_order': forms.NumberInput(attrs={'class': 'layui-input', 'placeholder': '步骤顺序'}),

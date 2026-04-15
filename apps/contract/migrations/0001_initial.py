@@ -25,11 +25,13 @@ class Migration(migrations.Migration):
                 ("pid", models.IntegerField(default=0, verbose_name="父协议id")),
                 (
                     "code",
-                    models.CharField(default="", max_length=255, verbose_name="合同编号"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="合同编号"),
                 ),
                 (
                     "name",
-                    models.CharField(default="", max_length=255, verbose_name="合同名称"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="合同名称"),
                 ),
                 ("cate_id", models.IntegerField(default=0, verbose_name="分类id")),
                 (
@@ -40,43 +42,55 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "subject_id",
-                    models.CharField(default="", max_length=255, verbose_name="签约主体"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="签约主体"),
                 ),
-                ("customer_id", models.IntegerField(default=0, verbose_name="关联客户ID")),
+                ("customer_id", models.IntegerField(
+                    default=0, verbose_name="关联客户ID")),
                 (
                     "customer",
-                    models.CharField(default="", max_length=255, verbose_name="客户名称"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="客户名称"),
                 ),
                 (
                     "contact_name",
-                    models.CharField(default="", max_length=255, verbose_name="客户代表"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="客户代表"),
                 ),
                 (
                     "contact_mobile",
-                    models.CharField(default="", max_length=255, verbose_name="客户电话"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="客户电话"),
                 ),
                 (
                     "contact_address",
-                    models.CharField(default="", max_length=255, verbose_name="客户地址"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="客户地址"),
                 ),
                 (
                     "start_time",
                     models.BigIntegerField(default=0, verbose_name="合同开始时间"),
                 ),
-                ("end_time", models.BigIntegerField(default=0, verbose_name="合同结束时间")),
+                ("end_time", models.BigIntegerField(
+                    default=0, verbose_name="合同结束时间")),
                 ("admin_id", models.IntegerField(default=0, verbose_name="创建人")),
-                ("prepared_uid", models.IntegerField(default=0, verbose_name="合同制定人")),
+                ("prepared_uid", models.IntegerField(
+                    default=0, verbose_name="合同制定人")),
                 ("sign_uid", models.IntegerField(default=0, verbose_name="合同签订人")),
-                ("keeper_uid", models.IntegerField(default=0, verbose_name="合同保管人")),
+                ("keeper_uid", models.IntegerField(
+                    default=0, verbose_name="合同保管人")),
                 (
                     "share_ids",
-                    models.CharField(default="", max_length=500, verbose_name="共享人员ID"),
+                    models.CharField(
+                        default="", max_length=500, verbose_name="共享人员ID"),
                 ),
                 (
                     "file_ids",
-                    models.CharField(default="", max_length=500, verbose_name="相关附件ID"),
+                    models.CharField(
+                        default="", max_length=500, verbose_name="相关附件ID"),
                 ),
-                ("sign_time", models.BigIntegerField(default=0, verbose_name="合同签订时间")),
+                ("sign_time", models.BigIntegerField(
+                    default=0, verbose_name="合同签订时间")),
                 ("did", models.IntegerField(default=0, verbose_name="合同所属部门")),
                 (
                     "cost",
@@ -90,7 +104,8 @@ class Migration(migrations.Migration):
                 ("content", models.TextField(default="", verbose_name="合同内容")),
                 (
                     "is_tax",
-                    models.SmallIntegerField(default=0, verbose_name="是否含税：0未含税,1含税"),
+                    models.SmallIntegerField(
+                        default=0, verbose_name="是否含税：0未含税,1含税"),
                 ),
                 (
                     "tax",
@@ -99,12 +114,17 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 ("stop_uid", models.IntegerField(default=0, verbose_name="中止人")),
-                ("stop_time", models.BigIntegerField(default=0, verbose_name="中止时间")),
-                ("stop_remark", models.TextField(default="", verbose_name="中止备注信息")),
+                ("stop_time", models.BigIntegerField(
+                    default=0, verbose_name="中止时间")),
+                ("stop_remark", models.TextField(
+                    default="", verbose_name="中止备注信息")),
                 ("void_uid", models.IntegerField(default=0, verbose_name="作废人")),
-                ("void_time", models.BigIntegerField(default=0, verbose_name="作废时间")),
-                ("void_remark", models.TextField(default="", verbose_name="作废备注信息")),
-                ("archive_uid", models.IntegerField(default=0, verbose_name="归档人")),
+                ("void_time", models.BigIntegerField(
+                    default=0, verbose_name="作废时间")),
+                ("void_remark", models.TextField(
+                    default="", verbose_name="作废备注信息")),
+                ("archive_uid", models.IntegerField(
+                    default=0, verbose_name="归档人")),
                 (
                     "archive_time",
                     models.BigIntegerField(default=0, verbose_name="归档时间"),
@@ -112,7 +132,8 @@ class Migration(migrations.Migration):
                 ("remark", models.TextField(default="", verbose_name="备注信息")),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",
@@ -148,7 +169,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "check_last_uid",
-                    models.CharField(default="", max_length=500, verbose_name="上一审批人"),
+                    models.CharField(
+                        default="", max_length=500, verbose_name="上一审批人"),
                 ),
                 (
                     "check_history_uids",
@@ -158,7 +180,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "check_copy_uids",
-                    models.CharField(default="", max_length=500, verbose_name="抄送人ID"),
+                    models.CharField(
+                        default="", max_length=500, verbose_name="抄送人ID"),
                 ),
                 (
                     "check_time",
@@ -189,15 +212,18 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "title",
-                    models.CharField(default="", max_length=100, verbose_name="合同类别名称"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="合同类别名称"),
                 ),
                 (
                     "status",
-                    models.SmallIntegerField(default=1, verbose_name="状态：-1删除 0禁用 1启用"),
+                    models.SmallIntegerField(
+                        default=1, verbose_name="状态：-1删除 0禁用 1启用"),
                 ),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",
@@ -240,13 +266,16 @@ class Migration(migrations.Migration):
                 ("description", models.TextField(blank=True, verbose_name="分类描述")),
                 (
                     "template_path",
-                    models.CharField(blank=True, max_length=200, verbose_name="合同模板路径"),
+                    models.CharField(
+                        blank=True, max_length=200, verbose_name="合同模板路径"),
                 ),
                 ("sort_order", models.IntegerField(default=0, verbose_name="排序")),
-                ("is_active", models.BooleanField(default=True, verbose_name="是否启用")),
+                ("is_active", models.BooleanField(
+                    default=True, verbose_name="是否启用")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
             ],
             options={
@@ -270,19 +299,23 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "name",
-                    models.CharField(default="", max_length=100, verbose_name="产品名称"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="产品名称"),
                 ),
                 (
                     "code",
-                    models.CharField(default="", max_length=50, verbose_name="产品编码"),
+                    models.CharField(
+                        default="", max_length=50, verbose_name="产品编码"),
                 ),
                 (
                     "specs",
-                    models.CharField(blank=True, max_length=100, verbose_name="产品规格"),
+                    models.CharField(
+                        blank=True, max_length=100, verbose_name="产品规格"),
                 ),
                 (
                     "unit",
-                    models.CharField(blank=True, max_length=20, verbose_name="单位"),
+                    models.CharField(
+                        blank=True, max_length=20, verbose_name="单位"),
                 ),
                 (
                     "price",
@@ -293,7 +326,8 @@ class Migration(migrations.Migration):
                 ("remark", models.TextField(blank=True, verbose_name="备注")),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",
@@ -301,7 +335,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "delete_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="删除时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="删除时间"),
                 ),
             ],
             options={
@@ -324,12 +359,14 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "title",
-                    models.CharField(default="", max_length=50, verbose_name="分类名称"),
+                    models.CharField(
+                        default="", max_length=50, verbose_name="分类名称"),
                 ),
                 ("status", models.SmallIntegerField(default=1, verbose_name="状态")),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",
@@ -337,7 +374,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "delete_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="删除时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="删除时间"),
                 ),
             ],
             options={
@@ -361,14 +399,17 @@ class Migration(migrations.Migration):
                 ("name", models.CharField(max_length=100, verbose_name="分类名称")),
                 (
                     "code",
-                    models.CharField(max_length=50, unique=True, verbose_name="分类代码"),
+                    models.CharField(
+                        max_length=50, unique=True, verbose_name="分类代码"),
                 ),
                 ("description", models.TextField(blank=True, verbose_name="分类描述")),
                 ("sort_order", models.IntegerField(default=0, verbose_name="排序")),
-                ("is_active", models.BooleanField(default=True, verbose_name="是否启用")),
+                ("is_active", models.BooleanField(
+                    default=True, verbose_name="是否启用")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
             ],
             options={
@@ -392,19 +433,23 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "name",
-                    models.CharField(default="", max_length=100, verbose_name="采购名称"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="采购名称"),
                 ),
                 (
                     "code",
-                    models.CharField(default="", max_length=50, verbose_name="采购编号"),
+                    models.CharField(
+                        default="", max_length=50, verbose_name="采购编号"),
                 ),
-                ("types", models.SmallIntegerField(default=0, verbose_name="采购类型")),
+                ("types", models.SmallIntegerField(
+                    default=0, verbose_name="采购类型")),
                 (
                     "amount",
                     models.DecimalField(
                         decimal_places=2,
                         max_digits=12,
-                        validators=[django.core.validators.MinValueValidator(0)],
+                        validators=[
+                            django.core.validators.MinValueValidator(0)],
                         verbose_name="采购金额",
                     ),
                 ),
@@ -413,7 +458,8 @@ class Migration(migrations.Migration):
                 ("end_time", models.DateField(verbose_name="结束日期")),
                 (
                     "share_ids",
-                    models.CharField(blank=True, max_length=255, verbose_name="共享人员ID"),
+                    models.CharField(
+                        blank=True, max_length=255, verbose_name="共享人员ID"),
                 ),
                 (
                     "check_status",
@@ -433,12 +479,14 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "file_ids",
-                    models.CharField(blank=True, max_length=255, verbose_name="附件ID"),
+                    models.CharField(
+                        blank=True, max_length=255, verbose_name="附件ID"),
                 ),
                 ("remark", models.TextField(blank=True, verbose_name="备注")),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",
@@ -446,19 +494,23 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "delete_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="删除时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="删除时间"),
                 ),
                 (
                     "archive_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="归档时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="归档时间"),
                 ),
                 (
                     "stop_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="终止时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="终止时间"),
                 ),
                 (
                     "void_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="作废时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="作废时间"),
                 ),
             ],
             options={
@@ -482,14 +534,17 @@ class Migration(migrations.Migration):
                 ("name", models.CharField(max_length=100, verbose_name="分类名称")),
                 (
                     "code",
-                    models.CharField(max_length=50, unique=True, verbose_name="分类代码"),
+                    models.CharField(
+                        max_length=50, unique=True, verbose_name="分类代码"),
                 ),
                 ("description", models.TextField(blank=True, verbose_name="分类描述")),
                 ("sort_order", models.IntegerField(default=0, verbose_name="排序")),
-                ("is_active", models.BooleanField(default=True, verbose_name="是否启用")),
+                ("is_active", models.BooleanField(
+                    default=True, verbose_name="是否启用")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
             ],
             options={
@@ -514,15 +569,18 @@ class Migration(migrations.Migration):
                 ("name", models.CharField(max_length=200, verbose_name="采购品名称")),
                 (
                     "code",
-                    models.CharField(max_length=50, unique=True, verbose_name="采购品代码"),
+                    models.CharField(
+                        max_length=50, unique=True, verbose_name="采购品代码"),
                 ),
                 (
                     "specification",
-                    models.CharField(blank=True, max_length=500, verbose_name="规格型号"),
+                    models.CharField(
+                        blank=True, max_length=500, verbose_name="规格型号"),
                 ),
                 (
                     "unit",
-                    models.CharField(blank=True, max_length=20, verbose_name="计量单位"),
+                    models.CharField(
+                        blank=True, max_length=20, verbose_name="计量单位"),
                 ),
                 (
                     "reference_price",
@@ -535,10 +593,12 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 ("description", models.TextField(blank=True, verbose_name="采购品描述")),
-                ("is_active", models.BooleanField(default=True, verbose_name="是否启用")),
+                ("is_active", models.BooleanField(
+                    default=True, verbose_name="是否启用")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
             ],
             options={
@@ -562,11 +622,13 @@ class Migration(migrations.Migration):
                 ("name", models.CharField(max_length=200, verbose_name="服务名称")),
                 (
                     "code",
-                    models.CharField(max_length=50, unique=True, verbose_name="服务代码"),
+                    models.CharField(
+                        max_length=50, unique=True, verbose_name="服务代码"),
                 ),
                 (
                     "unit",
-                    models.CharField(blank=True, max_length=20, verbose_name="计量单位"),
+                    models.CharField(
+                        blank=True, max_length=20, verbose_name="计量单位"),
                 ),
                 (
                     "price",
@@ -580,14 +642,17 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "duration",
-                    models.IntegerField(blank=True, null=True, verbose_name="服务周期(天)"),
+                    models.IntegerField(
+                        blank=True, null=True, verbose_name="服务周期(天)"),
                 ),
                 ("description", models.TextField(blank=True, verbose_name="服务描述")),
                 ("requirements", models.TextField(blank=True, verbose_name="服务要求")),
-                ("is_active", models.BooleanField(default=True, verbose_name="是否启用")),
+                ("is_active", models.BooleanField(
+                    default=True, verbose_name="是否启用")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
             ],
             options={
@@ -611,14 +676,17 @@ class Migration(migrations.Migration):
                 ("name", models.CharField(max_length=100, verbose_name="分类名称")),
                 (
                     "code",
-                    models.CharField(max_length=50, unique=True, verbose_name="分类代码"),
+                    models.CharField(
+                        max_length=50, unique=True, verbose_name="分类代码"),
                 ),
                 ("description", models.TextField(blank=True, verbose_name="分类描述")),
                 ("sort_order", models.IntegerField(default=0, verbose_name="排序")),
-                ("is_active", models.BooleanField(default=True, verbose_name="是否启用")),
+                ("is_active", models.BooleanField(
+                    default=True, verbose_name="是否启用")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
             ],
             options={
@@ -642,15 +710,18 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "title",
-                    models.CharField(default="", max_length=100, verbose_name="服务名称"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="服务名称"),
                 ),
                 (
                     "code",
-                    models.CharField(default="", max_length=50, verbose_name="服务编码"),
+                    models.CharField(
+                        default="", max_length=50, verbose_name="服务编码"),
                 ),
                 (
                     "unit",
-                    models.CharField(blank=True, max_length=20, verbose_name="单位"),
+                    models.CharField(
+                        blank=True, max_length=20, verbose_name="单位"),
                 ),
                 (
                     "price",
@@ -661,7 +732,8 @@ class Migration(migrations.Migration):
                 ("remark", models.TextField(blank=True, verbose_name="备注")),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",
@@ -669,7 +741,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "delete_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="删除时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="删除时间"),
                 ),
             ],
             options={
@@ -693,39 +766,51 @@ class Migration(migrations.Migration):
                 ("name", models.CharField(max_length=200, verbose_name="供应商名称")),
                 (
                     "code",
-                    models.CharField(max_length=50, unique=True, verbose_name="供应商代码"),
+                    models.CharField(
+                        max_length=50, unique=True, verbose_name="供应商代码"),
                 ),
-                ("contact_person", models.CharField(max_length=50, verbose_name="联系人")),
-                ("contact_phone", models.CharField(max_length=50, verbose_name="联系电话")),
+                ("contact_person", models.CharField(
+                    max_length=50, verbose_name="联系人")),
+                ("contact_phone", models.CharField(
+                    max_length=50, verbose_name="联系电话")),
                 (
                     "contact_email",
-                    models.EmailField(blank=True, max_length=254, verbose_name="联系邮箱"),
+                    models.EmailField(
+                        blank=True, max_length=254, verbose_name="联系邮箱"),
                 ),
                 (
                     "address",
-                    models.CharField(blank=True, max_length=500, verbose_name="地址"),
+                    models.CharField(
+                        blank=True, max_length=500, verbose_name="地址"),
                 ),
                 (
                     "tax_number",
-                    models.CharField(blank=True, max_length=50, verbose_name="税号"),
+                    models.CharField(
+                        blank=True, max_length=50, verbose_name="税号"),
                 ),
                 (
                     "bank_account",
-                    models.CharField(blank=True, max_length=100, verbose_name="银行账号"),
+                    models.CharField(
+                        blank=True, max_length=100, verbose_name="银行账号"),
                 ),
                 (
                     "bank_name",
-                    models.CharField(blank=True, max_length=100, verbose_name="开户银行"),
+                    models.CharField(
+                        blank=True, max_length=100, verbose_name="开户银行"),
                 ),
                 (
                     "credit_level",
-                    models.CharField(blank=True, max_length=20, verbose_name="信用等级"),
+                    models.CharField(
+                        blank=True, max_length=20, verbose_name="信用等级"),
                 ),
-                ("business_scope", models.TextField(blank=True, verbose_name="经营范围")),
-                ("is_active", models.BooleanField(default=True, verbose_name="是否启用")),
+                ("business_scope", models.TextField(
+                    blank=True, verbose_name="经营范围")),
+                ("is_active", models.BooleanField(
+                    default=True, verbose_name="是否启用")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
             ],
             options={

@@ -1277,16 +1277,18 @@ system_menus = {
 }
 
 # 菜单树结构
+
+
 def get_menu_tree():
     """构建菜单树结构"""
     menu_tree = []
     menu_map = {}
-    
+
     # 构建菜单映射
     for menu_id, menu in system_menus.items():
         menu_map[menu_id] = menu.copy()
         menu_map[menu_id]['submenus'] = []
-    
+
     # 构建菜单树
     for menu_id, menu in menu_map.items():
         if menu['pid_id'] == 0:
@@ -1295,6 +1297,5 @@ def get_menu_tree():
             parent = menu_map.get(menu['pid_id'])
             if parent:
                 parent['submenus'].append(menu)
-    
-    return menu_tree
 
+    return menu_tree

@@ -23,7 +23,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "name",
-                    models.CharField(max_length=255, unique=True, verbose_name="企业名称"),
+                    models.CharField(
+                        max_length=255, unique=True, verbose_name="企业名称"),
                 ),
                 (
                     "legal_person",
@@ -39,7 +40,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "establishment_date",
-                    models.DateField(blank=True, null=True, verbose_name="成立日期"),
+                    models.DateField(
+                        blank=True, null=True, verbose_name="成立日期"),
                 ),
                 (
                     "registration_status",
@@ -49,7 +51,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "business_scope",
-                    models.TextField(blank=True, null=True, verbose_name="经营范围"),
+                    models.TextField(
+                        blank=True, null=True, verbose_name="经营范围"),
                 ),
                 (
                     "address",

@@ -21,7 +21,15 @@ class Command(BaseCommand):
     help = '初始化生产管理模块测试数据 - 基础数据模型'
 
     def add_arguments(self, parser):
-        parser.add_argument('--scale', type=str, default='medium', choices=['small', 'medium', 'large'], help='数据规模: small/medium/large')
+        parser.add_argument(
+            '--scale',
+            type=str,
+            default='medium',
+            choices=[
+                'small',
+                'medium',
+                'large'],
+            help='数据规模: small/medium/large')
         parser.add_argument('--clear', action='store_true', help='清除现有数据后重新生成')
 
     def handle(self, *args, **options):
@@ -29,13 +37,28 @@ class Command(BaseCommand):
         clear_existing = options['clear']
 
         scale_config = {
-            'small': {'procedures': 5, 'equipment': 5, 'plans': 3, 'tasks_per_plan': 3, 'data_points': 50},
-            'medium': {'procedures': 10, 'equipment': 10, 'plans': 10, 'tasks_per_plan': 5, 'data_points': 200},
-            'large': {'procedures': 20, 'equipment': 20, 'plans': 30, 'tasks_per_plan': 8, 'data_points': 500}
-        }
+            'small': {
+                'procedures': 5,
+                'equipment': 5,
+                'plans': 3,
+                'tasks_per_plan': 3,
+                'data_points': 50},
+            'medium': {
+                'procedures': 10,
+                'equipment': 10,
+                'plans': 10,
+                'tasks_per_plan': 5,
+                'data_points': 200},
+            'large': {
+                'procedures': 20,
+                'equipment': 20,
+                'plans': 30,
+                'tasks_per_plan': 8,
+                'data_points': 500}}
         config = scale_config[scale]
 
-        self.stdout.write(self.style.SUCCESS(f'开始初始化生产管理测试数据 (规模: {scale})...'))
+        self.stdout.write(self.style.SUCCESS(
+            f'开始初始化生产管理测试数据 (规模: {scale})...'))
 
         if clear_existing:
             self.stdout.write(self.style.WARNING('清除现有生产数据...'))
@@ -48,14 +71,16 @@ class Command(BaseCommand):
         departments = self._ensure_departments()
         products = self._ensure_products()
 
-        procedures = self._create_procedures(departments, admin_user, config['procedures'])
+        procedures = self._create_procedures(
+            departments, admin_user, config['procedures'])
         procedure_set = self._create_procedure_set(procedures, admin_user)
 
         boms = self._create_boms(products, admin_user)
 
-        equipment = self._create_equipment(departments, admin_user, config['equipment'])
+        equipment = self._create_equipment(
+            departments, admin_user, config['equipment'])
 
-        sops = self._create_sops(procedures, admin_user)
+        self._create_sops(procedures, admin_user)
 
         data_sources = self._create_data_sources(admin_user)
 
@@ -66,9 +91,15 @@ class Command(BaseCommand):
 
         self._create_quality_checks(plans, admin_user)
 
-        self._create_data_collection(data_sources, equipment, plans, config['data_points'], admin_user)
+        self._create_data_collection(
+            data_sources,
+            equipment,
+            plans,
+            config['data_points'],
+            admin_user)
 
-        self._create_production_data_points(equipment, plans, procedures, config['data_points'], admin_user)
+        self._create_production_data_points(
+            equipment, plans, procedures, config['data_points'], admin_user)
 
         self._create_data_collection_tasks(data_sources, admin_user)
 
@@ -135,9 +166,8 @@ class Command(BaseCommand):
         ]
         for name, code, specs, unit, price in product_data:
             product, created = Product.objects.get_or_create(
-                code=code,
-                defaults={'name': name, 'specs': specs, 'unit': unit, 'price': Decimal(price)}
-            )
+                code=code, defaults={
+                    'name': name, 'specs': specs, 'unit': unit, 'price': Decimal(price)})
             products.append(product)
             if created:
                 self.stdout.write(self.style.SUCCESS(f'创建产品: {name}'))
@@ -176,7 +206,8 @@ class Command(BaseCommand):
             )
             procedures.append(procedure)
             if created:
-                self.stdout.write(self.style.SUCCESS(f'创建工序: {procedure.name}'))
+                self.stdout.write(
+                    self.style.SUCCESS(f'创建工序: {procedure.name}'))
         return procedures
 
     def _create_procedure_set(self, procedures, admin_user):
@@ -194,7 +225,8 @@ class Command(BaseCommand):
             }
         )
         if created:
-            self.stdout.write(self.style.SUCCESS(f'创建工序集: {procedure_set.name}'))
+            self.stdout.write(self.style.SUCCESS(
+                f'创建工序集: {procedure_set.name}'))
             for i, procedure in enumerate(procedures):
                 ProcedureSetItem.objects.create(
                     procedure_set=procedure_set,
@@ -230,7 +262,8 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS(f'创建BOM: {bom.name}'))
                 item_count = random.randint(4, min(6, len(materials)))
                 selected_materials = random.sample(materials, item_count)
-                for j, (mat_name, mat_code, spec, unit, unit_cost) in enumerate(selected_materials):
+                for j, (mat_name, mat_code, spec, unit,
+                        unit_cost) in enumerate(selected_materials):
                     quantity = Decimal(str(random.uniform(1, 50)))
                     total_cost = quantity * Decimal(str(unit_cost))
                     BOMItem.objects.create(
@@ -268,8 +301,10 @@ class Command(BaseCommand):
 
         for i in range(min(count, len(equipment_names))):
             name, model, manufacturer = equipment_names[i]
-            purchase_date = self.today - timedelta(days=random.randint(30, 730))
-            last_maintenance = self.today - timedelta(days=random.randint(5, 60))
+            purchase_date = self.today - \
+                timedelta(days=random.randint(30, 730))
+            last_maintenance = self.today - \
+                timedelta(days=random.randint(5, 60))
             next_maintenance = last_maintenance + timedelta(days=30)
             equipment, created = Equipment.objects.get_or_create(
                 code=f'EQ{str(i+1).zfill(3)}',
@@ -291,7 +326,8 @@ class Command(BaseCommand):
             )
             equipment_list.append(equipment)
             if created:
-                self.stdout.write(self.style.SUCCESS(f'创建设备: {equipment.name}'))
+                self.stdout.write(
+                    self.style.SUCCESS(f'创建设备: {equipment.name}'))
         return equipment_list
 
     def _create_sops(self, procedures, admin_user):
@@ -359,14 +395,25 @@ class Command(BaseCommand):
                         data_source=ds,
                         name=f'字段{j+1}',
                         source_path=f'data.{["value", "temperature", "pressure", "humidity"][j % 4]}',
-                        field_type=random.choice(['float', 'integer', 'string', 'boolean']),
+                        field_type=random.choice(
+                            ['float', 'integer', 'string', 'boolean']),
                         transform_type='none',
                         is_required=random.choice([True, False]),
                         sort=j,
                     )
         return data_sources
 
-    def _create_production_plans(self, products, boms, procedure_set, departments, admin_user, plans_count, tasks_per_plan, procedures, equipment):
+    def _create_production_plans(
+            self,
+            products,
+            boms,
+            procedure_set,
+            departments,
+            admin_user,
+            plans_count,
+            tasks_per_plan,
+            procedures,
+            equipment):
         plans = []
         plan_names = [
             'Q1季度生产计划', 'Q2季度生产计划', 'Q3季度生产计划', 'Q4季度生产计划',
@@ -412,21 +459,27 @@ class Command(BaseCommand):
                     if not procedures:
                         continue
                     procedure = procedures[j % len(procedures)]
-                    equip = equipment[j % len(equipment)] if equipment else None
+                    equip = equipment[j %
+                                      len(equipment)] if equipment else None
                     task_start_date = plan_start + timedelta(days=j * 2)
                     task_end_date = task_start_date + timedelta(days=2)
-                    task_start = datetime.combine(task_start_date, datetime.min.time())
-                    task_end = datetime.combine(task_end_date, datetime.min.time())
+                    task_start = datetime.combine(
+                        task_start_date, datetime.min.time())
+                    task_end = datetime.combine(
+                        task_end_date, datetime.min.time())
                     quantity = plan.quantity / tasks_per_plan
                     task_status = random.choice([3, 3, 3, 2, 2, 1, 6])
                     completed_qty = Decimal(0)
                     qualified_qty = Decimal(0)
 
                     if task_status == 3:
-                        completed_qty = quantity * Decimal(random.uniform(0.9, 1.0))
-                        qualified_qty = completed_qty * Decimal(random.uniform(0.95, 1.0))
+                        completed_qty = quantity * \
+                            Decimal(random.uniform(0.9, 1.0))
+                        qualified_qty = completed_qty * \
+                            Decimal(random.uniform(0.95, 1.0))
                     elif task_status == 2:
-                        completed_qty = quantity * Decimal(random.uniform(0.2, 0.8))
+                        completed_qty = quantity * \
+                            Decimal(random.uniform(0.2, 0.8))
 
                     task, task_created = ProductionTask.objects.get_or_create(
                         code=f'TASK{str(i+1).zfill(4)}{str(j+1).zfill(2)}',
@@ -473,7 +526,13 @@ class Command(BaseCommand):
                     if created:
                         self.stdout.write(f'  创建质量检查记录')
 
-    def _create_data_collection(self, data_sources, equipment, plans, count, admin_user):
+    def _create_data_collection(
+            self,
+            data_sources,
+            equipment,
+            plans,
+            count,
+            admin_user):
         if not equipment:
             return
         created_count = 0
@@ -487,9 +546,11 @@ class Command(BaseCommand):
             DataCollection.objects.create(
                 task=task,
                 equipment=equipment_item,
-                parameter_name=random.choice(['温度', '压力', '转速', '电流', '电压', '流量', '液位']),
+                parameter_name=random.choice(
+                    ['温度', '压力', '转速', '电流', '电压', '流量', '液位']),
                 parameter_value=Decimal(str(random.uniform(0, 100))),
-                unit=random.choice(['℃', 'MPa', 'r/min', 'A', 'V', 'm³/h', 'mm']),
+                unit=random.choice(
+                    ['℃', 'MPa', 'r/min', 'A', 'V', 'm³/h', 'mm']),
                 standard_min=Decimal(str(random.uniform(10, 30))),
                 standard_max=Decimal(str(random.uniform(70, 90))),
                 is_normal=random.choice([True, True, True, False]),
@@ -498,9 +559,16 @@ class Command(BaseCommand):
             )
             created_count += 1
         if created_count > 0:
-            self.stdout.write(self.style.SUCCESS(f'创建数据采集记录: {created_count}条'))
+            self.stdout.write(self.style.SUCCESS(
+                f'创建数据采集记录: {created_count}条'))
 
-    def _create_production_data_points(self, equipment, plans, procedures, count, admin_user):
+    def _create_production_data_points(
+            self,
+            equipment,
+            plans,
+            procedures,
+            count,
+            admin_user):
         if not equipment:
             return
         created_count = 0
@@ -517,12 +585,15 @@ class Command(BaseCommand):
             timestamp = timezone.now() - timedelta(minutes=random.randint(0, 10000))
             ProductionDataPoint.objects.create(
                 equipment=equip,
-                metric_name=random.choice(['设备温度', '运行转速', '生产产量', '能耗', '故障次数', '维护次数']),
+                metric_name=random.choice(
+                    ['设备温度', '运行转速', '生产产量', '能耗', '故障次数', '维护次数']),
                 metric_value=str(random.uniform(0, 100)),
-                metric_unit=random.choice(['℃', 'r/min', '个', 'kWh', '次', '次']),
+                metric_unit=random.choice(
+                    ['℃', 'r/min', '个', 'kWh', '次', '次']),
                 timestamp=timestamp,
                 collection_time=timestamp,
-                quality=random.choice(['good', 'good', 'good', 'uncertain', 'bad']),
+                quality=random.choice(
+                    ['good', 'good', 'good', 'uncertain', 'bad']),
                 confidence=random.uniform(0.8, 1.0),
                 task=task,
                 procedure=procedure,
@@ -556,7 +627,10 @@ class Command(BaseCommand):
             if created:
                 self.stdout.write(self.style.SUCCESS(f'创建数据采集任务: {task.name}'))
                 if data_sources:
-                    task.data_sources.set(random.sample(data_sources, min(2, len(data_sources))))
+                    task.data_sources.set(
+                        random.sample(
+                            data_sources, min(
+                                2, len(data_sources))))
 
     def _create_production_order_changes(self, plans, admin_user):
         for plan in plans[:min(3, len(plans))]:
@@ -576,7 +650,8 @@ class Command(BaseCommand):
             if created:
                 self.stdout.write(self.style.SUCCESS(f'创建生产订单变更: {plan.name}'))
 
-    def _create_production_line_day_plans(self, plans, departments, admin_user):
+    def _create_production_line_day_plans(
+            self, plans, departments, admin_user):
         for i, plan in enumerate(plans[:min(5, len(plans))]):
             day_plan, created = ProductionLineDayPlan.objects.get_or_create(
                 code=f'DP{str(i+1).zfill(4)}',
@@ -593,7 +668,8 @@ class Command(BaseCommand):
                 }
             )
             if created:
-                self.stdout.write(self.style.SUCCESS(f'创建生产线日计划: {day_plan.code}'))
+                self.stdout.write(
+                    self.style.SUCCESS(f'创建生产线日计划: {day_plan.code}'))
 
     def _print_summary(self):
         self.stdout.write(self.style.SUCCESS('=' * 60))
@@ -608,5 +684,6 @@ class Command(BaseCommand):
         self.stdout.write(f'  - 质量检查: {QualityCheck.objects.count()} 条')
         self.stdout.write(f'  - 数据源: {DataSource.objects.count()} 个')
         self.stdout.write(f'  - 数据采集: {DataCollection.objects.count()} 条')
-        self.stdout.write(f'  - 生产数据点: {ProductionDataPoint.objects.count()} 条')
+        self.stdout.write(
+            f'  - 生产数据点: {ProductionDataPoint.objects.count()} 条')
         self.stdout.write(self.style.SUCCESS('=' * 60))

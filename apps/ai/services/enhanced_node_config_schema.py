@@ -49,27 +49,28 @@ class BranchConfig:
 @dataclass
 class EnhancedNodeConfig:
     """增强节点配置"""
-    
+
     basic_info: Dict = field(default_factory=dict)
-    
+
     input_config: Dict = field(default_factory=dict)
-    
+
     output_config: Dict = field(default_factory=dict)
-    
-    interaction_config: InteractionConfig = field(default_factory=lambda: InteractionConfig())
-    
+
+    interaction_config: InteractionConfig = field(
+        default_factory=lambda: InteractionConfig())
+
     branch_config: List[BranchConfig] = field(default_factory=list)
-    
+
     error_handling: Dict = field(default_factory=dict)
-    
+
     performance: Dict = field(default_factory=dict)
-    
+
     visibility: Dict = field(default_factory=dict)
 
 
 class EnhancedNodeConfigSchema:
     """增强节点配置Schema管理器"""
-    
+
     @classmethod
     def get_approval_node_schema(cls) -> Dict[str, Any]:
         """审批节点配置Schema"""
@@ -214,7 +215,7 @@ class EnhancedNodeConfigSchema:
                 }
             }
         }
-    
+
     @classmethod
     def get_form_input_node_schema(cls) -> Dict[str, Any]:
         """表单输入节点配置Schema"""
@@ -276,13 +277,16 @@ class EnhancedNodeConfigSchema:
                         'depends_on': {'interaction.enabled': True},
                         'field_types': [
                             {'type': 'text', 'label': '单行文本', 'icon': 'font-size'},
-                            {'type': 'textarea', 'label': '多行文本', 'icon': 'file-text'},
+                            {'type': 'textarea', 'label': '多行文本',
+                                'icon': 'file-text'},
                             {'type': 'number', 'label': '数字', 'icon': 'number'},
                             {'type': 'select', 'label': '下拉选择', 'icon': 'down'},
                             {'type': 'radio', 'label': '单选', 'icon': 'radio'},
-                            {'type': 'checkbox', 'label': '复选框', 'icon': 'check-square'},
+                            {'type': 'checkbox', 'label': '复选框',
+                                'icon': 'check-square'},
                             {'type': 'date', 'label': '日期', 'icon': 'calendar'},
-                            {'type': 'datetime', 'label': '日期时间', 'icon': 'clock-circle'},
+                            {'type': 'datetime', 'label': '日期时间',
+                                'icon': 'clock-circle'},
                             {'type': 'file', 'label': '文件上传', 'icon': 'upload'},
                             {'type': 'richtext', 'label': '富文本', 'icon': 'edit'}
                         ],
@@ -328,7 +332,7 @@ class EnhancedNodeConfigSchema:
                 }
             }
         }
-    
+
     @classmethod
     def get_confirmation_node_schema(cls) -> Dict[str, Any]:
         """确认节点配置Schema"""
@@ -437,7 +441,7 @@ class EnhancedNodeConfigSchema:
                 }
             }
         }
-    
+
     @classmethod
     def get_selection_node_schema(cls) -> Dict[str, Any]:
         """选择节点配置Schema"""
@@ -542,7 +546,7 @@ class EnhancedNodeConfigSchema:
                 }
             }
         }
-    
+
     @classmethod
     def get_human_review_node_schema(cls) -> Dict[str, Any]:
         """人工审核节点配置Schema"""
@@ -654,7 +658,7 @@ class EnhancedNodeConfigSchema:
                 }
             }
         }
-    
+
     @classmethod
     def get_all_interaction_node_schemas(cls) -> Dict[str, Dict]:
         """获取所有交互节点配置Schema"""
@@ -665,7 +669,7 @@ class EnhancedNodeConfigSchema:
             'selection': cls.get_selection_node_schema(),
             'human_review': cls.get_human_review_node_schema()
         }
-    
+
     @classmethod
     def get_enhanced_ai_generation_schema(cls) -> Dict[str, Any]:
         """增强的AI生成节点配置"""
@@ -769,9 +773,9 @@ class EnhancedNodeConfigSchema:
                 }
             }
         }
-        
+
         return base_schema
-    
+
     @classmethod
     def get_enhanced_condition_schema(cls) -> Dict[str, Any]:
         """增强的条件节点配置"""
@@ -822,7 +826,7 @@ class EnhancedNodeConfigSchema:
                 }
             }
         }
-    
+
     @classmethod
     def get_enhanced_parallel_schema(cls) -> Dict[str, Any]:
         """增强的并行处理节点配置"""
@@ -887,7 +891,7 @@ class EnhancedNodeConfigSchema:
                 }
             }
         }
-    
+
     @classmethod
     def get_enhanced_loop_schema(cls) -> Dict[str, Any]:
         """增强的循环节点配置"""
@@ -971,14 +975,13 @@ class EnhancedNodeConfigSchema:
 def get_enhanced_node_config(node_type: str) -> Optional[Dict]:
     """获取增强节点配置"""
     schemas = EnhancedNodeConfigSchema.get_all_interaction_node_schemas()
-    
+
     enhanced_schemas = {
         'ai_generation': EnhancedNodeConfigSchema.get_enhanced_ai_generation_schema(),
         'condition': EnhancedNodeConfigSchema.get_enhanced_condition_schema(),
         'parallel': EnhancedNodeConfigSchema.get_enhanced_parallel_schema(),
-        'loop': EnhancedNodeConfigSchema.get_enhanced_loop_schema()
-    }
-    
+        'loop': EnhancedNodeConfigSchema.get_enhanced_loop_schema()}
+
     enhanced_schemas.update(schemas)
-    
+
     return enhanced_schemas.get(node_type)

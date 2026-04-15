@@ -724,10 +724,13 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="inventory",
-            index=models.Index(fields=["status"], name="inventory_i_status_2e2af1_idx"),
+            index=models.Index(
+                fields=["status"],
+                name="inventory_i_status_2e2af1_idx"),
         ),
         migrations.AlterUniqueTogether(
             name="inventory",
-            unique_together={("item", "warehouse", "location", "batch_number")},
+            unique_together={
+                ("item", "warehouse", "location", "batch_number")},
         ),
     ]

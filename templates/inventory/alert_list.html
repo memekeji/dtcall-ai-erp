@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>库存预警</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href="/static/layui/css/layui.css" rel="stylesheet">
+    <link href="/static/css/common.css" rel="stylesheet">
+    <style>
+        .status-tag { padding: 2px 8px; border-radius: 3px; font-size: 12px; }
+        .status-1 { background: #FF5722; color: #fff; }
+        .status-2 { background: #009688; color: #fff; }
+        .status-3 { background: #999; color: #fff; }
+        .alert-type-low_stock { border-left: 3px solid #FF5722; }
+        .alert-type-over_stock { border-left: 3px solid #FFB800; }
+        .alert-type-expiring { border-left: 3px solid #1E9FFF; }
+        .alert-type-slow_moving { border-left: 3px solid #009688; }
+        .alert-type-reorder { border-left: 3px solid #2F4F4F; }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header layui-elem-quote">
+                库存预警列表
+            </div>
+            <div class="layui-card-body">
+                <div class="layui-form layui-inline">
+                    <div class="layui-input-inline">
+                        <select id="searchAlertType">
+                            <option value="">全部类型</option>
+                            <option value="low_stock">低库存预警</option>
+                            <option value="over_stock">超库存预警</option>
+                            <option value="expiring">过期预警</option>
+                            <option value="slow_moving">呆滞料预警</option>
+                            <option value="reorder">再订货预警</option>
+                        </select>
+                    </div>
+                    <div class="layui-input-inline">
+                        <select id="searchStatus">
+                            <option value="">全部状态</option>
+                            <option value="1">未处理</option>
+                            <option value="2">已处理</option>
+                            <option value="3">已忽略</option>
+                        </select>
+                    </div>
+                    <button class="layui-btn" id="searchBtn">
+                        <i class="layui-icon">&#xe615;</i> 查询
+                    </button>
+                </div>
+                <table id="alertTable" lay-filter="alertTable"></table>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/lib/jquery.min.js"></script>
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['table', 'layer', 'form'], function(){
+            var table = layui.table;
+            var layer = layui.layer;
+            var form = layui.form;
+            
+            table.render({
+                elem: '#alertTable',
+                url: '/api/inventory/alert/',
+                page: true,
+                cols: [[
+                    {field: 'id', title: 'ID', width: 80, sort: true},
+                    {field: 'item_code', title: '物料编码', width: 120},
+                    {field: 'item_name', title: '物料名称', width: 150},
+                    {field: 'warehouse_name', title: '仓库', width: 120},
+                    {field: 'alert_type_display', title: '预警类型', width: 110},
+                    {field: 'current_quantity', title: '当前数量', width: 90},
+                    {field: 'threshold_value', title: '阈值', width: 90},
+                    {field: 'message', title: '预警信息', minWidth: 200},
+                    {field: 'status_display', title: '状态', width: 90, templet: function(d){
+                        return '<span class="status-tag status-' + d.status + '">' + d.status_display + '</span>';
+                    }},
+                    {field: 'handler_name', title: '处理人', width: 90},
+                    {field: 'create_time', title: '创建时间', width: 160},
+                    {title: '操作', width: 150, templet: function(d){
+                        var html = '<button class="layui-btn layui-btn-xs" lay-event="view">查看</button>';
+                        if(d.status == 1){
+                            html += '<button class="layui-btn layui-btn-xs layui-btn-warm" lay-event="handle">处理</button>';
+                        }
+                        return html;
+                    }}
+                ]],
+                parseData: function(res){
+                    return {
+                        "code": res.code,
+                        "msg": res.msg,
+                        "count": res.count,
+                        "data": res.data
+                    };
+                }
+            });
+            
+            $('#searchBtn').click(function(){
+                table.reload('alertTable', {
+                    where: {
+                        alert_type: $('#searchAlertType').val(),
+                        status: $('#searchStatus').val()
+                    }
+                });
+            });
+            
+            table.on('tool(alertTable)', function(obj){
+                if(obj.event === 'view'){
+                    layer.open({
+                        type: 1,
+                        title: '预警详情',
+                        area: ['80%', '100%'],
+                        content: '<div style="padding: 20px;"><p><strong>物料编码：</strong>' + obj.data.item_code + '</p>' +
+                                 '<p><strong>物料名称：</strong>' + obj.data.item_name + '</p>' +
+                                 '<p><strong>仓库：</strong>' + obj.data.warehouse_name + '</p>' +
+                                 '<p><strong>预警类型：</strong>' + obj.data.alert_type_display + '</p>' +
+                                 '<p><strong>当前数量：</strong>' + obj.data.current_quantity + '</p>' +
+                                 '<p><strong>阈值：</strong>' + obj.data.threshold_value + '</p>' +
+                                 '<p><strong>预警信息：</strong>' + obj.data.message + '</p></div>'
+                    });
+                } else if(obj.event === 'handle'){
+                    layer.prompt({title: '请输入处理备注'}, function(value, index){
+                        $.ajax({
+                            url: '/api/inventory/alert/' + obj.data.id + '/handle/',
+                            type: 'POST',
+                            data: {remark: value},
+                            success: function(res){
+                                if(res.code === 0){
+                                    layer.msg('处理成功');
+                                    table.reload('alertTable');
+                                } else {
+                                    layer.msg(res.msg);
+                                }
+                            }
+                        });
+                        layer.close(index);
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>

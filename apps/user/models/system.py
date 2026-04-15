@@ -1,6 +1,5 @@
 from django.db import models
 from django.contrib.auth import get_user_model
-from django.utils import timezone
 
 User = get_user_model()
 
@@ -19,8 +18,15 @@ class SystemLog(models.Model):
         ('other', '其他'),
     )
 
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name='操作用户')
-    log_type = models.CharField(max_length=20, choices=LOG_TYPES, verbose_name='日志类型')
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        verbose_name='操作用户')
+    log_type = models.CharField(
+        max_length=20,
+        choices=LOG_TYPES,
+        verbose_name='日志类型')
     module = models.CharField(max_length=100, verbose_name='操作模块')
     action = models.CharField(max_length=200, verbose_name='操作动作')
     content = models.TextField(blank=True, verbose_name='操作内容')
@@ -41,7 +47,11 @@ class SystemLog(models.Model):
 class SystemOperationLog(models.Model):
     """系统操作日志表"""
     id = models.AutoField(primary_key=True, verbose_name='ID')
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name='操作人')
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        verbose_name='操作人')
     action = models.CharField(max_length=255, default='', verbose_name='操作行为')
     content = models.TextField(verbose_name='操作内容', null=True)
     ip = models.CharField(max_length=64, default='', verbose_name='操作IP')
@@ -61,7 +71,8 @@ class SystemConfiguration(models.Model):
     """系统配置"""
     key = models.CharField(max_length=100, unique=True, verbose_name='配置键')
     value = models.TextField(verbose_name='配置值')
-    description = models.CharField(max_length=200, blank=True, verbose_name='描述')
+    description = models.CharField(
+        max_length=200, blank=True, verbose_name='描述')
     is_active = models.BooleanField(default=True, verbose_name='是否启用')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
@@ -83,7 +94,12 @@ class SystemModule(models.Model):
     icon = models.CharField(max_length=50, blank=True, verbose_name='图标')
     sort_order = models.IntegerField(default=0, verbose_name='排序')
     is_active = models.BooleanField(default=True, verbose_name='是否启用')
-    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, verbose_name='父模块')
+    parent = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        verbose_name='父模块')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
 
     class Meta:
@@ -94,7 +110,7 @@ class SystemModule(models.Model):
 
     def __str__(self):
         return self.name
-    
+
     def save(self, *args, **kwargs):
         """
         重写save方法，确保系统管理和用户管理模块始终处于启用状态

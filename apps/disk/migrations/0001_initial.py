@@ -33,7 +33,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "file_ext",
-                    models.CharField(default="", max_length=20, verbose_name="文件扩展名"),
+                    models.CharField(
+                        default="", max_length=20, verbose_name="文件扩展名"),
                 ),
                 (
                     "file_type",
@@ -53,24 +54,33 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "mime_type",
-                    models.CharField(default="", max_length=100, verbose_name="MIME类型"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="MIME类型"),
                 ),
-                ("is_public", models.BooleanField(default=False, verbose_name="是否公开")),
-                ("is_starred", models.BooleanField(default=False, verbose_name="是否收藏")),
-                ("download_count", models.IntegerField(default=0, verbose_name="下载次数")),
-                ("view_count", models.IntegerField(default=0, verbose_name="查看次数")),
-                ("preview_count", models.IntegerField(default=0, verbose_name="预览次数")),
+                ("is_public", models.BooleanField(
+                    default=False, verbose_name="是否公开")),
+                ("is_starred", models.BooleanField(
+                    default=False, verbose_name="是否收藏")),
+                ("download_count", models.IntegerField(
+                    default=0, verbose_name="下载次数")),
+                ("view_count", models.IntegerField(
+                    default=0, verbose_name="查看次数")),
+                ("preview_count", models.IntegerField(
+                    default=0, verbose_name="预览次数")),
                 (
                     "last_preview_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="最后预览时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="最后预览时间"),
                 ),
                 (
                     "version",
-                    models.CharField(default="1.0", max_length=20, verbose_name="版本号"),
+                    models.CharField(
+                        default="1.0", max_length=20, verbose_name="版本号"),
                 ),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",
@@ -78,7 +88,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "delete_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="删除时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="删除时间"),
                 ),
             ],
             options={
@@ -101,7 +112,8 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 ("name", models.CharField(max_length=200, verbose_name="文件夹名称")),
-                ("is_public", models.BooleanField(default=False, verbose_name="是否公开")),
+                ("is_public", models.BooleanField(
+                    default=False, verbose_name="是否公开")),
                 (
                     "permission_level",
                     models.IntegerField(
@@ -112,7 +124,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",
@@ -120,7 +133,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "delete_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="删除时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="删除时间"),
                 ),
             ],
             options={
@@ -163,7 +177,8 @@ class Migration(migrations.Migration):
                         verbose_name="操作类型",
                     ),
                 ),
-                ("description", models.CharField(max_length=500, verbose_name="操作描述")),
+                ("description", models.CharField(
+                    max_length=500, verbose_name="操作描述")),
                 (
                     "ip_address",
                     models.GenericIPAddressField(
@@ -172,11 +187,13 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "user_agent",
-                    models.CharField(blank=True, max_length=500, verbose_name="用户代理"),
+                    models.CharField(
+                        blank=True, max_length=500, verbose_name="用户代理"),
                 ),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="操作时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="操作时间"),
                 ),
             ],
             options={
@@ -208,7 +225,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "share_code",
-                    models.CharField(max_length=32, unique=True, verbose_name="分享码"),
+                    models.CharField(
+                        max_length=32, unique=True, verbose_name="分享码"),
                 ),
                 (
                     "password",
@@ -218,12 +236,14 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "expire_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="过期时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="过期时间"),
                 ),
                 (
                     "permission_type",
                     models.CharField(
-                        choices=[("view", "仅查看"), ("download", "可下载"), ("edit", "可编辑")],
+                        choices=[
+                            ("view", "仅查看"), ("download", "可下载"), ("edit", "可编辑")],
                         default="download",
                         max_length=10,
                         verbose_name="权限类型",
@@ -235,19 +255,25 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "access_limit",
-                    models.IntegerField(default=0, verbose_name="访问次数限制(0为无限制)"),
+                    models.IntegerField(
+                        default=0, verbose_name="访问次数限制(0为无限制)"),
                 ),
-                ("access_count", models.IntegerField(default=0, verbose_name="访问次数")),
+                ("access_count", models.IntegerField(
+                    default=0, verbose_name="访问次数")),
                 (
                     "download_limit",
                     models.IntegerField(default=0, verbose_name="下载限制(0为无限制)"),
                 ),
-                ("download_count", models.IntegerField(default=0, verbose_name="下载次数")),
-                ("visitor_ips", models.TextField(blank=True, verbose_name="访问者IP记录")),
-                ("is_active", models.BooleanField(default=True, verbose_name="是否有效")),
+                ("download_count", models.IntegerField(
+                    default=0, verbose_name="下载次数")),
+                ("visitor_ips", models.TextField(
+                    blank=True, verbose_name="访问者IP记录")),
+                ("is_active", models.BooleanField(
+                    default=True, verbose_name="是否有效")),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",

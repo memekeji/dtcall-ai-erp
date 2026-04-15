@@ -2,19 +2,16 @@
 财务管理模块视图
 只使用有数据库表的模型
 """
-from django.shortcuts import render, get_object_or_404, redirect
-from django.views.generic import ListView, CreateView, UpdateView, DetailView, DeleteView
+from django.shortcuts import render, get_object_or_404
+from django.views.generic import CreateView, UpdateView
 from django.views import View
-from django.http import JsonResponse, HttpResponseBadRequest
-from django.urls import reverse_lazy, reverse
+from django.http import JsonResponse
+from django.urls import reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-from django.utils import timezone
 from django.core.paginator import Paginator
-from django.db.models import Sum, Count, Q, F
-from django.db import transaction
-from decimal import Decimal
+from django.db.models import Sum, Q
 import json
 import logging
 import time
@@ -22,12 +19,10 @@ import time
 from .models import (
     Expense, Invoice, Income, Payment,
     InvoiceRequest, OrderFinanceRecord,
-    FinanceStatus, FinanceStatusMapping
+    FinanceStatus
 )
 from apps.common.utils import (
-    timestamp_to_date, get_status_display, safe_int,
-    build_error_response, build_success_response,
-    StatusCodeMapper
+    timestamp_to_date, safe_int, build_error_response
 )
 from apps.common.constants import ApiResponseCode, CommonConstant
 
@@ -41,7 +36,9 @@ class FinancePermissionMixin(PermissionRequiredMixin):
     def has_permission(self):
         if not self.permission_required:
             return True
-        perms = self.permission_required if isinstance(self.permission_required, list) else [self.permission_required]
+        perms = self.permission_required if isinstance(
+            self.permission_required, list) else [
+            self.permission_required]
         return self.request.user.has_perms(perms)
 
 
@@ -68,7 +65,9 @@ class ExpenseListView(LoginRequiredMixin, FinancePermissionMixin, View):
         try:
             tab = request.GET.get('tab', '0')
             page = safe_int(request.GET.get('page'), 1)
-            limit = safe_int(request.GET.get('limit'), CommonConstant.DEFAULT_PAGE_SIZE)
+            limit = safe_int(
+                request.GET.get('limit'),
+                CommonConstant.DEFAULT_PAGE_SIZE)
 
             queryset = Expense.objects.all().order_by('-create_time')
             uid = request.user.id
@@ -79,7 +78,8 @@ class ExpenseListView(LoginRequiredMixin, FinancePermissionMixin, View):
                 queryset = queryset.filter(
                     check_status=FinanceStatus.EXPENSE_CHECK_PENDING
                 ).filter(
-                    Q(check_uids__contains=str(uid)) | Q(check_last_uid=str(uid))
+                    Q(check_uids__contains=str(uid)) | Q(
+                        check_last_uid=str(uid))
                 )
 
             search_code = request.GET.get('code')
@@ -89,16 +89,26 @@ class ExpenseListView(LoginRequiredMixin, FinancePermissionMixin, View):
             diff_time = request.GET.get('diff_time')
             if diff_time and '~' in diff_time:
                 start, end = diff_time.split('~')
-                start_ts = int(time.mktime(time.strptime(start.strip(), '%Y-%m-%d')))
-                end_ts = int(time.mktime(time.strptime(end.strip(), '%Y-%m-%d'))) + 86400
-                queryset = queryset.filter(expense_time__range=[start_ts, end_ts])
+                start_ts = int(
+                    time.mktime(
+                        time.strptime(
+                            start.strip(),
+                            '%Y-%m-%d')))
+                end_ts = int(
+                    time.mktime(
+                        time.strptime(
+                            end.strip(),
+                            '%Y-%m-%d'))) + 86400
+                queryset = queryset.filter(
+                    expense_time__range=[start_ts, end_ts])
 
             paginator = Paginator(queryset, limit)
             page_obj = paginator.get_page(page)
 
             data = []
             for expense in page_obj:
-                expense_date = timestamp_to_date(expense.expense_time) if expense.expense_time else None
+                expense_date = timestamp_to_date(
+                    expense.expense_time) if expense.expense_time else None
                 data.append({
                     'id': expense.id,
                     'code': expense.code,
@@ -145,15 +155,15 @@ class ExpenseCreateView(LoginRequiredMixin, View):
         try:
             data = request.POST.dict()
             data['admin_id'] = request.user.id
-            
+
             # 生成报销编码
             from django.utils import timezone
             import random
             code = f'BX{timezone.now().strftime("%Y%m%d%H%M%S")}{random.randint(1000, 9999)}'
             data['code'] = data.get('code', code)
-            
+
             expense = Expense.objects.create(**data)
-            
+
             return JsonResponse({
                 'code': ApiResponseCode.CODE_SUCCESS,
                 'msg': '创建成功',
@@ -208,7 +218,7 @@ class ExpenseApproveView(LoginRequiredMixin, FinancePermissionMixin, View):
             data = json.loads(request.body)
             expense_id = data.get('expense_id')
             action = data.get('action')
-            notes = data.get('notes', '')
+            data.get('notes', '')
 
             if not expense_id or not action:
                 return build_error_response('参数不完整')
@@ -251,7 +261,9 @@ class InvoiceListView(LoginRequiredMixin, FinancePermissionMixin, View):
     def get_datalist(self, request):
         try:
             page = safe_int(request.GET.get('page'), 1)
-            limit = safe_int(request.GET.get('limit'), CommonConstant.DEFAULT_PAGE_SIZE)
+            limit = safe_int(
+                request.GET.get('limit'),
+                CommonConstant.DEFAULT_PAGE_SIZE)
 
             queryset = Invoice.objects.all().order_by('-create_time')
 
@@ -299,7 +311,10 @@ class ReceiveInvoiceListView(LoginRequiredMixin, View):
         return render(request, 'finance/receiveinvoice_list.html')
 
 
-class InvoiceCreateView(LoginRequiredMixin, FinancePermissionMixin, CreateView):
+class InvoiceCreateView(
+        LoginRequiredMixin,
+        FinancePermissionMixin,
+        CreateView):
     """创建发票"""
     login_url = '/user/login/'
     permission_required = 'finance.add_invoice'
@@ -307,7 +322,10 @@ class InvoiceCreateView(LoginRequiredMixin, FinancePermissionMixin, CreateView):
     success_url = reverse_lazy('finance:invoice_list')
 
 
-class InvoiceUpdateView(LoginRequiredMixin, FinancePermissionMixin, UpdateView):
+class InvoiceUpdateView(
+        LoginRequiredMixin,
+        FinancePermissionMixin,
+        UpdateView):
     """更新发票"""
     login_url = '/user/login/'
     permission_required = 'finance.change_invoice'
@@ -329,7 +347,9 @@ class IncomeListView(LoginRequiredMixin, FinancePermissionMixin, View):
     def get_datalist(self, request):
         try:
             page = safe_int(request.GET.get('page'), 1)
-            limit = safe_int(request.GET.get('limit'), CommonConstant.DEFAULT_PAGE_SIZE)
+            limit = safe_int(
+                request.GET.get('limit'),
+                CommonConstant.DEFAULT_PAGE_SIZE)
 
             queryset = Income.objects.all().order_by('-income_date')
 
@@ -378,7 +398,9 @@ class PaymentListView(LoginRequiredMixin, FinancePermissionMixin, View):
     def get_datalist(self, request):
         try:
             page = safe_int(request.GET.get('page'), 1)
-            limit = safe_int(request.GET.get('limit'), CommonConstant.DEFAULT_PAGE_SIZE)
+            limit = safe_int(
+                request.GET.get('limit'),
+                CommonConstant.DEFAULT_PAGE_SIZE)
 
             queryset = Payment.objects.all().order_by('-payment_date')
 
@@ -414,7 +436,10 @@ class PaymentReceiveListView(LoginRequiredMixin, View):
         return render(request, 'finance/paymentreceive_list.html')
 
 
-class PaymentReceiveCreateView(LoginRequiredMixin, FinancePermissionMixin, CreateView):
+class PaymentReceiveCreateView(
+        LoginRequiredMixin,
+        FinancePermissionMixin,
+        CreateView):
     """创建收付款记录"""
     login_url = '/user/login/'
     permission_required = 'finance.add_payment'
@@ -436,7 +461,9 @@ class InvoiceRequestListView(LoginRequiredMixin, FinancePermissionMixin, View):
         try:
             tab = request.GET.get('tab', '0')
             page = safe_int(request.GET.get('page'), 1)
-            limit = safe_int(request.GET.get('limit'), CommonConstant.DEFAULT_PAGE_SIZE)
+            limit = safe_int(
+                request.GET.get('limit'),
+                CommonConstant.DEFAULT_PAGE_SIZE)
 
             queryset = InvoiceRequest.objects.all().order_by('-create_time')
             uid = request.user.id
@@ -473,7 +500,10 @@ class InvoiceRequestListView(LoginRequiredMixin, FinancePermissionMixin, View):
             return build_error_response(f'获取数据失败: {str(e)}')
 
 
-class OrderFinanceRecordListView(LoginRequiredMixin, FinancePermissionMixin, View):
+class OrderFinanceRecordListView(
+        LoginRequiredMixin,
+        FinancePermissionMixin,
+        View):
     """订单财务记录列表"""
     login_url = '/user/login/'
     permission_required = 'finance.view_orderfinancerecord'
@@ -487,7 +517,9 @@ class OrderFinanceRecordListView(LoginRequiredMixin, FinancePermissionMixin, Vie
         try:
             status = request.GET.get('status')
             page = safe_int(request.GET.get('page'), 1)
-            limit = safe_int(request.GET.get('limit'), CommonConstant.DEFAULT_PAGE_SIZE)
+            limit = safe_int(
+                request.GET.get('limit'),
+                CommonConstant.DEFAULT_PAGE_SIZE)
 
             queryset = OrderFinanceRecord.objects.all().order_by('-create_time')
 
@@ -632,7 +664,8 @@ class BatchApprovalView(LoginRequiredMixin, FinancePermissionMixin, View):
 
                     results.append({'id': expense.id, 'success': True})
                 except Exception as e:
-                    results.append({'id': expense.id, 'success': False, 'error': str(e)})
+                    results.append(
+                        {'id': expense.id, 'success': False, 'error': str(e)})
 
             return JsonResponse({
                 'code': 0 if all(r['success'] for r in results) else 1,
@@ -661,6 +694,7 @@ def invoice_detail(request, id):
 @method_decorator(csrf_exempt, name='dispatch')
 class ExpenseDeleteView(LoginRequiredMixin, View):
     """删除报销"""
+
     def post(self, request):
         try:
             data = json.loads(request.body)
@@ -682,6 +716,7 @@ class ExpenseDeleteView(LoginRequiredMixin, View):
 @method_decorator(csrf_exempt, name='dispatch')
 class InvoiceDeleteView(LoginRequiredMixin, View):
     """删除发票"""
+
     def post(self, request):
         try:
             data = json.loads(request.body)
@@ -703,6 +738,7 @@ class InvoiceDeleteView(LoginRequiredMixin, View):
 @method_decorator(csrf_exempt, name='dispatch')
 class IncomeDeleteView(LoginRequiredMixin, View):
     """删除回款"""
+
     def post(self, request):
         try:
             data = json.loads(request.body)
@@ -724,6 +760,7 @@ class IncomeDeleteView(LoginRequiredMixin, View):
 @method_decorator(csrf_exempt, name='dispatch')
 class PaymentDeleteView(LoginRequiredMixin, View):
     """删除付款"""
+
     def post(self, request):
         try:
             data = json.loads(request.body)

@@ -16,7 +16,7 @@ class PersonalSchedule(models.Model):
         (3, '高'),
         (4, '紧急'),
     )
-    
+
     STATUS_CHOICES = (
         ('pending', '待处理'),
         ('in_progress', '进行中'),
@@ -28,10 +28,18 @@ class PersonalSchedule(models.Model):
     content = models.TextField(blank=True, verbose_name='日程内容')
     start_time = models.DateTimeField(verbose_name='开始时间')
     end_time = models.DateTimeField(verbose_name='结束时间')
-    priority = models.IntegerField(choices=PRIORITY_CHOICES, default=2, verbose_name='优先级')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='状态')
+    priority = models.IntegerField(
+        choices=PRIORITY_CHOICES,
+        default=2,
+        verbose_name='优先级')
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        verbose_name='状态')
     location = models.CharField(max_length=200, blank=True, verbose_name='地点')
-    reminder_time = models.DateTimeField(null=True, blank=True, verbose_name='提醒时间')
+    reminder_time = models.DateTimeField(
+        null=True, blank=True, verbose_name='提醒时间')
     is_all_day = models.BooleanField(default=False, verbose_name='全天事件')
     is_private = models.BooleanField(default=False, verbose_name='私人事件')
     user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='用户')
@@ -68,7 +76,11 @@ class WorkRecord(models.Model):
 
     title = models.CharField(max_length=200, verbose_name='工作标题')
     content = models.TextField(verbose_name='工作内容')
-    work_type = models.CharField(max_length=20, choices=WORK_TYPES, default='daily', verbose_name='工作类型')
+    work_type = models.CharField(
+        max_length=20,
+        choices=WORK_TYPES,
+        default='daily',
+        verbose_name='工作类型')
     work_date = models.DateField(verbose_name='工作日期')
     start_time = models.TimeField(verbose_name='开始时间')
     end_time = models.TimeField(verbose_name='结束时间')
@@ -79,7 +91,12 @@ class WorkRecord(models.Model):
     problem = models.TextField(blank=True, verbose_name='遇到问题')
     next_plan = models.TextField(blank=True, verbose_name='下步计划')
     user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='用户')
-    department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='部门')
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name='部门')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
 
@@ -108,7 +125,10 @@ class WorkReport(models.Model):
     )
 
     title = models.CharField(max_length=200, verbose_name='汇报标题')
-    report_type = models.CharField(max_length=20, choices=REPORT_TYPES, verbose_name='汇报类型')
+    report_type = models.CharField(
+        max_length=20,
+        choices=REPORT_TYPES,
+        verbose_name='汇报类型')
     report_date = models.DateField(verbose_name='汇报日期')
     summary = models.TextField(verbose_name='工作总结')
     completed_work = models.TextField(verbose_name='已完成工作')
@@ -116,11 +136,21 @@ class WorkReport(models.Model):
     problems = models.TextField(blank=True, verbose_name='存在问题')
     suggestions = models.TextField(blank=True, verbose_name='意见建议')
     attachments = models.TextField(blank=True, verbose_name='附件列表')
-    recipient_users = models.ManyToManyField(User, related_name='received_reports', blank=True, verbose_name='接收人')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='汇报人')
-    department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='部门')
+    recipient_users = models.ManyToManyField(
+        User, related_name='received_reports', blank=True, verbose_name='接收人')
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name='汇报人')
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name='部门')
     is_submitted = models.BooleanField(default=False, verbose_name='已提交')
-    submitted_at = models.DateTimeField(null=True, blank=True, verbose_name='提交时间')
+    submitted_at = models.DateTimeField(
+        null=True, blank=True, verbose_name='提交时间')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
 
@@ -150,7 +180,11 @@ class PersonalNote(models.Model):
 
     title = models.CharField(max_length=200, verbose_name='笔记标题')
     content = models.TextField(verbose_name='笔记内容')
-    category = models.CharField(max_length=20, choices=CATEGORIES, default='work', verbose_name='笔记分类')
+    category = models.CharField(
+        max_length=20,
+        choices=CATEGORIES,
+        default='work',
+        verbose_name='笔记分类')
     tags = models.CharField(max_length=200, blank=True, verbose_name='标签')
     is_important = models.BooleanField(default=False, verbose_name='重要标记')
     is_private = models.BooleanField(default=True, verbose_name='私人笔记')
@@ -180,7 +214,7 @@ class PersonalTask(models.Model):
         (3, '高'),
         (4, '紧急'),
     )
-    
+
     STATUS_CHOICES = (
         ('todo', '待办'),
         ('in_progress', '进行中'),
@@ -190,13 +224,23 @@ class PersonalTask(models.Model):
 
     title = models.CharField(max_length=200, verbose_name='任务标题')
     description = models.TextField(blank=True, verbose_name='任务描述')
-    priority = models.IntegerField(choices=PRIORITY_CHOICES, default=2, verbose_name='优先级')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='todo', verbose_name='状态')
+    priority = models.IntegerField(
+        choices=PRIORITY_CHOICES,
+        default=2,
+        verbose_name='优先级')
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='todo',
+        verbose_name='状态')
     due_date = models.DateTimeField(null=True, blank=True, verbose_name='截止时间')
-    completed_at = models.DateTimeField(null=True, blank=True, verbose_name='完成时间')
+    completed_at = models.DateTimeField(
+        null=True, blank=True, verbose_name='完成时间')
     progress = models.IntegerField(default=0, verbose_name='完成进度(%)')
-    estimated_hours = models.FloatField(null=True, blank=True, verbose_name='预估工时')
-    actual_hours = models.FloatField(null=True, blank=True, verbose_name='实际工时')
+    estimated_hours = models.FloatField(
+        null=True, blank=True, verbose_name='预估工时')
+    actual_hours = models.FloatField(
+        null=True, blank=True, verbose_name='实际工时')
     user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='用户')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
@@ -260,19 +304,34 @@ class MeetingMinutes(models.Model):
         verbose_name='会议类型'
     )
     meeting_date = models.DateTimeField(verbose_name='会议时间')
-    location = models.CharField(max_length=200, blank=True, verbose_name='会议地点')
+    location = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='会议地点')
     host = models.CharField(max_length=100, blank=True, verbose_name='主持人')
-    recorder = models.ForeignKey(User, on_delete=models.CASCADE, related_name='recorded_meeting_minutes', verbose_name='记录人')
+    recorder = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='recorded_meeting_minutes',
+        verbose_name='记录人')
     attendees = models.TextField(blank=True, verbose_name='参会人员')
     content = models.TextField(blank=True, verbose_name='会议内容')
     decisions = models.TextField(blank=True, verbose_name='会议决议')
     action_items = models.TextField(blank=True, verbose_name='行动项')
     attachments = models.TextField(blank=True, verbose_name='附件')
     is_public = models.BooleanField(default=True, verbose_name='是否公开')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='创建者')
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name='创建者')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
-    meeting_record = models.ForeignKey(MeetingRecord, null=True, blank=True, on_delete=models.SET_NULL, verbose_name='关联会议记录')
+    meeting_record = models.ForeignKey(
+        MeetingRecord,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        verbose_name='关联会议记录')
 
     class Meta:
         verbose_name = '会议纪要'
@@ -282,7 +341,7 @@ class MeetingMinutes(models.Model):
 
     def __str__(self):
         return self.title
-    
+
     @property
     def meeting_type_display(self):
         return MeetingTypeChoices.get_label(self.meeting_type)

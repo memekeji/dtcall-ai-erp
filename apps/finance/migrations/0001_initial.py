@@ -25,36 +25,45 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "code",
-                    models.CharField(default="", max_length=100, verbose_name="报销编码"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="报销编码"),
                 ),
-                ("subject_id", models.IntegerField(default=0, verbose_name="报销企业主体")),
+                ("subject_id", models.IntegerField(
+                    default=0, verbose_name="报销企业主体")),
                 (
                     "admin_id",
-                    models.PositiveIntegerField(default=0, verbose_name="报销人ID"),
+                    models.PositiveIntegerField(
+                        default=0, verbose_name="报销人ID"),
                 ),
                 ("did", models.IntegerField(default=0, verbose_name="报销部门ID")),
-                ("project_id", models.IntegerField(default=0, verbose_name="关联项目ID")),
+                ("project_id", models.IntegerField(
+                    default=0, verbose_name="关联项目ID")),
                 (
                     "cost",
                     models.DecimalField(
                         decimal_places=2, max_digits=15, verbose_name="报销总金额"
                     ),
                 ),
-                ("income_month", models.IntegerField(default=0, verbose_name="入账月份")),
+                ("income_month", models.IntegerField(
+                    default=0, verbose_name="入账月份")),
                 (
                     "expense_time",
                     models.BigIntegerField(default=0, verbose_name="原始单据日期"),
                 ),
                 (
                     "file_ids",
-                    models.CharField(default="", max_length=500, verbose_name="附件ID"),
+                    models.CharField(
+                        default="", max_length=500, verbose_name="附件ID"),
                 ),
                 (
                     "pay_status",
-                    models.SmallIntegerField(default=0, verbose_name="打款状态：0待打款,1已打款"),
+                    models.SmallIntegerField(
+                        default=0, verbose_name="打款状态：0待打款,1已打款"),
                 ),
-                ("pay_admin_id", models.IntegerField(default=0, verbose_name="打款人ID")),
-                ("pay_time", models.BigIntegerField(default=0, verbose_name="最后打款时间")),
+                ("pay_admin_id", models.IntegerField(
+                    default=0, verbose_name="打款人ID")),
+                ("pay_time", models.BigIntegerField(
+                    default=0, verbose_name="最后打款时间")),
                 (
                     "check_status",
                     models.SmallIntegerField(
@@ -89,7 +98,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "check_copy_uids",
-                    models.CharField(default="", max_length=500, verbose_name="抄送人ID"),
+                    models.CharField(
+                        default="", max_length=500, verbose_name="抄送人ID"),
                 ),
                 (
                     "check_time",
@@ -97,7 +107,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "create_time",
-                    models.PositiveBigIntegerField(default=0, verbose_name="创建时间"),
+                    models.PositiveBigIntegerField(
+                        default=0, verbose_name="创建时间"),
                 ),
                 ("remark", models.TextField(blank=True, verbose_name="备注")),
                 (
@@ -137,12 +148,14 @@ class Migration(migrations.Migration):
                 ("income_date", models.DateTimeField(verbose_name="到账日期")),
                 (
                     "file_ids",
-                    models.CharField(default="", max_length=500, verbose_name="附件ID"),
+                    models.CharField(
+                        default="", max_length=500, verbose_name="附件ID"),
                 ),
                 ("remark", models.TextField(blank=True, verbose_name="备注")),
                 (
                     "create_time",
-                    models.PositiveBigIntegerField(default=0, verbose_name="创建时间"),
+                    models.PositiveBigIntegerField(
+                        default=0, verbose_name="创建时间"),
                 ),
             ],
             options={
@@ -166,9 +179,11 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "code",
-                    models.CharField(default="", max_length=100, verbose_name="发票号码"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="发票号码"),
                 ),
-                ("customer_id", models.IntegerField(default=0, verbose_name="关联客户ID")),
+                ("customer_id", models.IntegerField(
+                    default=0, verbose_name="关联客户ID")),
                 (
                     "contract_id",
                     models.BigIntegerField(default=0, verbose_name="关联合同ID"),
@@ -186,7 +201,8 @@ class Migration(migrations.Migration):
                 ("did", models.IntegerField(default=0, verbose_name="发票申请部门")),
                 (
                     "admin_id",
-                    models.PositiveIntegerField(default=0, verbose_name="发票申请人ID"),
+                    models.PositiveIntegerField(
+                        default=0, verbose_name="发票申请人ID"),
                 ),
                 (
                     "open_status",
@@ -194,15 +210,19 @@ class Migration(migrations.Migration):
                         default=0, verbose_name="开票状态：0未开票 1已开票 2已作废"
                     ),
                 ),
-                ("open_admin_id", models.IntegerField(default=0, verbose_name="发票开具人")),
-                ("open_time", models.BigIntegerField(default=0, verbose_name="发票开具时间")),
+                ("open_admin_id", models.IntegerField(
+                    default=0, verbose_name="发票开具人")),
+                ("open_time", models.BigIntegerField(
+                    default=0, verbose_name="发票开具时间")),
                 (
                     "delivery",
-                    models.CharField(default="", max_length=100, verbose_name="快递单号"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="快递单号"),
                 ),
                 (
                     "types",
-                    models.SmallIntegerField(default=0, verbose_name="抬头类型：1企业2个人"),
+                    models.SmallIntegerField(
+                        default=0, verbose_name="抬头类型：1企业2个人"),
                 ),
                 (
                     "invoice_type",
@@ -214,39 +234,48 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "invoice_title",
-                    models.CharField(default="", max_length=100, verbose_name="开票抬头"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="开票抬头"),
                 ),
                 (
                     "invoice_tax",
-                    models.CharField(default="", max_length=100, verbose_name="纳税人识别号"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="纳税人识别号"),
                 ),
                 (
                     "invoice_phone",
-                    models.CharField(default="", max_length=100, verbose_name="电话号码"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="电话号码"),
                 ),
                 (
                     "invoice_address",
-                    models.CharField(default="", max_length=100, verbose_name="地址"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="地址"),
                 ),
                 (
                     "invoice_bank",
-                    models.CharField(default="", max_length=100, verbose_name="开户银行"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="开户银行"),
                 ),
                 (
                     "invoice_account",
-                    models.CharField(default="", max_length=100, verbose_name="银行账号"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="银行账号"),
                 ),
                 (
                     "invoice_banking",
-                    models.CharField(default="", max_length=100, verbose_name="银行营业网点"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="银行营业网点"),
                 ),
                 (
                     "file_ids",
-                    models.CharField(default="", max_length=500, verbose_name="附件ID"),
+                    models.CharField(
+                        default="", max_length=500, verbose_name="附件ID"),
                 ),
                 (
                     "other_file_ids",
-                    models.CharField(default="", max_length=500, verbose_name="其他附件ID"),
+                    models.CharField(
+                        default="", max_length=500, verbose_name="其他附件ID"),
                 ),
                 (
                     "enter_amount",
@@ -299,7 +328,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "check_copy_uids",
-                    models.CharField(default="", max_length=500, verbose_name="抄送人ID"),
+                    models.CharField(
+                        default="", max_length=500, verbose_name="抄送人ID"),
                 ),
                 (
                     "check_time",
@@ -307,7 +337,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "create_time",
-                    models.PositiveBigIntegerField(default=0, verbose_name="创建时间"),
+                    models.PositiveBigIntegerField(
+                        default=0, verbose_name="创建时间"),
                 ),
                 ("remark", models.TextField(blank=True, verbose_name="备注")),
             ],
@@ -331,7 +362,8 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 ("order_id", models.IntegerField(default=0, verbose_name="关联订单ID")),
-                ("applicant_id", models.IntegerField(default=0, verbose_name="申请人ID")),
+                ("applicant_id", models.IntegerField(
+                    default=0, verbose_name="申请人ID")),
                 (
                     "department_id",
                     models.IntegerField(default=0, verbose_name="申请部门ID"),
@@ -352,7 +384,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "tax_number",
-                    models.CharField(blank=True, max_length=100, verbose_name="纳税人识别号"),
+                    models.CharField(
+                        blank=True, max_length=100, verbose_name="纳税人识别号"),
                 ),
                 ("reason", models.TextField(verbose_name="申请理由")),
                 (
@@ -369,17 +402,22 @@ class Migration(migrations.Migration):
                         verbose_name="申请状态",
                     ),
                 ),
-                ("reviewer_id", models.IntegerField(default=0, verbose_name="审核人ID")),
-                ("review_time", models.BigIntegerField(default=0, verbose_name="审核时间")),
-                ("review_comment", models.TextField(blank=True, verbose_name="审核意见")),
-                ("invoice_id", models.IntegerField(default=0, verbose_name="关联发票ID")),
+                ("reviewer_id", models.IntegerField(
+                    default=0, verbose_name="审核人ID")),
+                ("review_time", models.BigIntegerField(
+                    default=0, verbose_name="审核时间")),
+                ("review_comment", models.TextField(
+                    blank=True, verbose_name="审核意见")),
+                ("invoice_id", models.IntegerField(
+                    default=0, verbose_name="关联发票ID")),
                 (
                     "invoice_time",
                     models.BigIntegerField(default=0, verbose_name="开票时间"),
                 ),
                 (
                     "create_time",
-                    models.PositiveBigIntegerField(default=0, verbose_name="创建时间"),
+                    models.PositiveBigIntegerField(
+                        default=0, verbose_name="创建时间"),
                 ),
                 ("remark", models.TextField(blank=True, verbose_name="备注")),
             ],
@@ -434,11 +472,13 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "due_date",
-                    models.DateField(blank=True, null=True, verbose_name="付款到期日"),
+                    models.DateField(
+                        blank=True, null=True, verbose_name="付款到期日"),
                 ),
                 (
                     "create_time",
-                    models.PositiveBigIntegerField(default=0, verbose_name="创建时间"),
+                    models.PositiveBigIntegerField(
+                        default=0, verbose_name="创建时间"),
                 ),
                 ("remark", models.TextField(blank=True, verbose_name="备注")),
             ],
@@ -473,12 +513,14 @@ class Migration(migrations.Migration):
                 ("payment_date", models.DateTimeField(verbose_name="打款日期")),
                 (
                     "file_ids",
-                    models.CharField(default="", max_length=500, verbose_name="附件ID"),
+                    models.CharField(
+                        default="", max_length=500, verbose_name="附件ID"),
                 ),
                 ("remark", models.TextField(blank=True, verbose_name="备注")),
                 (
                     "create_time",
-                    models.PositiveBigIntegerField(default=0, verbose_name="创建时间"),
+                    models.PositiveBigIntegerField(
+                        default=0, verbose_name="创建时间"),
                 ),
             ],
             options={
@@ -512,7 +554,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "create_time",
-                    models.PositiveBigIntegerField(default=0, verbose_name="创建时间"),
+                    models.PositiveBigIntegerField(
+                        default=0, verbose_name="创建时间"),
                 ),
                 (
                     "income",

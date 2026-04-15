@@ -8,7 +8,6 @@
 4. 执行追踪 - 记录执行历史和状态变化
 """
 
-import json
 import uuid
 from typing import Dict, Any, List, Optional, Callable
 from dataclasses import dataclass, field
@@ -133,14 +132,17 @@ class DebugSession:
             del self.breakpoints[breakpoint_id]
 
     def get_breakpoints_for_node(self, node_id: str) -> List[Breakpoint]:
-        return [bp for bp in self.breakpoints.values() 
+        return [bp for bp in self.breakpoints.values()
                 if bp.node_id == node_id and bp.enabled]
 
     def record_execution_step(self, frame: DebugFrame):
         self.execution_history.append(frame)
         self.total_steps += 1
 
-    def add_watched_variable(self, var_name: str, watch_expression: str = None):
+    def add_watched_variable(
+            self,
+            var_name: str,
+            watch_expression: str = None):
         if var_name not in self.watched_variables:
             self.watched_variables[var_name] = []
         if watch_expression:
@@ -151,24 +153,30 @@ class DebugSession:
             'id': self.id,
             'workflow_id': self.workflow_id,
             'execution_id': self.execution_id,
-            'breakpoints': {k: v.to_dict() for k, v in self.breakpoints.items()},
+            'breakpoints': {
+                k: v.to_dict() for k,
+                v in self.breakpoints.items()},
             'current_frame': self.current_frame.to_dict() if self.current_frame else None,
-            'execution_history': [f.to_dict() for f in self.execution_history],
+            'execution_history': [
+                f.to_dict() for f in self.execution_history],
             'watched_variables': self.watched_variables,
             'status': self.status,
             'start_time': self.start_time.isoformat(),
-            'total_steps': self.total_steps
-        }
+            'total_steps': self.total_steps}
 
 
 class WorkflowDebugger:
     """工作流调试器"""
-    
+
     _sessions: Dict[str, DebugSession] = {}
     _event_callbacks: Dict[str, List[Callable]] = {}
-    
+
     @classmethod
-    def create_session(cls, workflow_id: str, execution_id: str, user_id: Any) -> DebugSession:
+    def create_session(
+            cls,
+            workflow_id: str,
+            execution_id: str,
+            user_id: Any) -> DebugSession:
         """创建新的调试会话"""
         session_id = str(uuid.uuid4())
         session = DebugSession(
@@ -179,26 +187,26 @@ class WorkflowDebugger:
         )
         cls._sessions[session_id] = session
         return session
-    
+
     @classmethod
     def get_session(cls, session_id: str) -> Optional[DebugSession]:
         """获取调试会话"""
         return cls._sessions.get(session_id)
-    
+
     @classmethod
     def end_session(cls, session_id: str):
         """结束调试会话"""
         if session_id in cls._sessions:
             del cls._sessions[session_id]
-    
+
     @classmethod
-    def add_breakpoint(cls, session_id: str, node_id: str, node_name: str, 
+    def add_breakpoint(cls, session_id: str, node_id: str, node_name: str,
                        workflow_id: str, condition: str = None) -> Breakpoint:
         """添加断点"""
         session = cls.get_session(session_id)
         if not session:
             raise ValueError(f"调试会话不存在: {session_id}")
-        
+
         breakpoint_id = str(uuid.uuid4())
         breakpoint = Breakpoint(
             id=breakpoint_id,
@@ -209,21 +217,22 @@ class WorkflowDebugger:
         )
         session.add_breakpoint(breakpoint)
         return breakpoint
-    
+
     @classmethod
     def remove_breakpoint(cls, session_id: str, breakpoint_id: str):
         """移除断点"""
         session = cls.get_session(session_id)
         if session:
             session.remove_breakpoint(breakpoint_id)
-    
+
     @classmethod
-    def check_breakpoint(cls, session_id: str, node_id: str, context: Dict[str, Any]) -> bool:
+    def check_breakpoint(cls, session_id: str, node_id: str,
+                         context: Dict[str, Any]) -> bool:
         """检查是否命中断点"""
         session = cls.get_session(session_id)
         if not session:
             return False
-        
+
         breakpoints = session.get_breakpoints_for_node(node_id)
         for bp in breakpoints:
             if bp.condition:
@@ -238,29 +247,36 @@ class WorkflowDebugger:
             else:
                 bp.hit_count += 1
                 return True
-        
+
         return False
-    
+
     @classmethod
-    def _evaluate_condition(cls, condition: str, context: Dict[str, Any]) -> bool:
+    def _evaluate_condition(cls, condition: str,
+                            context: Dict[str, Any]) -> bool:
         """评估条件表达式"""
         if not condition:
             return True
-        
+
         try:
             # 安全地替换变量
             eval_context = {}
             for key, value in context.items():
                 eval_context[key] = value
-            
+
             # 简单的条件评估
             return bool(eval(condition, {"__builtins__": {}}, eval_context))
         except Exception:
             return False
-    
+
     @classmethod
-    def create_frame(cls, execution_id: str, node_id: str, node_name: str, 
-                     node_type: str, depth: int, context: Dict[str, Any]) -> DebugFrame:
+    def create_frame(cls,
+                     execution_id: str,
+                     node_id: str,
+                     node_name: str,
+                     node_type: str,
+                     depth: int,
+                     context: Dict[str,
+                                   Any]) -> DebugFrame:
         """创建调试帧"""
         return DebugFrame(
             execution_id=execution_id,
@@ -271,16 +287,23 @@ class WorkflowDebugger:
             local_variables=context.copy(),
             input_data=context.copy()
         )
-    
+
     @classmethod
-    def register_event_callback(cls, event_type: DebugEventType, callback: Callable):
+    def register_event_callback(
+            cls,
+            event_type: DebugEventType,
+            callback: Callable):
         """注册调试事件回调"""
         if event_type not in cls._event_callbacks:
             cls._event_callbacks[event_type] = []
         cls._event_callbacks[event_type].append(callback)
-    
+
     @classmethod
-    def trigger_event(cls, event_type: DebugEventType, session_id: str, data: Any):
+    def trigger_event(
+            cls,
+            event_type: DebugEventType,
+            session_id: str,
+            data: Any):
         """触发调试事件"""
         if event_type in cls._event_callbacks:
             for callback in cls._event_callbacks[event_type]:
@@ -288,7 +311,7 @@ class WorkflowDebugger:
                     callback(session_id, data)
                 except Exception as e:
                     print(f"调试事件回调错误: {e}")
-    
+
     @classmethod
     def get_session_list(cls, workflow_id: str = None) -> List[DebugSession]:
         """获取调试会话列表"""
@@ -300,15 +323,20 @@ class WorkflowDebugger:
 
 class DebugExecutionService:
     """调试执行服务"""
-    
+
     def __init__(self):
         self.debugger = WorkflowDebugger
-    
-    def start_debug_execution(self, workflow_id: str, execution_id: str, 
-                              user_id: Any, breakpoints: List[Dict] = None) -> DebugSession:
+
+    def start_debug_execution(
+            self,
+            workflow_id: str,
+            execution_id: str,
+            user_id: Any,
+            breakpoints: List[Dict] = None) -> DebugSession:
         """开始调试执行"""
-        session = self.debugger.create_session(workflow_id, execution_id, user_id)
-        
+        session = self.debugger.create_session(
+            workflow_id, execution_id, user_id)
+
         if breakpoints:
             for bp_data in breakpoints:
                 self.debugger.add_breakpoint(
@@ -318,103 +346,119 @@ class DebugExecutionService:
                     workflow_id,
                     bp_data.get('condition')
                 )
-        
+
         return session
-    
-    def step_into(self, session_id: str, node_id: str, node_name: str, 
-                  node_type: str, depth: int, context: Dict[str, Any]) -> DebugFrame:
+
+    def step_into(self,
+                  session_id: str,
+                  node_id: str,
+                  node_name: str,
+                  node_type: str,
+                  depth: int,
+                  context: Dict[str,
+                                Any]) -> DebugFrame:
         """单步进入"""
         session = self.debugger.get_session(session_id)
         if not session:
             raise ValueError(f"调试会话不存在: {session_id}")
-        
+
         frame = self.debugger.create_frame(
             session.execution_id, node_id, node_name, node_type, depth, context
         )
         session.current_frame = frame
         session.record_execution_step(frame)
-        
-        self.debugger.trigger_event(DebugEventType.STEP_COMPLETED, session_id, frame.to_dict())
+
+        self.debugger.trigger_event(
+            DebugEventType.STEP_COMPLETED,
+            session_id,
+            frame.to_dict())
         return frame
-    
-    def step_over(self, session_id: str, node_id: str, node_name: str, 
+
+    def step_over(self, session_id: str, node_id: str, node_name: str,
                   context: Dict[str, Any]) -> DebugFrame:
         """单步跳过 - 停留在同一深度"""
-        return self.step_into(session_id, node_id, node_name, 'step_over', 0, context)
-    
+        return self.step_into(
+            session_id,
+            node_id,
+            node_name,
+            'step_over',
+            0,
+            context)
+
     def continue_execution(self, session_id: str) -> str:
         """继续执行直到下一个断点"""
         session = self.debugger.get_session(session_id)
         if not session:
             raise ValueError(f"调试会话不存在: {session_id}")
-        
+
         session.status = "running"
         return "continued"
-    
+
     def pause_execution(self, session_id: str) -> DebugFrame:
         """暂停执行"""
         session = self.debugger.get_session(session_id)
         if not session:
             raise ValueError(f"调试会话不存在: {session_id}")
-        
+
         session.status = "paused"
         return session.current_frame
-    
+
     def stop_execution(self, session_id: str):
         """停止调试"""
         session = self.debugger.get_session(session_id)
         if not session:
             raise ValueError(f"调试会话不存在: {session_id}")
-        
+
         session.status = "stopped"
         self.debugger.end_session(session_id)
-    
-    def update_variables(self, session_id: str, variables: Dict[str, Any]) -> DebugFrame:
+
+    def update_variables(self, session_id: str,
+                         variables: Dict[str, Any]) -> DebugFrame:
         """修改变量值"""
         session = self.debugger.get_session(session_id)
         if not session:
             raise ValueError(f"调试会话不存在: {session_id}")
-        
+
         if session.current_frame:
             old_values = session.current_frame.local_variables.copy()
             session.current_frame.local_variables.update(variables)
-            
+
             self.debugger.trigger_event(
                 DebugEventType.VARIABLE_CHANGED,
                 session_id,
                 {'old_values': old_values, 'new_values': variables}
             )
             return session.current_frame
-        
+
         return None
-    
+
     def get_watched_values(self, session_id: str) -> Dict[str, Any]:
         """获取被监视变量的当前值"""
         session = self.debugger.get_session(session_id)
         if not session:
             raise ValueError(f"调试会话不存在: {session_id}")
-        
+
         result = {}
         if session.current_frame:
             for var_name in session.watched_variables:
                 if var_name in session.current_frame.local_variables:
                     result[var_name] = session.current_frame.local_variables[var_name]
         return result
-    
+
     def get_execution_history(self, session_id: str) -> List[Dict]:
         """获取执行历史"""
         session = self.debugger.get_session(session_id)
         if not session:
             raise ValueError(f"调试会话不存在: {session_id}")
-        
+
         return [frame.to_dict() for frame in session.execution_history]
-    
+
     def export_debug_trace(self, session_id: str) -> Dict:
         """导出调试追踪结果"""
         session = self.debugger.get_session(session_id)
         if not session:
             raise ValueError(f"调试会话不存在: {session_id}")
-        
+
         return {
             'session_id': session.id,
             'workflow_id': session.workflow_id,
@@ -423,7 +467,7 @@ class DebugExecutionService:
             'total_steps': session.total_steps,
             'execution_history': self.get_execution_history(session_id),
             'breakpoints_hit': [
-                bp.to_dict() for bp in session.breakpoints.values() 
+                bp.to_dict() for bp in session.breakpoints.values()
                 if bp.hit_count > 0
             ],
             'duration': (timezone.now() - session.start_time).total_seconds()
@@ -431,12 +475,19 @@ class DebugExecutionService:
 
 
 # 便捷函数
-def create_debug_session(workflow_id: str, execution_id: str, user_id: Any) -> DebugSession:
+def create_debug_session(
+        workflow_id: str,
+        execution_id: str,
+        user_id: Any) -> DebugSession:
     return WorkflowDebugger.create_session(workflow_id, execution_id, user_id)
 
-def add_breakpoint(session_id: str, node_id: str, node_name: str, 
-                   workflow_id: str, condition: str = None) -> Breakpoint:
-    return WorkflowDebugger.add_breakpoint(session_id, node_id, node_name, workflow_id, condition)
 
-def check_breakpoint(session_id: str, node_id: str, context: Dict[str, Any]) -> bool:
+def add_breakpoint(session_id: str, node_id: str, node_name: str,
+                   workflow_id: str, condition: str = None) -> Breakpoint:
+    return WorkflowDebugger.add_breakpoint(
+        session_id, node_id, node_name, workflow_id, condition)
+
+
+def check_breakpoint(session_id: str, node_id: str,
+                     context: Dict[str, Any]) -> bool:
     return WorkflowDebugger.check_breakpoint(session_id, node_id, context)

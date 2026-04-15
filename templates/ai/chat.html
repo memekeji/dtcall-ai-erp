@@ -1,0 +1,246 @@
+{% extends "home/base.html" %}
+{% load static %}
+
+{% block title %}AI聊天{% endblock %}
+
+{% block content %}
+<div class="layui-fluid">
+    <div class="layui-row layui-col-space15" style="height: calc(100vh - 80px);">
+        <div class="layui-col-md3" style="height: 100%;">
+            <div class="layui-card" style="height: 100%; display: flex; flex-direction: column;">
+                <div class="layui-card-header" style="display:flex;align-items:center;justify-content:space-between;">
+                    <span>会话列表</span>
+                    <button class="layui-btn layui-btn-sm" id="btnCreateChat">新建</button>
+                </div>
+                <div class="layui-card-body" style="flex: 1; overflow: auto; padding: 0;">
+                    <ul class="layui-menu" id="chatList" style="width: 100%;"></ul>
+                </div>
+            </div>
+        </div>
+        <div class="layui-col-md9" style="height: 100%;">
+            <div class="layui-card" style="height: 100%; display: flex; flex-direction: column;">
+                <div class="layui-card-header" id="chatHeader">请选择一个会话</div>
+                <div class="layui-card-body" id="chatMessages" style="flex: 1; overflow: auto; background: #fafafa;"></div>
+                <div style="border-top: 1px solid #eee; padding: 12px;">
+                    <form class="layui-form" id="chatForm" style="display:flex;gap:10px;">
+                        {% csrf_token %}
+                        <input type="text" id="chatInput" autocomplete="off" placeholder="输入消息，回车发送" class="layui-input" style="flex: 1;">
+                        <button type="button" class="layui-btn" id="btnSend">发送</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/jquery.min.js' %}"></script>
+<script>
+layui.use(['layer', 'jquery'], function() {
+    var layer = layui.layer;
+    var $ = layui.jquery;
+
+    var currentChatId = null;
+    var csrfToken = $('#chatForm input[name="csrfmiddlewaretoken"]').val();
+
+    function escapeHtml(text) {
+        return String(text || '').replace(/[&<>"']/g, function(m) {
+            return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]);
+        });
+    }
+
+    function processAiActions(content) {
+        if (!content) return content;
+        
+        // 匹配 ```ui_action\n{...}\n```
+        var actionRegex = /```ui_action\s*([\s\S]*?)\s*```/g;
+        var match;
+        while ((match = actionRegex.exec(content)) !== null) {
+            try {
+                var payload = JSON.parse(match[1]);
+                if (window.parent && window.parent !== window) {
+                    // 通知父页面的 ai-agent-sdk 执行操作
+                    payload.type = 'ai_action';
+                    window.parent.postMessage(payload, '*');
+                }
+            } catch(e) {
+                console.error('解析AI Action失败', e);
+            }
+        }
+        
+        // 从展示内容中移除 ui_action 块，或者将其替换为友好的提示
+        return content.replace(actionRegex, '<div style="color:#16a34a;font-size:12px;margin:8px 0;">[已发送页面操作指令]</div>');
+    }
+
+    function renderMessage(role, content, createdAt) {
+        var isUser = role === 'user';
+        var align = isUser ? 'right' : 'left';
+        var bg = isUser ? '#e6f4ff' : '#fff';
+        var title = isUser ? '我' : 'AI';
+        var timeText = createdAt ? ('<div style="font-size:12px;color:#999;margin-top:6px;">' + escapeHtml(createdAt) + '</div>') : '';
+
+        var displayContent = isUser ? escapeHtml(content) : processAiActions(content);
+        if (!isUser) {
+            // 简单处理普通代码块
+            displayContent = displayContent.replace(/```([\s\S]*?)```/g, function(match, code) {
+                return '<pre style="background:#f4f4f4;padding:10px;border-radius:4px;overflow-x:auto;"><code>' + escapeHtml(code) + '</code></pre>';
+            });
+            // 简单处理换行
+            displayContent = displayContent.replace(/\n/g, '<br>');
+        }
+
+        return '' +
+            '<div style="margin-bottom:12px;text-align:' + align + ';">' +
+                '<div style="display:inline-block;max-width:80%;text-align:left;background:' + bg + ';border:1px solid #eee;border-radius:8px;padding:10px 12px;">' +
+                    '<div style="font-size:12px;color:#666;margin-bottom:6px;">' + title + '</div>' +
+                    '<div style="word-break:break-word;">' + displayContent + '</div>' +
+                    timeText +
+                '</div>' +
+            '</div>';
+    }
+
+    function scrollMessagesToBottom() {
+        var el = document.getElementById('chatMessages');
+        if (el) el.scrollTop = el.scrollHeight;
+    }
+
+    function setHeader(title) {
+        $('#chatHeader').text(title || 'AI聊天');
+    }
+
+    function loadChats(selectId) {
+        $.ajax({
+            url: '/ai/chat/',
+            type: 'GET',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            success: function(chats) {
+                var $list = $('#chatList');
+                $list.empty();
+                if (!Array.isArray(chats) || chats.length === 0) {
+                    $list.append('<li class="layui-menu-item"><div class="layui-menu-body-title" style="color:#999;">暂无会话</div></li>');
+                    return;
+                }
+                chats.forEach(function(chat) {
+                    var active = (selectId && chat.id === selectId) || (currentChatId && chat.id === currentChatId);
+                    var cls = active ? 'layui-this' : '';
+                    var item = '' +
+                        '<li class="layui-menu-item ' + cls + '" data-id="' + chat.id + '">' +
+                            '<div class="layui-menu-body-title">' + escapeHtml(chat.title || ('会话 #' + chat.id)) + '</div>' +
+                        '</li>';
+                    $list.append(item);
+                });
+                if (selectId) {
+                    openChat(selectId);
+                } else if (!currentChatId) {
+                    var firstId = chats[0].id;
+                    openChat(firstId);
+                }
+            },
+            error: function() {
+                layer.msg('加载会话失败');
+            }
+        });
+    }
+
+    function openChat(chatId) {
+        currentChatId = chatId;
+        $('#chatMessages').html('');
+        $('#chatList .layui-menu-item').removeClass('layui-this');
+        $('#chatList .layui-menu-item[data-id="' + chatId + '"]').addClass('layui-this');
+
+        $.ajax({
+            url: '/ai/chat/' + chatId + '/',
+            type: 'GET',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            success: function(res) {
+                setHeader(res.title || ('会话 #' + res.id));
+                var html = '';
+                (res.messages || []).forEach(function(m) {
+                    html += renderMessage(m.role, m.content, m.created_at);
+                });
+                $('#chatMessages').html(html);
+                scrollMessagesToBottom();
+            },
+            error: function() {
+                layer.msg('加载消息失败');
+            }
+        });
+    }
+
+    function createChat() {
+        layer.prompt({title: '新建会话标题', formType: 0}, function(value, index) {
+            layer.close(index);
+            $.ajax({
+                url: '/ai/chat/create/',
+                type: 'POST',
+                data: {title: value, csrfmiddlewaretoken: csrfToken},
+                success: function(res) {
+                    if (res && res.status === 'success') {
+                        currentChatId = res.chat_id;
+                        loadChats(res.chat_id);
+                    } else {
+                        layer.msg(res && res.message ? res.message : '创建失败');
+                    }
+                },
+                error: function() {
+                    layer.msg('创建失败');
+                }
+            });
+        });
+    }
+
+    function sendMessage() {
+        if (!currentChatId) {
+            layer.msg('请先选择或新建会话');
+            return;
+        }
+        var text = $('#chatInput').val();
+        if (!text || !text.trim()) return;
+        $('#chatInput').val('');
+
+        var html = $('#chatMessages').html();
+        html += renderMessage('user', text);
+        $('#chatMessages').html(html);
+        scrollMessagesToBottom();
+
+        $.ajax({
+            url: '/ai/chat/message/create/',
+            type: 'POST',
+            data: {chat_id: currentChatId, content: text, csrfmiddlewaretoken: csrfToken},
+            success: function(res) {
+                if (res && res.status === 'success') {
+                    var html2 = $('#chatMessages').html();
+                    html2 += renderMessage('assistant', res.ai_message);
+                    $('#chatMessages').html(html2);
+                    scrollMessagesToBottom();
+                    loadChats();
+                } else {
+                    layer.msg(res && res.message ? res.message : 'AI生成失败');
+                }
+            },
+            error: function() {
+                layer.msg('发送失败');
+            }
+        });
+    }
+
+    $('#chatList').on('click', '.layui-menu-item', function() {
+        var id = $(this).data('id');
+        if (id) openChat(id);
+    });
+
+    $('#btnCreateChat').on('click', createChat);
+    $('#btnSend').on('click', sendMessage);
+    $('#chatInput').on('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+
+    loadChats();
+});
+</script>
+{% endblock %}
+

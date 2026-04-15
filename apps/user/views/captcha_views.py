@@ -3,6 +3,7 @@ from django.views import View
 from django.urls import reverse
 from captcha.models import CaptchaStore
 
+
 class GetNewCaptchaView(View):
     def get(self, request):
         key = CaptchaStore.generate_key()

@@ -1,10 +1,16 @@
 from django import forms
 from django.contrib.auth import get_user_model
 from .models import (
-    Contract, Product, ProductCate, ContractCategory, ProductCategory, ServiceCategory,
-    Service, Supplier, PurchaseCategory, PurchaseItem
-)
-from apps.customer.models import Customer
+    Contract,
+    Product,
+    ProductCate,
+    ContractCategory,
+    ProductCategory,
+    ServiceCategory,
+    Service,
+    Supplier,
+    PurchaseCategory,
+    PurchaseItem)
 
 User = get_user_model()
 
@@ -12,14 +18,39 @@ User = get_user_model()
 class ContractCategoryForm(forms.ModelForm):
     class Meta:
         model = ContractCategory
-        fields = ['name', 'code', 'parent', 'description', 'template_path', 'sort_order', 'is_active']
+        fields = [
+            'name',
+            'code',
+            'parent',
+            'description',
+            'template_path',
+            'sort_order',
+            'is_active']
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入分类名称'}),
-            'code': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '自动生成，可修改'}),
-            'parent': forms.Select(attrs={'class': 'layui-input'}),
-            'description': forms.Textarea(attrs={'class': 'layui-textarea', 'placeholder': '请输入分类描述', 'rows': 3}),
-            'template_path': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '合同模板路径'}),
-            'sort_order': forms.NumberInput(attrs={'class': 'layui-input', 'placeholder': '排序号'}),
+            'name': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '请输入分类名称'}),
+            'code': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '自动生成，可修改'}),
+            'parent': forms.Select(
+                attrs={
+                    'class': 'layui-input'}),
+            'description': forms.Textarea(
+                attrs={
+                    'class': 'layui-textarea',
+                    'placeholder': '请输入分类描述',
+                    'rows': 3}),
+            'template_path': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '合同模板路径'}),
+            'sort_order': forms.NumberInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '排序号'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -31,13 +62,34 @@ class ContractCategoryForm(forms.ModelForm):
 class ProductCategoryForm(forms.ModelForm):
     class Meta:
         model = ProductCategory
-        fields = ['name', 'code', 'parent', 'description', 'sort_order', 'is_active']
+        fields = [
+            'name',
+            'code',
+            'parent',
+            'description',
+            'sort_order',
+            'is_active']
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入分类名称'}),
-            'code': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '自动生成，可修改'}),
-            'parent': forms.Select(attrs={'class': 'layui-input'}),
-            'description': forms.Textarea(attrs={'class': 'layui-textarea', 'placeholder': '请输入分类描述', 'rows': 3}),
-            'sort_order': forms.NumberInput(attrs={'class': 'layui-input', 'placeholder': '排序号'}),
+            'name': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '请输入分类名称'}),
+            'code': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '自动生成，可修改'}),
+            'parent': forms.Select(
+                attrs={
+                    'class': 'layui-input'}),
+            'description': forms.Textarea(
+                attrs={
+                    'class': 'layui-textarea',
+                    'placeholder': '请输入分类描述',
+                    'rows': 3}),
+            'sort_order': forms.NumberInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '排序号'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -49,13 +101,34 @@ class ProductCategoryForm(forms.ModelForm):
 class ServiceCategoryForm(forms.ModelForm):
     class Meta:
         model = ServiceCategory
-        fields = ['name', 'code', 'parent', 'description', 'sort_order', 'is_active']
+        fields = [
+            'name',
+            'code',
+            'parent',
+            'description',
+            'sort_order',
+            'is_active']
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入分类名称'}),
-            'code': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '自动生成，可修改'}),
-            'parent': forms.Select(attrs={'class': 'layui-input'}),
-            'description': forms.Textarea(attrs={'class': 'layui-textarea', 'placeholder': '请输入分类描述', 'rows': 3}),
-            'sort_order': forms.NumberInput(attrs={'class': 'layui-input', 'placeholder': '排序号'}),
+            'name': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '请输入分类名称'}),
+            'code': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '自动生成，可修改'}),
+            'parent': forms.Select(
+                attrs={
+                    'class': 'layui-input'}),
+            'description': forms.Textarea(
+                attrs={
+                    'class': 'layui-textarea',
+                    'placeholder': '请输入分类描述',
+                    'rows': 3}),
+            'sort_order': forms.NumberInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '排序号'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -67,16 +140,51 @@ class ServiceCategoryForm(forms.ModelForm):
 class ServiceForm(forms.ModelForm):
     class Meta:
         model = Service
-        fields = ['name', 'code', 'category', 'unit', 'price', 'duration', 'description', 'requirements', 'is_active']
+        fields = [
+            'name',
+            'code',
+            'category',
+            'unit',
+            'price',
+            'duration',
+            'description',
+            'requirements',
+            'is_active']
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入服务名称'}),
-            'code': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '自动生成，可修改'}),
-            'category': forms.Select(attrs={'class': 'layui-input'}),
-            'unit': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '计量单位'}),
-            'price': forms.NumberInput(attrs={'class': 'layui-input', 'step': '0.01', 'placeholder': '服务价格'}),
-            'duration': forms.NumberInput(attrs={'class': 'layui-input', 'placeholder': '服务周期(天)'}),
-            'description': forms.Textarea(attrs={'class': 'layui-textarea', 'placeholder': '请输入服务描述', 'rows': 3}),
-            'requirements': forms.Textarea(attrs={'class': 'layui-textarea', 'placeholder': '请输入服务要求', 'rows': 3}),
+            'name': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '请输入服务名称'}),
+            'code': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '自动生成，可修改'}),
+            'category': forms.Select(
+                attrs={
+                    'class': 'layui-input'}),
+            'unit': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '计量单位'}),
+            'price': forms.NumberInput(
+                attrs={
+                    'class': 'layui-input',
+                    'step': '0.01',
+                    'placeholder': '服务价格'}),
+            'duration': forms.NumberInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '服务周期(天)'}),
+            'description': forms.Textarea(
+                attrs={
+                    'class': 'layui-textarea',
+                    'placeholder': '请输入服务描述',
+                    'rows': 3}),
+            'requirements': forms.Textarea(
+                attrs={
+                    'class': 'layui-textarea',
+                    'placeholder': '请输入服务要求',
+                    'rows': 3}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -88,8 +196,19 @@ class ServiceForm(forms.ModelForm):
 class SupplierForm(forms.ModelForm):
     class Meta:
         model = Supplier
-        fields = ['name', 'code', 'contact_person', 'contact_phone', 'contact_email', 'address', 
-                 'tax_number', 'bank_account', 'bank_name', 'credit_level', 'business_scope', 'is_active']
+        fields = [
+            'name',
+            'code',
+            'contact_person',
+            'contact_phone',
+            'contact_email',
+            'address',
+            'tax_number',
+            'bank_account',
+            'bank_name',
+            'credit_level',
+            'business_scope',
+            'is_active']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入供应商名称'}),
             'code': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '自动生成，可修改'}),
@@ -108,13 +227,34 @@ class SupplierForm(forms.ModelForm):
 class PurchaseCategoryForm(forms.ModelForm):
     class Meta:
         model = PurchaseCategory
-        fields = ['name', 'code', 'parent', 'description', 'sort_order', 'is_active']
+        fields = [
+            'name',
+            'code',
+            'parent',
+            'description',
+            'sort_order',
+            'is_active']
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入分类名称'}),
-            'code': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '自动生成，可修改'}),
-            'parent': forms.Select(attrs={'class': 'layui-input'}),
-            'description': forms.Textarea(attrs={'class': 'layui-textarea', 'placeholder': '请输入分类描述', 'rows': 3}),
-            'sort_order': forms.NumberInput(attrs={'class': 'layui-input', 'placeholder': '排序号'}),
+            'name': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '请输入分类名称'}),
+            'code': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '自动生成，可修改'}),
+            'parent': forms.Select(
+                attrs={
+                    'class': 'layui-input'}),
+            'description': forms.Textarea(
+                attrs={
+                    'class': 'layui-textarea',
+                    'placeholder': '请输入分类描述',
+                    'rows': 3}),
+            'sort_order': forms.NumberInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '排序号'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -126,23 +266,57 @@ class PurchaseCategoryForm(forms.ModelForm):
 class PurchaseItemForm(forms.ModelForm):
     class Meta:
         model = PurchaseItem
-        fields = ['name', 'code', 'category', 'specification', 'unit', 'reference_price', 'supplier', 'description', 'is_active']
+        fields = [
+            'name',
+            'code',
+            'category',
+            'specification',
+            'unit',
+            'reference_price',
+            'supplier',
+            'description',
+            'is_active']
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入采购品名称'}),
-            'code': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '自动生成，可修改'}),
-            'category': forms.Select(attrs={'class': 'layui-input'}),
-            'specification': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入规格型号'}),
-            'unit': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '计量单位'}),
-            'reference_price': forms.NumberInput(attrs={'class': 'layui-input', 'step': '0.01', 'placeholder': '参考价格'}),
-            'supplier': forms.Select(attrs={'class': 'layui-input'}),
-            'description': forms.Textarea(attrs={'class': 'layui-textarea', 'placeholder': '请输入采购品描述', 'rows': 3}),
+            'name': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '请输入采购品名称'}),
+            'code': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '自动生成，可修改'}),
+            'category': forms.Select(
+                attrs={
+                    'class': 'layui-input'}),
+            'specification': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '请输入规格型号'}),
+            'unit': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '计量单位'}),
+            'reference_price': forms.NumberInput(
+                attrs={
+                    'class': 'layui-input',
+                    'step': '0.01',
+                    'placeholder': '参考价格'}),
+            'supplier': forms.Select(
+                attrs={
+                    'class': 'layui-input'}),
+            'description': forms.Textarea(
+                attrs={
+                    'class': 'layui-textarea',
+                    'placeholder': '请输入采购品描述',
+                    'rows': 3}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['category'].queryset = PurchaseCategory.objects.all()
         self.fields['category'].empty_label = "请选择采购分类"
-        self.fields['supplier'].queryset = Supplier.objects.filter(is_active=True)
+        self.fields['supplier'].queryset = Supplier.objects.filter(
+            is_active=True)
         self.fields['supplier'].empty_label = "请选择供应商"
 
 
@@ -150,14 +324,47 @@ class ContractForm(forms.ModelForm):
     class Meta:
         model = Contract
         fields = [
-            'code', 'name', 'cate_id', 'types', 'subject_id', 'customer_id', 'customer',
-            'contact_name', 'contact_mobile', 'contact_address', 'start_time', 'end_time',
-            'admin_id', 'prepared_uid', 'sign_uid', 'keeper_uid', 'share_ids', 'file_ids',
-            'sign_time', 'did', 'cost', 'content', 'is_tax', 'tax', 'stop_uid', 'stop_time',
-            'stop_remark', 'void_uid', 'void_time', 'void_remark', 'archive_uid', 'archive_time',
-            'remark', 'check_status', 'check_flow_id', 'check_step_sort', 'check_uids',
-            'check_last_uid', 'check_history_uids', 'check_copy_uids', 'check_time'
-        ]
+            'code',
+            'name',
+            'cate_id',
+            'types',
+            'subject_id',
+            'customer_id',
+            'customer',
+            'contact_name',
+            'contact_mobile',
+            'contact_address',
+            'start_time',
+            'end_time',
+            'admin_id',
+            'prepared_uid',
+            'sign_uid',
+            'keeper_uid',
+            'share_ids',
+            'file_ids',
+            'sign_time',
+            'did',
+            'cost',
+            'content',
+            'is_tax',
+            'tax',
+            'stop_uid',
+            'stop_time',
+            'stop_remark',
+            'void_uid',
+            'void_time',
+            'void_remark',
+            'archive_uid',
+            'archive_time',
+            'remark',
+            'check_status',
+            'check_flow_id',
+            'check_step_sort',
+            'check_uids',
+            'check_last_uid',
+            'check_history_uids',
+            'check_copy_uids',
+            'check_time']
         widgets = {
             'code': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入合同编号'}),
             'name': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入合同名称'}),
@@ -206,9 +413,6 @@ class ContractForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
 
 
-
-
-
 class ProductForm(forms.ModelForm):
     class Meta:
         model = Product
@@ -217,30 +421,59 @@ class ProductForm(forms.ModelForm):
             'price', 'remark'
         ]
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入产品名称'}),
-            'code': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入产品编码'}),
-            'cate': forms.Select(attrs={'class': 'layui-input'}),
-            'specs': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '产品规格'}),
-            'unit': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '计量单位'}),
-            'price': forms.NumberInput(attrs={'class': 'layui-input', 'step': '0.01', 'placeholder': '销售价格'}),
-            'remark': forms.Textarea(attrs={'class': 'layui-textarea', 'placeholder': '产品描述', 'rows': 4}),
+            'name': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '请输入产品名称'}),
+            'code': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '请输入产品编码'}),
+            'cate': forms.Select(
+                attrs={
+                    'class': 'layui-input'}),
+            'specs': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '产品规格'}),
+            'unit': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '计量单位'}),
+            'price': forms.NumberInput(
+                attrs={
+                    'class': 'layui-input',
+                    'step': '0.01',
+                    'placeholder': '销售价格'}),
+            'remark': forms.Textarea(
+                attrs={
+                    'class': 'layui-textarea',
+                    'placeholder': '产品描述',
+                    'rows': 4}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['cate'].queryset = ProductCate.objects.filter(status=1).order_by('title')
+        self.fields['cate'].queryset = ProductCate.objects.filter(
+            status=1).order_by('title')
 
 
-class ProductCategoryForm(forms.ModelForm):
+class LegacyProductCateForm(forms.ModelForm):
     class Meta:
         model = ProductCate
         fields = ['title', 'pid', 'status']
         widgets = {
-            'title': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入分类名称'}),
-            'pid': forms.Select(attrs={'class': 'layui-input'}),
+            'title': forms.TextInput(
+                attrs={
+                    'class': 'layui-input',
+                    'placeholder': '请输入分类名称'}),
+            'pid': forms.Select(
+                attrs={
+                    'class': 'layui-input'}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['pid'].queryset = ProductCate.objects.filter(pid__isnull=True, status=1)
+        self.fields['pid'].queryset = ProductCate.objects.filter(
+            pid__isnull=True, status=1)
         self.fields['pid'].empty_label = "无父分类"

@@ -31,7 +31,10 @@ def success_response(data=None, message='操作成功'):
     }
     if data is not None:
         response_data['data'] = data
-    return JsonResponse(response_data, json_dumps_params={'ensure_ascii': False})
+    return JsonResponse(
+        response_data,
+        json_dumps_params={
+            'ensure_ascii': False})
 
 
 def error_response(message='操作失败', code=ApiResponseCode.ERROR, data=None):
@@ -49,7 +52,10 @@ def error_response(message='操作失败', code=ApiResponseCode.ERROR, data=None
     if data is not None:
         response_data['data'] = data
     logger.warning(f"API错误响应: {message} (code: {code})")
-    return JsonResponse(response_data, json_dumps_params={'ensure_ascii': False})
+    return JsonResponse(
+        response_data,
+        json_dumps_params={
+            'ensure_ascii': False})
 
 
 def validation_error_response(message='参数验证失败'):
@@ -101,7 +107,10 @@ def ajax_success_response(data=None, message='操作成功'):
     }
     if data is not None:
         response_data['data'] = data
-    return JsonResponse(response_data, json_dumps_params={'ensure_ascii': False})
+    return JsonResponse(
+        response_data,
+        json_dumps_params={
+            'ensure_ascii': False})
 
 
 def ajax_error_response(message='操作失败', data=None):
@@ -117,4 +126,7 @@ def ajax_error_response(message='操作失败', data=None):
     }
     if data is not None:
         response_data['data'] = data
-    return JsonResponse(response_data, json_dumps_params={'ensure_ascii': False})
+    return JsonResponse(
+        response_data,
+        json_dumps_params={
+            'ensure_ascii': False})

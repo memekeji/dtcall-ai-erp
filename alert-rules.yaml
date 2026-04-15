@@ -1,0 +1,24 @@
+# Prometheus Alert Rules updated by AI Sidecar
+groups:
+  - name: ai_anomaly_detection
+    rules:
+      - alert: HighErrorRate_AI_Detected
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          action: auto-rollback
+        annotations:
+          summary: "AI 检测到异常发布，错误率飙升"
+          description: "5分钟内自动回滚机制已触发，回滚异常发布"
+
+  - name: ai_performance_degradation
+    rules:
+      - alert: HighLatency_AI_Detected
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI 检测到 LCP 或响应延迟变高 (> 2.5s)"
+          description: "性能降级，请检查 AI 工作流阻塞情况"

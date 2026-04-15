@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_DB: dtcall
+      POSTGRES_USER: dtcall_user
+      POSTGRES_PASSWORD: your_secure_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass your_redis_password
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_HOST=db
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=dtcall
+      - DATABASE_USER=dtcall_user
+      - DATABASE_PASSWORD=your_secure_password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=your_redis_password
+      - DJANGO_SECRET_KEY=your-very-secret-key-change-this-in-production
+      - DEBUG=False
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./media:/app/media
+      - ./static:/app/static
+    restart: unless-stopped
+
+  # AI Orchestrator Sidecar (Independent process)
+  ai-orchestrator:
+    build: .
+    command: ["python", "manage.py", "run_ai_orchestrator"]
+    environment:
+      - DATABASE_HOST=db
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=dtcall
+      - DATABASE_USER=dtcall_user
+      - DATABASE_PASSWORD=your_secure_password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=your_redis_password
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

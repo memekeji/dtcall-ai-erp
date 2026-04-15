@@ -24,7 +24,8 @@ class Command(BaseCommand):
                 permission = menu.create_view_permission()
                 if permission:
                     created += 1
-                    self.stdout.write(self.style.SUCCESS(f'成功: {menu.title} - 权限ID: {permission.id}'))
+                    self.stdout.write(
+                        self.style.SUCCESS(f'成功: {menu.title} - 权限ID: {permission.id}'))
                 else:
                     self.stdout.write(self.style.ERROR(f'失败: {menu.title}'))
 

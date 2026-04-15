@@ -16,24 +16,25 @@ PERMISSION_CACHE_TIMEOUT = 5 * 60
 def system_config(request):
     """系统配置上下文处理器"""
     from apps.system.views import STATIC_SYSTEM_CONFIGS
-    
+
     configs = SystemCache.get_configs()
-    
+
     if configs is None:
         config_items = SystemConfig.objects.filter(is_active=True)
         db_configs = {item.key: item for item in config_items}
         SystemCache.set_configs(db_configs)
         configs = db_configs
-    
+
     config_dict = {}
     for static_config in STATIC_SYSTEM_CONFIGS:
         key = static_config['key']
         if key in configs:
             config_dict[key] = configs[key]
         else:
-            config_obj = SystemConfig(key=key, value=static_config['value'], is_active=True)
+            config_obj = SystemConfig(
+                key=key, value=static_config['value'], is_active=True)
             config_dict[key] = config_obj
-    
+
     return {'configs': config_dict}
 
 
@@ -268,22 +269,22 @@ def get_permission_from_src(src):
     """从菜单src URL推断权限codename"""
     if not src or not src.startswith('/') or src == 'javascript:;':
         return None
-    
+
     src = src.rstrip('/')
-    
+
     if src in MENU_URL_TO_PERMISSION_MAP:
         return MENU_URL_TO_PERMISSION_MAP[src]
-    
+
     parts = src.strip('/').split('/')
-    
+
     if len(parts) >= 2:
         app = parts[0]
         module = parts[1]
-        
+
         url_key = f'/{app}/{module}/'
         if url_key in MENU_URL_TO_PERMISSION_MAP:
             return MENU_URL_TO_PERMISSION_MAP[url_key]
-        
+
         if module == 'statistics':
             if len(parts) >= 3:
                 feature = parts[2]
@@ -296,7 +297,7 @@ def get_permission_from_src(src):
                     'paymentreceive': 'view_payment_receive_record',
                     'payment': 'view_payment_record',
                 }.get(feature)
-        
+
         if module == 'admin_office':
             if len(parts) >= 3:
                 feature = parts[2]
@@ -304,67 +305,71 @@ def get_permission_from_src(src):
                     return 'view_asset'
                 elif feature in ['notice', 'news']:
                     return 'view_notice' if feature == 'notice' else 'view_company_news'
-        
+
         if module == 'datalist':
             if len(parts) >= 3:
                 feature = parts[2]
                 if feature == 'category':
                     return 'view_project_category'
                 return f'view_{feature}'
-        
+
         if app == 'adm':
-            if module in ['project', 'task', 'customer', 'production', 'finance']:
+            if module in ['project', 'task',
+                          'customer', 'production', 'finance']:
                 if module == 'project' and len(parts) >= 3:
                     sub_module = parts[2]
                     if sub_module == 'category':
                         return 'view_project_category'
                     return f'view_{sub_module}'
                 return f'view_{module}'
-    
+
     if len(parts) >= 1:
         app = parts[0]
         url_key = f'/{app}/'
         if url_key in MENU_URL_TO_PERMISSION_MAP:
             return MENU_URL_TO_PERMISSION_MAP[url_key]
-        
+
         if len(parts) >= 2:
             module = parts[1]
             return f'view_{module}'
         return f'view_{app}'
-    
+
     return None
 
 
 def get_menus(request):
     """获取当前用户可访问的菜单列表"""
     user = request.user
-    
+
     if not user.is_authenticated:
         return {'menus': []}
-    
+
     cache_key = f'menus_user_{user.id}'
     cached_menus = cache.get(cache_key)
     if cached_menus is not None:
         return {'menus': cached_menus}
-    
-    all_menus = Menu.objects.filter(status=1).select_related('module', 'pid').order_by('sort')
-    
+
+    all_menus = Menu.objects.filter(
+        status=1).select_related(
+        'module',
+        'pid').order_by('sort')
+
     available_menus = [menu for menu in all_menus if menu.is_available()]
-    
+
     if getattr(user, 'is_superuser', False):
         logger.debug(f"用户 {user.username} 是超级管理员，显示所有菜单")
         cache.set(cache_key, available_menus, MENU_CACHE_TIMEOUT)
         return {'menus': available_menus}
-    
+
     user_permissions = set(user.get_all_permissions())
-    
+
     logger.debug(f"用户 {user.username} 权限数: {len(user_permissions)}")
-    
+
     menu_dict = {menu.id: menu for menu in available_menus}
-    
+
     for menu in available_menus:
         menu.children = []
-    
+
     menu_tree = {}
     for menu in available_menus:
         if menu.pid_id:
@@ -373,73 +378,75 @@ def get_menus(request):
                 parent.children.append(menu)
         else:
             menu_tree[menu.id] = menu
-    
+
     def check_menu_permission(menu):
         """检查用户是否有权限访问菜单"""
         perm_codename = None
-        
+
         if menu.permission_required:
             perm_codename = menu.permission_required
         else:
             perm_codename = get_permission_from_src(menu.src)
-        
+
         if not perm_codename:
             return None
-        
+
         normalized_perm = _normalize_permission(perm_codename)
-        
+
         if normalized_perm in user_permissions:
             return True
-        
+
         if perm_codename in user_permissions:
             return True
-        
+
         return False
-    
+
     def check_child_permissions(menu):
         """递归检查子菜单权限"""
         if not hasattr(menu, 'children') or not menu.children:
             result = check_menu_permission(menu)
             return result if result is not None else False
-        
+
         for child in menu.children:
             if check_child_permissions(child):
                 return True
-        
+
         return None
-    
+
     def filter_menu(menu):
         """递归过滤用户有权访问的菜单"""
         has_access = check_child_permissions(menu)
-        
+
         if has_access is False:
             return None
-        
+
         if hasattr(menu, 'children') and menu.children:
             filtered_children = []
             for child in menu.children:
                 filtered_child = filter_menu(child)
                 if filtered_child:
                     filtered_children.append(filtered_child)
-            
+
             if not filtered_children:
                 return None
-            
+
             menu.children = filtered_children
-            menu.children.sort(key=lambda x: x.sort if hasattr(x, 'sort') else 0)
-        
+            menu.children.sort(
+                key=lambda x: x.sort if hasattr(
+                    x, 'sort') else 0)
+
         return menu
-    
+
     authorized_menus = []
     for menu_id, menu in menu_tree.items():
         filtered_menu = filter_menu(menu)
         if filtered_menu:
             authorized_menus.append(filtered_menu)
-    
+
     authorized_menus.sort(key=lambda x: x.sort if hasattr(x, 'sort') else 0)
-    
+
     logger.debug(f"用户 {user.username} 显示 {len(authorized_menus)} 个一级菜单")
-    
+
     cache.set(cache_key, authorized_menus, MENU_CACHE_TIMEOUT)
-    
+
     return {'menus': authorized_menus}

@@ -2,7 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from apps.common.models import (
-    SoftDeleteModel, BaseModel, StatusChoices, 
+    SoftDeleteModel, BaseModel, StatusChoices,
     PriorityChoices, ApprovalStatusChoices
 )
 from apps.oa.constants import MeetingTypeChoices, MeetingStatusChoices
@@ -10,9 +10,15 @@ from apps.oa.constants import MeetingTypeChoices, MeetingStatusChoices
 
 class MeetingRecordParticipant(models.Model):
     """会议记录参会人员关联表"""
-    meetingrecord = models.ForeignKey('MeetingRecord', on_delete=models.CASCADE, db_column='meetingrecord_id')
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_column='user_id')
-    
+    meetingrecord = models.ForeignKey(
+        'MeetingRecord',
+        on_delete=models.CASCADE,
+        db_column='meetingrecord_id')
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        db_column='user_id')
+
     class Meta:
         db_table = 'oa_meeting_record_participants'
         unique_together = ('meetingrecord', 'user')
@@ -22,9 +28,15 @@ class MeetingRecordParticipant(models.Model):
 
 class MeetingRecordAttendee(models.Model):
     """会议记录实际出席人员关联表"""
-    meetingrecord = models.ForeignKey('MeetingRecord', on_delete=models.CASCADE, db_column='meetingrecord_id')
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_column='user_id')
-    
+    meetingrecord = models.ForeignKey(
+        'MeetingRecord',
+        on_delete=models.CASCADE,
+        db_column='meetingrecord_id')
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        db_column='user_id')
+
     class Meta:
         db_table = 'oa_meeting_record_attendees'
         unique_together = ('meetingrecord', 'user')
@@ -34,9 +46,15 @@ class MeetingRecordAttendee(models.Model):
 
 class MeetingRecordSharedUser(models.Model):
     """会议记录共享人员关联表"""
-    meetingrecord = models.ForeignKey('MeetingRecord', on_delete=models.CASCADE, db_column='meetingrecord_id')
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_column='user_id')
-    
+    meetingrecord = models.ForeignKey(
+        'MeetingRecord',
+        on_delete=models.CASCADE,
+        db_column='meetingrecord_id')
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        db_column='user_id')
+
     class Meta:
         db_table = 'oa_meeting_record_shared_users'
         unique_together = ('meetingrecord', 'user')
@@ -50,28 +68,28 @@ class MeetingRoom(SoftDeleteModel):
     code = models.CharField(max_length=50, unique=True, verbose_name='会议室编号')
     location = models.CharField(max_length=200, verbose_name='会议室位置')
     capacity = models.IntegerField(default=10, verbose_name='容纳人数')
-    
+
     has_projector = models.BooleanField(default=False, verbose_name='是否有投影仪')
     has_whiteboard = models.BooleanField(default=False, verbose_name='是否有白板')
     has_tv = models.BooleanField(default=False, verbose_name='是否有电视')
     has_phone = models.BooleanField(default=False, verbose_name='是否有电话')
     has_wifi = models.BooleanField(default=True, verbose_name='是否有WiFi')
-    
+
     equipment_list = models.TextField(blank=True, verbose_name='设备清单')
     description = models.TextField(blank=True, verbose_name='会议室描述')
-    
+
     manager = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.SET_NULL, 
-        null=True, 
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
         verbose_name='管理员'
     )
-    
+
     status = models.CharField(
-        max_length=20, 
-        choices=StatusChoices.choices, 
-        default=StatusChoices.ACTIVE, 
+        max_length=20,
+        choices=StatusChoices.choices,
+        default=StatusChoices.ACTIVE,
         verbose_name='状态'
     )
 
@@ -105,18 +123,18 @@ class MeetingRoom(SoftDeleteModel):
 
     def is_available(self, start_time, end_time, exclude_meeting=None):
         """检查会议室是否可用"""
-        from django.db.models import Q
-        
+
         conflicts = MeetingRecord.objects.filter(
             room=self,
             meeting_date__lt=end_time,
             meeting_end_time__gt=start_time,
-            status__in=[MeetingStatusChoices.CONFIRMED, MeetingStatusChoices.IN_PROGRESS]
-        )
-        
+            status__in=[
+                MeetingStatusChoices.CONFIRMED,
+                MeetingStatusChoices.IN_PROGRESS])
+
         if exclude_meeting:
             conflicts = conflicts.exclude(id=exclude_meeting.id)
-        
+
         return not conflicts.exists()
 
 
@@ -129,87 +147,100 @@ class MeetingRecord(SoftDeleteModel):
         default=MeetingTypeChoices.REGULAR,
         verbose_name='会议类型'
     )
-    
+
     meeting_date = models.DateTimeField(verbose_name='会议开始时间')
     meeting_end_time = models.DateTimeField(verbose_name='会议结束时间')
     duration = models.IntegerField(default=60, verbose_name='会议时长(分钟)')
-    
+
     room = models.ForeignKey(
-        MeetingRoom, 
-        on_delete=models.SET_NULL, 
-        null=True, 
+        MeetingRoom,
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
         verbose_name='会议室'
     )
-    location = models.CharField(max_length=200, blank=True, verbose_name='会议地点')
-    
-    host = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.SET_NULL, 
-        null=True, 
+    location = models.CharField(
+        max_length=200,
         blank=True,
-        related_name='hosted_meetings', 
+        verbose_name='会议地点')
+
+    host = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='hosted_meetings',
         verbose_name='主持人'
     )
     recorder = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.SET_NULL, 
-        null=True, 
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
-        related_name='recorded_meetings', 
+        related_name='recorded_meetings',
         verbose_name='记录人'
     )
     department = models.ForeignKey(
-        'user.Department', 
-        on_delete=models.SET_NULL, 
-        null=True, 
+        'user.Department',
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
         verbose_name='组织部门'
     )
-    
+
     participants = models.ManyToManyField(
-        settings.AUTH_USER_MODEL, 
-        blank=True, 
-        related_name='attended_meetings', 
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        related_name='attended_meetings',
         verbose_name='参会人员',
         through='MeetingRecordParticipant'
     )
     attendees = models.ManyToManyField(
-        settings.AUTH_USER_MODEL, 
-        blank=True, 
-        related_name='signed_meetings', 
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        related_name='signed_meetings',
         verbose_name='实际出席人员',
         through='MeetingRecordAttendee'
     )
-    
+
     status = models.CharField(
         max_length=20,
         choices=MeetingStatusChoices.choices,
         default=MeetingStatusChoices.SCHEDULED,
         verbose_name='会议状态'
     )
-    
+
     agenda = models.TextField(blank=True, verbose_name='会议议程')
     content = models.TextField(blank=True, verbose_name='会议内容')
     summary = models.TextField(blank=True, verbose_name='会议纪要摘要')
     resolution = models.TextField(blank=True, verbose_name='会议决议')
     action_items = models.TextField(blank=True, verbose_name='行动项')
-    next_meeting = models.DateTimeField(null=True, blank=True, verbose_name='下次会议时间')
-    
+    next_meeting = models.DateTimeField(
+        null=True, blank=True, verbose_name='下次会议时间')
+
+    # AI 智能分析扩展字段
+    ai_generated_summary = models.TextField(blank=True, null=True, verbose_name='AI自动提取摘要')
+    ai_extracted_tasks = models.JSONField(default=list, blank=True, verbose_name='AI提取待办任务')
+    ai_transcript = models.TextField(blank=True, null=True, verbose_name='录音转文本内容')
+
     attachments = models.TextField(blank=True, verbose_name='会议附件')
-    audio_file = models.FileField(upload_to='meeting_recordings/', blank=True, null=True, verbose_name='会议录音')
+    audio_file = models.FileField(
+        upload_to='meeting_recordings/',
+        blank=True,
+        null=True,
+        verbose_name='会议录音')
     shared_users = models.ManyToManyField(
-        settings.AUTH_USER_MODEL, 
-        blank=True, 
-        related_name='shared_meetings', 
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        related_name='shared_meetings',
         verbose_name='共享人员',
         through='MeetingRecordSharedUser'
     )
-    
+
     rating = models.IntegerField(
-        choices=[(i, f'{i}分') for i in range(1, 6)], 
-        null=True, 
-        blank=True, 
+        choices=[(i, f'{i}分') for i in range(1, 6)],
+        null=True,
+        blank=True,
         verbose_name='会议评分'
     )
     feedback = models.TextField(blank=True, verbose_name='会议反馈')
@@ -234,7 +265,7 @@ class MeetingRecord(SoftDeleteModel):
         if self.meeting_date and self.meeting_end_time:
             duration = self.meeting_end_time - self.meeting_date
             self.duration = int(duration.total_seconds() / 60)
-        
+
         super().save(*args, **kwargs)
 
     @property
@@ -298,10 +329,13 @@ class MeetingRecord(SoftDeleteModel):
 
 class OAMessage(SoftDeleteModel):
     """OA消息模型"""
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间', db_index=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='创建时间',
+        db_index=True)
     title = models.CharField(max_length=255, verbose_name='消息标题')
     content = models.TextField(verbose_name='消息内容')
-    
+
     message_type = models.CharField(
         max_length=20,
         choices=[
@@ -313,14 +347,14 @@ class OAMessage(SoftDeleteModel):
         default='system',
         verbose_name='消息类型'
     )
-    
+
     sender = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE, 
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
         related_name='oa_sent_messages',
         verbose_name='发送人'
     )
-    
+
     receiver_type = models.CharField(
         max_length=20,
         choices=[
@@ -333,33 +367,34 @@ class OAMessage(SoftDeleteModel):
         verbose_name='接收类型'
     )
     receivers = models.ManyToManyField(
-        settings.AUTH_USER_MODEL, 
-        blank=True, 
+        settings.AUTH_USER_MODEL,
+        blank=True,
         related_name='oa_received_messages',
         verbose_name='接收用户'
     )
     receiver_departments = models.ManyToManyField(
-        'user.Department', 
-        blank=True, 
+        'user.Department',
+        blank=True,
         related_name='oa_received_messages',
         verbose_name='接收部门'
     )
-    
+
     priority = models.IntegerField(
-        choices=PriorityChoices.choices, 
-        default=PriorityChoices.MEDIUM, 
+        choices=PriorityChoices.choices,
+        default=PriorityChoices.MEDIUM,
         verbose_name='优先级'
     )
     is_draft = models.BooleanField(default=False, verbose_name='是否草稿')
-    send_time = models.DateTimeField(null=True, blank=True, verbose_name='发送时间')
-    
+    send_time = models.DateTimeField(
+        null=True, blank=True, verbose_name='发送时间')
+
     attachments = models.TextField(blank=True, verbose_name='附件列表')
-    
+
     parent_message = models.ForeignKey(
-        'self', 
-        on_delete=models.CASCADE, 
-        null=True, 
-        blank=True, 
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name='replies',
         verbose_name='父消息'
     )
@@ -394,18 +429,19 @@ class OAMessage(SoftDeleteModel):
 class OAMessageReadRecord(BaseModel):
     """消息阅读记录"""
     message = models.ForeignKey(
-        OAMessage, 
-        on_delete=models.CASCADE, 
+        OAMessage,
+        on_delete=models.CASCADE,
         related_name='read_records',
         verbose_name='消息'
     )
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE, 
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
         verbose_name='阅读用户'
     )
     is_read = models.BooleanField(default=False, verbose_name='是否已读')
-    read_time = models.DateTimeField(null=True, blank=True, verbose_name='阅读时间')
+    read_time = models.DateTimeField(
+        null=True, blank=True, verbose_name='阅读时间')
 
     class Meta:
         db_table = 'oa_message_read_record'
@@ -427,7 +463,7 @@ class ApprovalFlow(SoftDeleteModel):
     name = models.CharField(max_length=100, verbose_name='流程名称')
     code = models.CharField(max_length=50, unique=True, verbose_name='流程代码')
     description = models.TextField(blank=True, verbose_name='流程描述')
-    
+
     flow_type = models.CharField(
         max_length=20,
         choices=[
@@ -440,19 +476,19 @@ class ApprovalFlow(SoftDeleteModel):
         default='other',
         verbose_name='流程类型'
     )
-    
+
     is_active = models.BooleanField(default=True, verbose_name='是否启用')
     is_default = models.BooleanField(default=False, verbose_name='是否默认流程')
-    
+
     departments = models.ManyToManyField(
-        'user.Department', 
-        blank=True, 
+        'user.Department',
+        blank=True,
         verbose_name='适用部门'
     )
-    
+
     creator = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE, 
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
         verbose_name='创建人'
     )
 
@@ -474,14 +510,14 @@ class ApprovalFlow(SoftDeleteModel):
 class ApprovalStep(BaseModel):
     """审批步骤"""
     flow = models.ForeignKey(
-        ApprovalFlow, 
-        on_delete=models.CASCADE, 
+        ApprovalFlow,
+        on_delete=models.CASCADE,
         related_name='steps',
         verbose_name='审批流程'
     )
     name = models.CharField(max_length=100, verbose_name='步骤名称')
     step_order = models.IntegerField(verbose_name='步骤顺序')
-    
+
     approver_type = models.CharField(
         max_length=20,
         choices=[
@@ -494,11 +530,11 @@ class ApprovalStep(BaseModel):
         verbose_name='审批人类型'
     )
     approvers = models.ManyToManyField(
-        settings.AUTH_USER_MODEL, 
-        blank=True, 
+        settings.AUTH_USER_MODEL,
+        blank=True,
         verbose_name='审批人'
     )
-    
+
     is_required = models.BooleanField(default=True, verbose_name='是否必须')
     can_skip = models.BooleanField(default=False, verbose_name='是否可跳过')
     timeout_hours = models.IntegerField(default=24, verbose_name='超时时间(小时)')
@@ -521,44 +557,45 @@ class ApprovalRequest(SoftDeleteModel):
     """审批申请"""
     title = models.CharField(max_length=255, verbose_name='申请标题')
     content = models.TextField(verbose_name='申请内容')
-    
+
     applicant = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE, 
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
         related_name='approval_requests',
         verbose_name='申请人'
     )
     department = models.ForeignKey(
-        'user.Department', 
-        on_delete=models.SET_NULL, 
-        null=True, 
+        'user.Department',
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
         verbose_name='申请部门'
     )
-    
+
     flow = models.ForeignKey(
-        ApprovalFlow, 
-        on_delete=models.CASCADE, 
+        ApprovalFlow,
+        on_delete=models.CASCADE,
         verbose_name='审批流程'
     )
     current_step = models.ForeignKey(
-        ApprovalStep, 
-        on_delete=models.SET_NULL, 
-        null=True, 
+        ApprovalStep,
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
         verbose_name='当前步骤'
     )
-    
+
     status = models.CharField(
-        max_length=20, 
-        choices=ApprovalStatusChoices.choices, 
-        default=ApprovalStatusChoices.PENDING, 
+        max_length=20,
+        choices=ApprovalStatusChoices.choices,
+        default=ApprovalStatusChoices.PENDING,
         verbose_name='审批状态'
     )
-    
+
     submit_time = models.DateTimeField(auto_now_add=True, verbose_name='提交时间')
-    complete_time = models.DateTimeField(null=True, blank=True, verbose_name='完成时间')
-    
+    complete_time = models.DateTimeField(
+        null=True, blank=True, verbose_name='完成时间')
+
     attachments = models.TextField(blank=True, verbose_name='附件列表')
 
     class Meta:
@@ -592,22 +629,22 @@ class ApprovalRequest(SoftDeleteModel):
 class ApprovalRecord(BaseModel):
     """审批记录"""
     request = models.ForeignKey(
-        ApprovalRequest, 
-        on_delete=models.CASCADE, 
+        ApprovalRequest,
+        on_delete=models.CASCADE,
         related_name='approval_records',
         verbose_name='审批申请'
     )
     step = models.ForeignKey(
-        ApprovalStep, 
-        on_delete=models.CASCADE, 
+        ApprovalStep,
+        on_delete=models.CASCADE,
         verbose_name='审批步骤'
     )
     approver = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE, 
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
         verbose_name='审批人'
     )
-    
+
     result = models.CharField(
         max_length=20,
         choices=[
@@ -618,7 +655,8 @@ class ApprovalRecord(BaseModel):
         verbose_name='审批结果'
     )
     comment = models.TextField(blank=True, verbose_name='审批意见')
-    approval_time = models.DateTimeField(auto_now_add=True, verbose_name='审批时间')
+    approval_time = models.DateTimeField(
+        auto_now_add=True, verbose_name='审批时间')
 
     class Meta:
         db_table = 'oa_approval_record'
@@ -627,7 +665,9 @@ class ApprovalRecord(BaseModel):
         ordering = ['-approval_time']
         indexes = [
             models.Index(fields=['request'], name='idx_approval_rec_request'),
-            models.Index(fields=['approver'], name='idx_approval_rec_approver'),
+            models.Index(
+                fields=['approver'],
+                name='idx_approval_rec_approver'),
             models.Index(fields=['result'], name='idx_approval_rec_result'),
         ]
 
@@ -643,8 +683,13 @@ class Approval(models.Model):
         verbose_name = '审批记录'
         verbose_name_plural = verbose_name
     action_id = models.IntegerField(default=0, verbose_name="审批内容ID")
-    check_type = models.SmallIntegerField(default=1, verbose_name='审批类型', choices=[(1,'自由审批'),(2,'固定审批')])
-    check_table = models.CharField(max_length=255, default='审批数据表', verbose_name="审批数据表")
+    check_type = models.SmallIntegerField(
+        default=1, verbose_name='审批类型', choices=[
+            (1, '自由审批'), (2, '固定审批')])
+    check_table = models.CharField(
+        max_length=255,
+        default='审批数据表',
+        verbose_name="审批数据表")
     flow_id = models.IntegerField(verbose_name="审批流程ID", default=0)
     step_id = models.IntegerField(default=0, verbose_name="审批步骤ID")
     check_uid = models.IntegerField(default=0, verbose_name="审批人ID")

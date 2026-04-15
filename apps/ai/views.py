@@ -1,10 +1,10 @@
-from django.shortcuts import render, redirect, get_object_or_404
+import logging
+from django.shortcuts import redirect, get_object_or_404
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView, TemplateView, View
 from django.urls import reverse_lazy
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.db import transaction
 from django.core.paginator import Paginator
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -16,8 +16,6 @@ from .services.workflow_service import WorkflowService
 from .models import (
     AIModelConfig,
     AIWorkflow,
-    WorkflowNode,
-    WorkflowConnection,
     AIWorkflowExecution,
     AIChat,
     AIChatMessage,
@@ -34,8 +32,6 @@ from .models import (
 from .forms import (
     AIModelConfigForm,
     AIWorkflowForm,
-    WorkflowNodeForm,
-    WorkflowConnectionForm,
     AIKnowledgeBaseForm,
     AIKnowledgeItemForm,
     AISalesStrategyForm,
@@ -44,10 +40,8 @@ from .forms import (
     AIComplianceRuleForm,
     AIActionTriggerForm
 )
-from .utils.ai_config_manager import get_ai_config_manager
 from .utils.ai_client import AIClient
 from .services.complete_node_config import (
-    get_node_config,
     get_node_config_schema,
     get_node_full_config,
     get_all_node_configs,
@@ -56,16 +50,19 @@ from .services.complete_node_config import (
 
 
 # AI模型配置视图
-class AIModelConfigListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class AIModelConfigListView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        ListView):
     model = AIModelConfig
     template_name = 'ai/model_config_list.html'
     context_object_name = 'model_configs'
     permission_required = 'ai.view_aimodelconfig'
     paginate_by = 10
-    
+
     def get_queryset(self):
         return AIModelConfig.objects.order_by('-created_at')
-    
+
     def get(self, request, *args, **kwargs):
         # 检查是否为AJAX请求
         # 只通过X-Requested-With头判断，避免accepts导致的问题
@@ -73,10 +70,10 @@ class AIModelConfigListView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
             # 处理AJAX请求，返回JSON数据
             queryset = self.get_queryset()
             paginator = Paginator(queryset, self.paginate_by)
-            
+
             page = request.GET.get('page')
             objects = paginator.get_page(page)
-            
+
             # 构造Layui表格需要的数据格式
             data = {
                 "code": 0,
@@ -95,68 +92,83 @@ class AIModelConfigListView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
                     } for obj in objects
                 ]
             }
-            
+
             return JsonResponse(data)
         else:
             # 处理HTML请求，返回完整页面
             return super().get(request, *args, **kwargs)
 
 
-class AIModelConfigCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class AIModelConfigCreateView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        CreateView):
     model = AIModelConfig
     form_class = AIModelConfigForm
     template_name = 'ai/model_config_form.html'
     permission_required = 'ai.add_aimodelconfig'
     success_url = reverse_lazy('ai:model_config_list')
-    
+
     def form_valid(self, form):
         response = super().form_valid(form)
         messages.success(self.request, 'AI模型配置创建成功')
         return response
 
 
-class AIModelConfigUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class AIModelConfigUpdateView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        UpdateView):
     model = AIModelConfig
     form_class = AIModelConfigForm
     template_name = 'ai/model_config_form.html'
     permission_required = 'ai.change_aimodelconfig'
     success_url = reverse_lazy('ai:model_config_list')
-    
+
     def form_valid(self, form):
         response = super().form_valid(form)
         messages.success(self.request, 'AI模型配置更新成功')
         return response
 
 
-class AIModelConfigDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+class AIModelConfigDeleteView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        DeleteView):
     model = AIModelConfig
     template_name = 'ai/model_config_confirm_delete.html'
     permission_required = 'ai.delete_aimodelconfig'
     success_url = reverse_lazy('ai:model_config_list')
-    
+
     def delete(self, request, *args, **kwargs):
         response = super().delete(request, *args, **kwargs)
         messages.success(self.request, 'AI模型配置删除成功')
         return response
 
 
-class AIModelConfigDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+class AIModelConfigDetailView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        DetailView):
     model = AIModelConfig
     template_name = 'ai/model_config_detail.html'
     context_object_name = 'model_config'
     permission_required = 'ai.view_aimodelconfig'
 
 
-class AIModelConfigValidateView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+class AIModelConfigValidateView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        DetailView):
     model = AIModelConfig
     permission_required = 'ai.view_aimodelconfig'
-    
+
     def get(self, request, *args, **kwargs):
         return self.validate_connection()
-    
+
     def post(self, request, *args, **kwargs):
         return self.validate_connection()
-    
+
     def validate_connection(self):
         model_config = self.get_object()
         try:
@@ -164,22 +176,23 @@ class AIModelConfigValidateView(LoginRequiredMixin, PermissionRequiredMixin, Det
             import logging
             logger = logging.getLogger(__name__)
             logger.info(f"测试AI模型连接 - 模型ID: {model_config.id}")
-            logger.info(f"模型配置 - 提供商: {model_config.provider}, 基础URL: {model_config.api_base}, 模型名称: {model_config.model_name}")
+            logger.info(
+                f"模型配置 - 提供商: {model_config.provider}, 基础URL: {model_config.api_base}, 模型名称: {model_config.model_name}")
             logger.info(f"API密钥: {'***' if model_config.api_key else '未配置'}")
-            
+
             # 直接使用model_config_id参数实例化AIClient
             client = AIClient(model_config_id=model_config.id)
             # 测试连接，使用chat_completion方法发送简单消息
             test_message = [{"role": "user", "content": "你好，这是一个连接测试。"}]
-            
+
             # 记录测试消息
             logger.info(f"测试消息: {test_message}")
-            
+
             response = client.client.chat_completion(test_message)
             logger.info(f"AI模型连接成功 - 响应: {response[:50]}...")
             return JsonResponse({
-                'status': 'success', 
-                'message': '连接成功', 
+                'status': 'success',
+                'message': '连接成功',
                 'result': response[:50] + '...',
                 'details': {
                     'provider': model_config.provider,
@@ -197,10 +210,11 @@ class AIModelConfigValidateView(LoginRequiredMixin, PermissionRequiredMixin, Det
             logger.error(f"错误类型: {type(e).__name__}")
             logger.error(f"错误详情: {str(e)}")
             logger.error(f"完整错误堆栈: {traceback.format_exc()}")
-            logger.error(f"模型配置 - 提供商: {model_config.provider}, 基础URL: {model_config.api_base}, 模型名称: {model_config.model_name}")
-            
+            logger.error(
+                f"模型配置 - 提供商: {model_config.provider}, 基础URL: {model_config.api_base}, 模型名称: {model_config.model_name}")
+
             return JsonResponse({
-                'status': 'error', 
+                'status': 'error',
                 'message': f'连接失败: {str(e)}',
                 'details': {
                     'provider': model_config.provider,
@@ -211,7 +225,7 @@ class AIModelConfigValidateView(LoginRequiredMixin, PermissionRequiredMixin, Det
                     'suggestion': self._get_error_suggestion(type(e).__name__, model_config)
                 }
             })
-    
+
     def _get_error_suggestion(self, error_type, model_config):
         """根据错误类型提供修复建议"""
         suggestions = {
@@ -223,31 +237,38 @@ class AIModelConfigValidateView(LoginRequiredMixin, PermissionRequiredMixin, Det
             'ValueError': '参数错误，请检查模型配置是否正确',
             'ImportError': '缺少依赖库，请安装相关依赖',
             'AttributeError': '代码错误，请联系开发人员',
-            'TypeError': '类型错误，请检查API地址格式是否正确'
-        }
-        
+            'TypeError': '类型错误，请检查API地址格式是否正确'}
+
         return suggestions.get(error_type, '请检查模型配置是否正确，特别是API地址和API密钥')
 
 
-class ListAvailableAIProvidersView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class ListAvailableAIProvidersView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        ListView):
     permission_required = 'ai.view_aimodelconfig'
-    
+
     def get(self, request, *args, **kwargs):
         providers = AIModelConfig.PROVIDERS
-        return JsonResponse({'providers': [{'value': p[0], 'label': p[1]} for p in providers]})
+        return JsonResponse(
+            {'providers': [{'value': p[0], 'label': p[1]} for p in providers]})
 
 
 # AI工作流视图
-class AIWorkflowListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class AIWorkflowListView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        ListView):
     model = AIWorkflow
     template_name = 'ai/workflow_list.html'
     context_object_name = 'workflows'
     permission_required = 'ai.view_aiworkflow'
     paginate_by = 10
-    
+
     def get_queryset(self):
-        return AIWorkflow.objects.select_related('owner', 'created_by').order_by('-created_at')
-    
+        return AIWorkflow.objects.select_related(
+            'owner', 'created_by').order_by('-created_at')
+
     def get(self, request, *args, **kwargs):
         # 检查是否为AJAX请求
         # 只通过X-Requested-With头判断，避免accepts导致的问题
@@ -255,10 +276,10 @@ class AIWorkflowListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
             # 处理AJAX请求，返回JSON数据
             queryset = self.get_queryset()
             paginator = Paginator(queryset, self.paginate_by)
-            
+
             page = request.GET.get('page')
             objects = paginator.get_page(page)
-            
+
             # 构造Layui表格需要的数据格式
             data = {
                 "code": 0,
@@ -269,25 +290,27 @@ class AIWorkflowListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
                         "id": obj.id,
                         "name": obj.name,
                         "status": obj.status,
-                        "created_by__name": obj.created_by.name if obj.created_by and hasattr(obj.created_by, 'name') else '',
-                        "created_at": obj.created_at.strftime('%Y-%m-%d %H:%M:%S')
-                    } for obj in objects
-                ]
-            }
-            
+                        "created_by__name": obj.created_by.name if obj.created_by and hasattr(
+                            obj.created_by,
+                            'name') else '',
+                        "created_at": obj.created_at.strftime('%Y-%m-%d %H:%M:%S')} for obj in objects]}
+
             return JsonResponse(data)
         else:
             # 处理HTML请求，返回完整页面
             return super().get(request, *args, **kwargs)
 
 
-class AIWorkflowCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class AIWorkflowCreateView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        CreateView):
     model = AIWorkflow
     form_class = AIWorkflowForm
     template_name = 'ai/workflow_form.html'
     permission_required = 'ai.add_aiworkflow'
     success_url = reverse_lazy('ai:workflow_list')
-    
+
     def form_valid(self, form):
         form.instance.owner = self.request.user
         form.instance.created_by = self.request.user
@@ -297,31 +320,35 @@ class AIWorkflowCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateVi
 
 
 @method_decorator(csrf_exempt, name='dispatch')
-class AIWorkflowUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class AIWorkflowUpdateView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        UpdateView):
     model = AIWorkflow
     form_class = AIWorkflowForm
     template_name = 'ai/workflow_form.html'
     permission_required = 'ai.change_aiworkflow'
     success_url = reverse_lazy('ai:workflow_list')
-    
+
     def form_valid(self, form):
         response = super().form_valid(form)
         messages.success(self.request, 'AI工作流更新成功')
         return response
-    
+
     def post(self, request, *args, **kwargs):
         """处理AJAX请求保存工作流节点数据"""
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             try:
                 workflow = self.get_object()
                 data = json.loads(request.body)
-                
+
                 nodes_data = data.get('nodes', [])
                 connections_data = data.get('connections', [])
-                
+
                 service = WorkflowService()
-                service.update_workflow_nodes(workflow.id, nodes_data, connections_data)
-                
+                service.update_workflow_nodes(
+                    workflow.id, nodes_data, connections_data)
+
                 return JsonResponse({
                     'status': 'success',
                     'message': '工作流保存成功',
@@ -339,19 +366,22 @@ class AIWorkflowUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateVi
                     'status': 'error',
                     'message': str(e)
                 }, status=500)
-        
+
         return super().post(request, *args, **kwargs)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
-class AIWorkflowDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+class AIWorkflowDeleteView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        DeleteView):
     model = AIWorkflow
     permission_required = 'ai.delete_aiworkflow'
-    
+
     def delete(self, request, *args, **kwargs):
         workflow = self.get_object()
         workflow_name = workflow.name
-        
+
         try:
             workflow.delete()
             return JsonResponse({
@@ -363,17 +393,20 @@ class AIWorkflowDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteVi
                 'success': False,
                 'message': f'删除失败：{str(e)}'
             }, status=500)
-    
+
     def post(self, request, *args, **kwargs):
         return self.delete(request, *args, **kwargs)
 
 
-class AIWorkflowDesignerView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+class AIWorkflowDesignerView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        DetailView):
     model = AIWorkflow
     template_name = 'ai/workflow_designer.html'
     permission_required = 'ai.change_aiworkflow'
     context_object_name = 'workflow'
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['nodes'] = self.object.nodes.all()
@@ -381,35 +414,41 @@ class AIWorkflowDesignerView(LoginRequiredMixin, PermissionRequiredMixin, Detail
         return context
 
 
-class AIWorkflowPublishView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class AIWorkflowPublishView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        UpdateView):
     model = AIWorkflow
     fields = ['status']
     permission_required = 'ai.change_aiworkflow'
-    
+
     def post(self, request, *args, **kwargs):
         workflow = self.get_object()
-        
+
         if workflow.status == 'published':
             return JsonResponse({
                 'status': 'error',
                 'message': '工作流已经发布过了'
             })
-        
+
         workflow.status = 'published'
         workflow.save()
-        
+
         return JsonResponse({
             'status': 'success',
             'message': '发布成功'
         })
 
 
-class AIWorkflowDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+class AIWorkflowDetailView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        DetailView):
     model = AIWorkflow
     template_name = 'ai/workflow_detail.html'
     permission_required = 'ai.view_aiworkflow'
     context_object_name = 'workflow'
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['nodes'] = self.object.nodes.all()
@@ -420,31 +459,31 @@ class AIWorkflowDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailVi
 class AIWorkflowJsonDetailView(LoginRequiredMixin, DetailView):
     """工作流JSON详情API，用于工作流设计器数据加载"""
     model = AIWorkflow
-    
+
     def get(self, request, *args, **kwargs):
         try:
             workflow = self.get_object()
-            
+
             if not workflow.is_public:
                 if not request.user.is_authenticated:
                     return JsonResponse({
                         'status': 'error',
                         'message': '请先登录'
                     }, status=401)
-            
+
             nodes = workflow.nodes.all()
             connections = workflow.connections.all()
-            
+
             def parse_config(config):
                 if config is None:
                     return {}
                 if isinstance(config, str):
                     try:
                         return json.loads(config)
-                    except:
+                    except BaseException:
                         return {}
                 return config if isinstance(config, dict) else {}
-            
+
             nodes_data = []
             for node in nodes:
                 node_data = {
@@ -456,19 +495,22 @@ class AIWorkflowJsonDetailView(LoginRequiredMixin, DetailView):
                     'config': parse_config(node.config)
                 }
                 nodes_data.append(node_data)
-            
+
             connections_data = []
             for conn in connections:
                 conn_data = {
-                    'id': str(conn.id),
-                    'source': str(conn.source_node_id) if conn.source_node_id else None,
-                    'target': str(conn.target_node_id) if conn.target_node_id else None,
+                    'id': str(
+                        conn.id),
+                    'source': str(
+                        conn.source_node_id) if conn.source_node_id else None,
+                    'target': str(
+                        conn.target_node_id) if conn.target_node_id else None,
                     'source_handle': conn.source_handle or 'output',
                     'target_handle': conn.target_handle or 'input',
-                    'config': parse_config(conn.config)
-                }
+                    'config': parse_config(
+                        conn.config)}
                 connections_data.append(conn_data)
-            
+
             return JsonResponse({
                 'status': 'success',
                 'workflow': {
@@ -487,15 +529,18 @@ class AIWorkflowJsonDetailView(LoginRequiredMixin, DetailView):
             }, status=500)
 
 
-class AIWorkflowExecuteView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+class AIWorkflowExecuteView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        DetailView):
     model = AIWorkflow
     permission_required = 'ai.change_aiworkflow'
-    
+
     def post(self, request, *args, **kwargs):
         import json
-        
+
         workflow = self.get_object()
-        
+
         try:
             # 尝试从JSON body获取输入数据
             if request.content_type == 'application/json':
@@ -506,7 +551,7 @@ class AIWorkflowExecuteView(LoginRequiredMixin, PermissionRequiredMixin, DetailV
                     input_data = {}
             else:
                 input_data = request.POST.dict()
-            
+
             service = WorkflowService()
             execution = service.execute_workflow(
                 workflow_id=str(workflow.id),
@@ -514,31 +559,34 @@ class AIWorkflowExecuteView(LoginRequiredMixin, PermissionRequiredMixin, DetailV
                 input_data=input_data
             )
             return JsonResponse({
-                'status': 'success', 
+                'status': 'success',
                 'execution_id': str(execution.id),
                 'message': '工作流执行已启动'
             })
         except Exception as e:
             return JsonResponse({
-                'status': 'error', 
+                'status': 'error',
                 'message': str(e)
             }, status=400)
 
 
-class AIWorkflowParametersView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+class AIWorkflowParametersView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        DetailView):
     model = AIWorkflow
     permission_required = 'ai.change_aiworkflow'
-    
+
     def get(self, request, *args, **kwargs):
         workflow = self.get_object()
-        
+
         try:
             # 从WorkflowVariable获取定义的参数
-            from apps.ai.models import WorkflowVariable
-            
+            pass
+
             variables = workflow.variables.all()
             parameters = []
-            
+
             for var in variables:
                 parameters.append({
                     'name': var.name,
@@ -547,14 +595,14 @@ class AIWorkflowParametersView(LoginRequiredMixin, PermissionRequiredMixin, Deta
                     'description': var.description,
                     'is_required': var.is_required
                 })
-            
+
             # 如果没有定义变量，返回空数组
             return JsonResponse({
                 'status': 'success',
                 'parameters': parameters,
                 'workflow_name': workflow.name
             })
-            
+
         except Exception as e:
             return JsonResponse({
                 'status': 'error',
@@ -563,15 +611,18 @@ class AIWorkflowParametersView(LoginRequiredMixin, PermissionRequiredMixin, Deta
 
 
 # AI聊天视图
-class AIChatView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class AIChatView(LoginRequiredMixin, ListView):
     model = AIChat
     template_name = 'ai/chat.html'
-    permission_required = 'ai.view_aichat'
-    
+
     def get_queryset(self):
-        return AIChat.objects.filter(user=self.request.user).order_by('-updated_at')
-    
+        return AIChat.objects.select_related('user').filter(
+            user=self.request.user).order_by('-updated_at')
+
     def get(self, request, *args, **kwargs):
+        referrer = request.META.get('HTTP_REFERER')
+        if referrer:
+            request.session['ai_last_referrer'] = referrer
         # 处理JSON请求，返回聊天会话列表
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             queryset = self.get_queryset()
@@ -587,23 +638,24 @@ class AIChatView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         return super().get(request, *args, **kwargs)
 
 
-class AIChatDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+class AIChatDetailView(
+        LoginRequiredMixin,
+        DetailView):
     model = AIChat
     template_name = 'ai/chat_detail.html'
-    permission_required = 'ai.view_aichat'
     context_object_name = 'chat'
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['messages'] = self.object.messages.order_by('created_at')
         return context
-    
+
     def get(self, request, *args, **kwargs):
         # 处理JSON请求，返回聊天会话数据
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             chat = self.get_object()
             messages = chat.messages.order_by('created_at')
-            
+
             return JsonResponse({
                 'id': chat.id,
                 'title': chat.title,
@@ -619,11 +671,12 @@ class AIChatDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
         return super().get(request, *args, **kwargs)
 
 
-class AIChatDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+class AIChatDeleteView(
+        LoginRequiredMixin,
+        DeleteView):
     model = AIChat
-    permission_required = 'ai.delete_aichat'
     success_url = reverse_lazy('ai:chat')
-    
+
     def delete(self, request, *args, **kwargs):
         chat = self.get_object()
         chat.delete()
@@ -632,71 +685,83 @@ class AIChatDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
         return super().delete(request, *args, **kwargs)
 
 
-class AIChatCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class AIChatCreateView(
+        LoginRequiredMixin,
+        CreateView):
     model = AIChat
     fields = ['title']
-    permission_required = 'ai.add_aichat'
-    
+
     def form_valid(self, form):
         form.instance.user = self.request.user
         form.instance.session_id = f"chat_{self.request.user.id}_{timezone.now().timestamp()}"
         chat = form.save()
-        return JsonResponse({'status': 'success', 'chat_id': chat.id, 'chat_title': chat.title})
+        return JsonResponse(
+            {'status': 'success', 'chat_id': chat.id, 'chat_title': chat.title})
 
 
-class AIChatMessageCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class AIChatMessageCreateView(
+        LoginRequiredMixin,
+        CreateView):
     model = AIChatMessage
     fields = ['content']
-    permission_required = 'ai.add_aichatmessage'
-    
+
     def form_valid(self, form):
         chat_id = self.request.POST.get('chat_id')
         chat = get_object_or_404(AIChat, id=chat_id, user=self.request.user)
         message_content = form.cleaned_data['content']
-        
+
         # 创建用户消息
         user_message = AIChatMessage.objects.create(
             chat=chat,
             role='user',
             content=message_content
         )
-        
+
         # 生成AI回复
         try:
             # 1. 调用意图识别服务
             from apps.ai.services.intent_recognition_service import intent_recognition_service
-            intent_result = intent_recognition_service.process_request(self.request.user, message_content)
-            
+            referrer = self.request.session.get('ai_last_referrer')
+            intent_input = f"当前页面URL: {referrer}\n用户请求: {message_content}" if referrer else message_content
+            intent_result = intent_recognition_service.process_request(
+                self.request.user, intent_input)
+
             # 2. 获取意图特定处理器
             intent = intent_result.get('intent_type', 'ai_chat')
-            
+
             # 直接处理意图，避免handler绑定问题
             if intent == 'data_query':
                 # 3. 执行数据查询服务
                 from apps.ai.services.query_service import query_service
-                result = query_service.process_query(self.request.user, message_content)
-                
+                result = query_service.process_query(
+                    self.request.user, message_content)
+
                 if result['success']:
                     ai_response = result['result']
                 else:
                     ai_response = result.get('message', '抱歉，我无法处理您的请求')
             elif intent == 'knowledge_base':
                 from apps.ai.services.rag_service import rag_service
-                ai_response = rag_service.generate_response(self.request.user, message_content)
+                ai_response = rag_service.generate_response(
+                    self.request.user, message_content)
             elif intent == 'ai_chat':
                 # 5. 处理纯AI对话意图
-                ai_response = intent_recognition_service._handle_ai_chat(self.request.user, message_content)['result']
+                ai_response = intent_recognition_service._handle_ai_chat(
+                    self.request.user, intent_input)['result']
             else:
                 # 6. 如果没有特定处理器，使用通用AI聊天
-                ai_response = intent_result.get('fallback_options', [{}])[0].get('text', '抱歉，我无法理解您的请求')
-            
+                ai_response = intent_result.get(
+                    'fallback_options', [
+                        {}])[0].get(
+                    'text', '抱歉，我无法理解您的请求')
+
             # 5. 创建AI回复消息
             ai_message = AIChatMessage.objects.create(
                 chat=chat,
                 role='assistant',
                 content=ai_response
             )
-            
+
             return JsonResponse({
                 'status': 'success',
                 'user_message': user_message.content,
@@ -706,20 +771,25 @@ class AIChatMessageCreateView(LoginRequiredMixin, PermissionRequiredMixin, Creat
             })
         except Exception as e:
             logger.error(f'AI生成失败: {str(e)}')
-            return JsonResponse({'status': 'error', 'message': f'AI生成失败: {str(e)}'})
+            return JsonResponse(
+                {'status': 'error', 'message': f'AI生成失败: {str(e)}'})
 
 
 # AI知识库视图
-class AIKnowledgeBaseListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class AIKnowledgeBaseListView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        ListView):
     model = AIKnowledgeBase
     template_name = 'ai/knowledge_base_list.html'
     context_object_name = 'knowledge_bases'
     permission_required = 'ai.view_aiknowledgebase'
     paginate_by = 10
-    
+
     def get_queryset(self):
-        return AIKnowledgeBase.objects.select_related('creator').order_by('-created_at')
-    
+        return AIKnowledgeBase.objects.select_related(
+            'creator').order_by('-created_at')
+
     def get(self, request, *args, **kwargs):
         # 检查是否为AJAX请求
         # 只通过X-Requested-With头判断，避免accepts导致的问题
@@ -727,10 +797,10 @@ class AIKnowledgeBaseListView(LoginRequiredMixin, PermissionRequiredMixin, ListV
             # 处理AJAX请求，返回JSON数据
             queryset = self.get_queryset()
             paginator = Paginator(queryset, self.paginate_by)
-            
+
             page = request.GET.get('page')
             objects = paginator.get_page(page)
-            
+
             # 构造Layui表格需要的数据格式
             data = {
                 "code": 0,
@@ -742,25 +812,27 @@ class AIKnowledgeBaseListView(LoginRequiredMixin, PermissionRequiredMixin, ListV
                         "name": obj.name,
                         "description": obj.description,
                         "status": obj.status,
-                        "creator__name": obj.creator.name if obj.creator and hasattr(obj.creator, 'name') else '',
-                        "created_at": obj.created_at.strftime('%Y-%m-%d %H:%M:%S')
-                    } for obj in objects
-                ]
-            }
-            
+                        "creator__name": obj.creator.name if obj.creator and hasattr(
+                            obj.creator,
+                            'name') else '',
+                        "created_at": obj.created_at.strftime('%Y-%m-%d %H:%M:%S')} for obj in objects]}
+
             return JsonResponse(data)
         else:
             # 处理HTML请求，返回完整页面
             return super().get(request, *args, **kwargs)
 
 
-class AIKnowledgeBaseCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class AIKnowledgeBaseCreateView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        CreateView):
     model = AIKnowledgeBase
     form_class = AIKnowledgeBaseForm
     template_name = 'ai/knowledge_base_form.html'
     permission_required = 'ai.add_aiknowledgebase'
     success_url = reverse_lazy('ai:knowledge_base_list')
-    
+
     def form_valid(self, form):
         form.instance.creator = self.request.user
         response = super().form_valid(form)
@@ -768,64 +840,76 @@ class AIKnowledgeBaseCreateView(LoginRequiredMixin, PermissionRequiredMixin, Cre
         return response
 
 
-class AIKnowledgeBaseUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class AIKnowledgeBaseUpdateView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        UpdateView):
     model = AIKnowledgeBase
     form_class = AIKnowledgeBaseForm
     template_name = 'ai/knowledge_base_form.html'
     permission_required = 'ai.change_aiknowledgebase'
     success_url = reverse_lazy('ai:knowledge_base_list')
-    
+
     def form_valid(self, form):
         response = super().form_valid(form)
         messages.success(self.request, 'AI知识库更新成功')
         return response
 
 
-class AIKnowledgeBaseDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+class AIKnowledgeBaseDeleteView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        DeleteView):
     model = AIKnowledgeBase
     template_name = 'ai/knowledge_base_confirm_delete.html'
     permission_required = 'ai.delete_aiknowledgebase'
     success_url = reverse_lazy('ai:knowledge_base_list')
-    
+
     def delete(self, request, *args, **kwargs):
         response = super().delete(request, *args, **kwargs)
         messages.success(self.request, 'AI知识库删除成功')
         return response
 
 
-class AIKnowledgeBaseDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+class AIKnowledgeBaseDetailView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        DetailView):
     model = AIKnowledgeBase
     template_name = 'ai/knowledge_base_detail.html'
     permission_required = 'ai.view_aiknowledgebase'
     context_object_name = 'knowledge_base'
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['knowledge_items'] = self.object.items.all().order_by('-created_at')
+        context['knowledge_items'] = self.object.items.select_related('creator').order_by('-created_at')
         return context
 
 
 # AI知识条目视图
-class AIKnowledgeItemListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class AIKnowledgeItemListView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        ListView):
     model = AIKnowledgeItem
     template_name = 'ai/knowledge_item_list.html'
     context_object_name = 'knowledge_items'
     permission_required = 'ai.view_aiknowledgeitem'
     paginate_by = 10
-    
+
     def get_queryset(self):
+        queryset = AIKnowledgeItem.objects.select_related('knowledge_base', 'creator').order_by('-created_at')
         knowledge_base_id = self.request.GET.get('knowledge_base')
         if knowledge_base_id:
-            return AIKnowledgeItem.objects.select_related('knowledge_base').filter(
-                knowledge_base_id=knowledge_base_id
-            ).order_by('-created_at')
-        return AIKnowledgeItem.objects.order_by('-created_at')
-    
+            return queryset.filter(knowledge_base_id=knowledge_base_id)
+        return queryset
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['knowledge_bases'] = AIKnowledgeBase.objects.filter(status='published')
+        context['knowledge_bases'] = AIKnowledgeBase.objects.filter(
+            status='published')
         return context
-    
+
     def get(self, request, *args, **kwargs):
         # 检查是否为AJAX请求
         # 只通过X-Requested-With头判断，避免accepts导致的问题
@@ -833,75 +917,79 @@ class AIKnowledgeItemListView(LoginRequiredMixin, PermissionRequiredMixin, ListV
             # 处理AJAX请求，返回JSON数据
             queryset = self.get_queryset()
             paginator = Paginator(queryset, self.paginate_by)
-            
+
             page = request.GET.get('page')
             objects = paginator.get_page(page)
-            
+
             # 构造Layui表格需要的数据格式
-            data = {
-                "code": 0,
-                "msg": "",
-                "count": paginator.count,
-                "data": [
-                    {
-                        "id": obj.id,
-                        "title": obj.title,
-                        "knowledge_type": obj.knowledge_type,
-                        "status": obj.status,
-                        "knowledge_base__name": obj.knowledge_base.name if obj.knowledge_base and hasattr(obj.knowledge_base, 'name') else '',
-                        "creator__name": obj.creator.name if obj.creator and hasattr(obj.creator, 'name') else '',
-                        "created_at": obj.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-                        "has_file": True if obj.file else False,
-                        "file_name": obj.file.name.split('/')[-1] if obj.file else '',
-                        "file_type": obj.file_type if obj.file_type else ''
-                    } for obj in objects
-                ]
-            }
-            
+            data = {"code": 0,
+                    "msg": "",
+                    "count": paginator.count,
+                    "data": [{"id": obj.id,
+                              "title": obj.title,
+                              "knowledge_type": obj.knowledge_type,
+                              "status": obj.status,
+                              "knowledge_base__name": obj.knowledge_base.name if obj.knowledge_base and hasattr(obj.knowledge_base,
+                                                                                                                'name') else '',
+                              "creator__name": obj.creator.name if obj.creator and hasattr(obj.creator,
+                                                                                           'name') else '',
+                              "created_at": obj.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                              "has_file": True if obj.file else False,
+                              "file_name": obj.file.name.split('/')[-1] if obj.file else '',
+                              "file_type": obj.file_type if obj.file_type else ''} for obj in objects]}
+
             return JsonResponse(data)
         else:
             # 处理HTML请求，返回完整页面
             return super().get(request, *args, **kwargs)
 
 
-class AIKnowledgeItemCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class AIKnowledgeItemCreateView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        CreateView):
     model = AIKnowledgeItem
     form_class = AIKnowledgeItemForm
     template_name = 'ai/knowledge_item_form.html'
     permission_required = 'ai.add_aiknowledgeitem'
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # 添加所有知识库到上下文
         context['knowledge_bases'] = AIKnowledgeBase.objects.all()
         return context
-    
+
     def form_valid(self, form):
         try:
             # 获取表单数据
             form.instance.creator = self.request.user
-            
+
             # 保存知识库条目
             knowledge_item = form.save()
-            
+
             # 生成向量
             from apps.ai.services.vector_generation_service import vector_generation_service
-            vector_generation_success = vector_generation_service.generate_vector_for_knowledge_item(knowledge_item.id)
-            
+            vector_generation_success = vector_generation_service.generate_vector_for_knowledge_item(
+                knowledge_item.id)
+
             # 检查向量是否生成成功
             if not vector_generation_success:
                 # 向量化失败，删除已保存的知识库条目
                 knowledge_item.delete()
                 # 返回错误信息
-                if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                    return JsonResponse({'status': 'error', 'message': '向量化失败，请检查内容并重试'})
+                if self.request.headers.get(
+                        'X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse(
+                        {'status': 'error', 'message': '向量化失败，请检查内容并重试'})
                 else:
                     messages.error(self.request, '向量化失败，请检查内容并重试')
                     return redirect('ai:knowledge_item_list')
-            
+
             # 检查是否是AJAX请求
-            if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'status': 'success', 'message': '知识条目创建成功'})
+            if self.request.headers.get(
+                    'X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse(
+                    {'status': 'success', 'message': '知识条目创建成功'})
             else:
                 messages.success(self.request, '知识条目创建成功')
                 return redirect('ai:knowledge_item_list')
@@ -910,50 +998,59 @@ class AIKnowledgeItemCreateView(LoginRequiredMixin, PermissionRequiredMixin, Cre
             import logging
             logger = logging.getLogger(__name__)
             logger.error(f"创建知识库条目失败: {str(e)}")
-            
+
             # 返回错误信息
             error_msg = f"操作失败: {str(e)}"
-            if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            if self.request.headers.get(
+                    'X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'status': 'error', 'message': error_msg})
             else:
                 messages.error(self.request, error_msg)
                 return self.form_invalid(form)
 
 
-class AIKnowledgeItemUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class AIKnowledgeItemUpdateView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        UpdateView):
     model = AIKnowledgeItem
     form_class = AIKnowledgeItemForm
     template_name = 'ai/knowledge_item_form.html'
     permission_required = 'ai.change_aiknowledgeitem'
     success_url = reverse_lazy('ai:knowledge_item_list')
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # 添加所有知识库到上下文
         context['knowledge_bases'] = AIKnowledgeBase.objects.all()
         return context
-    
+
     def form_valid(self, form):
         try:
             # 保存知识库条目更新
             knowledge_item = form.save()
-            
+
             # 生成向量
             from apps.ai.services.vector_generation_service import vector_generation_service
-            vector_generation_success = vector_generation_service.generate_vector_for_knowledge_item(knowledge_item.id)
-            
+            vector_generation_success = vector_generation_service.generate_vector_for_knowledge_item(
+                knowledge_item.id)
+
             # 检查向量是否生成成功
             if not vector_generation_success:
                 # 向量化失败，返回错误信息
-                if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                    return JsonResponse({'status': 'error', 'message': '向量化失败，知识条目已更新但向量未更新'})
+                if self.request.headers.get(
+                        'X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse(
+                        {'status': 'error', 'message': '向量化失败，知识条目已更新但向量未更新'})
                 else:
                     messages.error(self.request, '向量化失败，知识条目已更新但向量未更新')
                     return redirect('ai:knowledge_item_list')
-            
+
             # 检查是否是AJAX请求
-            if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'status': 'success', 'message': '知识条目更新成功'})
+            if self.request.headers.get(
+                    'X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse(
+                    {'status': 'success', 'message': '知识条目更新成功'})
             else:
                 messages.success(self.request, '知识条目更新成功')
                 return redirect('ai:knowledge_item_list')
@@ -962,27 +1059,31 @@ class AIKnowledgeItemUpdateView(LoginRequiredMixin, PermissionRequiredMixin, Upd
             import logging
             logger = logging.getLogger(__name__)
             logger.error(f"更新知识库条目失败: {str(e)}")
-            
+
             # 返回错误信息
             error_msg = f"操作失败: {str(e)}"
-            if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            if self.request.headers.get(
+                    'X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'status': 'error', 'message': error_msg})
             else:
                 messages.error(self.request, error_msg)
                 return self.form_invalid(form)
 
 
-class AIKnowledgeItemDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+class AIKnowledgeItemDeleteView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        DeleteView):
     model = AIKnowledgeItem
     template_name = 'ai/knowledge_item_confirm_delete.html'
     permission_required = 'ai.delete_aiknowledgeitem'
     success_url = reverse_lazy('ai:knowledge_item_list')
-    
+
     def delete(self, request, *args, **kwargs):
         # 执行删除操作
         super().delete(request, *args, **kwargs)
         messages.success(self.request, '知识条目删除成功')
-        
+
         # 检查是否是AJAX请求
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             # 返回JSON响应
@@ -990,55 +1091,62 @@ class AIKnowledgeItemDeleteView(LoginRequiredMixin, PermissionRequiredMixin, Del
         else:
             # 返回重定向响应
             return HttpResponseRedirect(self.success_url)
-    
+
     def post(self, request, *args, **kwargs):
         # 处理POST请求，调用delete方法
         return self.delete(request, *args, **kwargs)
 
 
-class AIKnowledgeItemDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+class AIKnowledgeItemDetailView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        DetailView):
     model = AIKnowledgeItem
     template_name = 'ai/knowledge_item_detail.html'
     permission_required = 'ai.view_aiknowledgeitem'
     context_object_name = 'knowledge_item'
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
+
         # 获取知识条目的向量信息
         knowledge_item = self.get_object()
         try:
-            vector_record = AIKnowledgeVector.objects.get(knowledge_item=knowledge_item)
+            vector_record = AIKnowledgeVector.objects.get(
+                knowledge_item=knowledge_item)
             context['vector_info'] = {
                 'exists': True,
                 'dimension': vector_record.dimension,
                 'created_at': vector_record.created_at,
                 'updated_at': vector_record.updated_at,
-                'vector_size': len(vector_record.vector) if vector_record.vector else 0
-            }
+                'vector_size': len(
+                    vector_record.vector) if vector_record.vector else 0}
         except AIKnowledgeVector.DoesNotExist:
             context['vector_info'] = {
                 'exists': False
             }
-        
+
         return context
 
 
-class AIKnowledgeSearchView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class AIKnowledgeSearchView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        ListView):
     model = AIKnowledgeItem
     template_name = 'ai/knowledge_search.html'
     permission_required = 'ai.view_aiknowledgeitem'
-    
+
     def get_queryset(self):
         query = self.request.GET.get('q', '')
         if not query:
             return AIKnowledgeItem.objects.none()
-        
-        return AIKnowledgeItem.objects.filter(
+
+        return AIKnowledgeItem.objects.select_related('knowledge_base', 'creator').filter(
             content__icontains=query,
             status='published'
         ).order_by('-created_at')
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['query'] = self.request.GET.get('q', '')
@@ -1046,49 +1154,61 @@ class AIKnowledgeSearchView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
 
 
 # AI销售策略视图
-class AISalesStrategyListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class AISalesStrategyListView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        ListView):
     model = AISalesStrategy
     template_name = 'ai/sales_strategy_list.html'
     context_object_name = 'sales_strategies'
     permission_required = 'ai.view_aisalesstrategy'
     paginate_by = 10
-    
+
     def get_queryset(self):
         return AISalesStrategy.objects.order_by('-created_at')
 
 
-class AISalesStrategyCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class AISalesStrategyCreateView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        CreateView):
     model = AISalesStrategy
     form_class = AISalesStrategyForm
     template_name = 'ai/sales_strategy_form.html'
     permission_required = 'ai.add_aisalesstrategy'
     success_url = reverse_lazy('ai:sales_strategy_list')
-    
+
     def form_valid(self, form):
         response = super().form_valid(form)
         messages.success(self.request, '销售策略创建成功')
         return response
 
 
-class AISalesStrategyUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class AISalesStrategyUpdateView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        UpdateView):
     model = AISalesStrategy
     form_class = AISalesStrategyForm
     template_name = 'ai/sales_strategy_form.html'
     permission_required = 'ai.change_aisalesstrategy'
     success_url = reverse_lazy('ai:sales_strategy_list')
-    
+
     def form_valid(self, form):
         response = super().form_valid(form)
         messages.success(self.request, '销售策略更新成功')
         return response
 
 
-class AISalesStrategyDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+class AISalesStrategyDeleteView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        DeleteView):
     model = AISalesStrategy
     template_name = 'ai/sales_strategy_confirm_delete.html'
     permission_required = 'ai.delete_aisalesstrategy'
     success_url = reverse_lazy('ai:sales_strategy_list')
-    
+
     def delete(self, request, *args, **kwargs):
         response = super().delete(request, *args, **kwargs)
         messages.success(self.request, '销售策略删除成功')
@@ -1096,49 +1216,61 @@ class AISalesStrategyDeleteView(LoginRequiredMixin, PermissionRequiredMixin, Del
 
 
 # AI意图识别视图
-class AIIntentRecognitionListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class AIIntentRecognitionListView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        ListView):
     model = AIIntentRecognition
     template_name = 'ai/intent_recognition_list.html'
     context_object_name = 'intent_recognitions'
     permission_required = 'ai.view_aiintentrecognition'
     paginate_by = 10
-    
+
     def get_queryset(self):
         return AIIntentRecognition.objects.order_by('-created_at')
 
 
-class AIIntentRecognitionCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class AIIntentRecognitionCreateView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        CreateView):
     model = AIIntentRecognition
     form_class = AIIntentRecognitionForm
     template_name = 'ai/intent_recognition_form.html'
     permission_required = 'ai.add_aiintentrecognition'
     success_url = reverse_lazy('ai:intent_recognition_list')
-    
+
     def form_valid(self, form):
         response = super().form_valid(form)
         messages.success(self.request, '意图识别规则创建成功')
         return response
 
 
-class AIIntentRecognitionUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class AIIntentRecognitionUpdateView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        UpdateView):
     model = AIIntentRecognition
     form_class = AIIntentRecognitionForm
     template_name = 'ai/intent_recognition_form.html'
     permission_required = 'ai.change_aiintentrecognition'
     success_url = reverse_lazy('ai:intent_recognition_list')
-    
+
     def form_valid(self, form):
         response = super().form_valid(form)
         messages.success(self.request, '意图识别规则更新成功')
         return response
 
 
-class AIIntentRecognitionDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+class AIIntentRecognitionDeleteView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        DeleteView):
     model = AIIntentRecognition
     template_name = 'ai/intent_recognition_confirm_delete.html'
     permission_required = 'ai.delete_aiintentrecognition'
     success_url = reverse_lazy('ai:intent_recognition_list')
-    
+
     def delete(self, request, *args, **kwargs):
         response = super().delete(request, *args, **kwargs)
         messages.success(self.request, '意图识别规则删除成功')
@@ -1146,49 +1278,61 @@ class AIIntentRecognitionDeleteView(LoginRequiredMixin, PermissionRequiredMixin,
 
 
 # AI情绪分析视图
-class AIEmotionAnalysisListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class AIEmotionAnalysisListView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        ListView):
     model = AIEmotionAnalysis
     template_name = 'ai/emotion_analysis_list.html'
     context_object_name = 'emotion_analyses'
     permission_required = 'ai.view_aiemotionanalysis'
     paginate_by = 10
-    
+
     def get_queryset(self):
         return AIEmotionAnalysis.objects.order_by('-created_at')
 
 
-class AIEmotionAnalysisCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class AIEmotionAnalysisCreateView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        CreateView):
     model = AIEmotionAnalysis
     form_class = AIEmotionAnalysisForm
     template_name = 'ai/emotion_analysis_form.html'
     permission_required = 'ai.add_aiemotionanalysis'
     success_url = reverse_lazy('ai:emotion_analysis_list')
-    
+
     def form_valid(self, form):
         response = super().form_valid(form)
         messages.success(self.request, '情绪分析规则创建成功')
         return response
 
 
-class AIEmotionAnalysisUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class AIEmotionAnalysisUpdateView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        UpdateView):
     model = AIEmotionAnalysis
     form_class = AIEmotionAnalysisForm
     template_name = 'ai/emotion_analysis_form.html'
     permission_required = 'ai.change_aiemotionanalysis'
     success_url = reverse_lazy('ai:emotion_analysis_list')
-    
+
     def form_valid(self, form):
         response = super().form_valid(form)
         messages.success(self.request, '情绪分析规则更新成功')
         return response
 
 
-class AIEmotionAnalysisDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+class AIEmotionAnalysisDeleteView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        DeleteView):
     model = AIEmotionAnalysis
     template_name = 'ai/emotion_analysis_confirm_delete.html'
     permission_required = 'ai.delete_aiemotionanalysis'
     success_url = reverse_lazy('ai:emotion_analysis_list')
-    
+
     def delete(self, request, *args, **kwargs):
         response = super().delete(request, *args, **kwargs)
         messages.success(self.request, '情绪分析规则删除成功')
@@ -1196,49 +1340,61 @@ class AIEmotionAnalysisDeleteView(LoginRequiredMixin, PermissionRequiredMixin, D
 
 
 # AI合规规则视图
-class AIComplianceRuleListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class AIComplianceRuleListView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        ListView):
     model = AIComplianceRule
     template_name = 'ai/compliance_rule_list.html'
     context_object_name = 'compliance_rules'
     permission_required = 'ai.view_aicompliancerule'
     paginate_by = 10
-    
+
     def get_queryset(self):
         return AIComplianceRule.objects.order_by('-created_at')
 
 
-class AIComplianceRuleCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class AIComplianceRuleCreateView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        CreateView):
     model = AIComplianceRule
     form_class = AIComplianceRuleForm
     template_name = 'ai/compliance_rule_form.html'
     permission_required = 'ai.add_aicompliancerule'
     success_url = reverse_lazy('ai:compliance_rule_list')
-    
+
     def form_valid(self, form):
         response = super().form_valid(form)
         messages.success(self.request, '合规规则创建成功')
         return response
 
 
-class AIComplianceRuleUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class AIComplianceRuleUpdateView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        UpdateView):
     model = AIComplianceRule
     form_class = AIComplianceRuleForm
     template_name = 'ai/compliance_rule_form.html'
     permission_required = 'ai.change_aicompliancerule'
     success_url = reverse_lazy('ai:compliance_rule_list')
-    
+
     def form_valid(self, form):
         response = super().form_valid(form)
         messages.success(self.request, '合规规则更新成功')
         return response
 
 
-class AIComplianceRuleDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+class AIComplianceRuleDeleteView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        DeleteView):
     model = AIComplianceRule
     template_name = 'ai/compliance_rule_confirm_delete.html'
     permission_required = 'ai.delete_aicompliancerule'
     success_url = reverse_lazy('ai:compliance_rule_list')
-    
+
     def delete(self, request, *args, **kwargs):
         response = super().delete(request, *args, **kwargs)
         messages.success(self.request, '合规规则删除成功')
@@ -1246,49 +1402,61 @@ class AIComplianceRuleDeleteView(LoginRequiredMixin, PermissionRequiredMixin, De
 
 
 # AI自动行动触发视图
-class AIActionTriggerListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class AIActionTriggerListView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        ListView):
     model = AIActionTrigger
     template_name = 'ai/action_trigger_list.html'
     context_object_name = 'action_triggers'
     permission_required = 'ai.view_aiactiontrigger'
     paginate_by = 10
-    
+
     def get_queryset(self):
         return AIActionTrigger.objects.order_by('-created_at')
 
 
-class AIActionTriggerCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class AIActionTriggerCreateView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        CreateView):
     model = AIActionTrigger
     form_class = AIActionTriggerForm
     template_name = 'ai/action_trigger_form.html'
     permission_required = 'ai.add_aiactiontrigger'
     success_url = reverse_lazy('ai:action_trigger_list')
-    
+
     def form_valid(self, form):
         response = super().form_valid(form)
         messages.success(self.request, '自动行动触发创建成功')
         return response
 
 
-class AIActionTriggerUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class AIActionTriggerUpdateView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        UpdateView):
     model = AIActionTrigger
     form_class = AIActionTriggerForm
     template_name = 'ai/action_trigger_form.html'
     permission_required = 'ai.change_aiactiontrigger'
     success_url = reverse_lazy('ai:action_trigger_list')
-    
+
     def form_valid(self, form):
         response = super().form_valid(form)
         messages.success(self.request, '自动行动触发更新成功')
         return response
 
 
-class AIActionTriggerDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+class AIActionTriggerDeleteView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        DeleteView):
     model = AIActionTrigger
     template_name = 'ai/action_trigger_confirm_delete.html'
     permission_required = 'ai.delete_aiactiontrigger'
     success_url = reverse_lazy('ai:action_trigger_list')
-    
+
     def delete(self, request, *args, **kwargs):
         response = super().delete(request, *args, **kwargs)
         messages.success(self.request, '自动行动触发删除成功')
@@ -1296,10 +1464,13 @@ class AIActionTriggerDeleteView(LoginRequiredMixin, PermissionRequiredMixin, Del
 
 
 # AI仪表盘视图
-class AIDashboardView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
+class AIDashboardView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        TemplateView):
     template_name = 'ai/dashboard.html'
     permission_required = 'ai.view_aidashboard'
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # 添加仪表盘数据
@@ -1318,10 +1489,10 @@ class AILogListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     context_object_name = 'logs'
     permission_required = 'ai.view_ailog'
     paginate_by = 20
-    
+
     def get_queryset(self):
-        return AILog.objects.order_by('-created_at')
-    
+        return AILog.objects.select_related('user').order_by('-created_at')
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['log_types'] = AILog.LOG_TYPES
@@ -1329,26 +1500,29 @@ class AILogListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
 
 
 # 文件解析视图
-class ParseFileContentView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class ParseFileContentView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        CreateView):
     """文件内容解析视图"""
     permission_required = 'ai.add_aiknowledgeitem'
-    
+
     def post(self, request, *args, **kwargs):
         """处理文件上传和解析"""
         try:
             if 'file' not in request.FILES:
                 return JsonResponse({'status': 'error', 'message': '未找到上传的文件'})
-            
+
             uploaded_file = request.FILES['file']
             file_name = uploaded_file.name
             file_extension = file_name.split('.')[-1].lower()
-            
+
             # 读取文件内容
             file_content = uploaded_file.read()
-            
+
             # 根据文件类型选择解析方法
             parsed_content = ''
-            
+
             if file_extension == 'txt':
                 # 解析TXT文件
                 parsed_content = file_content.decode('utf-8', errors='ignore')
@@ -1357,46 +1531,51 @@ class ParseFileContentView(LoginRequiredMixin, PermissionRequiredMixin, CreateVi
                 try:
                     from docx import Document
                     from io import BytesIO
-                    
+
                     doc = Document(BytesIO(file_content))
                     for para in doc.paragraphs:
                         parsed_content += para.text + '\n'
                 except Exception as e:
-                    return JsonResponse({'status': 'error', 'message': f'Word文件解析失败: {str(e)}'})
+                    return JsonResponse(
+                        {'status': 'error', 'message': f'Word文件解析失败: {str(e)}'})
             elif file_extension in ['pdf']:
                 # 解析PDF文件
                 try:
                     import PyPDF2
                     from io import BytesIO
-                    
+
                     pdf_reader = PyPDF2.PdfReader(BytesIO(file_content))
                     for page in pdf_reader.pages:
                         parsed_content += page.extract_text() + '\n'
                 except Exception as e:
-                    return JsonResponse({'status': 'error', 'message': f'PDF文件解析失败: {str(e)}'})
+                    return JsonResponse(
+                        {'status': 'error', 'message': f'PDF文件解析失败: {str(e)}'})
             elif file_extension in ['xls', 'xlsx']:
                 # 解析Excel文件
                 try:
                     import openpyxl
                     from io import BytesIO
-                    
+
                     workbook = openpyxl.load_workbook(BytesIO(file_content))
                     for sheet_name in workbook.sheetnames:
                         sheet = workbook[sheet_name]
                         parsed_content += f'=== {sheet_name} ===\n'
                         for row in sheet.iter_rows(values_only=True):
                             # 过滤掉空行
-                            if any(cell is not None and cell != '' for cell in row):
-                                row_content = '\t'.join([str(cell) if cell is not None else '' for cell in row])
+                            if any(
+                                    cell is not None and cell != '' for cell in row):
+                                row_content = '\t'.join(
+                                    [str(cell) if cell is not None else '' for cell in row])
                                 parsed_content += row_content + '\n'
                 except Exception as e:
-                    return JsonResponse({'status': 'error', 'message': f'Excel文件解析失败: {str(e)}'})
+                    return JsonResponse(
+                        {'status': 'error', 'message': f'Excel文件解析失败: {str(e)}'})
             elif file_extension in ['ppt', 'pptx']:
                 # 解析PPT文件
                 try:
                     from pptx import Presentation
                     from io import BytesIO
-                    
+
                     presentation = Presentation(BytesIO(file_content))
                     for i, slide in enumerate(presentation.slides, 1):
                         parsed_content += f'=== 幻灯片 {i} ===\n'
@@ -1404,10 +1583,12 @@ class ParseFileContentView(LoginRequiredMixin, PermissionRequiredMixin, CreateVi
                             if hasattr(shape, 'text'):
                                 parsed_content += shape.text + '\n'
                 except Exception as e:
-                    return JsonResponse({'status': 'error', 'message': f'PPT文件解析失败: {str(e)}'})
+                    return JsonResponse(
+                        {'status': 'error', 'message': f'PPT文件解析失败: {str(e)}'})
             else:
-                return JsonResponse({'status': 'error', 'message': f'不支持的文件类型: {file_extension}'})
-            
+                return JsonResponse(
+                    {'status': 'error', 'message': f'不支持的文件类型: {file_extension}'})
+
             # 返回解析结果
             return JsonResponse({
                 'status': 'success',
@@ -1416,23 +1597,24 @@ class ParseFileContentView(LoginRequiredMixin, PermissionRequiredMixin, CreateVi
                 'file_extension': file_extension
             })
         except Exception as e:
-            return JsonResponse({'status': 'error', 'message': f'文件解析失败: {str(e)}'})
+            return JsonResponse(
+                {'status': 'error', 'message': f'文件解析失败: {str(e)}'})
 
 
 # AI流式聊天视图
-import logging
 
 logger = logging.getLogger(__name__)
+
 
 class AIChatStreamView(LoginRequiredMixin, CreateView):
     """AI流式聊天视图"""
     # 移除PermissionRequiredMixin，允许所有登录用户访问AI聊天功能
     # 权限检查通过RBAC中间件进行，而不是通过PermissionRequiredMixin
-    
+
     def post(self, request, *args, **kwargs):
         """处理流式聊天请求"""
         import json
-        
+
         try:
             # 获取请求数据
             if request.POST:
@@ -1443,63 +1625,69 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
                 try:
                     data = json.loads(request.body)
                 except json.JSONDecodeError:
-                    return JsonResponse({'status': 'error', 'message': '无效的JSON格式'})
-            
+                    return JsonResponse(
+                        {'status': 'error', 'message': '无效的JSON格式'})
+
             message = data.get('message', '')
-            
+
             if not message:
                 return JsonResponse({'status': 'error', 'message': '消息不能为空'})
-            
+
             # 1. 调用意图识别服务（使用新的 AI 分类器）
             from apps.ai.services.intent_recognition_service import intent_recognition_service
-            intent_result = intent_recognition_service.process_request(request.user, message)
-            
+            referrer = request.session.get('ai_last_referrer')
+            intent_input = f"当前页面URL: {referrer}\n用户请求: {message}" if referrer else message
+            intent_result = intent_recognition_service.process_request(
+                request.user, intent_input)
+
             # 2. 获取意图
-            intent = intent_result.get('intent_type', 'ai_chat')
-            
+            intent_result.get('intent_type', 'ai_chat')
+
             # 3. 处理响应
             if intent_result.get('success'):
-                ai_response = intent_result.get('result', intent_result.get('message', ''))
-                
+                ai_response = intent_result.get(
+                    'result', intent_result.get('message', ''))
+
                 # 如果是确认请求，返回选项
                 if intent_result.get('requires_confirmation'):
                     ai_response = intent_result.get('message', '请选择您要执行的操作：')
             else:
                 # 处理失败情况
                 if intent_result.get('requires_confirmation'):
-                    ai_response = intent_result.get('message', '我不太确定您的意图，请选择：')
+                    ai_response = intent_result.get(
+                        'message', '我不太确定您的意图，请选择：')
                 elif intent_result.get('requires_permission'):
                     ai_response = f"{intent_result.get('message', '您没有权限执行此操作')}。{intent_result.get('suggestion', '请联系管理员获取相应权限')}"
                 else:
                     ai_response = intent_result.get('message', '抱歉，我无法处理您的请求')
-            
+
             try:
                 # 5. 保存聊天记录
                 chat = None
                 chat_id = data.get('chat_id')
-                
+
                 if chat_id:
                     # 使用指定的聊天会话
                     try:
-                        chat = AIChat.objects.get(id=chat_id, user=request.user)
+                        chat = AIChat.objects.get(
+                            id=chat_id, user=request.user)
                     except AIChat.DoesNotExist:
                         # 如果指定的聊天会话不存在，创建新的
                         chat = None
-                
+
                 if not chat:
                     # 创建新的聊天会话
                     chat, created = AIChat.objects.get_or_create(
-                        user=request.user,
-                        defaults={'title': f'聊天 {timezone.now().strftime("%Y-%m-%d %H:%M:%S")}'}
-                    )
-                
+                        user=request.user, defaults={
+                            'title': f'聊天 {timezone.now().strftime("%Y-%m-%d %H:%M:%S")}'})
+
                 # 保存用户消息
                 AIChatMessage.objects.create(
                     chat=chat,
                     role='user',
                     content=message
                 )
-                
+
                 # 保存AI回复
                 AIChatMessage.objects.create(
                     chat=chat,
@@ -1508,17 +1696,21 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
                 )
             except Exception as e:
                 logger.error(f'保存聊天记录失败: {str(e)}')
-            
+
             # 6. 返回流式响应
-            response = HttpResponse(self.generate_streaming_response(ai_response), content_type='text/event-stream')
+            response = HttpResponse(
+                self.generate_streaming_response(ai_response),
+                content_type='text/event-stream')
             response['Cache-Control'] = 'no-cache'
             return response
-            
+
         except Exception as e:
             logger.error(f'流式聊天请求失败: {str(e)}')
             error_message = f'抱歉，我暂时无法回答您的问题，请稍后再试。\n错误详情: {str(e)}'
-            return HttpResponse(self.generate_streaming_response(error_message), content_type='text/event-stream')
-    
+            return HttpResponse(
+                self.generate_streaming_response(error_message),
+                content_type='text/event-stream')
+
     def generate_streaming_response(self, response_text):
         """生成流式响应"""
         # 模拟流式输出，逐字符发送
@@ -1529,49 +1721,55 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
 
 
 # AI工作流执行记录视图
-class AIWorkflowExecutionListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class AIWorkflowExecutionListView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        ListView):
     """AI工作流执行记录列表视图"""
     model = AIWorkflowExecution
     template_name = 'ai/workflow_execution_list.html'
     permission_required = 'ai.view_aiworkflowexecution'
     context_object_name = 'executions'
     paginate_by = 10
-    
+
     def get_queryset(self):
         """获取工作流执行记录，按开始时间倒序排列"""
         queryset = AIWorkflowExecution.objects.select_related(
             'workflow', 'created_by'
         ).prefetch_related('node_executions').order_by('-started_at')
-        
+
         # 添加入口参数过滤
         workflow_id = self.request.GET.get('workflow_id')
         status = self.request.GET.get('status')
-        
+
         if workflow_id:
             queryset = queryset.filter(workflow_id=workflow_id)
         if status:
             queryset = queryset.filter(status=status)
-        
+
         return queryset
-    
+
     def get_context_data(self, **kwargs):
         """添加额外的上下文数据"""
         context = super().get_context_data(**kwargs)
         # 使用缓存避免重复查询
         from django.core.cache import cache
-        
+
         stats_cache_key = 'workflow_execution_stats'
         stats = cache.get(stats_cache_key)
-        
+
         if stats is None:
             stats = {
                 'total_executions': AIWorkflowExecution.objects.count(),
-                'running_executions': AIWorkflowExecution.objects.filter(status='running').count(),
-                'completed_executions': AIWorkflowExecution.objects.filter(status='completed').count(),
-                'failed_executions': AIWorkflowExecution.objects.filter(status='failed').count(),
+                'running_executions': AIWorkflowExecution.objects.filter(
+                    status='running').count(),
+                'completed_executions': AIWorkflowExecution.objects.filter(
+                    status='completed').count(),
+                'failed_executions': AIWorkflowExecution.objects.filter(
+                    status='failed').count(),
             }
             cache.set(stats_cache_key, stats, 300)  # 缓存5分钟
-        
+
         context.update({
             'total_executions': stats['total_executions'],
             'running_executions': stats['running_executions'],
@@ -1581,7 +1779,10 @@ class AIWorkflowExecutionListView(LoginRequiredMixin, PermissionRequiredMixin, L
         return context
 
 
-class AIWorkflowExecutionDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+class AIWorkflowExecutionDetailView(
+        LoginRequiredMixin,
+        PermissionRequiredMixin,
+        DetailView):
     """AI工作流执行记录详情视图"""
     model = AIWorkflowExecution
     template_name = 'ai/workflow_execution_detail.html'
@@ -1598,7 +1799,7 @@ class NodeConfigSchemaView(View):
     获取节点配置Schema的API视图
     支持获取单个节点配置或所有节点配置列表
     """
-    
+
     def get(self, request, node_type=None):
         """处理GET请求"""
         if node_type:
@@ -1637,25 +1838,25 @@ class NodeConfigFieldsView(View):
     """
     获取节点配置字段详情（用于前端动态表单生成）
     """
-    
+
     def get(self, request, node_type):
         """获取指定节点的配置字段详情"""
         schema = get_node_config_schema(node_type)
-        
+
         # 如果未找到配置，尝试从处理器注册表获取
         if not schema:
             from .processors import get_processor_for_node_type
             processor = get_processor_for_node_type(node_type)
             if processor and hasattr(processor, 'config_schema'):
                 schema = processor.config_schema
-            
+
             # 如果还是没有找到配置，返回空对象而不是404
             if not schema:
                 return JsonResponse({
                     'success': False,
                     'error': f'未找到节点类型: {node_type}'
                 }, status=404)
-        
+
         return JsonResponse({
             'success': True,
             'data': schema
@@ -1664,7 +1865,7 @@ class NodeConfigFieldsView(View):
 
 class NodeInputSchemaView(View):
     """获取节点输入Schema"""
-    
+
     def get(self, request, node_type):
         """获取指定节点的输入Schema"""
         from .services.complete_node_config import get_node_input_schema
@@ -1677,7 +1878,7 @@ class NodeInputSchemaView(View):
 
 class NodeOutputSchemaView(View):
     """获取节点输出Schema"""
-    
+
     def get(self, request, node_type):
         """获取指定节点的输出Schema"""
         from .services.complete_node_config import get_node_output_schema
@@ -1690,7 +1891,7 @@ class NodeOutputSchemaView(View):
 
 class KnowledgeBaseListAPIView(View):
     """知识库列表API - 获取可用的知识库"""
-    
+
     def get(self, request):
         """获取知识库列表"""
         try:
@@ -1698,7 +1899,7 @@ class KnowledgeBaseListAPIView(View):
             knowledge_bases = AIKnowledgeBase.objects.filter(
                 status='published'
             ).values('id', 'name', 'description')
-            
+
             kb_list = []
             for kb in knowledge_bases:
                 kb_list.append({
@@ -1707,13 +1908,13 @@ class KnowledgeBaseListAPIView(View):
                     'description': kb['description'] or '',
                     'knowledge_type': 'generic'
                 })
-            
+
             return JsonResponse({
                 'success': True,
                 'data': kb_list,
                 'total': len(kb_list)
             })
-            
+
         except Exception as e:
             logger.error(f'获取知识库列表失败: {e}', exc_info=True)
             return JsonResponse({
@@ -1724,14 +1925,14 @@ class KnowledgeBaseListAPIView(View):
 
 class ModelConfigListAPIView(View):
     """模型配置列表API - 获取可用的AI模型配置"""
-    
+
     def get(self, request):
         """获取模型配置列表"""
         try:
             model_configs = AIModelConfig.objects.filter(
                 is_active=True
             ).values('id', 'name', 'provider', 'model_name')
-            
+
             model_list = []
             for config in model_configs:
                 model_list.append({
@@ -1740,13 +1941,13 @@ class ModelConfigListAPIView(View):
                     'provider': config['provider'],
                     'model_name': config['model_name']
                 })
-            
+
             return JsonResponse({
                 'success': True,
                 'data': model_list,
                 'total': len(model_list)
             })
-            
+
         except Exception as e:
             logger.error(f'获取模型配置列表失败: {e}', exc_info=True)
             return JsonResponse({
@@ -1757,14 +1958,14 @@ class ModelConfigListAPIView(View):
 
 class WorkflowModuleListAPIView(View):
     """工作流模块列表API - 获取可用的工作流"""
-    
+
     def get(self, request):
         """获取工作流列表"""
         try:
             workflows = AIWorkflow.objects.filter(
                 is_active=True
             ).values('id', 'name', 'description', 'category')
-            
+
             wf_list = []
             for wf in workflows:
                 wf_list.append({
@@ -1773,13 +1974,13 @@ class WorkflowModuleListAPIView(View):
                     'description': wf['description'] or '',
                     'category': wf['category'] or '未分类'
                 })
-            
+
             return JsonResponse({
                 'success': True,
                 'data': wf_list,
                 'total': len(wf_list)
             })
-            
+
         except Exception as e:
             logger.error(f'获取工作流列表失败: {e}', exc_info=True)
             return JsonResponse({
@@ -1790,35 +1991,45 @@ class WorkflowModuleListAPIView(View):
 
 class NodeDynamicOptionsView(View):
     """节点动态选项API - 根据节点类型获取动态下拉选项"""
-    
+
     def get(self, request, node_type):
         """获取指定节点的动态选项"""
         try:
             from .models import AIKnowledgeBase, AIModelConfig, AIWorkflow
             options = {}
-            
-            if node_type in ['ai_generation', 'ai_model', 'ai_classification', 'ai_extraction', 
-                            'intent_recognition', 'sentiment_analysis']:
+
+            if node_type in [
+                'ai_generation',
+                'ai_model',
+                'ai_classification',
+                'ai_extraction',
+                'intent_recognition',
+                    'sentiment_analysis']:
                 model_configs = AIModelConfig.objects.filter(is_active=True)
                 options['model_id'] = [
-                    {'value': str(config.id), 'label': f"{config.name} ({config.provider})", 'provider': config.provider}
+                    {'value': str(config.id),
+                     'label': f"{config.name} ({config.provider})",
+                     'provider': config.provider}
                     for config in model_configs
                 ]
-                
+
             elif node_type in ['knowledge_retrieval', 'ai_knowledge_retrieval']:
-                knowledge_bases = AIKnowledgeBase.objects.filter(status='published')
+                knowledge_bases = AIKnowledgeBase.objects.filter(
+                    status='published')
                 options['knowledge_base_id'] = [
-                    {'value': str(kb.id), 'label': kb.name, 'knowledge_type': getattr(kb, 'knowledge_type', 'generic')}
+                    {'value': str(kb.id), 'label': kb.name, 'knowledge_type': getattr(
+                        kb, 'knowledge_type', 'generic')}
                     for kb in knowledge_bases
                 ]
-                
+
             elif node_type == 'workflow_trigger':
                 workflows = AIWorkflow.objects.filter(is_active=True)
                 options['workflow_id'] = [
-                    {'value': str(wf.id), 'label': wf.name, 'category': getattr(wf, 'category', '未分类')}
+                    {'value': str(wf.id), 'label': wf.name,
+                     'category': getattr(wf, 'category', '未分类')}
                     for wf in workflows
                 ]
-                
+
             elif node_type in ['http_request', 'api_call']:
                 options['method'] = [
                     {'value': 'GET', 'label': 'GET'},
@@ -1829,17 +2040,18 @@ class NodeDynamicOptionsView(View):
                 ]
                 options['content_type'] = [
                     {'value': 'application/json', 'label': 'JSON'},
-                    {'value': 'application/x-www-form-urlencoded', 'label': 'Form URL Encoded'},
+                    {'value': 'application/x-www-form-urlencoded',
+                        'label': 'Form URL Encoded'},
                     {'value': 'multipart/form-data', 'label': 'Multipart Form'},
                     {'value': 'text/plain', 'label': 'Plain Text'}
                 ]
-                
+
             return JsonResponse({
                 'success': True,
                 'node_type': node_type,
                 'options': options
             })
-            
+
         except Exception as e:
             logger.error(f'获取节点动态选项失败: {e}', exc_info=True)
             return JsonResponse({

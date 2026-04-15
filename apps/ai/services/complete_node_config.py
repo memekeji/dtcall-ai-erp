@@ -12,24 +12,13 @@
 """
 
 import os
-import sys
 import django
-import json
-import re
-import uuid
-from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional, Callable
+from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
-from enum import Enum
-from functools import wraps
 import logging
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dtcall.settings')
 django.setup()
-
-from django.db import models, transaction
-from django.utils import timezone
-from django.conf import settings
 
 
 logger = logging.getLogger(__name__)
@@ -82,13 +71,13 @@ class FieldConfig:
 
 def get_all_node_configs() -> Dict[str, NodeConfig]:
     """获取所有节点配置"""
-    
+
     configs = {}
-    
+
     # ==========================================================================
     # 第一部分：核心功能节点
     # ==========================================================================
-    
+
     # 1. 工作流触发节点 (Workflow Trigger)
     configs['workflow_trigger'] = NodeConfig(
         name="工作流触发",
@@ -103,9 +92,12 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 required=True,
                 default="manual",
                 options=[
-                    {"value": "manual", "label": "手动触发", "description": "用户手动启动工作流"},
-                    {"value": "webhook", "label": "Webhook触发", "description": "通过HTTP请求触发"},
-                    {"value": "schedule", "label": "定时触发", "description": "按设定时间自动执行"},
+                    {"value": "manual", "label": "手动触发",
+                        "description": "用户手动启动工作流"},
+                    {"value": "webhook", "label": "Webhook触发",
+                        "description": "通过HTTP请求触发"},
+                    {"value": "schedule", "label": "定时触发",
+                        "description": "按设定时间自动执行"},
                     {"value": "event", "label": "事件触发", "description": "响应系统事件"},
                     {"value": "api", "label": "API调用", "description": "通过API调用触发"},
                 ]
@@ -188,7 +180,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             {"trigger_type": "schedule", "schedule_interval": 60},
         ]
     )
-    
+
     # 2. 对话历史节点 (Chat History)
     configs['chat_history'] = NodeConfig(
         name="对话历史",
@@ -205,7 +197,8 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 options=[
                     {"value": "read", "label": "读取历史", "description": "获取历史对话记录"},
                     {"value": "append", "label": "追加记录", "description": "添加新的对话记录"},
-                    {"value": "clear", "label": "清空历史", "description": "清空指定对话的历史"},
+                    {"value": "clear", "label": "清空历史",
+                        "description": "清空指定对话的历史"},
                     {"value": "search", "label": "搜索历史", "description": "搜索历史对话"},
                 ]
             ),
@@ -292,7 +285,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             {"operation": "append", "message_content": "用户输入"},
         ]
     )
-    
+
     # 3. 数据输入节点 (Data Input)
     configs['data_input'] = NodeConfig(
         name="数据输入",
@@ -307,13 +300,18 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 required=True,
                 default="json",
                 options=[
-                    {"value": "json", "label": "JSON数据", "description": "接收JSON格式的输入数据"},
+                    {"value": "json", "label": "JSON数据",
+                        "description": "接收JSON格式的输入数据"},
                     {"value": "form", "label": "表单数据", "description": "接收表单字段输入"},
                     {"value": "file", "label": "文件上传", "description": "接收文件上传"},
-                    {"value": "database", "label": "数据库查询", "description": "从数据库查询数据"},
-                    {"value": "api", "label": "API接口", "description": "调用外部API获取数据"},
-                    {"value": "variable", "label": "变量引用", "description": "引用上游节点的输出变量"},
-                    {"value": "workflow_input", "label": "工作流输入", "description": "接收工作流入口参数"},
+                    {"value": "database", "label": "数据库查询",
+                        "description": "从数据库查询数据"},
+                    {"value": "api", "label": "API接口",
+                        "description": "调用外部API获取数据"},
+                    {"value": "variable", "label": "变量引用",
+                        "description": "引用上游节点的输出变量"},
+                    {"value": "workflow_input", "label": "工作流输入",
+                        "description": "接收工作流入口参数"},
                     {"value": "csv", "label": "CSV数据", "description": "解析CSV格式数据"},
                 ]
             ),
@@ -401,10 +399,11 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
         },
         examples=[
             {"input_type": "json", "output_variable": "user_data"},
-            {"input_type": "database", "database_config": {"table_name": "users", "limit": 10}},
+            {"input_type": "database", "database_config": {
+                "table_name": "users", "limit": 10}},
         ]
     )
-    
+
     # 4. 数据输出节点 (Data Output)
     configs['data_output'] = NodeConfig(
         name="数据输出",
@@ -419,12 +418,16 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 required=True,
                 default="json",
                 options=[
-                    {"value": "json", "label": "JSON响应", "description": "返回JSON格式数据"},
+                    {"value": "json", "label": "JSON响应",
+                        "description": "返回JSON格式数据"},
                     {"value": "file", "label": "文件下载", "description": "生成并下载文件"},
                     {"value": "database", "label": "数据库存储", "description": "保存到数据库"},
-                    {"value": "api", "label": "API回调", "description": "调用外部API发送数据"},
-                    {"value": "webhook", "label": "Webhook回调", "description": "触发Webhook"},
-                    {"value": "variable", "label": "变量存储", "description": "存储到工作流变量"},
+                    {"value": "api", "label": "API回调",
+                        "description": "调用外部API发送数据"},
+                    {"value": "webhook", "label": "Webhook回调",
+                        "description": "触发Webhook"},
+                    {"value": "variable", "label": "变量存储",
+                        "description": "存储到工作流变量"},
                 ]
             ),
             'input_variable': FieldConfig(
@@ -482,7 +485,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             {"output_type": "file", "file_type": "csv"},
         ]
     )
-    
+
     # 5. 延迟节点 (Delay)
     configs['delay'] = NodeConfig(
         name="延迟",
@@ -498,8 +501,10 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 default="fixed",
                 options=[
                     {"value": "fixed", "label": "固定时间", "description": "固定延迟时间"},
-                    {"value": "variable", "label": "变量时间", "description": "从变量读取延迟时间"},
-                    {"value": "random", "label": "随机时间", "description": "指定时间范围内的随机延迟"},
+                    {"value": "variable", "label": "变量时间",
+                        "description": "从变量读取延迟时间"},
+                    {"value": "random", "label": "随机时间",
+                        "description": "指定时间范围内的随机延迟"},
                 ]
             ),
             'duration': FieldConfig(
@@ -554,7 +559,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             {"delay_type": "variable", "duration_variable": "${wait_time}"},
         ]
     )
-    
+
     # 6. 等待节点 (Wait)
     configs['wait'] = NodeConfig(
         name="等待",
@@ -570,7 +575,8 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 default="condition",
                 options=[
                     {"value": "condition", "label": "条件等待", "description": "等待条件满足"},
-                    {"value": "webhook", "label": "等待Webhook", "description": "等待外部回调"},
+                    {"value": "webhook", "label": "等待Webhook",
+                        "description": "等待外部回调"},
                     {"value": "time", "label": "等待时间", "description": "等待指定时间"},
                     {"value": "approval", "label": "等待审批", "description": "等待人工审批"},
                 ]
@@ -600,7 +606,8 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 required=False,
                 default="continue",
                 options=[
-                    {"value": "continue", "label": "继续执行", "description": "超时后继续工作流"},
+                    {"value": "continue", "label": "继续执行",
+                        "description": "超时后继续工作流"},
                     {"value": "fail", "label": "标记失败", "description": "超时后标记为失败"},
                     {"value": "retry", "label": "重试", "description": "超时后重新等待"},
                 ]
@@ -627,11 +634,13 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         },
         examples=[
-            {"wait_type": "condition", "condition": "data.ready == true", "timeout": 300},
+            {"wait_type": "condition",
+             "condition": "data.ready == true",
+             "timeout": 300},
             {"wait_type": "webhook", "webhook_path": "/webhook/confirm"},
         ]
     )
-    
+
     # 7. 定时任务节点 (Schedule)
     configs['schedule'] = NodeConfig(
         name="定时任务",
@@ -646,9 +655,12 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 required=True,
                 default="cron",
                 options=[
-                    {"value": "cron", "label": "Cron表达式", "description": "使用Cron表达式定义时间"},
-                    {"value": "interval", "label": "固定间隔", "description": "按固定时间间隔执行"},
-                    {"value": "specific", "label": "指定时间", "description": "指定具体的执行时间"},
+                    {"value": "cron", "label": "Cron表达式",
+                        "description": "使用Cron表达式定义时间"},
+                    {"value": "interval", "label": "固定间隔",
+                        "description": "按固定时间间隔执行"},
+                    {"value": "specific", "label": "指定时间",
+                        "description": "指定具体的执行时间"},
                 ]
             ),
             'cron_expression': FieldConfig(
@@ -718,15 +730,17 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         },
         examples=[
-            {"schedule_type": "cron", "cron_expression": "0 9 * * *", "timezone": "Asia/Shanghai"},
+            {"schedule_type": "cron",
+             "cron_expression": "0 9 * * *",
+             "timezone": "Asia/Shanghai"},
             {"schedule_type": "interval", "interval_minutes": 30},
         ]
     )
-    
+
     # ==========================================================================
     # 第二部分：AI处理节点
     # ==========================================================================
-    
+
     # 8. AI生成节点 (AI Generation)
     configs['ai_generation'] = NodeConfig(
         name="AI生成",
@@ -741,14 +755,24 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 required=True,
                 default="gpt-4",
                 options=[
-                    {"value": "gpt-4", "label": "GPT-4", "description": "OpenAI GPT-4, 强大的推理能力"},
-                    {"value": "gpt-4-turbo", "label": "GPT-4 Turbo", "description": "GPT-4 Turbo, 更快的速度"},
-                    {"value": "gpt-3.5-turbo", "label": "GPT-3.5 Turbo", "description": "性价比之选"},
-                    {"value": "claude-3-opus", "label": "Claude 3 Opus", "description": "Anthropic Claude 3 Opus"},
-                    {"value": "claude-3-sonnet", "label": "Claude 3 Sonnet", "description": "Claude 3 Sonnet"},
-                    {"value": "claude-3-haiku", "label": "Claude 3 Haiku", "description": "Claude 3 Haiku, 快速响应"},
-                    {"value": "ernie-4", "label": "文心一言4.0", "description": "百度文心一言4.0"},
-                    {"value": "qianwen-max", "label": "通义千问Max", "description": "阿里通义千问Max"},
+                    {"value": "gpt-4", "label": "GPT-4",
+                        "description": "OpenAI GPT-4, 强大的推理能力"},
+                    {"value": "gpt-4-turbo", "label": "GPT-4 Turbo",
+                        "description": "GPT-4 Turbo, 更快的速度"},
+                    {"value": "gpt-3.5-turbo",
+                     "label": "GPT-3.5 Turbo",
+                     "description": "性价比之选"},
+                    {"value": "claude-3-opus", "label": "Claude 3 Opus",
+                        "description": "Anthropic Claude 3 Opus"},
+                    {"value": "claude-3-sonnet",
+                     "label": "Claude 3 Sonnet",
+                     "description": "Claude 3 Sonnet"},
+                    {"value": "claude-3-haiku", "label": "Claude 3 Haiku",
+                        "description": "Claude 3 Haiku, 快速响应"},
+                    {"value": "ernie-4", "label": "文心一言4.0",
+                        "description": "百度文心一言4.0"},
+                    {"value": "qianwen-max", "label": "通义千问Max",
+                        "description": "阿里通义千问Max"},
                 ]
             ),
             'prompt': FieldConfig(
@@ -768,9 +792,12 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 default="free",
                 options=[
                     {"value": "free", "label": "自由格式", "description": "不限制输出格式"},
-                    {"value": "structured", "label": "结构化输出", "description": "按指定格式输出JSON"},
-                    {"value": "conversation", "label": "对话模式", "description": "模拟对话交互"},
-                    {"value": "few_shot", "label": "Few-shot", "description": "提供示例的生成"},
+                    {"value": "structured", "label": "结构化输出",
+                        "description": "按指定格式输出JSON"},
+                    {"value": "conversation", "label": "对话模式",
+                        "description": "模拟对话交互"},
+                    {"value": "few_shot", "label": "Few-shot",
+                        "description": "提供示例的生成"},
                 ]
             ),
             'output_schema': FieldConfig(
@@ -876,7 +903,8 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                     {"value": "retry", "label": "重试", "description": "自动重试指定次数"},
                     {"value": "fallback", "label": "降级", "description": "使用备用模型"},
                     {"value": "error", "label": "报错", "description": "直接抛出错误"},
-                    {"value": "default", "label": "使用默认值", "description": "使用预设的默认值"},
+                    {"value": "default", "label": "使用默认值",
+                        "description": "使用预设的默认值"},
                 ]
             ),
             'max_retries': FieldConfig(
@@ -918,7 +946,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 9. AI分类节点 (AI Classification)
     configs['ai_classification'] = NodeConfig(
         name="AI分类",
@@ -945,8 +973,10 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 required=True,
                 default="single",
                 options=[
-                    {"value": "single", "label": "单标签分类", "description": "只返回一个最匹配的类别"},
-                    {"value": "multi", "label": "多标签分类", "description": "可以返回多个匹配的类别"},
+                    {"value": "single", "label": "单标签分类",
+                        "description": "只返回一个最匹配的类别"},
+                    {"value": "multi", "label": "多标签分类",
+                        "description": "可以返回多个匹配的类别"},
                     {"value": "binary", "label": "二分类", "description": "是/否类型的分类"},
                 ]
             ),
@@ -1025,7 +1055,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 10. AI信息提取节点 (AI Extraction)
     configs['ai_extraction'] = NodeConfig(
         name="AI信息提取",
@@ -1051,10 +1081,14 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 required=True,
                 default="schema",
                 options=[
-                    {"value": "schema", "label": "Schema定义提取", "description": "按定义的Schema提取"},
-                    {"value": "entity", "label": "实体识别", "description": "识别人名、地名等实体"},
-                    {"value": "relation", "label": "关系抽取", "description": "抽取实体间的关系"},
-                    {"value": "freeform", "label": "自由提取", "description": "自由形式的结构化提取"},
+                    {"value": "schema", "label": "Schema定义提取",
+                        "description": "按定义的Schema提取"},
+                    {"value": "entity", "label": "实体识别",
+                        "description": "识别人名、地名等实体"},
+                    {"value": "relation", "label": "关系抽取",
+                        "description": "抽取实体间的关系"},
+                    {"value": "freeform", "label": "自由提取",
+                        "description": "自由形式的结构化提取"},
                 ]
             ),
             'extraction_schema': FieldConfig(
@@ -1072,7 +1106,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             "description": "姓名"
         },
         "age": {
-            "type": "number", 
+            "type": "number",
             "description": "年龄"
         },
         "email": {
@@ -1142,7 +1176,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 11. 意图识别节点 (Intent Recognition)
     configs['intent_recognition'] = NodeConfig(
         name="意图识别",
@@ -1158,8 +1192,10 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 default="general",
                 options=[
                     {"value": "general", "label": "通用意图", "description": "通用的意图识别"},
-                    {"value": "customer_service", "label": "客服意图", "description": "客服场景专用意图"},
-                    {"value": "e_commerce", "label": "电商意图", "description": "电商场景专用意图"},
+                    {"value": "customer_service", "label": "客服意图",
+                        "description": "客服场景专用意图"},
+                    {"value": "e_commerce", "label": "电商意图",
+                        "description": "电商场景专用意图"},
                     {"value": "faq", "label": "FAQ意图", "description": "问答匹配意图"},
                 ]
             ),
@@ -1238,14 +1274,17 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             {
                 "model": "customer_service",
                 "intents": [
-                    {"value": "query", "label": "查询", "examples": ["查询订单", "订单状态"]},
-                    {"value": "complaint", "label": "投诉", "examples": ["我要投诉", "服务太差"]},
-                    {"value": "suggestion", "label": "建议", "examples": ["建议改进", "希望能"]},
+                    {"value": "query", "label": "查询",
+                        "examples": ["查询订单", "订单状态"]},
+                    {"value": "complaint", "label": "投诉",
+                        "examples": ["我要投诉", "服务太差"]},
+                    {"value": "suggestion", "label": "建议",
+                        "examples": ["建议改进", "希望能"]},
                 ]
             }
         ]
     )
-    
+
     # 12. 情感分析节点 (Sentiment Analysis)
     configs['sentiment_analysis'] = NodeConfig(
         name="情感分析",
@@ -1260,10 +1299,14 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 required=False,
                 default="fine",
                 options=[
-                    {"value": "basic", "label": "基础情感", "description": "正面/负面/中性三分类"},
-                    {"value": "fine", "label": "细粒度情感", "description": "更细粒度的情感分类"},
-                    {"value": "batch", "label": "批量分析", "description": "对批量文本进行分析"},
-                    {"value": "emotion", "label": "情绪识别", "description": "识别具体情绪如开心、愤怒等"},
+                    {"value": "basic", "label": "基础情感",
+                        "description": "正面/负面/中性三分类"},
+                    {"value": "fine", "label": "细粒度情感",
+                        "description": "更细粒度的情感分类"},
+                    {"value": "batch", "label": "批量分析",
+                        "description": "对批量文本进行分析"},
+                    {"value": "emotion", "label": "情绪识别",
+                        "description": "识别具体情绪如开心、愤怒等"},
                 ]
             ),
             'input_variable': FieldConfig(
@@ -1334,11 +1377,11 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # ==========================================================================
     # 第三部分：流程控制节点
     # ==========================================================================
-    
+
     # 13. 多条件分支节点 (Condition Branch)
     configs['condition'] = NodeConfig(
         name="多条件分支",
@@ -1353,10 +1396,12 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 required=True,
                 default="if_else",
                 options=[
-                    {"value": "if_else", "label": "IF-ELSE", "description": "单条件二分支"},
+                    {"value": "if_else", "label": "IF-ELSE",
+                        "description": "单条件二分支"},
                     {"value": "switch", "label": "SWITCH", "description": "多条件多分支"},
                     {"value": "logic", "label": "逻辑组合", "description": "组合多个条件"},
-                    {"value": "expression", "label": "表达式", "description": "使用自定义表达式"},
+                    {"value": "expression", "label": "表达式",
+                        "description": "使用自定义表达式"},
                 ]
             ),
             'condition_variable': FieldConfig(
@@ -1464,7 +1509,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 14. 循环处理节点 (Loop)
     configs['loop'] = NodeConfig(
         name="循环处理",
@@ -1479,10 +1524,13 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 required=True,
                 default="foreach",
                 options=[
-                    {"value": "foreach", "label": "遍历循环", "description": "遍历数组的每个元素"},
+                    {"value": "foreach", "label": "遍历循环",
+                        "description": "遍历数组的每个元素"},
                     {"value": "for", "label": "计次循环", "description": "按指定次数循环"},
-                    {"value": "while", "label": "条件循环", "description": "满足条件时持续循环"},
-                    {"value": "do_while", "label": "直到循环", "description": "先执行后判断条件"},
+                    {"value": "while", "label": "条件循环",
+                        "description": "满足条件时持续循环"},
+                    {"value": "do_while", "label": "直到循环",
+                        "description": "先执行后判断条件"},
                 ]
             ),
             # 遍历循环配置
@@ -1594,7 +1642,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 15. 迭代器节点 (Iterator)
     configs['iterator'] = NodeConfig(
         name="迭代器",
@@ -1675,7 +1723,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 16. 并行处理节点 (Parallel)
     configs['parallel'] = NodeConfig(
         name="并行处理",
@@ -1691,8 +1739,10 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 default="all",
                 options=[
                     {"value": "all", "label": "全部执行", "description": "所有分支都执行"},
-                    {"value": "first_success", "label": "首个成功", "description": "任意一个成功即返回"},
-                    {"value": "all_success", "label": "全部成功", "description": "所有都成功才返回"},
+                    {"value": "first_success", "label": "首个成功",
+                        "description": "任意一个成功即返回"},
+                    {"value": "all_success", "label": "全部成功",
+                        "description": "所有都成功才返回"},
                     {"value": "race", "label": "竞速模式", "description": "返回最快完成的结果"},
                 ]
             ),
@@ -1747,11 +1797,11 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # ==========================================================================
     # 第四部分：数据处理节点
     # ==========================================================================
-    
+
     # 17. 变量聚合节点 (Variable Aggregation)
     configs['variable_aggregation'] = NodeConfig(
         name="变量聚合",
@@ -1817,7 +1867,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 18. 参数聚合节点 (Parameter Aggregation)
     configs['parameter_aggregation'] = NodeConfig(
         name="参数聚合",
@@ -1834,8 +1884,9 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                     "\1": {"type": "\2", "label": "\3"},
                     "\1": {"type": "\2", "label": "\3"},
                     "type": {"type": "select", "label": "类型", "options": [
-                        {"value": "string"}, {"value": "number"}, 
-                        {"value": "boolean"}, {"value": "array"}, {"value": "object"}
+                        {"value": "string"}, {"value": "number"},
+                        {"value": "boolean"}, {
+                            "value": "array"}, {"value": "object"}
                     ]},
                 }
             ),
@@ -1865,7 +1916,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 19. 变量赋值节点 (Variable Assignment)
     configs['variable_assignment'] = NodeConfig(
         name="变量赋值",
@@ -1881,7 +1932,8 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 default="direct",
                 options=[
                     {"value": "direct", "label": "直接赋值", "description": "直接将值赋给变量"},
-                    {"value": "conditional", "label": "条件赋值", "description": "根据条件赋值"},
+                    {"value": "conditional", "label": "条件赋值",
+                        "description": "根据条件赋值"},
                     {"value": "computed", "label": "计算赋值", "description": "通过表达式计算"},
                     {"value": "copy", "label": "复制赋值", "description": "从另一个变量复制"},
                 ]
@@ -1974,7 +2026,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 20. 数据转换节点 (Data Transformation)
     configs['data_transformation'] = NodeConfig(
         name="数据转换",
@@ -2087,7 +2139,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 21. 数据过滤节点 (Data Filter)
     configs['data_filter'] = NodeConfig(
         name="数据过滤",
@@ -2172,7 +2224,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 22. 数据聚合节点 (Data Aggregation)
     configs['data_aggregation'] = NodeConfig(
         name="数据聚合",
@@ -2256,7 +2308,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 23. 数据格式化节点 (Data Format)
     configs['data_format'] = NodeConfig(
         name="数据格式化",
@@ -2271,10 +2323,12 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 required=True,
                 default="datetime",
                 options=[
-                    {"value": "datetime", "label": "日期时间格式化", "description": "日期时间格式化"},
+                    {"value": "datetime", "label": "日期时间格式化",
+                        "description": "日期时间格式化"},
                     {"value": "number", "label": "数字格式化", "description": "数字格式化"},
                     {"value": "currency", "label": "货币格式化", "description": "货币格式化"},
-                    {"value": "percentage", "label": "百分比格式化", "description": "百分比格式化"},
+                    {"value": "percentage", "label": "百分比格式化",
+                        "description": "百分比格式化"},
                     {"value": "json", "label": "JSON格式化", "description": "JSON格式化"},
                     {"value": "custom", "label": "自定义格式化", "description": "自定义格式模板"},
                 ]
@@ -2348,7 +2402,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 24. 文本处理节点 (Text Processing)
     configs['text_processing'] = NodeConfig(
         name="文本处理",
@@ -2363,9 +2417,12 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 required=True,
                 default="clean",
                 options=[
-                    {"value": "clean", "label": "文本清洗", "description": "去除多余空白、特殊字符"},
-                    {"value": "transform", "label": "文本转换", "description": "大小写、编码转换"},
-                    {"value": "extract", "label": "信息提取", "description": "提取特定格式内容"},
+                    {"value": "clean", "label": "文本清洗",
+                        "description": "去除多余空白、特殊字符"},
+                    {"value": "transform", "label": "文本转换",
+                        "description": "大小写、编码转换"},
+                    {"value": "extract", "label": "信息提取",
+                        "description": "提取特定格式内容"},
                     {"value": "split", "label": "文本分割", "description": "按分隔符分割"},
                     {"value": "join", "label": "文本合并", "description": "合并多个文本"},
                     {"value": "replace", "label": "文本替换", "description": "查找替换文本"},
@@ -2463,7 +2520,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 25. 模板渲染节点 (Template Rendering)
     configs['template'] = NodeConfig(
         name="模板渲染",
@@ -2478,8 +2535,10 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 required=False,
                 default="jinja2",
                 options=[
-                    {"value": "jinja2", "label": "Jinja2", "description": "Python常用的模板引擎"},
-                    {"value": "mustache", "label": "Mustache", "description": "无逻辑模板引擎"},
+                    {"value": "jinja2", "label": "Jinja2",
+                        "description": "Python常用的模板引擎"},
+                    {"value": "mustache", "label": "Mustache",
+                        "description": "无逻辑模板引擎"},
                     {"value": "custom", "label": "自定义", "description": "自定义格式"},
                 ]
             ),
@@ -2536,11 +2595,11 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # ==========================================================================
     # 第五部分：外部集成节点
     # ==========================================================================
-    
+
     # 26. HTTP请求节点 (HTTP Request)
     configs['http_request'] = NodeConfig(
         name="HTTP请求",
@@ -2594,7 +2653,8 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 options=[
                     {"value": "application/json", "label": "JSON"},
                     {"value": "application/x-www-form-urlencoded", "label": "表单"},
-                    {"value": "multipart/form-data", "label": "multipart/form-data"},
+                    {"value": "multipart/form-data",
+                        "label": "multipart/form-data"},
                     {"value": "text/plain", "label": "纯文本"},
                     {"value": "text/xml", "label": "XML"},
                 ]
@@ -2693,7 +2753,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 27. Webhook节点
     configs['webhook'] = NodeConfig(
         name="Webhook",
@@ -2767,7 +2827,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 28. 数据库查询节点 (Database Query)
     configs['database_query'] = NodeConfig(
         name="数据库查询",
@@ -2883,7 +2943,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 29. 消息队列节点 (Message Queue)
     configs['message_queue'] = NodeConfig(
         name="消息队列",
@@ -2966,11 +3026,11 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # ==========================================================================
     # 第六部分：文档和媒体处理节点
     # ==========================================================================
-    
+
     # 30. 文档提取节点 (Document Extractor)
     configs['document_extractor'] = NodeConfig(
         name="文档提取",
@@ -3052,7 +3112,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 31. 文件操作节点 (File Operation)
     configs['file_operation'] = NodeConfig(
         name="文件操作",
@@ -3137,7 +3197,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 32. 图片处理节点 (Image Processing)
     configs['image_processing'] = NodeConfig(
         name="图片处理",
@@ -3206,7 +3266,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 33. 音频处理节点 (Audio Processing)
     configs['audio_processing'] = NodeConfig(
         name="音频处理",
@@ -3221,8 +3281,10 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 required=True,
                 default="transcribe",
                 options=[
-                    {"value": "transcribe", "label": "语音转文字", "description": "语音识别转文字"},
-                    {"value": "translate", "label": "语音翻译", "description": "语音翻译成其他语言"},
+                    {"value": "transcribe", "label": "语音转文字",
+                        "description": "语音识别转文字"},
+                    {"value": "translate", "label": "语音翻译",
+                        "description": "语音翻译成其他语言"},
                     {"value": "tts", "label": "文字转语音", "description": "文本转语音合成"},
                     {"value": "analyze", "label": "音频分析", "description": "分析音频特征"},
                 ]
@@ -3288,11 +3350,11 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # ==========================================================================
     # 第七部分：其他功能节点
     # ==========================================================================
-    
+
     # 34. 代码块执行节点 (Code Execution)
     configs['code_execution'] = NodeConfig(
         name="代码执行",
@@ -3341,7 +3403,8 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
                 default="error",
                 options=[
                     {"value": "error", "label": "报错", "description": "直接抛出错误"},
-                    {"value": "continue", "label": "继续", "description": "继续执行并返回错误信息"},
+                    {"value": "continue", "label": "继续",
+                        "description": "继续执行并返回错误信息"},
                     {"value": "default", "label": "使用默认值", "description": "使用默认输出"},
                 ]
             ),
@@ -3365,7 +3428,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 35. 代码块节点 (Code Block)
     configs['code_block'] = NodeConfig(
         name="代码块",
@@ -3413,7 +3476,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             {"description": "数据预处理", "language": "python"}
         ]
     )
-    
+
     # 36. 工具调用节点 (Tool Calling)
     configs['tool_calling'] = NodeConfig(
         name="工具调用",
@@ -3479,7 +3542,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 37. 通知节点 (Notification)
     configs['notification'] = NodeConfig(
         name="通知",
@@ -3587,7 +3650,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     # 38. 问答交互节点 (QA Interaction)
     configs['qa_interaction'] = NodeConfig(
         name="问答交互",
@@ -3670,7 +3733,7 @@ def get_all_node_configs() -> Dict[str, NodeConfig]:
             }
         ]
     )
-    
+
     return configs
 
 
@@ -3688,17 +3751,17 @@ def validate_node_config(node_type: str, config: Dict) -> tuple:
     node_config = get_node_config(node_type)
     if not node_config:
         return False, [f"未知节点类型: {node_type}"], config
-    
+
     errors = []
     validated = config.copy()
-    
+
     # 检查必填字段
     for field_name, field_config in node_config.config_fields.items():
         if field_config.required and not config.get(field_name):
             # 检查是否有默认值
             if field_config.default is None:
                 errors.append(f"字段 '{field_config.label}' 是必填的")
-    
+
     return len(errors) == 0, errors, validated
 
 
@@ -3726,9 +3789,9 @@ def get_node_config_schema(node_type: str) -> Dict:
     node_config = get_node_config(node_type)
     if not node_config:
         return {}
-    
+
     schema = {}
-    
+
     for field_name, field_config in node_config.config_fields.items():
         field_schema = {
             "type": field_config.type,
@@ -3736,58 +3799,58 @@ def get_node_config_schema(node_type: str) -> Dict:
             "description": field_config.description,
             "required": field_config.required,
         }
-        
+
         # 添加默认值
         if field_config.default is not None:
             field_schema["default"] = field_config.default
-        
+
         # 添加placeholder
         if field_config.placeholder:
             field_schema["placeholder"] = field_config.placeholder
-        
+
         # 添加选项（针对select类型）
         if field_config.type == "select" and field_config.options:
             field_schema["options"] = field_config.options
-        
+
         # 添加数值范围限制
         if field_config.min_value is not None:
             field_schema["min_value"] = field_config.min_value
         if field_config.max_value is not None:
             field_schema["max_value"] = field_config.max_value
-        
+
         # 添加长度限制
         if field_config.min_length is not None:
             field_schema["min_length"] = field_config.min_length
         if field_config.max_length is not None:
             field_schema["max_length"] = field_config.max_length
-        
+
         # 添加多行文本设置
         if field_config.multiline:
             field_schema["multiline"] = True
             field_schema["rows"] = field_config.rows
-        
+
         # 添加代码语言设置
         if field_config.language:
             field_schema["language"] = field_config.language
-        
+
         # 添加依赖关系
         if field_config.depends_on:
             field_schema["depends_on"] = field_config.depends_on
-        
+
         # 添加验证规则
         if field_config.validation:
             field_schema["validation"] = field_config.validation
-        
+
         # 添加tooltip
         if field_config.tooltip:
             field_schema["tooltip"] = field_config.tooltip
-        
+
         # 添加属性定义（针对array类型）
         if field_config.properties:
             field_schema["properties"] = field_config.properties
-        
+
         schema[field_name] = field_schema
-    
+
     return schema
 
 
@@ -3798,7 +3861,7 @@ def get_node_full_config(node_type: str) -> Dict:
     node_config = get_node_config(node_type)
     if not node_config:
         return {}
-    
+
     return {
         "name": node_config.name,
         "node_type": node_config.node_type,

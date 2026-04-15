@@ -11,14 +11,15 @@ from apps.user.models import Admin
 
 User = get_user_model()
 
+
 class TaskListView(LoginRequiredMixin, View):
     login_url = '/user/login/'
-    
+
     def get(self, request):
         # 检查是否是Ajax请求数据
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return self.get_data_list(request)
-        
+
         try:
             projects = Project.objects.filter(delete_time__isnull=True)
             users = Admin.objects.filter(status=1)
@@ -43,10 +44,10 @@ class TaskListView(LoginRequiredMixin, View):
             assignee_id = request.GET.get('assignee_id', '')
             keywords = request.GET.get('keywords', '')
             tab = request.GET.get('tab', '0')  # 选项卡筛选
-            
+
             # 构建查询条件
             queryset = Task.objects.filter(delete_time__isnull=True)
-            
+
             # 根据选项卡筛选
             if tab == '1':  # 我创建的
                 queryset = queryset.filter(creator=request.user)
@@ -59,30 +60,30 @@ class TaskListView(LoginRequiredMixin, View):
                     end_date__lt=timezone.now().date(),
                     status__in=[1, 2]  # 未开始或进行中
                 )
-            
+
             # 状态筛选
             if status:
                 queryset = queryset.filter(status=status)
-            
+
             # 优先级筛选
             if priority:
                 queryset = queryset.filter(priority=priority)
-            
+
             # 项目筛选
             if project_id:
                 queryset = queryset.filter(project_id=project_id)
-            
+
             # 负责人筛选
             if assignee_id:
                 queryset = queryset.filter(assignee_id=assignee_id)
-            
+
             # 关键词搜索
             if keywords:
                 queryset = queryset.filter(
                     Q(title__icontains=keywords) |
                     Q(description__icontains=keywords)
                 )
-            
+
             # 权限过滤 - 只显示用户相关的任务
             if not request.user.is_superuser:
                 queryset = queryset.filter(
@@ -93,13 +94,14 @@ class TaskListView(LoginRequiredMixin, View):
                     Q(project__manager=request.user) |
                     Q(project__members=request.user)
                 ).distinct()
-            
+
             # 分页
             total = queryset.count()
             start = (page - 1) * limit
             end = start + limit
-            tasks = queryset.select_related('project', 'assignee', 'creator')[start:end]
-            
+            tasks = queryset.select_related(
+                'project', 'assignee', 'creator')[start:end]
+
             # 构建返回数据
             data_list = []
             for task in tasks:
@@ -122,7 +124,7 @@ class TaskListView(LoginRequiredMixin, View):
                     'is_overdue': task.is_overdue,
                     'create_time': task.create_time.strftime('%Y-%m-%d %H:%M')
                 })
-            
+
             return JsonResponse({
                 'code': 0,
                 'msg': 'success',
@@ -137,14 +139,15 @@ class TaskListView(LoginRequiredMixin, View):
                 'data': []
             })
 
+
 class WorkHourListView(LoginRequiredMixin, View):
     login_url = '/user/login/'
-    
+
     def get(self, request):
         # 检查是否是Ajax请求数据
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return self.get_data_list(request)
-        
+
         try:
             tasks = Task.objects.filter(delete_time__isnull=True)
             users = Admin.objects.filter(status=1)
@@ -167,24 +170,24 @@ class WorkHourListView(LoginRequiredMixin, View):
             task_id = request.GET.get('task_id', '')
             start_date = request.GET.get('start_date', '')
             end_date = request.GET.get('end_date', '')
-            
+
             # 构建查询条件
             queryset = WorkHour.objects.all()
-            
+
             # 用户筛选
             if user_id:
                 queryset = queryset.filter(user_id=user_id)
-            
+
             # 任务筛选
             if task_id:
                 queryset = queryset.filter(task_id=task_id)
-            
+
             # 日期范围筛选
             if start_date:
                 queryset = queryset.filter(work_date__gte=start_date)
             if end_date:
                 queryset = queryset.filter(work_date__lte=end_date)
-            
+
             # 权限过滤 - 只显示用户相关的工时记录
             if not request.user.is_superuser:
                 queryset = queryset.filter(
@@ -193,13 +196,13 @@ class WorkHourListView(LoginRequiredMixin, View):
                     Q(task__creator=request.user) |
                     Q(task__project__manager=request.user)
                 ).distinct()
-            
+
             # 分页
             total = queryset.count()
             start = (page - 1) * limit
             end = start + limit
             work_hours = queryset.select_related('user', 'task')[start:end]
-            
+
             # 构建返回数据
             data_list = []
             for wh in work_hours:
@@ -213,7 +216,7 @@ class WorkHourListView(LoginRequiredMixin, View):
                     'description': wh.description,
                     'create_time': wh.create_time.strftime('%Y-%m-%d %H:%M')
                 })
-            
+
             return JsonResponse({
                 'code': 0,
                 'msg': 'success',
@@ -227,35 +230,37 @@ class WorkHourListView(LoginRequiredMixin, View):
                 'count': 0,
                 'data': []
             })
+
+
 class TaskAddView(LoginRequiredMixin, View):
     """新增任务视图"""
     login_url = '/user/login/'
     redirect_field_name = 'next'
-    
+
     def get(self, request):
         # 获取URL参数中的project_id
         project_id = request.GET.get('project_id')
-        
+
         # 修复：获取所有未删除的项目，确保包含所有项目
         projects = Project.objects.all()
         users = User.objects.filter(is_active=True)
-        
+
         return render(request, 'project/task_form.html', {
             'projects': projects,
             'users': users,
             'is_edit': False,
             'current_project_id': project_id
         })
-    
+
     def dispatch(self, request, *args, **kwargs):
         """重写dispatch方法，确保next参数包含完整的URL（包括query_string）"""
         if not request.user.is_authenticated:
-            from django.urls import reverse
             login_url = self.get_login_url()
             next_url = request.get_full_path()  # 获取完整的URL，包括query_string
-            return self.redirect_to_login(next_url, login_url, self.redirect_field_name)
+            return self.redirect_to_login(
+                next_url, login_url, self.redirect_field_name)
         return super().dispatch(request, *args, **kwargs)
-    
+
     def post(self, request):
         try:
             # 获取表单数据
@@ -267,11 +272,11 @@ class TaskAddView(LoginRequiredMixin, View):
             end_date = request.POST.get('end_date')
             estimated_hours = request.POST.get('estimated_hours', 0)
             priority = request.POST.get('priority', 2)
-            
+
             # 验证必填字段
             if not all([title, start_date, end_date]):
                 return JsonResponse({'code': 1, 'msg': '请填写标题、开始日期和结束日期'})
-            
+
             # 创建任务
             task = Task.objects.create(
                 title=title,
@@ -284,17 +289,19 @@ class TaskAddView(LoginRequiredMixin, View):
                 priority=priority,
                 creator=request.user
             )
-            
+
             # 添加参与人员
             participant_ids_str = request.POST.get('participant_ids', '')
             if participant_ids_str:
                 # 处理逗号分隔的员工ID字符串
-                participant_ids = [id.strip() for id in participant_ids_str.split(',') if id.strip()]
+                participant_ids = [
+                    id.strip() for id in participant_ids_str.split(',') if id.strip()]
                 if participant_ids:
                     task.participants.set(participant_ids)
-            
-            return JsonResponse({'code': 0, 'msg': '任务创建成功', 'data': {'id': task.id}})
-            
+
+            return JsonResponse(
+                {'code': 0, 'msg': '任务创建成功', 'data': {'id': task.id}})
+
         except Exception as e:
             return JsonResponse({'code': 1, 'msg': f'创建失败: {str(e)}'})
 
@@ -302,31 +309,31 @@ class TaskAddView(LoginRequiredMixin, View):
 class TaskEditView(LoginRequiredMixin, View):
     """编辑任务视图"""
     login_url = '/user/login/'
-    
+
     def get(self, request, task_id):
         task = get_object_or_404(Task, id=task_id, delete_time__isnull=True)
-        
+
         # 检查权限
         if not self.has_permission(request.user, task):
             return JsonResponse({'code': 1, 'msg': '没有权限编辑此任务'})
-        
+
         projects = Project.objects.filter(delete_time__isnull=True)
         users = User.objects.filter(is_active=True)
-        
+
         return render(request, 'project/task_form.html', {
             'task': task,
             'projects': projects,
             'users': users,
             'is_edit': True
         })
-    
+
     def post(self, request, task_id):
         task = get_object_or_404(Task, id=task_id, delete_time__isnull=True)
-        
+
         # 检查权限
         if not self.has_permission(request.user, task):
             return JsonResponse({'code': 1, 'msg': '没有权限编辑此任务'})
-        
+
         try:
             # 获取表单数据
             title = request.POST.get('title')
@@ -339,11 +346,11 @@ class TaskEditView(LoginRequiredMixin, View):
             priority = request.POST.get('priority', 2)
             status = request.POST.get('status', task.status)
             progress = request.POST.get('progress', task.progress)
-            
+
             # 验证必填字段
             if not all([title, start_date, end_date]):
                 return JsonResponse({'code': 1, 'msg': '请填写标题、开始日期和结束日期'})
-            
+
             # 更新任务
             task.title = title
             task.description = description
@@ -356,20 +363,21 @@ class TaskEditView(LoginRequiredMixin, View):
             task.status = status
             task.progress = progress
             task.save()
-            
+
             # 更新参与人员
             participant_ids_str = request.POST.get('participant_ids', '')
             if participant_ids_str:
                 # 处理逗号分隔的员工ID字符串
-                participant_ids = [id.strip() for id in participant_ids_str.split(',') if id.strip()]
+                participant_ids = [
+                    id.strip() for id in participant_ids_str.split(',') if id.strip()]
                 if participant_ids:
                     task.participants.set(participant_ids)
-            
+
             return JsonResponse({'code': 0, 'msg': '任务更新成功'})
-            
+
         except Exception as e:
             return JsonResponse({'code': 1, 'msg': f'更新失败: {str(e)}'})
-    
+
     def has_permission(self, user, task):
         """检查用户是否有权限编辑任务"""
         if user.is_superuser:
@@ -385,24 +393,24 @@ class TaskEditView(LoginRequiredMixin, View):
 class TaskDeleteView(LoginRequiredMixin, View):
     """删除任务视图"""
     login_url = '/user/login/'
-    
+
     def post(self, request, task_id):
         task = get_object_or_404(Task, id=task_id, delete_time__isnull=True)
-        
+
         # 检查权限
         if not self.has_permission(request.user, task):
             return JsonResponse({'code': 1, 'msg': '没有权限删除此任务'})
-        
+
         try:
             # 软删除
             task.delete_time = timezone.now()
             task.save()
-            
+
             return JsonResponse({'code': 0, 'msg': '任务删除成功'})
-            
+
         except Exception as e:
             return JsonResponse({'code': 1, 'msg': f'删除失败: {str(e)}'})
-    
+
     def has_permission(self, user, task):
         """检查用户是否有权限删除任务"""
         if user.is_superuser:
@@ -416,14 +424,14 @@ class TaskDeleteView(LoginRequiredMixin, View):
 class TaskDetailView(LoginRequiredMixin, View):
     """任务详情视图"""
     login_url = '/user/login/'
-    
+
     def get(self, request, task_id):
         task = get_object_or_404(Task, id=task_id, delete_time__isnull=True)
-        
+
         # 检查权限
         if not self.has_permission(request.user, task):
             return JsonResponse({'code': 1, 'msg': '没有权限查看此任务'})
-        
+
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             # Ajax请求返回JSON数据
             return JsonResponse({
@@ -449,14 +457,14 @@ class TaskDetailView(LoginRequiredMixin, View):
                     'create_time': task.create_time.strftime('%Y-%m-%d %H:%M')
                 }
             })
-        
+
         # 普通请求返回HTML页面
         work_hours = task.work_hours.all()[:10]
         return render(request, 'project/task_detail.html', {
             'task': task,
             'work_hours': work_hours
         })
-    
+
     def has_permission(self, user, task):
         """检查用户是否有权限查看任务"""
         if user.is_superuser:
@@ -476,7 +484,7 @@ class TaskDetailView(LoginRequiredMixin, View):
 class WorkHourAddView(LoginRequiredMixin, View):
     """新增工时记录视图"""
     login_url = '/user/login/'
-    
+
     def get(self, request):
         tasks = Task.objects.filter(delete_time__isnull=True)
         users = User.objects.filter(is_active=True)
@@ -485,7 +493,7 @@ class WorkHourAddView(LoginRequiredMixin, View):
             'users': users,
             'is_edit': False
         })
-    
+
     def post(self, request):
         try:
             # 获取表单数据
@@ -494,11 +502,11 @@ class WorkHourAddView(LoginRequiredMixin, View):
             work_date = request.POST.get('work_date')
             hours = request.POST.get('hours')
             description = request.POST.get('description', '')
-            
+
             # 验证必填字段
             if not all([task_id, work_date, hours]):
                 return JsonResponse({'code': 1, 'msg': '请填写任务、工作日期和工作时长'})
-            
+
             # 创建工时记录
             work_hour = WorkHour.objects.create(
                 task_id=task_id,
@@ -507,16 +515,17 @@ class WorkHourAddView(LoginRequiredMixin, View):
                 hours=hours,
                 description=description
             )
-            
+
             # 更新任务的实际工时
             task = work_hour.task
             task.actual_hours = task.work_hours.aggregate(
                 total=models.Sum('hours')
             )['total'] or 0
             task.save()
-            
-            return JsonResponse({'code': 0, 'msg': '工时记录创建成功', 'data': {'id': work_hour.id}})
-            
+
+            return JsonResponse(
+                {'code': 0, 'msg': '工时记录创建成功', 'data': {'id': work_hour.id}})
+
         except Exception as e:
             return JsonResponse({'code': 1, 'msg': f'创建失败: {str(e)}'})
 
@@ -524,31 +533,31 @@ class WorkHourAddView(LoginRequiredMixin, View):
 class WorkHourEditView(LoginRequiredMixin, View):
     """编辑工时记录视图"""
     login_url = '/user/login/'
-    
+
     def get(self, request, workhour_id):
         work_hour = get_object_or_404(WorkHour, id=workhour_id)
-        
+
         # 检查权限
         if not self.has_permission(request.user, work_hour):
             return JsonResponse({'code': 1, 'msg': '没有权限编辑此工时记录'})
-        
+
         tasks = Task.objects.filter(delete_time__isnull=True)
         users = User.objects.filter(is_active=True)
-        
+
         return render(request, 'project/workhour_form.html', {
             'work_hour': work_hour,
             'tasks': tasks,
             'users': users,
             'is_edit': True
         })
-    
+
     def post(self, request, workhour_id):
         work_hour = get_object_or_404(WorkHour, id=workhour_id)
-        
+
         # 检查权限
         if not self.has_permission(request.user, work_hour):
             return JsonResponse({'code': 1, 'msg': '没有权限编辑此工时记录'})
-        
+
         try:
             # 获取表单数据
             task_id = request.POST.get('task_id')
@@ -556,13 +565,13 @@ class WorkHourEditView(LoginRequiredMixin, View):
             work_date = request.POST.get('work_date')
             hours = request.POST.get('hours')
             description = request.POST.get('description', '')
-            
+
             # 验证必填字段
             if not all([task_id, work_date, hours]):
                 return JsonResponse({'code': 1, 'msg': '请填写任务、工作日期和工作时长'})
-            
+
             old_task = work_hour.task
-            
+
             # 更新工时记录
             work_hour.task_id = task_id
             work_hour.user_id = user_id
@@ -570,14 +579,14 @@ class WorkHourEditView(LoginRequiredMixin, View):
             work_hour.hours = hours
             work_hour.description = description
             work_hour.save()
-            
+
             # 更新旧任务的实际工时
             if old_task:
                 old_task.actual_hours = old_task.work_hours.aggregate(
                     total=models.Sum('hours')
                 )['total'] or 0
                 old_task.save()
-            
+
             # 更新新任务的实际工时
             new_task = work_hour.task
             if new_task and new_task != old_task:
@@ -585,12 +594,12 @@ class WorkHourEditView(LoginRequiredMixin, View):
                     total=models.Sum('hours')
                 )['total'] or 0
                 new_task.save()
-            
+
             return JsonResponse({'code': 0, 'msg': '工时记录更新成功'})
-            
+
         except Exception as e:
             return JsonResponse({'code': 1, 'msg': f'更新失败: {str(e)}'})
-    
+
     def has_permission(self, user, work_hour):
         """检查用户是否有权限编辑工时记录"""
         if user.is_superuser:
@@ -606,32 +615,32 @@ class WorkHourEditView(LoginRequiredMixin, View):
 class WorkHourDeleteView(LoginRequiredMixin, View):
     """删除工时记录视图"""
     login_url = '/user/login/'
-    
+
     def post(self, request, workhour_id):
         work_hour = get_object_or_404(WorkHour, id=workhour_id)
-        
+
         # 检查权限
         if not self.has_permission(request.user, work_hour):
             return JsonResponse({'code': 1, 'msg': '没有权限删除此工时记录'})
-        
+
         try:
             task = work_hour.task
-            
+
             # 删除工时记录
             work_hour.delete()
-            
+
             # 更新任务的实际工时
             if task:
                 task.actual_hours = task.work_hours.aggregate(
                     total=models.Sum('hours')
                 )['total'] or 0
                 task.save()
-            
+
             return JsonResponse({'code': 0, 'msg': '工时记录删除成功'})
-            
+
         except Exception as e:
             return JsonResponse({'code': 1, 'msg': f'删除失败: {str(e)}'})
-    
+
     def has_permission(self, user, work_hour):
         """检查用户是否有权限删除工时记录"""
         if user.is_superuser:
@@ -646,11 +655,11 @@ class WorkHourDeleteView(LoginRequiredMixin, View):
 class WorkHourStatsView(LoginRequiredMixin, View):
     """工时统计视图"""
     login_url = '/user/login/'
-    
+
     def get(self, request):
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return self.get_stats_data(request)
-        
+
         try:
             tasks = Task.objects.filter(delete_time__isnull=True)
             users = Admin.objects.filter(status=1)
@@ -663,7 +672,7 @@ class WorkHourStatsView(LoginRequiredMixin, View):
                 'tasks': [],
                 'users': []
             })
-    
+
     def get_stats_data(self, request):
         try:
             stats_type = request.GET.get('type', 'overview')
@@ -671,9 +680,9 @@ class WorkHourStatsView(LoginRequiredMixin, View):
             end_date = request.GET.get('end_date', '')
             user_id = request.GET.get('user_id', '')
             project_id = request.GET.get('project_id', '')
-            
+
             base_query = WorkHour.objects.all()
-            
+
             if start_date:
                 base_query = base_query.filter(work_date__gte=start_date)
             if end_date:
@@ -682,7 +691,7 @@ class WorkHourStatsView(LoginRequiredMixin, View):
                 base_query = base_query.filter(user_id=user_id)
             if project_id:
                 base_query = base_query.filter(task__project_id=project_id)
-            
+
             if not request.user.is_superuser:
                 base_query = base_query.filter(
                     models.Q(user=request.user) |
@@ -690,13 +699,14 @@ class WorkHourStatsView(LoginRequiredMixin, View):
                     models.Q(task__creator=request.user) |
                     models.Q(task__project__manager=request.user)
                 ).distinct()
-            
+
             if stats_type == 'overview':
-                total_hours = base_query.aggregate(total=Sum('hours'))['total'] or 0
+                total_hours = base_query.aggregate(
+                    total=Sum('hours'))['total'] or 0
                 total_records = base_query.count()
                 total_users = base_query.values('user').distinct().count()
                 total_tasks = base_query.values('task').distinct().count()
-                
+
                 return JsonResponse({
                     'code': 0,
                     'msg': 'success',
@@ -707,7 +717,7 @@ class WorkHourStatsView(LoginRequiredMixin, View):
                         'total_tasks': total_tasks
                     }
                 })
-            
+
             elif stats_type == 'by_user':
                 user_stats = base_query.values(
                     'user__id',
@@ -717,7 +727,7 @@ class WorkHourStatsView(LoginRequiredMixin, View):
                     task_count=models.Count('task', distinct=True),
                     record_count=models.Count('id')
                 ).order_by('-total_hours')[:20]
-                
+
                 data_list = []
                 for item in user_stats:
                     data_list.append({
@@ -727,13 +737,13 @@ class WorkHourStatsView(LoginRequiredMixin, View):
                         'task_count': item['task_count'],
                         'record_count': item['record_count']
                     })
-                
+
                 return JsonResponse({
                     'code': 0,
                     'msg': 'success',
                     'data': data_list
                 })
-            
+
             elif stats_type == 'by_project':
                 project_stats = base_query.values(
                     'task__project__id',
@@ -744,7 +754,7 @@ class WorkHourStatsView(LoginRequiredMixin, View):
                     user_count=models.Count('user', distinct=True),
                     record_count=models.Count('id')
                 ).order_by('-total_hours')[:20]
-                
+
                 data_list = []
                 for item in project_stats:
                     if item['task__project__id']:
@@ -756,13 +766,13 @@ class WorkHourStatsView(LoginRequiredMixin, View):
                             'user_count': item['user_count'],
                             'record_count': item['record_count']
                         })
-                
+
                 return JsonResponse({
                     'code': 0,
                     'msg': 'success',
                     'data': data_list
                 })
-            
+
             elif stats_type == 'by_task':
                 task_stats = base_query.values(
                     'task__id',
@@ -772,7 +782,7 @@ class WorkHourStatsView(LoginRequiredMixin, View):
                     user_count=models.Count('user', distinct=True),
                     record_count=models.Count('id')
                 ).order_by('-total_hours')[:20]
-                
+
                 data_list = []
                 for item in task_stats:
                     data_list.append({
@@ -782,23 +792,23 @@ class WorkHourStatsView(LoginRequiredMixin, View):
                         'user_count': item['user_count'],
                         'record_count': item['record_count']
                     })
-                
+
                 return JsonResponse({
                     'code': 0,
                     'msg': 'success',
                     'data': data_list
                 })
-            
+
             elif stats_type == 'by_month':
                 from django.db import functions
-                
+
                 monthly_stats = base_query.annotate(
                     month=functions.TruncMonth('work_date')
                 ).values('month').annotate(
                     total_hours=Sum('hours'),
                     record_count=models.Count('id')
                 ).order_by('month')[:12]
-                
+
                 data_list = []
                 for item in monthly_stats:
                     data_list.append({
@@ -806,19 +816,19 @@ class WorkHourStatsView(LoginRequiredMixin, View):
                         'total_hours': float(item['total_hours']),
                         'record_count': item['record_count']
                     })
-                
+
                 return JsonResponse({
                     'code': 0,
                     'msg': 'success',
                     'data': data_list
                 })
-            
+
             else:
                 return JsonResponse({
                     'code': 1,
                     'msg': '未知统计类型'
                 })
-                
+
         except Exception as e:
             return JsonResponse({
                 'code': 1,

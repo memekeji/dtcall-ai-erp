@@ -1,6 +1,5 @@
 from django.shortcuts import render
 from django.http import JsonResponse
-from django.db.models import Q, Count
 from django.utils import timezone
 from django.core.paginator import Paginator
 from rest_framework import viewsets, status, views
@@ -10,16 +9,13 @@ from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django.contrib.auth.decorators import login_required
-from django.utils.decorators import method_decorator
-import json
 import logging
 
 from .models import MessageCategory, Message, MessageUserRelation, NotificationPreference
 from .serializers import (
     MessageCategorySerializer,
     MessageSerializer, MessageListSerializer, MessageCreateSerializer,
-    MessageUserRelationSerializer, MessageMarkReadSerializer,
-    MessageStarSerializer, MessageBatchOperationSerializer,
+    MessageMarkReadSerializer, MessageBatchOperationSerializer,
     NotificationPreferenceSerializer, MessageStatsSerializer
 )
 from apps.common.services import CommonService
@@ -49,29 +45,29 @@ class MessageCategoryViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ['name', 'code', 'description']
     ordering_fields = ['sort_order', 'created_at']
     ordering = ['sort_order', 'id']
-    
+
     def get_queryset(self):
         return super().get_queryset()
-    
+
     def list(self, request, *args, **kwargs):
         """获取消息分类列表"""
         queryset = self.filter_queryset(self.get_queryset())
-        
+
         page = int(request.GET.get('page', 1))
         page_size = CommonService.get_page_size(request, 20)
-        
+
         paginator = Paginator(queryset, page_size)
         page_obj = paginator.get_page(page)
-        
+
         serializer = self.get_serializer(page_obj, many=True)
-        
+
         return JsonResponse({
             'code': 200,
             'msg': 'success',
             'count': paginator.count,
             'results': serializer.data
         })
-    
+
     @action(detail=False, methods=['get'])
     def all(self, request):
         """获取所有分类"""
@@ -92,52 +88,52 @@ class MessageViewSet(viewsets.ModelViewSet):
     search_fields = ['title', 'content']
     ordering_fields = ['created_at', 'priority']
     ordering = ['-created_at']
-    
+
     def get_queryset(self):
         """获取当前用户的消息"""
         if not self.request.user.has_perm('message.view_message'):
             return Message.objects.none()
         user = self.request.user
         queryset = super().get_queryset()
-        
+
         queryset = queryset.filter(
             user_relations__user=user
         ).distinct()
-        
+
         category_type = self.request.query_params.get('category_type')
         if category_type:
             queryset = queryset.filter(category__type=category_type)
-        
+
         is_read = self.request.query_params.get('is_read')
         if is_read is not None:
             queryset = queryset.filter(
                 user_relations__user=user,
                 user_relations__is_read=is_read.lower() == 'true'
             )
-        
+
         is_starred = self.request.query_params.get('is_starred')
         if is_starred is not None:
             queryset = queryset.filter(
                 user_relations__user=user,
                 user_relations__is_starred=is_starred.lower() == 'true'
             )
-        
+
         return queryset
-    
+
     def get_serializer_class(self):
         if self.action == 'list':
             return MessageListSerializer
         if self.action == 'create':
             return MessageCreateSerializer
         return MessageSerializer
-    
+
     def list(self, request, *args, **kwargs):
         """获取消息列表"""
         if not request.user.has_perm('message.view_message'):
             from rest_framework.response import Response
             return Response({'results': [], 'count': 0})
         return super().list(request, *args, **kwargs)
-    
+
     def create(self, request, *args, **kwargs):
         """创建消息"""
         if not request.user.has_perm('message.create_message'):
@@ -146,10 +142,10 @@ class MessageViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         message = serializer.save()
-        
+
         output_serializer = MessageSerializer(message)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
-    
+
     @action(detail=True, methods=['post'])
     def read(self, request, pk=None):
         """标记消息为已读"""
@@ -164,7 +160,7 @@ class MessageViewSet(viewsets.ModelViewSet):
             relation.read_time = timezone.now()
             relation.save()
         return Response({'status': 'success'})
-    
+
     @action(detail=True, methods=['post'])
     def unread(self, request, pk=None):
         """标记消息为未读"""
@@ -178,7 +174,7 @@ class MessageViewSet(viewsets.ModelViewSet):
             relation.read_time = None
             relation.save()
         return Response({'status': 'success'})
-    
+
     @action(detail=True, methods=['post'])
     def star(self, request, pk=None):
         """标星消息"""
@@ -195,7 +191,7 @@ class MessageViewSet(viewsets.ModelViewSet):
             relation.is_starred = True
             relation.save()
         return Response({'status': 'success'})
-    
+
     @action(detail=True, methods=['post'])
     def unstar(self, request, pk=None):
         """取消标星"""
@@ -211,7 +207,7 @@ class MessageViewSet(viewsets.ModelViewSet):
             relation.is_starred = False
             relation.save()
         return Response({'status': 'success'})
-    
+
     @action(detail=False, methods=['post'])
     def batch_operation(self, request):
         """批量操作"""
@@ -220,19 +216,20 @@ class MessageViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("您没有权限执行批量操作")
         serializer = MessageBatchOperationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         message_ids = serializer.validated_data['message_ids']
         operation = serializer.validated_data['operation']
-        
-        if operation == 'delete' and not request.user.has_perm('message.delete_message'):
+
+        if operation == 'delete' and not request.user.has_perm(
+                'message.delete_message'):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("您没有权限删除消息")
-        
+
         relations = MessageUserRelation.objects.filter(
             message_id__in=message_ids,
             user=request.user
         )
-        
+
         if operation == 'read':
             if not request.user.has_perm('message.mark_message_read'):
                 from rest_framework.exceptions import PermissionDenied
@@ -246,14 +243,15 @@ class MessageViewSet(viewsets.ModelViewSet):
             relations.update(is_starred=False)
         elif operation == 'delete':
             relations.delete()
-        
-        return Response({'status': 'success', 'affected_count': len(message_ids)})
+
+        return Response({'status': 'success',
+                         'affected_count': len(message_ids)})
 
 
 class MessageMarkReadView(views.APIView):
     """消息已读视图"""
     permission_classes = [IsAuthenticated]
-    
+
     def post(self, request):
         """标记消息已读"""
         if not request.user.has_perm('message.mark_message_read'):
@@ -261,9 +259,9 @@ class MessageMarkReadView(views.APIView):
             raise PermissionDenied("您没有权限标记消息已读")
         serializer = MessageMarkReadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         message_ids = serializer.validated_data.get('message_ids')
-        
+
         if message_ids:
             MessageUserRelation.objects.filter(
                 message_id__in=message_ids,
@@ -274,22 +272,24 @@ class MessageMarkReadView(views.APIView):
                 user=request.user,
                 is_read=False
             ).update(is_read=True, read_time=timezone.now())
-        
+
         return Response({'status': 'success'})
 
 
 class MessageStatsView(views.APIView):
     """消息统计视图"""
     permission_classes = [IsAuthenticated]
-    
+
     def get(self, request):
         """获取消息统计"""
         user = request.user
-        
+
         total_count = MessageUserRelation.objects.filter(user=user).count()
-        unread_count = MessageUserRelation.objects.filter(user=user, is_read=False).count()
-        starred_count = MessageUserRelation.objects.filter(user=user, is_starred=True).count()
-        
+        unread_count = MessageUserRelation.objects.filter(
+            user=user, is_read=False).count()
+        starred_count = MessageUserRelation.objects.filter(
+            user=user, is_starred=True).count()
+
         category_stats = {}
         categories = MessageCategory.objects.filter(is_active=True)
         for category in categories:
@@ -305,14 +305,14 @@ class MessageStatsView(views.APIView):
                     is_read=False
                 ).count()
             }
-        
+
         data = {
             'total_count': total_count,
             'unread_count': unread_count,
             'starred_count': starred_count,
             'category_stats': category_stats
         }
-        
+
         serializer = MessageStatsSerializer(data)
         return Response(serializer.data)
 
@@ -322,69 +322,76 @@ class NotificationPreferenceViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = NotificationPreferenceSerializer
     http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
-    
+
     def get_queryset(self):
         return NotificationPreference.objects.filter(user=self.request.user)
-    
+
     def get_object(self):
         obj, created = NotificationPreference.objects.get_or_create(
             user=self.request.user
         )
         return obj
-    
+
     def list(self, request, *args, **kwargs):
         """获取当前用户的通知偏好"""
         preference = self.get_object()
         serializer = self.get_serializer(preference)
-        return JsonResponse({'code': 200, 'msg': 'success', 'data': serializer.data})
-    
+        return JsonResponse(
+            {'code': 200, 'msg': 'success', 'data': serializer.data})
+
     def retrieve(self, request, *args, **kwargs):
         """获取单个偏好设置"""
         instance = self.get_object()
         serializer = self.get_serializer(instance)
-        return JsonResponse({'code': 200, 'msg': 'success', 'data': serializer.data})
-    
+        return JsonResponse(
+            {'code': 200, 'msg': 'success', 'data': serializer.data})
+
     def create(self, request, *args, **kwargs):
         """创建设置"""
         return self.update(request, *args, **kwargs)
-    
+
     def update(self, request, *args, **kwargs):
         """更新设置"""
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer = self.get_serializer(
+            instance, data=request.data, partial=partial)
         if serializer.is_valid():
             serializer.save()
-            return JsonResponse({'code': 200, 'msg': '保存成功', 'data': serializer.data})
+            return JsonResponse(
+                {'code': 200, 'msg': '保存成功', 'data': serializer.data})
         return JsonResponse({'code': 400, 'msg': serializer.errors})
-    
+
     def partial_update(self, request, *args, **kwargs):
         """部分更新"""
         kwargs['partial'] = True
         return self.update(request, *args, **kwargs)
-    
+
     @action(detail=False, methods=['post'])
     def update_settings(self, request):
         """更新用户偏好设置（POST /message/preferences/update_settings/）"""
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=True)
-        
+        serializer = self.get_serializer(
+            instance, data=request.data, partial=True)
+
         if serializer.is_valid():
             serializer.save()
-            return JsonResponse({'code': 200, 'msg': '保存成功', 'data': serializer.data})
+            return JsonResponse(
+                {'code': 200, 'msg': '保存成功', 'data': serializer.data})
         return JsonResponse({'code': 400, 'msg': serializer.errors})
 
 
 class UnreadCountView(views.APIView):
     """未读消息数量视图"""
     permission_classes = [IsAuthenticated]
-    
+
     def get(self, request):
         """获取未读消息数量"""
         if not request.user.has_perm('message.view_message'):
             return Response({'unread_count': 0})
         user = request.user
-        unread_count = MessageUserRelation.objects.filter(user=user, is_read=False).count()
+        unread_count = MessageUserRelation.objects.filter(
+            user=user, is_read=False).count()
         return Response({'unread_count': unread_count})
 
 

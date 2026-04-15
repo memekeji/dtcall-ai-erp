@@ -75,8 +75,12 @@ class ExpenseService:
             return False, '报销单不存在'
 
     @staticmethod
-    def approve_expense(expense_id: int, user, action: str,
-                        approved_amount: Decimal = None, notes: str = '') -> Tuple[bool, str]:
+    def approve_expense(expense_id: int,
+                        user,
+                        action: str,
+                        approved_amount: Decimal = None,
+                        notes: str = '') -> Tuple[bool,
+                                                  str]:
         """审批报销"""
         try:
             expense = Expense.objects.get(id=expense_id)
@@ -100,10 +104,16 @@ class ExpenseService:
             return False, '报销单不存在'
 
     @staticmethod
-    def pay_expense(expense_id: int, user, amount: Decimal,
+    def pay_expense(expense_id: int,
+                    user,
+                    amount: Decimal,
                     payment_method: str = 'bank_transfer',
-                    bank_name: str = '', bank_account: str = '',
-                    transaction_no: str = '', remark: str = '') -> Tuple[bool, str, Payment]:
+                    bank_name: str = '',
+                    bank_account: str = '',
+                    transaction_no: str = '',
+                    remark: str = '') -> Tuple[bool,
+                                               str,
+                                               Payment]:
         """付款"""
         try:
             expense = Expense.objects.get(id=expense_id)
@@ -157,7 +167,8 @@ class ExpenseService:
         }
 
     @staticmethod
-    def batch_approve(expense_ids: List[int], user, action: str) -> Tuple[int, int]:
+    def batch_approve(expense_ids: List[int],
+                      user, action: str) -> Tuple[int, int]:
         """批量审批"""
         expenses = Expense.objects.filter(
             id__in=expense_ids,
@@ -278,11 +289,13 @@ class IncomeService:
         return income
 
     @staticmethod
-    def verify_income(income_id: int, verify_data: List[Dict]) -> Tuple[bool, str]:
+    def verify_income(
+            income_id: int, verify_data: List[Dict]) -> Tuple[bool, str]:
         """核销回款"""
         try:
             income = Income.objects.get(id=income_id)
-            total_verify = sum(Decimal(str(item.get('amount', 0))) for item in verify_data)
+            total_verify = sum(Decimal(str(item.get('amount', 0)))
+                               for item in verify_data)
 
             if total_verify > income.amount:
                 return False, '核销金额超出回款金额'
@@ -329,9 +342,9 @@ class IncomeService:
 
         by_method = {}
         for method, _ in PaymentMethodChoices.CHOICES:
-            by_method[method] = queryset.filter(payment_method=method).aggregate(
-                total=Sum('amount')
-            )['total'] or 0
+            by_method[method] = queryset.filter(
+                payment_method=method).aggregate(
+                total=Sum('amount'))['total'] or 0
 
         return {
             'total_count': stats['total_count'] or 0,
@@ -360,7 +373,8 @@ class InvoiceRequestService:
         return request
 
     @staticmethod
-    def approve_request(request_id: int, user, action: str, comment: str = '') -> Tuple[bool, str]:
+    def approve_request(request_id: int, user, action: str,
+                        comment: str = '') -> Tuple[bool, str]:
         """审批开票申请"""
         try:
             request = InvoiceRequest.objects.get(id=request_id)
@@ -404,9 +418,12 @@ class FinanceStatisticsService:
         today = timezone.now().date()
         month_start = today.replace(day=1)
 
-        expense_stats = ExpenseService.get_expense_statistics(start_date=month_start)
-        invoice_stats = InvoiceService.get_invoice_statistics(start_date=month_start)
-        income_stats = IncomeService.get_income_statistics(start_date=month_start)
+        expense_stats = ExpenseService.get_expense_statistics(
+            start_date=month_start)
+        invoice_stats = InvoiceService.get_invoice_statistics(
+            start_date=month_start)
+        income_stats = IncomeService.get_income_statistics(
+            start_date=month_start)
 
         pending_expenses = Expense.objects.filter(
             approval_status=ApprovalStatusChoices.PENDING
@@ -442,7 +459,8 @@ class FinanceStatisticsService:
             if i > 0:
                 month_start = month_start - timedelta(days=1)
                 month_start = month_start.replace(day=1)
-            month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+            month_end = (month_start + timedelta(days=32)
+                         ).replace(day=1) - timedelta(days=1)
 
             expense_stats = ExpenseService.get_expense_statistics(
                 start_date=month_start, end_date=month_end

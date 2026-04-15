@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>采购订单表单</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href="/static/layui/css/layui.css" rel="stylesheet">
+    <link href="/static/css/common.css" rel="stylesheet">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header layui-elem-quote" id="cardTitle">新建采购订单</div>
+            <div class="layui-card-body">
+                <form class="layui-form" id="purchaseForm">
+                    <input type="hidden" name="id" id="id">
+                    
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">采购单号</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="code" id="code" placeholder="系统自动生成" class="layui-input" readonly>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">订单类型</label>
+                                <div class="layui-input-block">
+                                    <select name="order_type" id="order_type" lay-verify="required">
+                                        <option value="standard">标准采购</option>
+                                        <option value="contract">合同采购</option>
+                                        <option value="urgent">紧急采购</option>
+                                        <option value="blanket">框架协议</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">供应商</label>
+                                <div class="layui-input-block">
+                                    <select name="supplier_id" id="supplier_id" lay-verify="required">
+                                        <option value="">请选择供应商</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">收货仓库</label>
+                                <div class="layui-input-block">
+                                    <select name="warehouse_id" id="warehouse_id">
+                                        <option value="">请选择仓库</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">订单日期</label>
+                                <div class="layui-input-block">
+                                    <input type="date" name="order_date" id="order_date" class="layui-input">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">期望到货</label>
+                                <div class="layui-input-block">
+                                    <input type="date" name="expected_date" id="expected_date" class="layui-input">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <fieldset class="layui-elem-field">
+                        <legend>订单明细</legend>
+                        <div class="layui-field-box">
+                            <table class="layui-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 30%;">物料</th>
+                                        <th style="width: 15%;">采购数量</th>
+                                        <th style="width: 15%;">单价</th>
+                                        <th style="width: 15%;">金额</th>
+                                        <th style="width: 15%;">期望到货</th>
+                                        <th style="width: 10%;">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="itemsBody"></tbody>
+                            </table>
+                            <button type="button" class="layui-btn layui-btn-sm" id="addItemBtn">
+                                <i class="layui-icon">&#xe654;</i> 添加物料
+                            </button>
+                        </div>
+                    </fieldset>
+                    
+                    <div class="layui-row layui-col-space15" style="margin-top: 15px;">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">总数量</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="total_quantity" id="total_quantity" readonly class="layui-input" style="background: #f5f5f5;">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">总金额</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="total_amount" id="total_amount" readonly class="layui-input" style="background: #f5f5f5;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">联系人</label>
+                        <div class="layui-input-inline" style="width: 200px;">
+                            <input type="text" name="contact_person" id="contact_person" placeholder="联系人" class="layui-input">
+                        </div>
+                        <div class="layui-input-inline" style="width: 200px;">
+                            <input type="text" name="contact_phone" id="contact_phone" placeholder="联系电话" class="layui-input">
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">交货地址</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="delivery_address" id="delivery_address" placeholder="请输入交货地址" class="layui-input">
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">备注</label>
+                        <div class="layui-input-block">
+                            <textarea name="remark" id="remark" placeholder="请输入备注" class="layui-textarea"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item">
+                        <div class="layui-input-block">
+                            <button type="submit" class="layui-btn" lay-submit lay-filter="submitBtn">保存</button>
+                            <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/js/lib/jquery.min.js"></script>
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['form', 'layer'], function(){
+            var form = layui.form;
+            var layer = layui.layer;
+            
+            var id = getQueryParam('id');
+            var items = [];
+            
+            var today = new Date().toISOString().split('T')[0];
+            $('#order_date').val(today);
+            
+            if(id){
+                $('#cardTitle').text('采购订单详情');
+                loadData(id);
+            } else {
+                initForm();
+            }
+            
+            function getQueryParam(name) {
+                var reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)');
+                var r = window.location.search.substr(1).match(reg);
+                if(r != null) return unescape(r[2]);
+                return null;
+            }
+            
+            function initForm(){
+                $('#code').val('PO' + new Date().getTime());
+                loadSuppliers();
+                loadWarehouses();
+                form.render();
+            }
+            
+            function loadSuppliers(){
+                $.ajax({
+                    url: '/api/contract/supplier/',
+                    type: 'GET',
+                    success: function(res){
+                        if(res.code === 0){
+                            var html = '<option value="">请选择供应商</option>';
+                            res.data.forEach(function(item){
+                                html += '<option value="' + item.id + '">' + item.name + '</option>';
+                            });
+                            $('#supplier_id').html(html);
+                            form.render('select');
+                        }
+                    }
+                });
+            }
+            
+            function loadWarehouses(){
+                $.ajax({
+                    url: '/api/inventory/warehouse/',
+                    type: 'GET',
+                    success: function(res){
+                        if(res.code === 0){
+                            var html = '<option value="">请选择仓库</option>';
+                            res.data.forEach(function(item){
+                                html += '<option value="' + item.id + '">' + item.name + '</option>';
+                            });
+                            $('#warehouse_id').html(html);
+                            form.render('select');
+                        }
+                    }
+                });
+            }
+            
+            function loadData(id){
+                $.ajax({
+                    url: '/api/inventory/purchase/' + id + '/',
+                    type: 'GET',
+                    success: function(res){
+                        if(res.code === 0){
+                            var data = res.data;
+                            $('#id').val(data.id);
+                            $('#code').val(data.code);
+                            $('#order_type').val(data.order_type);
+                            $('#supplier_id').val(data.supplier_id);
+                            $('#warehouse_id').val(data.warehouse_id || '');
+                            $('#order_date').val(data.order_date);
+                            $('#expected_date').val(data.expected_date || '');
+                            $('#contact_person').val(data.contact_person || '');
+                            $('#contact_phone').val(data.contact_phone || '');
+                            $('#delivery_address').val(data.delivery_address || '');
+                            $('#remark').val(data.remark || '');
+                            
+                            items = data.items || [];
+                            renderItems();
+                            
+                            loadSuppliers();
+                            loadWarehouses();
+                            form.render();
+                        }
+                    }
+                });
+            }
+            
+            $('#addItemBtn').click(function(){
+                layer.open({
+                    type: 2,
+                    title: '选择物料',
+                    area: ['80%', '100%'],
+                    content: '/inventory/item/',
+                    btn: ['确定', '取消'],
+                    yes: function(index, layero){
+                        var iframeWin = layero.find('iframe')[0].contentWindow;
+                        var selectedData = iframeWin.getSelectedData();
+                        if(selectedData && selectedData.length > 0){
+                            selectedData.forEach(function(item){
+                                var exists = items.find(function(i){ return i.item_id === item.id; });
+                                if(!exists){
+                                    items.push({
+                                        item_id: item.id,
+                                        item_code: item.code,
+                                        item_name: item.name,
+                                        quantity: 0,
+                                        unit_price: item.standard_cost || 0,
+                                        amount: 0,
+                                        received_quantity: 0,
+                                        expected_date: ''
+                                    });
+                                }
+                            });
+                            renderItems();
+                        }
+                        layer.close(index);
+                    }
+                });
+            });
+            
+            function renderItems(){
+                var html = '';
+                items.forEach(function(item, index){
+                    html += '<tr>';
+                    html += '<td>' + item.item_code + ' ' + item.item_name + '</td>';
+                    html += '<td><input type="number" class="layui-input" value="' + item.quantity + '" data-index="' + index + '" data-field="quantity"></td>';
+                    html += '<td><input type="number" class="layui-input" value="' + item.unit_price + '" data-index="' + index + '" data-field="unit_price"></td>';
+                    html += '<td>' + item.amount.toFixed(2) + '</td>';
+                    html += '<td><input type="date" class="layui-input" value="' + (item.expected_date || '') + '" data-index="' + index + '" data-field="expected_date"></td>';
+                    html += '<td><button type="button" class="layui-btn layui-btn-xs layui-btn-danger" onclick="removeItem(' + index + ')">删除</button></td>';
+                    html += '</tr>';
+                });
+                $('#itemsBody').html(html);
+                calculateTotals();
+            }
+            
+            window.removeItem = function(index){
+                items.splice(index, 1);
+                renderItems();
+            };
+            
+            $('#itemsBody').on('change', 'input', function(){
+                var index = $(this).data('index');
+                var field = $(this).data('field');
+                var value = $(this).val();
+                
+                if(field === 'quantity' || field === 'unit_price'){
+                    value = parseFloat(value) || 0;
+                }
+                
+                items[index][field] = value;
+                
+                if(field === 'quantity' || field === 'unit_price'){
+                    items[index].amount = items[index].quantity * items[index].unit_price;
+                }
+                
+                renderItems();
+            });
+            
+            function calculateTotals(){
+                var totalQty = 0;
+                var totalAmt = 0;
+                items.forEach(function(item){
+                    totalQty += item.quantity;
+                    totalAmt += item.amount;
+                });
+                $('#total_quantity').val(totalQty.toFixed(4));
+                $('#total_amount').val(totalAmt.toFixed(2));
+            }
+            
+            form.on('submit(submitBtn)', function(data){
+                var submitData = data.field;
+                submitData.items = items.map(function(item){
+                    return {
+                        item_id: item.item_id,
+                        quantity: item.quantity,
+                        unit_price: item.unit_price,
+                        amount: item.amount,
+                        expected_date: item.expected_date || null
+                    };
+                });
+                
+                $.ajax({
+                    url: '/api/inventory/purchase/',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(submitData),
+                    success: function(res){
+                        if(res.code === 0){
+                            layer.msg('保存成功', {icon: 1});
+                            var index = parent.layer.getFrameIndex(window.name);
+                            parent.layer.close(index);
+                            parent.table.reload('purchaseTable');
+                        } else {
+                            layer.msg(res.msg, {icon: 2});
+                        }
+                    }
+                });
+                return false;
+            });
+        });
+    </script>
+</body>
+</html>

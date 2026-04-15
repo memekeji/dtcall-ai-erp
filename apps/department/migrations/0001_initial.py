@@ -93,7 +93,8 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 ("level", models.IntegerField(default=0, verbose_name="部门层级")),
-                ("is_active", models.BooleanField(default=True, verbose_name="是否启用")),
+                ("is_active", models.BooleanField(
+                    default=True, verbose_name="是否启用")),
             ],
             options={
                 "verbose_name": "部门",

@@ -9,8 +9,8 @@ from django.utils import timezone
 
 from apps.system.models import (
     Notice, MeetingReservation, Seal, SealApplication,
-    Document, DocumentCategory, DocumentReview, Asset, AssetRepair,
-    Vehicle, VehicleMaintenance, VehicleFee, VehicleOil
+    Document, DocumentCategory, Asset, AssetRepair, Vehicle,
+    VehicleMaintenance, VehicleFee, VehicleOil
 )
 from apps.oa.models import MeetingRoom
 
@@ -29,10 +29,18 @@ class NoticeForm(forms.ModelForm):
         widget=forms.CheckboxSelectMultiple(attrs={'class': 'layui-checkbox'}),
         label='目标用户'
     )
-    
+
     class Meta:
         model = Notice
-        fields = ['title', 'content', 'notice_type', 'is_top', 'is_published', 'target_departments', 'target_users', 'expire_time']
+        fields = [
+            'title',
+            'content',
+            'notice_type',
+            'is_top',
+            'is_published',
+            'target_departments',
+            'target_users',
+            'expire_time']
         widgets = {
             'title': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入公告标题'}),
             'content': forms.Textarea(attrs={'class': 'layui-textarea', 'placeholder': '请输入公告内容', 'rows': 10}),
@@ -54,7 +62,8 @@ class NoticeForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         from apps.department.models import Department
         from apps.user.models import Admin
-        self.fields['target_departments'].queryset = Department.objects.filter(is_active=True)
+        self.fields['target_departments'].queryset = Department.objects.filter(
+            is_active=True)
         self.fields['target_users'].queryset = Admin.objects.filter(status=1)
 
     def clean_title(self):
@@ -68,7 +77,7 @@ class MeetingRoomForm(forms.ModelForm):
     """会议室表单"""
     class Meta:
         model = MeetingRoom
-        fields = ['name', 'code', 'location', 'capacity', 'has_projector', 
+        fields = ['name', 'code', 'location', 'capacity', 'has_projector',
                   'has_whiteboard', 'has_tv', 'has_phone', 'has_wifi',
                   'equipment_list', 'description', 'status']
         widgets = {
@@ -101,7 +110,12 @@ class MeetingReservationForm(forms.ModelForm):
     """会议室预订表单"""
     class Meta:
         model = MeetingReservation
-        fields = ['meeting_room', 'title', 'start_time', 'end_time', 'description']
+        fields = [
+            'meeting_room',
+            'title',
+            'start_time',
+            'end_time',
+            'description']
         widgets = {
             'meeting_room': forms.Select(attrs={'class': 'layui-select'}),
             'title': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入会议主题'}),
@@ -121,14 +135,14 @@ class MeetingReservationForm(forms.ModelForm):
         cleaned_data = super().clean()
         start_time = cleaned_data.get('start_time')
         end_time = cleaned_data.get('end_time')
-        
+
         if start_time and end_time:
             if start_time >= end_time:
                 raise ValidationError('结束时间必须晚于开始时间')
-            
+
             if start_time < timezone.now():
                 raise ValidationError('开始时间不能早于当前时间')
-        
+
         return cleaned_data
 
 
@@ -234,8 +248,8 @@ class AssetForm(forms.ModelForm):
     """资产表单"""
     class Meta:
         model = Asset
-        fields = ['asset_number', 'name', 'category', 'brand', 'model', 'purchase_date', 
-                 'purchase_price', 'status', 'location', 'responsible_person', 'department', 'description']
+        fields = ['asset_number', 'name', 'category', 'brand', 'model', 'purchase_date',
+                  'purchase_price', 'status', 'location', 'responsible_person', 'department', 'description']
         widgets = {
             'asset_number': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入资产编号'}),
             'name': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入资产名称'}),
@@ -276,7 +290,11 @@ class AssetRepairForm(forms.ModelForm):
     """资产维修表单"""
     class Meta:
         model = AssetRepair
-        fields = ['asset', 'fault_description', 'repair_description', 'repair_cost']
+        fields = [
+            'asset',
+            'fault_description',
+            'repair_description',
+            'repair_cost']
         widgets = {
             'asset': forms.Select(attrs={'class': 'layui-select'}),
             'fault_description': forms.Textarea(attrs={'class': 'layui-textarea', 'placeholder': '请输入故障描述', 'rows': 5}),
@@ -301,8 +319,8 @@ class VehicleForm(forms.ModelForm):
     """车辆表单"""
     class Meta:
         model = Vehicle
-        fields = ['license_plate', 'brand', 'model', 'color', 'purchase_date', 
-                 'purchase_price', 'status', 'driver', 'description']
+        fields = ['license_plate', 'brand', 'model', 'color', 'purchase_date',
+                  'purchase_price', 'status', 'driver', 'description']
         widgets = {
             'license_plate': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入车牌号'}),
             'brand': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入品牌'}),
@@ -338,8 +356,8 @@ class VehicleMaintenanceForm(forms.ModelForm):
     """车辆维护表单"""
     class Meta:
         model = VehicleMaintenance
-        fields = ['vehicle', 'maintenance_type', 'maintenance_date', 'mileage', 'cost', 
-                 'service_provider', 'description', 'next_maintenance']
+        fields = ['vehicle', 'maintenance_type', 'maintenance_date', 'mileage', 'cost',
+                  'service_provider', 'description', 'next_maintenance']
         widgets = {
             'vehicle': forms.Select(attrs={'class': 'layui-select'}),
             'maintenance_type': forms.Select(attrs={'class': 'layui-select'}),
@@ -365,11 +383,11 @@ class VehicleMaintenanceForm(forms.ModelForm):
         cleaned_data = super().clean()
         maintenance_date = cleaned_data.get('maintenance_date')
         next_maintenance = cleaned_data.get('next_maintenance')
-        
+
         if maintenance_date and next_maintenance:
             if next_maintenance <= maintenance_date:
                 raise ValidationError('下次保养日期必须晚于本次维护日期')
-        
+
         return cleaned_data
 
 
@@ -404,7 +422,13 @@ class VehicleOilForm(forms.ModelForm):
     """车辆加油表单"""
     class Meta:
         model = VehicleOil
-        fields = ['vehicle', 'oil_date', 'oil_amount', 'oil_cost', 'mileage', 'gas_station']
+        fields = [
+            'vehicle',
+            'oil_date',
+            'oil_amount',
+            'oil_cost',
+            'mileage',
+            'gas_station']
         widgets = {
             'vehicle': forms.Select(attrs={'class': 'layui-select'}),
             'oil_date': forms.DateInput(attrs={'class': 'layui-input', 'type': 'date'}),

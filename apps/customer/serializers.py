@@ -1,7 +1,7 @@
 from rest_framework import serializers
-from .models import CustomerField, Customer
-from apps.user.models import Admin
+from .models import CustomerField
 import json
+
 
 class CustomerFieldSerializer(serializers.ModelSerializer):
     class Meta:
@@ -14,7 +14,8 @@ class CustomerFieldSerializer(serializers.ModelSerializer):
         name = validated_data.get('name')
         if name:
             # 转换为小写，替换非字母数字字符为下划线
-            code = 'custom_' + ''.join([c.lower() if c.isalnum() else '_' for c in name])
+            code = 'custom_' + \
+                ''.join([c.lower() if c.isalnum() else '_' for c in name])
             # 确保唯一性
             base_code = code
             counter = 1
@@ -42,8 +43,10 @@ class CustomerFieldSerializer(serializers.ModelSerializer):
                 if not isinstance(options, list):
                     raise serializers.ValidationError("下拉选择类型的选项必须是数组格式")
                 for option in options:
-                    if not isinstance(option, dict) or 'label' not in option or 'value' not in option:
-                        raise serializers.ValidationError("选项格式应为[{label: '显示文本', value: '值'}, ...]")
+                    if not isinstance(
+                            option, dict) or 'label' not in option or 'value' not in option:
+                        raise serializers.ValidationError(
+                            "选项格式应为[{label: '显示文本', value: '值'}, ...]")
                     parsed_options.append(option)
             except json.JSONDecodeError:
                 lines = value.strip().split('\n')
@@ -53,19 +56,22 @@ class CustomerFieldSerializer(serializers.ModelSerializer):
                         continue
                     parts = line.split(':', 1)
                     if len(parts) != 2:
-                        raise serializers.ValidationError(f"选项 '{line}' 格式不正确，应为 '值:显示文本'")
-                    option_value, option_label = parts[0].strip(), parts[1].strip()
-                    parsed_options.append({'value': option_value, 'label': option_label})
+                        raise serializers.ValidationError(
+                            f"选项 '{line}' 格式不正确，应为 '值:显示文本'")
+                    option_value, option_label = parts[0].strip(
+                    ), parts[1].strip()
+                    parsed_options.append(
+                        {'value': option_value, 'label': option_label})
 
             # 检查选项值的唯一性
             if parsed_options:
                 values = [option['value'] for option in parsed_options]
                 if len(values) != len(set(values)):
                     raise serializers.ValidationError("选项值不能重复")
-            
+
             # 将解析后的选项转换为JSON字符串存储
             return json.dumps(parsed_options)
-        
+
         # 如果不是select类型或者没有值，则直接返回
         return value
 

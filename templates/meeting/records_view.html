@@ -98,7 +98,7 @@ function createMinutes() {
     layer.open({
         type: 1,
         title: '创建会议纪要',
-        area: ['600px', '350px'],
+        area: ['80%', '100%'],
         content: `
             <div style="padding: 20px;">
                 <div style="margin-bottom: 20px;">
@@ -148,7 +148,7 @@ function createMinutes() {
                     type: 2,
                     title: '创建会议纪要（录音生成）',
                     content: "{% url 'personal:minutes_add' %}?meeting_id=" + meetingId + "&audio=true",
-                    area: ['800px', '600px'],
+                    area: ['80%', '100%'],
                     position: 'rb',
                     zIndex: 9999,
                     scrollbar: true,
@@ -221,7 +221,7 @@ function createMinutes() {
                     type: 2,
                     title: '创建会议纪要',
                     content: "{% url 'personal:minutes_add' %}?meeting_id=" + meetingId,
-                    area: ['800px', '600px'],
+                    area: ['80%', '100%'],
                     position: 'rb',
                     zIndex: 9999,
                     scrollbar: true,

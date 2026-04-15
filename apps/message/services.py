@@ -1,11 +1,11 @@
 import json
 import logging
-from typing import List, Optional, Union, Dict, Any
-from django.db import transaction
+from typing import List, Dict, Any
+from django.db import transaction, models
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 
-from .models import MessageCategory, Message, MessageUserRelation, NotificationPreference
+from .models import MessageCategory, Message, MessageUserRelation
 from apps.common.cache_service import MessageCache
 
 logger = logging.getLogger(__name__)
@@ -14,9 +14,13 @@ User = get_user_model()
 
 class MessageService:
     """消息服务类 - 提供消息创建和推送的统一接口"""
-    
+
     @staticmethod
-    def get_or_create_category(code: str, name: str, category_type: str, icon: str = 'layui-icon-notice') -> MessageCategory:
+    def get_or_create_category(
+            code: str,
+            name: str,
+            category_type: str,
+            icon: str = 'layui-icon-notice') -> MessageCategory:
         """获取或创建消息分类"""
         category, created = MessageCategory.objects.get_or_create(
             code=code,
@@ -27,7 +31,7 @@ class MessageService:
             }
         )
         return category
-    
+
     @staticmethod
     def send_broadcast_notification(
         title: str,
@@ -42,11 +46,10 @@ class MessageService:
         """发送广播消息给所有用户"""
         try:
             category = MessageService.get_or_create_category(
-                code=category_code,
-                name=dict(MessageCategory.TYPE_CHOICES).get(category_code, '系统通知'),
-                category_type=category_code
-            )
-            
+                code=category_code, name=dict(
+                    MessageCategory.TYPE_CHOICES).get(
+                    category_code, '系统通知'), category_type=category_code)
+
             with transaction.atomic():
                 message = Message.objects.create(
                     category=category,
@@ -60,21 +63,21 @@ class MessageService:
                     related_object_id=related_object_id,
                     action_url=action_url
                 )
-                
+
                 all_users = User.objects.filter(status=1)
                 relations = [
                     MessageUserRelation(message=message, user=user)
                     for user in all_users
                 ]
                 MessageUserRelation.objects.bulk_create(relations)
-            
+
             logger.info(f'广播消息创建成功: {message.id}')
             return message
-            
+
         except Exception as e:
             logger.error(f'创建广播消息失败: {str(e)}')
             raise
-    
+
     @staticmethod
     def send_notification(
         title: str,
@@ -91,26 +94,25 @@ class MessageService:
         """发送通知给指定用户或部门"""
         try:
             category = MessageService.get_or_create_category(
-                code=category_code,
-                name=dict(MessageCategory.TYPE_CHOICES).get(category_code, '系统通知'),
-                category_type=category_code
-            )
-            
+                code=category_code, name=dict(
+                    MessageCategory.TYPE_CHOICES).get(
+                    category_code, '系统通知'), category_type=category_code)
+
             all_user_ids = set(user_ids or [])
-            
+
             if department_ids:
                 department_users = User.objects.filter(
                     models.Q(did__in=department_ids) |
                     models.Q(secondary_departments__id__in=department_ids)
                 ).values_list('id', flat=True).distinct()
                 all_user_ids.update(department_users)
-            
+
             if not all_user_ids:
                 logger.warning('没有指定目标用户，消息未发送')
                 return None
-            
+
             target_users_json = json.dumps(list(all_user_ids))
-            
+
             with transaction.atomic():
                 message = Message.objects.create(
                     category=category,
@@ -126,20 +128,20 @@ class MessageService:
                     related_object_id=related_object_id,
                     action_url=action_url
                 )
-                
+
                 relations = [
                     MessageUserRelation(message=message, user_id=user_id)
                     for user_id in all_user_ids
                 ]
                 MessageUserRelation.objects.bulk_create(relations)
-            
+
             logger.info(f'消息创建成功: {message.id}, 发送给 {len(all_user_ids)} 个用户')
             return message
-            
+
         except Exception as e:
             logger.error(f'创建消息失败: {str(e)}')
             raise
-    
+
     @staticmethod
     def mark_as_read(message_id: int, user: User) -> bool:
         """标记消息为已读"""
@@ -154,7 +156,7 @@ class MessageService:
             MessageCache.invalidate_unread_count(user.id)
             return True
         return False
-    
+
     @staticmethod
     def mark_all_as_read(user: User) -> int:
         """标记所有消息为已读"""
@@ -166,7 +168,7 @@ class MessageService:
         if count > 0:
             MessageCache.invalidate_unread_count(user.id)
         return count
-    
+
     @staticmethod
     def toggle_star(message_id: int, user: User) -> bool:
         """切换标星状态"""
@@ -179,18 +181,19 @@ class MessageService:
             relation.save()
             return relation.is_starred
         return False
-    
+
     @staticmethod
     def get_unread_count(user: User) -> int:
         """获取未读消息数量"""
         cached_count = MessageCache.get_unread_count(user.id)
         if cached_count is not None:
             return cached_count
-        
-        count = MessageUserRelation.objects.filter(user=user, is_read=False).count()
+
+        count = MessageUserRelation.objects.filter(
+            user=user, is_read=False).count()
         MessageCache.set_unread_count(user.id, count)
         return count
-    
+
     @staticmethod
     def get_user_messages(
         user: User,
@@ -201,23 +204,23 @@ class MessageService:
         page_size: int = 20
     ) -> Dict[str, Any]:
         """获取用户消息列表"""
-        relations = MessageUserRelation.objects.filter(user=user).select_related(
-            'message__category', 'message__sender'
-        )
-        
+        relations = MessageUserRelation.objects.filter(
+            user=user).select_related(
+            'message__category', 'message__sender')
+
         if category_type:
             relations = relations.filter(message__category__type=category_type)
-        
+
         if is_read is not None:
             relations = relations.filter(is_read=is_read)
-        
+
         if is_starred is not None:
             relations = relations.filter(is_starred=is_starred)
-        
+
         total = relations.count()
         offset = (page - 1) * page_size
         relations = relations[offset:offset + page_size]
-        
+
         messages = []
         for relation in relations:
             msg = relation.message
@@ -242,7 +245,7 @@ class MessageService:
                 'action_url': msg.action_url,
                 'created_at': msg.created_at
             })
-        
+
         return {
             'messages': messages,
             'total': total,
@@ -253,13 +256,14 @@ class MessageService:
 
 class NoticeNotificationService:
     """公告通知服务 - 处理公告相关消息推送（基于 Notice 模型）"""
-    
+
     @staticmethod
     def notify_new_notice(notice, sender: User = None):
         """新公告发布通知"""
         MessageService.send_broadcast_notification(
             title=f'新公告: {notice.title}',
-            content=notice.content[:200] + '...' if len(notice.content) > 200 else notice.content,
+            content=notice.content[:200] +
+            '...' if len(notice.content) > 200 else notice.content,
             category_code='announcement',
             sender=sender,
             priority=3,
@@ -267,7 +271,7 @@ class NoticeNotificationService:
             related_object_id=notice.id,
             action_url=f'/system/admin_office/notice/{notice.id}/'
         )
-    
+
     @staticmethod
     def notify_notice_update(notice, sender: User = None):
         """公告更新通知"""
@@ -285,9 +289,12 @@ class NoticeNotificationService:
 
 class ApprovalNotificationService:
     """审批通知服务 - 处理审批相关消息推送"""
-    
+
     @staticmethod
-    def notify_pending_approval(approval, reviewer_ids: List[int], sender: User = None):
+    def notify_pending_approval(
+            approval,
+            reviewer_ids: List[int],
+            sender: User = None):
         """待审批通知 - 通知审批人"""
         MessageService.send_notification(
             title=f'待审批: {approval.title}',
@@ -300,16 +307,21 @@ class ApprovalNotificationService:
             related_object_id=approval.id,
             action_url=f'/approval/process/{approval.id}/'
         )
-    
+
     @staticmethod
-    def notify_approval_completed(approval, applicant_id: int, status: str, reviewer_name: str = '', sender: User = None):
+    def notify_approval_completed(
+            approval,
+            applicant_id: int,
+            status: str,
+            reviewer_name: str = '',
+            sender: User = None):
         """审批完成通知 - 通知申请人"""
         status_text = {
             'approved': '已通过',
             'rejected': '已拒绝',
             'cancelled': '已取消'
         }.get(status, status)
-        
+
         MessageService.send_notification(
             title=f'审批结果: {approval.title}',
             content=f'您的审批申请已被 {reviewer_name} {status_text}。',
@@ -321,7 +333,7 @@ class ApprovalNotificationService:
             related_object_id=approval.id,
             action_url=f'/approval/detail/{approval.id}/'
         )
-    
+
     @staticmethod
     def notify_cc(approval, cc_user_ids: List[int], sender: User = None):
         """抄送通知 - 通知抄送人"""
@@ -336,9 +348,14 @@ class ApprovalNotificationService:
             related_object_id=approval.id,
             action_url=f'/approval/detail/{approval.id}/'
         )
-    
+
     @staticmethod
-    def notify_approval_comment(approval, user_id: int, commenter_name: str, comment: str, sender: User = None):
+    def notify_approval_comment(
+            approval,
+            user_id: int,
+            commenter_name: str,
+            comment: str,
+            sender: User = None):
         """审批评论/意见通知"""
         MessageService.send_notification(
             title=f'审批意见: {approval.title}',
@@ -354,13 +371,17 @@ class ApprovalNotificationService:
 
 class TaskNotificationService:
     """任务通知服务 - 处理任务相关消息推送"""
-    
+
     @staticmethod
-    def notify_task_created(task, assignee_ids: List[int], sender: User = None):
+    def notify_task_created(
+            task,
+            assignee_ids: List[int],
+            sender: User = None):
         """任务创建通知 - 通知任务负责人"""
         MessageService.send_notification(
             title=f'新任务: {task.title}',
-            content=task.description[:200] + '...' if task.description and len(task.description) > 200 else (task.description or ''),
+            content=task.description[:200] + '...' if task.description and len(
+                task.description) > 200 else (task.description or ''),
             category_code='task',
             user_ids=assignee_ids,
             sender=sender,
@@ -369,9 +390,13 @@ class TaskNotificationService:
             related_object_id=task.id,
             action_url=f'/task/detail/{task.id}/'
         )
-    
+
     @staticmethod
-    def notify_task_assigned(task, assignee_id: int, assigner_name: str = '', sender: User = None):
+    def notify_task_assigned(
+            task,
+            assignee_id: int,
+            assigner_name: str = '',
+            sender: User = None):
         """任务分配通知 - 通知被分配人"""
         MessageService.send_notification(
             title=f'任务分配: {task.title}',
@@ -384,9 +409,14 @@ class TaskNotificationService:
             related_object_id=task.id,
             action_url=f'/task/detail/{task.id}/'
         )
-    
+
     @staticmethod
-    def notify_task_status_changed(task, user_id: int, status: str, changer_name: str = '', sender: User = None):
+    def notify_task_status_changed(
+            task,
+            user_id: int,
+            status: str,
+            changer_name: str = '',
+            sender: User = None):
         """任务状态变更通知"""
         status_text = {
             'in_progress': '进行中',
@@ -394,7 +424,7 @@ class TaskNotificationService:
             'cancelled': '已取消',
             'paused': '已暂停'
         }.get(status, status)
-        
+
         MessageService.send_notification(
             title=f'任务状态变更: {task.title}',
             content=f'{changer_name} 将任务状态更新为: {status_text}',
@@ -406,9 +436,13 @@ class TaskNotificationService:
             related_object_id=task.id,
             action_url=f'/task/detail/{task.id}/'
         )
-    
+
     @staticmethod
-    def notify_task_deadline(task, user_id: int, deadline_str: str, sender: User = None):
+    def notify_task_deadline(
+            task,
+            user_id: int,
+            deadline_str: str,
+            sender: User = None):
         """任务截止日期提醒"""
         MessageService.send_notification(
             title=f'任务截止提醒: {task.title}',
@@ -421,9 +455,14 @@ class TaskNotificationService:
             related_object_id=task.id,
             action_url=f'/task/detail/{task.id}/'
         )
-    
+
     @staticmethod
-    def notify_task_comment(task, user_id: int, commenter_name: str, comment: str, sender: User = None):
+    def notify_task_comment(
+            task,
+            user_id: int,
+            commenter_name: str,
+            comment: str,
+            sender: User = None):
         """任务评论通知"""
         MessageService.send_notification(
             title=f'任务评论: {task.title}',
@@ -440,9 +479,12 @@ class TaskNotificationService:
 
 class SystemNotificationService:
     """系统通知服务 - 处理系统级消息推送"""
-    
+
     @staticmethod
-    def notify_system_maintenance(scheduled_time: str, duration: str, sender: User = None):
+    def notify_system_maintenance(
+            scheduled_time: str,
+            duration: str,
+            sender: User = None):
         """系统维护通知"""
         MessageService.send_broadcast_notification(
             title='系统维护通知',
@@ -452,9 +494,12 @@ class SystemNotificationService:
             priority=4,
             action_url='/system/notice/'
         )
-    
+
     @staticmethod
-    def notify_policy_update(policy_title: str, summary: str, sender: User = None):
+    def notify_policy_update(
+            policy_title: str,
+            summary: str,
+            sender: User = None):
         """政策/制度更新通知"""
         MessageService.send_broadcast_notification(
             title=f'制度更新: {policy_title}',

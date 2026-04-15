@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 
+
 class Department(models.Model):
     """部门模型"""
     title = models.CharField('部门名称', max_length=50)

@@ -23,15 +23,18 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "title",
-                    models.CharField(default="", max_length=255, verbose_name="审批标题"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="审批标题"),
                 ),
                 (
                     "type_id",
-                    models.PositiveIntegerField(default=0, verbose_name="审批类型ID"),
+                    models.PositiveIntegerField(
+                        default=0, verbose_name="审批类型ID"),
                 ),
                 (
                     "applicant_id",
-                    models.PositiveIntegerField(default=0, verbose_name="申请人ID"),
+                    models.PositiveIntegerField(
+                        default=0, verbose_name="申请人ID"),
                 ),
                 (
                     "status",
@@ -49,11 +52,13 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "content",
-                    models.TextField(blank=True, default="", verbose_name="申请内容"),
+                    models.TextField(
+                        blank=True, default="", verbose_name="申请内容"),
                 ),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",
@@ -93,7 +98,8 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 ("description", models.TextField(blank=True, verbose_name="流程描述")),
-                ("is_active", models.BooleanField(default=True, verbose_name="是否启用")),
+                ("is_active", models.BooleanField(
+                    default=True, verbose_name="是否启用")),
                 (
                     "initiator_departments",
                     models.CharField(
@@ -126,11 +132,13 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "form_fields",
-                    models.TextField(blank=True, default="[]", verbose_name="自定义表单字段"),
+                    models.TextField(
+                        blank=True, default="[]", verbose_name="自定义表单字段"),
                 ),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
             ],
             options={
@@ -151,7 +159,8 @@ class Migration(migrations.Migration):
                         verbose_name="ID",
                     ),
                 ),
-                ("step_order", models.IntegerField(default=1, verbose_name="步骤序号")),
+                ("step_order", models.IntegerField(
+                    default=1, verbose_name="步骤序号")),
                 ("step_name", models.CharField(max_length=100, verbose_name="步骤名称")),
                 (
                     "action",
@@ -170,7 +179,8 @@ class Migration(migrations.Migration):
                 ("comment", models.TextField(blank=True, verbose_name="审批意见")),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="处理时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="处理时间"),
                 ),
             ],
             options={
@@ -228,15 +238,18 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "approver_role",
-                    models.CharField(blank=True, max_length=100, verbose_name="审批角色"),
+                    models.CharField(
+                        blank=True, max_length=100, verbose_name="审批角色"),
                 ),
                 (
                     "approver_department",
-                    models.CharField(blank=True, max_length=100, verbose_name="审批部门"),
+                    models.CharField(
+                        blank=True, max_length=100, verbose_name="审批部门"),
                 ),
                 (
                     "approver_level",
-                    models.CharField(blank=True, max_length=100, verbose_name="审批级别"),
+                    models.CharField(
+                        blank=True, max_length=100, verbose_name="审批级别"),
                 ),
                 (
                     "cc_users",
@@ -278,7 +291,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "condition_field",
-                    models.CharField(blank=True, max_length=100, verbose_name="条件字段"),
+                    models.CharField(
+                        blank=True, max_length=100, verbose_name="条件字段"),
                 ),
                 (
                     "condition_operator",
@@ -291,18 +305,21 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "condition_value",
-                    models.CharField(blank=True, max_length=200, verbose_name="条件值"),
+                    models.CharField(
+                        blank=True, max_length=200, verbose_name="条件值"),
                 ),
                 (
                     "time_limit_hours",
-                    models.IntegerField(blank=True, null=True, verbose_name="处理时限(小时)"),
+                    models.IntegerField(
+                        blank=True, null=True, verbose_name="处理时限(小时)"),
                 ),
                 (
                     "auto_approve_on_timeout",
                     models.BooleanField(default=False, verbose_name="超时自动通过"),
                 ),
                 ("description", models.TextField(blank=True, verbose_name="步骤说明")),
-                ("is_required", models.BooleanField(default=True, verbose_name="是否必须")),
+                ("is_required", models.BooleanField(
+                    default=True, verbose_name="是否必须")),
                 (
                     "is_parallel",
                     models.BooleanField(default=False, verbose_name="是否并行处理"),
@@ -311,7 +328,8 @@ class Migration(migrations.Migration):
                     "allow_delegate",
                     models.BooleanField(default=True, verbose_name="允许委托"),
                 ),
-                ("allow_skip", models.BooleanField(default=False, verbose_name="允许跳过")),
+                ("allow_skip", models.BooleanField(
+                    default=False, verbose_name="允许跳过")),
                 (
                     "require_comment",
                     models.BooleanField(default=True, verbose_name="需要审批意见"),
@@ -324,7 +342,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
             ],
             options={
@@ -349,18 +368,22 @@ class Migration(migrations.Migration):
                 ("name", models.CharField(max_length=100, verbose_name="类型名称")),
                 (
                     "code",
-                    models.CharField(max_length=50, unique=True, verbose_name="类型代码"),
+                    models.CharField(
+                        max_length=50, unique=True, verbose_name="类型代码"),
                 ),
                 ("description", models.TextField(blank=True, verbose_name="类型描述")),
                 (
                     "icon",
-                    models.CharField(blank=True, max_length=50, verbose_name="图标"),
+                    models.CharField(
+                        blank=True, max_length=50, verbose_name="图标"),
                 ),
                 ("sort_order", models.IntegerField(default=0, verbose_name="排序")),
-                ("is_active", models.BooleanField(default=True, verbose_name="是否启用")),
+                ("is_active", models.BooleanField(
+                    default=True, verbose_name="是否启用")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
             ],
             options={

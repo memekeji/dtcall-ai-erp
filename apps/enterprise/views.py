@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render
 from django.http import JsonResponse
 from .models import Enterprise
 from django.contrib.auth.decorators import login_required
@@ -7,10 +7,14 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 @login_required
 def enterprise_list(request):
     enterprises = Enterprise.objects.filter(status=1).order_by('-create_time')
-    return render(request, 'enterprise/enterprise_list.html', {'enterprises': enterprises})
+    return render(request,
+                  'enterprise/enterprise_list.html',
+                  {'enterprises': enterprises})
+
 
 @login_required
 def enterprise_add(request, id=0):
@@ -42,4 +46,5 @@ def enterprise_add(request, id=0):
     else:
         # GET请求返回表单页面
         detail = Enterprise.objects.get(id=id) if id else None
-        return render(request, 'enterprise/enterprise_add.html', {'detail': detail, 'id': id})
+        return render(request, 'enterprise/enterprise_add.html',
+                      {'detail': detail, 'id': id})

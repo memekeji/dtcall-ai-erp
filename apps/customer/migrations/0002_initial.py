@@ -269,21 +269,28 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="customer",
-            index=models.Index(fields=["create_time"], name="idx_customer_create_time"),
+            index=models.Index(
+                fields=["create_time"],
+                name="idx_customer_create_time"),
         ),
         migrations.AddIndex(
             model_name="customer",
-            index=models.Index(fields=["follow_time"], name="idx_customer_follow_time"),
+            index=models.Index(
+                fields=["follow_time"],
+                name="idx_customer_follow_time"),
         ),
         migrations.AddIndex(
             model_name="customer",
-            index=models.Index(fields=["delete_time"], name="idx_customer_delete_time"),
+            index=models.Index(
+                fields=["delete_time"],
+                name="idx_customer_delete_time"),
         ),
         migrations.AddConstraint(
             model_name="customer",
             constraint=models.CheckConstraint(
                 check=models.Q(
-                    ("name__isnull", False), models.Q(("name", ""), _negated=True)
+                    ("name__isnull", False), models.Q(
+                        ("name", ""), _negated=True)
                 ),
                 name="customer_name_not_empty",
             ),

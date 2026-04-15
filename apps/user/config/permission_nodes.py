@@ -519,7 +519,8 @@ PERMISSION_NODES = {
                         'name': '报销记录',
                         'permissions': [
                             {'codename': 'view_reimbursement_record', 'name': '菜单查看'},
-                            {'codename': 'view_reimbursement_record_detail', 'name': '查看记录'},
+                            {'codename': 'view_reimbursement_record_detail',
+                                'name': '查看记录'},
                         ]
                     },
                     'invoice_record': {
@@ -533,14 +534,16 @@ PERMISSION_NODES = {
                         'name': '收票记录',
                         'permissions': [
                             {'codename': 'view_receive_invoice_record', 'name': '菜单查看'},
-                            {'codename': 'view_receive_invoice_record_detail', 'name': '查看记录'},
+                            {'codename': 'view_receive_invoice_record_detail',
+                                'name': '查看记录'},
                         ]
                     },
                     'payment_receive_record': {
                         'name': '回款记录',
                         'permissions': [
                             {'codename': 'view_payment_receive_record', 'name': '菜单查看'},
-                            {'codename': 'view_payment_receive_record_detail', 'name': '查看记录'},
+                            {'codename': 'view_payment_receive_record_detail',
+                                'name': '查看记录'},
                         ]
                     },
                     'payment_record': {
@@ -621,7 +624,8 @@ PERMISSION_NODES = {
                             {'codename': 'view_public_customer', 'name': '菜单查看'},
                             {'codename': 'add_public_customer', 'name': '新增公海客户'},
                             {'codename': 'claim_public_customer', 'name': '认领客户'},
-                            {'codename': 'view_public_customer_detail', 'name': '公海客户详情'},
+                            {'codename': 'view_public_customer_detail',
+                                'name': '公海客户详情'},
                             {'codename': 'discard_customer', 'name': '移入废弃客户'},
                         ]
                     },
@@ -1174,25 +1178,26 @@ def get_all_permission_codenames():
             for perm in module_config['permissions']:
                 if perm.get('codename'):
                     codenames.append(perm['codename'])
-        
+
         if 'children' in module_config:
             for child_key, child_config in module_config['children'].items():
                 codenames.append(f'view_{child_key}')
-                
+
                 if 'permissions' in child_config:
                     for perm in child_config['permissions']:
                         if perm.get('codename'):
                             codenames.append(perm['codename'])
-                
+
                 if 'children' in child_config:
-                    for sub_key, sub_config in child_config['children'].items():
+                    for sub_key, sub_config in child_config['children'].items(
+                    ):
                         codenames.append(f'view_{sub_key}')
-                        
+
                         if 'permissions' in sub_config:
                             for perm in sub_config['permissions']:
                                 if perm.get('codename'):
                                     codenames.append(perm['codename'])
-    
+
     return codenames
 
 
@@ -1203,34 +1208,35 @@ def get_permission_name(codename):
             for perm in module_config['permissions']:
                 if perm.get('codename') == codename:
                     return perm.get('name', codename)
-        
+
         if 'children' in module_config:
             for child_key, child_config in module_config['children'].items():
                 if f'view_{child_key}' == codename:
                     return '菜单查看'
-                
+
                 if 'permissions' in child_config:
                     for perm in child_config['permissions']:
                         if perm.get('codename') == codename:
                             return perm.get('name', codename)
-                
+
                 if 'children' in child_config:
-                    for sub_key, sub_config in child_config['children'].items():
+                    for sub_key, sub_config in child_config['children'].items(
+                    ):
                         if f'view_{sub_key}' == codename:
                             return '菜单查看'
-                        
+
                         if 'permissions' in sub_config:
                             for perm in sub_config['permissions']:
                                 if perm.get('codename') == codename:
                                     return perm.get('name', codename)
-    
+
     return codename
 
 
 def build_permission_tree():
     """构建权限树结构用于前端显示"""
     tree = []
-    
+
     for module_key, module_config in PERMISSION_NODES.items():
         module_node = {
             'key': module_key,
@@ -1239,7 +1245,7 @@ def build_permission_tree():
             'children': [],
             'type': 'module'
         }
-        
+
         if 'children' in module_config:
             for child_key, child_config in module_config['children'].items():
                 child_node = {
@@ -1248,9 +1254,10 @@ def build_permission_tree():
                     'children': [],
                     'type': 'menu'
                 }
-                
+
                 if 'children' in child_config:
-                    for sub_key, sub_config in child_config['children'].items():
+                    for sub_key, sub_config in child_config['children'].items(
+                    ):
                         sub_node = {
                             'key': sub_key,
                             'title': sub_config.get('name', sub_key),
@@ -1259,12 +1266,13 @@ def build_permission_tree():
                         }
                         child_node['children'].append(sub_node)
                 else:
-                    child_node['permissions'] = child_config.get('permissions', [])
-                
+                    child_node['permissions'] = child_config.get(
+                        'permissions', [])
+
                 module_node['children'].append(child_node)
         else:
             module_node['permissions'] = module_config.get('permissions', [])
-        
+
         tree.append(module_node)
-    
+
     return tree

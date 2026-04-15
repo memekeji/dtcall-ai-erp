@@ -25,35 +25,41 @@ def get_base_context(model_class, title, list_url):
     }
 
 
-def generic_list_view(request, model_class, template_name, search_fields=None, filter_fields=None):
+def generic_list_view(
+        request,
+        model_class,
+        template_name,
+        search_fields=None,
+        filter_fields=None):
     search = request.GET.get('search', '')
     objects = model_class.objects.all()
-    
+
     if search and search_fields:
         q_objects = Q()
         for field in search_fields:
             q_objects |= Q(**{f"{field}__icontains": search})
         objects = objects.filter(q_objects)
-    
+
     if filter_fields:
         for field, value in filter_fields.items():
             if value:
                 objects = objects.filter(**{field: value})
-    
+
     time_field = 'created_at'
     try:
         model_class._meta.get_field('created_at')
-    except:
+    except BaseException:
         time_field = 'id'
-    
+
     objects = objects.order_by(f'-{time_field}')
-    
+
     page = int(request.GET.get('page', 1))
     limit = int(request.GET.get('limit', 20))
     paginator = Paginator(objects, limit)
     page_obj = paginator.get_page(page)
-    
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'page' in request.GET and 'limit' in request.GET:
+
+    if request.headers.get(
+            'X-Requested-With') == 'XMLHttpRequest' or 'page' in request.GET and 'limit' in request.GET:
         data = []
         for obj in page_obj:
             obj_dict = {'id': obj.id}
@@ -68,14 +74,14 @@ def generic_list_view(request, model_class, template_name, search_fields=None, f
                         value = str(value)
                     obj_dict[field.name] = value
             data.append(obj_dict)
-        
+
         return JsonResponse({
             'code': 0,
             'msg': '',
             'count': paginator.count,
             'data': data
         })
-    
+
     context = {
         'page_obj': page_obj,
         'search': search,
@@ -87,48 +93,59 @@ def generic_list_view(request, model_class, template_name, search_fields=None, f
         'edit_url': f"{request.path.rstrip('/')}/{{id}}/edit/",
         'delete_url': f"/approval/delete/{model_class._meta.model_name}/{{id}}/",
     }
-    
+
     return render(request, template_name, context)
 
 
-def generic_form_view(request, model_class, form_class, template_name, success_url, pk=None):
+def generic_form_view(
+        request,
+        model_class,
+        form_class,
+        template_name,
+        success_url,
+        pk=None):
     obj = None
     if pk:
         obj = get_object_or_404(model_class, pk=pk)
-    
+
     if request.method == 'POST':
         form = form_class(request.POST, instance=obj)
-        
-        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.content_type == 'application/json'
-        
+
+        is_ajax = request.headers.get(
+            'X-Requested-With') == 'XMLHttpRequest' or request.content_type == 'application/json'
+
         if is_ajax:
             if form.is_valid():
                 try:
                     form.save()
-                    return JsonResponse({'code': 0, 'msg': f'{model_class._meta.verbose_name}保存成功！'})
+                    return JsonResponse(
+                        {'code': 0, 'msg': f'{model_class._meta.verbose_name}保存成功！'})
                 except Exception as e:
                     return JsonResponse({'code': 1, 'msg': f'保存失败: {str(e)}'})
             else:
-                return JsonResponse({'code': 1, 'msg': '表单验证失败', 'errors': form.errors})
+                return JsonResponse(
+                    {'code': 1, 'msg': '表单验证失败', 'errors': form.errors})
         else:
             if form.is_valid():
                 try:
                     form.save()
-                    return JsonResponse({'code': 0, 'msg': f'{model_class._meta.verbose_name}保存成功！'})
+                    return JsonResponse(
+                        {'code': 0, 'msg': f'{model_class._meta.verbose_name}保存成功！'})
                 except Exception as e:
                     return JsonResponse({'code': 1, 'msg': f'保存失败: {str(e)}'})
             else:
-                return JsonResponse({'code': 1, 'msg': '表单验证失败', 'errors': form.errors})
+                return JsonResponse(
+                    {'code': 1, 'msg': '表单验证失败', 'errors': form.errors})
     else:
         form = form_class(instance=obj)
-    
+
     context = {
         'form': form,
         'object': obj,
         'page_title': f"{'编辑' if obj else '新增'}{model_class._meta.verbose_name}",
         'back_url': success_url,
     }
-    
+
     return render(request, template_name, context)
 
 
@@ -180,18 +197,20 @@ def approval_flow_form(request, pk=None):
 def approval_flow_steps(request, pk):
     flow = get_object_or_404(ApprovalFlow, pk=pk)
     steps = flow.steps.all().order_by('step_order')
-    
+
     if request.GET.get('format') == 'json':
         steps_data = []
         for step in steps:
             cc_users_list = []
             notification_users_list = []
-            
+
             if step.cc_users:
-                cc_users_list = [int(x.strip()) for x in step.cc_users.split(',') if x.strip().isdigit()]
+                cc_users_list = [int(x.strip()) for x in step.cc_users.split(
+                    ',') if x.strip().isdigit()]
             if step.notification_users:
-                notification_users_list = [int(x.strip()) for x in step.notification_users.split(',') if x.strip().isdigit()]
-            
+                notification_users_list = [int(
+                    x.strip()) for x in step.notification_users.split(',') if x.strip().isdigit()]
+
             step_dict = {
                 'id': step.id,
                 'step_type': step.step_type,
@@ -211,24 +230,43 @@ def approval_flow_steps(request, pk):
                 'notification_users': notification_users_list,
             }
             steps_data.append(step_dict)
-        
+
         return JsonResponse({
             'flow_id': flow.id,
             'flow_name': flow.name,
             'steps': steps_data
         })
-    
+
     import json
     from apps.department.models import Department
-    
-    users_list = list(User.objects.filter(is_active=True).values('id', 'username', 'first_name', 'last_name')[:100])
+
+    users_list = list(
+        User.objects.filter(
+            is_active=True).values(
+            'id',
+            'username',
+            'first_name',
+            'last_name')[
+                :100])
     for user in users_list:
-        user['full_name'] = (user.get('first_name', '') + ' ' + user.get('last_name', '')).strip() or user['username']
+        user['full_name'] = (
+            user.get(
+                'first_name',
+                '') +
+            ' ' +
+            user.get(
+                'last_name',
+                '')).strip() or user['username']
         del user['first_name']
         del user['last_name']
-    
-    depts_list = list(Department.objects.filter(is_active=True).values('id', 'name')[:100])
-    
+
+    depts_list = list(
+        Department.objects.filter(
+            is_active=True).values(
+            'id',
+            'name')[
+                :100])
+
     context = {
         'flow': flow,
         'steps': steps,
@@ -244,7 +282,7 @@ def approval_step_form(request, flow_pk, pk=None):
     step = None
     if pk:
         step = get_object_or_404(ApprovalStep, pk=pk, flow=flow)
-    
+
     if request.method == 'POST':
         form = ApprovalStepForm(request.POST, instance=step, flow=flow)
         if form.is_valid():
@@ -256,7 +294,7 @@ def approval_step_form(request, flow_pk, pk=None):
             return redirect('approval:approval_flow_steps', pk=flow.pk)
     else:
         form = ApprovalStepForm(instance=step, flow=flow)
-    
+
     context = {
         'form': form,
         'flow': flow,
@@ -270,12 +308,12 @@ def approval_step_form(request, flow_pk, pk=None):
 def approval_step_delete(request, flow_pk, pk):
     flow = get_object_or_404(ApprovalFlow, pk=flow_pk)
     step = get_object_or_404(ApprovalStep, pk=pk, flow=flow)
-    
+
     if request.method == 'POST':
         step.delete()
         messages.success(request, '审批步骤删除成功！')
         return redirect('approval:approval_flow_steps', pk=flow.pk)
-    
+
     context = {
         'flow': flow,
         'step': step,
@@ -287,66 +325,74 @@ def approval_step_delete(request, flow_pk, pk):
 @require_POST
 def batch_create_steps(request, pk):
     flow = get_object_or_404(ApprovalFlow, pk=pk)
-    
+
     try:
         data = json.loads(request.body)
         steps = data.get('steps', [])
-        
+
         if not steps:
             return JsonResponse({'success': False, 'message': '请至少添加一个审批步骤'})
-        
+
         flow.steps.all().delete()
-        
+
         created_steps = []
-        
+
         for idx, step_data in enumerate(steps):
             step = ApprovalStep()
             step.flow = flow
             step.step_order = idx + 1
             step.step_name = step_data.get('step_name', f'审批步骤{idx + 1}')
             step.step_type = step_data.get('step_type', 'department_head')
-            
+
             frontend_type = step_data.get('step_type')
-            
+
             if frontend_type == 'cc':
                 step.action_type = 'cc'
                 cc_users = step_data.get('cc_users', [])
-                step.cc_users = ','.join(map(str, cc_users)) if cc_users else ''
+                step.cc_users = ','.join(
+                    map(str, cc_users)) if cc_users else ''
             elif frontend_type == 'notification':
                 step.action_type = 'notify'
-                notify_users = step_data.get('notify_users', step_data.get('notification_users', []))
-                step.notification_users = ','.join(map(str, notify_users)) if notify_users else ''
+                notify_users = step_data.get(
+                    'notify_users', step_data.get(
+                        'notification_users', []))
+                step.notification_users = ','.join(
+                    map(str, notify_users)) if notify_users else ''
             else:
                 step.action_type = 'approve'
-                
-                if frontend_type == 'specific_user' and step_data.get('approver_user'):
+
+                if frontend_type == 'specific_user' and step_data.get(
+                        'approver_user'):
                     try:
-                        step.approver = User.objects.get(pk=step_data.get('approver_user'))
+                        step.approver = User.objects.get(
+                            pk=step_data.get('approver_user'))
                     except User.DoesNotExist:
                         pass
                 elif frontend_type == 'department' and step_data.get('approver_department'):
-                    step.approver_department = step_data.get('approver_department')
+                    step.approver_department = step_data.get(
+                        'approver_department')
                 elif frontend_type == 'department_head':
                     step.approver_role = 'department_head'
                 elif frontend_type == 'role' and step_data.get('approver_role'):
                     step.approver_role = step_data.get('approver_role')
                 elif frontend_type == 'level' and step_data.get('approver_level'):
                     step.approver_level = step_data.get('approver_level')
-            
+
             if step_data.get('time_limit_hours'):
                 step.time_limit_hours = int(step_data.get('time_limit_hours'))
-            
+
             step.condition_field = step_data.get('condition_field', '')
             step.condition_operator = step_data.get('condition_operator', '')
             step.condition_value = step_data.get('condition_value', '')
             step.description = step_data.get('description', '')
             step.is_required = step_data.get('is_required', True)
-            
+
             step.save()
             created_steps.append(step)
-        
-        return JsonResponse({'success': True, 'message': '流程保存成功', 'steps_count': len(created_steps)}, json_dumps_params={'ensure_ascii': False})
-        
+
+        return JsonResponse({'success': True, 'message': '流程保存成功', 'steps_count': len(
+            created_steps)}, json_dumps_params={'ensure_ascii': False})
+
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'message': '数据格式错误'})
     except Exception as e:
@@ -357,12 +403,12 @@ def batch_create_steps(request, pk):
 def approval_flow_preview(request, pk):
     flow = get_object_or_404(ApprovalFlow, pk=pk)
     steps = flow.steps.all().order_by('step_order')
-    
+
     flow_data = {
         'nodes': [],
         'edges': []
     }
-    
+
     for step in steps:
         approver_info = ''
         if step.approver_role:
@@ -371,7 +417,7 @@ def approval_flow_preview(request, pk):
             approver_info = step.approver_department
         elif step.approver_level:
             approver_info = f"级别{step.approver_level}"
-        
+
         node = {
             'id': f'step_{step.id}',
             'label': step.step_name,
@@ -385,7 +431,7 @@ def approval_flow_preview(request, pk):
             'step_order': step.step_order,
         }
         flow_data['nodes'].append(node)
-    
+
     context = {
         'flow': flow,
         'steps': steps,
@@ -397,18 +443,21 @@ def approval_flow_preview(request, pk):
 @login_required
 def get_initiator_config(request, pk):
     flow = get_object_or_404(ApprovalFlow, pk=pk)
-    
+
     initiator_users = []
     initiator_departments = []
     initiator_roles = []
-    
+
     if flow.initiator_users:
-        initiator_users = [int(x.strip()) for x in flow.initiator_users.split(',') if x.strip().isdigit()]
+        initiator_users = [int(x.strip()) for x in flow.initiator_users.split(
+            ',') if x.strip().isdigit()]
     if flow.initiator_departments:
-        initiator_departments = [int(x.strip()) for x in flow.initiator_departments.split(',') if x.strip().isdigit()]
+        initiator_departments = [int(x.strip()) for x in flow.initiator_departments.split(
+            ',') if x.strip().isdigit()]
     if flow.initiator_roles:
-        initiator_roles = [x.strip() for x in flow.initiator_roles.split(',') if x.strip()]
-    
+        initiator_roles = [x.strip()
+                           for x in flow.initiator_roles.split(',') if x.strip()]
+
     return JsonResponse({
         'flow_id': flow.id,
         'flow_name': flow.name,
@@ -422,25 +471,28 @@ def get_initiator_config(request, pk):
 @require_POST
 def update_initiator_config(request, pk):
     flow = get_object_or_404(ApprovalFlow, pk=pk)
-    
+
     try:
         data = json.loads(request.body)
-        
+
         initiator_users = data.get('initiator_users', [])
         initiator_departments = data.get('initiator_departments', [])
         initiator_roles = data.get('initiator_roles', [])
-        
-        flow.initiator_users = ','.join(map(str, initiator_users)) if initiator_users else ''
-        flow.initiator_departments = ','.join(map(str, initiator_departments)) if initiator_departments else ''
-        flow.initiator_roles = ','.join(initiator_roles) if initiator_roles else ''
-        
+
+        flow.initiator_users = ','.join(
+            map(str, initiator_users)) if initiator_users else ''
+        flow.initiator_departments = ','.join(
+            map(str, initiator_departments)) if initiator_departments else ''
+        flow.initiator_roles = ','.join(
+            initiator_roles) if initiator_roles else ''
+
         flow.save()
-        
+
         return JsonResponse({
             'success': True,
             'message': '发起人配置保存成功'
         }, json_dumps_params={'ensure_ascii': False})
-        
+
     except json.JSONDecodeError:
         return JsonResponse({
             'success': False,
@@ -456,14 +508,14 @@ def update_initiator_config(request, pk):
 @login_required
 def get_start_config(request, pk):
     flow = get_object_or_404(ApprovalFlow, pk=pk)
-    
+
     form_fields = []
     if flow.form_fields:
         try:
             form_fields = json.loads(flow.form_fields)
         except json.JSONDecodeError:
             form_fields = []
-    
+
     return JsonResponse({
         'flow_id': flow.id,
         'flow_name': flow.name,
@@ -475,19 +527,19 @@ def get_start_config(request, pk):
 @require_POST
 def update_start_config(request, pk):
     flow = get_object_or_404(ApprovalFlow, pk=pk)
-    
+
     try:
         data = json.loads(request.body)
-        
+
         form_fields = data.get('form_fields', [])
         flow.form_fields = json.dumps(form_fields, ensure_ascii=False)
         flow.save()
-        
+
         return JsonResponse({
             'success': True,
             'message': '开始节点配置保存成功'
         }, json_dumps_params={'ensure_ascii': False})
-        
+
     except json.JSONDecodeError:
         return JsonResponse({
             'success': False,
@@ -503,13 +555,14 @@ def update_start_config(request, pk):
 @login_required
 def my_approval_list(request):
     user = request.user
-    approvals = Approval.objects.filter(applicant_id=user.id).order_by('-create_time')
-    
+    approvals = Approval.objects.filter(
+        applicant_id=user.id).order_by('-create_time')
+
     page = int(request.GET.get('page', 1))
     limit = int(request.GET.get('limit', 10))
     paginator = Paginator(approvals, limit)
     page_obj = paginator.get_page(page)
-    
+
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         data = []
         for obj in page_obj:
@@ -527,7 +580,7 @@ def my_approval_list(request):
             'count': paginator.count,
             'data': data
         })
-    
+
     context = {
         'page_obj': page_obj,
         'page_title': '我的审批',
@@ -549,31 +602,31 @@ def get_pending_approvals(request):
     user = request.user
     user_id = user.id
     user_dept_id = getattr(user, 'did', None)
-    
+
     user_roles = []
     if hasattr(user, 'roles'):
         user_roles = list(user.roles.values_list('code', flat=True))
     elif hasattr(user, 'role_codes'):
         user_roles = user.role_codes or []
-    
+
     pending_approvals = []
-    
+
     approvals = Approval.objects.filter(status=1).order_by('-create_time')
-    
+
     for approval in approvals:
         flow = approval.flow
         if not flow:
             continue
-        
+
         current_step_order = approval.current_step_order or 1
         current_step = flow.steps.filter(step_order=current_step_order).first()
-        
+
         if not current_step:
             continue
-        
+
         can_approve = False
         step_type = current_step.step_type
-        
+
         if step_type == 'department_head':
             if user_dept_id and hasattr(user, 'did'):
                 if str(user.did) == str(user_dept_id):
@@ -583,18 +636,22 @@ def get_pending_approvals(request):
                 can_approve = True
         elif step_type == 'department':
             if user_dept_id:
-                dept_ids = [x.strip() for x in (current_step.approver_department or '').split(',') if x.strip()]
+                dept_ids = [
+                    x.strip() for x in (
+                        current_step.approver_department or '').split(',') if x.strip()]
                 if str(user_dept_id) in dept_ids:
                     can_approve = True
         elif step_type == 'role':
-            role_codes = [x.strip() for x in (current_step.approver_role or '').split(',') if x.strip()]
+            role_codes = [
+                x.strip() for x in (
+                    current_step.approver_role or '').split(',') if x.strip()]
             for ur in user_roles:
                 if ur in role_codes:
                     can_approve = True
                     break
         elif step_type == 'level':
             pass
-        
+
         if can_approve:
             pending_approvals.append({
                 'id': approval.id,
@@ -606,7 +663,7 @@ def get_pending_approvals(request):
                 'current_step': current_step.step_name,
                 'step_type': current_step.get_step_type_display(),
             })
-    
+
     return JsonResponse({
         'code': 0,
         'msg': '',
@@ -618,14 +675,14 @@ def get_pending_approvals(request):
 @login_required
 def approval_detail(request, pk):
     approval = get_object_or_404(Approval, pk=pk)
-    
+
     flow = approval.flow
     steps = []
     if flow:
         steps = flow.steps.all().order_by('step_order')
-    
+
     records = approval.records.all().order_by('create_time')
-    
+
     context = {
         'approval': approval,
         'flow': flow,
@@ -639,21 +696,21 @@ def approval_detail(request, pk):
 @login_required
 def process_approval(request, pk):
     approval = get_object_or_404(Approval, pk=pk)
-    
+
     if approval.status not in [0, 1]:
         messages.error(request, '该审批已处理完成')
         return redirect('approval:pending_list')
-    
+
     flow = approval.flow
     steps = []
     if flow:
         steps = flow.steps.all().order_by('step_order')
-    
+
     current_step_order = approval.current_step_order or 1
     current_step = None
     if flow:
         current_step = flow.steps.filter(step_order=current_step_order).first()
-    
+
     context = {
         'approval': approval,
         'flow': flow,
@@ -668,39 +725,41 @@ def process_approval(request, pk):
 @require_POST
 def approval_action(request, pk):
     approval = get_object_or_404(Approval, pk=pk)
-    
+
     if approval.status not in [0, 1]:
         return JsonResponse({
             'success': False,
             'message': '该审批已处理完成，不能重复操作'
         }, json_dumps_params={'ensure_ascii': False})
-    
+
     try:
         data = json.loads(request.body)
         action = data.get('action', '')
         comment = data.get('comment', '')
-        
+
         if not action:
             return JsonResponse({
                 'success': False,
                 'message': '请选择操作类型'
             }, json_dumps_params={'ensure_ascii': False})
-        
+
         user = request.user
         flow = approval.flow
-        
+
         current_step_order = approval.current_step_order or 1
         current_step = None
         if flow:
-            current_step = flow.steps.filter(step_order=current_step_order).first()
-        
+            current_step = flow.steps.filter(
+                step_order=current_step_order).first()
+
         step_name = current_step.step_name if current_step else f'第{current_step_order}步'
-        
+
         if action == 'approve':
             next_step = None
             if flow:
-                next_step = flow.steps.filter(step_order=current_step_order + 1).first()
-            
+                next_step = flow.steps.filter(
+                    step_order=current_step_order + 1).first()
+
             if next_step:
                 approval.current_step_order = current_step_order + 1
                 approval.status = 1
@@ -708,17 +767,17 @@ def approval_action(request, pk):
                 approval.status = 2
                 approval.current_step_order = 0
             approval.save()
-            
+
         elif action == 'reject':
             approval.status = 3
             approval.current_step_order = 0
             approval.save()
-        
+
         elif action == 'cancel':
             approval.status = 4
             approval.current_step_order = 0
             approval.save()
-        
+
         elif action == 'delegate':
             delegate_to = data.get('delegate_to', 0)
             if not delegate_to:
@@ -726,7 +785,7 @@ def approval_action(request, pk):
                     'success': False,
                     'message': '请选择委托人'
                 }, json_dumps_params={'ensure_ascii': False})
-            
+
             ApprovalRecord.objects.create(
                 approval=approval,
                 step_order=current_step_order,
@@ -735,12 +794,12 @@ def approval_action(request, pk):
                 comment=comment,
                 handler=user
             )
-            
+
             return JsonResponse({
                 'success': True,
                 'message': '已委托给指定人员处理'
             }, json_dumps_params={'ensure_ascii': False})
-        
+
         ApprovalRecord.objects.create(
             approval=approval,
             step_order=current_step_order,
@@ -749,18 +808,18 @@ def approval_action(request, pk):
             comment=comment,
             handler=user
         )
-        
+
         action_msg = {
             'approve': '审批已通过',
             'reject': '审批已拒绝',
             'cancel': '已取消该审批'
         }.get(action, '操作成功')
-        
+
         return JsonResponse({
             'success': True,
             'message': action_msg
         }, json_dumps_params={'ensure_ascii': False})
-        
+
     except json.JSONDecodeError:
         return JsonResponse({
             'success': False,
@@ -777,9 +836,9 @@ def approval_action(request, pk):
 def apply_approval(request):
     user = request.user
     user_dept_id = getattr(user, 'did', None)
-    
+
     flows = ApprovalFlow.objects.filter(is_active=True)
-    
+
     available_flows = []
     for flow in flows:
         can_apply = False
@@ -787,27 +846,30 @@ def apply_approval(request):
             can_apply = True
         else:
             if flow.initiator_users:
-                user_ids = [int(x.strip()) for x in flow.initiator_users.split(',') if x.strip().isdigit()]
+                user_ids = [int(x.strip()) for x in flow.initiator_users.split(
+                    ',') if x.strip().isdigit()]
                 if user.id in user_ids:
                     can_apply = True
-            
+
             if not can_apply and flow.initiator_departments and user_dept_id:
-                dept_ids = [int(x.strip()) for x in flow.initiator_departments.split(',') if x.strip().isdigit()]
+                dept_ids = [int(x.strip()) for x in flow.initiator_departments.split(
+                    ',') if x.strip().isdigit()]
                 if user_dept_id in dept_ids:
                     can_apply = True
-            
+
             if not can_apply and flow.initiator_roles:
                 user_roles = []
                 if hasattr(user, 'roles'):
                     user_roles = [r.code for r in user.roles.all()]
                 elif hasattr(user, 'role_codes'):
                     user_roles = user.role_codes or []
-                flow_role_codes = [r.strip() for r in flow.initiator_roles.split(',') if r.strip()]
+                flow_role_codes = [
+                    r.strip() for r in flow.initiator_roles.split(',') if r.strip()]
                 for ur in user_roles:
                     if ur in flow_role_codes:
                         can_apply = True
                         break
-        
+
         if can_apply:
             step_count = flow.steps.count()
             available_flows.append({
@@ -817,7 +879,7 @@ def apply_approval(request):
                 'description': flow.description,
                 'step_count': step_count,
             })
-    
+
     context = {
         'flows': available_flows,
         'page_title': '发起审批',
@@ -829,11 +891,11 @@ def apply_approval(request):
 def create_approval(request, flow_id):
     flow = get_object_or_404(ApprovalFlow, pk=flow_id, is_active=True)
     steps = flow.steps.all().order_by('step_order')
-    
+
     if request.method == 'POST':
         title = request.POST.get('title', '')
         content = request.POST.get('content', '')
-        
+
         if not title:
             messages.error(request, '请输入审批标题')
         else:
@@ -846,16 +908,16 @@ def create_approval(request, flow_id):
             )
             messages.success(request, '审批申请已提交成功！')
             return redirect('approval:my_approval_list')
-    
+
     context = {
         'flow': flow,
         'steps': steps,
         'page_title': '提交审批 - ' + flow.name,
     }
-    
+
     if request.GET.get('iframe') == '1':
         return render(request, 'Approval/create_approval_iframe.html', context)
-    
+
     return render(request, 'Approval/create_approval.html', context)
 
 
@@ -863,9 +925,9 @@ def create_approval(request, flow_id):
 def get_available_flows(request):
     user = request.user
     user_dept_id = getattr(user, 'did', None)
-    
+
     flows = ApprovalFlow.objects.filter(is_active=True)
-    
+
     available_flows = []
     for flow in flows:
         can_apply = False
@@ -873,27 +935,30 @@ def get_available_flows(request):
             can_apply = True
         else:
             if flow.initiator_users:
-                user_ids = [int(x.strip()) for x in flow.initiator_users.split(',') if x.strip().isdigit()]
+                user_ids = [int(x.strip()) for x in flow.initiator_users.split(
+                    ',') if x.strip().isdigit()]
                 if user.id in user_ids:
                     can_apply = True
-            
+
             if not can_apply and flow.initiator_departments and user_dept_id:
-                dept_ids = [int(x.strip()) for x in flow.initiator_departments.split(',') if x.strip().isdigit()]
+                dept_ids = [int(x.strip()) for x in flow.initiator_departments.split(
+                    ',') if x.strip().isdigit()]
                 if user_dept_id in dept_ids:
                     can_apply = True
-            
+
             if not can_apply and flow.initiator_roles:
                 user_roles = []
                 if hasattr(user, 'roles'):
                     user_roles = [r.code for r in user.roles.all()]
                 elif hasattr(user, 'role_codes'):
                     user_roles = user.role_codes or []
-                flow_role_codes = [r.strip() for r in flow.initiator_roles.split(',') if r.strip()]
+                flow_role_codes = [
+                    r.strip() for r in flow.initiator_roles.split(',') if r.strip()]
                 for ur in user_roles:
                     if ur in flow_role_codes:
                         can_apply = True
                         break
-        
+
         if can_apply:
             available_flows.append({
                 'id': flow.id,
@@ -901,7 +966,7 @@ def get_available_flows(request):
                 'code': flow.code,
                 'description': flow.description or '',
             })
-    
+
     return JsonResponse({'flows': available_flows})
 
 
@@ -912,14 +977,43 @@ def delete_item(request, model_name, pk):
         'approvalflow': ApprovalFlow,
         'approvalstep': ApprovalStep,
     }
-    
+    try:
+        from apps.contract.models import (
+            ContractCategory,
+            ProductCategory,
+            ServiceCategory,
+            Service,
+            Supplier,
+            PurchaseCategory,
+            PurchaseItem,
+            Product,
+        )
+
+        model_map.update({
+            'contract_category': ContractCategory,
+            'product_category': ProductCategory,
+            'service_category': ServiceCategory,
+            'service': Service,
+            'supplier': Supplier,
+            'purchase_category': PurchaseCategory,
+            'purchase_item': PurchaseItem,
+            'product': Product,
+        })
+    except Exception:
+        pass
+
     model_class = model_map.get(model_name)
     if not model_class:
-        return JsonResponse({'success': False, 'message': '无效的模型类型'}, json_dumps_params={'ensure_ascii': False})
-    
+        return JsonResponse({'success': False,
+                             'message': '无效的模型类型'},
+                            json_dumps_params={'ensure_ascii': False})
+
     try:
         obj = get_object_or_404(model_class, pk=pk)
         obj.delete()
-        return JsonResponse({'success': True, 'message': '删除成功'}, json_dumps_params={'ensure_ascii': False})
+        return JsonResponse({'success': True, 'message': '删除成功'},
+                            json_dumps_params={'ensure_ascii': False})
     except Exception as e:
-        return JsonResponse({'success': False, 'message': f'删除失败：{str(e)}'}, json_dumps_params={'ensure_ascii': False})
+        return JsonResponse({'success': False,
+                             'message': f'删除失败：{str(e)}'},
+                            json_dumps_params={'ensure_ascii': False})

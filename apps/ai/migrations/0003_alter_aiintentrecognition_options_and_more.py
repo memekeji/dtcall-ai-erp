@@ -14,7 +14,9 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AlterModelOptions(
             name="aiintentrecognition",
-            options={"verbose_name": "AI 意图识别", "verbose_name_plural": "AI 意图识别"},
+            options={
+                "verbose_name": "AI 意图识别",
+                "verbose_name_plural": "AI 意图识别"},
         ),
         migrations.AlterModelOptions(
             name="ailog",
@@ -132,15 +134,18 @@ class Migration(migrations.Migration):
                         verbose_name="识别结果",
                     ),
                 ),
-                ("user_feedback", models.TextField(blank=True, verbose_name="用户反馈")),
-                ("is_correct", models.BooleanField(default=True, verbose_name="是否正确")),
+                ("user_feedback", models.TextField(
+                    blank=True, verbose_name="用户反馈")),
+                ("is_correct", models.BooleanField(
+                    default=True, verbose_name="是否正确")),
                 (
                     "used_for_training",
                     models.BooleanField(default=False, verbose_name="是否用于训练"),
                 ),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "user",

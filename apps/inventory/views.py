@@ -1,11 +1,8 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse, HttpResponse
-from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
+from django.shortcuts import render, get_object_or_404
+from django.http import JsonResponse
 from django.db import transaction
-from django.db.models import Sum, Count, F, Q
+from django.db.models import Sum, Count, Q
 from django.utils import timezone
-from datetime import datetime, timedelta
 import json
 import logging
 
@@ -13,17 +10,18 @@ from apps.user.models import Admin
 from .models import (
     Warehouse, WarehouseLocation, InventoryCategory, InventoryItem,
     Inventory, StockTransaction, StockIn, StockInItem, StockOut, StockOutItem,
-    StockTransfer, StockTransferItem, StockCheck, StockCheckItem,
-    PurchaseOrder, PurchaseOrderItem, SalesOrder, SalesOrderItem,
-    InventoryAlert, InventoryReport
+    StockTransfer, StockCheck, PurchaseOrder, SalesOrder,
+    InventoryAlert
 )
 from .forms import (
-    WarehouseForm, WarehouseLocationForm, InventoryCategoryForm, InventoryItemForm,
-    StockInForm, StockInItemForm, StockOutForm, StockOutItemForm,
-    StockTransferForm, StockTransferItemForm, StockCheckForm, StockCheckItemForm,
-    PurchaseOrderForm, PurchaseOrderItemForm, SalesOrderForm, SalesOrderItemForm,
-    InventoryAlertForm
-)
+    WarehouseForm,
+    WarehouseLocationForm,
+    InventoryCategoryForm,
+    InventoryItemForm,
+    StockInForm,
+    StockInItemForm,
+    StockOutForm,
+    StockOutItemForm)
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +64,8 @@ class WarehouseView(InventoryMixin):
             'remark': w.remark,
             'create_time': w.create_time.strftime('%Y-%m-%d %H:%M:%S'),
         } for w in warehouses]
-        return JsonResponse({'code': 0, 'msg': 'success', 'data': data, 'count': len(data)})
+        return JsonResponse({'code': 0, 'msg': 'success',
+                            'data': data, 'count': len(data)})
 
     def get(self, request, pk=None):
         if pk:
@@ -98,8 +97,10 @@ class WarehouseView(InventoryMixin):
             if form.is_valid():
                 warehouse = form.save()
                 if data.get('is_default', False):
-                    Warehouse.objects.filter(~Q(pk=warehouse.pk), is_default=True).update(is_default=False)
-                return JsonResponse({'code': 0, 'msg': '创建成功', 'data': {'id': warehouse.id}})
+                    Warehouse.objects.filter(
+                        ~Q(pk=warehouse.pk), is_default=True).update(is_default=False)
+                return JsonResponse(
+                    {'code': 0, 'msg': '创建成功', 'data': {'id': warehouse.id}})
             return JsonResponse({'code': 1, 'msg': form.errors})
         except Exception as e:
             logger.error(f"创建仓库失败: {e}")
@@ -113,8 +114,10 @@ class WarehouseView(InventoryMixin):
             if form.is_valid():
                 warehouse = form.save()
                 if data.get('is_default', False):
-                    Warehouse.objects.filter(~Q(pk=warehouse.pk), is_default=True).update(is_default=False)
-                return JsonResponse({'code': 0, 'msg': '更新成功', 'data': {'id': warehouse.id}})
+                    Warehouse.objects.filter(
+                        ~Q(pk=warehouse.pk), is_default=True).update(is_default=False)
+                return JsonResponse(
+                    {'code': 0, 'msg': '更新成功', 'data': {'id': warehouse.id}})
             return JsonResponse({'code': 1, 'msg': form.errors})
         except Exception as e:
             logger.error(f"更新仓库失败: {e}")
@@ -123,9 +126,11 @@ class WarehouseView(InventoryMixin):
     def delete(self, request, pk):
         try:
             warehouse = get_object_or_404(Warehouse, pk=pk)
-            inventory_count = Inventory.objects.filter(warehouse=warehouse).count()
+            inventory_count = Inventory.objects.filter(
+                warehouse=warehouse).count()
             if inventory_count > 0:
-                return JsonResponse({'code': 1, 'msg': f'该仓库下有{inventory_count}条库存记录，无法删除'})
+                return JsonResponse(
+                    {'code': 1, 'msg': f'该仓库下有{inventory_count}条库存记录，无法删除'})
             warehouse.delete()
             return JsonResponse({'code': 0, 'msg': '删除成功'})
         except Exception as e:
@@ -137,7 +142,8 @@ class WarehouseLocationView(InventoryMixin):
     def list(self, request):
         warehouse_id = request.GET.get('warehouse_id')
         if warehouse_id:
-            locations = WarehouseLocation.objects.filter(warehouse_id=warehouse_id).order_by('code')
+            locations = WarehouseLocation.objects.filter(
+                warehouse_id=warehouse_id).order_by('code')
         else:
             locations = WarehouseLocation.objects.all().order_by('code')
         data = [{
@@ -155,7 +161,8 @@ class WarehouseLocationView(InventoryMixin):
             'sort': loc.sort,
             'full_path': loc.full_path,
         } for loc in locations]
-        return JsonResponse({'code': 0, 'msg': 'success', 'data': data, 'count': len(data)})
+        return JsonResponse({'code': 0, 'msg': 'success',
+                            'data': data, 'count': len(data)})
 
     def get(self, request, pk=None):
         if pk:
@@ -181,7 +188,8 @@ class WarehouseLocationView(InventoryMixin):
             form = WarehouseLocationForm(data)
             if form.is_valid():
                 location = form.save()
-                return JsonResponse({'code': 0, 'msg': '创建成功', 'data': {'id': location.id}})
+                return JsonResponse(
+                    {'code': 0, 'msg': '创建成功', 'data': {'id': location.id}})
             return JsonResponse({'code': 1, 'msg': form.errors})
         except Exception as e:
             logger.error(f"创建库位失败: {e}")
@@ -194,7 +202,8 @@ class WarehouseLocationView(InventoryMixin):
             form = WarehouseLocationForm(data, instance=location)
             if form.is_valid():
                 location = form.save()
-                return JsonResponse({'code': 0, 'msg': '更新成功', 'data': {'id': location.id}})
+                return JsonResponse(
+                    {'code': 0, 'msg': '更新成功', 'data': {'id': location.id}})
             return JsonResponse({'code': 1, 'msg': form.errors})
         except Exception as e:
             logger.error(f"更新库位失败: {e}")
@@ -203,12 +212,16 @@ class WarehouseLocationView(InventoryMixin):
     def delete(self, request, pk):
         try:
             location = get_object_or_404(WarehouseLocation, pk=pk)
-            child_count = WarehouseLocation.objects.filter(parent=location).count()
+            child_count = WarehouseLocation.objects.filter(
+                parent=location).count()
             if child_count > 0:
-                return JsonResponse({'code': 1, 'msg': f'该库位下有{child_count}个子库位，无法删除'})
-            inventory_count = Inventory.objects.filter(location=location).count()
+                return JsonResponse(
+                    {'code': 1, 'msg': f'该库位下有{child_count}个子库位，无法删除'})
+            inventory_count = Inventory.objects.filter(
+                location=location).count()
             if inventory_count > 0:
-                return JsonResponse({'code': 1, 'msg': f'该库位下有{inventory_count}条库存记录，无法删除'})
+                return JsonResponse(
+                    {'code': 1, 'msg': f'该库位下有{inventory_count}条库存记录，无法删除'})
             location.delete()
             return JsonResponse({'code': 0, 'msg': '删除成功'})
         except Exception as e:
@@ -231,7 +244,8 @@ class InventoryCategoryView(InventoryMixin):
             'status_display': '启用' if c.status == 1 else '禁用',
             'sort': c.sort,
         } for c in categories]
-        return JsonResponse({'code': 0, 'msg': 'success', 'data': data, 'count': len(data)})
+        return JsonResponse({'code': 0, 'msg': 'success',
+                            'data': data, 'count': len(data)})
 
     def get(self, request, pk=None):
         if pk:
@@ -256,7 +270,8 @@ class InventoryCategoryView(InventoryMixin):
             form = InventoryCategoryForm(data)
             if form.is_valid():
                 category = form.save()
-                return JsonResponse({'code': 0, 'msg': '创建成功', 'data': {'id': category.id}})
+                return JsonResponse(
+                    {'code': 0, 'msg': '创建成功', 'data': {'id': category.id}})
             return JsonResponse({'code': 1, 'msg': form.errors})
         except Exception as e:
             logger.error(f"创建类别失败: {e}")
@@ -269,7 +284,8 @@ class InventoryCategoryView(InventoryMixin):
             form = InventoryCategoryForm(data, instance=category)
             if form.is_valid():
                 category = form.save()
-                return JsonResponse({'code': 0, 'msg': '更新成功', 'data': {'id': category.id}})
+                return JsonResponse(
+                    {'code': 0, 'msg': '更新成功', 'data': {'id': category.id}})
             return JsonResponse({'code': 1, 'msg': form.errors})
         except Exception as e:
             logger.error(f"更新类别失败: {e}")
@@ -278,12 +294,16 @@ class InventoryCategoryView(InventoryMixin):
     def delete(self, request, pk):
         try:
             category = get_object_or_404(InventoryCategory, pk=pk)
-            child_count = InventoryCategory.objects.filter(parent=category).count()
+            child_count = InventoryCategory.objects.filter(
+                parent=category).count()
             if child_count > 0:
-                return JsonResponse({'code': 1, 'msg': f'该类别下有{child_count}个子类别，无法删除'})
-            item_count = InventoryItem.objects.filter(category=category).count()
+                return JsonResponse(
+                    {'code': 1, 'msg': f'该类别下有{child_count}个子类别，无法删除'})
+            item_count = InventoryItem.objects.filter(
+                category=category).count()
             if item_count > 0:
-                return JsonResponse({'code': 1, 'msg': f'该类别下有{item_count}条物料，无法删除'})
+                return JsonResponse(
+                    {'code': 1, 'msg': f'该类别下有{item_count}条物料，无法删除'})
             category.delete()
             return JsonResponse({'code': 0, 'msg': '删除成功'})
         except Exception as e:
@@ -316,7 +336,8 @@ class InventoryItemView(InventoryMixin):
             'barcode': item.barcode,
             'description': item.description,
         } for item in items]
-        return JsonResponse({'code': 0, 'msg': 'success', 'data': data, 'count': len(data)})
+        return JsonResponse({'code': 0, 'msg': 'success',
+                            'data': data, 'count': len(data)})
 
     def get(self, request, pk=None):
         if pk:
@@ -358,7 +379,8 @@ class InventoryItemView(InventoryMixin):
             form = InventoryItemForm(data)
             if form.is_valid():
                 item = form.save()
-                return JsonResponse({'code': 0, 'msg': '创建成功', 'data': {'id': item.id}})
+                return JsonResponse(
+                    {'code': 0, 'msg': '创建成功', 'data': {'id': item.id}})
             return JsonResponse({'code': 1, 'msg': form.errors})
         except Exception as e:
             logger.error(f"创建物料失败: {e}")
@@ -371,7 +393,8 @@ class InventoryItemView(InventoryMixin):
             form = InventoryItemForm(data, instance=item)
             if form.is_valid():
                 item = form.save()
-                return JsonResponse({'code': 0, 'msg': '更新成功', 'data': {'id': item.id}})
+                return JsonResponse(
+                    {'code': 0, 'msg': '更新成功', 'data': {'id': item.id}})
             return JsonResponse({'code': 1, 'msg': form.errors})
         except Exception as e:
             logger.error(f"更新物料失败: {e}")
@@ -382,7 +405,8 @@ class InventoryItemView(InventoryMixin):
             item = get_object_or_404(InventoryItem, pk=pk)
             inventory_count = Inventory.objects.filter(item=item).count()
             if inventory_count > 0:
-                return JsonResponse({'code': 1, 'msg': f'该物料有{inventory_count}条库存记录，无法删除'})
+                return JsonResponse(
+                    {'code': 1, 'msg': f'该物料有{inventory_count}条库存记录，无法删除'})
             item.delete()
             return JsonResponse({'code': 0, 'msg': '删除成功'})
         except Exception as e:
@@ -392,15 +416,16 @@ class InventoryItemView(InventoryMixin):
 
 class InventoryView(InventoryMixin):
     def list(self, request):
-        queryset = Inventory.objects.select_related('item', 'warehouse', 'location').all()
-        
+        queryset = Inventory.objects.select_related(
+            'item', 'warehouse', 'location').all()
+
         item_code = request.GET.get('item_code')
         item_name = request.GET.get('item_name')
         warehouse_id = request.GET.get('warehouse_id')
         location_id = request.GET.get('location_id')
         category_id = request.GET.get('category_id')
         status = request.GET.get('status')
-        
+
         if item_code:
             queryset = queryset.filter(item__code__icontains=item_code)
         if item_name:
@@ -413,12 +438,12 @@ class InventoryView(InventoryMixin):
             queryset = queryset.filter(item__category_id=category_id)
         if status:
             queryset = queryset.filter(status=status)
-        
+
         total = queryset.aggregate(
             total_quantity=Sum('quantity'),
             total_value=Sum('total_cost')
         )
-        
+
         data = [{
             'id': inv.id,
             'item_id': inv.item_id,
@@ -440,11 +465,11 @@ class InventoryView(InventoryMixin):
             'status_display': inv.get_status_display(),
             'expiry_date': inv.expiry_date.strftime('%Y-%m-%d') if inv.expiry_date else '',
         } for inv in queryset]
-        
+
         return JsonResponse({
-            'code': 0, 
-            'msg': 'success', 
-            'data': data, 
+            'code': 0,
+            'msg': 'success',
+            'data': data,
             'count': len(data),
             'total': {
                 'total_quantity': str(total['total_quantity'] or 0),
@@ -455,13 +480,14 @@ class InventoryView(InventoryMixin):
 
 class StockTransactionView(InventoryMixin):
     def list(self, request):
-        queryset = StockTransaction.objects.select_related('item', 'warehouse', 'location', 'operator').all()
-        
+        queryset = StockTransaction.objects.select_related(
+            'item', 'warehouse', 'location', 'operator').all()
+
         transaction_type = request.GET.get('transaction_type')
         item_code = request.GET.get('item_code')
         start_date = request.GET.get('start_date')
         end_date = request.GET.get('end_date')
-        
+
         if transaction_type:
             queryset = queryset.filter(transaction_type=transaction_type)
         if item_code:
@@ -470,7 +496,7 @@ class StockTransactionView(InventoryMixin):
             queryset = queryset.filter(create_time__gte=start_date)
         if end_date:
             queryset = queryset.filter(create_time__lte=end_date)
-        
+
         data = [{
             'id': t.id,
             'transaction_type': t.transaction_type,
@@ -490,22 +516,24 @@ class StockTransactionView(InventoryMixin):
             'operator_name': t.operator.name if t.operator else '',
             'create_time': t.create_time.strftime('%Y-%m-%d %H:%M:%S'),
         } for t in queryset]
-        
-        return JsonResponse({'code': 0, 'msg': 'success', 'data': data, 'count': len(data)})
+
+        return JsonResponse({'code': 0, 'msg': 'success',
+                            'data': data, 'count': len(data)})
 
 
 class StockInView(InventoryMixin):
     def list(self, request):
-        queryset = StockIn.objects.select_related('warehouse', 'supplier', 'creator').all()
-        
+        queryset = StockIn.objects.select_related(
+            'warehouse', 'supplier', 'creator').all()
+
         status = request.GET.get('status')
         stock_in_type = request.GET.get('stock_in_type')
-        
+
         if status:
             queryset = queryset.filter(status=status)
         if stock_in_type:
             queryset = queryset.filter(stock_in_type=stock_in_type)
-        
+
         data = [{
             'id': si.id,
             'code': si.code,
@@ -525,13 +553,16 @@ class StockInView(InventoryMixin):
             'stock_time': si.stock_time.strftime('%Y-%m-%d %H:%M:%S') if si.stock_time else '',
             'create_time': si.create_time.strftime('%Y-%m-%d %H:%M:%S'),
         } for si in queryset]
-        
-        return JsonResponse({'code': 0, 'msg': 'success', 'data': data, 'count': len(data)})
+
+        return JsonResponse({'code': 0, 'msg': 'success',
+                            'data': data, 'count': len(data)})
 
     def get(self, request, pk=None):
         if pk:
             stock_in = get_object_or_404(StockIn, pk=pk)
-            items = StockInItem.objects.filter(stock_in=pk).select_related('item', 'location')
+            items = StockInItem.objects.filter(
+                stock_in=pk).select_related(
+                'item', 'location')
             data = {
                 'id': stock_in.id,
                 'code': stock_in.code,
@@ -565,17 +596,17 @@ class StockInView(InventoryMixin):
         try:
             data = json.loads(request.body)
             items_data = data.pop('items', [])
-            
+
             form = StockInForm(data)
             if form.is_valid():
                 stock_in = form.save(commit=False)
                 if not data.get('code'):
                     stock_in.code = generate_code('IN')
                 stock_in.save()
-                
+
                 total_amount = 0
                 total_quantity = 0
-                
+
                 for item_data in items_data:
                     item_data['stock_in'] = stock_in.id
                     item_form = StockInItemForm(item_data)
@@ -583,12 +614,13 @@ class StockInView(InventoryMixin):
                         item = item_form.save()
                         total_amount += float(item.amount)
                         total_quantity += float(item.quantity)
-                
+
                 stock_in.total_amount = total_amount
                 stock_in.total_quantity = total_quantity
                 stock_in.save()
-                
-                return JsonResponse({'code': 0, 'msg': '创建成功', 'data': {'id': stock_in.id}})
+
+                return JsonResponse(
+                    {'code': 0, 'msg': '创建成功', 'data': {'id': stock_in.id}})
             return JsonResponse({'code': 1, 'msg': form.errors})
         except Exception as e:
             logger.error(f"创建入库单失败: {e}")
@@ -600,12 +632,12 @@ class StockInView(InventoryMixin):
             stock_in = get_object_or_404(StockIn, pk=pk)
             if stock_in.status != 1:
                 return JsonResponse({'code': 1, 'msg': '只有待审核状态才能审核'})
-            
+
             stock_in.status = 2
             stock_in.checker_id = request.session.get('admin_id', 1)
             stock_in.check_time = timezone.now()
             stock_in.save()
-            
+
             return JsonResponse({'code': 0, 'msg': '审核成功'})
         except Exception as e:
             logger.error(f"审核入库单失败: {e}")
@@ -617,13 +649,15 @@ class StockInView(InventoryMixin):
             stock_in = get_object_or_404(StockIn, pk=pk)
             if stock_in.status != 2:
                 return JsonResponse({'code': 1, 'msg': '只有已审核状态才能入库'})
-            
+
             admin_id = request.session.get('admin_id', 1)
             admin = Admin.objects.get(pk=admin_id)
-            
+
             with transaction.atomic():
-                items = StockInItem.objects.filter(stock_in=stock_in).select_for_update().select_related('item', 'location')
-                
+                items = StockInItem.objects.filter(
+                    stock_in=stock_in).select_for_update().select_related(
+                    'item', 'location')
+
                 for item in items:
                     inventory, created = Inventory.objects.get_or_create(
                         item=item.item,
@@ -635,13 +669,13 @@ class StockInView(InventoryMixin):
                             'unit_cost': item.unit_cost
                         }
                     )
-                    
+
                     before_quantity = inventory.quantity
                     inventory.quantity += item.quantity
                     inventory.unit_cost = item.unit_cost
                     inventory.last_movement_date = timezone.now()
                     inventory.save()
-                    
+
                     StockTransaction.objects.create(
                         transaction_type='stock_in',
                         transaction_code=stock_in.code,
@@ -659,12 +693,12 @@ class StockInView(InventoryMixin):
                         reference_code=stock_in.code,
                         operator=admin
                     )
-                
+
                 stock_in.status = 3
                 stock_in.stocker = admin
                 stock_in.stock_time = timezone.now()
                 stock_in.save()
-                
+
             return JsonResponse({'code': 0, 'msg': '入库成功'})
         except Exception as e:
             logger.error(f"入库操作失败: {e}")
@@ -673,16 +707,17 @@ class StockInView(InventoryMixin):
 
 class StockOutView(InventoryMixin):
     def list(self, request):
-        queryset = StockOut.objects.select_related('warehouse', 'customer', 'creator').all()
-        
+        queryset = StockOut.objects.select_related(
+            'warehouse', 'customer', 'creator').all()
+
         status = request.GET.get('status')
         stock_out_type = request.GET.get('stock_out_type')
-        
+
         if status:
             queryset = queryset.filter(status=status)
         if stock_out_type:
             queryset = queryset.filter(stock_out_type=stock_out_type)
-        
+
         data = [{
             'id': so.id,
             'code': so.code,
@@ -702,13 +737,16 @@ class StockOutView(InventoryMixin):
             'stock_time': so.stock_time.strftime('%Y-%m-%d %H:%M:%S') if so.stock_time else '',
             'create_time': so.create_time.strftime('%Y-%m-%d %H:%M:%S'),
         } for so in queryset]
-        
-        return JsonResponse({'code': 0, 'msg': 'success', 'data': data, 'count': len(data)})
+
+        return JsonResponse({'code': 0, 'msg': 'success',
+                            'data': data, 'count': len(data)})
 
     def get(self, request, pk=None):
         if pk:
             stock_out = get_object_or_404(StockOut, pk=pk)
-            items = StockOutItem.objects.filter(stock_out=pk).select_related('item', 'location')
+            items = StockOutItem.objects.filter(
+                stock_out=pk).select_related(
+                'item', 'location')
             data = {
                 'id': stock_out.id,
                 'code': stock_out.code,
@@ -742,17 +780,17 @@ class StockOutView(InventoryMixin):
         try:
             data = json.loads(request.body)
             items_data = data.pop('items', [])
-            
+
             form = StockOutForm(data)
             if form.is_valid():
                 stock_out = form.save(commit=False)
                 if not data.get('code'):
                     stock_out.code = generate_code('OUT')
                 stock_out.save()
-                
+
                 total_amount = 0
                 total_quantity = 0
-                
+
                 for item_data in items_data:
                     item_data['stock_out'] = stock_out.id
                     item_form = StockOutItemForm(item_data)
@@ -760,12 +798,13 @@ class StockOutView(InventoryMixin):
                         item = item_form.save()
                         total_amount += float(item.amount)
                         total_quantity += float(item.quantity)
-                
+
                 stock_out.total_amount = total_amount
                 stock_out.total_quantity = total_quantity
                 stock_out.save()
-                
-                return JsonResponse({'code': 0, 'msg': '创建成功', 'data': {'id': stock_out.id}})
+
+                return JsonResponse(
+                    {'code': 0, 'msg': '创建成功', 'data': {'id': stock_out.id}})
             return JsonResponse({'code': 1, 'msg': form.errors})
         except Exception as e:
             logger.error(f"创建出库单失败: {e}")
@@ -777,12 +816,12 @@ class StockOutView(InventoryMixin):
             stock_out = get_object_or_404(StockOut, pk=pk)
             if stock_out.status != 1:
                 return JsonResponse({'code': 1, 'msg': '只有待审核状态才能审核'})
-            
+
             stock_out.status = 2
             stock_out.checker_id = request.session.get('admin_id', 1)
             stock_out.check_time = timezone.now()
             stock_out.save()
-            
+
             return JsonResponse({'code': 0, 'msg': '审核成功'})
         except Exception as e:
             logger.error(f"审核出库单失败: {e}")
@@ -794,13 +833,15 @@ class StockOutView(InventoryMixin):
             stock_out = get_object_or_404(StockOut, pk=pk)
             if stock_out.status != 2:
                 return JsonResponse({'code': 1, 'msg': '只有已审核状态才能出库'})
-            
+
             admin_id = request.session.get('admin_id', 1)
             admin = Admin.objects.get(pk=admin_id)
-            
+
             with transaction.atomic():
-                items = StockOutItem.objects.filter(stock_out=stock_out).select_for_update().select_related('item', 'location')
-                
+                items = StockOutItem.objects.filter(
+                    stock_out=stock_out).select_for_update().select_related(
+                    'item', 'location')
+
                 for item in items:
                     inventory = Inventory.objects.select_for_update().get(
                         item=item.item,
@@ -808,15 +849,16 @@ class StockOutView(InventoryMixin):
                         location=item.location,
                         batch_number=item.batch_number or ''
                     )
-                    
+
                     if inventory.quantity < item.quantity:
-                        return JsonResponse({'code': 1, 'msg': f'物料{item.item.code}库存不足'})
-                    
+                        return JsonResponse(
+                            {'code': 1, 'msg': f'物料{item.item.code}库存不足'})
+
                     before_quantity = inventory.quantity
                     inventory.quantity -= item.quantity
                     inventory.last_movement_date = timezone.now()
                     inventory.save()
-                    
+
                     StockTransaction.objects.create(
                         transaction_type='stock_out',
                         transaction_code=stock_out.code,
@@ -834,12 +876,12 @@ class StockOutView(InventoryMixin):
                         reference_code=stock_out.code,
                         operator=admin
                     )
-                
+
                 stock_out.status = 3
                 stock_out.stocker = admin
                 stock_out.stock_time = timezone.now()
                 stock_out.save()
-                
+
             return JsonResponse({'code': 0, 'msg': '出库成功'})
         except Inventory.DoesNotExist:
             return JsonResponse({'code': 1, 'msg': '库存记录不存在'})
@@ -850,13 +892,14 @@ class StockOutView(InventoryMixin):
 
 class StockTransferView(InventoryMixin):
     def list(self, request):
-        queryset = StockTransfer.objects.select_related('from_warehouse', 'to_warehouse', 'requester').all()
-        
+        queryset = StockTransfer.objects.select_related(
+            'from_warehouse', 'to_warehouse', 'requester').all()
+
         status = request.GET.get('status')
-        
+
         if status:
             queryset = queryset.filter(status=status)
-        
+
         data = [{
             'id': st.id,
             'code': st.code,
@@ -873,19 +916,21 @@ class StockTransferView(InventoryMixin):
             'executor_name': st.executor.name if st.executor else '',
             'create_time': st.create_time.strftime('%Y-%m-%d %H:%M:%S'),
         } for st in queryset]
-        
-        return JsonResponse({'code': 0, 'msg': 'success', 'data': data, 'count': len(data)})
+
+        return JsonResponse({'code': 0, 'msg': 'success',
+                            'data': data, 'count': len(data)})
 
 
 class StockCheckView(InventoryMixin):
     def list(self, request):
-        queryset = StockCheck.objects.select_related('warehouse', 'checker').all()
-        
+        queryset = StockCheck.objects.select_related(
+            'warehouse', 'checker').all()
+
         status = request.GET.get('status')
-        
+
         if status:
             queryset = queryset.filter(status=status)
-        
+
         data = [{
             'id': sc.id,
             'code': sc.code,
@@ -904,19 +949,21 @@ class StockCheckView(InventoryMixin):
             'complete_time': sc.complete_time.strftime('%Y-%m-%d %H:%M:%S') if sc.complete_time else '',
             'create_time': sc.create_time.strftime('%Y-%m-%d %H:%M:%S'),
         } for sc in queryset]
-        
-        return JsonResponse({'code': 0, 'msg': 'success', 'data': data, 'count': len(data)})
+
+        return JsonResponse({'code': 0, 'msg': 'success',
+                            'data': data, 'count': len(data)})
 
 
 class PurchaseOrderView(InventoryMixin):
     def list(self, request):
-        queryset = PurchaseOrder.objects.select_related('supplier', 'warehouse', 'creator').all()
-        
+        queryset = PurchaseOrder.objects.select_related(
+            'supplier', 'warehouse', 'creator').all()
+
         status = request.GET.get('status')
-        
+
         if status:
             queryset = queryset.filter(status=status)
-        
+
         data = [{
             'id': po.id,
             'code': po.code,
@@ -937,19 +984,21 @@ class PurchaseOrderView(InventoryMixin):
             'creator_name': po.creator.name if po.creator else '',
             'create_time': po.create_time.strftime('%Y-%m-%d %H:%M:%S'),
         } for po in queryset]
-        
-        return JsonResponse({'code': 0, 'msg': 'success', 'data': data, 'count': len(data)})
+
+        return JsonResponse({'code': 0, 'msg': 'success',
+                            'data': data, 'count': len(data)})
 
 
 class SalesOrderView(InventoryMixin):
     def list(self, request):
-        queryset = SalesOrder.objects.select_related('customer', 'warehouse', 'creator').all()
-        
+        queryset = SalesOrder.objects.select_related(
+            'customer', 'warehouse', 'creator').all()
+
         status = request.GET.get('status')
-        
+
         if status:
             queryset = queryset.filter(status=status)
-        
+
         data = [{
             'id': so.id,
             'code': so.code,
@@ -970,22 +1019,24 @@ class SalesOrderView(InventoryMixin):
             'creator_name': so.creator.name if so.creator else '',
             'create_time': so.create_time.strftime('%Y-%m-%d %H:%M:%S'),
         } for so in queryset]
-        
-        return JsonResponse({'code': 0, 'msg': 'success', 'data': data, 'count': len(data)})
+
+        return JsonResponse({'code': 0, 'msg': 'success',
+                            'data': data, 'count': len(data)})
 
 
 class InventoryAlertView(InventoryMixin):
     def list(self, request):
-        queryset = InventoryAlert.objects.select_related('item', 'warehouse', 'handler').all()
-        
+        queryset = InventoryAlert.objects.select_related(
+            'item', 'warehouse', 'handler').all()
+
         alert_type = request.GET.get('alert_type')
         status = request.GET.get('status')
-        
+
         if alert_type:
             queryset = queryset.filter(alert_type=alert_type)
         if status:
             queryset = queryset.filter(status=status)
-        
+
         data = [{
             'id': alert.id,
             'item_id': alert.item_id,
@@ -1004,8 +1055,9 @@ class InventoryAlertView(InventoryMixin):
             'handle_time': alert.handle_time.strftime('%Y-%m-%d %H:%M:%S') if alert.handle_time else '',
             'create_time': alert.create_time.strftime('%Y-%m-%d %H:%M:%S'),
         } for alert in queryset]
-        
-        return JsonResponse({'code': 0, 'msg': 'success', 'data': data, 'count': len(data)})
+
+        return JsonResponse({'code': 0, 'msg': 'success',
+                            'data': data, 'count': len(data)})
 
 
 class InventoryReportView(InventoryMixin):
@@ -1013,30 +1065,30 @@ class InventoryReportView(InventoryMixin):
         try:
             warehouse_id = request.GET.get('warehouse_id')
             category_id = request.GET.get('category_id')
-            
+
             queryset = Inventory.objects.select_related('item', 'warehouse')
-            
+
             if warehouse_id:
                 queryset = queryset.filter(warehouse_id=warehouse_id)
             if category_id:
                 queryset = queryset.filter(item__category_id=category_id)
-            
+
             summary = queryset.aggregate(
                 total_items=Count('id', distinct=True),
                 total_quantity=Sum('quantity'),
                 total_value=Sum('total_cost')
             )
-            
+
             by_category = queryset.values('item__category__name').annotate(
                 quantity=Sum('quantity'),
                 value=Sum('total_cost')
             )
-            
+
             by_warehouse = queryset.values('warehouse__name').annotate(
                 quantity=Sum('quantity'),
                 value=Sum('total_cost')
             )
-            
+
             data = {
                 'summary': {
                     'total_items': summary['total_items'] or 0,
@@ -1046,7 +1098,7 @@ class InventoryReportView(InventoryMixin):
                 'by_category': list(by_category),
                 'by_warehouse': list(by_warehouse),
             }
-            
+
             return JsonResponse({'code': 0, 'msg': 'success', 'data': data})
         except Exception as e:
             logger.error(f"生成库存汇总报表失败: {e}")
@@ -1057,21 +1109,24 @@ class InventoryReportView(InventoryMixin):
             start_date = request.GET.get('start_date')
             end_date = request.GET.get('end_date')
             transaction_type = request.GET.get('transaction_type')
-            
-            queryset = StockTransaction.objects.select_related('item', 'warehouse')
-            
+
+            queryset = StockTransaction.objects.select_related(
+                'item', 'warehouse')
+
             if start_date:
                 queryset = queryset.filter(create_time__gte=start_date)
             if end_date:
                 queryset = queryset.filter(create_time__lte=end_date)
             if transaction_type:
                 queryset = queryset.filter(transaction_type=transaction_type)
-            
+
             summary = queryset.aggregate(
-                total_in=Sum('quantity', filter=Q(transaction_type='stock_in')),
-                total_out=Sum('quantity', filter=Q(transaction_type='stock_out')),
-            )
-            
+                total_in=Sum(
+                    'quantity', filter=Q(
+                        transaction_type='stock_in')), total_out=Sum(
+                    'quantity', filter=Q(
+                        transaction_type='stock_out')), )
+
             data = {
                 'summary': {
                     'total_in': str(summary['total_in'] or 0),
@@ -1088,7 +1143,7 @@ class InventoryReportView(InventoryMixin):
                     'create_time': t.create_time.strftime('%Y-%m-%d %H:%M:%S'),
                 } for t in queryset[:100]]
             }
-            
+
             return JsonResponse({'code': 0, 'msg': 'success', 'data': data})
         except Exception as e:
             logger.error(f"生成库存变动报表失败: {e}")

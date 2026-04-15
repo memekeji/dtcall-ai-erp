@@ -7,17 +7,17 @@ Django管理命令：初始化菜单数据
 """
 from django.core.management.base import BaseCommand
 from apps.user.models import Menu
-from django.utils import timezone
+
 
 class Command(BaseCommand):
     help = '初始化系统菜单数据'
-    
+
     def handle(self, *args, **options):
         # 检查是否已有菜单数据
         if Menu.objects.exists():
             self.stdout.write(self.style.WARNING('数据库中已存在菜单数据，跳过初始化'))
             return 0
-        
+
         try:
             # 创建顶级菜单
             top_menus = [
@@ -64,7 +64,7 @@ class Command(BaseCommand):
                     'status': 1
                 }
             ]
-            
+
             # 创建子菜单
             sub_menus = [
                 # 人事管理子菜单
@@ -166,10 +166,10 @@ class Command(BaseCommand):
                     'parent_title': '生产管理'
                 }
             ]
-            
+
             # 创建菜单数据
             created_count = 0
-            
+
             # 创建顶级菜单
             top_menu_objects = {}
             for menu_data in top_menus:
@@ -182,8 +182,9 @@ class Command(BaseCommand):
                 )
                 top_menu_objects[menu_data['title']] = menu
                 created_count += 1
-                self.stdout.write(self.style.SUCCESS(f'创建顶级菜单: {menu_data["title"]}'))
-            
+                self.stdout.write(self.style.SUCCESS(
+                    f'创建顶级菜单: {menu_data["title"]}'))
+
             # 创建子菜单
             for menu_data in sub_menus:
                 parent_menu = top_menu_objects.get(menu_data['parent_title'])
@@ -197,11 +198,13 @@ class Command(BaseCommand):
                         status=menu_data['status']
                     )
                     created_count += 1
-                    self.stdout.write(self.style.SUCCESS(f'创建子菜单: {menu_data["parent_title"]} -> {menu_data["title"]}'))
-            
-            self.stdout.write(self.style.SUCCESS(f'菜单数据初始化完成！共创建 {created_count} 个菜单项'))
+                    self.stdout.write(self.style.SUCCESS(
+                        f'创建子菜单: {menu_data["parent_title"]} -> {menu_data["title"]}'))
+
+            self.stdout.write(self.style.SUCCESS(
+                f'菜单数据初始化完成！共创建 {created_count} 个菜单项'))
             return 0
-            
+
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'初始化菜单数据时出错: {str(e)}'))
             import traceback

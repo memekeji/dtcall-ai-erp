@@ -102,7 +102,9 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="message",
-            index=models.Index(fields=["is_active"], name="message_is_acti_11f079_idx"),
+            index=models.Index(
+                fields=["is_active"],
+                name="message_is_acti_11f079_idx"),
         ),
         migrations.AddIndex(
             model_name="message",

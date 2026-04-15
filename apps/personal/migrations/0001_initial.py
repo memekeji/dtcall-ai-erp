@@ -44,21 +44,25 @@ class Migration(migrations.Migration):
                 ("meeting_date", models.DateTimeField(verbose_name="会议时间")),
                 (
                     "location",
-                    models.CharField(blank=True, max_length=200, verbose_name="会议地点"),
+                    models.CharField(
+                        blank=True, max_length=200, verbose_name="会议地点"),
                 ),
                 (
                     "host",
-                    models.CharField(blank=True, max_length=100, verbose_name="主持人"),
+                    models.CharField(
+                        blank=True, max_length=100, verbose_name="主持人"),
                 ),
                 ("attendees", models.TextField(blank=True, verbose_name="参会人员")),
                 ("content", models.TextField(blank=True, verbose_name="会议内容")),
                 ("decisions", models.TextField(blank=True, verbose_name="会议决议")),
                 ("action_items", models.TextField(blank=True, verbose_name="行动项")),
                 ("attachments", models.TextField(blank=True, verbose_name="附件")),
-                ("is_public", models.BooleanField(default=True, verbose_name="是否公开")),
+                ("is_public", models.BooleanField(
+                    default=True, verbose_name="是否公开")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "updated_at",
@@ -87,29 +91,35 @@ class Migration(migrations.Migration):
                 ("name", models.CharField(max_length=100, verbose_name="姓名")),
                 (
                     "company",
-                    models.CharField(blank=True, max_length=200, verbose_name="公司"),
+                    models.CharField(
+                        blank=True, max_length=200, verbose_name="公司"),
                 ),
                 (
                     "position",
-                    models.CharField(blank=True, max_length=100, verbose_name="职位"),
+                    models.CharField(
+                        blank=True, max_length=100, verbose_name="职位"),
                 ),
                 (
                     "phone",
-                    models.CharField(blank=True, max_length=20, verbose_name="电话"),
+                    models.CharField(
+                        blank=True, max_length=20, verbose_name="电话"),
                 ),
                 (
                     "mobile",
-                    models.CharField(blank=True, max_length=20, verbose_name="手机"),
+                    models.CharField(
+                        blank=True, max_length=20, verbose_name="手机"),
                 ),
                 (
                     "email",
-                    models.EmailField(blank=True, max_length=254, verbose_name="邮箱"),
+                    models.EmailField(
+                        blank=True, max_length=254, verbose_name="邮箱"),
                 ),
                 ("address", models.TextField(blank=True, verbose_name="地址")),
                 ("notes", models.TextField(blank=True, verbose_name="备注")),
                 (
                     "tags",
-                    models.CharField(blank=True, max_length=200, verbose_name="标签"),
+                    models.CharField(
+                        blank=True, max_length=200, verbose_name="标签"),
                 ),
                 (
                     "is_important",
@@ -117,7 +127,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "updated_at",
@@ -162,16 +173,19 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "tags",
-                    models.CharField(blank=True, max_length=200, verbose_name="标签"),
+                    models.CharField(
+                        blank=True, max_length=200, verbose_name="标签"),
                 ),
                 (
                     "is_important",
                     models.BooleanField(default=False, verbose_name="重要标记"),
                 ),
-                ("is_private", models.BooleanField(default=True, verbose_name="私人笔记")),
+                ("is_private", models.BooleanField(
+                    default=True, verbose_name="私人笔记")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "updated_at",
@@ -225,17 +239,22 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "location",
-                    models.CharField(blank=True, max_length=200, verbose_name="地点"),
+                    models.CharField(
+                        blank=True, max_length=200, verbose_name="地点"),
                 ),
                 (
                     "reminder_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="提醒时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="提醒时间"),
                 ),
-                ("is_all_day", models.BooleanField(default=False, verbose_name="全天事件")),
-                ("is_private", models.BooleanField(default=False, verbose_name="私人事件")),
+                ("is_all_day", models.BooleanField(
+                    default=False, verbose_name="全天事件")),
+                ("is_private", models.BooleanField(
+                    default=False, verbose_name="私人事件")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "updated_at",
@@ -287,24 +306,30 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "due_date",
-                    models.DateTimeField(blank=True, null=True, verbose_name="截止时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="截止时间"),
                 ),
                 (
                     "completed_at",
-                    models.DateTimeField(blank=True, null=True, verbose_name="完成时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="完成时间"),
                 ),
-                ("progress", models.IntegerField(default=0, verbose_name="完成进度(%)")),
+                ("progress", models.IntegerField(
+                    default=0, verbose_name="完成进度(%)")),
                 (
                     "estimated_hours",
-                    models.FloatField(blank=True, null=True, verbose_name="预估工时"),
+                    models.FloatField(
+                        blank=True, null=True, verbose_name="预估工时"),
                 ),
                 (
                     "actual_hours",
-                    models.FloatField(blank=True, null=True, verbose_name="实际工时"),
+                    models.FloatField(
+                        blank=True, null=True, verbose_name="实际工时"),
                 ),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "updated_at",
@@ -351,7 +376,8 @@ class Migration(migrations.Migration):
                 ("start_time", models.TimeField(verbose_name="开始时间")),
                 ("end_time", models.TimeField(verbose_name="结束时间")),
                 ("duration", models.FloatField(verbose_name="工作时长(小时)")),
-                ("progress", models.IntegerField(default=0, verbose_name="完成进度(%)")),
+                ("progress", models.IntegerField(
+                    default=0, verbose_name="完成进度(%)")),
                 (
                     "difficulty",
                     models.IntegerField(default=3, verbose_name="难度系数(1-5)"),
@@ -361,7 +387,8 @@ class Migration(migrations.Migration):
                 ("next_plan", models.TextField(blank=True, verbose_name="下步计划")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "updated_at",
@@ -415,11 +442,13 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "submitted_at",
-                    models.DateTimeField(blank=True, null=True, verbose_name="提交时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="提交时间"),
                 ),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "updated_at",

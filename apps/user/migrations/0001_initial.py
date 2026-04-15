@@ -29,7 +29,8 @@ class Migration(migrations.Migration):
                         verbose_name="ID",
                     ),
                 ),
-                ("password", models.CharField(max_length=128, verbose_name="password")),
+                ("password", models.CharField(
+                    max_length=128, verbose_name="password")),
                 (
                     "last_login",
                     models.DateTimeField(
@@ -93,36 +94,44 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "pwd",
-                    models.CharField(default="", max_length=100, verbose_name="登录密码"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="登录密码"),
                 ),
                 (
                     "salt",
-                    models.CharField(default="", max_length=100, verbose_name="密码盐"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="密码盐"),
                 ),
                 (
                     "name",
-                    models.CharField(default="", max_length=100, verbose_name="员工姓名"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="员工姓名"),
                 ),
                 (
                     "email",
-                    models.CharField(default="", max_length=100, verbose_name="电子邮箱"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="电子邮箱"),
                 ),
                 (
                     "sip_account",
-                    models.CharField(max_length=255, null=True, verbose_name="SIP账号"),
+                    models.CharField(
+                        max_length=255, null=True, verbose_name="SIP账号"),
                 ),
                 (
                     "sip_password",
-                    models.CharField(max_length=255, null=True, verbose_name="SIP密码"),
+                    models.CharField(
+                        max_length=255, null=True, verbose_name="SIP密码"),
                 ),
                 (
                     "mobile",
-                    models.CharField(default="", max_length=20, verbose_name="手机号码"),
+                    models.CharField(
+                        default="", max_length=20, verbose_name="手机号码"),
                 ),
                 ("sex", models.IntegerField(default=0, verbose_name="性别:1男,2女")),
                 (
                     "nickname",
-                    models.CharField(default="", max_length=100, verbose_name="别名"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="别名"),
                 ),
                 ("thumb", models.CharField(max_length=255, verbose_name="头像")),
                 (
@@ -133,15 +142,19 @@ class Migration(migrations.Migration):
                 ),
                 ("did", models.IntegerField(default=0, verbose_name="主部门id")),
                 ("pid", models.IntegerField(default=0, verbose_name="上级主管id")),
-                ("position_id", models.IntegerField(default=0, verbose_name="职位id")),
+                ("position_id", models.IntegerField(
+                    default=0, verbose_name="职位id")),
                 (
                     "position_name",
-                    models.CharField(default="", max_length=100, verbose_name="职务"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="职务"),
                 ),
-                ("position_rank", models.IntegerField(default=0, verbose_name="职级")),
+                ("position_rank", models.IntegerField(
+                    default=0, verbose_name="职级")),
                 (
                     "type",
-                    models.CharField(default="", max_length=20, verbose_name="员工类型"),
+                    models.CharField(
+                        default="", max_length=20, verbose_name="员工类型"),
                 ),
                 (
                     "is_staff",
@@ -151,34 +164,42 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "job_number",
-                    models.CharField(default="", max_length=255, verbose_name="工号"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="工号"),
                 ),
                 ("birthday", models.IntegerField(default=0, verbose_name="生日")),
                 ("age", models.IntegerField(default=0, verbose_name="年龄")),
-                ("work_date", models.IntegerField(default=0, verbose_name="开始工作时间")),
+                ("work_date", models.IntegerField(
+                    default=0, verbose_name="开始工作时间")),
                 (
                     "work_location",
-                    models.CharField(default="", max_length=255, verbose_name="工作地点"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="工作地点"),
                 ),
                 (
                     "native_place",
-                    models.CharField(default="", max_length=255, verbose_name="籍贯"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="籍贯"),
                 ),
                 (
                     "nation",
-                    models.CharField(default="", max_length=255, verbose_name="民族"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="民族"),
                 ),
                 (
                     "home_address",
-                    models.CharField(default="", max_length=255, verbose_name="家庭地址"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="家庭地址"),
                 ),
                 (
                     "current_address",
-                    models.CharField(default="", max_length=255, verbose_name="现居地址"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="现居地址"),
                 ),
                 (
                     "contact",
-                    models.CharField(default="", max_length=255, verbose_name="紧急联系人"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="紧急联系人"),
                 ),
                 (
                     "contact_mobile",
@@ -188,71 +209,88 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "resident_type",
-                    models.IntegerField(default=0, verbose_name="户口性质:1农村户口,2城镇户口"),
+                    models.IntegerField(
+                        default=0, verbose_name="户口性质:1农村户口,2城镇户口"),
                 ),
                 (
                     "resident_place",
-                    models.CharField(default="", max_length=255, verbose_name="户口所在地"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="户口所在地"),
                 ),
                 (
                     "graduate_school",
-                    models.CharField(default="", max_length=255, verbose_name="毕业学校"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="毕业学校"),
                 ),
-                ("graduate_day", models.IntegerField(default=0, verbose_name="毕业日期")),
+                ("graduate_day", models.IntegerField(
+                    default=0, verbose_name="毕业日期")),
                 (
                     "political",
-                    models.IntegerField(default=1, verbose_name="政治面貌:1中共党员,2团员"),
+                    models.IntegerField(
+                        default=1, verbose_name="政治面貌:1中共党员,2团员"),
                 ),
                 (
                     "marital_status",
-                    models.IntegerField(default=1, verbose_name="婚姻状况:1未婚,2已婚,3离异"),
+                    models.IntegerField(
+                        default=1, verbose_name="婚姻状况:1未婚,2已婚,3离异"),
                 ),
                 (
                     "idcard",
-                    models.CharField(default="", max_length=255, verbose_name="身份证"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="身份证"),
                 ),
                 (
                     "education",
-                    models.CharField(default="", max_length=255, verbose_name="学位"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="学位"),
                 ),
                 (
                     "speciality",
-                    models.CharField(default="", max_length=255, verbose_name="专业"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="专业"),
                 ),
                 (
                     "social_account",
-                    models.CharField(default="", max_length=255, verbose_name="社保账号"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="社保账号"),
                 ),
                 (
                     "medical_account",
-                    models.CharField(default="", max_length=255, verbose_name="医保账号"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="医保账号"),
                 ),
                 (
                     "provident_account",
-                    models.CharField(default="", max_length=255, verbose_name="公积金账号"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="公积金账号"),
                 ),
                 (
                     "bank_account",
-                    models.CharField(default="", max_length=255, verbose_name="银行卡号"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="银行卡号"),
                 ),
                 (
                     "bank_info",
-                    models.CharField(default="", max_length=255, verbose_name="开户行"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="开户行"),
                 ),
                 (
                     "file_ids",
-                    models.CharField(default="", max_length=500, verbose_name="档案附件"),
+                    models.CharField(
+                        default="", max_length=500, verbose_name="档案附件"),
                 ),
                 ("desc", models.TextField(null=True, verbose_name="员工个人简介")),
                 (
                     "is_hide",
-                    models.IntegerField(default=0, verbose_name="是否隐藏联系方式:0否,1是"),
+                    models.IntegerField(
+                        default=0, verbose_name="是否隐藏联系方式:0否,1是"),
                 ),
                 (
                     "entry_time",
                     models.BigIntegerField(default=0, verbose_name="员工入职日期"),
                 ),
-                ("create_time", models.BigIntegerField(default=0, verbose_name="注册时间")),
+                ("create_time", models.BigIntegerField(
+                    default=0, verbose_name="注册时间")),
                 (
                     "update_time",
                     models.BigIntegerField(default=0, verbose_name="更新信息时间"),
@@ -264,13 +302,16 @@ class Migration(migrations.Migration):
                 ("login_num", models.IntegerField(default=0, verbose_name="登录次数")),
                 (
                     "last_login_ip",
-                    models.CharField(default="", max_length=64, verbose_name="最后登录IP"),
+                    models.CharField(
+                        default="", max_length=64, verbose_name="最后登录IP"),
                 ),
-                ("is_lock", models.IntegerField(default=0, verbose_name="是否锁屏:1是0否")),
+                ("is_lock", models.IntegerField(
+                    default=0, verbose_name="是否锁屏:1是0否")),
                 ("auth_did", models.IntegerField(default=0, verbose_name="数据权限类型")),
                 (
                     "auth_dids",
-                    models.CharField(default="", max_length=500, verbose_name="可见部门数据"),
+                    models.CharField(
+                        default="", max_length=500, verbose_name="可见部门数据"),
                 ),
                 (
                     "son_dids",
@@ -320,15 +361,18 @@ class Migration(migrations.Migration):
                 ("admin_id", models.IntegerField(null=True, verbose_name="管理员ID")),
                 (
                     "username",
-                    models.CharField(max_length=30, null=True, verbose_name="管理员用户名"),
+                    models.CharField(
+                        max_length=30, null=True, verbose_name="管理员用户名"),
                 ),
                 (
                     "url",
-                    models.CharField(max_length=1500, null=True, verbose_name="操作页面"),
+                    models.CharField(
+                        max_length=1500, null=True, verbose_name="操作页面"),
                 ),
                 (
                     "title",
-                    models.CharField(max_length=100, null=True, verbose_name="日志标题"),
+                    models.CharField(
+                        max_length=100, null=True, verbose_name="日志标题"),
                 ),
                 ("content", models.TextField(null=True, verbose_name="内容")),
                 ("ip", models.CharField(max_length=50, null=True, verbose_name="IP")),
@@ -340,7 +384,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
             ],
             options={
@@ -399,7 +444,8 @@ class Migration(migrations.Migration):
                 ("status", models.BooleanField(default=True, verbose_name="是否启用")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "updated_at",
@@ -426,18 +472,21 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "title",
-                    models.CharField(default="", max_length=50, verbose_name="职位名称"),
+                    models.CharField(
+                        default="", max_length=50, verbose_name="职位名称"),
                 ),
                 ("did", models.IntegerField(default=0, verbose_name="部门ID")),
                 (
                     "desc",
-                    models.CharField(blank=True, max_length=255, verbose_name="职位描述"),
+                    models.CharField(
+                        blank=True, max_length=255, verbose_name="职位描述"),
                 ),
                 ("sort", models.IntegerField(default=0, verbose_name="排序")),
                 ("status", models.IntegerField(default=1, verbose_name="状态")),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",
@@ -464,17 +513,21 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "key",
-                    models.CharField(max_length=100, unique=True, verbose_name="配置键"),
+                    models.CharField(
+                        max_length=100, unique=True, verbose_name="配置键"),
                 ),
                 ("value", models.TextField(verbose_name="配置值")),
                 (
                     "description",
-                    models.CharField(blank=True, max_length=200, verbose_name="描述"),
+                    models.CharField(
+                        blank=True, max_length=200, verbose_name="描述"),
                 ),
-                ("is_active", models.BooleanField(default=True, verbose_name="是否启用")),
+                ("is_active", models.BooleanField(
+                    default=True, verbose_name="是否启用")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "updated_at",
@@ -498,16 +551,19 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "action",
-                    models.CharField(default="", max_length=255, verbose_name="操作行为"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="操作行为"),
                 ),
                 ("content", models.TextField(null=True, verbose_name="操作内容")),
                 (
                     "ip",
-                    models.CharField(default="", max_length=64, verbose_name="操作IP"),
+                    models.CharField(
+                        default="", max_length=64, verbose_name="操作IP"),
                 ),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="操作时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="操作时间"),
                 ),
                 (
                     "user",
@@ -541,18 +597,22 @@ class Migration(migrations.Migration):
                 ("name", models.CharField(max_length=100, verbose_name="模块名称")),
                 (
                     "code",
-                    models.CharField(max_length=50, unique=True, verbose_name="模块代码"),
+                    models.CharField(
+                        max_length=50, unique=True, verbose_name="模块代码"),
                 ),
                 ("description", models.TextField(blank=True, verbose_name="模块描述")),
                 (
                     "icon",
-                    models.CharField(blank=True, max_length=50, verbose_name="图标"),
+                    models.CharField(
+                        blank=True, max_length=50, verbose_name="图标"),
                 ),
                 ("sort_order", models.IntegerField(default=0, verbose_name="排序")),
-                ("is_active", models.BooleanField(default=True, verbose_name="是否启用")),
+                ("is_active", models.BooleanField(
+                    default=True, verbose_name="是否启用")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "parent",
@@ -609,7 +669,8 @@ class Migration(migrations.Migration):
                 ("user_agent", models.TextField(blank=True, verbose_name="用户代理")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="操作时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="操作时间"),
                 ),
                 (
                     "user",
@@ -679,7 +740,8 @@ class Migration(migrations.Migration):
                 ("remarks", models.TextField(blank=True, verbose_name="备注")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "updated_at",
@@ -721,15 +783,18 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "title",
-                    models.CharField(default="", max_length=255, verbose_name="菜单名称"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="菜单名称"),
                 ),
                 (
                     "src",
-                    models.CharField(default="", max_length=255, verbose_name="链接地址"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="链接地址"),
                 ),
                 (
                     "icon",
-                    models.CharField(default="", max_length=255, verbose_name="图标"),
+                    models.CharField(
+                        default="", max_length=255, verbose_name="图标"),
                 ),
                 ("sort", models.IntegerField(default=0, verbose_name="排序")),
                 ("status", models.IntegerField(default=1, verbose_name="状态:1正常,0禁用")),
@@ -744,7 +809,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",
@@ -791,8 +857,10 @@ class Migration(migrations.Migration):
                         verbose_name="ID",
                     ),
                 ),
-                ("from_position", models.CharField(max_length=100, verbose_name="原职位")),
-                ("to_position", models.CharField(max_length=100, verbose_name="新职位")),
+                ("from_position", models.CharField(
+                    max_length=100, verbose_name="原职位")),
+                ("to_position", models.CharField(
+                    max_length=100, verbose_name="新职位")),
                 ("transfer_reason", models.TextField(verbose_name="调动原因")),
                 ("transfer_date", models.DateField(verbose_name="调动日期")),
                 (
@@ -811,12 +879,15 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "approve_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="审批时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="审批时间"),
                 ),
-                ("approve_comment", models.TextField(blank=True, verbose_name="审批意见")),
+                ("approve_comment", models.TextField(
+                    blank=True, verbose_name="审批意见")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="申请时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="申请时间"),
                 ),
                 (
                     "updated_at",
@@ -890,7 +961,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "id_card",
-                    models.CharField(max_length=18, unique=True, verbose_name="身份证号"),
+                    models.CharField(
+                        max_length=18, unique=True, verbose_name="身份证号"),
                 ),
                 ("birth_date", models.DateField(verbose_name="出生日期")),
                 (
@@ -903,9 +975,11 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "nationality",
-                    models.CharField(default="汉族", max_length=50, verbose_name="民族"),
+                    models.CharField(
+                        default="汉族", max_length=50, verbose_name="民族"),
                 ),
-                ("native_place", models.CharField(max_length=200, verbose_name="籍贯")),
+                ("native_place", models.CharField(
+                    max_length=200, verbose_name="籍贯")),
                 ("address", models.TextField(verbose_name="现住址")),
                 (
                     "education",
@@ -925,15 +999,18 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "graduate_school",
-                    models.CharField(blank=True, max_length=200, verbose_name="毕业院校"),
+                    models.CharField(
+                        blank=True, max_length=200, verbose_name="毕业院校"),
                 ),
                 (
                     "major",
-                    models.CharField(blank=True, max_length=100, verbose_name="专业"),
+                    models.CharField(
+                        blank=True, max_length=100, verbose_name="专业"),
                 ),
                 (
                     "graduation_date",
-                    models.DateField(blank=True, null=True, verbose_name="毕业时间"),
+                    models.DateField(
+                        blank=True, null=True, verbose_name="毕业时间"),
                 ),
                 (
                     "marital_status",
@@ -958,26 +1035,32 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "bank_account",
-                    models.CharField(blank=True, max_length=50, verbose_name="银行账号"),
+                    models.CharField(
+                        blank=True, max_length=50, verbose_name="银行账号"),
                 ),
                 (
                     "bank_name",
-                    models.CharField(blank=True, max_length=100, verbose_name="开户银行"),
+                    models.CharField(
+                        blank=True, max_length=100, verbose_name="开户银行"),
                 ),
                 (
                     "social_security_number",
-                    models.CharField(blank=True, max_length=50, verbose_name="社保号"),
+                    models.CharField(
+                        blank=True, max_length=50, verbose_name="社保号"),
                 ),
                 (
                     "housing_fund_number",
-                    models.CharField(blank=True, max_length=50, verbose_name="公积金号"),
+                    models.CharField(
+                        blank=True, max_length=50, verbose_name="公积金号"),
                 ),
-                ("work_experience", models.TextField(blank=True, verbose_name="工作经历")),
+                ("work_experience", models.TextField(
+                    blank=True, verbose_name="工作经历")),
                 ("skills", models.TextField(blank=True, verbose_name="技能特长")),
                 ("remarks", models.TextField(blank=True, verbose_name="备注")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "updated_at",
@@ -1026,7 +1109,8 @@ class Migration(migrations.Migration):
                 ("dimission_reason", models.TextField(verbose_name="离职原因")),
                 ("apply_date", models.DateField(verbose_name="申请日期")),
                 ("dimission_date", models.DateField(verbose_name="离职日期")),
-                ("handover_content", models.TextField(blank=True, verbose_name="交接内容")),
+                ("handover_content", models.TextField(
+                    blank=True, verbose_name="交接内容")),
                 (
                     "status",
                     models.CharField(
@@ -1043,12 +1127,15 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "approve_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="审批时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="审批时间"),
                 ),
-                ("approve_comment", models.TextField(blank=True, verbose_name="审批意见")),
+                ("approve_comment", models.TextField(
+                    blank=True, verbose_name="审批意见")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="申请时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="申请时间"),
                 ),
                 (
                     "updated_at",
@@ -1119,7 +1206,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "contract_number",
-                    models.CharField(max_length=100, unique=True, verbose_name="合同编号"),
+                    models.CharField(
+                        max_length=100, unique=True, verbose_name="合同编号"),
                 ),
                 ("start_date", models.DateField(verbose_name="开始日期")),
                 ("end_date", models.DateField(verbose_name="结束日期")),
@@ -1147,7 +1235,8 @@ class Migration(migrations.Migration):
                 ("remarks", models.TextField(blank=True, verbose_name="备注")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "updated_at",
@@ -1220,7 +1309,8 @@ class Migration(migrations.Migration):
                 ("remarks", models.TextField(blank=True, verbose_name="备注")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "updated_at",
@@ -1324,7 +1414,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "updated_at",

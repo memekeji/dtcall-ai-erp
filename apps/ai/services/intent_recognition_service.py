@@ -35,26 +35,26 @@ class IntentRecognitionService:
     意图识别服务类（重构版）
     基于 AI 大模型的意图识别，支持智能降级
     """
-    
+
     def __init__(self):
         self.classifier = ai_intent_classifier
         self.enhanced_service = enhanced_intent_service
         self.optimization_service = intent_optimization_service
-    
+
     def recognize_intent(self, user: User, query: str) -> Dict[str, Any]:
         """
         识别用户意图（兼容旧接口）
-        
+
         Args:
             user: 当前用户
             query: 用户查询文本
-            
+
         Returns:
             Dict[str, Any]: 意图识别结果
         """
         try:
             result = self.classifier.classify_intent(user, query)
-            
+
             old_format = {
                 'intent': self._convert_intent(result.get('intent', 'AI_CHAT')),
                 'confidence': result.get('confidence', 0.0),
@@ -67,23 +67,24 @@ class IntentRecognitionService:
                 'status': result.get('status'),
                 'customer_name': result.get('customer_name'),
             }
-            
+
             self.optimization_service.log_recognition(
                 user=user,
                 query=query,
                 recognition_result=result,
                 is_correct=True
             )
-            
-            logger.info(f"意图识别成功：query={query[:50]}, intent={result.get('intent')}, "
-                       f"confidence={result.get('confidence', 0):.2f}")
-            
+
+            logger.info(
+                f"意图识别成功：query={query[:50]}, intent={result.get('intent')}, "
+                f"confidence={result.get('confidence', 0):.2f}")
+
             return old_format
-            
+
         except Exception as e:
             logger.error(f"意图识别失败：{str(e)}")
             return self._create_error_result(query)
-    
+
     def _convert_intent(self, new_intent: str) -> str:
         """将新意图类型转换为旧格式"""
         mapping = {
@@ -94,7 +95,7 @@ class IntentRecognitionService:
             'AI_CHAT': 'ai_chat'
         }
         return mapping.get(new_intent, 'ai_chat')
-    
+
     def _create_error_result(self, query: str) -> Dict[str, Any]:
         """创建错误结果"""
         return {
@@ -109,22 +110,22 @@ class IntentRecognitionService:
                 {'text': '重新描述需求', 'intent': None, 'action': 'retry'}
             ]
         }
-    
+
     def _handle_ai_chat(self, user: User, message: str) -> Dict[str, Any]:
         """
         处理 AI 对话（兼容旧接口）
         使用增强服务处理
         """
         return self.enhanced_service._handle_ai_chat(user, message)
-    
+
     def process_request(self, user: User, query: str) -> Dict[str, Any]:
         """
         处理用户请求（推荐使用）
-        
+
         Args:
             user: 当前用户
             query: 用户查询文本
-            
+
         Returns:
             Dict[str, Any]: 处理结果
         """

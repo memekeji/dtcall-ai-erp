@@ -10,13 +10,12 @@ from django.http import JsonResponse
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib import messages
 from django.shortcuts import render, redirect
-from django.db import transaction
 
 from apps.system.models import (
     Notice, MeetingReservation, Seal, SealApplication,
-    Document, DocumentCategory, DocumentReview, Asset, AssetRepair,
-    Vehicle, VehicleMaintenance, VehicleFee, VehicleOil,
-    AssetCategory, AssetBrand
+    Document, DocumentCategory, Asset, AssetRepair, Vehicle,
+    VehicleMaintenance, VehicleFee, VehicleOil, AssetCategory,
+    AssetBrand
 )
 from apps.oa.models import MeetingRoom
 from apps.system.forms.admin_office_forms import NoticeForm, AssetForm
@@ -30,33 +29,37 @@ class NoticeListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     context_object_name = 'notices'
     paginate_by = 20
     permission_required = 'user.view_notice'
-    
+
     def get_queryset(self):
         queryset = super().get_queryset()
         # 非超级用户只能看到已发布的公告，或者自己创建的公告
         if not self.request.user.is_superuser:
             queryset = queryset.filter(
-                models.Q(is_published=True) | models.Q(author=self.request.user)
+                models.Q(
+                    is_published=True) | models.Q(
+                    author=self.request.user)
             )
         return queryset.order_by('-is_top', '-publish_time')
 
 
-class NoticeCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class NoticeCreateView(
+        LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     """创建公告视图"""
     model = Notice
     template_name = 'notice/form.html'
     form_class = NoticeForm
     success_url = reverse_lazy('system:admin_office:notice_list')
     permission_required = 'user.add_notice'
-    
+
     def form_valid(self, form):
         form.instance.author = self.request.user
         response = super().form_valid(form)
         if form.cleaned_data.get('target_departments'):
-            form.instance.target_departments.set(form.cleaned_data['target_departments'])
+            form.instance.target_departments.set(
+                form.cleaned_data['target_departments'])
         if form.cleaned_data.get('target_users'):
             form.instance.target_users.set(form.cleaned_data['target_users'])
-        
+
         # 检查是否是 AJAX 请求
         if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({
@@ -64,30 +67,32 @@ class NoticeCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
                 'message': '公告创建成功',
                 'id': form.instance.id
             })
-        
+
         messages.success(self.request, '公告创建成功')
         return response
 
 
-class NoticeUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class NoticeUpdateView(
+        LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     """更新公告视图"""
     model = Notice
     template_name = 'notice/form.html'
     form_class = NoticeForm
     success_url = reverse_lazy('system:admin_office:notice_list')
     permission_required = 'user.change_notice'
-    
+
     def form_valid(self, form):
         response = super().form_valid(form)
         if form.cleaned_data.get('target_departments'):
-            form.instance.target_departments.set(form.cleaned_data['target_departments'])
+            form.instance.target_departments.set(
+                form.cleaned_data['target_departments'])
         else:
             form.instance.target_departments.clear()
         if form.cleaned_data.get('target_users'):
             form.instance.target_users.set(form.cleaned_data['target_users'])
         else:
             form.instance.target_users.clear()
-        
+
         # 检查是否是 AJAX 请求
         if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({
@@ -95,32 +100,34 @@ class NoticeUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
                 'message': '公告更新成功',
                 'id': form.instance.id
             })
-        
+
         messages.success(self.request, '公告更新成功')
         return response
 
 
-class NoticeDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+class NoticeDeleteView(
+        LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     """删除公告视图"""
     model = Notice
     permission_required = 'user.delete_notice'
-    
+
     def delete(self, request, *args, **kwargs):
         notice = self.get_object()
         title = notice.title
-        
+
         try:
             notice.delete()
             messages.success(request, f'公告"{title}"已删除')
             return JsonResponse({'code': 200, 'message': f'公告"{title}"已删除'})
         except Exception as e:
             return JsonResponse({'code': 400, 'message': f'删除失败: {str(e)}'})
-    
+
     def get_success_url(self):
         return reverse_lazy('system:admin_office:notice_list')
 
 
-class NoticeDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+class NoticeDetailView(
+        LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     """公告详情视图"""
     model = Notice
     template_name = 'notice/detail.html'
@@ -128,23 +135,24 @@ class NoticeDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     permission_required = 'user.view_notice'
 
 
-class NoticePublishView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class NoticePublishView(
+        LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     """发布公告视图"""
     model = Notice
     fields = []
     permission_required = 'user.change_notice'
-    
+
     def post(self, request, *args, **kwargs):
         notice = self.get_object()
         notice.is_published = True
         notice.save()
-        
+
         try:
             NoticeNotificationService.notify_new_notice(notice, request.user)
             message = '公告发布成功，通知已发送'
         except Exception as e:
             message = f'公告发布成功，但发送通知失败: {str(e)}'
-        
+
         messages.success(request, message)
         return JsonResponse({'code': 200, 'message': message})
 
@@ -154,13 +162,13 @@ class MeetingRoomListView(LoginRequiredMixin, PermissionRequiredMixin, View):
     model = MeetingRoom
     template_name = 'meeting/room.html'
     permission_required = 'user.view_meeting_room'
-    
+
     def get(self, request, *args, **kwargs):
         return render(request, self.template_name)
-    
+
     def post(self, request, *args, **kwargs):
         return self.datalist(request)
-    
+
     def datalist(self, request):
         """会议室数据列表API"""
         try:
@@ -175,46 +183,50 @@ class MeetingRoomListView(LoginRequiredMixin, PermissionRequiredMixin, View):
                 'status_display': '可用' if room.status == 'active' else '不可用',
                 'equipment_list': room.equipment_list or '',
             } for room in rooms]
-            return JsonResponse({'code': 200, 'msg': 'success', 'data': data, 'count': len(data)})
+            return JsonResponse(
+                {'code': 200, 'msg': 'success', 'data': data, 'count': len(data)})
         except Exception as e:
             return JsonResponse({'code': 500, 'msg': str(e)})
 
 
-class MeetingRoomCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class MeetingRoomCreateView(
+        LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     """创建会议室视图"""
     model = MeetingRoom
     template_name = 'meeting/room_form.html'
-    fields = ['name', 'code', 'location', 'capacity', 'has_projector', 'has_whiteboard', 
+    fields = ['name', 'code', 'location', 'capacity', 'has_projector', 'has_whiteboard',
               'has_tv', 'has_phone', 'has_wifi', 'equipment_list', 'description', 'status']
     success_url = reverse_lazy('system:admin_office:meeting_room_list')
     permission_required = 'user.add_meeting_room'
-    
+
     def form_valid(self, form):
         messages.success(self.request, '会议室创建成功')
         return super().form_valid(form)
 
 
-class MeetingRoomUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class MeetingRoomUpdateView(
+        LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     """更新会议室视图"""
     model = MeetingRoom
     template_name = 'meeting/room_form.html'
-    fields = ['name', 'code', 'location', 'capacity', 'has_projector', 'has_whiteboard', 
+    fields = ['name', 'code', 'location', 'capacity', 'has_projector', 'has_whiteboard',
               'has_tv', 'has_phone', 'has_wifi', 'equipment_list', 'description', 'status']
     success_url = reverse_lazy('system:admin_office:meeting_room_list')
     permission_required = 'user.change_meeting_room'
-    
+
     def form_valid(self, form):
         messages.success(self.request, '会议室更新成功')
         return super().form_valid(form)
 
 
-class MeetingRoomDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+class MeetingRoomDeleteView(
+        LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     """删除会议室视图"""
     model = MeetingRoom
     template_name = 'meeting/room_form.html'
     success_url = reverse_lazy('system:admin_office:meeting_room_list')
     permission_required = 'user.delete_meeting_room'
-    
+
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, '会议室删除成功')
         return super().delete(request, *args, **kwargs)
@@ -226,7 +238,7 @@ class MeetingReservationListView(LoginRequiredMixin, ListView):
     template_name = 'meeting/reservation_list.html'
     context_object_name = 'page_obj'
     paginate_by = 20
-    
+
     def get_queryset(self):
         queryset = super().get_queryset()
         # 普通用户只能看到自己的预订
@@ -239,9 +251,15 @@ class MeetingReservationCreateView(LoginRequiredMixin, CreateView):
     """创建会议室预订视图"""
     model = MeetingReservation
     template_name = 'system/meeting/reservation_form.html'
-    fields = ['meeting_room', 'reservation_time', 'end_time', 'participants', 'purpose', 'remarks']
+    fields = [
+        'meeting_room',
+        'reservation_time',
+        'end_time',
+        'participants',
+        'purpose',
+        'remarks']
     success_url = reverse_lazy('system:admin_office:meeting_reservation_list')
-    
+
     def form_valid(self, form):
         form.instance.applicant = self.request.user
         messages.success(self.request, '会议室预订申请已提交')
@@ -252,9 +270,15 @@ class MeetingReservationUpdateView(LoginRequiredMixin, UpdateView):
     """更新会议室预订视图"""
     model = MeetingReservation
     template_name = 'system/meeting/reservation_form.html'
-    fields = ['meeting_room', 'reservation_time', 'end_time', 'participants', 'purpose', 'remarks']
+    fields = [
+        'meeting_room',
+        'reservation_time',
+        'end_time',
+        'participants',
+        'purpose',
+        'remarks']
     success_url = reverse_lazy('system:admin_office:meeting_reservation_list')
-    
+
     def form_valid(self, form):
         messages.success(self.request, '会议室预订更新成功')
         return super().form_valid(form)
@@ -265,7 +289,7 @@ class MeetingReservationDeleteView(LoginRequiredMixin, DeleteView):
     model = MeetingReservation
     template_name = 'system/meeting/reservation_list.html'
     success_url = reverse_lazy('system:admin_office:meeting_reservation_list')
-    
+
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, '会议室预订删除成功')
         return super().delete(request, *args, **kwargs)
@@ -275,7 +299,7 @@ class MeetingReservationApproveView(LoginRequiredMixin, UpdateView):
     """审批会议室预订视图"""
     model = MeetingReservation
     fields = []
-    
+
     def post(self, request, *args, **kwargs):
         reservation = self.get_object()
         reservation.status = 'approved'
@@ -289,7 +313,7 @@ class MeetingReservationRejectView(LoginRequiredMixin, UpdateView):
     """拒绝会议室预订视图"""
     model = MeetingReservation
     fields = []
-    
+
     def post(self, request, *args, **kwargs):
         reservation = self.get_object()
         reservation.status = 'rejected'
@@ -313,7 +337,7 @@ class SealCreateView(LoginRequiredMixin, CreateView):
     template_name = 'seal/form.html'
     fields = ['name', 'type', 'keeper', 'status', 'description']
     success_url = reverse_lazy('system:admin_office:seal_list')
-    
+
     def form_valid(self, form):
         messages.success(self.request, '印章创建成功')
         return super().form_valid(form)
@@ -325,7 +349,7 @@ class SealUpdateView(LoginRequiredMixin, UpdateView):
     template_name = 'seal/form.html'
     fields = ['name', 'type', 'keeper', 'status', 'description']
     success_url = reverse_lazy('system:admin_office:seal_list')
-    
+
     def form_valid(self, form):
         messages.success(self.request, '印章更新成功')
         return super().form_valid(form)
@@ -336,7 +360,7 @@ class SealDeleteView(LoginRequiredMixin, DeleteView):
     model = Seal
     template_name = 'seal/list.html'
     success_url = reverse_lazy('system:admin_office:seal_list')
-    
+
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, '印章删除成功')
         return super().delete(request, *args, **kwargs)
@@ -348,7 +372,7 @@ class SealApplicationListView(LoginRequiredMixin, ListView):
     template_name = 'seal/application_list.html'
     context_object_name = 'applications'
     paginate_by = 20
-    
+
     def get_queryset(self):
         queryset = super().get_queryset()
         # 普通用户只能看到自己的申请
@@ -363,7 +387,7 @@ class SealApplicationCreateView(LoginRequiredMixin, CreateView):
     template_name = 'seal/application_form.html'
     fields = ['seal', 'purpose', 'document_title', 'use_date', 'copies']
     success_url = reverse_lazy('system:admin_office:seal_application_list')
-    
+
     def form_valid(self, form):
         form.instance.applicant = self.request.user
         messages.success(self.request, '印章申请已提交')
@@ -376,7 +400,7 @@ class SealApplicationUpdateView(LoginRequiredMixin, UpdateView):
     template_name = 'seal/application_form.html'
     fields = ['seal', 'purpose', 'document_title', 'use_date', 'copies']
     success_url = reverse_lazy('system:admin_office:seal_application_list')
-    
+
     def form_valid(self, form):
         messages.success(self.request, '印章申请更新成功')
         return super().form_valid(form)
@@ -387,7 +411,7 @@ class SealApplicationDeleteView(LoginRequiredMixin, DeleteView):
     model = SealApplication
     template_name = 'seal/application_list.html'
     success_url = reverse_lazy('system:admin_office:seal_application_list')
-    
+
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, '印章申请删除成功')
         return super().delete(request, *args, **kwargs)
@@ -397,7 +421,7 @@ class SealApplicationApproveView(LoginRequiredMixin, UpdateView):
     """审批印章申请视图"""
     model = SealApplication
     fields = []
-    
+
     def post(self, request, *args, **kwargs):
         application = self.get_object()
         application.status = 'approved'
@@ -411,7 +435,7 @@ class SealApplicationRejectView(LoginRequiredMixin, UpdateView):
     """拒绝印章申请视图"""
     model = SealApplication
     fields = []
-    
+
     def post(self, request, *args, **kwargs):
         application = self.get_object()
         application.status = 'rejected'
@@ -427,7 +451,7 @@ class DocumentListView(LoginRequiredMixin, ListView):
     template_name = 'document/list.html'
     context_object_name = 'documents'
     paginate_by = 20
-    
+
     def get_queryset(self):
         queryset = super().get_queryset()
         # 根据权限过滤数据
@@ -440,9 +464,15 @@ class DocumentCreateView(LoginRequiredMixin, CreateView):
     """创建公文视图"""
     model = Document
     template_name = 'document/form.html'
-    fields = ['title', 'category', 'content', 'urgency', 'security_level', 'attachments']
+    fields = [
+        'title',
+        'category',
+        'content',
+        'urgency',
+        'security_level',
+        'attachments']
     success_url = reverse_lazy('system:admin_office:document_list')
-    
+
     def form_valid(self, form):
         form.instance.creator = self.request.user
         messages.success(self.request, '公文创建成功')
@@ -453,9 +483,15 @@ class DocumentUpdateView(LoginRequiredMixin, UpdateView):
     """更新公文视图"""
     model = Document
     template_name = 'document/form.html'
-    fields = ['title', 'category', 'content', 'urgency', 'security_level', 'attachments']
+    fields = [
+        'title',
+        'category',
+        'content',
+        'urgency',
+        'security_level',
+        'attachments']
     success_url = reverse_lazy('system:admin_office:document_list')
-    
+
     def form_valid(self, form):
         messages.success(self.request, '公文更新成功')
         return super().form_valid(form)
@@ -466,7 +502,7 @@ class DocumentDeleteView(LoginRequiredMixin, DeleteView):
     model = Document
     template_name = 'document/list.html'
     success_url = reverse_lazy('system:admin_office:document_list')
-    
+
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, '公文删除成功')
         return super().delete(request, *args, **kwargs)
@@ -483,7 +519,7 @@ class DocumentSubmitView(LoginRequiredMixin, UpdateView):
     """提交公文视图"""
     model = Document
     fields = []
-    
+
     def post(self, request, *args, **kwargs):
         document = self.get_object()
         document.status = 'submitted'
@@ -496,7 +532,7 @@ class DocumentApproveView(LoginRequiredMixin, UpdateView):
     """审批公文视图"""
     model = Document
     fields = []
-    
+
     def post(self, request, *args, **kwargs):
         document = self.get_object()
         document.status = 'approved'
@@ -510,7 +546,7 @@ class DocumentRejectView(LoginRequiredMixin, UpdateView):
     """拒绝公文视图"""
     model = Document
     fields = []
-    
+
     def post(self, request, *args, **kwargs):
         document = self.get_object()
         document.status = 'rejected'
@@ -524,7 +560,7 @@ class DocumentPublishView(LoginRequiredMixin, UpdateView):
     """发布公文视图"""
     model = Document
     fields = []
-    
+
     def post(self, request, *args, **kwargs):
         document = self.get_object()
         document.status = 'published'
@@ -547,7 +583,7 @@ class DocumentCategoryCreateView(LoginRequiredMixin, CreateView):
     template_name = 'document/category_list.html'
     fields = ['name', 'description']
     success_url = reverse_lazy('system:admin_office:document_category_list')
-    
+
     def form_valid(self, form):
         messages.success(self.request, '公文分类创建成功')
         return super().form_valid(form)
@@ -559,7 +595,7 @@ class DocumentCategoryUpdateView(LoginRequiredMixin, UpdateView):
     template_name = 'document/category_list.html'
     fields = ['name', 'description', 'parent']
     success_url = reverse_lazy('system:admin_office:document_category_list')
-    
+
     def form_valid(self, form):
         messages.success(self.request, '公文分类更新成功')
         return super().form_valid(form)
@@ -570,7 +606,7 @@ class DocumentCategoryDeleteView(LoginRequiredMixin, DeleteView):
     model = DocumentCategory
     template_name = 'document/category_list.html'
     success_url = reverse_lazy('system:admin_office:document_category_list')
-    
+
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, '公文分类删除成功')
         return super().delete(request, *args, **kwargs)
@@ -583,6 +619,9 @@ class AssetListView(LoginRequiredMixin, ListView):
     context_object_name = 'assets'
     paginate_by = 20
 
+    def get_queryset(self):
+        return super().get_queryset().select_related('category', 'brand', 'responsible_person', 'department')
+
 
 class AssetCreateView(LoginRequiredMixin, CreateView):
     """创建资产视图"""
@@ -590,7 +629,7 @@ class AssetCreateView(LoginRequiredMixin, CreateView):
     template_name = 'asset/form.html'
     form_class = AssetForm
     success_url = reverse_lazy('system:admin_office:asset_list')
-    
+
     def form_valid(self, form):
         messages.success(self.request, '资产创建成功')
         return super().form_valid(form)
@@ -602,13 +641,10 @@ class AssetUpdateView(LoginRequiredMixin, UpdateView):
     template_name = 'asset/form.html'
     form_class = AssetForm
     success_url = reverse_lazy('system:admin_office:asset_list')
-    
+
     def form_valid(self, form):
         messages.success(self.request, '资产更新成功')
         return super().form_valid(form)
-
-
-
 
 
 class AssetDeleteView(LoginRequiredMixin, DeleteView):
@@ -616,7 +652,7 @@ class AssetDeleteView(LoginRequiredMixin, DeleteView):
     model = Asset
     template_name = 'asset/list.html'
     success_url = reverse_lazy('system:admin_office:asset_list')
-    
+
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, '资产删除成功')
         return super().delete(request, *args, **kwargs)
@@ -636,7 +672,7 @@ class AssetRepairCreateView(LoginRequiredMixin, CreateView):
     template_name = 'asset/repair_form.html'
     fields = ['asset', 'fault_description', 'repair_cost']
     success_url = reverse_lazy('system:admin_office:asset_repair_list')
-    
+
     def form_valid(self, form):
         form.instance.reporter = self.request.user
         messages.success(self.request, '资产维修申请已提交')
@@ -649,13 +685,10 @@ class AssetRepairUpdateView(LoginRequiredMixin, UpdateView):
     template_name = 'asset/repair_form.html'
     fields = ['asset', 'fault_description', 'repair_cost', 'status']
     success_url = reverse_lazy('system:admin_office:asset_repair_list')
-    
+
     def form_valid(self, form):
         messages.success(self.request, '资产维修记录更新成功')
         return super().form_valid(form)
-
-
-
 
 
 class AssetRepairDeleteView(LoginRequiredMixin, DeleteView):
@@ -663,7 +696,7 @@ class AssetRepairDeleteView(LoginRequiredMixin, DeleteView):
     model = AssetRepair
     template_name = 'asset/repair_list.html'
     success_url = reverse_lazy('system:admin_office:asset_repair_list')
-    
+
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, '资产维修删除成功')
         return super().delete(request, *args, **kwargs)
@@ -673,7 +706,7 @@ class AssetRepairCompleteView(LoginRequiredMixin, UpdateView):
     """完成资产维修视图"""
     model = AssetRepair
     fields = []
-    
+
     def post(self, request, *args, **kwargs):
         repair = self.get_object()
         repair.status = 'completed'
@@ -694,10 +727,10 @@ class VehicleCreateView(LoginRequiredMixin, CreateView):
     """创建车辆视图"""
     model = Vehicle
     template_name = 'vehicle/form.html'
-    fields = ['license_plate', 'brand', 'model', 'color', 'purchase_date', 
+    fields = ['license_plate', 'brand', 'model', 'color', 'purchase_date',
               'purchase_price', 'status', 'driver', 'description']
     success_url = reverse_lazy('system:admin_office:vehicle_list')
-    
+
     def form_valid(self, form):
         messages.success(self.request, '车辆创建成功')
         return super().form_valid(form)
@@ -707,10 +740,10 @@ class VehicleUpdateView(LoginRequiredMixin, UpdateView):
     """更新车辆视图"""
     model = Vehicle
     template_name = 'vehicle/form.html'
-    fields = ['license_plate', 'brand', 'model', 'color', 'purchase_date', 
+    fields = ['license_plate', 'brand', 'model', 'color', 'purchase_date',
               'purchase_price', 'status', 'driver', 'description']
     success_url = reverse_lazy('system:admin_office:vehicle_list')
-    
+
     def form_valid(self, form):
         messages.success(self.request, '车辆更新成功')
         return super().form_valid(form)
@@ -721,7 +754,7 @@ class VehicleDeleteView(LoginRequiredMixin, DeleteView):
     model = Vehicle
     template_name = 'vehicle/list.html'
     success_url = reverse_lazy('system:admin_office:vehicle_list')
-    
+
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, '车辆删除成功')
         return super().delete(request, *args, **kwargs)
@@ -739,9 +772,14 @@ class VehicleMaintenanceCreateView(LoginRequiredMixin, CreateView):
     """创建车辆保养记录视图"""
     model = VehicleMaintenance
     template_name = 'vehicle/maintenance_form.html'
-    fields = ['vehicle', 'maintenance_date', 'maintenance_type', 'cost', 'description']
+    fields = [
+        'vehicle',
+        'maintenance_date',
+        'maintenance_type',
+        'cost',
+        'description']
     success_url = reverse_lazy('system:admin_office:vehicle_maintenance_list')
-    
+
     def form_valid(self, form):
         messages.success(self.request, '车辆保养记录创建成功')
         return super().form_valid(form)
@@ -751,9 +789,14 @@ class VehicleMaintenanceUpdateView(LoginRequiredMixin, UpdateView):
     """更新车辆保养记录视图"""
     model = VehicleMaintenance
     template_name = 'vehicle/maintenance_form.html'
-    fields = ['vehicle', 'maintenance_date', 'maintenance_type', 'cost', 'description']
+    fields = [
+        'vehicle',
+        'maintenance_date',
+        'maintenance_type',
+        'cost',
+        'description']
     success_url = reverse_lazy('system:admin_office:vehicle_maintenance_list')
-    
+
     def form_valid(self, form):
         messages.success(self.request, '车辆保养记录更新成功')
         return super().form_valid(form)
@@ -764,7 +807,7 @@ class VehicleMaintenanceDeleteView(LoginRequiredMixin, DeleteView):
     model = VehicleMaintenance
     template_name = 'vehicle/maintenance_list.html'
     success_url = reverse_lazy('system:admin_office:vehicle_maintenance_list')
-    
+
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, '车辆保养记录删除成功')
         return super().delete(request, *args, **kwargs)
@@ -782,9 +825,15 @@ class VehicleFeeCreateView(LoginRequiredMixin, CreateView):
     """创建车辆费用视图"""
     model = VehicleFee
     template_name = 'vehicle/fee_form.html'
-    fields = ['vehicle', 'fee_date', 'fee_type', 'fee_amount', 'payment_method', 'remarks']
+    fields = [
+        'vehicle',
+        'fee_date',
+        'fee_type',
+        'fee_amount',
+        'payment_method',
+        'remarks']
     success_url = reverse_lazy('system:admin_office:vehicle_fee_list')
-    
+
     def form_valid(self, form):
         form.instance.recorder = self.request.user
         messages.success(self.request, '车辆费用记录已创建')
@@ -795,9 +844,15 @@ class VehicleFeeUpdateView(LoginRequiredMixin, UpdateView):
     """更新车辆费用视图"""
     model = VehicleFee
     template_name = 'vehicle/fee_form.html'
-    fields = ['vehicle', 'fee_date', 'fee_type', 'fee_amount', 'payment_method', 'remarks']
+    fields = [
+        'vehicle',
+        'fee_date',
+        'fee_type',
+        'fee_amount',
+        'payment_method',
+        'remarks']
     success_url = reverse_lazy('system:admin_office:vehicle_fee_list')
-    
+
     def form_valid(self, form):
         messages.success(self.request, '车辆费用记录更新成功')
         return super().form_valid(form)
@@ -808,7 +863,7 @@ class VehicleFeeDeleteView(LoginRequiredMixin, DeleteView):
     model = VehicleFee
     template_name = 'vehicle/fee_list.html'
     success_url = reverse_lazy('system:admin_office:vehicle_fee_list')
-    
+
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, '车辆费用记录删除成功')
         return super().delete(request, *args, **kwargs)
@@ -826,9 +881,16 @@ class VehicleOilCreateView(LoginRequiredMixin, CreateView):
     """创建车辆加油记录视图"""
     model = VehicleOil
     template_name = 'vehicle/oil_form.html'
-    fields = ['vehicle', 'oil_date', 'oil_type', 'oil_amount', 'oil_cost', 'current_mileage', 'remarks']
+    fields = [
+        'vehicle',
+        'oil_date',
+        'oil_type',
+        'oil_amount',
+        'oil_cost',
+        'current_mileage',
+        'remarks']
     success_url = reverse_lazy('system:admin_office:vehicle_oil_list')
-    
+
     def form_valid(self, form):
         form.instance.recorder = self.request.user
         messages.success(self.request, '车辆加油记录已创建')
@@ -839,9 +901,15 @@ class VehicleOilUpdateView(LoginRequiredMixin, UpdateView):
     """更新车辆加油记录视图"""
     model = VehicleOil
     template_name = 'vehicle/oil_form.html'
-    fields = ['vehicle', 'oil_date', 'oil_type', 'oil_amount', 'oil_cost', 'description']
+    fields = [
+        'vehicle',
+        'oil_date',
+        'oil_type',
+        'oil_amount',
+        'oil_cost',
+        'description']
     success_url = reverse_lazy('system:admin_office:vehicle_oil_list')
-    
+
     def form_valid(self, form):
         messages.success(self.request, '车辆加油记录更新成功')
         return super().form_valid(form)
@@ -852,7 +920,7 @@ class VehicleOilDeleteView(LoginRequiredMixin, DeleteView):
     model = VehicleOil
     template_name = 'vehicle/oil_list.html'
     success_url = reverse_lazy('system:admin_office:vehicle_oil_list')
-    
+
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, '车辆加油记录删除成功')
         return super().delete(request, *args, **kwargs)
@@ -860,18 +928,17 @@ class VehicleOilDeleteView(LoginRequiredMixin, DeleteView):
 
 class GenerateAssetNumberView(LoginRequiredMixin, View):
     """生成资产编号API"""
-    
+
     def get(self, request):
         from django.utils import timezone
-        from datetime import datetime
-        
+
         prefix = 'ZC'
         year = timezone.now().strftime('%Y')
-        
+
         existing_numbers = Asset.objects.filter(
             asset_number__startswith=f'{prefix}{year}'
         ).values_list('asset_number', flat=True)
-        
+
         if existing_numbers:
             max_seq = 0
             for num in existing_numbers:
@@ -886,9 +953,9 @@ class GenerateAssetNumberView(LoginRequiredMixin, View):
             new_seq = max_seq + 1
         else:
             new_seq = 1
-        
+
         new_number = f'{prefix}{year}{str(new_seq).zfill(4)}'
-        
+
         return JsonResponse({
             'code': 200,
             'data': {
@@ -911,7 +978,7 @@ class AssetCategoryCreateView(LoginRequiredMixin, CreateView):
     template_name = 'asset/category_form.html'
     fields = ['code', 'name', 'description', 'is_active']
     success_url = reverse_lazy('system:admin_office:asset_category_list')
-    
+
     def form_valid(self, form):
         messages.success(self.request, '资产分类创建成功')
         return super().form_valid(form)
@@ -923,7 +990,7 @@ class AssetCategoryUpdateView(LoginRequiredMixin, UpdateView):
     template_name = 'asset/category_form.html'
     fields = ['code', 'name', 'description', 'is_active']
     success_url = reverse_lazy('system:admin_office:asset_category_list')
-    
+
     def form_valid(self, form):
         messages.success(self.request, '资产分类更新成功')
         return super().form_valid(form)
@@ -934,7 +1001,7 @@ class AssetCategoryDeleteView(LoginRequiredMixin, DeleteView):
     model = AssetCategory
     template_name = 'asset/category_list.html'
     success_url = reverse_lazy('system:admin_office:asset_category_list')
-    
+
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, '资产分类删除成功')
         return super().delete(request, *args, **kwargs)
@@ -954,7 +1021,7 @@ class AssetBrandCreateView(LoginRequiredMixin, CreateView):
     template_name = 'asset/brand_form.html'
     fields = ['code', 'name', 'description', 'is_active']
     success_url = reverse_lazy('system:admin_office:asset_brand_list')
-    
+
     def form_valid(self, form):
         messages.success(self.request, '资产品牌创建成功')
         return super().form_valid(form)
@@ -966,7 +1033,7 @@ class AssetBrandUpdateView(LoginRequiredMixin, UpdateView):
     template_name = 'asset/brand_form.html'
     fields = ['code', 'name', 'description', 'is_active']
     success_url = reverse_lazy('system:admin_office:asset_brand_list')
-    
+
     def form_valid(self, form):
         messages.success(self.request, '资产品牌更新成功')
         return super().form_valid(form)
@@ -977,7 +1044,7 @@ class AssetBrandDeleteView(LoginRequiredMixin, DeleteView):
     model = AssetBrand
     template_name = 'asset/brand_list.html'
     success_url = reverse_lazy('system:admin_office:asset_brand_list')
-    
+
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, '资产品牌删除成功')
         return super().delete(request, *args, **kwargs)
@@ -985,31 +1052,31 @@ class AssetBrandDeleteView(LoginRequiredMixin, DeleteView):
 
 class AssetCategoryDataAPIView(LoginRequiredMixin, View):
     """资产分类数据API"""
-    
+
     def get(self, request):
         try:
             keyword = request.GET.get('keyword', '')
             status = request.GET.get('status', '')
             page = int(request.GET.get('page', 1))
             page_size = int(request.GET.get('page_size', 10))
-            
+
             queryset = AssetCategory.objects.all()
-            
+
             if keyword:
                 queryset = queryset.filter(
-                    models.Q(name__icontains=keyword) | 
+                    models.Q(name__icontains=keyword) |
                     models.Q(code__icontains=keyword)
                 )
-            
+
             if status:
                 is_active = status == '1'
                 queryset = queryset.filter(is_active=is_active)
-            
+
             total_count = queryset.count()
             start = (page - 1) * page_size
             end = start + page_size
             categories = queryset.order_by('-created_at')[start:end]
-            
+
             data = [{
                 'id': cat.id,
                 'code': cat.code,
@@ -1018,7 +1085,7 @@ class AssetCategoryDataAPIView(LoginRequiredMixin, View):
                 'is_active': cat.is_active,
                 'create_time': cat.created_at.strftime('%Y-%m-%d %H:%M') if cat.created_at else '-'
             } for cat in categories]
-            
+
             return JsonResponse({
                 'code': 0,
                 'msg': 'success',
@@ -1034,7 +1101,7 @@ class AssetCategoryDataAPIView(LoginRequiredMixin, View):
 
 class AssetCategoryDeleteAPIView(LoginRequiredMixin, View):
     """资产分类删除API"""
-    
+
     def delete(self, request, pk):
         try:
             category = AssetCategory.objects.get(pk=pk)
@@ -1044,38 +1111,38 @@ class AssetCategoryDeleteAPIView(LoginRequiredMixin, View):
             return JsonResponse({'code': 404, 'msg': '分类不存在'})
         except Exception as e:
             return JsonResponse({'code': 500, 'msg': str(e)})
-    
+
     def post(self, request, pk):
         return self.delete(request, pk)
 
 
 class AssetBrandDataAPIView(LoginRequiredMixin, View):
     """资产品牌数据API"""
-    
+
     def get(self, request):
         try:
             keyword = request.GET.get('keyword', '')
             status = request.GET.get('status', '')
             page = int(request.GET.get('page', 1))
             page_size = int(request.GET.get('page_size', 10))
-            
+
             queryset = AssetBrand.objects.all()
-            
+
             if keyword:
                 queryset = queryset.filter(
-                    models.Q(name__icontains=keyword) | 
+                    models.Q(name__icontains=keyword) |
                     models.Q(code__icontains=keyword)
                 )
-            
+
             if status:
                 is_active = status == '1'
                 queryset = queryset.filter(is_active=is_active)
-            
+
             total_count = queryset.count()
             start = (page - 1) * page_size
             end = start + page_size
             brands = queryset.order_by('-created_at')[start:end]
-            
+
             data = [{
                 'id': brand.id,
                 'code': brand.code,
@@ -1084,7 +1151,7 @@ class AssetBrandDataAPIView(LoginRequiredMixin, View):
                 'is_active': brand.is_active,
                 'create_time': brand.created_at.strftime('%Y-%m-%d %H:%M') if brand.created_at else '-'
             } for brand in brands]
-            
+
             return JsonResponse({
                 'code': 0,
                 'msg': 'success',
@@ -1100,7 +1167,7 @@ class AssetBrandDataAPIView(LoginRequiredMixin, View):
 
 class AssetBrandDeleteAPIView(LoginRequiredMixin, View):
     """资产品牌删除API"""
-    
+
     def delete(self, request, pk):
         try:
             brand = AssetBrand.objects.get(pk=pk)
@@ -1110,6 +1177,6 @@ class AssetBrandDeleteAPIView(LoginRequiredMixin, View):
             return JsonResponse({'code': 404, 'msg': '品牌不存在'})
         except Exception as e:
             return JsonResponse({'code': 500, 'msg': str(e)})
-    
+
     def post(self, request, pk):
         return self.delete(request, pk)

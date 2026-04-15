@@ -7,6 +7,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class TianyanchaSpider:
     def __init__(self):
         self.base_url = 'https://www.tianyancha.com/search'
@@ -26,7 +27,8 @@ class TianyanchaSpider:
                 'key': keyword,
                 'page': page
             }
-            response = self.session.get(self.base_url, params=params, timeout=10)
+            response = self.session.get(
+                self.base_url, params=params, timeout=10)
             response.raise_for_status()
             return self.parse_search_results(response.text)
         except Exception as e:
@@ -51,10 +53,14 @@ class TianyanchaSpider:
                     company_url = f'https://www.tianyancha.com{company_url}'
 
                 # 提取基本信息
-                legal_person = item.select_one('.legal-person').get_text(strip=True) if item.select_one('.legal-person') else ''
-                reg_capital = item.select_one('.reg-capital').get_text(strip=True) if item.select_one('.reg-capital') else ''
-                est_date = item.select_one('.est-date').get_text(strip=True) if item.select_one('.est-date') else ''
-                status = item.select_one('.status').get_text(strip=True) if item.select_one('.status') else ''
+                legal_person = item.select_one(
+                    '.legal-person').get_text(strip=True) if item.select_one('.legal-person') else ''
+                reg_capital = item.select_one(
+                    '.reg-capital').get_text(strip=True) if item.select_one('.reg-capital') else ''
+                est_date = item.select_one(
+                    '.est-date').get_text(strip=True) if item.select_one('.est-date') else ''
+                status = item.select_one('.status').get_text(
+                    strip=True) if item.select_one('.status') else ''
 
                 company_list.append({
                     'name': company_name,
@@ -78,8 +84,10 @@ class TianyanchaSpider:
             soup = BeautifulSoup(response.text, 'html.parser')
 
             # 提取详细信息 - 注意：实际选择器可能需要根据天眼查当前页面结构调整
-            business_scope = soup.select_one('.business-scope').get_text(strip=True) if soup.select_one('.business-scope') else ''
-            address = soup.select_one('.address').get_text(strip=True) if soup.select_one('.address') else ''
+            business_scope = soup.select_one(
+                '.business-scope').get_text(strip=True) if soup.select_one('.business-scope') else ''
+            address = soup.select_one('.address').get_text(
+                strip=True) if soup.select_one('.address') else ''
 
             return {
                 'business_scope': business_scope,
@@ -101,13 +109,15 @@ class TianyanchaSpider:
             with transaction.atomic():
                 for company_data in companies:
                     # 检查企业是否已存在
-                    if Company.objects.filter(name=company_data['name']).exists():
+                    if Company.objects.filter(
+                            name=company_data['name']).exists():
                         logger.info(f"企业已存在: {company_data['name']}")
                         continue
 
                     # 获取企业详情
                     if company_data['tianyancha_url']:
-                        detail_data = self.get_company_detail(company_data['tianyancha_url'])
+                        detail_data = self.get_company_detail(
+                            company_data['tianyancha_url'])
                         company_data.update(detail_data)
 
                     # 保存企业信息

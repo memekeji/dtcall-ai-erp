@@ -23,35 +23,43 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "title",
-                    models.CharField(default="", max_length=100, verbose_name="企业名称"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="企业名称"),
                 ),
                 (
                     "city",
-                    models.CharField(default="", max_length=60, verbose_name="所在城市"),
+                    models.CharField(
+                        default="", max_length=60, verbose_name="所在城市"),
                 ),
                 (
                     "bank",
-                    models.CharField(default="", max_length=60, verbose_name="开户银行"),
+                    models.CharField(
+                        default="", max_length=60, verbose_name="开户银行"),
                 ),
                 (
                     "bank_sn",
-                    models.CharField(default="", max_length=60, verbose_name="银行帐号"),
+                    models.CharField(
+                        default="", max_length=60, verbose_name="银行帐号"),
                 ),
                 (
                     "tax_num",
-                    models.CharField(default="", max_length=100, verbose_name="纳税人识别号"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="纳税人识别号"),
                 ),
                 (
                     "phone",
-                    models.CharField(default="", max_length=20, verbose_name="开票电话"),
+                    models.CharField(
+                        default="", max_length=20, verbose_name="开票电话"),
                 ),
                 (
                     "address",
-                    models.CharField(default="", max_length=200, verbose_name="开票地址"),
+                    models.CharField(
+                        default="", max_length=200, verbose_name="开票地址"),
                 ),
                 (
                     "remark",
-                    models.CharField(default="", max_length=500, verbose_name="备注说明"),
+                    models.CharField(
+                        default="", max_length=500, verbose_name="备注说明"),
                 ),
                 (
                     "status",
@@ -62,8 +70,10 @@ class Migration(migrations.Migration):
                         verbose_name="状态",
                     ),
                 ),
-                ("create_time", models.BigIntegerField(default=0, verbose_name="创建时间")),
-                ("update_time", models.BigIntegerField(default=0, verbose_name="更新时间")),
+                ("create_time", models.BigIntegerField(
+                    default=0, verbose_name="创建时间")),
+                ("update_time", models.BigIntegerField(
+                    default=0, verbose_name="更新时间")),
             ],
             options={
                 "verbose_name": "企业信息",

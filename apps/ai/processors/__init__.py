@@ -21,7 +21,6 @@ def register_all_processors():
         'basic_processor',
         'data_processor',
         'enhanced_processors',
-        'complete_nodes',
         'complete_node_processors'
     ]
     

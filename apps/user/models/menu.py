@@ -1,5 +1,4 @@
 from django.db import models
-from django.utils import timezone
 from django.core.cache import cache
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
@@ -50,22 +49,33 @@ class Menu(models.Model):
     title = models.CharField(max_length=255, default='', verbose_name='菜单名称')
     src = models.CharField(max_length=255, default='', verbose_name='链接地址')
     icon = models.CharField(max_length=255, default='', verbose_name='图标')
-    pid = models.ForeignKey('self', blank=True, null=True, on_delete=models.CASCADE, verbose_name='父级菜单 id', related_name='submenus')
+    pid = models.ForeignKey(
+        'self',
+        blank=True,
+        null=True,
+        on_delete=models.CASCADE,
+        verbose_name='父级菜单 id',
+        related_name='submenus')
     sort = models.IntegerField(default=0, verbose_name='排序')
     status = models.IntegerField(default=1, verbose_name='状态:1 正常，0 禁用')
-    module = models.ForeignKey('user.SystemModule', on_delete=models.CASCADE, default=1, verbose_name='所属模块', related_name='menus')
+    module = models.ForeignKey(
+        'user.SystemModule',
+        on_delete=models.CASCADE,
+        default=1,
+        verbose_name='所属模块',
+        related_name='menus')
     create_time = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     update_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
-    
+
     class Meta:
         db_table = 'system_menu'
         verbose_name = '菜单'
         verbose_name_plural = verbose_name
         ordering = ['sort', 'id']
-    
+
     def __str__(self):
         return self.title
-    
+
     def is_available(self):
         """检查菜单是否可用"""
         return self.status == 1 and self.module and self.module.is_active

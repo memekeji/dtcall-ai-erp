@@ -7,13 +7,10 @@ from django.http import JsonResponse
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.utils import timezone
 from django.db.models import Sum
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Customer, CustomerGrade, FollowRecord, CustomerContract
-from apps.contract.models import Contract
+from .models import Customer, CustomerGrade, CustomerContract
 
 logger = logging.getLogger(__name__)
 
@@ -289,7 +286,6 @@ class CustomerInvoicesAPIView(LoginRequiredMixin, View):
 
     def get(self, request, customer_id):
         try:
-            from apps.finance.models_new import Invoice as FinanceInvoice
             from apps.customer.models import CustomerInvoice
             
             customer = Customer.objects.get(id=customer_id, delete_time=0)
@@ -388,7 +384,6 @@ class CustomerPendingPaymentsAPIView(LoginRequiredMixin, View):
 
     def get(self, request, customer_id):
         try:
-            from apps.finance.models_new import Invoice as FinanceInvoice
             from apps.customer.models import CustomerInvoice
             
             customer = Customer.objects.get(id=customer_id, delete_time=0)
@@ -443,7 +438,7 @@ class CustomerFinanceStatsAPIView(LoginRequiredMixin, View):
 
     def get(self, request, customer_id):
         try:
-            from apps.finance.models_new import Invoice as FinanceInvoice
+            from apps.finance.models import Invoice as FinanceInvoice
             from apps.customer.models import CustomerInvoice
             
             customer = Customer.objects.get(id=customer_id, delete_time=0)
@@ -635,7 +630,6 @@ class CustomerContractAddAPIView(APIView):
                 # 转换时间格式
                 def date_to_timestamp(date_str):
                     if date_str:
-                        from django.utils import timezone
                         import datetime
                         date_obj = datetime.datetime.strptime(date_str, '%Y-%m-%d')
                         return int(date_obj.timestamp())
@@ -712,7 +706,6 @@ class CustomerContractUpdateAPIView(APIView):
                 # 转换时间格式
                 def date_to_timestamp(date_str):
                     if date_str:
-                        from django.utils import timezone
                         import datetime
                         date_obj = datetime.datetime.strptime(date_str, '%Y-%m-%d')
                         return int(date_obj.timestamp())

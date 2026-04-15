@@ -490,7 +490,7 @@
             layer.open({
                 type: 1,
                 title: '设备详情',
-                area: ['600px', '500px'],
+                area: ['80%', '100%'],
                 content: $('#equipmentModal'),
                 success: function(layero, index) {
                     loadEquipmentDetail(equipmentId);
@@ -548,7 +548,7 @@
                         layer.open({
                             type: 1,
                             title: equipmentName + ' - 数据趋势',
-                            area: ['800px', '500px'],
+                            area: ['80%', '100%'],
                             content: '<div id="equipmentChartDetail" style="height: 400px; padding: 20px;"></div>',
                             success: function(layero, index) {
                                 var chart = echarts.init(document.getElementById('equipmentChartDetail'));

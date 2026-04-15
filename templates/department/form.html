@@ -8,7 +8,7 @@
     .layui-card-header { background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; border-radius: 12px 12px 0 0; padding: 15px 20px; }
     .layui-form-label { font-weight: 600; color: #333; width: 120px; }
     .layui-input, .layui-textarea, .layui-select { border-radius: 8px; border: 1px solid #ddd; padding: 10px 15px; transition: all 0.3s ease; }
-    .layui-input:focus, .layui-textarea:focus, .layui-select:focus { border-color: #007bff; box-shadow: 0 0 0 3px rgba(0,123,255,0.1); }
+    .layui-input:focus, .layui-textarea: ['80%', '100%'],0.1); }
     .layui-btn-primary { background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); border: none; padding: 0px 20px; border-radius: 8px; transition: transform 0.2s; color: white; }
     .layui-btn-primary:hover { transform: translateY(-2px); }
     .layui-btn-normal { border-radius: 8px; padding: 0px 20px; }
@@ -316,7 +316,7 @@ layui.use(['form', 'layer'], function() {
             type: 2,
             title: '选择负责人',
             content: '/system/department/manager_select/',
-            area: ['800px', '600px'],
+            area: ['80%', '100%'],
             btn: ['确定', '取消'],
             yes: function(index, layero) {
                 var iframeWin = window[layero.find('iframe')[0]['name']];

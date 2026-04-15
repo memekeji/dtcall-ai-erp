@@ -40,7 +40,13 @@ class ReservationStatusChoices(TextChoices):
 # 文件上传配置
 class FileUploadConfig:
     """文件上传配置常量"""
-    AUDIO_ALLOWED_EXTENSIONS = ['.mp3', '.wav', '.flac', '.ogg', '.aac', '.wma']
+    AUDIO_ALLOWED_EXTENSIONS = [
+        '.mp3',
+        '.wav',
+        '.flac',
+        '.ogg',
+        '.aac',
+        '.wma']
     AUDIO_ALLOWED_MIME_TYPES = [
         'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav',
         'audio/flac', 'audio/ogg', 'audio/aac', 'audio/x-ms-wma'

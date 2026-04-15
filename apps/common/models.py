@@ -7,31 +7,42 @@ from django.utils import timezone
 
 class BaseModel(models.Model):
     """基础模型类，统一时间字段"""
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间', db_index=True)
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间', db_index=True)
-    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='创建时间',
+        db_index=True)
+    updated_at = models.DateTimeField(
+        auto_now=True, verbose_name='更新时间', db_index=True)
+
     class Meta:
         abstract = True
 
 
 class SoftDeleteModel(BaseModel):
     """软删除模型类"""
-    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name='删除时间', db_index=True)
-    is_deleted = models.BooleanField(default=False, verbose_name='是否已删除', db_index=True)
-    
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='删除时间',
+        db_index=True)
+    is_deleted = models.BooleanField(
+        default=False,
+        verbose_name='是否已删除',
+        db_index=True)
+
     class Meta:
         abstract = True
-    
+
     def delete(self, using=None, keep_parents=False):
         """软删除"""
         self.deleted_at = timezone.now()
         self.is_deleted = True
         self.save(using=using)
-    
+
     def hard_delete(self, using=None, keep_parents=False):
         """物理删除"""
         super().delete(using=using, keep_parents=keep_parents)
-    
+
     def restore(self):
         """恢复删除"""
         self.deleted_at = None
@@ -122,31 +133,31 @@ class FileTypeChoices(models.TextChoices):
 def get_upload_path(instance, filename):
     """生成文件上传路径"""
     import os
-    from datetime import datetime
-    
+
     # 获取文件扩展名
     ext = os.path.splitext(filename)[1]
     # 生成新文件名
     new_filename = f"{timezone.now().strftime('%Y%m%d_%H%M%S')}_{instance.id or 'new'}{ext}"
     # 按日期分目录
     date_path = timezone.now().strftime('%Y/%m/%d')
-    
+
     return f"uploads/{date_path}/{new_filename}"
 
 
 class TimestampMixin:
     """时间戳转换混合类"""
-    
+
     @staticmethod
     def timestamp_to_datetime(timestamp):
         """时间戳转DateTime"""
         if timestamp and timestamp > 0:
             try:
-                return timezone.datetime.fromtimestamp(timestamp, tz=timezone.get_current_timezone())
+                return timezone.datetime.fromtimestamp(
+                    timestamp, tz=timezone.get_current_timezone())
             except (ValueError, OSError):
                 return None
         return None
-    
+
     @staticmethod
     def datetime_to_timestamp(dt):
         """DateTime转时间戳"""

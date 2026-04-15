@@ -23,14 +23,16 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "title",
-                    models.CharField(default="", max_length=100, verbose_name="分类名称"),
+                    models.CharField(
+                        default="", max_length=100, verbose_name="分类名称"),
                 ),
                 ("pid", models.IntegerField(default=0, verbose_name="父级ID")),
                 ("sort", models.IntegerField(default=0, verbose_name="排序")),
                 ("status", models.IntegerField(default=1, verbose_name="状态")),
                 (
                     "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "update_time",

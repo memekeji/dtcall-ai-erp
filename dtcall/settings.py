@@ -25,17 +25,22 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-fallback-key-for-development-only')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'True').lower() in ('1', 'true', 'yes', 'on')
 
 # 域名和网络配置
 # 允许访问的主机名/IP列表
-ALLOWED_HOSTS = [
-    'www.dtcall.cn',  # 主域名
-    'dtcall.cn',      # 裸域名
-    '192.168.1.152',  # 内网IP
-    'testserver',     # Django测试服务器
-    '*'               # 开发环境使用，生产环境应移除
-]
+_allowed_hosts_env = os.environ.get('DJANGO_ALLOWED_HOSTS', '').strip()
+if _allowed_hosts_env:
+    ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts_env.split(',') if h.strip()]
+else:
+    ALLOWED_HOSTS = [
+        'www.dtcall.cn',
+        'dtcall.cn',
+        '192.168.1.152',
+        'testserver',
+    ]
+    if DEBUG:
+        ALLOWED_HOSTS.append('*')
 
 # 代理服务器配置
 USE_X_FORWARDED_HOST = True        # 启用代理传递的主机头
@@ -76,6 +81,7 @@ INSTALLED_APPS = [
     'captcha',
     'rest_framework',
     'rest_framework_simplejwt',
+    'django_filters',
     'apps.user',
     'apps.customer',
     'apps.finance',
@@ -97,7 +103,7 @@ INSTALLED_APPS = [
     'apps.personal',
     'apps.production',
     'apps.ai',
-    'apps.finance_new',
+    'apps.ai_orchestrator',
     'apps.inventory',
 ]
 
@@ -149,18 +155,37 @@ TEMPLATES = [
     },
 ]
 
-# 本地内存缓存配置（完全移除 Redis 依赖）
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "dtcall-default-cache",
-        "TIMEOUT": 300,
-        "OPTIONS": {
-            "MAX_ENTRIES": 1000,  # 最大缓存条目数
-            "CULL_FREQUENCY": 3,  # 缓存清理频率（1/3）
+REDIS_HOST = os.environ.get('REDIS_HOST', '').strip()
+REDIS_PORT = os.environ.get('REDIS_PORT', '6379').strip()
+REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', '').strip()
+if REDIS_HOST:
+    _redis_auth = f":{REDIS_PASSWORD}@" if REDIS_PASSWORD else ""
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": f"redis://{_redis_auth}{REDIS_HOST}:{REDIS_PORT}/1",
+            "TIMEOUT": 300,
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+                "CONNECTION_POOL_KWARGS": {
+                    "max_connections": 50,
+                    "retry_on_timeout": True,
+                },
+            },
         }
     }
-}
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "dtcall-default-cache",
+            "TIMEOUT": 300,
+            "OPTIONS": {
+                "MAX_ENTRIES": 1000,
+                "CULL_FREQUENCY": 3,
+            }
+        }
+    }
 
 WSGI_APPLICATION = 'dtcall.wsgi.application'
 
@@ -168,22 +193,44 @@ WSGI_APPLICATION = 'dtcall.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'dtcall',  # 数据库名：dtcall
-        'USER': 'dtcall',  # 数据库用户名：dtcall
-        'PASSWORD': 'KE67mFswSGhf2CK6',  # 数据库密码：siCHeyJLhWXCDetH
-        'HOST': '192.168.1.167',  # 数据库连接地址：192.168.1.149
-        'PORT': '3306',  # 数据库端口：3306
-        'CONN_MAX_AGE': 1800,  # 数据库连接最大保持时间（秒），生产环境建议30分钟
-        'OPTIONS': {
-            'charset': 'utf8mb4',
-            'init_command': "SET sql_mode='NO_ENGINE_SUBSTITUTION'",
-            'autocommit': True,
+DATABASE_ENGINE = os.environ.get('DATABASE_ENGINE', '').strip()
+DATABASE_HOST = os.environ.get('DATABASE_HOST', '').strip()
+DATABASE_PORT = os.environ.get('DATABASE_PORT', '').strip()
+DATABASE_NAME = os.environ.get('DATABASE_NAME', '').strip()
+DATABASE_USER = os.environ.get('DATABASE_USER', '').strip()
+DATABASE_PASSWORD = os.environ.get('DATABASE_PASSWORD', '').strip()
+
+if DATABASE_ENGINE:
+    DATABASES = {
+        'default': {
+            'ENGINE': DATABASE_ENGINE,
+            'NAME': DATABASE_NAME,
+            'USER': DATABASE_USER,
+            'PASSWORD': DATABASE_PASSWORD,
+            'HOST': DATABASE_HOST,
+            'PORT': DATABASE_PORT,
+            'CONN_MAX_AGE': 1800,
         }
     }
-}
+elif DATABASE_HOST:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': DATABASE_NAME or 'dtcall',
+            'USER': DATABASE_USER or 'dtcall_user',
+            'PASSWORD': DATABASE_PASSWORD,
+            'HOST': DATABASE_HOST,
+            'PORT': DATABASE_PORT or '5432',
+            'CONN_MAX_AGE': 1800,
+        }
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # 登录相关配置
@@ -197,16 +244,6 @@ SESSION_CACHE_ALIAS = "default"
 SESSION_COOKIE_AGE = 7200  # 会话过期时间，单位秒（2小时）
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # 浏览器关闭时不过期，配合SESSION_COOKIE_AGE使用
 SESSION_SAVE_EVERY_REQUEST = True  # 每次请求都会更新会话过期时间，实现从最后一次操作计时
-
-# 改进的会话缓存配置，增加重试机制
-SESSION_CACHE_OPTIONS = {
-    'CONNECTION_POOL_KWARGS': {
-        'max_connections': 50,
-        'retry_on_timeout': True,
-    },
-    'SOCKET_CONNECT_TIMEOUT': 5,
-    'SOCKET_TIMEOUT': 5,
-}
 
 # Password validation
 

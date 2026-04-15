@@ -11,26 +11,26 @@ from typing import Any, Dict
 
 class SensitiveDataFilter(logging.Filter):
     """敏感数据日志过滤器"""
-    
+
     SENSITIVE_FIELDS = {
-        'api_key', 'api_key', 'password', 'secret', 'token', 
+        'api_key', 'api_key', 'password', 'secret', 'token',
         'access_key', 'private_key', 'credential', 'auth',
         'authorization', 'apikey', 'secret_key'
     }
-    
+
     SENSITIVE_PATTERNS = [
         r'sk-[a-zA-Z0-9]{20,}',  # OpenAI API Key格式
         r'eyJ[a-zA-Z0-9_-]*\.eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*',  # JWT格式
         r'A[aA-Z0-9]{20,}',  # Azure格式
         r'AIza[0-9A-Za-z\-_]{35}',  # Google API Key格式
     ]
-    
+
     def filter(self, record: logging.LogRecord) -> bool:
         """过滤敏感信息"""
         try:
             if isinstance(record.msg, str):
                 record.msg = self._mask_sensitive_data(record.msg)
-            
+
             if isinstance(record.args, tuple):
                 new_args = []
                 for arg in record.args:
@@ -41,20 +41,20 @@ class SensitiveDataFilter(logging.Filter):
                     else:
                         new_args.append(arg)
                 record.args = tuple(new_args)
-            
+
             if hasattr(record, 'request') and record.request:
                 self._mask_request_data(record)
-                
+
         except Exception:
             pass
-        
+
         return True
-    
+
     def _mask_sensitive_data(self, text: str) -> str:
         """脱敏文本中的敏感数据"""
         if not isinstance(text, str):
             return text
-        
+
         # 脱敏敏感字段模式
         for field in self.SENSITIVE_FIELDS:
             patterns = [
@@ -63,19 +63,20 @@ class SensitiveDataFilter(logging.Filter):
                 rf"('{ field }':\s*')([^']+)",
             ]
             for pattern in patterns:
-                text = re.sub(pattern, lambda m: m.group(1) + '***', text, flags=re.IGNORECASE)
-        
+                text = re.sub(pattern, lambda m: m.group(
+                    1) + '***', text, flags=re.IGNORECASE)
+
         # 脱敏特定格式的敏感数据
         for pattern in self.SENSITIVE_PATTERNS:
             text = re.sub(pattern, '***MASKED***', text)
-        
+
         return text
-    
+
     def _mask_dict_values(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """脱敏字典中的敏感值"""
         if not isinstance(data, dict):
             return data
-        
+
         result = {}
         for key, value in data.items():
             key_lower = key.lower()
@@ -87,9 +88,9 @@ class SensitiveDataFilter(logging.Filter):
                 result[key] = self._mask_sensitive_data(value)
             else:
                 result[key] = value
-        
+
         return result
-    
+
     def _mask_request_data(self, record):
         """脱敏请求数据中的敏感信息"""
         try:
@@ -106,28 +107,28 @@ def setup_security_logging():
     """配置安全日志"""
     # 创建敏感数据过滤器
     sensitive_filter = SensitiveDataFilter()
-    
+
     # 添加到所有处理器
     for handler in logging.root.handlers:
         handler.addFilter(sensitive_filter)
-    
+
     # 配置AI模块日志
     ai_logger = logging.getLogger('apps.ai')
     ai_logger.addFilter(sensitive_filter)
-    
+
     return sensitive_filter
 
 
 # 便捷函数：安全日志记录
-def log_with_masking(logger: logging.Logger, level: int, message: str, 
+def log_with_masking(logger: logging.Logger, level: int, message: str,
                      extra: Dict[str, Any] = None, exc_info=None):
     """安全地记录日志，自动脱敏敏感信息"""
     extra = extra or {}
-    
+
     # 确保敏感信息被脱敏
     masked_extra = {}
     sensitive_filter = SensitiveDataFilter()
-    
+
     for key, value in extra.items():
         if isinstance(value, str):
             masked_extra[key] = sensitive_filter._mask_sensitive_data(value)
@@ -135,7 +136,7 @@ def log_with_masking(logger: logging.Logger, level: int, message: str,
             masked_extra[key] = sensitive_filter._mask_dict_values(value)
         else:
             masked_extra[key] = value
-    
+
     logger.log(level, message, extra=masked_extra, exc_info=exc_info)
 
 

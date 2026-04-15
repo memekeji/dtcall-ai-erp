@@ -55,7 +55,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "related_object_type",
-                    models.CharField(blank=True, max_length=100, verbose_name="关联对象类型"),
+                    models.CharField(
+                        blank=True, max_length=100, verbose_name="关联对象类型"),
                 ),
                 (
                     "related_object_id",
@@ -65,16 +66,20 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "action_url",
-                    models.CharField(blank=True, max_length=500, verbose_name="跳转链接"),
+                    models.CharField(
+                        blank=True, max_length=500, verbose_name="跳转链接"),
                 ),
                 (
                     "expire_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="过期时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="过期时间"),
                 ),
-                ("is_active", models.BooleanField(default=True, verbose_name="是否有效")),
+                ("is_active", models.BooleanField(
+                    default=True, verbose_name="是否有效")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
             ],
             options={
@@ -99,7 +104,8 @@ class Migration(migrations.Migration):
                 ("name", models.CharField(max_length=50, verbose_name="分类名称")),
                 (
                     "code",
-                    models.CharField(max_length=30, unique=True, verbose_name="分类代码"),
+                    models.CharField(
+                        max_length=30, unique=True, verbose_name="分类代码"),
                 ),
                 (
                     "type",
@@ -123,13 +129,16 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "description",
-                    models.CharField(blank=True, max_length=200, verbose_name="描述"),
+                    models.CharField(
+                        blank=True, max_length=200, verbose_name="描述"),
                 ),
                 ("sort_order", models.IntegerField(default=0, verbose_name="排序")),
-                ("is_active", models.BooleanField(default=True, verbose_name="是否启用")),
+                ("is_active", models.BooleanField(
+                    default=True, verbose_name="是否启用")),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
             ],
             options={
@@ -152,14 +161,17 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 ("is_read", models.BooleanField(default=False, verbose_name="是否已读")),
-                ("is_starred", models.BooleanField(default=False, verbose_name="是否标星")),
+                ("is_starred", models.BooleanField(
+                    default=False, verbose_name="是否标星")),
                 (
                     "read_time",
-                    models.DateTimeField(blank=True, null=True, verbose_name="阅读时间"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="阅读时间"),
                 ),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
             ],
             options={
@@ -190,11 +202,13 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "quiet_hours_start",
-                    models.TimeField(blank=True, null=True, verbose_name="免打扰开始时间"),
+                    models.TimeField(
+                        blank=True, null=True, verbose_name="免打扰开始时间"),
                 ),
                 (
                     "quiet_hours_end",
-                    models.TimeField(blank=True, null=True, verbose_name="免打扰结束时间"),
+                    models.TimeField(
+                        blank=True, null=True, verbose_name="免打扰结束时间"),
                 ),
                 (
                     "notify_announcement",
@@ -204,7 +218,8 @@ class Migration(migrations.Migration):
                     "notify_approval",
                     models.BooleanField(default=True, verbose_name="审批通知"),
                 ),
-                ("notify_task", models.BooleanField(default=True, verbose_name="任务通知")),
+                ("notify_task", models.BooleanField(
+                    default=True, verbose_name="任务通知")),
                 (
                     "notify_comment",
                     models.BooleanField(default=True, verbose_name="评论通知"),
@@ -215,7 +230,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="创建时间"),
                 ),
                 (
                     "updated_at",

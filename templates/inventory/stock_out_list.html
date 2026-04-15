@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>出库管理</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href="/static/layui/css/layui.css" rel="stylesheet">
+    <link href="/static/css/common.css" rel="stylesheet">
+    <style>
+        .status-tag {
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        .status-1 { background: #FFB800; color: #fff; }
+        .status-2 { background: #1E9FFF; color: #fff; }
+        .status-3 { background: #009688; color: #fff; }
+        .status-4 { background: #999; color: #fff; }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header layui-elem-quote">
+                出库单列表
+                <button class="layui-btn layui-btn-sm layui-btn-primary" id="addBtn" style="float: right;">
+                    <i class="layui-icon">&#xe654;</i> 新增出库
+                </button>
+            </div>
+            <div class="layui-card-body">
+                <div class="layui-form layui-inline">
+                    <div class="layui-input-inline">
+                        <select id="searchStatus">
+                            <option value="">全部状态</option>
+                            <option value="1">待审核</option>
+                            <option value="2">已审核</option>
+                            <option value="3">已出库</option>
+                            <option value="4">已取消</option>
+                        </select>
+                    </div>
+                    <div class="layui-input-inline">
+                        <select id="searchType">
+                            <option value="">全部类型</option>
+                            <option value="sale">销售出库</option>
+                            <option value="production">生产领料</option>
+                            <option value="transfer">调拨出库</option>
+                            <option value="scrap">报废出库</option>
+                            <option value="other">其他出库</option>
+                        </select>
+                    </div>
+                    <button class="layui-btn" id="searchBtn">
+                        <i class="layui-icon">&#xe615;</i> 查询
+                    </button>
+                </div>
+                <table id="stockOutTable" lay-filter="stockOutTable"></table>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/lib/jquery.min.js"></script>
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['table', 'layer', 'form'], function(){
+            var table = layui.table;
+            var layer = layui.layer;
+            var form = layui.form;
+            
+            table.render({
+                elem: '#stockOutTable',
+                url: '/api/inventory/stockout/',
+                page: true,
+                cols: [[
+                    {field: 'id', title: 'ID', width: 80, sort: true},
+                    {field: 'code', title: '出库单号', width: 160},
+                    {field: 'stock_out_type_display', title: '出库类型', width: 100},
+                    {field: 'warehouse_name', title: '出库仓库', width: 120},
+                    {field: 'customer_name', title: '客户', width: 120},
+                    {field: 'total_quantity', title: '总数量', width: 90},
+                    {field: 'total_amount', title: '总金额', width: 100, templet: function(d){
+                        return parseFloat(d.total_amount).toFixed(2);
+                    }},
+                    {field: 'status_display', title: '状态', width: 90, templet: function(d){
+                        return '<span class="status-tag status-' + d.status + '">' + d.status_display + '</span>';
+                    }},
+                    {field: 'create_time', title: '创建时间', width: 160},
+                    {title: '操作', width: 200, templet: function(d){
+                        var html = '<button class="layui-btn layui-btn-xs" lay-event="view">查看</button>';
+                        if(d.status == 1){
+                            html += '<button class="layui-btn layui-btn-xs layui-btn-warm" lay-event="check">审核</button>';
+                        }
+                        if(d.status == 2){
+                            html += '<button class="layui-btn layui-btn-xs layui-btn-normal" lay-event="stock">出库</button>';
+                        }
+                        html += '<button class="layui-btn layui-btn-xs layui-btn-danger" lay-event="cancel">取消</button>';
+                        return html;
+                    }}
+                ]]
+            });
+            
+            $('#searchBtn').click(function(){
+                table.reload('stockOutTable', {
+                    where: {
+                        status: $('#searchStatus').val(),
+                        stock_out_type: $('#searchType').val()
+                    }
+                });
+            });
+            
+            $('#addBtn').click(function(){
+                openForm();
+            });
+            
+            function openForm(id){
+                var title = id ? '出库单详情' : '新增出库单';
+                var url = id ? '/inventory/stockout/' + id + '/' : '/inventory/stockout/add/';
+                layer.open({
+                    type: 2,
+                    title: title,
+                    area: ['80%', '100%'],
+                    content: url,
+                    end: function(){
+                        table.reload('stockOutTable');
+                    }
+                });
+            }
+            
+            table.on('tool(stockOutTable)', function(obj){
+                if(obj.event === 'view'){
+                    openForm(obj.data.id);
+                } else if(obj.event === 'check'){
+                    layer.confirm('确定要审核该出库单吗？', function(index){
+                        $.ajax({
+                            url: '/api/inventory/stockout/' + obj.data.id + '/check/',
+                            type: 'POST',
+                            success: function(res){
+                                if(res.code === 0){
+                                    layer.msg('审核成功');
+                                    table.reload('stockOutTable');
+                                } else {
+                                    layer.msg(res.msg);
+                                }
+                            }
+                        });
+                    });
+                } else if(obj.event === 'stock'){
+                    layer.confirm('确定要执行出库吗？', function(index){
+                        $.ajax({
+                            url: '/api/inventory/stockout/' + obj.data.id + '/stock/',
+                            type: 'POST',
+                            success: function(res){
+                                if(res.code === 0){
+                                    layer.msg('出库成功');
+                                    table.reload('stockOutTable');
+                                } else {
+                                    layer.msg(res.msg);
+                                }
+                            }
+                        });
+                    });
+                } else if(obj.event === 'cancel'){
+                    layer.msg('取消功能开发中');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

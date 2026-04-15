@@ -1,3 +1,5 @@
+from apps.ai.models import AIModelConfig
+from apps.user.models import SystemConfiguration as SystemConfig
 import os
 import django
 import logging
@@ -5,8 +7,6 @@ import logging
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dtcall.settings')
 django.setup()
 
-from apps.user.models import SystemConfiguration as SystemConfig
-from apps.ai.models import AIModelConfig
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -103,7 +103,8 @@ def init_ai_system_config():
             }
         )
         if created:
-            logger.info(f"创建配置项: {config_data['key']} - {config_data['description']}")
+            logger.info(
+                f"创建配置项: {config_data['key']} - {config_data['description']}")
             created_count += 1
         else:
             # 更新现有配置

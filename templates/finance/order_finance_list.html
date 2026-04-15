@@ -88,7 +88,7 @@
                         type: 2,
                         title: '财务记录详情',
                         content: '/adm/finance/order-finance/detail/' + data.id + '/',
-                        area: ['800px', '600px']
+                        area: ['80%', '100%'], '600px']
                     });
                 } else if (layEvent === 'payment') {
                     // 记录付款
@@ -96,7 +96,7 @@
                         type: 2,
                         title: '记录付款',
                         content: '/adm/finance/order-finance/payment/' + data.id + '/',
-                        area: ['600px', '400px'],
+                        area: ['80%', '100%'],
                         end: function() {
                             table.reload('financeTable');
                         }

@@ -479,7 +479,7 @@ class NodeConfigPanel {
         const container = this.container.querySelector('#function-config');
         
         // Fetch schema from server
-        fetch(`/api/workflow/nodes/${nodeType}/schema/`)
+        fetch(`/ai/workflow/nodes/${nodeType}/schema/`)
             .then(response => response.json())
             .then(schema => {
                 this.renderSchemaFields(schema, container);

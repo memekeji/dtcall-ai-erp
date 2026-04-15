@@ -1,6 +1,5 @@
 import logging
 from django.core.cache import cache
-from django.conf import settings
 from functools import wraps
 from typing import Any, Callable, Optional
 
@@ -60,7 +59,8 @@ class CacheService:
 
             redis_backend = caches['default']
             if hasattr(redis_backend, 'delete_pattern'):
-                return redis_backend.delete_pattern(f'{CACHE_KEY_PREFIX}:{pattern}')
+                return redis_backend.delete_pattern(
+                    f'{CACHE_KEY_PREFIX}:{pattern}')
             return 0
         except Exception as e:
             logger.warning(f'批量缓存删除失败 [{pattern[:50]}...]: {e}')
@@ -153,7 +153,10 @@ class SystemCache:
 
     @classmethod
     def set_configs(cls, configs: dict) -> bool:
-        return CacheService.set(cls.get_config_key(), configs, cls.CONFIG_TIMEOUT)
+        return CacheService.set(
+            cls.get_config_key(),
+            configs,
+            cls.CONFIG_TIMEOUT)
 
     @classmethod
     def invalidate_configs(cls) -> bool:
@@ -198,7 +201,10 @@ class AICache:
 
     @classmethod
     def set_config(cls, config: dict) -> bool:
-        return CacheService.set(cls.get_config_key(), config, cls.CONFIG_TIMEOUT)
+        return CacheService.set(
+            cls.get_config_key(),
+            config,
+            cls.CONFIG_TIMEOUT)
 
     @classmethod
     def invalidate_config(cls) -> bool:

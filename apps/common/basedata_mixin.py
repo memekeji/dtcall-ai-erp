@@ -39,7 +39,7 @@ class BasedataMixin:
         from apps.customer.models import CustomerField, FollowField, OrderField
         from apps.contract.models import ContractCategory, ProductCategory, ServiceCategory, Product, Service, Supplier, PurchaseCategory, PurchaseItem
         from apps.project.models import ProjectStage, ProjectCategory, WorkType
-        
+
         model_map = {
             'region': Region,
             'enterprise': Enterprise,
