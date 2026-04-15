@@ -105,8 +105,16 @@ frontend/.nuxt/
 # Zip files
 dtcall.zip
 
+# Documentation (exclude from repo)
+权限管理详细设计文档.md
+软著申请文档.md
+用友U9技术白皮书.md
+
 # Trae AI
 trae-ai-
 
 # Trae
 .trae/
+
+# Docs (exclude from repo)
+docs/
