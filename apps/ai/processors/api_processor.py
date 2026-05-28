@@ -2,8 +2,11 @@
 API调用节点处理器
 """
 
+import logging
 import requests
 from .base_processor import BaseNodeProcessor, NodeProcessorRegistry
+
+logger = logging.getLogger(__name__)
 
 
 @NodeProcessorRegistry.register('api_call')
@@ -158,9 +161,11 @@ class APICallProcessor(BaseNodeProcessor):
             except requests.exceptions.ConnectionError:
                 error_message = "连接错误"
             except requests.exceptions.RequestException as e:
-                error_message = f"请求异常: {str(e)}"
+                logger.error(f"API请求异常: {str(e)}")
+                error_message = "请求异常，请检查API配置后重试"
             except Exception as e:
-                error_message = f"未知错误: {str(e)}"
+                logger.error(f"API调用未知错误: {str(e)}")
+                error_message = "API调用失败，请检查API配置后重试"
 
             # 如果不是最后一次尝试，等待后重试
             if attempt < retry_count and error_message:

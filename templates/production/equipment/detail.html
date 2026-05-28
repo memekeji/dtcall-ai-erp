@@ -73,7 +73,7 @@
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="layui-row layui-col-space15">
                             <div class="layui-col-md6">
                                 <div class="info-item">
@@ -147,14 +147,14 @@
                             <div class="info-label">维护周期</div>
                             <div class="info-value">{{ equipment.maintenance_cycle }} 天</div>
                         </div>
-                        
+
                         {% if equipment.last_maintenance %}
                         <div class="info-item">
                             <div class="info-label">上次维护</div>
                             <div class="info-value">{{ equipment.last_maintenance }}</div>
                         </div>
                         {% endif %}
-                        
+
                         {% if equipment.next_maintenance %}
                         <div class="info-item">
                             <div class="info-label">下次维护</div>
@@ -191,7 +191,7 @@
                             <div class="data-item">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <div>
-                                        <strong>{{ data.parameter_name }}:</strong> 
+                                        <strong>{{ data.parameter_name }}:</strong>
                                         {{ data.parameter_value }} {{ data.unit }}
                                         {% if not data.is_normal %}
                                             <span style="color: #FF5722; margin-left: 10px;">[异常]</span>
@@ -203,12 +203,12 @@
                                 </div>
                             </div>
                             {% endfor %}
-                            
+
                             <div style="text-align: center; margin-top: 15px;">
                                 <button class="layui-btn layui-btn-primary layui-btn-sm" onclick="location.href='{% url 'production:data_collection_list' %}?equipment={{ equipment.pk }}'">
                                     查看全部数据
                                 </button>
-                                <button class="layui-btn layui-btn-primary layui-btn-sm" onclick="location.href='{% url 'production:data_chart' equipment.pk %}'">
+                                <button class="layui-btn layui-btn-primary layui-btn-sm" onclick="openRightPopup('操作', '{% url 'production:data_chart' equipment.pk %}')">
                                     数据图表
                                 </button>
                             </div>
@@ -216,6 +216,25 @@
                             <div style="text-align: center; padding: 40px; color: #999;">
                                 暂无数据采集记录
                             </div>
+                        {% endif %}
+
+                        {% if data_points %}
+                        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #f0f0f0;">
+                            <div style="font-weight: bold; margin-bottom: 10px;">最近生产数据点</div>
+                            {% for point in data_points|slice:":5" %}
+                            <div class="data-item">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <strong>{{ point.metric_name }}:</strong>
+                                        {{ point.metric_value }} {{ point.unit|default:"" }}
+                                    </div>
+                                    <div style="font-size: 12px; color: #666;">
+                                        {{ point.timestamp|date:"m-d H:i" }}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
                         {% endif %}
                     </div>
                 </div>
@@ -228,10 +247,10 @@
                 <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:equipment_list' %}'">
                     <i class="layui-icon layui-icon-return"></i> 返回列表
                 </button>
-                <button class="layui-btn" onclick="location.href='{% url 'production:equipment_edit' equipment.pk %}'">
+                <button class="layui-btn" onclick="openRightPopup('编辑', '{% url 'production:equipment_edit' equipment.pk %}')">
                     <i class="layui-icon layui-icon-edit"></i> 编辑设备
                 </button>
-                <button class="layui-btn layui-btn-normal" onclick="location.href='{% url 'production:data_collection_add' %}'">
+                <button class="layui-btn layui-btn-normal" onclick="openRightPopup('添加', '{% url 'production:data_collection_add' %}')">
                     <i class="layui-icon layui-icon-add-1"></i> 添加数据
                 </button>
             </div>
@@ -243,6 +262,53 @@
     <script>
         layui.use(['layer'], function () {
             var layer = layui.layer;
+        });
+
+        function openRightPopup(title, url) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: title,
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: url,
+                    success: function(layero, index) {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    },
+                    end: function() {
+                        window.location.reload();
+                    }
+                });
+            });
+        }
+</script>
+
+    <!-- 注入的消息提示脚本 -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var msgs = [
+                {% for message in messages %}
+                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
+                {% endfor %}
+            ];
+
+            if (msgs.length > 0 && typeof layui !== 'undefined') {
+                layui.use(['layer'], function() {
+                    msgs.forEach(function(m) {
+                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
+                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
+                    });
+                });
+            }
         });
     </script>
 </body>

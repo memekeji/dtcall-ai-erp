@@ -1,13 +1,9 @@
+{% extends 'include/popup.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>收票详情</title>
-    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
-</head>
-<body>
+
+{% block title %}收票详情{% endblock %}
+
+{% block content %}
     <div class="layui-fluid" style="padding: 20px;">
         <div class="layui-card">
             <div class="layui-card-header">
@@ -51,5 +47,4 @@
             </div>
         </div>
     </div>
-</body>
-</html>
+{% endblock %}

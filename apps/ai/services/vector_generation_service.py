@@ -79,7 +79,7 @@ class VectorGenerationService:
             }
         except Exception as e:
             logger.error(f"批量生成向量失败: {str(e)}")
-            return {'error': str(e)}
+            return {'error': '批量生成向量失败，请稍后重试'}
 
     def update_all_vectors(self):
         """更新所有向量"""

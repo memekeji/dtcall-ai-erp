@@ -1,0 +1,129 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工艺路线详情</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <div class="layui-row">
+                    <div class="layui-col-md8">
+                        <h2>{{ route.name }}</h2>
+                    </div>
+                    <div class="layui-col-md4" style="text-align: right;">
+                        <a href="{% url 'production:process_route_edit' route.pk %}" class="layui-btn layui-btn-sm">编辑</a>
+                        <a href="{% url 'production:process_route_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">返回列表</a>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-card-body">
+                <div class="layui-row layui-col-space15">
+                    <div class="layui-col-md3"><strong>编码：</strong>{{ route.code }}</div>
+                    <div class="layui-col-md3"><strong>适用产品：</strong>{{ route.product.name|default:'-' }}</div>
+                    <div class="layui-col-md3"><strong>总工时：</strong>{{ route.total_time }} 小时</div>
+                    <div class="layui-col-md3"><strong>总成本：</strong>￥{{ route.total_cost }}</div>
+                </div>
+
+                <hr>
+
+                <div class="layui-row layui-col-space15">
+                    <div class="layui-col-md3"><strong>版本号：</strong>{{ route.version }}</div>
+                    <div class="layui-col-md3"><strong>状态：</strong>{{ route.status_display }}</div>
+                    <div class="layui-col-md3"><strong>生效日期：</strong>{{ route.effective_date|default:'-' }}</div>
+                    <div class="layui-col-md3"><strong>失效日期：</strong>{{ route.expiry_date|default:'-' }}</div>
+                </div>
+
+                <fieldset class="layui-elem-field layui-field-title">
+                    <legend>路线描述</legend>
+                </fieldset>
+                <div class="layui-text">{{ route.description|default:'-'|linebreaks }}</div>
+
+                <fieldset class="layui-elem-field layui-field-title">
+                    <legend>工序步骤</legend>
+                </fieldset>
+                <table class="layui-table">
+                    <thead>
+                        <tr>
+                            <th>顺序</th>
+                            <th>工序</th>
+                            <th>预估工时</th>
+                            <th>工位</th>
+                            <th>节拍时间</th>
+                            <th>质量检查点</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td>{{ item.sequence }}</td>
+                            <td>{{ item.procedure.name }}</td>
+                            <td>{{ item.estimated_time }} 小时</td>
+                            <td>{{ item.workstation|default:'-' }}</td>
+                            <td>{{ item.cycle_time }} 秒</td>
+                            <td>{{ item.quality_check_points|default:'-' }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" style="text-align: center;">暂无工序步骤</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+<script>
+        function openRightPopup(title, url) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: title,
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: url,
+                    success: function(layero, index) {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    },
+                    end: function() {
+                        window.location.reload();
+                    }
+                });
+            });
+        }
+</script>
+
+    <!-- 注入的消息提示脚本 -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var msgs = [
+                {% for message in messages %}
+                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
+                {% endfor %}
+            ];
+
+            if (msgs.length > 0 && typeof layui !== 'undefined') {
+                layui.use(['layer'], function() {
+                    msgs.forEach(function(m) {
+                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
+                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
+                    });
+                });
+            }
+        });
+    </script>
+</body>
+</html>

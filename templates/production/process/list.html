@@ -41,7 +41,7 @@
                 <button class="layui-btn" onclick="showProcessRouteDialog('add')">
                     <i class="layui-icon layui-icon-add-1"></i> 添加工艺路线
                 </button>
-                <button class="layui-btn layui-btn-primary" 
+                <button class="layui-btn layui-btn-primary"
                     onclick="location.href='{% url 'production:baseinfo_index' %}'">
                     <i class="layui-icon layui-icon-return"></i> 返回
                 </button>
@@ -94,15 +94,15 @@
                                     </td>
                                     <td>{{ process_route.create_time|date:"Y-m-d H:i" }}</td>
                                     <td>
-                                        <button class="layui-btn layui-btn-xs" 
+                                        <button class="layui-btn layui-btn-xs"
                                             onclick="showProcessRouteDialog('detail', {{ process_route.pk }})">
                                             <i class="layui-icon layui-icon-detail"></i> 详情
                                         </button>
-                                        <button class="layui-btn layui-btn-xs" 
+                                        <button class="layui-btn layui-btn-xs"
                                             onclick="showProcessRouteDialog('edit', {{ process_route.pk }})">
                                             <i class="layui-icon layui-icon-edit"></i> 编辑
                                         </button>
-                                        <button class="layui-btn layui-btn-xs layui-btn-danger" 
+                                        <button class="layui-btn layui-btn-xs layui-btn-danger"
                                             onclick="deleteProcessRoute({{ process_route.pk }}, '{{ process_route.name }}')">
                                             <i class="layui-icon layui-icon-delete"></i> 删除
                                         </button>
@@ -219,6 +219,72 @@
                 });
             });
         }
+
+        function openRightPopup(title, url) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: title,
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: url,
+                    success: function(layero, index) {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    },
+                    end: function() {
+                        window.location.reload();
+                    }
+                });
+            });
+        }
+</script>
+
+    <!-- 注入的 iframe 自动关闭及消息提示脚本 -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var msgs = [
+                {% for message in messages %}
+                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
+                {% endfor %}
+            ];
+
+            var flashMsg = sessionStorage.getItem('flash_msg');
+            if (flashMsg) {
+                sessionStorage.removeItem('flash_msg');
+                try {
+                    var parsedMsgs = JSON.parse(flashMsg);
+                    msgs = msgs.concat(parsedMsgs);
+                } catch(e) {}
+            }
+
+            if (window !== window.parent) {
+                // 如果在 iframe 中加载了 list/index 页面，说明是操作成功后的重定向，或者点击了返回
+                if (msgs.length > 0) {
+                    sessionStorage.setItem('flash_msg', JSON.stringify(msgs));
+                }
+                parent.location.reload();
+                return;
+            }
+
+            // 正常独立访问 list 页面
+            if (msgs.length > 0 && typeof layui !== 'undefined') {
+                layui.use(['layer'], function() {
+                    msgs.forEach(function(m) {
+                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
+                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
+                    });
+                });
+            }
+        });
     </script>
 </body>
 

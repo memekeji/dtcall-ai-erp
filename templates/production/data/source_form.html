@@ -1,7 +1,7 @@
 {% extends 'include/common.html' %}
 {% load static %}
 
-{% block title %}{% if data_source %}编辑数据源{% else %}新增数据源{% endif %}{% endblock %}
+{% block title %}{{ action }}数据源{% endblock %}
 
 {% block content %}
 <div class="layui-fluid">
@@ -9,7 +9,7 @@
         <div class="layui-col-md12">
             <div class="layui-card">
                 <div class="layui-card-header">
-                    <h3>{% if data_source %}编辑数据源{% else %}新增数据源{% endif %}</h3>
+                    <h3>{{ action }}数据源</h3>
                 </div>
                 <div class="layui-card-body">
                     <form class="layui-form" method="post">
@@ -31,7 +31,7 @@
                                             <div class="layui-form-item">
                                                 <label class="layui-form-label">数据源名称 <span style="color: red;">*</span></label>
                                                 <div class="layui-input-block">
-                                                    <input type="text" name="name" value="{{ data_source.name|default:'' }}" 
+                                                    <input type="text" name="name" value="{{ form.name.value|default:'' }}"
                                                            placeholder="请输入数据源名称" class="layui-input" required>
                                                 </div>
                                             </div>
@@ -40,7 +40,7 @@
                                             <div class="layui-form-item">
                                                 <label class="layui-form-label">数据源编码 <span style="color: red;">*</span></label>
                                                 <div class="layui-input-block">
-                                                    <input type="text" name="code" value="{{ data_source.code|default:'' }}" 
+                                                    <input type="text" name="code" value="{{ form.code.value|default:'' }}"
                                                            placeholder="请输入数据源编码" class="layui-input" required>
                                                 </div>
                                             </div>
@@ -52,8 +52,8 @@
                                         <div class="layui-input-block">
                                             <select name="source_type" lay-filter="sourceType" required>
                                                 <option value="">请选择数据源类型</option>
-                                                {% for value, label in source_types %}
-                                                <option value="{{ value }}" {% if data_source.source_type == value %}selected{% endif %}>{{ label }}</option>
+                                                {% for value, label in form.source_type.field.choices %}
+                                                <option value="{{ value }}" {% if form.source_type.value == value %}selected{% endif %}>{{ label }}</option>
                                                 {% endfor %}
                                             </select>
                                         </div>
@@ -62,8 +62,8 @@
                                     <div class="layui-form-item">
                                         <label class="layui-form-label">描述</label>
                                         <div class="layui-input-block">
-                                            <textarea name="description" placeholder="请输入数据源描述" 
-                                                      class="layui-textarea">{{ data_source.description|default:'' }}</textarea>
+                                            <textarea name="description" placeholder="请输入数据源描述"
+                                                      class="layui-textarea">{{ form.description.value|default:'' }}</textarea>
                                         </div>
                                     </div>
                                 </div>
@@ -74,7 +74,7 @@
                                         <div class="layui-form-item">
                                             <label class="layui-form-label">接口地址 <span style="color: red;">*</span></label>
                                             <div class="layui-input-block">
-                                                <input type="url" name="endpoint_url" value="{{ data_source.endpoint_url|default:'' }}" 
+                                                <input type="url" name="endpoint_url" value="{{ form.endpoint_url.value|default:'' }}"
                                                        placeholder="https://api.example.com/data" class="layui-input">
                                             </div>
                                         </div>
@@ -86,7 +86,7 @@
                                                 <div class="layui-form-item">
                                                     <label class="layui-form-label">主机地址 <span style="color: red;">*</span></label>
                                                     <div class="layui-input-block">
-                                                        <input type="text" name="host" value="{{ data_source.host|default:'' }}" 
+                                                        <input type="text" name="host" value="{{ form.host.value|default:'' }}"
                                                                placeholder="192.168.1.100" class="layui-input">
                                                     </div>
                                                 </div>
@@ -95,7 +95,7 @@
                                                 <div class="layui-form-item">
                                                     <label class="layui-form-label">端口</label>
                                                     <div class="layui-input-block">
-                                                        <input type="number" name="port" value="{{ data_source.port|default:'' }}" 
+                                                        <input type="number" name="port" value="{{ form.port.value|default:'' }}"
                                                                placeholder="8080" class="layui-input">
                                                     </div>
                                                 </div>
@@ -108,7 +108,7 @@
                                             <div class="layui-form-item">
                                                 <label class="layui-form-label">超时时间(秒)</label>
                                                 <div class="layui-input-block">
-                                                    <input type="number" name="timeout" value="{{ data_source.timeout|default:30 }}" 
+                                                    <input type="number" name="timeout" value="{{ form.timeout.value|default:30 }}"
                                                            min="1" max="300" class="layui-input">
                                                 </div>
                                             </div>
@@ -117,7 +117,7 @@
                                             <div class="layui-form-item">
                                                 <label class="layui-form-label">重试次数</label>
                                                 <div class="layui-input-block">
-                                                    <input type="number" name="retry_count" value="{{ data_source.retry_count|default:3 }}" 
+                                                    <input type="number" name="retry_count" value="{{ form.retry_count.value|default:3 }}"
                                                            min="0" max="10" class="layui-input">
                                                 </div>
                                             </div>
@@ -131,8 +131,8 @@
                                         <label class="layui-form-label">认证类型</label>
                                         <div class="layui-input-block">
                                             <select name="auth_type" lay-filter="authType">
-                                                {% for value, label in auth_types %}
-                                                <option value="{{ value }}" {% if data_source.auth_type == value %}selected{% endif %}>{{ label }}</option>
+                                                {% for value, label in form.auth_type.field.choices %}
+                                                <option value="{{ value }}" {% if form.auth_type.value == value %}selected{% endif %}>{{ label }}</option>
                                                 {% endfor %}
                                             </select>
                                         </div>
@@ -144,7 +144,7 @@
                                                 <div class="layui-form-item">
                                                     <label class="layui-form-label">用户名</label>
                                                     <div class="layui-input-block">
-                                                        <input type="text" name="username" value="{{ data_source.username|default:'' }}" 
+                                                        <input type="text" name="username" value="{{ form.username.value|default:'' }}"
                                                                placeholder="请输入用户名" class="layui-input">
                                                     </div>
                                                 </div>
@@ -153,7 +153,7 @@
                                                 <div class="layui-form-item">
                                                     <label class="layui-form-label">密码</label>
                                                     <div class="layui-input-block">
-                                                        <input type="password" name="password" value="{{ data_source.password|default:'' }}" 
+                                                        <input type="password" name="password" value="{{ form.password.value|default:'' }}"
                                                                placeholder="请输入密码" class="layui-input">
                                                     </div>
                                                 </div>
@@ -165,7 +165,7 @@
                                         <div class="layui-form-item">
                                             <label class="layui-form-label">API密钥</label>
                                             <div class="layui-input-block">
-                                                <input type="text" name="api_key" value="{{ data_source.api_key|default:'' }}" 
+                                                <input type="text" name="api_key" value="{{ form.api_key.value|default:'' }}"
                                                        placeholder="请输入API密钥" class="layui-input">
                                             </div>
                                         </div>
@@ -175,8 +175,8 @@
                                         <div class="layui-form-item">
                                             <label class="layui-form-label">访问令牌</label>
                                             <div class="layui-input-block">
-                                                <textarea name="token" placeholder="请输入访问令牌" 
-                                                          class="layui-textarea">{{ data_source.token|default:'' }}</textarea>
+                                                <textarea name="token" placeholder="请输入访问令牌"
+                                                          class="layui-textarea">{{ form.token.value|default:'' }}</textarea>
                                             </div>
                                         </div>
                                     </div>
@@ -189,10 +189,9 @@
                                             <label class="layui-form-label">请求方法</label>
                                             <div class="layui-input-block">
                                                 <select name="request_method">
-                                                    <option value="GET" {% if data_source.request_method == 'GET' %}selected{% endif %}>GET</option>
-                                                    <option value="POST" {% if data_source.request_method == 'POST' %}selected{% endif %}>POST</option>
-                                                    <option value="PUT" {% if data_source.request_method == 'PUT' %}selected{% endif %}>PUT</option>
-                                                    <option value="DELETE" {% if data_source.request_method == 'DELETE' %}selected{% endif %}>DELETE</option>
+                                                    {% for value, label in form.request_method.field.choices %}
+                                                    <option value="{{ value }}" {% if form.request_method.value == value %}selected{% endif %}>{{ label }}</option>
+                                                    {% endfor %}
                                                 </select>
                                             </div>
                                         </div>
@@ -200,8 +199,8 @@
                                         <div class="layui-form-item">
                                             <label class="layui-form-label">请求头</label>
                                             <div class="layui-input-block">
-                                                <textarea name="request_headers" placeholder='{"Content-Type": "application/json"}' 
-                                                          class="layui-textarea">{{ data_source.request_headers|default:'{}'|safe }}</textarea>
+                                                <textarea name="request_headers" placeholder='{"Content-Type": "application/json"}'
+                                                          class="layui-textarea">{{ form.request_headers.value|default:'{}' }}</textarea>
                                                 <div class="layui-form-mid layui-word-aux">JSON格式，例如：{"Content-Type": "application/json"}</div>
                                             </div>
                                         </div>
@@ -209,8 +208,8 @@
                                         <div class="layui-form-item">
                                             <label class="layui-form-label">请求参数</label>
                                             <div class="layui-input-block">
-                                                <textarea name="request_params" placeholder='{"param1": "value1", "param2": "value2"}' 
-                                                          class="layui-textarea">{{ data_source.request_params|default:'{}'|safe }}</textarea>
+                                                <textarea name="request_params" placeholder='{"param1": "value1", "param2": "value2"}'
+                                                          class="layui-textarea">{{ form.request_params.value|default:'{}' }}</textarea>
                                                 <div class="layui-form-mid layui-word-aux">JSON格式，例如：{"param1": "value1"}</div>
                                             </div>
                                         </div>
@@ -218,8 +217,8 @@
                                         <div class="layui-form-item">
                                             <label class="layui-form-label">请求体</label>
                                             <div class="layui-input-block">
-                                                <textarea name="request_body" placeholder="POST/PUT请求的请求体内容" 
-                                                          class="layui-textarea">{{ data_source.request_body|default:'' }}</textarea>
+                                                <textarea name="request_body" placeholder="POST/PUT请求的请求体内容"
+                                                          class="layui-textarea">{{ form.request_body.value|default:'' }}</textarea>
                                             </div>
                                         </div>
                                     </div>
@@ -228,8 +227,8 @@
                                         <div class="layui-form-item">
                                             <label class="layui-form-label">协议配置</label>
                                             <div class="layui-input-block">
-                                                <textarea name="request_params" placeholder='{"registers": [{"address": 0, "count": 10, "function": "holding"}]}' 
-                                                          class="layui-textarea">{{ data_source.request_params|default:'{}'|safe }}</textarea>
+                                                <textarea name="request_params" placeholder='{"registers": [{"address": 0, "count": 10, "function": "holding"}]}'
+                                                          class="layui-textarea">{{ form.request_params.value|default:'{}' }}</textarea>
                                                 <div class="layui-form-mid layui-word-aux">
                                                     协议相关配置，JSON格式<br>
                                                     Modbus示例：{"registers": [{"address": 0, "count": 10, "function": "holding"}]}<br>
@@ -247,7 +246,7 @@
                                             <div class="layui-form-item">
                                                 <label class="layui-form-label">采集间隔(秒)</label>
                                                 <div class="layui-input-block">
-                                                    <input type="number" name="collection_interval" value="{{ data_source.collection_interval|default:60 }}" 
+                                                    <input type="number" name="collection_interval" value="{{ form.collection_interval.value|default:60 }}"
                                                            min="1" max="86400" class="layui-input">
                                                     <div class="layui-form-mid layui-word-aux">定时采集的间隔时间</div>
                                                 </div>
@@ -257,8 +256,8 @@
                                             <div class="layui-form-item">
                                                 <label class="layui-form-label">启用状态</label>
                                                 <div class="layui-input-block">
-                                                    <input type="checkbox" name="is_active" lay-skin="switch" lay-text="启用|停用" 
-                                                           {% if data_source.is_active or not data_source %}checked{% endif %}>
+                                                    <input type="checkbox" name="is_active" lay-skin="switch" lay-text="启用|停用"
+                                                           {% if form.is_active.value or not form.instance.pk %}checked{% endif %}>
                                                 </div>
                                             </div>
                                         </div>

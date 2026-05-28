@@ -2,11 +2,14 @@
 通知和延迟节点处理器
 """
 
+import logging
 import time
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from .base_processor import BaseNodeProcessor, NodeProcessorRegistry
+
+logger = logging.getLogger(__name__)
 
 
 @NodeProcessorRegistry.register('notification')
@@ -241,7 +244,8 @@ class NotificationProcessor(BaseNodeProcessor):
             result['success'] = result['failed_count'] == 0
 
         except Exception as e:
-            result['details'].append(f"通知发送失败: {str(e)}")
+            logger.error(f"通知发送失败: {str(e)}")
+            result['details'].append("通知发送失败，请检查通知配置后重试")
 
         return result
 
@@ -281,8 +285,9 @@ class NotificationProcessor(BaseNodeProcessor):
                 result['details'].append(f"邮件发送成功: {recipient}")
 
             except Exception as e:
+                logger.error(f"邮件发送失败 {recipient}: {str(e)}")
                 result['failed_count'] += 1
-                result['details'].append(f"邮件发送失败 {recipient}: {str(e)}")
+                result['details'].append(f"邮件发送失败 {recipient}: 请检查邮件通知配置后重试")
 
     def _send_sms(
             self,
@@ -302,8 +307,9 @@ class NotificationProcessor(BaseNodeProcessor):
                 result['details'].append(f"短信发送成功: {recipient}")
 
             except Exception as e:
+                logger.error(f"短信发送失败 {recipient}: {str(e)}")
                 result['failed_count'] += 1
-                result['details'].append(f"短信发送失败 {recipient}: {str(e)}")
+                result['details'].append(f"短信发送失败 {recipient}: 请检查短信通知配置后重试")
 
     def _send_webhook(
             self,
@@ -322,8 +328,9 @@ class NotificationProcessor(BaseNodeProcessor):
                 result['details'].append(f"Webhook发送成功: {recipient}")
 
             except Exception as e:
+                logger.error(f"Webhook发送失败 {recipient}: {str(e)}")
                 result['failed_count'] += 1
-                result['details'].append(f"Webhook发送失败 {recipient}: {str(e)}")
+                result['details'].append(f"Webhook发送失败 {recipient}: 请检查Webhook通知配置后重试")
 
     def _send_system_notification(
             self,
@@ -340,8 +347,9 @@ class NotificationProcessor(BaseNodeProcessor):
                 result['details'].append(f"系统通知发送成功: {recipient}")
 
             except Exception as e:
+                logger.error(f"系统通知发送失败 {recipient}: {str(e)}")
                 result['failed_count'] += 1
-                result['details'].append(f"系统通知发送失败 {recipient}: {str(e)}")
+                result['details'].append(f"系统通知发送失败 {recipient}: 请检查系统通知配置后重试")
 
 
 @NodeProcessorRegistry.register('delay')
@@ -457,8 +465,9 @@ class DelayProcessor(BaseNodeProcessor):
                 result['message'] = f"不支持的延迟类型: {delay_type}"
 
         except Exception as e:
+            logger.error(f"延迟执行失败: {str(e)}")
             result['success'] = False
-            result['message'] = f"延迟执行失败: {str(e)}"
+            result['message'] = "延迟执行失败，请检查延迟配置后重试"
 
         return result
 

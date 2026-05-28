@@ -1,134 +1,119 @@
+{% extends 'include/common.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>数据采集记录</title>
-    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
-    <style>
-        .search-form {
-            margin-bottom: 15px;
-        }
-        .table-toolbar {
-            margin-bottom: 15px;
-        }
-        .status-normal {
-            color: #5FB878;
-        }
-        .status-warning {
-            color: #FFB800;
-        }
-        .status-error {
-            color: #FF5722;
-        }
-    </style>
-</head>
-<body>
-    <div class="layui-fluid" style="padding: 20px;">
-        <div class="layui-row">
-            <div class="layui-col-md12">
-                <h2 style="margin-bottom: 20px;">数据采集记录</h2>
-            </div>
-        </div>
 
-        <div class="layui-row table-toolbar">
-            <div class="layui-col-md6">
-                <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:production_task_index' %}'">
-                    <i class="layui-icon layui-icon-return"></i> 返回
-                </button>
-            </div>
-            <div class="layui-col-md6" style="text-align: right;">
-                <form method="get" class="layui-form layui-form-pane" style="display: inline-block;">
-                    <div class="layui-input-group">
-                        <input type="text" name="search" value="{{ search }}" placeholder="搜索..." class="layui-input" style="width: 200px; display: inline-block;">
-                        <div class="layui-input-split layui-input-suffix">
-                            <button class="layui-btn" type="submit">
-                                <i class="layui-icon layui-icon-search"></i>
-                            </button>
+{% block title %}数据采集记录{% endblock %}
+
+{% block content %}
+<div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-col-md12">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <h3>数据采集记录</h3>
+                </div>
+                <div class="layui-card-body">
+                    <!-- 搜索栏 -->
+                    <form class="layui-form" method="get" style="margin-bottom: 20px;">
+                        <div class="layui-row layui-col-space10">
+                            <div class="layui-col-md3">
+                                <input type="text" name="search" value="{{ search }}" placeholder="搜索数据源、错误信息" class="layui-input">
+                            </div>
+                            <div class="layui-col-md2">
+                                <button type="submit" class="layui-btn">
+                                    <i class="layui-icon layui-icon-search"></i> 搜索
+                                </button>
+                                <a href="{% url 'production:data_collection_record_list' %}" class="layui-btn layui-btn-primary">重置</a>
+                            </div>
                         </div>
-                    </div>
-                </form>
-            </div>
-        </div>
+                    </form>
 
-        <div class="layui-row">
-            <div class="layui-col-md12">
-                <div class="layui-card">
-                    <div class="layui-card-body" style="padding: 0;">
-                        <table class="layui-table" lay-skin="line">
-                            <thead>
-                                <tr>
-                                    <th>数据源</th>
-                                    <th>采集时间</th>
-                                    <th>参数名称</th>
-                                    <th>参数值</th>
-                                    <th>采集设备</th>
-                                    <th>操作员</th>
-                                    <th>操作</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for record in page_obj %}
-                                <tr>
-                                    <td>{{ record.data_source.name|default:"-" }}</td>
-                                    <td>{{ record.collection_time|date:"Y-m-d H:i:s" }}</td>
-                                    <td>{{ record.parameter_name|default:"-" }}</td>
-                                    <td>{{ record.parameter_value|default:"-" }}</td>
-                                    <td>{{ record.equipment.name|default:"-" }}</td>
-                                    <td>{{ record.operator.username|default:"-" }}</td>
-                                    <td>
-                                        <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="location.href='{% url 'production:data_collection_record_detail' record.pk %}'">
-                                            <i class="layui-icon layui-icon-search"></i> 详情
-                                        </button>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="7" style="text-align: center; padding: 40px; color: #999;">
-                                        暂无数据采集记录
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+                    <!-- 记录列表 -->
+                    <table class="layui-table">
+                        <thead>
+                            <tr>
+                                <th>数据源</th>
+                                <th>采集时间</th>
+                                <th>状态</th>
+                                <th>记录总数</th>
+                                <th>成功/失败</th>
+                                <th>处理时长</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in page_obj %}
+                            <tr>
+                                <td>
+                                    <strong>{{ record.data_source.name }}</strong>
+                                    <br><small class="layui-text-muted">{{ record.data_source.code }}</small>
+                                </td>
+                                <td>{{ record.collection_time|date:"Y-m-d H:i:s" }}</td>
+                                <td>
+                                    {% if record.status == 'success' %}
+                                    <span class="layui-badge layui-bg-green">成功</span>
+                                    {% elif record.status == 'partial' %}
+                                    <span class="layui-badge layui-bg-orange">部分成功</span>
+                                    {% elif record.status == 'failed' %}
+                                    <span class="layui-badge">失败</span>
+                                    {% elif record.status == 'processing' %}
+                                    <span class="layui-badge layui-bg-blue">处理中</span>
+                                    {% else %}
+                                    <span class="layui-badge layui-bg-gray">{{ record.get_status_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ record.record_count }}</td>
+                                <td>
+                                    <span class="layui-text-green">{{ record.success_count }}</span> /
+                                    <span class="layui-text-red">{{ record.error_count }}</span>
+                                </td>
+                                <td>{{ record.duration|floatformat:2 }}s</td>
+                                <td>
+                                    <a href="{% url 'production:data_collection_record_detail' record.pk %}" class="layui-btn layui-btn-xs">
+                                        <i class="layui-icon layui-icon-search"></i> 详情
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 50px;">
+                                    <i class="layui-icon layui-icon-face-cry" style="font-size: 48px; color: #ccc;"></i>
+                                    <p style="color: #999; margin-top: 10px;">暂无采集记录</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <!-- 分页 -->
+                    {% if page_obj.has_other_pages %}
+                    <div id="pagination"></div>
+                    {% endif %}
                 </div>
             </div>
         </div>
-
-        {% if page_obj.has_other_pages %}
-        <div class="layui-row" style="margin-top: 20px;">
-            <div class="layui-col-md12" style="text-align: center;">
-                <div id="pagination"></div>
-            </div>
-        </div>
-        {% endif %}
     </div>
+</div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="{% static 'layui/layui.js' %}"></script>
-    <script>
-        layui.use(['layer', 'laypage'], function () {
-            var layer = layui.layer;
-            var laypage = layui.laypage;
+<script>
+layui.use(['laypage', 'layer'], function(){
+    var laypage = layui.laypage;
 
-            {% if page_obj.has_other_pages %}
-            laypage.render({
-                elem: 'pagination',
-                count: {{ page_obj.paginator.count }},
-                limit: 20,
-                curr: {{ page_obj.number }},
-                jump: function(obj, first) {
-                    if (!first) {
-                        var url = new URL(window.location);
-                        url.searchParams.set('page', obj.curr);
-                        window.location.href = url.toString();
-                    }
-                }
-            });
-            {% endif %}
-        });
-    </script>
-</body>
-</html>
+    {% if page_obj.has_other_pages %}
+    laypage.render({
+        elem: 'pagination',
+        count: {{ page_obj.paginator.count }},
+        curr: {{ page_obj.number }},
+        limit: 20,
+        layout: ['count', 'prev', 'page', 'next', 'limit', 'skip'],
+        jump: function(obj, first){
+            if(!first){
+                var url = new URL(window.location);
+                url.searchParams.set('page', obj.curr);
+                window.location.href = url.toString();
+            }
+        }
+    });
+    {% endif %}
+});
+</script>
+{% endblock %}

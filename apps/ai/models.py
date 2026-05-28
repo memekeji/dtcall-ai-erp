@@ -50,6 +50,9 @@ class EncryptedAPIKeyField(models.CharField):
                 return value
         return value
 
+    def from_db_value(self, value, expression, connection):
+        return self.to_python(value)
+
 
 class AIModelConfig(models.Model):
     """AI 模型配置"""

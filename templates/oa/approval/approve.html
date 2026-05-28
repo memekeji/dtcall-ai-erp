@@ -1,0 +1,178 @@
+{% extends 'include/common.html' %}
+
+{% block title %}审批处理{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md8">
+                <h3 style="margin:0;">{{ detail.title }}</h3>
+            </div>
+            <div class="layui-col-md4" style="text-align:right;">
+                <button type="button" class="layui-btn layui-btn-primary" id="closeBtn">关闭</button>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <div class="layui-row layui-col-space16">
+            <div class="layui-col-md7">
+                <div class="layui-card">
+                    <div class="layui-card-header">申请信息</div>
+                    <div class="layui-card-body" style="padding: 0;">
+                        <table class="layui-table" style="margin: 0;">
+                            <tr>
+                                <td style="width: 120px;">申请标题</td>
+                                <td>{{ detail.title }}</td>
+                            </tr>
+                            <tr>
+                                <td>申请人</td>
+                                <td>{{ detail.applicant.name|default:detail.applicant.username }}</td>
+                            </tr>
+                            <tr>
+                                <td>审批流程</td>
+                                <td>{{ detail.flow.name }}</td>
+                            </tr>
+                            <tr>
+                                <td>当前状态</td>
+                                <td>{{ detail.get_status_display }}</td>
+                            </tr>
+                            <tr>
+                                <td>当前步骤</td>
+                                <td>{{ detail.current_step.name|default:"已完成" }}</td>
+                            </tr>
+                            <tr>
+                                <td>提交时间</td>
+                                <td>{{ detail.submit_time|date:"Y-m-d H:i:s" }}</td>
+                            </tr>
+                            <tr>
+                                <td>申请内容</td>
+                                <td style="line-height:1.8;">{{ detail.content|linebreaksbr }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="layui-card" style="margin-top: 16px;">
+                    <div class="layui-card-header">审批意见</div>
+                    <div class="layui-card-body">
+                        <textarea id="comment" placeholder="请输入审批意见或处理说明" class="layui-textarea" rows="6"></textarea>
+                        <div style="margin-top: 16px;">
+                            <button type="button" class="layui-btn" data-action="approved">通过</button>
+                            <button type="button" class="layui-btn layui-btn-danger" data-action="rejected">拒绝</button>
+                            <button type="button" class="layui-btn layui-btn-primary" data-action="cancelled">撤销</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-col-md5">
+                <div class="layui-card">
+                    <div class="layui-card-header">流程步骤</div>
+                    <div class="layui-card-body">
+                        <div class="layui-timeline">
+                            {% for step in flow_steps %}
+                            <div class="layui-timeline-item">
+                                <i class="layui-icon layui-timeline-axis">
+                                    {% if detail.current_step and detail.current_step.id == step.id %}&#xe756;{% else %}&#xe63f;{% endif %}
+                                </i>
+                                <div class="layui-timeline-content layui-text">
+                                    <h4 class="layui-timeline-title">{{ step.step_order }}. {{ step.name }}</h4>
+                                    <p>审批人类型：{{ step.get_approver_type_display }}</p>
+                                    <p>
+                                        审批人：
+                                        {% for approver in step.approvers.all %}
+                                            {{ approver.name|default:approver.username }}{% if not forloop.last %}、{% endif %}
+                                        {% empty %}
+                                            未配置
+                                        {% endfor %}
+                                    </p>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div style="color:#999;">当前流程暂无步骤配置</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="layui-card" style="margin-top:16px;">
+                    <div class="layui-card-header">处理记录</div>
+                    <div class="layui-card-body">
+                        <div class="layui-timeline">
+                            {% for record in approval_records %}
+                            <div class="layui-timeline-item">
+                                <i class="layui-icon layui-timeline-axis">&#xe63f;</i>
+                                <div class="layui-timeline-content layui-text">
+                                    <h4 class="layui-timeline-title">{{ record.approver.name|default:record.approver.username }} / {{ record.get_result_display }}</h4>
+                                    <p>{{ record.approval_time|date:"Y-m-d H:i:s" }}</p>
+                                    <p>{{ record.comment|default:"未填写审批意见" }}</p>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div style="color:#999;">暂无审批记录</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+layui.use(['layer', 'jquery'], function () {
+    var layer = layui.layer;
+    var $ = layui.jquery;
+
+    function closeLayerAndReload() {
+        if (window.parent && window.parent.layer) {
+            var index = window.parent.layer.getFrameIndex(window.name);
+            window.parent.layer.close(index);
+            if (window.parent.location) {
+                window.parent.location.reload();
+            }
+            return;
+        }
+        window.history.back();
+    }
+
+    $('#closeBtn').on('click', closeLayerAndReload);
+
+    $('button[data-action]').on('click', function () {
+        var action = $(this).data('action');
+        var actionTextMap = {
+            approved: '通过',
+            rejected: '拒绝',
+            cancelled: '撤销'
+        };
+        layer.confirm('确认要' + actionTextMap[action] + '该审批吗？', function (index) {
+            $.ajax({
+                url: window.location.href,
+                type: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    status: action,
+                    comment: $('#comment').val()
+                }),
+                success: function (res) {
+                    if (res.code === 0) {
+                        layer.msg(res.msg || '处理成功', {icon: 1, time: 1200}, closeLayerAndReload);
+                    } else {
+                        layer.msg(res.msg || '处理失败', {icon: 2});
+                    }
+                },
+                error: function () {
+                    layer.msg('请求失败，请稍后重试', {icon: 2});
+                }
+            });
+            layer.close(index);
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -45,10 +45,10 @@
 <script>
 // 定义API_URLS配置
 window.API_URLS = {
-    list: '{% url "contract:service_list" %}',
+    list: '{% url "contract:service_datalist" %}',
     add: '{% url "contract:service_add" %}',
     edit: '{% url "contract:service_edit" id=1 %}'.replace('1', '{id}'),
-    delete: '{% url "approval:delete_item" model_name="service" pk=1 %}'.replace('1', '{id}')
+    delete: '{% url "contract:basic_data_delete" model_name="service" id=1 %}'.replace('1', '{id}')
 };
 
 // 使用原生JavaScript确保文档加载完成后再执行
@@ -67,7 +67,6 @@ ensureDocumentReady(function() {
         initLayuiComponents();
     } else {
         // 如果layui未加载，等待一段时间后重试
-        console.warn('layui未加载，等待并重试...');
         setTimeout(checkLayuiAndInit, 300);
     }
     
@@ -75,7 +74,6 @@ ensureDocumentReady(function() {
         if (typeof layui !== 'undefined') {
             initLayuiComponents();
         } else {
-            console.error('layui加载失败，请检查layui.js是否正确引入');
         }
     }
     
@@ -118,7 +116,7 @@ ensureDocumentReady(function() {
                     }
                 });
             } else {
-                console.warn('Layui table module not loaded properly');
+                layer.msg('表格组件加载失败，请刷新重试', {icon: 2});
             }
             
             // 搜索表单提交
@@ -130,7 +128,7 @@ ensureDocumentReady(function() {
                             page: { curr: 1 }
                         });
                     } else {
-                        console.warn('Layui table module not available for reload');
+                        layer.msg('表格组件不可用，请刷新重试', {icon: 2});
                     }
                     return false;
                 });
@@ -198,23 +196,16 @@ ensureDocumentReady(function() {
             
             // 删除按钮点击
             function deleteItem(id) {
-                // 获取当前URL并提取模型名称
-                const currentUrl = window.location.pathname;
                 let deleteUrl = '';
                 
-                // 根据URL路径判断模型类型并构建删除URL
                 if (API_URLS.delete) {
-                    // 使用API_URLS.delete构建删除URL
                     deleteUrl = API_URLS.delete.replace('{id}', id);
                 }
                 
                 if (!deleteUrl || deleteUrl === '') {
-                    layer.msg('删除功能未配置');
-                    console.error('删除URL为空，检查模型配置');
+                    layer.msg('删除接口配置异常，请刷新页面后重试', {icon: 2});
                     return;
                 }
-                
-                console.log('构建的删除URL:', deleteUrl);
                 
                 layer.confirm('确认删除这条记录吗？', function(index) {
                     // 获取CSRF令牌
@@ -233,9 +224,8 @@ ensureDocumentReady(function() {
                                 layer.msg(res.message || res.msg || '删除失败');
                             }
                         },
-                        error: function(xhr) {
-                            console.error('删除请求失败:', xhr);
-                            layer.msg('网络错误或服务器异常');
+                        error: function() {
+                            layer.msg('网络错误或服务器异常', {icon: 2});
                         }
                     });
                     layer.close(index);
@@ -263,7 +253,7 @@ ensureDocumentReady(function() {
                     }
                 });
             } else {
-                console.warn('Layui table module not available for events');
+                layer.msg('表格事件组件不可用，请刷新重试', {icon: 2});
             }
             window.editItem = editItem;
             window.deleteItem = deleteItem;

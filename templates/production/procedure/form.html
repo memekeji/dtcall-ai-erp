@@ -5,7 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% if procedure %}编辑工序{% else %}添加工序{% endif %}</title>
+    <title>{{ action }}工序</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
 </head>
 
@@ -15,7 +15,7 @@
         <div class="layui-row">
             <div class="layui-col-md12">
                 <h2 style="margin-bottom: 20px;">
-                    {% if procedure %}编辑工序{% else %}添加工序{% endif %}
+                    {{ action }}工序
                 </h2>
             </div>
         </div>
@@ -27,7 +27,7 @@
                     <div class="layui-card-body">
                         <form class="layui-form" method="post">
                             {% csrf_token %}
-                            
+
                             <div class="layui-form-item">
                                 <label class="layui-form-label">工序名称 <span style="color: red;">*</span></label>
                                 <div class="layui-input-block">
@@ -114,7 +114,7 @@
                             <div class="layui-form-item">
                                 <div class="layui-input-block">
                                     <button class="layui-btn" lay-submit lay-filter="formSubmit">
-                                        {% if procedure %}更新{% else %}保存{% endif %}
+                                        {{ action }}
                                     </button>
                                     <button type="button" class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:procedure_list' %}'">
                                         取消
@@ -140,6 +140,53 @@
                 // 这里可以添加表单验证逻辑
                 return true; // 允许表单提交
             });
+        });
+
+        function openRightPopup(title, url) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: title,
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: url,
+                    success: function(layero, index) {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    },
+                    end: function() {
+                        window.location.reload();
+                    }
+                });
+            });
+        }
+</script>
+
+    <!-- 注入的消息提示脚本 -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var msgs = [
+                {% for message in messages %}
+                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
+                {% endfor %}
+            ];
+
+            if (msgs.length > 0 && typeof layui !== 'undefined') {
+                layui.use(['layer'], function() {
+                    msgs.forEach(function(m) {
+                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
+                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
+                    });
+                });
+            }
         });
     </script>
 </body>

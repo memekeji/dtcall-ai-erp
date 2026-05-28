@@ -1,12 +1,8 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>{% if object %}编辑客户{% else %}添加客户{% endif %}</title>
-    <meta name="renderer" content="webkit">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+{% extends 'include/popup.html' %}
+
+{% block title %}{% if object %}编辑客户{% else %}添加客户{% endif %}{% endblock %}
+
+{% block content %}
     <style>
         .required-field::after {
             content: " *";
@@ -422,8 +418,8 @@
                             <!-- 提交按钮 -->
                             <div class="layui-form-item">
                                 <div class="layui-input-block">
-                                    <button class="layui-btn" type="submit">保存</button>
-                                    <a href="{% url 'customer:customer_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                                    <button type="submit" class="layui-btn">保存</button>
+                                    <button type="button" class="layui-btn layui-btn-primary" onclick="closePopup()">返回</button>
                                 </div>
                             </div>
                         </form>
@@ -435,6 +431,14 @@
 
     <script src="/static/layui/layui.js"></script>
     <script>
+        function closePopup() {
+            if (parent && parent.layer) {
+                var index = parent.layer.getFrameIndex(window.name);
+                parent.layer.close(index);
+            } else {
+                window.history.back();
+            }
+        }
         // 联系人管理功能 - 简化版实现
         
         // 在layui加载完成后执行初始化
@@ -711,5 +715,4 @@
         };
 
     </script>
-</body>
-</html>
+{% endblock %}

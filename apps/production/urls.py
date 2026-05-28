@@ -38,6 +38,7 @@ urlpatterns = [
     path('bom/edit/<int:pk>/', views.bom_edit, name='bom_edit'),
     path('bom/delete/<int:pk>/', views.bom_delete, name='bom_delete'),
     path('bom/detail/<int:pk>/', views.bom_detail, name='bom_detail'),
+    path('bom/copy/<int:pk>/', views.bom_copy, name='bom_copy'),
 
     path('equipment/', views.equipment_list, name='equipment_list'),
     path('equipment/add/', views.equipment_add, name='equipment_add'),
@@ -85,6 +86,10 @@ urlpatterns = [
         'data/source/<int:pk>/test/',
         views.data_source_test,
         name='data_source_test'),
+    path(
+        'data/source/<int:pk>/collect/',
+        views.data_source_collect,
+        name='data_source_collect'),
 
     # 数据映射管理
     path('data/mapping/', views.data_mapping_list, name='data_mapping_list'),
@@ -97,6 +102,10 @@ urlpatterns = [
         'data/mapping/<int:pk>/delete/',
         views.data_mapping_delete,
         name='data_mapping_delete'),
+    path(
+        'data/mapping/update-sort/',
+        views.data_mapping_update_sort,
+        name='data_mapping_update_sort'),
 
     # 数据采集记录
     path(
@@ -134,8 +143,9 @@ urlpatterns = [
     path('sop/', views.sop_list, name='sop_list'),
     path('sop/add/', views.sop_add, name='sop_add'),
     path('sop/edit/<int:pk>/', views.sop_edit, name='sop_edit'),
-    path('sop/delete/<int:pk>/', views.sop_delete, name='sop_delete'),
     path('sop/detail/<int:pk>/', views.sop_detail, name='sop_detail'),
+    path('sop/copy/<int:pk>/', views.sop_copy, name='sop_copy'),
+    path('sop/delete/<int:pk>/', views.sop_delete, name='sop_delete'),
 
     # 生产计划模块
     path('task/', views.production_task_index, name='production_task_index'),

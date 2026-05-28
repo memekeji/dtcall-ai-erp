@@ -1,0 +1,165 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{% if detail %}编辑企业{% else %}新增企业{% endif %}</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}" media="all">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header">{% if detail %}编辑企业{% else %}新增企业{% endif %}</div>
+            <div class="layui-card-body">
+                <form class="layui-form" id="enterpriseForm" method="post">
+                    {% csrf_token %}
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">企业名称</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="title" value="{% if detail %}{{ detail.title }}{% endif %}" placeholder="请输入企业名称" autocomplete="off" class="layui-input" lay-verify="required">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">所在城市</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="city" value="{% if detail %}{{ detail.city }}{% endif %}" placeholder="请输入所在城市" autocomplete="off" class="layui-input">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">开户银行</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="bank" value="{% if detail %}{{ detail.bank }}{% endif %}" placeholder="请输入开户银行" autocomplete="off" class="layui-input">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">银行账号</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="bank_sn" value="{% if detail %}{{ detail.bank_sn }}{% endif %}" placeholder="请输入银行账号" autocomplete="off" class="layui-input">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">纳税人识别号</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="tax_num" value="{% if detail %}{{ detail.tax_num }}{% endif %}" placeholder="请输入纳税人识别号" autocomplete="off" class="layui-input">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">电话</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="phone" value="{% if detail %}{{ detail.phone }}{% endif %}" placeholder="请输入联系电话" autocomplete="off" class="layui-input">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">开票地址</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="address" value="{% if detail %}{{ detail.address }}{% endif %}" placeholder="请输入开票地址" autocomplete="off" class="layui-input">
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">状态</label>
+                        <div class="layui-input-block">
+                            <select name="status">
+                                <option value="1" {% if not detail or detail.status == 1 %}selected{% endif %}>启用</option>
+                                <option value="0" {% if detail and detail.status == 0 %}selected{% endif %}>禁用</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item layui-form-text">
+                        <label class="layui-form-label">备注</label>
+                        <div class="layui-input-block">
+                            <textarea name="remark" placeholder="请输入备注信息" class="layui-textarea">{% if detail %}{{ detail.remark }}{% endif %}</textarea>
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item">
+                        <div class="layui-input-block">
+                            <button class="layui-btn" lay-submit lay-filter="saveEnterprise">保存</button>
+                            <button type="button" class="layui-btn layui-btn-primary" id="backBtn">返回</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(["form", "layer"], function () {
+            var form = layui.form;
+            var layer = layui.layer;
+
+            document.getElementById("backBtn").addEventListener("click", function () {
+                if (window.parent && window.parent.layer) {
+                    var index = window.parent.layer.getFrameIndex(window.name);
+                    if (index !== undefined && index !== null) {
+                        window.parent.layer.close(index);
+                        return;
+                    }
+                }
+                window.history.back();
+            });
+
+            form.on("submit(saveEnterprise)", function () {
+                var formElement = document.getElementById("enterpriseForm");
+                var formData = new FormData(formElement);
+                fetch(window.location.href, {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": formData.get("csrfmiddlewaretoken")
+                    },
+                    body: formData
+                }).then(function (response) {
+                    return response.json();
+                }).then(function (result) {
+                    if (result.code === 0) {
+                        layer.msg(result.msg || "保存成功", {icon: 1}, function () {
+                            if (window.parent && window.parent.layer) {
+                                var index = window.parent.layer.getFrameIndex(window.name);
+                                if (index !== undefined && index !== null) {
+                                    window.parent.layer.close(index);
+                                }
+                                if (window.parent.location && window.parent.location.reload) {
+                                    window.parent.location.reload();
+                                }
+                            } else {
+                                window.location.href = "{% url 'enterprise:enterprise_list' %}";
+                            }
+                        });
+                    } else {
+                        layer.msg(result.msg || "保存失败", {icon: 2});
+                    }
+                }).catch(function () {
+                    layer.msg("提交失败，请稍后重试", {icon: 2});
+                });
+                return false;
+            });
+        });
+    </script>
+</body>
+</html>

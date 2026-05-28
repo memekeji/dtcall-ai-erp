@@ -1,0 +1,165 @@
+{% extends 'include/common.html' %}
+
+{% block title %}OA审批中心{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <span class="layui-breadcrumb">
+            <a href="javascript:;">OA办公</a>
+            <a><cite>审批中心</cite></a>
+        </span>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form" style="margin-bottom:16px;">
+            <div class="layui-row layui-col-space12">
+                <div class="layui-col-md4">
+                    <input type="text" id="keywords" placeholder="搜索审批标题或内容" class="layui-input">
+                </div>
+                <div class="layui-col-md3">
+                    <select id="status">
+                        <option value="">全部状态</option>
+                        <option value="draft">草稿</option>
+                        <option value="pending">待审核</option>
+                        <option value="in_review">审核中</option>
+                        <option value="approved">已通过</option>
+                        <option value="rejected">已拒绝</option>
+                        <option value="cancelled">已撤销</option>
+                    </select>
+                </div>
+                <div class="layui-col-md5">
+                    <button type="button" class="layui-btn" id="searchBtn">查询</button>
+                    <button type="button" class="layui-btn layui-btn-primary" id="resetBtn">重置</button>
+                </div>
+            </div>
+        </form>
+
+        <table class="layui-table" lay-skin="line">
+            <thead>
+                <tr>
+                    <th style="width: 18%;">审批标题</th>
+                    <th style="width: 12%;">申请人</th>
+                    <th style="width: 12%;">流程</th>
+                    <th style="width: 10%;">状态</th>
+                    <th style="width: 14%;">当前步骤</th>
+                    <th style="width: 14%;">当前审批人</th>
+                    <th style="width: 14%;">提交时间</th>
+                    <th style="width: 8%;">操作</th>
+                </tr>
+            </thead>
+            <tbody id="approvalTableBody">
+                {% for item in approval_items %}
+                <tr>
+                    <td>{{ item.title }}</td>
+                    <td>{{ item.applicant.name|default:item.applicant.username }}</td>
+                    <td>{{ item.flow.name }}</td>
+                    <td>{{ item.get_status_display }}</td>
+                    <td>{{ item.current_step.name|default:"已完成" }}</td>
+                    <td>
+                        {% if item.current_step %}
+                            {% for approver in item.current_step.approvers.all %}
+                                {{ approver.name|default:approver.username }}{% if not forloop.last %}、{% endif %}
+                            {% empty %}
+                                -
+                            {% endfor %}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>{{ item.submit_time|date:"Y-m-d H:i" }}</td>
+                    <td><button type="button" class="layui-btn layui-btn-xs view-btn" data-id="{{ item.id }}">处理</button></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align:center; color:#999; padding:50px 0;">暂无审批数据</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+layui.use(['layer', 'form', 'jquery'], function () {
+    var layer = layui.layer;
+    var form = layui.form;
+    var $ = layui.jquery;
+
+    function openRightDrawer(title, url) {
+        layer.open({
+            type: 2,
+            title: title,
+            shadeClose: false,
+            shade: 0.25,
+            maxmin: true,
+            area: ['80%', '100%'],
+            offset: 'r',
+            anim: 2,
+            content: url,
+            success: function (layero) {
+                if (layero && typeof layero.css === 'function') {
+                    layero.css({'right': '0', 'top': '0', 'height': '100%'});
+                }
+            },
+            end: function () {
+                loadApprovals();
+            }
+        });
+    }
+
+    function renderRows(items) {
+        var tbody = $('#approvalTableBody');
+        if (!items || !items.length) {
+            tbody.html('<tr><td colspan="8" style="text-align:center; color:#999; padding:50px 0;">暂无符合条件的审批</td></tr>');
+            return;
+        }
+
+        var rows = items.map(function (item) {
+            return '' +
+                '<tr>' +
+                '<td>' + (item.title || '-') + '</td>' +
+                '<td>' + (item.applicant_name || '-') + '</td>' +
+                '<td>' + (item.flow_name || '-') + '</td>' +
+                '<td>' + (item.status || '-') + '</td>' +
+                '<td>' + (item.current_step || '-') + '</td>' +
+                '<td>' + (item.current_approvers || '-') + '</td>' +
+                '<td>' + (item.submit_time || '-') + '</td>' +
+                '<td><button type="button" class="layui-btn layui-btn-xs view-btn" data-id="' + item.id + '">处理</button></td>' +
+                '</tr>';
+        });
+        tbody.html(rows.join(''));
+    }
+
+    function loadApprovals() {
+        $.get('{% url "approval_list" %}', {
+            format: 'json',
+            keywords: $('#keywords').val(),
+            status: $('#status').val()
+        }, function (res) {
+            if (res.code === 0) {
+                renderRows(res.data || []);
+            } else {
+                layer.msg(res.msg || '加载失败', {icon: 2});
+            }
+        }).fail(function () {
+            layer.msg('审批数据加载失败，请稍后重试', {icon: 2});
+        });
+    }
+
+    $('#searchBtn').on('click', loadApprovals);
+    $('#resetBtn').on('click', function () {
+        $('#keywords').val('');
+        $('#status').val('');
+        form.render('select');
+        loadApprovals();
+    });
+
+    $('#approvalTableBody').on('click', '.view-btn', function () {
+        var id = $(this).data('id');
+        openRightDrawer('审批处理', '{% url "approval_submit" 0 %}'.replace('0', id));
+    });
+
+    form.render();
+});
+</script>
+{% endblock %}

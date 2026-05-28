@@ -7,6 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ equipment.name }} - 数据图表</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 </head>
 
 <body>
@@ -23,12 +24,9 @@
         <div class="layui-row">
             <div class="layui-col-md12">
                 <div class="layui-card">
-                    <div class="layui-card-header">最近7天数据趋势</div>
+                    <div class="layui-card-header">最近数据趋势</div>
                     <div class="layui-card-body">
-                        <div id="dataChart" style="height: 400px; display: flex; align-items: center; justify-content: center; color: #999;">
-                            图表功能开发中...<br>
-                            <small>数据：{{ chart_data }}</small>
-                        </div>
+                        <div id="dataChart" style="height: 400px; width: 100%;"></div>
                     </div>
                 </div>
             </div>
@@ -37,7 +35,7 @@
         <!-- 操作按钮 -->
         <div class="layui-row" style="margin-top: 20px;">
             <div class="layui-col-md12">
-                <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:equipment_detail' equipment.pk %}'">
+                <button class="layui-btn layui-btn-primary" onclick="openRightPopup('详情', '{% url 'production:equipment_detail' equipment.pk %}')">
                     <i class="layui-icon layui-icon-return"></i> 返回设备详情
                 </button>
                 <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:data_collection_list' %}?equipment={{ equipment.pk }}'">
@@ -61,10 +59,112 @@
             location.reload();
         }
 
-        // 这里可以集成 ECharts 或其他图表库来显示实际的数据图表
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('图表数据:', {{ chart_data|safe }});
-            // 未来可以在这里初始化图表
+            var chartDom = document.getElementById('dataChart');
+            var myChart = echarts.init(chartDom);
+
+            var timestamps = [];
+            var values = [];
+
+            {% for dp in data_points reversed %}
+                timestamps.push('{{ dp.timestamp|date:"m-d H:i:s" }}');
+                values.push(parseFloat('{{ dp.metric_value|escapejs }}') || 0);
+            {% empty %}
+                // No data
+            {% endfor %}
+
+            var option = {
+                tooltip: {
+                    trigger: 'axis'
+                },
+                xAxis: {
+                    type: 'category',
+                    data: timestamps
+                },
+                yAxis: {
+                    type: 'value'
+                },
+                series: [
+                    {
+                        name: '参数值',
+                        data: values,
+                        type: 'line',
+                        smooth: true,
+                        areaStyle: {
+                            opacity: 0.3
+                        },
+                        itemStyle: {
+                            color: '#1E9FFF'
+                        }
+                    }
+                ]
+            };
+
+            if (timestamps.length === 0) {
+                option.title = {
+                    text: '暂无数据',
+                    left: 'center',
+                    top: 'center',
+                    textStyle: {
+                        color: '#999',
+                        fontWeight: 'normal',
+                        fontSize: 14
+                    }
+                };
+            }
+
+            myChart.setOption(option);
+
+            window.addEventListener('resize', function() {
+                myChart.resize();
+            });
+        });
+
+        function openRightPopup(title, url) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: title,
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: url,
+                    success: function(layero, index) {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    },
+                    end: function() {
+                        window.location.reload();
+                    }
+                });
+            });
+        }
+</script>
+
+    <!-- 注入的消息提示脚本 -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var msgs = [
+                {% for message in messages %}
+                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
+                {% endfor %}
+            ];
+
+            if (msgs.length > 0 && typeof layui !== 'undefined') {
+                layui.use(['layer'], function() {
+                    msgs.forEach(function(m) {
+                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
+                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
+                    });
+                });
+            }
         });
     </script>
 </body>

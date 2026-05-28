@@ -9,10 +9,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
 from django.http import JsonResponse
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views import View
-from django.views.generic import DetailView
 
 from .constants import MeetingTypeChoices, MeetingStatusChoices, FileUploadConfig
 from .response_utils import (
@@ -23,7 +22,17 @@ from .response_utils import (
     permission_denied_response,
     ajax_success_response,
     ajax_error_response)
-from .models import Schedule, Approval, MeetingRoom, MeetingRecord, StatusChoices
+from .models import (
+    Schedule,
+    Approval,
+    MeetingRoom,
+    MeetingRecord,
+    StatusChoices,
+    OAMessage,
+    OAMessageReadRecord,
+    ApprovalRequest,
+    ApprovalRecord,
+)
 from .utils import get_admin, get_leader_departments
 from apps.personal.models import MeetingMinutes
 from apps.project.models import Project, Task
@@ -33,19 +42,87 @@ from apps.work.models import WorkCate
 logger = logging.getLogger(__name__)
 
 
+def _load_request_payload(request):
+    """兼容 JSON 与表单请求体。"""
+    if request.body:
+        try:
+            return json.loads(request.body.decode('utf-8'))
+        except (json.JSONDecodeError, UnicodeDecodeError, TypeError):
+            pass
+    return request.POST.dict()
+
+
+def _parse_datetime_value(value):
+    """兼容 datetime-local 与普通日期时间输入格式。"""
+    if not value:
+        raise ValueError('时间不能为空')
+    for fmt in ('%Y-%m-%d %H:%M', '%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M'):
+        try:
+            return datetime.strptime(value, fmt)
+        except ValueError:
+            continue
+    raise ValueError('时间格式不正确')
+
+
+def _is_ajax_request(request):
+    return (
+        request.headers.get('x-requested-with') == 'XMLHttpRequest' or
+        request.GET.get('format') == 'json'
+    )
+
+
+def _format_unix_timestamp(timestamp_value):
+    if not timestamp_value:
+        return '-'
+    try:
+        return datetime.fromtimestamp(int(timestamp_value)).strftime('%Y-%m-%d %H:%M:%S')
+    except (TypeError, ValueError, OSError):
+        return '-'
+
+
+def _user_can_access_message(user, message):
+    """判断当前用户是否可访问消息。"""
+    if not user or not user.is_authenticated:
+        return False
+
+    if message.sender_id == user.id or message.receiver_type == 'all':
+        return True
+
+    if message.receivers.filter(id=user.id).exists():
+        return True
+
+    user_department_id = getattr(user, 'did', 0)
+    if user_department_id and message.receiver_departments.filter(id=user_department_id).exists():
+        return True
+
+    return False
+
+
 class ScheduleAddView(LoginRequiredMixin, View):
     login_url = '/user/login/'
     redirect_field_name = 'next'
 
     def get(self, request):
-        return render(request, 'oa/schedule/add.html')
+        categories = WorkCate.objects.all().order_by('title')
+        tasks = Task.objects.all().order_by('-id')[:200]
+        now = timezone.localtime()
+        context = {
+            'categories': categories,
+            'tasks': tasks,
+            'default_start': now.strftime('%Y-%m-%dT%H:%M'),
+            'default_end': (now + timezone.timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M'),
+        }
+        return render(request, 'oa/schedule/add.html', context)
 
     def post(self, request):
-        params = json.loads(request.body)
+        params = _load_request_payload(request)
         admin_id = request.user.id
 
-        start_time = datetime.strptime(params['start_time'], '%Y-%m-%d %H:%M')
-        end_time = datetime.strptime(params['end_time'], '%Y-%m-%d %H:%M')
+        try:
+            start_time = _parse_datetime_value(params.get('start_time'))
+            end_time = _parse_datetime_value(params.get('end_time'))
+        except ValueError as exc:
+            return validation_error_response(str(exc))
 
         if start_time > timezone.now():
             return error_response("开始时间不能大于现在时间")
@@ -57,7 +134,7 @@ class ScheduleAddView(LoginRequiredMixin, View):
             return error_response("结束时间与开始时间必须是同一天")
 
         conflict = Schedule.objects.filter(
-            Q(deleted_at=None, admin_id=admin_id) &
+            Q(delete_time=0, admin_id=admin_id) &
             (
                 Q(start_time__range=(start_time, end_time)) |
                 Q(end_time__range=(start_time, end_time)) |
@@ -173,7 +250,7 @@ class MeetingView(LoginRequiredMixin, View):
                     'audio_file': audio_file_url
                 })
             return success_response(data)
-        return render(request, 'oa/meeting/list.html')
+        return render(request, 'meeting/records.html')
 
     def retrieve(self, request, pk):
         try:
@@ -216,7 +293,7 @@ class MeetingView(LoginRequiredMixin, View):
             ).order_by('-created_at')
 
             context = {'detail': meeting, 'meeting_minutes': meeting_minutes}
-            return render(request, 'meeting/records_view.html', context)
+            return render(request, 'oa/meeting/detail.html', context)
         except MeetingRecord.DoesNotExist:
             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
                 return not_found_response('会议不存在')
@@ -257,7 +334,15 @@ class MeetingApplyView(LoginRequiredMixin, View):
 
     def get(self, request):
         rooms = MeetingRoom.objects.filter(status=StatusChoices.ACTIVE)
-        return render(request, 'oa/meeting/apply.html', {'rooms': rooms})
+        users = User.objects.all().order_by('name', 'username')
+        now = timezone.localtime()
+        context = {
+            'rooms': rooms,
+            'users': users,
+            'default_start': now.strftime('%Y-%m-%dT%H:%M:%S'),
+            'default_end': (now + timezone.timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M:%S'),
+        }
+        return render(request, 'oa/meeting/apply.html', context)
 
     def post(self, request):
         try:
@@ -594,12 +679,37 @@ class MeetingMinutesView(LoginRequiredMixin, View):
             return error_response(f'保存会议纪要失败: {str(e)}')
 
 
-class MessageDetailView(LoginRequiredMixin, DetailView):
+class MessageDetailView(LoginRequiredMixin, View):
     login_url = '/user/login/'
     redirect_field_name = 'next'
-    model = Approval
-    template_name = 'oa/message/view.html'
-    context_object_name = 'message'
+
+    def get(self, request, id):
+        message = get_object_or_404(
+            OAMessage.objects.select_related('sender').prefetch_related(
+                'receivers',
+                'receiver_departments',
+                'read_records'),
+            pk=id,
+            deleted_at__isnull=True,
+            is_deleted=False)
+
+        if not _user_can_access_message(request.user, message):
+            messages.error(request, '您无权查看该消息')
+            return redirect('message_list')
+
+        read_record, _ = OAMessageReadRecord.objects.get_or_create(
+            message=message,
+            user=request.user)
+        if not read_record.is_read:
+            read_record.is_read = True
+            read_record.read_time = timezone.now()
+            read_record.save(update_fields=['is_read', 'read_time', 'updated_at'])
+
+        context = {
+            'message': message,
+            'read_record': read_record,
+        }
+        return render(request, 'oa/message/view.html', context)
 
 
 class MessageView(LoginRequiredMixin, View):
@@ -610,25 +720,63 @@ class MessageView(LoginRequiredMixin, View):
         return self.datalist(request)
 
     def datalist(self, request):
-        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            params = json.loads(request.body)
-            query = Q(deleted_at=None)
-            if params.get('keywords'):
-                query &= Q(title__icontains=params['keywords'])
-            uid = request.user.id
-            query &= (Q(sender_id=uid) | Q(receiver_id=uid))
-            messages_list = Approval.objects.filter(query)
-            return success_response(list(messages_list.values()))
-        return render(request, 'oa/message/list.html')
+        params = request.GET.dict()
+        query = Q(deleted_at__isnull=True, is_deleted=False, is_draft=False)
+        uid = request.user.id
 
-    def view(self, request, id):
-        message = Approval.objects.get(id=id)
-        context = {'detail': message}
-        return render(request, 'oa/message/view.html', context)
+        if params.get('keywords'):
+            query &= (
+                Q(title__icontains=params['keywords']) |
+                Q(content__icontains=params['keywords'])
+            )
 
-    def delete(self, request, id):
-        Approval.objects.filter(id=id).update(deleted_at=timezone.now())
-        return success_response(message='删除成功')
+        access_query = (
+            Q(sender_id=uid) |
+            Q(receiver_type='all') |
+            Q(receivers__id=uid)
+        )
+        if getattr(request.user, 'did', 0):
+            access_query |= Q(receiver_departments__id=request.user.did)
+
+        messages_list = OAMessage.objects.filter(query & access_query).select_related(
+            'sender'
+        ).prefetch_related(
+            'receivers',
+            'receiver_departments',
+            'read_records'
+        ).distinct().order_by('-send_time', '-created_at')
+
+        if _is_ajax_request(request):
+            data = []
+            for item in messages_list:
+                read_record = item.read_records.filter(user=request.user).first()
+                receivers = ', '.join(
+                    receiver.name or receiver.username for receiver in item.receivers.all()[:5]
+                )
+                data.append({
+                    'id': item.id,
+                    'title': item.title,
+                    'content': item.content,
+                    'message_type': item.get_message_type_display(),
+                    'priority': item.get_priority_display(),
+                    'sender_name': item.sender.name or item.sender.username,
+                    'receiver_type': item.get_receiver_type_display(),
+                    'receivers': receivers,
+                    'send_time': item.send_time.strftime('%Y-%m-%d %H:%M') if item.send_time else '-',
+                    'is_read': read_record.is_read if read_record else False,
+                })
+            return success_response(data)
+
+        unread_count = OAMessageReadRecord.objects.filter(
+            user=request.user,
+            is_read=False,
+            message__in=messages_list
+        ).count()
+        context = {
+            'messages_list': messages_list[:100],
+            'unread_count': unread_count,
+        }
+        return render(request, 'oa/message/list.html', context)
 
 
 def get_meeting_rooms(request):
@@ -880,30 +1028,165 @@ class ApprovalView(LoginRequiredMixin, View):
     login_url = '/user/login/'
     redirect_field_name = 'next'
 
-    def get(self, request):
+    def get(self, request, *args, **kwargs):
+        if 'id' in kwargs:
+            return self.approve(request, kwargs['id'])
         return self.datalist(request)
 
+    def post(self, request, *args, **kwargs):
+        if 'id' in kwargs:
+            return self.approve(request, kwargs['id'])
+        return error_response('不支持的请求方式')
+
     def datalist(self, request):
-        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            params = json.loads(request.body)
-            query = Q(deleted_at=None)
-            if params.get('keywords'):
-                query &= Q(title__icontains=params['keywords'])
-            uid = request.user.id
-            query &= (Q(applicant_id=uid) | Q(approver_id=uid))
-            approvals = Approval.objects.filter(query)
-            return success_response(list(approvals.values()))
-        return render(request, 'oa/approval/list.html')
+        params = request.GET.dict()
+        uid = request.user.id
+        query = Q(deleted_at__isnull=True, is_deleted=False)
+
+        if params.get('keywords'):
+            query &= (
+                Q(title__icontains=params['keywords']) |
+                Q(content__icontains=params['keywords'])
+            )
+
+        if params.get('status'):
+            query &= Q(status=params['status'])
+
+        access_query = (
+            Q(applicant_id=uid) |
+            Q(current_step__approvers__id=uid) |
+            Q(approval_records__approver_id=uid)
+        )
+        approvals = ApprovalRequest.objects.filter(
+            query & access_query
+        ).select_related(
+            'applicant',
+            'flow',
+            'current_step'
+        ).prefetch_related(
+            'approval_records',
+            'current_step__approvers'
+        ).distinct().order_by('-submit_time')
+
+        if _is_ajax_request(request):
+            data = []
+            for item in approvals:
+                current_step_name = item.current_step.name if item.current_step else '已完成'
+                approver_names = ''
+                if item.current_step:
+                    approver_names = ', '.join(
+                        approver.name or approver.username
+                        for approver in item.current_step.approvers.all()
+                    )
+                data.append({
+                    'id': item.id,
+                    'title': item.title,
+                    'applicant_name': item.applicant.name or item.applicant.username,
+                    'flow_name': item.flow.name,
+                    'status': item.get_status_display(),
+                    'current_step': current_step_name,
+                    'current_approvers': approver_names or '-',
+                    'submit_time': item.submit_time.strftime('%Y-%m-%d %H:%M'),
+                })
+            return success_response(data)
+
+        context = {
+            'approval_items': approvals[:100],
+        }
+        return render(request, 'oa/approval/list.html', context)
 
     def approve(self, request, id):
-        approval = Approval.objects.get(id=id)
+        approval = get_object_or_404(
+            ApprovalRequest.objects.select_related(
+                'applicant',
+                'flow',
+                'current_step'
+            ).prefetch_related(
+                'flow__steps',
+                'flow__steps__approvers',
+                'approval_records__approver'
+            ),
+            pk=id,
+            deleted_at__isnull=True,
+            is_deleted=False
+        )
+
+        uid = request.user.id
+        can_view = (
+            approval.applicant_id == uid or
+            approval.approval_records.filter(approver_id=uid).exists() or
+            (approval.current_step and approval.current_step.approvers.filter(id=uid).exists())
+        )
+        if not can_view:
+            return permission_denied_response('无权限查看该审批')
+
         if request.method == 'POST':
-            params = json.loads(request.body)
-            approval.status = params['status']
-            approval.approve_time = timezone.now()
-            approval.save()
-            return success_response(message='审批完成')
-        context = {'detail': approval}
+            params = _load_request_payload(request)
+            action = params.get('status') or params.get('action')
+            comment = params.get('comment', '').strip()
+            action_map = {
+                'approve': 'approved',
+                'approved': 'approved',
+                'reject': 'rejected',
+                'rejected': 'rejected',
+                'cancel': 'cancelled',
+                'cancelled': 'cancelled',
+            }
+            normalized_action = action_map.get(action)
+            if not normalized_action:
+                return validation_error_response('审批动作不正确')
+
+            now = timezone.now()
+            update_fields = ['status', 'updated_at']
+
+            if normalized_action == 'cancelled':
+                if approval.applicant_id != uid:
+                    return permission_denied_response('仅申请人可撤销审批')
+                approval.status = 'cancelled'
+                approval.complete_time = now
+                approval.current_step = None
+                update_fields.extend(['complete_time', 'current_step'])
+                approval.save(update_fields=update_fields)
+                return success_response(message='审批已撤销')
+
+            if not approval.current_step or not approval.current_step.approvers.filter(id=uid).exists():
+                return permission_denied_response('当前用户不是该步骤审批人')
+
+            ApprovalRecord.objects.create(
+                request=approval,
+                step=approval.current_step,
+                approver=request.user,
+                result='approved' if normalized_action == 'approved' else 'rejected',
+                comment=comment
+            )
+
+            if normalized_action == 'approved':
+                next_step = approval.flow.steps.filter(
+                    step_order__gt=approval.current_step.step_order
+                ).order_by('step_order').first()
+                if next_step:
+                    approval.current_step = next_step
+                    approval.status = 'in_review'
+                    update_fields.append('current_step')
+                else:
+                    approval.current_step = None
+                    approval.status = 'approved'
+                    approval.complete_time = now
+                    update_fields.extend(['current_step', 'complete_time'])
+            else:
+                approval.current_step = None
+                approval.status = 'rejected'
+                approval.complete_time = now
+                update_fields.extend(['current_step', 'complete_time'])
+
+            approval.save(update_fields=update_fields)
+            return success_response(message='审批处理完成')
+
+        context = {
+            'detail': approval,
+            'approval_records': approval.approval_records.all().order_by('-approval_time'),
+            'flow_steps': approval.flow.steps.all().order_by('step_order'),
+        }
         return render(request, 'oa/approval/approve.html', context)
 
 
@@ -911,13 +1194,22 @@ class ScheduleView(LoginRequiredMixin, View):
     login_url = '/user/login/'
     redirect_field_name = 'next'
 
-    def get(self, request):
+    def get(self, request, *args, **kwargs):
+        if request.path.endswith('/calendar/'):
+            return self.calendar(request)
+        if request.path.find('/view/') > -1 and 'id' in kwargs:
+            return self.view(request, kwargs['id'])
         return self.datalist(request)
 
+    def post(self, request, *args, **kwargs):
+        if request.path.find('/delete/') > -1 and 'id' in kwargs:
+            return self.delete(request, kwargs['id'])
+        return error_response('不支持的请求方式')
+
     def datalist(self, request):
-        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        if _is_ajax_request(request):
             params = request.GET.dict()
-            query = Q(deleted_at=None)
+            query = Q(delete_time=0)
 
             if params.get('keywords'):
                 query &= Q(title__icontains=params['keywords'])
@@ -942,12 +1234,41 @@ class ScheduleView(LoginRequiredMixin, View):
                 query &= (Q(admin_id=uid) | Q(
                     did__in=get_leader_departments(uid)))
 
-            schedules = Schedule.objects.filter(query)
-            return success_response(list(schedules.values()))
+            schedules = Schedule.objects.filter(query).order_by('-start_time')
+            data = []
+            for schedule in schedules:
+                work_cate_title = ''
+                if schedule.cid:
+                    work_cate_title = WorkCate.objects.filter(id=schedule.cid).values_list('title', flat=True).first() or ''
+
+                task_title = ''
+                project_name = ''
+                if schedule.tid:
+                    task = Task.objects.filter(id=schedule.tid).first()
+                    if task:
+                        task_title = task.title
+                        project_name = Project.objects.filter(id=task.project_id).values_list('name', flat=True).first() or ''
+
+                admin_info = get_admin(schedule.admin_id)
+                data.append({
+                    'id': schedule.id,
+                    'title': schedule.title,
+                    'start_time': schedule.start_time.strftime('%Y-%m-%d %H:%M'),
+                    'end_time': schedule.end_time.strftime('%Y-%m-%d %H:%M'),
+                    'labor_time': schedule.labor_time,
+                    'labor_type': '案头工作' if schedule.labor_type == 1 else '外勤工作',
+                    'content': schedule.content,
+                    'admin_name': admin_info.get('name') or admin_info.get('nickname') or '',
+                    'department': admin_info.get('department', ''),
+                    'work_cate': work_cate_title or '-',
+                    'task': task_title or '-',
+                    'project': project_name or '-',
+                })
+            return success_response(data)
         return render(request, 'oa/schedule/list.html')
 
     def calendar(self, request):
-        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        if _is_ajax_request(request):
             params = request.GET.dict()
             uid = params.get('uid', request.user.id)
 
@@ -958,7 +1279,7 @@ class ScheduleView(LoginRequiredMixin, View):
                 start_time__gte=start,
                 end_time__lte=end,
                 admin_id=uid,
-                deleted_at=None
+                delete_time=0
             )
 
             schedules = Schedule.objects.filter(query).values(
@@ -1053,26 +1374,33 @@ class ScheduleView(LoginRequiredMixin, View):
             return success_response(message='操作成功')
 
     def delete(self, request, id):
-        Schedule.objects.filter(id=id).update(deleted_at=timezone.now())
+        schedule = get_object_or_404(Schedule, id=id, delete_time=0)
+        if schedule.admin_id != request.user.id:
+            return permission_denied_response('仅创建人可删除该日程')
+        Schedule.objects.filter(id=id).update(
+            delete_time=int(timezone.now().timestamp()),
+            update_time=int(timezone.now().timestamp())
+        )
         return success_response(message='删除成功')
 
     def view(self, request, id):
-        schedule = Schedule.objects.get(id=id)
+        schedule = get_object_or_404(Schedule, id=id, delete_time=0)
         data = {
             'id': schedule.id,
             'title': schedule.title,
             'start_time': schedule.start_time.strftime('%Y-%m-%d'),
-            'end_time': schedule.end_time.strftime('%Y-m-d'),
-            'start_time_1': schedule.start_time.strftime('%H:%i'),
-            'end_time_1': schedule.end_time.strftime('%H:%i'),
-            'create_time': schedule.create_time.strftime('%Y-%m-%d %H:%M:%S'),
+            'end_time': schedule.end_time.strftime('%Y-%m-%d'),
+            'start_time_1': schedule.start_time.strftime('%H:%M'),
+            'end_time_1': schedule.end_time.strftime('%H:%M'),
+            'create_time': _format_unix_timestamp(schedule.create_time),
             'name': User.objects.get(
                 id=schedule.admin_id).name,
             'labor_type_string': '案头工作' if schedule.labor_type == 1 else '外勤工作',
             'department': get_admin(
                 schedule.admin_id)['department'],
             'work_cate': WorkCate.objects.get(
-                id=schedule.cid).title if schedule.cid else ''}
+                id=schedule.cid).title if schedule.cid else '',
+            'content': schedule.content}
 
         if schedule.tid:
             task = Task.objects.get(id=schedule.tid)

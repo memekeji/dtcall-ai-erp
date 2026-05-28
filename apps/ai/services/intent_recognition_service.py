@@ -57,6 +57,9 @@ class IntentRecognitionService:
 
             old_format = {
                 'intent': self._convert_intent(result.get('intent', 'AI_CHAT')),
+                'intent_type': self._convert_intent(result.get('intent', 'AI_CHAT')),
+                'raw_intent': result.get('intent', 'AI_CHAT'),
+                'intent_result': result,
                 'confidence': result.get('confidence', 0.0),
                 'entities': result.get('entities', {}),
                 'requires_confirmation': result.get('requires_confirmation', False),
@@ -66,6 +69,11 @@ class IntentRecognitionService:
                 'time_range': result.get('time_range'),
                 'status': result.get('status'),
                 'customer_name': result.get('customer_name'),
+                'source': result.get('source'),
+                'ai_available': result.get('ai_available', False),
+                'model_provider': result.get('model_provider'),
+                'model_name': result.get('model_name'),
+                'reasoning': result.get('reasoning', ''),
             }
 
             self.optimization_service.log_recognition(
@@ -91,8 +99,10 @@ class IntentRecognitionService:
             'DATA_QUERY': 'data_query',
             'DATA_CREATE': 'data_create',
             'DATA_UPDATE': 'data_update',
+            'DATA_DELETE': 'data_delete',
             'KNOWLEDGE_BASE': 'knowledge_base',
-            'AI_CHAT': 'ai_chat'
+            'AI_CHAT': 'ai_chat',
+            'UI_ACTION': 'ui_action'
         }
         return mapping.get(new_intent, 'ai_chat')
 

@@ -2,9 +2,12 @@
 文件操作节点处理器
 """
 
+import logging
 import os
 import shutil
 from .base_processor import BaseNodeProcessor, NodeProcessorRegistry
+
+logger = logging.getLogger(__name__)
 
 
 @NodeProcessorRegistry.register('file_operation')
@@ -172,7 +175,8 @@ class FileOperationProcessor(BaseNodeProcessor):
                 result['message'] = f"不支持的操作类型: {operation_type}"
 
         except Exception as e:
-            result['message'] = f"文件操作失败: {str(e)}"
+            logger.error(f"文件操作失败: {str(e)}")
+            result['message'] = "文件操作失败，请检查文件配置后重试"
 
         return result
 

@@ -1,4 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
+from django.urls import reverse
 from django.http import JsonResponse
 from django.db import transaction
 from django.db.models import Q
@@ -80,6 +81,19 @@ def _get_paginated_queryset(
         'order': order,
     }
     return page_obj, context
+
+
+def _build_copy_code(model_class, source_code):
+    """为复制对象生成不冲突的新编号"""
+    base_code = f'{source_code}_COPY'
+    candidate_code = base_code
+    suffix = 1
+
+    while model_class.objects.filter(code=candidate_code).exists():
+        suffix += 1
+        candidate_code = f'{base_code}{suffix}'
+
+    return candidate_code
 
 
 def baseinfo_index(request):
@@ -246,21 +260,47 @@ def bom_detail(request, pk):
     """BOM详情"""
     bom = get_object_or_404(BOM, pk=pk)
     items = bom.items.all()
+    total_cost = sum([item.total_cost for item in items if item.total_cost])
     return render(request, 'production/bom/detail.html',
-                  {'bom': bom, 'items': items})
+                  {'bom': bom, 'items': items, 'total_cost': total_cost})
+
+
+def bom_copy(request, pk):
+    """复制BOM"""
+    bom = get_object_or_404(BOM, pk=pk)
+    items = list(bom.items.all())
+
+    bom.pk = None
+    bom.code = _build_copy_code(BOM, bom.code)
+    bom.name = f'{bom.name}-副本'
+    bom.status = True
+    bom.save()
+
+    for item in items:
+        item.pk = None
+        item.bom = bom
+        item.save()
+
+    messages.success(request, 'BOM复制成功')
+    return redirect('production:bom_list')
 
 
 def equipment_list(request):
     """设备列表"""
     equipment_list = Equipment.objects.select_related(
-        'department', 'creator'
+        'department', 'responsible_person', 'creator'
     ).all()
+    status = request.GET.get('status', '').strip()
+    if status:
+        equipment_list = equipment_list.filter(status=status)
     page_obj, context = _get_paginated_queryset(
         request, equipment_list,
         search_fields=['name', 'code'],
         default_order='-create_time'
     )
     context['model_name'] = '设备'
+    context['status'] = status
+    context['status_choices'] = Equipment.STATUS_CHOICES
     return render(request, 'production/equipment/list.html', context)
 
 
@@ -304,27 +344,67 @@ def equipment_delete(request, pk):
 def equipment_detail(request, pk):
     """设备详情"""
     equipment = get_object_or_404(Equipment, pk=pk)
-    data_points = equipment.data_points.all()[:100]
+    recent_data = DataCollection.objects.filter(
+        equipment=equipment
+    ).order_by('-collect_time')[:20]
+    data_points = equipment.data_points.all().order_by('-timestamp')[:100]
     return render(request, 'production/equipment/detail.html',
-                  {'equipment': equipment, 'data_points': data_points})
+                  {
+                      'equipment': equipment,
+                      'recent_data': recent_data,
+                      'data_points': data_points
+                  })
 
 
 def equipment_monitor(request):
     """设备监控"""
-    equipment = Equipment.objects.filter(status=1).all()
-    return render(request,
-                  'production/monitor/index.html',
-                  {'equipment': equipment})
+    equipment_list = Equipment.objects.all()
+
+    # 构造设备状态列表
+    equipment_status = []
+    for eq in equipment_list:
+        current_task = ProductionTask.objects.filter(
+            equipment=eq,
+            status=2
+        ).first()
+
+        task_info = None
+        if current_task:
+            task_info = {
+                'name': current_task.name,
+                'progress': current_task.completion_rate if hasattr(current_task, 'completion_rate') else 0
+            }
+
+        equipment_status.append({
+            'equipment': eq,
+            'current_task': task_info
+        })
+
+    context = {
+        'equipment_status': equipment_status,
+        'normal_count': equipment_list.filter(status=1).count(),
+        'maintenance_count': equipment_list.filter(status=2).count(),
+        'stopped_count': equipment_list.filter(status=3).count(),
+        'total_count': equipment_list.count()
+    }
+    return render(request, 'production/monitor/index.html', context)
 
 
 def data_collection_list(request):
     """数据采集列表"""
-    collections = DataCollection.objects.all()
+    collections = DataCollection.objects.select_related(
+        'equipment', 'created_by'
+    ).all()
+    selected_equipment = request.GET.get('equipment', '').strip()
+    if selected_equipment:
+        collections = collections.filter(equipment_id=selected_equipment)
     page_obj, context = _get_paginated_queryset(
         request, collections,
         search_fields=['parameter_name'],
         default_order='-collect_time'
     )
+    context['equipments'] = Equipment.objects.all().order_by('name')
+    context['selected_equipment'] = selected_equipment
     return render(request, 'production/data/list.html', context)
 
 
@@ -349,11 +429,6 @@ def data_chart(request, equipment_id):
         equipment=equipment).order_by('-timestamp')[:100]
     return render(request, 'production/data/chart.html',
                   {'equipment': equipment, 'data_points': data_points})
-
-
-def performance_analysis(request):
-    """性能分析"""
-    return render(request, 'production/analysis/index.html')
 
 
 def sop_list(request):
@@ -413,15 +488,19 @@ def sop_detail(request, pk):
 
 def production_task_index(request):
     """生产管理首页"""
+    recent_plans = ProductionPlan.objects.select_related('product').all().order_by('-create_time')[:5]
+    recent_tasks = ProductionTask.objects.select_related('plan', 'procedure').all().order_by('-create_time')[:5]
+    equipments = Equipment.objects.all().order_by('-status')[:5]
+
     context = {
         'plan_count': ProductionPlan.objects.count(),
         'task_count': ProductionTask.objects.count(),
-        'completed_task_count': ProductionTask.objects.filter(
-            status=3).count(),
-        'pending_task_count': ProductionTask.objects.filter(
-            status__in=[
-                1,
-                2]).count(),
+        'completed_task_count': ProductionTask.objects.filter(status=3).count(),
+        'active_task_count': ProductionTask.objects.filter(status=2).count(),
+        'active_plan_count': ProductionPlan.objects.filter(status=3).count(),
+        'recent_plans': recent_plans,
+        'recent_tasks': recent_tasks,
+        'equipments': equipments,
     }
     return render(request, 'production/task/index.html', context)
 
@@ -435,12 +514,17 @@ def production_plan_list(request):
         'process_route',
         'department',
         'manager').all()
+    status = request.GET.get('status', '').strip()
+    if status:
+        plans = plans.filter(status=status)
     page_obj, context = _get_paginated_queryset(
         request, plans,
         search_fields=['name', 'code'],
         default_order='-create_time'
     )
     context['model_name'] = '生产计划'
+    context['status'] = status
+    context['status_choices'] = ProductionPlan.STATUS_CHOICES
     return render(request, 'production/plan/list.html', context)
 
 
@@ -494,12 +578,17 @@ def production_task_list(request):
     tasks = ProductionTask.objects.select_related(
         'plan__product', 'procedure', 'equipment', 'assignee', 'creator'
     ).all()
+    status = request.GET.get('status', '').strip()
+    if status:
+        tasks = tasks.filter(status=status)
     page_obj, context = _get_paginated_queryset(
         request, tasks,
         search_fields=['name', 'code'],
         default_order='-create_time'
     )
     context['model_name'] = '生产任务'
+    context['status'] = status
+    context['status_choices'] = ProductionTask.STATUS_CHOICES
     return render(request, 'production/task_execution/list.html', context)
 
 
@@ -675,19 +764,19 @@ def quality_check_detail(request, pk):
     return render(request, 'production/quality/detail.html', {'check': check})
 
 
-def resource_scheduling(request):
-    """资源调度"""
-    return render(request, 'production/scheduling/index.html')
-
-
 def data_source_list(request):
     """数据源列表"""
     sources = DataSource.objects.all()
+    source_type = request.GET.get('source_type', '').strip()
+    if source_type:
+        sources = sources.filter(source_type=source_type)
     page_obj, context = _get_paginated_queryset(
         request, sources,
         search_fields=['name', 'code'],
         default_order='-create_time'
     )
+    context['source_type'] = source_type
+    context['source_types'] = DataSource.SOURCE_TYPES
     return render(request, 'production/data/source_list.html', context)
 
 
@@ -708,8 +797,8 @@ def data_source_add(request):
 def data_source_detail(request, pk):
     """数据源详情"""
     source = get_object_or_404(DataSource, pk=pk)
-    mappings = source.mappings.all()
-    records = source.collections.all()[:20]
+    mappings = source.mappings.all().order_by('sort', 'id')
+    records = source.collections.all().order_by('-collection_time')[:20]
     return render(request, 'production/data/source_detail.html',
                   {'source': source, 'mappings': mappings, 'records': records})
 
@@ -733,6 +822,10 @@ def data_source_delete(request, pk):
     """删除数据源"""
     source = get_object_or_404(DataSource, pk=pk)
     source.delete()
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.POST:
+        return JsonResponse({'code': 0, 'msg': '删除成功'})
+
     messages.success(request, '数据源删除成功')
     return redirect('production:data_source_list')
 
@@ -752,14 +845,61 @@ def data_source_test(request, pk):
     return redirect('production:data_source_detail', pk=pk)
 
 
+def data_source_collect(request, pk):
+    """手动采集数据源"""
+    source = get_object_or_404(DataSource, pk=pk)
+    service = DataCollectorService()
+    try:
+        result = service.collect_data(source)
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.POST:
+            if result.get('success'):
+                return JsonResponse({
+                    'code': 0,
+                    'msg': '采集成功',
+                    'data': {
+                        'record_count': result.get('record_count', 0),
+                        'success_count': result.get('success_count', 0),
+                        'error_count': result.get('error_count', 0)
+                    }
+                })
+            else:
+                return JsonResponse({
+                    'code': 1,
+                    'msg': f"手动采集失败：{result.get('error', '未知错误')}"
+                })
+
+        if result.get('success'):
+            messages.success(
+                request,
+                f"手动采集成功，处理 {result.get('record_count', 0)} 条，成功 {result.get('success_count', 0)} 条，异常 {result.get('error_count', 0)} 条"
+            )
+        else:
+            messages.error(request, f"手动采集失败：{result.get('error', '未知错误')}")
+    except Exception as e:
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.POST:
+            return JsonResponse({
+                'code': 1,
+                'msg': f'手动采集失败: {str(e)}'
+            })
+        messages.error(request, f'手动采集失败: {str(e)}')
+    return redirect('production:data_source_list')
+
+
 def data_mapping_list(request):
     """数据映射列表"""
-    mappings = DataMapping.objects.all()
+    mappings = DataMapping.objects.select_related('data_source').all()
+    data_source_id = request.GET.get('data_source', '').strip()
+    current_source = None
+    if data_source_id:
+        current_source = get_object_or_404(DataSource, pk=data_source_id)
+        mappings = mappings.filter(data_source=current_source)
     page_obj, context = _get_paginated_queryset(
         request, mappings,
         search_fields=['name'],
         default_order='sort'
     )
+    context['current_source'] = current_source
+    context['source_options'] = DataSource.objects.all().order_by('name')
     return render(request, 'production/data/mapping_list.html', context)
 
 
@@ -768,11 +908,11 @@ def data_mapping_add(request):
     if request.method == 'POST':
         form = DataMappingForm(request.POST)
         if form.is_valid():
-            form.save()
+            mapping = form.save()
             messages.success(request, '数据映射添加成功')
-            return redirect('production:data_mapping_list')
+            return redirect(f"{reverse('production:data_mapping_list')}?data_source={mapping.data_source_id}")
     else:
-        form = DataMappingForm()
+        form = DataMappingForm(initial={'data_source': request.GET.get('data_source')})
     return render(request, 'production/data/mapping_form.html',
                   {'form': form, 'action': '添加'})
 
@@ -783,9 +923,9 @@ def data_mapping_edit(request, pk):
     if request.method == 'POST':
         form = DataMappingForm(request.POST, instance=mapping)
         if form.is_valid():
-            form.save()
+            mapping = form.save()
             messages.success(request, '数据映射编辑成功')
-            return redirect('production:data_mapping_list')
+            return redirect(f"{reverse('production:data_mapping_list')}?data_source={mapping.data_source_id}")
     else:
         form = DataMappingForm(instance=mapping)
     return render(request, 'production/data/mapping_form.html',
@@ -795,17 +935,34 @@ def data_mapping_edit(request, pk):
 def data_mapping_delete(request, pk):
     """删除数据映射"""
     mapping = get_object_or_404(DataMapping, pk=pk)
+    data_source_id = mapping.data_source_id
     mapping.delete()
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.POST:
+        return JsonResponse({'code': 0, 'msg': '删除成功'})
+
     messages.success(request, '数据映射删除成功')
-    return redirect('production:data_mapping_list')
+    return redirect(f"{reverse('production:data_mapping_list')}?data_source={data_source_id}")
+
+
+@transaction.atomic
+def data_mapping_update_sort(request):
+    """更新数据映射排序"""
+    if request.method == 'POST':
+        mapping_id = request.POST.get('mapping_id')
+        sort_value = request.POST.get('sort')
+        if mapping_id and sort_value is not None:
+            DataMapping.objects.filter(pk=mapping_id).update(sort=sort_value)
+            return JsonResponse({'code': 0, 'msg': '排序更新成功'})
+    return JsonResponse({'code': 1, 'msg': '参数错误'})
 
 
 def data_collection_record_list(request):
     """数据采集记录列表"""
-    records = DataCollectionRecord.objects.all()
+    records = DataCollectionRecord.objects.select_related('data_source').all()
     page_obj, context = _get_paginated_queryset(
         request, records,
-        search_fields=[],
+        search_fields=['data_source__name', 'status', 'error_message'],
         default_order='-collection_time'
     )
     return render(
@@ -835,7 +992,7 @@ def data_point_list(request):
 
 def data_collection_task_list(request):
     """数据采集任务列表"""
-    tasks = DataCollectionTask.objects.all()
+    tasks = DataCollectionTask.objects.prefetch_related('data_sources').all()
     page_obj, context = _get_paginated_queryset(
         request, tasks,
         search_fields=['name'],
@@ -893,11 +1050,30 @@ def data_collection_task_trigger(request, pk):
     task = get_object_or_404(DataCollectionTask, pk=pk)
     service = DataCollectorService()
     try:
-        service.execute_task(task)
-        messages.success(request, '任务执行成功')
+        result = service.execute_task(task)
+        if result.get('success'):
+            messages.success(
+                request,
+                f"任务执行成功，已完成 {result.get('success_count', 0)} 个数据源采集")
+        else:
+            messages.warning(
+                request,
+                f"任务已执行，但有 {result.get('failed_count', 0)} 个数据源采集失败")
     except Exception as e:
         messages.error(request, f'任务执行失败: {str(e)}')
     return redirect('production:data_collection_task_list')
+
+
+def sop_copy(request, pk):
+    """复制SOP"""
+    sop = get_object_or_404(SOP, pk=pk)
+    sop.pk = None
+    sop.code = _build_copy_code(SOP, sop.code)
+    sop.name = f'{sop.name}-副本'
+    sop.status = True
+    sop.save()
+    messages.success(request, 'SOP复制成功')
+    return redirect('production:sop_list')
 
 
 def process_route_list(request):
@@ -908,6 +1084,7 @@ def process_route_list(request):
         search_fields=['name', 'code'],
         default_order='-create_time'
     )
+    context['model_name'] = '工艺路线'
     return render(request, 'production/process_route/list.html', context)
 
 
@@ -962,7 +1139,7 @@ def process_route_copy(request, pk):
     items = list(route.processrouteitem_set.all().order_by('sequence'))
 
     route.pk = None
-    route.code = f'{route.code}_COPY'
+    route.code = _build_copy_code(ProcessRoute, route.code)
     route.name = f'{route.name}-副本'
     route.status = 1
     route.save()
@@ -978,12 +1155,19 @@ def process_route_copy(request, pk):
 
 def production_order_change_list(request):
     """生产订单变更列表"""
-    changes = ProductionOrderChange.objects.all()
+    changes = ProductionOrderChange.objects.select_related(
+        'production_plan',
+        'creator'
+    ).all()
+    change_type = request.GET.get('change_type', '').strip()
+    if change_type:
+        changes = changes.filter(change_type=change_type)
     page_obj, context = _get_paginated_queryset(
         request, changes,
         search_fields=['change_type', 'change_reason'],
         default_order='-create_time'
     )
+    context['change_type'] = change_type
     return render(request, 'production/order_change/list.html', context)
 
 

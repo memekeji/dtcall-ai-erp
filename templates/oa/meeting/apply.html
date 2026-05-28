@@ -1,0 +1,185 @@
+{% extends 'include/common.html' %}
+
+{% block title %}发起会议申请{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <span class="layui-breadcrumb">
+                    <a href="javascript:;">OA办公</a>
+                    <a href="{% url 'meeting_record_list' %}">会议管理</a>
+                    <a><cite>发起申请</cite></a>
+                </span>
+            </div>
+            <div class="layui-col-md6" style="text-align:right;">
+                <button type="button" class="layui-btn layui-btn-primary" id="closeBtn">关闭</button>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <div class="layui-bg-gray" style="padding: 12px 15px; margin-bottom: 20px;">
+            提交会议申请后，会生成会议室预约记录；如同时上传录音文件，后续可在纪要页直接基于录音生成会议纪要。
+        </div>
+        <form class="layui-form" id="meetingApplyForm" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="layui-row layui-col-space16">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">会议主题</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="title" required lay-verify="required" placeholder="请输入会议主题" class="layui-input">
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">会议类型</label>
+                        <div class="layui-input-block">
+                            <select name="meeting_type">
+                                <option value="regular">常规会议</option>
+                                <option value="project">项目会议</option>
+                                <option value="training">培训会议</option>
+                                <option value="interview">面试会议</option>
+                                <option value="other">其他会议</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-row layui-col-space16">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">开始时间</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="meeting_date" value="{{ default_start }}" placeholder="YYYY-MM-DD HH:MM:SS" class="layui-input">
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">结束时间</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="end_time" value="{{ default_end }}" placeholder="YYYY-MM-DD HH:MM:SS" class="layui-input">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-row layui-col-space16">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">会议室</label>
+                        <div class="layui-input-block">
+                            <select name="room_id" lay-search>
+                                <option value="">请选择会议室</option>
+                                {% for room in rooms %}
+                                <option value="{{ room.id }}">{{ room.name }} / {{ room.location }} / 容量{{ room.capacity }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">参会人员</label>
+                        <div class="layui-input-block">
+                            <select name="join_uids" id="joinUids" multiple>
+                                {% for user in users %}
+                                <option value="{{ user.id }}">{{ user.name|default:user.username }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="layui-word-aux">按住 Ctrl 或 Command 可多选参会人员</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">会议说明</label>
+                <div class="layui-input-block">
+                    <textarea name="content" placeholder="请输入会议背景、议题、准备事项等" class="layui-textarea" rows="6"></textarea>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">录音文件</label>
+                <div class="layui-input-block">
+                    <input type="file" name="audio_file" accept="audio/*" class="layui-input">
+                    <div class="layui-word-aux">支持上传会议录音，审核通过后可直接生成纪要。</div>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" lay-submit lay-filter="meetingSubmit">提交申请</button>
+                    <button type="button" class="layui-btn layui-btn-primary" id="resetBtn">重置</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+layui.use(['form', 'layer', 'jquery'], function () {
+    var form = layui.form;
+    var layer = layui.layer;
+    var $ = layui.jquery;
+
+    function closeLayerAndReload() {
+        if (window.parent && window.parent.layer) {
+            var index = window.parent.layer.getFrameIndex(window.name);
+            window.parent.layer.close(index);
+            if (window.parent.location) {
+                window.parent.location.reload();
+            }
+            return;
+        }
+        window.location.href = '{% url "meeting_record_list" %}';
+    }
+
+    $('#closeBtn').on('click', closeLayerAndReload);
+    $('#resetBtn').on('click', function () {
+        document.getElementById('meetingApplyForm').reset();
+        form.render();
+    });
+
+    form.on('submit(meetingSubmit)', function () {
+        var formElement = document.getElementById('meetingApplyForm');
+        var formData = new FormData(formElement);
+        var selectedUsers = Array.from(document.getElementById('joinUids').selectedOptions).map(function (item) {
+            return item.value;
+        });
+        formData.set('join_uids', selectedUsers.join(','));
+
+        var submitIndex = layer.load(2);
+        $.ajax({
+            url: window.location.href,
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: {
+                'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val(),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function (res) {
+                layer.close(submitIndex);
+                if (res.code === 0) {
+                    layer.msg(res.msg || '提交成功', {icon: 1, time: 1400}, closeLayerAndReload);
+                } else {
+                    layer.msg(res.msg || '提交失败', {icon: 2});
+                }
+            },
+            error: function () {
+                layer.close(submitIndex);
+                layer.msg('提交失败，请稍后重试', {icon: 2});
+            }
+        });
+        return false;
+    });
+});
+</script>
+{% endblock %}

@@ -392,7 +392,7 @@ class IntentOptimizationService:
             logger.error(f"重新训练意图模型失败：{str(e)}")
             return {
                 'success': False,
-                'message': f'训练失败：{str(e)}',
+                'message': '训练失败，请稍后重试',
                 'samples_count': 0
             }
 

@@ -1,0 +1,37 @@
+{% extends 'home/iframe_base.html' %}
+
+{% block title %}{% if form.instance.pk %}编辑{% else %}新增{% endif %}自动行动触发{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">{% if form.instance.pk %}编辑{% else %}新增{% endif %}自动行动触发</div>
+    <div class="layui-card-body">
+        <form class="layui-form" method="post">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+            <div class="layui-bg-red" style="padding: 12px; margin-bottom: 15px; color: #fff;">{{ form.non_field_errors }}</div>
+            {% endif %}
+            {% for field in form %}
+            <div class="layui-form-item">
+                <label class="layui-form-label">{{ field.label }}</label>
+                <div class="layui-input-block">
+                    {{ field }}
+                    {% if field.help_text %}
+                    <div class="layui-form-mid layui-word-aux">{{ field.help_text }}</div>
+                    {% endif %}
+                    {% for error in field.errors %}
+                    <div style="color: #ff5722; margin-top: 6px;">{{ error }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button type="submit" class="layui-btn">保存</button>
+                    <a href="{% url 'ai:action_trigger_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

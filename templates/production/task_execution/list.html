@@ -29,6 +29,9 @@
         .status-cancelled {
             color: #FF5722;
         }
+        .status-suspended {
+            color: #9E9E9E;
+        }
         .progress-bar {
             width: 60px;
             height: 6px;
@@ -58,8 +61,8 @@
         <!-- 工具栏 -->
         <div class="layui-row table-toolbar">
             <div class="layui-col-md6">
-                <button class="layui-btn" onclick="location.href='{% url 'production:production_task_add' %}'">
-                    <i class="layui-icon layui-icon-add-1"></i> 新建任务
+                <button class="layui-btn" onclick="openRightPopup('添加任务', '{% url 'production:production_task_add' %}')">
+                    <i class="layui-icon layui-icon-add-1"></i> 添加任务
                 </button>
                 <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:production_task_index' %}'">
                     <i class="layui-icon layui-icon-return"></i> 返回
@@ -130,10 +133,14 @@
                                             <span class="status-paused">已暂停</span>
                                         {% elif task.status == 5 %}
                                             <span class="status-cancelled">已取消</span>
+                                        {% elif task.status == 6 %}
+                                            <span class="status-suspended">已挂起</span>
+                                        {% else %}
+                                            <span style="color: #999;">未知状态</span>
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="location.href='{% url 'production:production_task_detail' task.pk %}'">
+                                        <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="openRightPopup('任务详情', '{% url 'production:production_task_detail' task.pk %}')">
                                             <i class="layui-icon layui-icon-search"></i> 详情
                                         </button>
                                         {% if task.status == 1 %}
@@ -145,7 +152,7 @@
                                             <i class="layui-icon layui-icon-ok"></i> 完成
                                         </button>
                                         {% endif %}
-                                        <button class="layui-btn layui-btn-xs" onclick="location.href='{% url 'production:production_task_edit' task.pk %}'">
+                                        <button class="layui-btn layui-btn-xs" onclick="openRightPopup('编辑任务', '{% url 'production:production_task_edit' task.pk %}')">
                                             <i class="layui-icon layui-icon-edit"></i> 编辑
                                         </button>
                                     </td>
@@ -207,11 +214,77 @@
                     icon: 3,
                     title: '确认开始'
                 }, function(index) {
-                    window.location.href = '/adm/production/task/execution/start/' + id + '/';
+                    window.location.href = '{% url 'production:production_task_start' 0 %}'.replace('0', id);
                     layer.close(index);
                 });
             });
         }
+
+        function openRightPopup(title, url) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: title,
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: url,
+                    success: function(layero, index) {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    },
+                    end: function() {
+                        window.location.reload();
+                    }
+                });
+            });
+        }
+</script>
+
+    <!-- 注入的 iframe 自动关闭及消息提示脚本 -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var msgs = [
+                {% for message in messages %}
+                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
+                {% endfor %}
+            ];
+
+            var flashMsg = sessionStorage.getItem('flash_msg');
+            if (flashMsg) {
+                sessionStorage.removeItem('flash_msg');
+                try {
+                    var parsedMsgs = JSON.parse(flashMsg);
+                    msgs = msgs.concat(parsedMsgs);
+                } catch(e) {}
+            }
+
+            if (window !== window.parent) {
+                // 如果在 iframe 中加载了 list/index 页面，说明是操作成功后的重定向，或者点击了返回
+                if (msgs.length > 0) {
+                    sessionStorage.setItem('flash_msg', JSON.stringify(msgs));
+                }
+                parent.location.reload();
+                return;
+            }
+
+            // 正常独立访问 list 页面
+            if (msgs.length > 0 && typeof layui !== 'undefined') {
+                layui.use(['layer'], function() {
+                    msgs.forEach(function(m) {
+                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
+                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
+                    });
+                });
+            }
+        });
     </script>
 </body>
 

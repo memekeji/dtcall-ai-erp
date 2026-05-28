@@ -67,7 +67,7 @@ class AIAnalysisService:
             return {'success': False, 'error': '客户不存在'}
         except AIClientError as e:
             logger.error(f"AI客户分析失败: {str(e)}")
-            return {'success': False, 'error': str(e)}
+            return {'success': False, 'error': 'AI客户分析失败，请检查模型配置后重试'}
         except Exception as e:
             logger.error(f"客户分析过程中发生错误: {str(e)}")
             return {'success': False, 'error': '分析过程中发生错误'}
@@ -131,7 +131,7 @@ class AIAnalysisService:
             return {'success': False, 'error': '会议记录不存在'}
         except AIClientError as e:
             logger.error(f"AI会议纪要生成失败: {str(e)}")
-            return {'success': False, 'error': str(e)}
+            return {'success': False, 'error': 'AI会议纪要生成失败，请检查模型配置后重试'}
         except Exception as e:
             logger.error(f"会议纪要生成过程中发生错误: {str(e)}")
             return {'success': False, 'error': '生成过程中发生错误'}
@@ -193,7 +193,7 @@ class AIAnalysisService:
             return {'success': False, 'error': '项目不存在'}
         except AIClientError as e:
             logger.error(f"AI项目风险评估失败: {str(e)}")
-            return {'success': False, 'error': str(e)}
+            return {'success': False, 'error': 'AI项目风险评估失败，请检查模型配置后重试'}
         except Exception as e:
             logger.error(f"项目风险评估过程中发生错误: {str(e)}")
             return {'success': False, 'error': '评估过程中发生错误'}
@@ -242,7 +242,7 @@ class AIAnalysisService:
             return {'success': False, 'error': '报销单不存在'}
         except AIClientError as e:
             logger.error(f"AI报销单审核失败: {str(e)}")
-            return {'success': False, 'error': str(e)}
+            return {'success': False, 'error': 'AI报销单审核失败，请检查模型配置后重试'}
         except Exception as e:
             logger.error(f"报销单审核过程中发生错误: {str(e)}")
             return {'success': False, 'error': '审核过程中发生错误'}
@@ -282,7 +282,7 @@ class AIAnalysisService:
 
         except AIClientError as e:
             logger.error(f"AI文档摘要生成失败: {str(e)}")
-            return {'success': False, 'error': str(e)}
+            return {'success': False, 'error': 'AI文档摘要生成失败，请检查模型配置后重试'}
         except Exception as e:
             logger.error(f"文档摘要生成过程中发生错误: {str(e)}")
             return {'success': False, 'error': '摘要生成过程中发生错误'}

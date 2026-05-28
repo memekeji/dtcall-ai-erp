@@ -1,0 +1,73 @@
+{% extends 'include/popup.html' %}
+
+{% block title %}消息详情{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md8">
+                <h3 style="margin:0;">{{ message.title }}</h3>
+            </div>
+            <div class="layui-col-md4" style="text-align:right;">
+                <button type="button" class="layui-btn layui-btn-primary" id="closeBtn">关闭</button>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <table class="layui-table">
+            <tr>
+                <td style="width: 120px;">消息类型</td>
+                <td>{{ message.get_message_type_display }}</td>
+            </tr>
+            <tr>
+                <td>优先级</td>
+                <td>{{ message.get_priority_display }}</td>
+            </tr>
+            <tr>
+                <td>发送人</td>
+                <td>{{ message.sender.name|default:message.sender.username }}</td>
+            </tr>
+            <tr>
+                <td>接收范围</td>
+                <td>{{ message.get_receiver_type_display }}</td>
+            </tr>
+            <tr>
+                <td>发送时间</td>
+                <td>{{ message.send_time|date:"Y-m-d H:i:s"|default:"-" }}</td>
+            </tr>
+            <tr>
+                <td>阅读状态</td>
+                <td>
+                    {% if read_record.is_read %}
+                    <span class="layui-badge layui-bg-green">已读</span>
+                    {% else %}
+                    <span class="layui-badge layui-bg-orange">未读</span>
+                    {% endif %}
+                    {% if read_record.read_time %}
+                    <span style="margin-left: 10px; color: #999;">{{ read_record.read_time|date:"Y-m-d H:i:s" }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <td>消息内容</td>
+                <td style="line-height: 1.8;">{{ message.content|linebreaksbr }}</td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<script>
+layui.use(['jquery'], function () {
+    var $ = layui.jquery;
+    $('#closeBtn').on('click', function () {
+        if (window.parent && window.parent.layer) {
+            var index = window.parent.layer.getFrameIndex(window.name);
+            window.parent.layer.close(index);
+            return;
+        }
+        window.history.back();
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,250 @@
+{% extends 'include/common.html' %}
+
+{% block title %}工作日程日历{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <span class="layui-breadcrumb">
+                    <a href="javascript:;">OA办公</a>
+                    <a href="{% url 'oa_schedule' %}">工作日程</a>
+                    <a><cite>日历视图</cite></a>
+                </span>
+            </div>
+            <div class="layui-col-md6" style="text-align:right;">
+                <button class="layui-btn" id="prevMonthBtn">上月</button>
+                <button class="layui-btn layui-btn-primary" id="todayBtn">本月</button>
+                <button class="layui-btn" id="nextMonthBtn">下月</button>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <div class="layui-row" style="margin-bottom:16px;">
+            <div class="layui-col-md6">
+                <h2 id="calendarTitle" style="margin:0;"></h2>
+            </div>
+            <div class="layui-col-md6" style="text-align:right;">
+                <button class="layui-btn layui-btn-normal" id="addBtn">新增日程</button>
+                <a href="{% url 'oa_schedule' %}" class="layui-btn layui-btn-primary">返回列表</a>
+            </div>
+        </div>
+        <table class="layui-table" style="table-layout:fixed;">
+            <thead>
+                <tr>
+                    <th style="width:14.28%;">周日</th>
+                    <th style="width:14.28%;">周一</th>
+                    <th style="width:14.28%;">周二</th>
+                    <th style="width:14.28%;">周三</th>
+                    <th style="width:14.28%;">周四</th>
+                    <th style="width:14.28%;">周五</th>
+                    <th style="width:14.28%;">周六</th>
+                </tr>
+            </thead>
+            <tbody id="calendarBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.calendar-cell {
+    height: 130px;
+    vertical-align: top;
+    padding: 8px;
+    position: relative;
+}
+.calendar-cell.is-other-month {
+    background: #fafafa;
+    color: #bbb;
+}
+.calendar-cell.is-today {
+    background: #f2f8ff;
+}
+.calendar-day-number {
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+.calendar-event {
+    display: block;
+    margin-bottom: 6px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 12px;
+    cursor: pointer;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.calendar-more {
+    color: #1E9FFF;
+    font-size: 12px;
+    cursor: pointer;
+}
+</style>
+
+<script>
+layui.use(['layer', 'jquery'], function () {
+    var layer = layui.layer;
+    var $ = layui.jquery;
+    var today = new Date();
+    var currentYear = today.getFullYear();
+    var currentMonth = today.getMonth() + 1;
+    var eventMap = {};
+
+    function monthRange(year, month) {
+        var start = new Date(year, month - 1, 1);
+        var end = new Date(year, month, 0);
+        return {
+            start: start.toISOString().slice(0, 10),
+            end: end.toISOString().slice(0, 10)
+        };
+    }
+
+    function eventColor(hours) {
+        if (hours >= 8) {
+            return '#d4380d';
+        }
+        if (hours >= 4) {
+            return '#fa8c16';
+        }
+        return '#1E9FFF';
+    }
+
+    function fetchEvents(callback) {
+        var range = monthRange(currentYear, currentMonth);
+        $.get('{% url "oa_schedule_calendar" %}', {
+            format: 'json',
+            start: range.start,
+            end: range.end
+        }, function (res) {
+            eventMap = {};
+            if ($.isArray(res)) {
+                res.forEach(function (item) {
+                    var day = String(item.start).slice(0, 10);
+                    if (!eventMap[day]) {
+                        eventMap[day] = [];
+                    }
+                    eventMap[day].push(item);
+                });
+            }
+            if (typeof callback === 'function') {
+                callback();
+            }
+        }).fail(function () {
+            layer.msg('日历数据加载失败', {icon: 2});
+        });
+    }
+
+    function renderCalendar() {
+        $('#calendarTitle').text(currentYear + '年' + currentMonth + '月');
+        var firstDay = new Date(currentYear, currentMonth - 1, 1);
+        var startDate = new Date(firstDay);
+        startDate.setDate(startDate.getDate() - firstDay.getDay());
+        var cursor = new Date(startDate);
+        var html = '';
+
+        for (var week = 0; week < 6; week++) {
+            html += '<tr>';
+            for (var day = 0; day < 7; day++) {
+                var dateStr = cursor.toISOString().slice(0, 10);
+                var classes = ['calendar-cell'];
+                if (cursor.getMonth() + 1 !== currentMonth) {
+                    classes.push('is-other-month');
+                }
+                if (dateStr === today.toISOString().slice(0, 10)) {
+                    classes.push('is-today');
+                }
+                html += '<td class="' + classes.join(' ') + '" data-date="' + dateStr + '">';
+                html += '<div class="calendar-day-number">' + cursor.getDate() + '</div>';
+
+                var events = eventMap[dateStr] || [];
+                events.slice(0, 3).forEach(function (event) {
+                    html += '<div class="calendar-event" data-id="' + event.id + '" style="background:' + eventColor(event.title.indexOf('当天总工时') > -1 ? 8 : 2) + ';">' + event.title + '</div>';
+                });
+
+                if (events.length > 3) {
+                    html += '<div class="calendar-more" data-date="' + dateStr + '">还有 ' + (events.length - 3) + ' 条</div>';
+                }
+                html += '</td>';
+                cursor.setDate(cursor.getDate() + 1);
+            }
+            html += '</tr>';
+            if (cursor.getMonth() + 1 > currentMonth && week >= 4) {
+                break;
+            }
+        }
+        $('#calendarBody').html(html);
+    }
+
+    function openAdd() {
+        layer.open({
+            type: 2,
+            title: '新增工作日程',
+            shadeClose: false,
+            shade: 0.25,
+            maxmin: true,
+            area: ['80%', '100%'],
+            offset: 'r',
+            anim: 2,
+            content: '{% url "oa_schedule_add" %}',
+            success: function (layero) {
+                if (layero && typeof layero.css === 'function') {
+                    layero.css({'right': '0', 'top': '0', 'height': '100%'});
+                }
+            },
+            end: function () {
+                fetchEvents(renderCalendar);
+            }
+        });
+    }
+
+    $('#prevMonthBtn').on('click', function () {
+        currentMonth -= 1;
+        if (currentMonth === 0) {
+            currentMonth = 12;
+            currentYear -= 1;
+        }
+        fetchEvents(renderCalendar);
+    });
+
+    $('#nextMonthBtn').on('click', function () {
+        currentMonth += 1;
+        if (currentMonth === 13) {
+            currentMonth = 1;
+            currentYear += 1;
+        }
+        fetchEvents(renderCalendar);
+    });
+
+    $('#todayBtn').on('click', function () {
+        currentYear = today.getFullYear();
+        currentMonth = today.getMonth() + 1;
+        fetchEvents(renderCalendar);
+    });
+
+    $('#addBtn').on('click', openAdd);
+
+    $('#calendarBody').on('dblclick', 'td[data-date]', openAdd);
+
+    $('#calendarBody').on('click', '.calendar-more', function () {
+        var dateStr = $(this).data('date');
+        var events = eventMap[dateStr] || [];
+        var html = '<div style="padding:20px;"><table class="layui-table"><thead><tr><th>内容</th></tr></thead><tbody>';
+        events.forEach(function (item) {
+            html += '<tr><td>' + item.title + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        layer.open({
+            type: 1,
+            title: dateStr + ' 日程汇总',
+            area: ['600px', '420px'],
+            content: html
+        });
+    });
+
+    fetchEvents(renderCalendar);
+});
+</script>
+{% endblock %}

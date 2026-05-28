@@ -491,6 +491,8 @@
                                 shade: 0.3,
                                 maxmin: true,
                                 area: ['80%', '100%'],
+                                offset: 'r',
+                                anim: 2,
                                 content: '/customer/orders/' + orderId + '/detail/',
                                 success: function(layero, index) {
                                     if (layero && layero.css) {
@@ -511,9 +513,36 @@
                 // 编辑订单
                 function editOrder(orderId) {
                     if (!orderId) return;
-                    // 使用与详情页面一致的URL格式
-                    if (window && typeof window.location !== 'undefined') {
-                        window.location.href = '/customer/orders/' + orderId + '/edit/';
+                    if (layer && typeof layer.open === 'function') {
+                        try {
+                            layer.open({
+                                type: 2,
+                                title: '编辑订单',
+                                shadeClose: false,
+                                shade: 0.3,
+                                maxmin: true,
+                                area: ['80%', '100%'],
+                                offset: 'r',
+                                anim: 2,
+                                content: '/customer/orders/' + orderId + '/edit/',
+                                success: function(layero, index) {
+                                    if (layero && layero.css) {
+                                        layero.css({
+                                            'right': '0',
+                                            'top': '0',
+                                            'height': '100%'
+                                        });
+                                    }
+                                },
+                                end: function() {
+                                    if (table && typeof table.reload === 'function') {
+                                        table.reload('orderTable');
+                                    }
+                                }
+                            });
+                        } catch (e) {
+                            console.error('打开订单编辑对话框失败:', e);
+                        }
                     }
                 }
             
@@ -528,6 +557,8 @@
                                 title: '订单收款',
                                 area: ['80%', '100%'],
                                 shade: 0.3,
+                                offset: 'r',
+                                anim: 2,
                                 content: `
                                     <div class="layui-form" style="padding: 20px;">
                                         <div class="layui-form-item">

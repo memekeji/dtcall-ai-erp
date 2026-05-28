@@ -35,6 +35,10 @@ class AIConfig(AppConfig):
             # 验证AI配置
             validation_results = validate_ai_configuration()
 
+            if not validation_results:
+                logger.info("当前未配置AI模型，跳过启动期AI配置告警")
+                return
+
             # 统计有效配置
             valid_count = sum(
                 1 for result in validation_results.values() if result['valid'])

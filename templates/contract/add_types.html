@@ -1,12 +1,9 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>选择合同类型</title>
-    <meta name="renderer" content="webkit">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+{% extends 'include/popup.html' %}
+{% load static %}
+
+{% block title %}选择合同类型{% endblock %}
+
+{% block head %}
     <style>
         .type-card {
             border: 1px solid #e6e6e6;
@@ -46,8 +43,9 @@
             margin-bottom: 20px;
         }
     </style>
-</head>
-<body>
+{% endblock %}
+
+{% block content %}
     <div class="layui-fluid">
         <div class="layui-row layui-col-space15">
             <div class="layui-col-md12">
@@ -104,10 +102,10 @@
                         
                         <div class="layui-form-item" style="margin-top: 30px;">
                             <div class="layui-input-block">
-                                <button class="layui-btn" id="confirmBtn" disabled>
+                                <button type="button" class="layui-btn" id="confirmBtn" disabled>
                                     <i class="layui-icon layui-icon-ok"></i> 确认选择
                                 </button>
-                                <button type="button" class="layui-btn layui-btn-primary" onclick="parent.layer.closeAll()">
+                                <button type="button" class="layui-btn layui-btn-primary" onclick="closePopup()">
                                     <i class="layui-icon layui-icon-close"></i> 取消
                                 </button>
                             </div>
@@ -117,46 +115,41 @@
             </div>
         </div>
     </div>
+{% endblock %}
 
-    <script src="/static/layui/layui.js"></script>
+{% block script %}
     <script>
         layui.use(['layer', 'form'], function(){
             var layer = layui.layer;
             var form = layui.form;
             var selectedCategoryId = null;
-            
-            // 监听分类选择
+
             form.on('select(categorySelect)', function(data){
                 selectedCategoryId = data.value;
                 var selectedOption = data.elem.options[data.elem.selectedIndex];
                 
                 if (selectedCategoryId) {
-                    // 显示选中的分类信息
                     document.getElementById('selectedCategoryName').textContent = selectedOption.getAttribute('data-name');
                     document.getElementById('selectedCategoryCode').textContent = selectedOption.getAttribute('data-code');
                     document.getElementById('selectedCategoryInfo').style.display = 'block';
                     document.getElementById('confirmBtn').disabled = false;
                 } else {
-                    // 隐藏分类信息
                     document.getElementById('selectedCategoryInfo').style.display = 'none';
                     document.getElementById('confirmBtn').disabled = true;
                 }
             });
             
-            // 确认选择
             document.getElementById('confirmBtn').addEventListener('click', function() {
                 if (selectedCategoryId) {
-                    var url = '/adm/contract/create/?category_id=' + selectedCategoryId;
+                    var url = '/contract/sales/add/?category_id=' + selectedCategoryId;
                     {% if customer %}
                     url += '&customer_id={{ customer.id }}';
                     {% endif %}
-                    // console.log('跳转URL:', url);
-                    window.location.href = url;
+                    window.location.replace(url);
                 } else {
                     layer.msg('请先选择合同分类', {icon: 2});
                 }
             });
         });
     </script>
-</body>
-</html>
+{% endblock %}

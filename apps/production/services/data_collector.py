@@ -1,11 +1,19 @@
 import json
-import requests
-import time
 import logging
+import time
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any, Dict
+
+import requests
 from django.utils import timezone
-from ..models import DataSource, DataCollection, ProductionDataPoint, Equipment
+
+from ..models import (
+    DataCollectionRecord,
+    DataCollectionTask,
+    DataSource,
+    Equipment,
+    ProductionDataPoint,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -264,9 +272,50 @@ class DataCollectorService:
                 'error': str(e)
             }
 
+    def execute_task(self, task: DataCollectionTask) -> Dict[str, Any]:
+        """执行数据采集任务"""
+        data_sources = task.data_sources.filter(is_active=True)
+        if not data_sources.exists():
+            raise ValueError('当前任务未配置可用数据源')
+
+        task.status = 'running'
+        task.last_run_time = timezone.now()
+        task.total_runs += 1
+        task.save(update_fields=['status', 'last_run_time', 'total_runs', 'update_time'])
+
+        results = []
+        success_count = 0
+        failed_count = 0
+
+        for data_source in data_sources:
+            result = self.collect_data(data_source)
+            results.append({
+                'data_source_id': data_source.pk,
+                'data_source_name': data_source.name,
+                **result,
+            })
+            if result.get('success'):
+                success_count += 1
+            else:
+                failed_count += 1
+
+        task.success_runs += success_count
+        task.failed_runs += failed_count
+        task.status = 'completed' if failed_count == 0 else 'failed'
+        task.save(update_fields=['success_runs', 'failed_runs', 'status', 'update_time'])
+
+        return {
+            'success': failed_count == 0,
+            'task_id': task.pk,
+            'total_sources': data_sources.count(),
+            'success_count': success_count,
+            'failed_count': failed_count,
+            'results': results,
+        }
+
     def collect_data(self, data_source: DataSource) -> Dict[str, Any]:
-        """采集数据"""
-        collection = DataCollection.objects.create(
+        """采集数据并写入采集记录"""
+        collection = DataCollectionRecord.objects.create(
             data_source=data_source,
             status='processing',
             start_time=timezone.now()
@@ -323,7 +372,7 @@ class DataCollectorService:
 
             return {
                 'success': True,
-                'collection_id': collection.id,
+                'record_id': collection.id,
                 'record_count': collection.record_count,
                 'success_count': collection.success_count,
                 'error_count': collection.error_count
@@ -348,7 +397,7 @@ class DataCollectorService:
             return {
                 'success': False,
                 'error': str(e),
-                'collection_id': collection.id
+                'record_id': collection.id
             }
 
     def _fetch_raw_data(self, data_source: DataSource) -> Dict[str, Any]:
@@ -736,7 +785,7 @@ class DataCollectorService:
                 'errors': [str(e)]
             }
 
-    def _save_data_points(self, collection: DataCollection):
+    def _save_data_points(self, collection: DataCollectionRecord):
         """保存数据点"""
         try:
             data = collection.processed_data
@@ -752,7 +801,10 @@ class DataCollectorService:
         except Exception as e:
             logger.error(f'保存数据点失败: {str(e)}')
 
-    def _save_single_data_point(self, data: dict, collection: DataCollection):
+    def _save_single_data_point(
+            self,
+            data: dict,
+            collection: DataCollectionRecord):
         """保存单个数据点"""
         try:
             # 这里需要根据实际业务逻辑来确定如何保存数据点
@@ -787,7 +839,6 @@ class DataCollectorService:
                 ProductionDataPoint.objects.create(
                     equipment=equipment,
                     data_source=collection.data_source,
-                    collection=collection,
                     metric_name=key,
                     metric_value=str(value),
                     timestamp=timestamp,

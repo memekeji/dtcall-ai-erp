@@ -113,9 +113,15 @@ urlpatterns = [
          name='adm_project_document_upload'),
 
     # AI分析功能 - 页面视图
+    path('ai/progress-analysis/',
+         ai_views.AIProgressAnalysisView.as_view(),
+         name='ai_progress_analysis_page_default'),
     path('ai/progress-analysis/<int:project_id>/',
          ai_views.AIProgressAnalysisView.as_view(),
          name='ai_progress_analysis_page'),
+    path('ai/risk-prediction/',
+         ai_views.AIRiskPredictionView.as_view(),
+         name='ai_risk_prediction_page_default'),
     path('ai/risk-prediction/<int:project_id>/',
          ai_views.AIRiskPredictionView.as_view(),
          name='ai_risk_prediction_page'),

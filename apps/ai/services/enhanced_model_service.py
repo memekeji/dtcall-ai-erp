@@ -98,11 +98,11 @@ class BaseModelAdapter(ABC):
     ) -> ModelResponse:
         """文本嵌入"""
 
-    def _build_error_response(self, error: str) -> ModelResponse:
+    def _build_error_response(self, error: str = None) -> ModelResponse:
         """构建错误响应"""
         return ModelResponse(
             success=False,
-            error=error
+            error='模型调用失败，请检查模型配置后重试'
         )
 
 
@@ -166,7 +166,7 @@ class OpenAIAdapter(BaseModelAdapter):
 
         except Exception as e:
             logger.error(f"OpenAI API调用失败: {e}")
-            return self._build_error_response(str(e))
+            return self._build_error_response()
 
     async def text_generation(
         self,
@@ -227,7 +227,7 @@ class OpenAIAdapter(BaseModelAdapter):
 
         except Exception as e:
             logger.error(f"OpenAI Embedding API调用失败: {e}")
-            return self._build_error_response(str(e))
+            return self._build_error_response()
 
 
 class AnthropicAdapter(BaseModelAdapter):
@@ -298,7 +298,7 @@ class AnthropicAdapter(BaseModelAdapter):
 
         except Exception as e:
             logger.error(f"Anthropic API调用失败: {e}")
-            return self._build_error_response(str(e))
+            return self._build_error_response()
 
     async def text_generation(
         self,
@@ -317,7 +317,7 @@ class AnthropicAdapter(BaseModelAdapter):
         **kwargs
     ) -> ModelResponse:
         """Anthropic不支持嵌入"""
-        return self._build_error_response("Anthropic模型不支持文本嵌入")
+        return ModelResponse(success=False, error="模型不支持文本嵌入")
 
 
 class DeepSeekAdapter(BaseModelAdapter):
@@ -376,7 +376,7 @@ class DeepSeekAdapter(BaseModelAdapter):
 
         except Exception as e:
             logger.error(f"DeepSeek API调用失败: {e}")
-            return self._build_error_response(str(e))
+            return self._build_error_response()
 
     async def text_generation(
         self,
@@ -432,7 +432,7 @@ class DeepSeekAdapter(BaseModelAdapter):
 
         except Exception as e:
             logger.error(f"DeepSeek Embedding API调用失败: {e}")
-            return self._build_error_response(str(e))
+            return self._build_error_response()
 
 
 class EnhancedModelService:

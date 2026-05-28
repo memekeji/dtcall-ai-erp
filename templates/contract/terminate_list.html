@@ -46,9 +46,14 @@
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'js/jquery.min.js' %}"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
+        function appendQuery(url, params) {
+            var query = $.param(params || {});
+            return query ? url + '?' + query : url;
+        }
+
         layui.use(['element', 'table', 'layer', 'form', 'laydate'], function() {
             var element = layui.element;
             var table = layui.table;
@@ -66,7 +71,7 @@
             // 初始化表格
             table.render({
                 elem: '#terminateTable',
-                url: '/adm/contract/terminate/datalist/',
+                url: '/contract/terminate/datalist/',
                 cols: [[
                     {field: 'id', title: 'ID', width: 80},
                     {field: 'code', title: '合同编号', width: 150},
@@ -98,7 +103,7 @@
                         area: ['80%', '100%'],
                         offset: 'r',
                         anim: 2,
-                        content: '/adm/contract/sales/view/' + data.id + '/',
+                        content: '/contract/sales/view/' + data.id + '/',
                         success: function(layero, index) {
                             if (layero && typeof layero.css === 'function') {
                                 layero.css({
@@ -115,10 +120,12 @@
 
         // 导出终止
         function exportTerminate() {
-            layui.use(['layer'], function() {
-                var layer = layui.layer;
-                layer.msg('导出功能开发中...', {icon: 0});
-            });
+            var params = {};
+            var code = $('#searchTerminateCode').val();
+            var date = $('#searchTerminateDate').val();
+            if (code) params.code = code;
+            if (date) params.terminate_date = date;
+            window.location.href = appendQuery('/contract/terminate/export/', params);
         }
         window.exportTerminate = exportTerminate;
 

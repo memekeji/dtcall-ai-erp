@@ -250,7 +250,7 @@ class MeetingReservationListView(LoginRequiredMixin, ListView):
 class MeetingReservationCreateView(LoginRequiredMixin, CreateView):
     """创建会议室预订视图"""
     model = MeetingReservation
-    template_name = 'system/meeting/reservation_form.html'
+    template_name = 'meeting/reservation_form.html'
     fields = [
         'meeting_room',
         'reservation_time',
@@ -269,7 +269,7 @@ class MeetingReservationCreateView(LoginRequiredMixin, CreateView):
 class MeetingReservationUpdateView(LoginRequiredMixin, UpdateView):
     """更新会议室预订视图"""
     model = MeetingReservation
-    template_name = 'system/meeting/reservation_form.html'
+    template_name = 'meeting/reservation_form.html'
     fields = [
         'meeting_room',
         'reservation_time',
@@ -287,7 +287,7 @@ class MeetingReservationUpdateView(LoginRequiredMixin, UpdateView):
 class MeetingReservationDeleteView(LoginRequiredMixin, DeleteView):
     """删除会议室预订视图"""
     model = MeetingReservation
-    template_name = 'system/meeting/reservation_list.html'
+    template_name = 'meeting/reservation_list.html'
     success_url = reverse_lazy('system:admin_office:meeting_reservation_list')
 
     def delete(self, request, *args, **kwargs):

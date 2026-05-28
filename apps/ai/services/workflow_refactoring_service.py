@@ -611,7 +611,7 @@ class WorkflowExecutionService:
             self._record_node_execution(
                 node, context, {}, 'skipped', str(e)
             )
-            return {'status': 'skipped', 'error': str(e)}
+            return {'status': 'skipped', 'error': '节点配置验证失败，请检查节点配置后重试'}
 
         except Exception as e:
             logger.error(f"节点 '{node.name}' 执行失败: {e}", exc_info=True)

@@ -90,13 +90,19 @@ MENU_URL_TO_PERMISSION_MAP = {
     '/adm/finance/receive_invoice/': 'view_receive_invoice',
     '/adm/finance/payment_receive/': 'view_payment_receive',
     '/adm/finance/payment/': 'view_payment',
-    '/adm/contract/': 'view_contract',
-    '/adm/contract/list/': 'view_contract',
-    '/adm/contract/sales/': 'view_contract',
-    '/adm/contract/purchase/': 'view_contract',
-    '/adm/contract/audit/': 'view_contract',
-    '/adm/contract/template/': 'view_contract',
-    '/adm/contract/category/': 'view_contract',
+    '/contract/sales/': 'view_contract',
+    '/contract/purchase/': 'view_contract',
+    '/contract/terminate/': 'view_contract',
+    '/contract/cancel/': 'view_contract',
+    '/contract/category/': 'view_contract_category',
+    '/contract/archive/': 'view_contract_archive',
+    '/contract/productcategory/': 'view_product',
+    '/contract/product/': 'view_product',
+    '/contract/servicecategory/': 'view_service',
+    '/contract/service/': 'view_service',
+    '/contract/supplier/': 'view_supplier',
+    '/contract/purchasecategory/': 'view_purchase_category',
+    '/contract/purchaseitem/': 'view_purchase_item',
     '/customer/': 'view_customer',
     '/customer/list/': 'view_customer',
     '/customer/public/': 'view_public_customer',
@@ -154,18 +160,6 @@ MENU_URL_TO_PERMISSION_MAP = {
     '/approval/pending/': 'view_approval_request',
     '/approval/approval_type/': 'view_approval_type',
     '/approval/approvalflow/': 'view_approval_flow',
-    '/contract/': 'view_contract',
-    '/contract/audit/': 'view_contract',
-    '/contract/productcategory/': 'view_contract',
-    '/contract/product/': 'view_product',
-    '/contract/service/': 'view_service',
-    '/contract/supplier/': 'view_supplier',
-    '/contract/purchase_category/': 'view_purchase_category',
-    '/contract/purchase/': 'view_purchase_item',
-    '/contract/archive/': 'view_contract_archive',
-    '/contract/cancel/': 'view_contract',
-    '/contract/template/': 'view_contract_template',
-    '/contract/category/': 'view_contract_category',
     '/user/group/': 'view_group',
     '/user/login/': 'view_user',
     '/user/login-submit/': 'view_user',
@@ -234,10 +228,6 @@ MENU_URL_TO_PERMISSION_MAP = {
     '/personal/email/': 'view_email',
     '/personal/file/': 'view_diskfile',
     '/finance/': 'view_finance',
-    '/contract/purchase_item/': 'view_purchase_item',
-    '/contract/service/': 'view_service',
-    '/contract/supplier/': 'view_supplier',
-    '/contract/purchase_category/': 'view_purchase_category',
     '/customer/order/': 'view_customer_order',
     '/customer/follow/': 'view_follow_record',
     '/customer/call/': 'view_call_record',
@@ -383,8 +373,9 @@ def get_menus(request):
         """检查用户是否有权限访问菜单"""
         perm_codename = None
 
-        if menu.permission_required:
-            perm_codename = menu.permission_required
+        permission_required = getattr(menu, 'permission_required', None)
+        if permission_required:
+            perm_codename = permission_required
         else:
             perm_codename = get_permission_from_src(menu.src)
 

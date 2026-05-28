@@ -1,0 +1,122 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOP详情</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <div class="layui-row">
+                    <div class="layui-col-md8">
+                        <h2>{{ sop.name }}</h2>
+                    </div>
+                    <div class="layui-col-md4" style="text-align: right;">
+                        <a href="{% url 'production:sop_edit' sop.pk %}" class="layui-btn layui-btn-sm">编辑</a>
+                        <a href="{% url 'production:sop_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">返回列表</a>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-card-body">
+                <div class="layui-row layui-col-space15" style="margin-bottom: 16px;">
+                    <div class="layui-col-md3"><strong>SOP编号：</strong>{{ sop.code }}</div>
+                    <div class="layui-col-md3"><strong>关联工序：</strong>{{ sop.procedure.name|default:'-' }}</div>
+                    <div class="layui-col-md3"><strong>版本号：</strong>{{ sop.version }}</div>
+                    <div class="layui-col-md3">
+                        <strong>状态：</strong>
+                        {% if sop.status %}
+                        <span class="layui-badge layui-bg-green">启用</span>
+                        {% else %}
+                        <span class="layui-badge">禁用</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="layui-row layui-col-space15" style="margin-bottom: 16px;">
+                    <div class="layui-col-md6"><strong>创建人：</strong>{{ sop.creator.username|default:'-' }}</div>
+                    <div class="layui-col-md6"><strong>创建时间：</strong>{{ sop.create_time|date:"Y-m-d H:i:s" }}</div>
+                </div>
+
+                <fieldset class="layui-elem-field layui-field-title">
+                    <legend>SOP内容</legend>
+                </fieldset>
+                <div class="layui-text" style="line-height: 1.8;">{{ sop.content|linebreaks }}</div>
+
+                <fieldset class="layui-elem-field layui-field-title">
+                    <legend>安全要求</legend>
+                </fieldset>
+                <div class="layui-text" style="line-height: 1.8;">{{ sop.safety_requirements|default:'-'|linebreaks }}</div>
+
+                <fieldset class="layui-elem-field layui-field-title">
+                    <legend>质量标准</legend>
+                </fieldset>
+                <div class="layui-text" style="line-height: 1.8;">{{ sop.quality_standards|default:'-'|linebreaks }}</div>
+
+                <fieldset class="layui-elem-field layui-field-title">
+                    <legend>所需工具</legend>
+                </fieldset>
+                <div class="layui-text" style="line-height: 1.8;">{{ sop.tools_required|default:'-'|linebreaks }}</div>
+
+                {% if sop.file_path %}
+                <fieldset class="layui-elem-field layui-field-title">
+                    <legend>附件路径</legend>
+                </fieldset>
+                <div class="layui-text">{{ sop.file_path }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+<script>
+        function openRightPopup(title, url) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: title,
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: url,
+                    success: function(layero, index) {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    },
+                    end: function() {
+                        window.location.reload();
+                    }
+                });
+            });
+        }
+</script>
+
+    <!-- 注入的消息提示脚本 -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var msgs = [
+                {% for message in messages %}
+                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
+                {% endfor %}
+            ];
+
+            if (msgs.length > 0 && typeof layui !== 'undefined') {
+                layui.use(['layer'], function() {
+                    msgs.forEach(function(m) {
+                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
+                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
+                    });
+                });
+            }
+        });
+    </script>
+</body>
+</html>

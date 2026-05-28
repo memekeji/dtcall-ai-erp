@@ -141,10 +141,10 @@ urlpatterns = [
     # 收付款管理 - 旧路由兼容
     path(
         'paymentreceive/',
-        views.PaymentReceiveListView.as_view(),
+        views.IncomeListView.as_view(),
         name='paymentreceive_list'),
     path('paymentreceive/datalist/',
-         views.PaymentReceiveListView.as_view(),
+         views.IncomeListView.as_view(),
          name='paymentreceive_datalist'),
     path(
         'paymentreceive/create/',

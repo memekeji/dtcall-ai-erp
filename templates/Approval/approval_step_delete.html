@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>删除审批步骤</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <div class="layui-card">
+            <div class="layui-card-header">删除审批步骤</div>
+            <div class="layui-card-body">
+                <div class="layui-bg-red" style="padding: 15px; color: #fff; margin-bottom: 20px;">
+                    确认删除审批流 `{{ flow.name }}` 中的步骤 `{{ step.step_name }}` 吗？此操作不可恢复。
+                </div>
+                <form method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="layui-btn layui-btn-danger">确认删除</button>
+                    <a href="{% url 'approval:approval_flow_steps' flow.pk %}" class="layui-btn layui-btn-primary">取消</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -66,7 +66,7 @@ class AIAnalysisTool:
                 """Mock AI客户端占位符"""
                 provider = 'mock'
                 is_available = False
-                error_message = str(e)
+                error_message = 'AI客户端不可用，请检查模型配置后重试'
 
                 def chat_completion(self, *args, **kwargs):
                     raise AIClientError(f"AI客户端不可用: {self.error_message}")
@@ -142,9 +142,9 @@ class AIAnalysisTool:
             logger.error(f"AI分析失败: {str(e)}")
             # 即使失败也返回一个更友好的错误消息而不是"分析失败"
             return {
-                "analysis": f"分析处理过程中遇到问题: {str(e)}",
+                "analysis": "分析处理过程中遇到问题，请稍后重试",
                 "confidence": 0,
-                "error": str(e),
+                "error": "AI分析失败，请稍后重试",
                 "timestamp": datetime.now().isoformat()
             }
 
@@ -488,7 +488,7 @@ class MeetingAnalysisTool(AIAnalysisTool):
 
                         except STTError as e:
                             logger.error(f"语音转文字服务失败: {str(e)}")
-                            transcription_text = f"# 会议录音转写内容\n\n## 系统提示\n语音转文字失败: {str(e)}。系统将基于会议基本信息生成会议纪要。"
+                            transcription_text = "# 会议录音转写内容\n\n## 系统提示\n语音转文字失败，请检查音频文件或语音识别配置后重试。系统将基于会议基本信息生成会议纪要。"
                 else:
                     transcription_text = "# 会议录音转写内容\n\n## 系统提示\n音频文件不存在，系统将基于会议基本信息生成会议纪要。"
             else:
@@ -510,7 +510,7 @@ class MeetingAnalysisTool(AIAnalysisTool):
         except Exception as e:
             logger.error(f"处理音频文件时发生异常: {str(e)}", exc_info=True)
             # 错误处理，使用简化模板
-            transcription_text = f"# 会议录音转写内容\n\n## 系统提示\n处理异常: {str(e)}。系统将基于会议基本信息生成会议纪要。"
+            transcription_text = "# 会议录音转写内容\n\n## 系统提示\n处理音频文件时发生异常，请检查音频文件或稍后重试。系统将基于会议基本信息生成会议纪要。"
 
             if processed_data['meeting_content']:
                 processed_data['meeting_content'] += f"\n\n{transcription_text}"

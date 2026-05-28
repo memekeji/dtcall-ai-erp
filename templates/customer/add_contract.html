@@ -1,0 +1,239 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>新增合同</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}" media="all">
+    <style>
+        .required::after {
+            content: " *";
+            color: #ff4d4f;
+        }
+        .page-note {
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            background: #f8f8f8;
+            border-left: 4px solid #1e9fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">新增合同</div>
+                    <div class="layui-card-body">
+                        {% if error %}
+                        <div class="layui-bg-red" style="padding: 12px; color: #fff; margin-bottom: 16px;">
+                            {{ error }}
+                        </div>
+                        {% endif %}
+
+                        <div class="page-note">
+                            {% if customer %}
+                            当前客户：{{ customer.name }}
+                            {% else %}
+                            未指定客户时，请手动填写客户ID。
+                            {% endif %}
+                        </div>
+
+                        <form class="layui-form" id="contractForm">
+                            {% csrf_token %}
+                            <input type="hidden" name="customer_id" value="{% if customer %}{{ customer.id }}{% endif %}">
+
+                            {% if not customer %}
+                            <div class="layui-form-item">
+                                <label class="layui-form-label required">客户ID</label>
+                                <div class="layui-input-block">
+                                    <input type="number" name="customer_id_input" placeholder="请输入客户ID" autocomplete="off" class="layui-input" lay-verify="required|number">
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <div class="layui-row layui-col-space15">
+                                <div class="layui-col-md6">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label required">合同编号</label>
+                                        <div class="layui-input-block">
+                                            <input type="text" name="contract_number" value="{{ default_contract_number }}" placeholder="请输入合同编号" autocomplete="off" class="layui-input" lay-verify="required">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="layui-col-md6">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label required">合同名称</label>
+                                        <div class="layui-input-block">
+                                            <input type="text" name="name" placeholder="请输入合同名称" autocomplete="off" class="layui-input" lay-verify="required">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="layui-row layui-col-space15">
+                                <div class="layui-col-md6">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label required">合同金额</label>
+                                        <div class="layui-input-block">
+                                            <input type="number" name="amount" placeholder="请输入合同金额" autocomplete="off" class="layui-input" lay-verify="required|number" min="0" step="0.01">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="layui-col-md6">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label required">合同分类</label>
+                                        <div class="layui-input-block">
+                                            <select name="category_id" lay-verify="required">
+                                                <option value="">请选择合同分类</option>
+                                                {% for category in contract_categories %}
+                                                <option value="{{ category.id }}">{{ category.name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="layui-row layui-col-space15">
+                                <div class="layui-col-md6">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label required">签订日期</label>
+                                        <div class="layui-input-block">
+                                            <input type="text" name="sign_date" id="signDate" placeholder="请选择签订日期" autocomplete="off" class="layui-input" lay-verify="required">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="layui-col-md6">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">到期日期</label>
+                                        <div class="layui-input-block">
+                                            <input type="text" name="end_date" id="endDate" placeholder="请选择到期日期" autocomplete="off" class="layui-input">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="layui-row layui-col-space15">
+                                <div class="layui-col-md6">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label required">合同状态</label>
+                                        <div class="layui-input-block">
+                                            <select name="status" lay-verify="required">
+                                                <option value="">请选择合同状态</option>
+                                                {% for value, label in status_choices %}
+                                                <option value="{{ value }}">{{ label }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="layui-col-md6">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">合同类型</label>
+                                        <div class="layui-input-block">
+                                            <select name="contract_type">
+                                                <option value="">请选择合同类型</option>
+                                                {% for value, label in type_choices %}
+                                                <option value="{{ value }}">{{ label }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item layui-form-text">
+                                <label class="layui-form-label">合同描述</label>
+                                <div class="layui-input-block">
+                                    <textarea name="description" placeholder="请输入合同描述" class="layui-textarea"></textarea>
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item layui-form-text">
+                                <label class="layui-form-label">备注</label>
+                                <div class="layui-input-block">
+                                    <textarea name="remark" placeholder="请输入备注" class="layui-textarea"></textarea>
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <div class="layui-input-block">
+                                    <button class="layui-btn" lay-submit lay-filter="saveContract">保存</button>
+                                    <button type="button" class="layui-btn layui-btn-primary" id="backBtn">返回</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(["form", "layer", "laydate"], function () {
+            var form = layui.form;
+            var layer = layui.layer;
+            var laydate = layui.laydate;
+
+            laydate.render({ elem: "#signDate", trigger: "click" });
+            laydate.render({ elem: "#endDate", trigger: "click" });
+
+            document.getElementById("backBtn").addEventListener("click", function () {
+                if (window.parent && window.parent.layer) {
+                    var index = window.parent.layer.getFrameIndex(window.name);
+                    if (index !== undefined && index !== null) {
+                        window.parent.layer.close(index);
+                        return;
+                    }
+                }
+                window.history.back();
+            });
+
+            form.on("submit(saveContract)", function (data) {
+                var fields = data.field;
+                if (!fields.customer_id && fields.customer_id_input) {
+                    fields.customer_id = fields.customer_id_input;
+                }
+                delete fields.customer_id_input;
+
+                fetch(window.location.href, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": fields.csrfmiddlewaretoken
+                    },
+                    body: JSON.stringify(fields)
+                }).then(function (response) {
+                    return response.json();
+                }).then(function (result) {
+                    if (result.code === 0) {
+                        layer.msg(result.msg || "保存成功", {icon: 1}, function () {
+                            if (window.parent && window.parent.layer) {
+                                var index = window.parent.layer.getFrameIndex(window.name);
+                                if (index !== undefined && index !== null) {
+                                    window.parent.layer.close(index);
+                                }
+                                if (window.parent.location && window.parent.location.reload) {
+                                    window.parent.location.reload();
+                                }
+                            } else {
+                                window.history.back();
+                            }
+                        });
+                    } else {
+                        layer.msg(result.msg || "保存失败", {icon: 2});
+                    }
+                }).catch(function () {
+                    layer.msg("提交失败，请稍后重试", {icon: 2});
+                });
+                return false;
+            });
+        });
+    </script>
+</body>
+</html>

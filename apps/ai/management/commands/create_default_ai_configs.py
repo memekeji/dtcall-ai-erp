@@ -22,62 +22,62 @@ class Command(BaseCommand):
         default_configs = [
             {
                 'name': '千问-Turbo',
-                'provider': 'qwen',
+                'provider': 'alibaba',
                 'model_type': 'chat',
-                'api_key': '',  # 需要用户配置
-                'base_url': 'https://dashscope.aliyuncs.com/api/v1',
-                'default_params': {
-                    'temperature': 0.7,
-                    'max_tokens': 2000
-                },
+                'model_name': 'qwen-turbo',
+                'api_key': '',
+                'api_base': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+                'temperature': 0.7,
+                'max_tokens': 2000,
+                'top_p': 1.0,
                 'is_active': True
             },
             {
                 'name': '豆包-标准版',
                 'provider': 'doubao',
                 'model_type': 'chat',
-                'api_key': '',  # 需要用户配置
-                'base_url': 'https://ark.cn-beijing.volces.com/api/v3',
-                'default_params': {
-                    'temperature': 0.7,
-                    'max_tokens': 2000
-                },
+                'model_name': 'doubao-seed-1-6-250615',
+                'api_key': '',
+                'api_base': 'https://ark.cn-beijing.volces.com/api/v3',
+                'temperature': 0.7,
+                'max_tokens': 2000,
+                'top_p': 1.0,
                 'is_active': True
             },
             {
                 'name': '文心一言-Turbo',
-                'provider': 'wenxin',
+                'provider': 'baidu',
                 'model_type': 'chat',
-                'api_key': '',  # 需要用户配置
-                'base_url': 'https://aip.baidubce.com/rpc/2.0/ai_custom/v1',
-                'default_params': {
-                    'temperature': 0.7,
-                    'max_tokens': 2000
-                },
+                'model_name': 'eb-instant',
+                'api_key': '',
+                'api_base': 'https://aip.baidubce.com/rpc/2.0/ai_custom/v1',
+                'temperature': 0.7,
+                'max_tokens': 2000,
+                'top_p': 1.0,
                 'is_active': True
             },
             {
                 'name': 'DeepSeek-Chat',
                 'provider': 'deepseek',
                 'model_type': 'chat',
-                'api_key': '',  # 需要用户配置
-                'base_url': 'https://api.deepseek.com/v1',
-                'default_params': {
-                    'temperature': 0.7,
-                    'max_tokens': 2000
-                },
+                'model_name': 'deepseek-chat',
+                'api_key': '',
+                'api_base': 'https://api.deepseek.com/v1',
+                'temperature': 0.7,
+                'max_tokens': 2000,
+                'top_p': 1.0,
                 'is_active': True
             },
             {
-                'name': 'OpenAI-GPT-3.5-Turbo',
+                'name': 'OpenAI-GPT-4o-Mini',
                 'provider': 'openai',
                 'model_type': 'chat',
-                'api_key': '',  # 需要用户配置
-                'base_url': 'https://api.openai.com/v1',
-                'default_params': {
-                    'temperature': 0.7,
-                    'max_tokens': 2000
-                },
+                'model_name': 'gpt-4o-mini',
+                'api_key': '',
+                'api_base': 'https://api.openai.com/v1',
+                'temperature': 0.7,
+                'max_tokens': 2000,
+                'top_p': 1.0,
                 'is_active': True
             }
         ]

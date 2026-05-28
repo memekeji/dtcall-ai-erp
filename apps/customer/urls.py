@@ -1,5 +1,4 @@
 from django.urls import path
-from django.urls import path
 from . import views, ai_views
 
 app_name = 'customer'

@@ -24,12 +24,12 @@ default_production_analysis_tool = ProductionAnalysisTool()
 @login_required
 def ai_production_optimization(request, plan_id):
     try:
-        plan = ProductionPlan.objects.get(id=plan_id, delete_time=0)
+        plan = ProductionPlan.objects.get(id=plan_id)
         
         plan_data = {
             'name': plan.name,
-            'start_time': plan.start_time.strftime('%Y-%m-%d') if plan.start_time else '',
-            'end_time': plan.end_time.strftime('%Y-%m-%d') if plan.end_time else '',
+            'start_time': plan.plan_start_date.strftime('%Y-%m-%d') if plan.plan_start_date else '',
+            'end_time': plan.plan_end_date.strftime('%Y-%m-%d') if plan.plan_end_date else '',
         }
         
         tasks = ProductionTask.objects.filter(plan=plan)[:10]

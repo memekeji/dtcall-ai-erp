@@ -53,15 +53,15 @@ urlpatterns = [
         'schedule/delete/<int:id>/',
         views.ScheduleView.as_view(),
         name='oa_schedule_delete'),
-    path('message/list/', views.MessageView.datalist, name='message_list'),
+    path('message/list/', views.MessageView.as_view(), name='message_list'),
     path(
         'message/view/<int:id>/',
         views.MessageDetailView.as_view(),
         name='message_view'),
-    path('approval/list/', views.ApprovalView.datalist, name='approval_list'),
+    path('approval/list/', views.ApprovalView.as_view(), name='approval_list'),
     path(
         'approval/submit/<int:id>/',
-        views.ApprovalView.approve,
+        views.ApprovalView.as_view(),
         name='approval_submit'),
 
     path(

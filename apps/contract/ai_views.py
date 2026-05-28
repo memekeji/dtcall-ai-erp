@@ -26,8 +26,8 @@ def ai_contract_risk_analysis(request, contract_id):
     except Contract.DoesNotExist:
         return JsonResponse({'code': 404, 'msg': '合同不存在'}, status=404)
     except Exception as e:
-        logger.error(f"合同分析失败: {str(e)}")
-        return JsonResponse({'code': 500, 'msg': f'分析失败: {str(e)}'}, status=500)
+        logger.error(f"合同分析失败: {str(e)}", exc_info=True)
+        return JsonResponse({'code': 500, 'msg': '分析失败，请稍后重试'}, status=500)
 
 @login_required
 def ai_contract_term_extraction(request, contract_id):
@@ -43,5 +43,5 @@ def ai_contract_term_extraction(request, contract_id):
     except Contract.DoesNotExist:
         return JsonResponse({'code': 404, 'msg': '合同不存在'}, status=404)
     except Exception as e:
-        logger.error(f"条款提取失败: {str(e)}")
-        return JsonResponse({'code': 500, 'msg': f'提取失败: {str(e)}'}, status=500)
+        logger.error(f"条款提取失败: {str(e)}", exc_info=True)
+        return JsonResponse({'code': 500, 'msg': '提取失败，请稍后重试'}, status=500)

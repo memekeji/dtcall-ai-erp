@@ -88,19 +88,27 @@
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'js/jquery.min.js' %}"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        // 添加全局错误处理
         window.addEventListener('error', function(e) {
-            console.error('Global error:', e.error);
+            if (window.layui && layui.layer) {
+                layui.layer.msg('页面脚本执行异常，请刷新后重试', {icon: 2});
+            }
         });
+
+        var currentTab = '0';
+
+        function getCsrfToken() {
+            return $('input[name="csrfmiddlewaretoken"]').val() || '';
+        }
+
+        function appendQuery(url, params) {
+            var query = $.param(params || {});
+            return query ? url + '?' + query : url;
+        }
         
-        // 确保页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
-            // console.log('销售合同页面加载完成');
-            
-            // 初始化layui
             layui.use(['element', 'table', 'layer', 'form'], function() {
                 var element = layui.element;
                 var table = layui.table;
@@ -110,10 +118,11 @@
                 // 使用默认zIndex配置，避免全局覆盖
 
                 // 初始化表格
-                function initTable(tab = '0') {
+                function initTable(tab) {
+                    currentTab = tab || '0';
                     table.render({
                         elem: '#contractTable',
-                        url: '/contract/sales/datalist/?tab=' + tab,
+                        url: '/contract/sales/datalist/?tab=' + currentTab,
                         cols: [[
                             {type: 'checkbox', fixed: 'left'},
                             {field: 'id', title: 'ID', width: 80},
@@ -187,7 +196,7 @@
                             area: ['80%', '100%'],
                             offset: 'r',
                             anim: 2,
-                            content: '/contract/sales/edit/' + data.id + '/',
+                            content: '/contract/sales/view/' + data.id + '/',
                             success: function(layero, index) {
                                 if (layero && typeof layero.css === 'function') {
                                     layero.css({
@@ -203,8 +212,7 @@
                         });
                     } else if (layEvent === 'delete') {
                         layer.confirm('确定删除这条合同记录吗？', function(index) {
-                            // 获取CSRF token
-                            var csrfToken = $('input[name="csrfmiddlewaretoken"]').val();
+                            var csrfToken = getCsrfToken();
                             
                             $.ajax({
                                 url: '/contract/sales/del/',
@@ -228,7 +236,7 @@
                     }
                 });
             });
-        }
+        });
 
         // 新增合同
         function addContract() {
@@ -265,22 +273,23 @@
 
         // 导出合同
         function exportContract() {
-            // console.log('exportContract function called');
-            layui.use(['layer'], function() {
-                var layer = layui.layer;
-                layer.msg('导出功能开发中...', {icon: 0});
-            });
+            var params = {};
+            var code = $('#searchContractCode').val();
+            var status = $('#searchContractStatus').val();
+            params.tab = currentTab;
+            if (code) params.code = code;
+            if (status) params.status = status;
+            window.location.href = appendQuery('/contract/sales/export/', params);
         }
         window.exportContract = exportContract;
 
         // 搜索合同
         function searchContract() {
-            // console.log('searchContract function called');
             layui.use(['table'], function() {
                 var table = layui.table;
                 var code = $('#searchContractCode').val();
                 var status = $('#searchContractStatus').val();
-                var params = {};
+                var params = {tab: currentTab};
                 if(code) params.code = code;
                 if(status) params.status = status;
                 
@@ -293,7 +302,6 @@
 
         // 重置搜索
         function resetSearch() {
-            // console.log('resetSearch function called');
             layui.use(['table', 'form'], function() {
                 var table = layui.table;
                 var form = layui.form;
@@ -302,7 +310,7 @@
                 $('#searchContractStatus').val('');
                 form.render('select');
                 table.reload('contractTable', {
-                    where: {}
+                    where: {tab: currentTab}
                 });
             });
         }
@@ -310,16 +318,12 @@
 
         // 批量删除
         function batchDelete() {
-            // console.log('batchDelete function called');
             layui.use(['table', 'layer'], function() {
                 var table = layui.table;
                 var layer = layui.layer;
                 
-                // 获取选中的数据
                 var checkStatus = table.checkStatus('contractTable');
                 var selectedData = checkStatus.data;
-                
-                // console.log('Selected data:', selectedData);
                 
                 if (selectedData.length === 0) {
                     layer.msg('请选择要删除的合同', {icon: 2});
@@ -327,20 +331,17 @@
                 }
                 
                 layer.confirm('确定要删除选中的 ' + selectedData.length + ' 条合同记录吗？', function(index) {
-                    // 获取选中的合同ID列表
                     var contractIds = selectedData.map(function(item) {
                         return item.id;
                     });
                     
-                    // 获取CSRF token
-                    var csrfToken = $('input[name="csrfmiddlewaretoken"]').val();
+                    var csrfToken = getCsrfToken();
                     
                     $.ajax({
                         url: '/contract/sales/del/',
                         type: 'POST',
                         data: JSON.stringify({
-                            ids: contractIds,
-                            type: '0'  // 逻辑删除
+                            ids: contractIds
                         }),
                         contentType: 'application/json',
                         headers: {
@@ -354,8 +355,8 @@
                                 layer.msg(response.msg, {icon: 2});
                             }
                         },
-                        error: function(xhr, status, error) {
-                            layer.msg('删除失败：' + error, {icon: 2});
+                        error: function() {
+                            layer.msg('删除失败，请确认合同状态后重试', {icon: 2});
                         }
                     });
                     layer.close(index);

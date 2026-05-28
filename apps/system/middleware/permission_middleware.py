@@ -71,7 +71,7 @@ class PermissionMiddleware:
             '/user/login/', '/user/logout/', '/user/login-submit/',
             '/static/', '/media/', '/favicon.ico', '/captcha/',
             '/admin/', '/home/main/', '/home/dashboard/',
-            '/get-new-captcha/',
+            '/get-new-captcha/', '/api/common/',
         ]
         return any(path.startswith(url) for url in skip_urls)
 
@@ -121,9 +121,11 @@ class PermissionMiddleware:
             except Exception:
                 menu = Menu.objects.filter(src=path, status=1).first()
 
-            if menu and menu.permission_required:
+            menu_permission_required = getattr(
+                menu, 'permission_required', None) if menu else None
+            if menu_permission_required:
                 return self._check_permission(
-                    request, menu.permission_required)
+                    request, menu_permission_required)
 
             app_label = resolver_match.app_name or resolver_match.view_name.split(':')[
                 0]

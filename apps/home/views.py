@@ -64,8 +64,9 @@ def _build_menu_tree(
 
     def has_menu_access(menu):
         """检查用户是否有权限访问菜单"""
-        if menu.permission_required:
-            if _check_permission(menu.permission_required):
+        permission_required = getattr(menu, 'permission_required', None)
+        if permission_required:
+            if _check_permission(permission_required):
                 return True
 
         if menu.src and menu.src != 'javascript:;':

@@ -1,0 +1,70 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}公告详情{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md8">
+                <h3>{{ notice.title }}</h3>
+            </div>
+            <div class="layui-col-md4" style="text-align: right;">
+                <a href="{% url 'system:admin_office:notice_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">返回列表</a>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <div class="layui-row layui-col-space15" style="margin-bottom: 16px;">
+            <div class="layui-col-md3">
+                <div><strong>公告类型：</strong>{{ notice.get_notice_type_display }}</div>
+            </div>
+            <div class="layui-col-md3">
+                <div><strong>发布人：</strong>{{ notice.author.name|default:notice.author.username }}</div>
+            </div>
+            <div class="layui-col-md3">
+                <div><strong>发布时间：</strong>{{ notice.publish_time|date:"Y-m-d H:i"|default:"未发布" }}</div>
+            </div>
+            <div class="layui-col-md3">
+                <div>
+                    <strong>发布状态：</strong>
+                    {% if notice.is_published %}
+                    <span class="layui-badge layui-bg-green">已发布</span>
+                    {% else %}
+                    <span class="layui-badge">草稿</span>
+                    {% endif %}
+                    {% if notice.is_top %}
+                    <span class="layui-badge layui-bg-orange">置顶</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if notice.expire_time %}
+        <div style="margin-bottom: 16px;">
+            <strong>过期时间：</strong>{{ notice.expire_time|date:"Y-m-d H:i" }}
+        </div>
+        {% endif %}
+
+        <fieldset class="layui-elem-field layui-field-title">
+            <legend>公告内容</legend>
+        </fieldset>
+        <div class="layui-text" style="line-height: 1.8; padding: 8px 0 16px 0;">
+            {{ notice.content|linebreaks }}
+        </div>
+
+        <fieldset class="layui-elem-field layui-field-title">
+            <legend>时间信息</legend>
+        </fieldset>
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md6">
+                <div><strong>创建时间：</strong>{{ notice.created_at|date:"Y-m-d H:i:s" }}</div>
+            </div>
+            <div class="layui-col-md6">
+                <div><strong>更新时间：</strong>{{ notice.updated_at|date:"Y-m-d H:i:s" }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

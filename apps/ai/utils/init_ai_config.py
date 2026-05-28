@@ -36,14 +36,14 @@ def init_ai_system_config():
             'description': 'OpenAI API基础URL'
         },
         {
-            'key': 'ai_qwen_api_key',
+            'key': 'ai_alibaba_api_key',
             'value': '',
-            'description': '阿里千问API密钥'
+            'description': '阿里通义千问API密钥'
         },
         {
-            'key': 'ai_qwen_base_url',
+            'key': 'ai_alibaba_base_url',
             'value': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-            'description': '阿里千问API基础URL'
+            'description': '阿里通义千问API基础URL'
         },
         {
             'key': 'ai_deepseek_api_key',
@@ -62,27 +62,27 @@ def init_ai_system_config():
         },
         {
             'key': 'ai_doubao_base_url',
-            'value': 'https://api.doubao.com/v1',
+            'value': 'https://ark.cn-beijing.volces.com/api/v3',
             'description': '豆包API基础URL'
         },
         {
             'key': 'ai_local_base_url',
-            'value': 'http://localhost:8000/v1',
+            'value': 'http://localhost:8001',
             'description': '本地大模型API地址'
         },
         {
             'key': 'ai_request_timeout',
-            'value': '60',
+            'value': '30',
             'description': 'AI请求超时时间(秒)'
         },
         {
             'key': 'ai_max_retries',
-            'value': '3',
+            'value': '1',
             'description': 'AI请求最大重试次数'
         },
         {
             'key': 'ai_retry_delay',
-            'value': '2',
+            'value': '1',
             'description': 'AI请求重试间隔(秒)'
         },
         {
@@ -107,7 +107,6 @@ def init_ai_system_config():
                 f"创建配置项: {config_data['key']} - {config_data['description']}")
             created_count += 1
         else:
-            # 更新现有配置
             updated = False
             if config.value != config_data['value']:
                 config.value = config_data['value']
@@ -129,87 +128,104 @@ def init_ai_model_config():
     """初始化AI模型配置"""
     models_to_create = [
         {
-            'name': 'OpenAI GPT-3.5 Turbo',
+            'name': 'OpenAI GPT-4o Mini',
+            'provider': 'openai',
             'model_type': 'chat',
-            'default_params': {
-                'model': 'gpt-3.5-turbo',
-                'temperature': 0.7,
-                'max_tokens': 4096
-            },
-            'is_active': True
+            'api_key': '',
+            'api_base': 'https://api.openai.com/v1',
+            'model_name': 'gpt-4o-mini',
+            'is_active': True,
+            'is_default': False,
+            'max_tokens': 2000,
+            'temperature': 0.7,
+            'top_p': 1.0,
         },
         {
             'name': 'OpenAI Embedding',
+            'provider': 'openai',
             'model_type': 'embedding',
-            'default_params': {
-                'model': 'text-embedding-ada-002'
-            },
-            'is_active': True
+            'api_key': '',
+            'api_base': 'https://api.openai.com/v1',
+            'model_name': 'text-embedding-3-small',
+            'is_active': True,
+            'is_default': False,
+            'max_tokens': 2048,
+            'temperature': 0.7,
+            'top_p': 1.0,
         },
         {
-            'name': 'Qwen Turbo',
+            'name': '通义千问 Turbo',
+            'provider': 'alibaba',
             'model_type': 'chat',
-            'default_params': {
-                'model': 'qwen-turbo',
-                'temperature': 0.7,
-                'max_tokens': 8192
-            },
-            'is_active': False
+            'api_key': '',
+            'api_base': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+            'model_name': 'qwen-turbo',
+            'is_active': False,
+            'is_default': False,
+            'max_tokens': 2000,
+            'temperature': 0.7,
+            'top_p': 1.0,
         },
         {
             'name': 'DeepSeek Chat',
+            'provider': 'deepseek',
             'model_type': 'chat',
-            'default_params': {
-                'model': 'deepseek-chat',
-                'temperature': 0.7,
-                'max_tokens': 4096
-            },
-            'is_active': False
+            'api_key': '',
+            'api_base': 'https://api.deepseek.com/v1',
+            'model_name': 'deepseek-chat',
+            'is_active': False,
+            'is_default': False,
+            'max_tokens': 2000,
+            'temperature': 0.7,
+            'top_p': 1.0,
         },
         {
-            'name': 'Doubao Pro',
+            'name': '豆包 Seed',
+            'provider': 'doubao',
             'model_type': 'chat',
-            'default_params': {
-                'model': 'doubao-pro',
-                'temperature': 0.7,
-                'max_tokens': 4096
-            },
-            'is_active': False
+            'api_key': '',
+            'api_base': 'https://ark.cn-beijing.volces.com/api/v3',
+            'model_name': 'doubao-seed-1-6-250615',
+            'is_active': False,
+            'is_default': False,
+            'max_tokens': 2000,
+            'temperature': 0.7,
+            'top_p': 1.0,
         },
         {
             'name': '本地大模型',
+            'provider': 'local',
             'model_type': 'chat',
-            'default_params': {
-                'model': 'local-model',
-                'temperature': 0.7,
-                'max_tokens': 4096
-            },
-            'is_active': False
+            'api_key': '',
+            'api_base': 'http://localhost:8001',
+            'model_name': 'local-model',
+            'is_active': False,
+            'is_default': False,
+            'max_tokens': 2000,
+            'temperature': 0.7,
+            'top_p': 1.0,
         }
     ]
 
     created_count = 0
     for model_data in models_to_create:
-        # 检查是否已存在同名同类型的模型配置
         existing_model = AIModelConfig.objects.filter(
             name=model_data['name'],
+            provider=model_data['provider'],
+            model_name=model_data['model_name'],
             model_type=model_data['model_type']
         ).first()
 
         if existing_model:
-            # 更新现有模型配置
             updated = False
-            if existing_model.default_params != model_data['default_params']:
-                existing_model.default_params = model_data['default_params']
-                updated = True
-            if existing_model.is_active != model_data['is_active']:
-                existing_model.is_active = model_data['is_active']
-                updated = True
+            for field, value in model_data.items():
+                if getattr(existing_model, field) != value:
+                    setattr(existing_model, field, value)
+                    updated = True
             if updated:
                 existing_model.save()
                 logger.info(f"更新模型配置: {model_data['name']}")
         else:
-            # 创建新的模型配置
             AIModelConfig.objects.create(**model_data)
             logger.info(f"创建模型配置: {model_data['name']}")
             created_count += 1

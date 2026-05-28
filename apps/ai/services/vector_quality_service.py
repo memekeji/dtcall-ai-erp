@@ -66,8 +66,9 @@ class VectorQualityService:
             metrics['consistency'] = self._calculate_cosine_similarity(
                 vector, recreated_vector)
         except Exception as e:
+            logger.warning(f"向量一致性检查失败: {str(e)}")
             metrics['consistency'] = 0.0
-            metrics['consistency_error'] = str(e)
+            metrics['consistency_error'] = '向量一致性检查失败，请检查模型配置后重试'
 
         # 综合质量得分（0-1）
         score = 0.0
@@ -125,7 +126,7 @@ class VectorQualityService:
             }
         except Exception as e:
             logger.error(f"向量优化失败: {str(e)}")
-            return {'error': str(e)}
+            return {'error': '向量优化失败，请稍后重试'}
 
     def _calculate_cosine_similarity(self, vector1, vector2):
         """计算余弦相似度"""

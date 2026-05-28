@@ -19,14 +19,27 @@ class UnifiedIntentService:
     兼容新旧系统，优先使用新的 AI 分类器
     """
 
-    # 意图类型映射（新->旧）
     INTENT_MAPPING = {
         'DATA_QUERY': 'data_query',
-        'DATA_CREATE': 'data_query',
-        'DATA_UPDATE': 'data_query',
+        'DATA_CREATE': 'data_create',
+        'DATA_UPDATE': 'data_update',
+        'DATA_DELETE': 'data_delete',
         'KNOWLEDGE_BASE': 'knowledge_base',
         'AI_CHAT': 'ai_chat',
+        'UI_ACTION': 'ui_action',
     }
+
+    INTENT_TYPES = {
+        'data_query': '数据查询',
+        'data_create': '数据创建',
+        'data_update': '数据修改',
+        'data_delete': '数据删除',
+        'knowledge_base': '知识库',
+        'ai_chat': 'AI对话',
+        'ui_action': '界面操作',
+    }
+
+    UNSAFE_INTENTS = {'DATA_CREATE', 'DATA_UPDATE', 'DATA_DELETE'}
 
     def __init__(self):
         self.new_classifier = ai_intent_classifier
@@ -68,21 +81,30 @@ class UnifiedIntentService:
 
     def _convert_to_old_format(
             self, new_result: Dict[str, Any]) -> Dict[str, Any]:
-        """将新格式转换为旧格式（兼容现有代码）"""
         new_intent = new_result.get('intent', 'AI_CHAT')
         old_intent = self.INTENT_MAPPING.get(new_intent, 'ai_chat')
 
+        is_unsafe = new_intent in self.UNSAFE_INTENTS or new_result.get('action') in {'create', 'update', 'delete'}
+
         return {
             'intent': old_intent,
+            'intent_type': old_intent,
+            'raw_intent': new_intent,
             'confidence': new_result.get('confidence', 0.0),
             'entities': new_result.get('entities', {}),
-            'requires_confirmation': new_result.get('requires_confirmation', False),
+            'requires_confirmation': True if is_unsafe else new_result.get('requires_confirmation', False),
             'fallback_options': new_result.get('fallback_options', []),
             'action': new_result.get('action'),
             'data_type': new_result.get('data_type'),
             'time_range': new_result.get('time_range'),
             'status': new_result.get('status'),
             'customer_name': new_result.get('customer_name'),
+            'source': new_result.get('source'),
+            'ai_available': new_result.get('ai_available', False),
+            'model_provider': new_result.get('model_provider'),
+            'model_name': new_result.get('model_name'),
+            'reasoning': new_result.get('reasoning', ''),
+            'safe_to_execute': not is_unsafe,
         }
 
     def process_request(self, user: User, query: str) -> Dict[str, Any]:
@@ -99,18 +121,29 @@ class UnifiedIntentService:
         return self.enhanced_service.process_user_request(user, query)
 
     def _create_error_result(self, query: str) -> Dict[str, Any]:
-        """创建错误结果"""
         return {
             'intent': 'ai_chat',
-            'confidence': 0.5,
+            'intent_type': 'ai_chat',
+            'raw_intent': 'AI_CHAT',
+            'confidence': 0.0,
             'entities': {},
             'requires_confirmation': True,
             'fallback_options': [
-                {'text': '查询项目数据', 'intent': 'data_query', 'action': 'select'},
-                {'text': '调用知识库', 'intent': 'knowledge_base', 'action': 'select'},
-                {'text': '纯 AI 对话', 'intent': 'ai_chat', 'action': 'select'},
+                {'text': '按普通对话继续', 'intent': 'ai_chat', 'action': 'select'},
+                {'text': '请补充要查询的数据范围', 'intent': 'data_query', 'action': 'select'},
                 {'text': '重新描述需求', 'intent': None, 'action': 'retry'}
-            ]
+            ],
+            'action': 'chat',
+            'data_type': None,
+            'time_range': None,
+            'status': None,
+            'customer_name': None,
+            'source': 'error',
+            'ai_available': False,
+            'model_provider': None,
+            'model_name': None,
+            'reasoning': '意图识别服务异常',
+            'safe_to_execute': False,
         }
 
 

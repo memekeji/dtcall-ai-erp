@@ -159,7 +159,7 @@ class KnowledgeRetrievalProcessor(BaseNodeProcessor):
         except Exception as e:
             logger.error(f"知识检索失败: {e}")
             output['retrieval_success'] = False
-            output['error_message'] = str(e)
+            output['error_message'] = '知识检索失败，请检查知识库配置后重试'
 
         return output
 
@@ -319,7 +319,7 @@ class IntentRecognitionProcessor(BaseNodeProcessor):
         except Exception as e:
             logger.error(f"意图识别失败: {e}")
             output['intent_recognition_success'] = False
-            output['error_message'] = str(e)
+            output['error_message'] = '意图识别失败，请检查意图节点配置后重试'
 
         return output
 
@@ -426,7 +426,7 @@ class CodeExecutionProcessor(BaseNodeProcessor):
         except Exception as e:
             logger.error(f"代码执行失败: {e}")
             output['code_execution_success'] = False
-            output['error_message'] = str(e)
+            output['error_message'] = '代码执行失败，请检查代码配置后重试'
 
         return output
 
@@ -599,7 +599,7 @@ class LoopProcessor(BaseNodeProcessor):
         except Exception as e:
             logger.error(f"循环处理失败: {e}")
             output['loop_success'] = False
-            output['error_message'] = str(e)
+            output['error_message'] = '循环处理失败，请检查循环配置后重试'
 
         return output
 
@@ -705,11 +705,12 @@ class ParallelProcessor(BaseNodeProcessor):
                     return result
 
                 except Exception as e:
+                    logger.error(f"并行任务执行失败: {e}")
                     return {
                         'task_id': task_id,
                         'task_name': task.get('task_name', ''),
                         'status': 'failed',
-                        'error': str(e)
+                        'error': '任务执行失败，请检查任务配置后重试'
                     }
 
             semaphore = asyncio.Semaphore(max_workers)
@@ -747,7 +748,7 @@ class ParallelProcessor(BaseNodeProcessor):
         except Exception as e:
             logger.error(f"并行处理失败: {e}")
             output['parallel_success'] = False
-            output['error_message'] = str(e)
+            output['error_message'] = '并行处理失败，请检查任务配置后重试'
 
         return output
 
@@ -781,8 +782,9 @@ class ParallelProcessor(BaseNodeProcessor):
                     output['success'] = response.status < 400
 
         except Exception as e:
+            logger.error(f"并行API调用失败: {e}")
             output['success'] = False
-            output['error'] = str(e)
+            output['error'] = 'API调用失败，请检查接口配置后重试'
 
         return output
 
@@ -922,7 +924,7 @@ class VariableAggregationProcessor(BaseNodeProcessor):
         except Exception as e:
             logger.error(f"变量聚合失败: {e}")
             output['aggregation_success'] = False
-            output['error_message'] = str(e)
+            output['error_message'] = '变量聚合失败，请检查聚合配置后重试'
 
         return output
 
@@ -1053,7 +1055,7 @@ class QuestionAnswerProcessor(BaseNodeProcessor):
         except Exception as e:
             logger.error(f"问答交互失败: {e}")
             output['question_answer_success'] = False
-            output['error_message'] = str(e)
+            output['error_message'] = '问答交互失败，请检查问答配置后重试'
 
         return output
 

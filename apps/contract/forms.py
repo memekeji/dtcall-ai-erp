@@ -15,6 +15,24 @@ from .models import (
 User = get_user_model()
 
 
+def _active_queryset(model, current_id=None):
+    queryset = model.objects.all()
+    if hasattr(model, 'is_active'):
+        queryset = queryset.filter(is_active=True)
+    elif hasattr(model, 'delete_time'):
+        if model.__name__ == 'ContractCate':
+            queryset = queryset.filter(delete_time=0, status=1)
+        elif model.__name__ == 'ProductCate':
+            queryset = queryset.filter(delete_time__isnull=True, status=1)
+        elif model.__name__ == 'Contract':
+            queryset = queryset.filter(delete_time=0)
+        else:
+            queryset = queryset.filter(delete_time__isnull=True)
+    if current_id:
+        queryset = queryset | model.objects.filter(id=current_id)
+    return queryset.distinct()
+
+
 class ContractCategoryForm(forms.ModelForm):
     class Meta:
         model = ContractCategory
@@ -55,7 +73,8 @@ class ContractCategoryForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['parent'].queryset = ContractCategory.objects.all()
+        current_parent_id = self.instance.parent_id if self.instance and self.instance.pk else None
+        self.fields['parent'].queryset = _active_queryset(ContractCategory, current_parent_id)
         self.fields['parent'].empty_label = "无上级分类"
 
 
@@ -94,7 +113,8 @@ class ProductCategoryForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['parent'].queryset = ProductCategory.objects.all()
+        current_parent_id = self.instance.parent_id if self.instance and self.instance.pk else None
+        self.fields['parent'].queryset = _active_queryset(ProductCategory, current_parent_id)
         self.fields['parent'].empty_label = "无上级分类"
 
 
@@ -133,7 +153,8 @@ class ServiceCategoryForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['parent'].queryset = ServiceCategory.objects.all()
+        current_parent_id = self.instance.parent_id if self.instance and self.instance.pk else None
+        self.fields['parent'].queryset = _active_queryset(ServiceCategory, current_parent_id)
         self.fields['parent'].empty_label = "无上级分类"
 
 
@@ -189,7 +210,8 @@ class ServiceForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['category'].queryset = ServiceCategory.objects.all()
+        current_category_id = self.instance.category_id if self.instance and self.instance.pk else None
+        self.fields['category'].queryset = _active_queryset(ServiceCategory, current_category_id)
         self.fields['category'].empty_label = "请选择服务分类"
 
 
@@ -259,7 +281,8 @@ class PurchaseCategoryForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['parent'].queryset = PurchaseCategory.objects.all()
+        current_parent_id = self.instance.parent_id if self.instance and self.instance.pk else None
+        self.fields['parent'].queryset = _active_queryset(PurchaseCategory, current_parent_id)
         self.fields['parent'].empty_label = "无上级分类"
 
 
@@ -313,10 +336,11 @@ class PurchaseItemForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['category'].queryset = PurchaseCategory.objects.all()
+        current_category_id = self.instance.category_id if self.instance and self.instance.pk else None
+        current_supplier_id = self.instance.supplier_id if self.instance and self.instance.pk else None
+        self.fields['category'].queryset = _active_queryset(PurchaseCategory, current_category_id)
         self.fields['category'].empty_label = "请选择采购分类"
-        self.fields['supplier'].queryset = Supplier.objects.filter(
-            is_active=True)
+        self.fields['supplier'].queryset = _active_queryset(Supplier, current_supplier_id)
         self.fields['supplier'].empty_label = "请选择供应商"
 
 
@@ -454,8 +478,8 @@ class ProductForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['cate'].queryset = ProductCate.objects.filter(
-            status=1).order_by('title')
+        current_cate_id = self.instance.cate_id if self.instance and self.instance.pk else None
+        self.fields['cate'].queryset = _active_queryset(ProductCate, current_cate_id).order_by('title')
 
 
 class LegacyProductCateForm(forms.ModelForm):
@@ -474,6 +498,7 @@ class LegacyProductCateForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['pid'].queryset = ProductCate.objects.filter(
-            pid__isnull=True, status=1)
+        current_pid = self.instance.pid_id if self.instance and self.instance.pk else None
+        queryset = _active_queryset(ProductCate, current_pid).filter(pid__isnull=True).order_by('title')
+        self.fields['pid'].queryset = queryset
         self.fields['pid'].empty_label = "无父分类"

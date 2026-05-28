@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>服务配置详情</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <style>
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+        .detail-item {
+            padding: 12px 16px;
+            border: 1px solid #f0f0f0;
+            border-radius: 4px;
+            background: #fafafa;
+        }
+        .detail-item.full {
+            grid-column: 1 / -1;
+        }
+        .detail-label {
+            color: #999;
+            font-size: 13px;
+            margin-bottom: 6px;
+        }
+        .detail-value {
+            color: #333;
+            word-break: break-all;
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <div class="layui-row">
+                    <div class="layui-col-md8">
+                        <h3>服务配置详情</h3>
+                    </div>
+                    <div class="layui-col-md4" style="text-align: right;">
+                        <a href="{% url 'system:service_config_edit' service.pk %}" class="layui-btn layui-btn-sm">编辑</a>
+                        <a href="{% url 'system:service_config_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">返回列表</a>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-card-body">
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <div class="detail-label">配置名称</div>
+                        <div class="detail-value">{{ service.name }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">服务类别</div>
+                        <div class="detail-value">{{ service.get_category_display }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">服务商</div>
+                        <div class="detail-value">{{ service.get_provider_display }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">启用状态</div>
+                        <div class="detail-value">
+                            {% if service.is_enabled %}
+                            <span class="layui-badge layui-bg-green">已启用</span>
+                            {% else %}
+                            <span class="layui-badge">已禁用</span>
+                            {% endif %}
+                            <span style="margin-left: 8px;">{{ service.get_status_display }}</span>
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">API Key</div>
+                        <div class="detail-value">{{ service.get_api_key_masked|default:'-' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">API Secret</div>
+                        <div class="detail-value">{% if service.api_secret %}已配置{% else %}-{% endif %}</div>
+                    </div>
+                    <div class="detail-item full">
+                        <div class="detail-label">接口地址</div>
+                        <div class="detail-value">{{ service.base_url|default:'-' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">模板ID</div>
+                        <div class="detail-value">{{ service.template_id|default:'-' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">签名名称</div>
+                        <div class="detail-value">{{ service.sign_name|default:'-' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">请求频率限制</div>
+                        <div class="detail-value">{{ service.request_rate_limit|default:'0' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">支持格式</div>
+                        <div class="detail-value">{{ service.supported_formats|default:'-' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">最后测试时间</div>
+                        <div class="detail-value">{{ service.last_test_time|date:"Y-m-d H:i:s"|default:'-' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">最近错误</div>
+                        <div class="detail-value">{{ service.last_error|default:'-' }}</div>
+                    </div>
+                    <div class="detail-item full">
+                        <div class="detail-label">额外配置</div>
+                        <div class="detail-value">
+                            {% if service.extra_config %}
+                            <pre style="margin: 0; white-space: pre-wrap; word-break: break-word;">{{ service.extra_config }}</pre>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="detail-item full">
+                        <div class="detail-label">描述</div>
+                        <div class="detail-value">{{ service.description|default:'-'|linebreaksbr }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">创建人</div>
+                        <div class="detail-value">{{ service.creator.name|default:service.creator.username|default:'-' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">更新时间</div>
+                        <div class="detail-value">{{ service.updated_at|date:"Y-m-d H:i:s" }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

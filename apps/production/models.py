@@ -1169,6 +1169,13 @@ class ProductionLineDayPlan(models.Model):
     def __str__(self):
         return f"{self.code} - {self.plan_date}"
 
+    @property
+    def completion_rate(self):
+        """日计划完成率"""
+        if self.quantity and float(self.quantity) != 0:
+            return round((float(self.completed_quantity) / float(self.quantity)) * 100, 2)
+        return 0
+
 
 class MaterialRequest(models.Model):
     """领料申请单"""

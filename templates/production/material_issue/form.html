@@ -24,7 +24,7 @@
                             <div class="layui-form-item">
                                 <label class="layui-form-label">出库单号</label>
                                 <div class="layui-input-block">
-                                    <input type="text" name="code" value="{{ form.code.value|default:'' }}" 
+                                    <input type="text" name="code" value="{{ form.code.value|default:'' }}"
                                            class="layui-input" placeholder="自动生成或手动输入" lay-verify="required">
                                 </div>
                             </div>
@@ -57,7 +57,7 @@
                             <div class="layui-form-item">
                                 <label class="layui-form-label">出库日期</label>
                                 <div class="layui-input-block">
-                                    <input type="date" name="issue_date" value="{{ form.issue_date.value|default:'' }}" 
+                                    <input type="date" name="issue_date" value="{{ form.issue_date.value|default:'' }}"
                                            class="layui-input">
                                 </div>
                             </div>
@@ -92,6 +92,53 @@
             var layer = layui.layer;
 
             form.render();
+        });
+
+        function openRightPopup(title, url) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: title,
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: url,
+                    success: function(layero, index) {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    },
+                    end: function() {
+                        window.location.reload();
+                    }
+                });
+            });
+        }
+</script>
+
+    <!-- 注入的消息提示脚本 -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var msgs = [
+                {% for message in messages %}
+                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
+                {% endfor %}
+            ];
+
+            if (msgs.length > 0 && typeof layui !== 'undefined') {
+                layui.use(['layer'], function() {
+                    msgs.forEach(function(m) {
+                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
+                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
+                    });
+                });
+            }
         });
     </script>
 </body>

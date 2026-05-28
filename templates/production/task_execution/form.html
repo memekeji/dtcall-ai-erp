@@ -5,7 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% if task %}编辑生产任务{% else %}新建生产任务{% endif %}</title>
+    <title>{{ action }}生产任务</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
 </head>
 
@@ -15,7 +15,7 @@
         <div class="layui-row">
             <div class="layui-col-md12">
                 <h2 style="margin-bottom: 20px;">
-                    {% if task %}编辑生产任务{% else %}新建生产任务{% endif %}
+                    {{ action }}生产任务
                 </h2>
             </div>
         </div>
@@ -27,7 +27,7 @@
                     <div class="layui-card-body">
                         <form class="layui-form" method="post">
                             {% csrf_token %}
-                            
+
                             <div class="layui-form-item">
                                 <div class="layui-inline">
                                     <label class="layui-form-label">任务名称 <span style="color: red;">*</span></label>
@@ -131,20 +131,10 @@
                                 </div>
                             </div>
 
-                            <div class="layui-form-item layui-form-text">
-                                <label class="layui-form-label">挂起原因</label>
-                                <div class="layui-input-block">
-                                    {{ form.suspend_reason }}
-                                    {% if form.suspend_reason.errors %}
-                                        <div style="color: red; margin-top: 5px;">{{ form.suspend_reason.errors.0 }}</div>
-                                    {% endif %}
-                                </div>
-                            </div>
-
                             <div class="layui-form-item">
                                 <div class="layui-input-block">
                                     <button class="layui-btn" lay-submit lay-filter="formSubmit">
-                                        {% if task %}更新{% else %}保存{% endif %}
+                                        {{ action }}
                                     </button>
                                     <button type="button" class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:production_task_list' %}'">
                                         取消
@@ -181,6 +171,53 @@
             form.on('submit(formSubmit)', function(data) {
                 return true; // 允许表单提交
             });
+        });
+
+        function openRightPopup(title, url) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: title,
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: url,
+                    success: function(layero, index) {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    },
+                    end: function() {
+                        window.location.reload();
+                    }
+                });
+            });
+        }
+</script>
+
+    <!-- 注入的消息提示脚本 -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var msgs = [
+                {% for message in messages %}
+                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
+                {% endfor %}
+            ];
+
+            if (msgs.length > 0 && typeof layui !== 'undefined') {
+                layui.use(['layer'], function() {
+                    msgs.forEach(function(m) {
+                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
+                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
+                    });
+                });
+            }
         });
     </script>
 </body>

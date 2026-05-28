@@ -40,7 +40,7 @@ from .forms import (
     AIComplianceRuleForm,
     AIActionTriggerForm
 )
-from .utils.ai_client import AIClient
+from .utils.ai_client import AIClient, AIClientError
 from .services.complete_node_config import (
     get_node_config_schema,
     get_node_full_config,
@@ -171,60 +171,65 @@ class AIModelConfigValidateView(
 
     def validate_connection(self):
         model_config = self.get_object()
+        logger = logging.getLogger(__name__)
         try:
-            # 记录详细的调试信息
-            import logging
-            logger = logging.getLogger(__name__)
             logger.info(f"测试AI模型连接 - 模型ID: {model_config.id}")
             logger.info(
-                f"模型配置 - 提供商: {model_config.provider}, 基础URL: {model_config.api_base}, 模型名称: {model_config.model_name}")
+                f"模型配置 - 提供商: {model_config.provider}, 基础URL: {model_config.api_base}, 模型名称: {model_config.model_name}, 模型类型: {model_config.model_type}")
             logger.info(f"API密钥: {'***' if model_config.api_key else '未配置'}")
 
-            # 直接使用model_config_id参数实例化AIClient
             client = AIClient(model_config_id=model_config.id)
-            # 测试连接，使用chat_completion方法发送简单消息
-            test_message = [{"role": "user", "content": "你好，这是一个连接测试。"}]
-
-            # 记录测试消息
-            logger.info(f"测试消息: {test_message}")
-
-            response = client.client.chat_completion(test_message)
-            logger.info(f"AI模型连接成功 - 响应: {response[:50]}...")
+            result = self._run_model_validation(client, model_config)
+            display_result = self._format_validation_result(result)
+            logger.info(f"AI模型连接成功 - 模型ID: {model_config.id}, 模型类型: {model_config.model_type}")
             return JsonResponse({
                 'status': 'success',
                 'message': '连接成功',
-                'result': response[:50] + '...',
+                'result': display_result,
                 'details': {
                     'provider': model_config.provider,
                     'base_url': model_config.api_base,
                     'model_name': model_config.model_name,
-                    'test_message': test_message
+                    'model_type': model_config.model_type
                 }
             })
         except Exception as e:
-            # 记录详细的错误信息
-            import logging
             import traceback
-            logger = logging.getLogger(__name__)
             logger.error(f"AI模型连接失败 - 模型ID: {model_config.id}")
             logger.error(f"错误类型: {type(e).__name__}")
             logger.error(f"错误详情: {str(e)}")
             logger.error(f"完整错误堆栈: {traceback.format_exc()}")
             logger.error(
-                f"模型配置 - 提供商: {model_config.provider}, 基础URL: {model_config.api_base}, 模型名称: {model_config.model_name}")
+                f"模型配置 - 提供商: {model_config.provider}, 基础URL: {model_config.api_base}, 模型名称: {model_config.model_name}, 模型类型: {model_config.model_type}")
 
             return JsonResponse({
                 'status': 'error',
-                'message': f'连接失败: {str(e)}',
+                'message': '连接失败，请检查模型配置后重试',
                 'details': {
                     'provider': model_config.provider,
                     'base_url': model_config.api_base,
                     'model_name': model_config.model_name,
+                    'model_type': model_config.model_type,
                     'error_type': type(e).__name__,
-                    'error_message': str(e),
                     'suggestion': self._get_error_suggestion(type(e).__name__, model_config)
                 }
             })
+
+    def _run_model_validation(self, client, model_config):
+        if model_config.model_type == 'embedding':
+            return client.embedding('这是一个嵌入模型连接测试。', model=model_config.model_name)
+        if model_config.model_type in ['chat', 'text']:
+            test_message = [{"role": "user", "content": "你好，这是一个连接测试。"}]
+            if model_config.model_type == 'text':
+                return client.text_completion('你好，这是一个连接测试。', model=model_config.model_name)
+            return client.chat_completion(test_message, model=model_config.model_name)
+        raise AIClientError(f"当前暂不支持验证{model_config.get_model_type_display()}接口")
+
+    def _format_validation_result(self, result):
+        if isinstance(result, (list, tuple)):
+            return f"向量维度: {len(result)}"
+        text = str(result or '')
+        return text[:50] + '...' if len(text) > 50 else text
 
     def _get_error_suggestion(self, error_type, model_config):
         """根据错误类型提供修复建议"""
@@ -364,7 +369,7 @@ class AIWorkflowUpdateView(
                 logger.error(f'保存工作流失败: {e}', exc_info=True)
                 return JsonResponse({
                     'status': 'error',
-                    'message': str(e)
+                    'message': '工作流保存失败，请稍后重试'
                 }, status=500)
 
         return super().post(request, *args, **kwargs)
@@ -389,9 +394,10 @@ class AIWorkflowDeleteView(
                 'message': f'工作流 "{workflow_name}" 删除成功'
             })
         except Exception as e:
+            logger.error(f'删除工作流失败: {str(e)}')
             return JsonResponse({
                 'success': False,
-                'message': f'删除失败：{str(e)}'
+                'message': '删除失败，请稍后重试'
             }, status=500)
 
     def post(self, request, *args, **kwargs):
@@ -523,9 +529,10 @@ class AIWorkflowJsonDetailView(LoginRequiredMixin, DetailView):
                 }
             })
         except Exception as e:
+            logger.error(f'获取工作流详情失败: {str(e)}')
             return JsonResponse({
                 'status': 'error',
-                'message': str(e)
+                'message': '获取工作流详情失败，请稍后重试'
             }, status=500)
 
 
@@ -564,9 +571,10 @@ class AIWorkflowExecuteView(
                 'message': '工作流执行已启动'
             })
         except Exception as e:
+            logger.error(f'执行工作流失败: {str(e)}')
             return JsonResponse({
                 'status': 'error',
-                'message': str(e)
+                'message': '工作流执行失败，请稍后重试'
             }, status=400)
 
 
@@ -604,9 +612,10 @@ class AIWorkflowParametersView(
             })
 
         except Exception as e:
+            logger.error(f'获取工作流参数失败: {str(e)}')
             return JsonResponse({
                 'status': 'error',
-                'message': str(e)
+                'message': '获取工作流参数失败，请稍后重试'
             }, status=400)
 
 
@@ -733,8 +742,9 @@ class AIChatMessageCreateView(
             if intent == 'data_query':
                 # 3. 执行数据查询服务
                 from apps.ai.services.query_service import query_service
+                intent_payload = intent_result.get('intent_result') or intent_result
                 result = query_service.process_query(
-                    self.request.user, message_content)
+                    self.request.user, message_content, intent_payload)
 
                 if result['success']:
                     ai_response = result['result']
@@ -772,7 +782,7 @@ class AIChatMessageCreateView(
         except Exception as e:
             logger.error(f'AI生成失败: {str(e)}')
             return JsonResponse(
-                {'status': 'error', 'message': f'AI生成失败: {str(e)}'})
+                {'status': 'error', 'message': 'AI生成失败，请稍后重试'})
 
 
 # AI知识库视图
@@ -994,13 +1004,11 @@ class AIKnowledgeItemCreateView(
                 messages.success(self.request, '知识条目创建成功')
                 return redirect('ai:knowledge_item_list')
         except Exception as e:
-            # 记录错误日志
             import logging
             logger = logging.getLogger(__name__)
             logger.error(f"创建知识库条目失败: {str(e)}")
 
-            # 返回错误信息
-            error_msg = f"操作失败: {str(e)}"
+            error_msg = "操作失败，请稍后重试"
             if self.request.headers.get(
                     'X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'status': 'error', 'message': error_msg})
@@ -1055,13 +1063,11 @@ class AIKnowledgeItemUpdateView(
                 messages.success(self.request, '知识条目更新成功')
                 return redirect('ai:knowledge_item_list')
         except Exception as e:
-            # 记录错误日志
             import logging
             logger = logging.getLogger(__name__)
             logger.error(f"更新知识库条目失败: {str(e)}")
 
-            # 返回错误信息
-            error_msg = f"操作失败: {str(e)}"
+            error_msg = "操作失败，请稍后重试"
             if self.request.headers.get(
                     'X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'status': 'error', 'message': error_msg})
@@ -1536,8 +1542,9 @@ class ParseFileContentView(
                     for para in doc.paragraphs:
                         parsed_content += para.text + '\n'
                 except Exception as e:
+                    logger.error(f'Word文件解析失败: {str(e)}')
                     return JsonResponse(
-                        {'status': 'error', 'message': f'Word文件解析失败: {str(e)}'})
+                        {'status': 'error', 'message': 'Word文件解析失败，请检查文件内容后重试'})
             elif file_extension in ['pdf']:
                 # 解析PDF文件
                 try:
@@ -1548,8 +1555,9 @@ class ParseFileContentView(
                     for page in pdf_reader.pages:
                         parsed_content += page.extract_text() + '\n'
                 except Exception as e:
+                    logger.error(f'PDF文件解析失败: {str(e)}')
                     return JsonResponse(
-                        {'status': 'error', 'message': f'PDF文件解析失败: {str(e)}'})
+                        {'status': 'error', 'message': 'PDF文件解析失败，请检查文件内容后重试'})
             elif file_extension in ['xls', 'xlsx']:
                 # 解析Excel文件
                 try:
@@ -1568,8 +1576,9 @@ class ParseFileContentView(
                                     [str(cell) if cell is not None else '' for cell in row])
                                 parsed_content += row_content + '\n'
                 except Exception as e:
+                    logger.error(f'Excel文件解析失败: {str(e)}')
                     return JsonResponse(
-                        {'status': 'error', 'message': f'Excel文件解析失败: {str(e)}'})
+                        {'status': 'error', 'message': 'Excel文件解析失败，请检查文件内容后重试'})
             elif file_extension in ['ppt', 'pptx']:
                 # 解析PPT文件
                 try:
@@ -1583,8 +1592,9 @@ class ParseFileContentView(
                             if hasattr(shape, 'text'):
                                 parsed_content += shape.text + '\n'
                 except Exception as e:
+                    logger.error(f'PPT文件解析失败: {str(e)}')
                     return JsonResponse(
-                        {'status': 'error', 'message': f'PPT文件解析失败: {str(e)}'})
+                        {'status': 'error', 'message': 'PPT文件解析失败，请检查文件内容后重试'})
             else:
                 return JsonResponse(
                     {'status': 'error', 'message': f'不支持的文件类型: {file_extension}'})
@@ -1597,13 +1607,44 @@ class ParseFileContentView(
                 'file_extension': file_extension
             })
         except Exception as e:
+            logger.error(f'文件解析失败: {str(e)}')
             return JsonResponse(
-                {'status': 'error', 'message': f'文件解析失败: {str(e)}'})
+                {'status': 'error', 'message': '文件解析失败，请检查文件后重试'})
 
 
 # AI流式聊天视图
 
 logger = logging.getLogger(__name__)
+
+
+class AIIntentRecognizeAPIView(LoginRequiredMixin, View):
+    """AI 意图识别接口"""
+
+    def post(self, request, *args, **kwargs):
+        import json
+
+        try:
+            if request.POST:
+                data = request.POST
+            else:
+                try:
+                    data = json.loads(request.body or '{}')
+                except json.JSONDecodeError:
+                    return JsonResponse({'status': 'error', 'message': '无效的JSON格式'}, status=400)
+
+            message = (data.get('message') or data.get('query') or '').strip()
+            if not message:
+                return JsonResponse({'status': 'error', 'message': '消息不能为空'}, status=400)
+            if len(message) > 2000:
+                return JsonResponse({'status': 'error', 'message': '消息过长，请精简后重试'}, status=400)
+
+            from apps.ai.services.intent_recognition_service import intent_recognition_service
+            result = intent_recognition_service.recognize_intent(request.user, message)
+            return JsonResponse({'status': 'success', 'result': result})
+
+        except Exception as e:
+            logger.error(f'AI意图识别接口失败: {str(e)}')
+            return JsonResponse({'status': 'error', 'message': 'AI意图识别暂时不可用，请稍后重试'}, status=500)
 
 
 class AIChatStreamView(LoginRequiredMixin, CreateView):
@@ -1643,57 +1684,16 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
             # 2. 获取意图
             intent_result.get('intent_type', 'ai_chat')
 
-            # 3. 处理响应
-            if intent_result.get('success'):
-                ai_response = intent_result.get(
-                    'result', intent_result.get('message', ''))
+            if request.headers.get('Accept') == 'application/json' or data.get('response_format') == 'json':
+                self.save_chat_record(request.user, data.get('chat_id'), message, self.get_response_text(intent_result))
+                return JsonResponse(intent_result)
 
-                # 如果是确认请求，返回选项
-                if intent_result.get('requires_confirmation'):
-                    ai_response = intent_result.get('message', '请选择您要执行的操作：')
-            else:
-                # 处理失败情况
-                if intent_result.get('requires_confirmation'):
-                    ai_response = intent_result.get(
-                        'message', '我不太确定您的意图，请选择：')
-                elif intent_result.get('requires_permission'):
-                    ai_response = f"{intent_result.get('message', '您没有权限执行此操作')}。{intent_result.get('suggestion', '请联系管理员获取相应权限')}"
-                else:
-                    ai_response = intent_result.get('message', '抱歉，我无法处理您的请求')
+            # 3. 处理响应
+            ai_response = self.get_response_text(intent_result)
 
             try:
                 # 5. 保存聊天记录
-                chat = None
-                chat_id = data.get('chat_id')
-
-                if chat_id:
-                    # 使用指定的聊天会话
-                    try:
-                        chat = AIChat.objects.get(
-                            id=chat_id, user=request.user)
-                    except AIChat.DoesNotExist:
-                        # 如果指定的聊天会话不存在，创建新的
-                        chat = None
-
-                if not chat:
-                    # 创建新的聊天会话
-                    chat, created = AIChat.objects.get_or_create(
-                        user=request.user, defaults={
-                            'title': f'聊天 {timezone.now().strftime("%Y-%m-%d %H:%M:%S")}'})
-
-                # 保存用户消息
-                AIChatMessage.objects.create(
-                    chat=chat,
-                    role='user',
-                    content=message
-                )
-
-                # 保存AI回复
-                AIChatMessage.objects.create(
-                    chat=chat,
-                    role='assistant',
-                    content=ai_response
-                )
+                self.save_chat_record(request.user, data.get('chat_id'), message, ai_response)
             except Exception as e:
                 logger.error(f'保存聊天记录失败: {str(e)}')
 
@@ -1706,10 +1706,53 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
 
         except Exception as e:
             logger.error(f'流式聊天请求失败: {str(e)}')
-            error_message = f'抱歉，我暂时无法回答您的问题，请稍后再试。\n错误详情: {str(e)}'
+            error_message = '抱歉，我暂时无法回答您的问题，请稍后再试。'
             return HttpResponse(
                 self.generate_streaming_response(error_message),
                 content_type='text/event-stream')
+
+    def save_chat_record(self, user, chat_id, message, ai_response):
+        try:
+            chat = None
+
+            if chat_id:
+                try:
+                    chat = AIChat.objects.get(id=chat_id, user=user)
+                except AIChat.DoesNotExist:
+                    chat = None
+
+            if not chat:
+                chat, created = AIChat.objects.get_or_create(
+                    user=user, defaults={
+                        'title': f'聊天 {timezone.now().strftime("%Y-%m-%d %H:%M:%S")}'})
+
+            AIChatMessage.objects.create(
+                chat=chat,
+                role='user',
+                content=message
+            )
+
+            AIChatMessage.objects.create(
+                chat=chat,
+                role='assistant',
+                content=ai_response
+            )
+        except Exception as e:
+            logger.error(f'保存聊天记录失败: {str(e)}')
+
+    def get_response_text(self, intent_result):
+        if intent_result.get('success'):
+            ai_response = intent_result.get(
+                'result', intent_result.get('message', ''))
+            if intent_result.get('requires_confirmation'):
+                ai_response = intent_result.get('message', '请选择您要执行的操作：')
+            return ai_response
+
+        if intent_result.get('requires_confirmation'):
+            return intent_result.get('message', '我不太确定您的意图，请选择：')
+        if intent_result.get('requires_permission'):
+            return f"{intent_result.get('message', '您没有权限执行此操作')}。{intent_result.get('suggestion', '请联系管理员获取相应权限')}"
+        return intent_result.get('message', '抱歉，我无法处理您的请求')
 
     def generate_streaming_response(self, response_text):
         """生成流式响应"""
@@ -1919,7 +1962,7 @@ class KnowledgeBaseListAPIView(View):
             logger.error(f'获取知识库列表失败: {e}', exc_info=True)
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': '获取知识库列表失败，请稍后重试'
             }, status=500)
 
 
@@ -1952,7 +1995,7 @@ class ModelConfigListAPIView(View):
             logger.error(f'获取模型配置列表失败: {e}', exc_info=True)
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': '获取模型配置列表失败，请稍后重试'
             }, status=500)
 
 
@@ -1985,7 +2028,7 @@ class WorkflowModuleListAPIView(View):
             logger.error(f'获取工作流列表失败: {e}', exc_info=True)
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': '获取工作流列表失败，请稍后重试'
             }, status=500)
 
 
@@ -2056,5 +2099,5 @@ class NodeDynamicOptionsView(View):
             logger.error(f'获取节点动态选项失败: {e}', exc_info=True)
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': '获取节点动态选项失败，请稍后重试'
             }, status=500)

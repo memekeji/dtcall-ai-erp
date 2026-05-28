@@ -306,7 +306,7 @@
                 alerts.forEach(function(alert) {
                     var severityClass = alert.severity || 'low';
                     var severityLabel = severityClass === 'high' ? '高' : (severityClass === 'medium' ? '中' : '低');
-                    
+
                     html += '<div class="alert-card ' + severityClass + '">';
                     html += '<div class="alert-header">';
                     html += '<div class="alert-title">' + alert.name + '</div>';
@@ -358,7 +358,7 @@
             }, function(index) {
                 var unacknowledged = allAlerts.filter(function(a) { return !a.acknowledged; });
                 var count = 0;
-                
+
                 unacknowledged.forEach(function(alert) {
                     $.ajax({
                         url: '/production/alert/acknowledge/' + alert.id + '/',
@@ -369,7 +369,7 @@
                         }
                     });
                 });
-                
+
                 layer.close(index);
                 layer.msg('已确认 ' + count + ' 条告警', {icon: 1});
                 loadAlerts();
@@ -385,20 +385,31 @@
                     '<tr><td style="font-weight: bold;">严重程度</td><td>' + alert.severity + '</td></tr>' +
                     '<tr><td style="font-weight: bold;">告警信息</td><td>' + alert.message + '</td></tr>' +
                     '<tr><td style="font-weight: bold;">发生时间</td><td>' + new Date(alert.timestamp).toLocaleString() + '</td></tr>';
-                
+
                 if (alert.acknowledged) {
                     content += '<tr><td style="font-weight: bold;">确认状态</td><td>已确认</td></tr>';
                 } else {
                     content += '<tr><td style="font-weight: bold;">确认状态</td><td>未确认</td></tr>';
                 }
-                
+
                 content += '</table></div>';
-                
+
                 layer.open({
                     type: 1,
                     title: '告警详情',
                     area: ['80%', '100%'],
-                    content: content
+                    offset: 'r',
+                    anim: 2,
+                    shadeClose: false,
+                    shade: 0.3,
+                    content: content,
+                    success: function(layero, index) {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    }
                 });
             }
         }
@@ -409,6 +420,72 @@
             layui.form.render('select');
             loadAlerts();
         }
+
+        function openRightPopup(title, url) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: title,
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: url,
+                    success: function(layero, index) {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    },
+                    end: function() {
+                        window.location.reload();
+                    }
+                });
+            });
+        }
+</script>
+
+    <!-- 注入的 iframe 自动关闭及消息提示脚本 -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var msgs = [
+                {% for message in messages %}
+                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
+                {% endfor %}
+            ];
+
+            var flashMsg = sessionStorage.getItem('flash_msg');
+            if (flashMsg) {
+                sessionStorage.removeItem('flash_msg');
+                try {
+                    var parsedMsgs = JSON.parse(flashMsg);
+                    msgs = msgs.concat(parsedMsgs);
+                } catch(e) {}
+            }
+
+            if (window !== window.parent) {
+                // 如果在 iframe 中加载了 list/index 页面，说明是操作成功后的重定向，或者点击了返回
+                if (msgs.length > 0) {
+                    sessionStorage.setItem('flash_msg', JSON.stringify(msgs));
+                }
+                parent.location.reload();
+                return;
+            }
+
+            // 正常独立访问 list 页面
+            if (msgs.length > 0 && typeof layui !== 'undefined') {
+                layui.use(['layer'], function() {
+                    msgs.forEach(function(m) {
+                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
+                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
+                    });
+                });
+            }
+        });
     </script>
 </body>
 

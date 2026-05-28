@@ -1,11 +1,9 @@
+{% extends 'include/popup.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% if object %}编辑报销{% else %}新增报销{% endif %}</title>
-    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+
+{% block title %}{% if object %}编辑报销{% else %}新增报销{% endif %}{% endblock %}
+
+{% block head %}
     <style>
         body {
             background: #f8f9fa;
@@ -164,8 +162,9 @@
             font-weight: 500;
         }
     </style>
-</head>
-<body>
+{% endblock %}
+
+{% block content %}
     <div class="form-container">
         <div class="form-header">
             <h2>
@@ -301,7 +300,7 @@
                         <i class="layui-icon layui-icon-ok"></i>
                         {% if object %}更新报销{% else %}提交报销{% endif %}
                     </button>
-                    <button type="button" class="layui-btn layui-btn-primary layui-btn-lg" onclick="parent.layer.closeAll()" style="margin-left: 15px;">
+                    <button type="button" class="layui-btn layui-btn-primary layui-btn-lg" onclick="closePopup()" style="margin-left: 15px;">
                         <i class="layui-icon layui-icon-close"></i>
                         取消
                     </button>
@@ -309,13 +308,15 @@
             </form>
         </div>
     </div>
+{% endblock %}
 
-    <script src="{% static 'layui/layui.js' %}"></script>
+{% block script %}
     <script>
         layui.use(['form', 'layer', 'upload'], function() {
             var form = layui.form;
             var layer = layui.layer;
             var upload = layui.upload;
+            var $ = layui.$;
             
             // 文件上传
             upload.render({
@@ -369,14 +370,19 @@
                 setTimeout(function() {
                     layer.close(loadIndex);
                     layer.msg('提交成功', {icon: 1}, function() {
-                        parent.layer.closeAll();
+                        if(parent && parent.layer) {
+                            var index = parent.layer.getFrameIndex(window.name);
+                            parent.layer.close(index);
+                        } else {
+                            closePopup();
+                        }
                         if(parent.layui && parent.layui.table) {
                             parent.layui.table.reload('expenseTable');
                         }
                     });
                 }, 1000);
                 
-                return true;
+                return false; // 阻止表单跳转
             });
             
             // 金额输入格式化
@@ -388,5 +394,4 @@
             });
         });
     </script>
-</body>
-</html>
+{% endblock %}

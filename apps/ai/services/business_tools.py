@@ -51,7 +51,8 @@ def analyze_project_risk(project_id: str):
         result = tool.predict_risk(project_data, task_data, [])
         return result.get('analysis', '分析失败')
     except Exception as e:
-        return f"获取项目信息失败: {str(e)}"
+        logger.error(f"获取项目信息失败: {str(e)}")
+        return "获取项目信息失败，请稍后重试"
 
 @tool_registry.register(
     name="fill_frontend_form",

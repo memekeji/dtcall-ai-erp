@@ -16,9 +16,9 @@
                     <div class="layui-card-header">
                         <h3>跟进记录</h3>
                         <div style="float: right;">
-                            <a href="{% url 'customer:follow_record_create' %}" class="layui-btn layui-btn-sm">
+                            <button class="layui-btn layui-btn-sm" onclick="openRightPopup('添加跟进', '{% url 'customer:follow_record_create' %}')">
                                 <i class="layui-icon layui-icon-add-1"></i> 添加跟进
-                            </a>
+                            </button>
                         </div>
                     </div>
                     <div class="layui-card-body">
@@ -52,6 +52,38 @@
 
     <script src="/static/layui/layui.js"></script>
     <script>
+        function openRightPopup(title, url) {
+            layui.use(['layer', 'table'], function () {
+                var layer = layui.layer;
+                var table = layui.table;
+                layer.open({
+                    type: 2,
+                    title: title,
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: url,
+                    success: function(layero, index) {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    },
+                    end: function() {
+                        if (table) {
+                            table.reload('recordTable');
+                        } else {
+                            window.location.reload();
+                        }
+                    }
+                });
+            });
+        }
+
         // 检查layui是否加载
         if (typeof layui !== 'undefined') {
             layui.use(['table', 'form'], function(){
@@ -121,7 +153,7 @@
                         if(obj.event === 'edit' && data.id) {
                             var url = '{% url "customer:follow_record_edit" 0 %}'.replace('0', data.id);
                             if (url) {
-                                window.location.href = url;
+                                openRightPopup('编辑跟进记录', url);
                             }
                         }
                     }

@@ -73,7 +73,7 @@ class WorkflowInteractionListView(LoginRequiredMixin, View):
             logger.error(f'获取交互列表失败: {e}')
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': '获取交互列表失败，请稍后重试'
             }, status=500)
 
 
@@ -102,7 +102,7 @@ class WorkflowInteractionDetailView(LoginRequiredMixin, View):
             logger.error(f'获取交互详情失败: {e}')
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': '获取交互详情失败，请稍后重试'
             }, status=500)
 
 
@@ -149,7 +149,7 @@ class WorkflowInteractionCompleteView(LoginRequiredMixin, View):
             logger.error(f'完成交互失败: {e}')
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': '完成交互失败，请检查输入后重试'
             }, status=400)
 
 
@@ -182,7 +182,7 @@ class WorkflowInteractionCancelView(LoginRequiredMixin, View):
             logger.error(f'取消交互失败: {e}')
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': '取消交互失败，请稍后重试'
             }, status=400)
 
 
@@ -226,7 +226,7 @@ class PendingInteractionListView(LoginRequiredMixin, View):
             logger.error(f'获取待处理交互失败: {e}')
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': '获取待处理交互失败，请稍后重试'
             }, status=500)
 
 
@@ -264,7 +264,7 @@ class InteractionFormSchemaView(LoginRequiredMixin, View):
             logger.error(f'获取交互表单Schema失败: {e}')
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': '获取交互表单配置失败，请稍后重试'
             }, status=500)
 
 
@@ -299,7 +299,7 @@ class InteractionTemplateListView(LoginRequiredMixin, View):
             logger.error(f'获取交互模板列表失败: {e}')
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': '获取交互模板列表失败，请稍后重试'
             }, status=500)
 
 
@@ -357,7 +357,7 @@ class CreateInteractionFromTemplateView(LoginRequiredMixin, View):
             logger.error(f'从模板创建交互失败: {e}')
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': '从模板创建交互失败，请检查配置后重试'
             }, status=500)
 
 
@@ -391,7 +391,7 @@ class WorkflowCheckpointListView(LoginRequiredMixin, View):
             logger.error(f'获取检查点列表失败: {e}')
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': '获取检查点列表失败，请稍后重试'
             }, status=500)
 
     def post(self, request, execution_id):
@@ -430,7 +430,7 @@ class WorkflowCheckpointListView(LoginRequiredMixin, View):
             logger.error(f'创建检查点失败: {e}')
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': '创建检查点失败，请稍后重试'
             }, status=500)
 
 
@@ -459,7 +459,7 @@ class WorkflowCheckpointRestoreView(LoginRequiredMixin, View):
             logger.error(f'恢复检查点失败: {e}')
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': '恢复检查点失败，请稍后重试'
             }, status=500)
 
 
@@ -538,5 +538,5 @@ class WorkflowExecutionInteractionsView(LoginRequiredMixin, View):
             logger.error(f'获取执行交互列表失败: {e}')
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': '获取执行交互列表失败，请稍后重试'
             }, status=500)

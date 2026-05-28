@@ -90,7 +90,7 @@ class OpenAISTTService(STTService):
             raise STTError("OpenAI API密钥未配置")
 
         if not os.path.exists(audio_file_path):
-            raise STTError(f"音频文件不存在: {audio_file_path}")
+            raise STTError("音频文件不存在，请检查音频文件配置")
 
         try:
             # 检查文件大小限制（OpenAI限制25MB）
@@ -118,18 +118,17 @@ class OpenAISTTService(STTService):
                 if response.status_code == 200:
                     return response.text.strip()
                 else:
-                    error_msg = f"OpenAI语音转文字失败: {response.status_code} - {response.text}"
-                    logger.error(error_msg)
-                    raise STTError(error_msg)
+                    logger.error(f"OpenAI语音转文字失败: {response.status_code} - {response.text}")
+                    raise STTError("OpenAI语音转文字失败，请检查模型配置后重试")
 
         except requests.exceptions.RequestException as e:
-            error_msg = f"网络请求失败: {str(e)}"
-            logger.error(error_msg)
-            raise STTError(error_msg)
+            logger.error(f"网络请求失败: {str(e)}")
+            raise STTError("语音转文字网络请求失败，请检查网络或模型配置后重试")
+        except STTError:
+            raise
         except Exception as e:
-            error_msg = f"语音转文字处理失败: {str(e)}"
-            logger.error(error_msg)
-            raise STTError(error_msg)
+            logger.error(f"语音转文字处理失败: {str(e)}")
+            raise STTError("语音转文字处理失败，请检查音频文件或模型配置后重试")
 
 
 class BaiduSTTService(STTService):
@@ -178,7 +177,8 @@ class BaiduSTTService(STTService):
             result = response.json()
             return result.get('access_token', '')
         else:
-            raise STTError(f"获取百度API令牌失败: {response.text}")
+            logger.error(f"获取百度API令牌失败: {response.text}")
+            raise STTError("获取百度API令牌失败，请检查百度语音识别配置")
 
     def transcribe_audio(self, audio_file_path: str, **kwargs) -> str:
         """使用百度语音识别API进行语音转文字"""
@@ -186,7 +186,7 @@ class BaiduSTTService(STTService):
             raise STTError("百度API密钥未配置")
 
         if not os.path.exists(audio_file_path):
-            raise STTError(f"音频文件不存在: {audio_file_path}")
+            raise STTError("音频文件不存在，请检查音频文件配置")
 
         try:
             access_token = self._get_access_token()
@@ -214,15 +214,17 @@ class BaiduSTTService(STTService):
                 if result.get('err_no') == 0:
                     return result.get('result', [''])[0]
                 else:
-                    raise STTError(
-                        f"百度语音识别失败: {result.get('err_msg', '未知错误')}")
+                    logger.error(f"百度语音识别失败: {result.get('err_msg', '未知错误')}")
+                    raise STTError("百度语音识别失败，请检查音频文件或服务配置")
             else:
-                raise STTError(f"百度API请求失败: {response.status_code}")
+                logger.error(f"百度API请求失败: {response.status_code}")
+                raise STTError("百度API请求失败，请检查百度语音识别配置")
 
+        except STTError:
+            raise
         except Exception as e:
-            error_msg = f"百度语音转文字失败: {str(e)}"
-            logger.error(error_msg)
-            raise STTError(error_msg)
+            logger.error(f"百度语音转文字失败: {str(e)}")
+            raise STTError("百度语音转文字失败，请检查音频文件或服务配置后重试")
 
     def _get_audio_format(self, file_path: str) -> str:
         """根据文件扩展名获取音频格式"""
@@ -256,7 +258,7 @@ class LocalSTTService(STTService):
             raise STTError("SpeechRecognition库未安装，请安装依赖")
         except Exception as e:
             logger.error(f"语音识别器初始化失败: {str(e)}")
-            raise STTError(f"语音识别器初始化失败: {str(e)}")
+            raise STTError("语音识别器初始化失败，请检查本地语音识别环境")
 
     def _convert_audio_format(self, audio_file_path: str) -> str:
         """将音频文件转换为WAV格式（如果需要）"""
@@ -296,7 +298,7 @@ class LocalSTTService(STTService):
     def transcribe_audio(self, audio_file_path: str, **kwargs) -> str:
         """使用本地模型进行语音转文字"""
         if not os.path.exists(audio_file_path):
-            raise STTError(f"音频文件不存在: {audio_file_path}")
+            raise STTError("音频文件不存在，请检查音频文件配置")
 
         try:
             import speech_recognition as sr
@@ -341,14 +343,14 @@ class LocalSTTService(STTService):
                         return text
                     except Exception as e2:
                         logger.error(f"所有语音识别方法均失败: {str(e2)}")
-                        raise STTError(f"语音识别失败: {str(e2)}")
+                        raise STTError("语音识别失败，请检查音频文件或语音识别服务配置")
 
         except ImportError as e:
             logger.error(f"语音识别库未安装: {str(e)}")
             raise STTError("语音识别库未安装，请安装依赖")
         except Exception as e:
             logger.error(f"本地语音转文字失败: {str(e)}")
-            raise STTError(f"本地语音转文字失败: {str(e)}")
+            raise STTError("本地语音转文字失败，请检查音频文件或本地识别环境")
         finally:
             # 清理临时文件
             if 'converted_path' in locals() and converted_path != audio_file_path:
@@ -396,7 +398,7 @@ class FreeSTTService(STTService):
     def transcribe_audio(self, audio_file_path: str, **kwargs) -> str:
         """使用免费服务进行语音转文字"""
         if not os.path.exists(audio_file_path):
-            raise STTError(f"音频文件不存在: {audio_file_path}")
+            raise STTError("音频文件不存在，请检查音频文件配置")
 
         # 检查文件大小
         file_size = os.path.getsize(audio_file_path)
@@ -449,7 +451,7 @@ class FreeSTTService(STTService):
             raise STTError("本地离线识别无法识别音频内容")
         except Exception as e:
             logger.warning(f"本地离线语音识别失败: {str(e)}")
-            raise STTError(f"本地离线语音识别失败: {str(e)}")
+            raise STTError("本地离线语音识别失败，请检查音频文件或本地识别环境")
 
     def _transcribe_google_online(self, audio_file_path: str, **kwargs) -> str:
         """使用Google在线语音识别"""
@@ -475,7 +477,7 @@ class FreeSTTService(STTService):
             raise STTError("Google语音识别服务不可用，请检查网络连接")
         except Exception as e:
             logger.warning(f"Google语音识别失败: {str(e)}")
-            raise STTError(f"Google语音识别失败: {str(e)}")
+            raise STTError("Google语音识别失败，请检查音频文件或网络连接")
 
     def _transcribe_with_speech_recognition(
             self, audio_file_path: str, **kwargs) -> str:

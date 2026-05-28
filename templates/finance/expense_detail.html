@@ -1,11 +1,9 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>报销详情</title>
-    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+{% extends 'include/popup.html' %}
+{% load static customer_filters %}
+
+{% block title %}报销详情{% endblock %}
+
+{% block head %}
     <style>
         body {
             background: #f8f9fa;
@@ -229,8 +227,9 @@
             display: block;
         }
     </style>
-</head>
-<body>
+{% endblock %}
+
+{% block content %}
     <div class="detail-container">
         <div class="detail-header">
             <h2>
@@ -450,17 +449,19 @@
                 <button class="layui-btn layui-btn-primary" onclick="printExpense()">
                     <i class="layui-icon layui-icon-print"></i> 打印详情
                 </button>
-                <button class="layui-btn layui-btn-primary" onclick="parent.layer.closeAll()">
+                <button class="layui-btn layui-btn-primary" onclick="closePopup()">
                     <i class="layui-icon layui-icon-close"></i> 关闭
                 </button>
             </div>
         </div>
     </div>
+{% endblock %}
 
-    <script src="{% static 'layui/layui.js' %}"></script>
+{% block script %}
     <script>
         layui.use(['layer'], function() {
             var layer = layui.layer;
+            var $ = layui.$;
             
             // 编辑报销
             window.editExpense = function() {
@@ -469,6 +470,8 @@
                     title: '编辑报销',
                     content: '/adm/finance/reimbursement/edit/{{ expense.id }}/',
                     area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
                     end: function() {
                         parent.location.reload();
                     }
@@ -486,7 +489,12 @@
                         success: function(response) {
                             if(response.code === 0) {
                                 layer.msg('删除成功', {icon: 1}, function() {
-                                    parent.layer.closeAll();
+                                    if(parent && parent.layer) {
+                                        var pindex = parent.layer.getFrameIndex(window.name);
+                                        parent.layer.close(pindex);
+                                    } else {
+                                        closePopup();
+                                    }
                                     if(parent.layui && parent.layui.table) {
                                         parent.layui.table.reload('expenseTable');
                                     }
@@ -507,6 +515,8 @@
                     title: '确认打款',
                     content: '/adm/finance/payment/add/?expense_id={{ expense.id }}',
                     area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
                     end: function() {
                         parent.location.reload();
                     }
@@ -519,5 +529,4 @@
             };
         });
     </script>
-</body>
-</html>
+{% endblock %}

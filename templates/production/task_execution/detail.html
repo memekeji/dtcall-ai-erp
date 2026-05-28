@@ -1,0 +1,189 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生产任务详情</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <div class="layui-row">
+                    <div class="layui-col-md8">
+                        <h2>{{ task.name }}</h2>
+                    </div>
+                    <div class="layui-col-md4" style="text-align: right;">
+                        <a href="{% url 'production:production_task_edit' task.pk %}" class="layui-btn layui-btn-sm">编辑</a>
+                        <a href="{% url 'production:production_task_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">返回列表</a>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-card-body">
+                <div class="layui-row layui-col-space15">
+                    <div class="layui-col-md3"><strong>任务编号：</strong>{{ task.code }}</div>
+                    <div class="layui-col-md3"><strong>所属计划：</strong>{{ task.plan.name }}</div>
+                    <div class="layui-col-md3"><strong>执行工序：</strong>{{ task.procedure.name }}</div>
+                    <div class="layui-col-md3"><strong>状态：</strong>{{ task.get_status_display }}</div>
+                </div>
+
+                <hr>
+
+                <div class="layui-row layui-col-space15">
+                    <div class="layui-col-md3"><strong>设备：</strong>{{ task.equipment.name|default:'-' }}</div>
+                    <div class="layui-col-md3"><strong>执行人：</strong>{{ task.assignee.username|default:'-' }}</div>
+                    <div class="layui-col-md3"><strong>创建人：</strong>{{ task.creator.username|default:'-' }}</div>
+                    <div class="layui-col-md3"><strong>创建时间：</strong>{{ task.create_time|date:"Y-m-d H:i:s" }}</div>
+                </div>
+
+                <hr>
+
+                <div class="layui-row layui-col-space15">
+                    <div class="layui-col-md3"><strong>任务数量：</strong>{{ task.quantity }}</div>
+                    <div class="layui-col-md3"><strong>完成数量：</strong>{{ task.completed_quantity }}</div>
+                    <div class="layui-col-md3"><strong>合格数量：</strong>{{ task.qualified_quantity }}</div>
+                    <div class="layui-col-md3"><strong>不合格数量：</strong>{{ task.defective_quantity }}</div>
+                </div>
+
+                <div class="layui-row layui-col-space15" style="margin-top: 12px;">
+                    <div class="layui-col-md6"><strong>完成率：</strong>{{ task.completion_rate }}%</div>
+                    <div class="layui-col-md6"><strong>合格率：</strong>{{ task.qualified_rate }}%</div>
+                </div>
+
+                <hr>
+
+                <div class="layui-row layui-col-space15">
+                    <div class="layui-col-md3"><strong>计划开始：</strong>{{ task.plan_start_time|date:"Y-m-d H:i" }}</div>
+                    <div class="layui-col-md3"><strong>计划结束：</strong>{{ task.plan_end_time|date:"Y-m-d H:i" }}</div>
+                    <div class="layui-col-md3"><strong>实际开始：</strong>{{ task.actual_start_time|date:"Y-m-d H:i"|default:'-' }}</div>
+                    <div class="layui-col-md3"><strong>实际结束：</strong>{{ task.actual_end_time|date:"Y-m-d H:i"|default:'-' }}</div>
+                </div>
+
+                {% if task.suspend_reason %}
+                <fieldset class="layui-elem-field layui-field-title">
+                    <legend>挂起信息</legend>
+                </fieldset>
+                <div class="layui-text" style="line-height: 1.8;">
+                    <div><strong>挂起人：</strong>{{ task.suspended_by.username|default:'-' }}</div>
+                    <div><strong>挂起时间：</strong>{{ task.suspended_time|date:"Y-m-d H:i:s"|default:'-' }}</div>
+                    <div><strong>挂起原因：</strong>{{ task.suspend_reason|linebreaks }}</div>
+                </div>
+                {% endif %}
+
+                <fieldset class="layui-elem-field layui-field-title">
+                    <legend>任务描述</legend>
+                </fieldset>
+                <div class="layui-text" style="line-height: 1.8;">{{ task.description|default:'-'|linebreaks }}</div>
+
+                <fieldset class="layui-elem-field layui-field-title">
+                    <legend>质量检查记录</legend>
+                </fieldset>
+                <table class="layui-table">
+                    <thead>
+                        <tr>
+                            <th>检查时间</th>
+                            <th>检查数量</th>
+                            <th>合格数量</th>
+                            <th>结果</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in quality_checks %}
+                        <tr>
+                            <td>{{ item.check_time|date:"Y-m-d H:i" }}</td>
+                            <td>{{ item.check_quantity }}</td>
+                            <td>{{ item.qualified_quantity }}</td>
+                            <td>{{ item.result_display }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" style="text-align: center;">暂无质量检查记录</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <fieldset class="layui-elem-field layui-field-title">
+                    <legend>数据采集记录</legend>
+                </fieldset>
+                <table class="layui-table">
+                    <thead>
+                        <tr>
+                            <th>设备</th>
+                            <th>参数名称</th>
+                            <th>参数值</th>
+                            <th>采集时间</th>
+                            <th>状态</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in data_collections %}
+                        <tr>
+                            <td>{{ item.equipment.name }}</td>
+                            <td>{{ item.parameter_name }}</td>
+                            <td>{{ item.parameter_value }} {{ item.unit }}</td>
+                            <td>{{ item.collect_time|date:"Y-m-d H:i" }}</td>
+                            <td>{{ item.is_normal|yesno:'正常,异常' }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" style="text-align: center;">暂无数据采集记录</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+<script>
+        function openRightPopup(title, url) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: title,
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: url,
+                    success: function(layero, index) {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    },
+                    end: function() {
+                        window.location.reload();
+                    }
+                });
+            });
+        }
+</script>
+
+    <!-- 注入的消息提示脚本 -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var msgs = [
+                {% for message in messages %}
+                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
+                {% endfor %}
+            ];
+
+            if (msgs.length > 0 && typeof layui !== 'undefined') {
+                layui.use(['layer'], function() {
+                    msgs.forEach(function(m) {
+                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
+                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
+                    });
+                });
+            }
+        });
+    </script>
+</body>
+</html>

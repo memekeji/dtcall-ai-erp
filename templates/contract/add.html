@@ -1,11 +1,9 @@
+{% extends 'include/popup.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>新增{% if contract_type == '1' %}销售{% elif contract_type == '2' %}采购{% elif contract_type == '3' %}服务{% endif %}合同</title>
-    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+
+{% block title %}新增{% if contract_type == '1' %}销售{% elif contract_type == '2' %}采购{% elif contract_type == '3' %}服务{% endif %}合同{% endblock %}
+
+{% block head %}
     <style>
         /* 表单区域样式 - 简化为整体设计 */
         .contract-form-section {
@@ -169,8 +167,9 @@
             border-radius: 0 0 8px 8px;
         }
     </style>
-</head>
-<body>
+{% endblock %}
+
+{% block content %}
     <div class="contract-form-container">
         <!-- 主体内容 -->
         <div class="contract-form-body" style="padding: 0;">
@@ -350,9 +349,10 @@
         <button type="submit" class="layui-btn layui-btn-normal" lay-submit lay-filter="contractForm">提交</button>
     </div>
 </div>
+{% endblock %}
 
-    <script src="{% static 'layui/layui.js' %}"></script>
-    <script>
+{% block script %}
+<script>
         layui.use(['form', 'layer', 'laydate'], function() {
             var form = layui.form;
             var layer = layui.layer;
@@ -420,17 +420,11 @@
                 $('#startTime').val(formatTime(startTime));
                 $('#endTime').val(formatTime(endTime));
                 
-                // console.log('时间字段初始值设置完成:');
-                // console.log('签订时间:', $('#signTime').val());
-                // console.log('开始时间:', $('#startTime').val());
-                // console.log('结束时间:', $('#endTime').val());
             }, 100);
 
             // 关闭按钮事件
             $('#closeContract').on('click', function() {
-                // 关闭当前iframe
-                var index = parent.layer.getFrameIndex(window.name);
-                parent.layer.close(index);
+                closePopup();
             });
 
             // 表单验证
@@ -578,7 +572,7 @@
                 var csrfToken = $('input[name="csrfmiddlewaretoken"]').val();
                 
                 $.ajax({
-                    url: '/adm/customer/detail-api/' + customerId + '/',
+                    url: '/customer/detail-api/' + customerId + '/',
                     type: 'GET',
                     headers: {
                         'X-CSRFToken': csrfToken
@@ -596,8 +590,8 @@
                             layer.msg('客户信息加载失败', {icon: 2});
                         }
                     },
-                    error: function(xhr, status, error) {
-                        layer.msg('客户信息加载失败: ' + error, {icon: 2});
+                    error: function() {
+                        layer.msg('客户信息加载失败，请稍后重试', {icon: 2});
                     }
                 });
             }
@@ -667,7 +661,6 @@
                     }
                     
                     actualFieldValues[field] = fieldValue;
-                    // console.log('字段 ' + field + ' 的实际值:', fieldValue);
                     
                     if (!fieldValue || fieldValue === '' || fieldValue === 'undefined' || fieldValue === null) {
                         missingFields.push(field);
@@ -675,10 +668,7 @@
                 });
                 
                 if (missingFields.length > 0) {
-                    // console.log('缺失字段:', missingFields);
-                    // console.log('详细缺失信息:');
                     missingFields.forEach(function(field) {
-                        // console.log('  ' + field + ': ' + (actualFieldValues[field] || '空值'));
                     });
                     
                     var fieldNames = {
@@ -710,7 +700,6 @@
                     data.field[field] = actualFieldValues[field];
                 });
                 
-                // console.log('最终提交数据:', data.field);
                 
                 $.ajax({
                     url: '/contract/sales/add/',
@@ -723,11 +712,10 @@
                         layer.close(loadIndex);
                         if (res.code === 0) {
                             layer.msg('合同创建成功', {icon: 1, time: 2000}, function() {
-                                // 关闭当前iframe
-                                var index = parent.layer.getFrameIndex(window.name);
-                                parent.layer.close(index);
-                                // 刷新父页面
-                                parent.location.reload();
+                                if (window.parent && window.parent.layui && window.parent.layui.table) {
+                                    window.parent.layui.table.reload('contractTable');
+                                }
+                                closePopup();
                             });
                         } else {
                             layer.msg(res.msg || '创建失败', {icon: 2});
@@ -827,7 +815,7 @@
             
             // 获取分类数据
             function loadCategories(parentId, level) {
-                var url = parentId ? '/basedata/contract/category/children/' + parentId + '/' : '/basedata/contract/category/children/';
+                var url = parentId ? '/contract/category/children/' + parentId + '/' : '/contract/category/children/';
                 
                 // 获取CSRF token
                 var csrfToken = $('input[name="csrfmiddlewaretoken"]').val();
@@ -870,8 +858,7 @@
                             form.render('select');
                         }
                     },
-                    error: function(xhr, status, error) {
-                        console.error('分类数据请求失败:', error);
+                    error: function() {
                         var errorHtml = '<option value="">加载失败</option>';
                         $('#' + targetSelect).html(errorHtml);
                         form.render('select');
@@ -901,7 +888,6 @@
                 // 确保分类选择框正确渲染
                 form.render('select');
                 
-                // console.log('分类选择框初始化完成');
             }, 200);
             
             // 一级分类变化
@@ -963,5 +949,4 @@
             });
         });
     </script>
-</body>
-</html>
+{% endblock %}

@@ -35,7 +35,7 @@
         <!-- 工具栏 -->
         <div class="layui-row table-toolbar">
             <div class="layui-col-md6">
-                <button class="layui-btn" onclick="location.href='{% url 'production:sop_add' %}'">
+                <button class="layui-btn" onclick="openRightPopup('添加SOP', '{% url 'production:sop_add' %}')">
                     <i class="layui-icon layui-icon-add-1"></i> 添加SOP
                 </button>
                 <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:baseinfo_index' %}'">
@@ -81,7 +81,7 @@
                                     <td>{{ sop.procedure.name|default:"-" }}</td>
                                     <td>{{ sop.version }}</td>
                                     <td>
-                                        {% if sop.status %}
+                                        {% if sop.status == 1 %}
                                             <span class="status-enabled">启用</span>
                                         {% else %}
                                             <span class="status-disabled">禁用</span>
@@ -89,10 +89,13 @@
                                     </td>
                                     <td>{{ sop.create_time|date:"Y-m-d H:i" }}</td>
                                     <td>
-                                        <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="location.href='{% url 'production:sop_detail' sop.pk %}'">
+                                        <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="openRightPopup('SOP详情', '{% url 'production:sop_detail' sop.pk %}')">
                                             <i class="layui-icon layui-icon-search"></i> 详情
                                         </button>
-                                        <button class="layui-btn layui-btn-xs" onclick="location.href='{% url 'production:sop_edit' sop.pk %}'">
+                                        <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="openRightPopup('复制SOP', '{% url 'production:sop_copy' sop.pk %}')">
+                                            <i class="layui-icon layui-icon-tabs"></i> 复制
+                                        </button>
+                                        <button class="layui-btn layui-btn-xs" onclick="openRightPopup('编辑SOP', '{% url 'production:sop_edit' sop.pk %}')">
                                             <i class="layui-icon layui-icon-edit"></i> 编辑
                                         </button>
                                         <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteSOP({{ sop.pk }}, '{{ sop.name }}')">
@@ -156,11 +159,77 @@
                     icon: 3,
                     title: '确认删除'
                 }, function(index) {
-                    window.location.href = '/adm/production/sop/delete/' + id + '/';
+                    window.location.href = '{% url 'production:sop_delete' 0 %}'.replace('0', id);
                     layer.close(index);
                 });
             });
         }
+
+        function openRightPopup(title, url) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: title,
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: url,
+                    success: function(layero, index) {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    },
+                    end: function() {
+                        window.location.reload();
+                    }
+                });
+            });
+        }
+    </script>
+
+    <!-- 注入的 iframe 自动关闭及消息提示脚本 -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var msgs = [
+                {% for message in messages %}
+                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
+                {% endfor %}
+            ];
+
+            var flashMsg = sessionStorage.getItem('flash_msg');
+            if (flashMsg) {
+                sessionStorage.removeItem('flash_msg');
+                try {
+                    var parsedMsgs = JSON.parse(flashMsg);
+                    msgs = msgs.concat(parsedMsgs);
+                } catch(e) {}
+            }
+
+            if (window !== window.parent) {
+                // 如果在 iframe 中加载了 list/index 页面，说明是操作成功后的重定向，或者点击了返回
+                if (msgs.length > 0) {
+                    sessionStorage.setItem('flash_msg', JSON.stringify(msgs));
+                }
+                parent.location.reload();
+                return;
+            }
+
+            // 正常独立访问 list 页面
+            if (msgs.length > 0 && typeof layui !== 'undefined') {
+                layui.use(['layer'], function() {
+                    msgs.forEach(function(m) {
+                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
+                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
+                    });
+                });
+            }
+        });
     </script>
 </body>
 

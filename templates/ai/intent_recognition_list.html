@@ -1,0 +1,51 @@
+{% extends 'home/iframe_base.html' %}
+
+{% block title %}AI意图识别{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md8">AI意图识别规则</div>
+            <div class="layui-col-md4" style="text-align: right;">
+                <a href="{% url 'ai:intent_recognition_create' %}" class="layui-btn layui-btn-sm">新增规则</a>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <table class="layui-table" lay-skin="line">
+            <thead>
+                <tr>
+                    <th>意图类型</th>
+                    <th>关键词</th>
+                    <th>描述</th>
+                    <th>是否激活</th>
+                    <th>准确率</th>
+                    <th>更新时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in object_list %}
+                <tr>
+                    <td>{{ item.get_intent_type_display }}</td>
+                    <td>{{ item.keywords|truncatechars:50 }}</td>
+                    <td>{{ item.description|default:'-'|truncatechars:50 }}</td>
+                    <td>{% if item.is_active %}<span class="layui-badge layui-bg-green">启用</span>{% else %}<span class="layui-badge">停用</span>{% endif %}</td>
+                    <td>{{ item.accuracy_rate }}</td>
+                    <td>{{ item.updated_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        <a href="{% url 'ai:intent_recognition_update' item.pk %}" class="layui-btn layui-btn-xs layui-btn-normal">编辑</a>
+                        <a href="{% url 'ai:intent_recognition_delete' item.pk %}" class="layui-btn layui-btn-xs layui-btn-danger">删除</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; color: #999; padding: 40px;">暂无意图识别规则</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

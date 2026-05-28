@@ -1,0 +1,43 @@
+{% extends 'home/iframe_base.html' %}
+
+{% block title %}AI仪表盘{% endblock %}
+
+{% block content %}
+<div class="layui-row layui-col-space15">
+    <div class="layui-col-md3">
+        <div class="layui-card">
+            <div class="layui-card-header">知识库</div>
+            <div class="layui-card-body" style="font-size: 28px;">{{ total_knowledge_bases }}</div>
+        </div>
+    </div>
+    <div class="layui-col-md3">
+        <div class="layui-card">
+            <div class="layui-card-header">知识条目</div>
+            <div class="layui-card-body" style="font-size: 28px;">{{ total_knowledge_items }}</div>
+        </div>
+    </div>
+    <div class="layui-col-md3">
+        <div class="layui-card">
+            <div class="layui-card-header">销售策略</div>
+            <div class="layui-card-body" style="font-size: 28px;">{{ total_sales_strategies }}</div>
+        </div>
+    </div>
+    <div class="layui-col-md3">
+        <div class="layui-card">
+            <div class="layui-card-header">工作流</div>
+            <div class="layui-card-body" style="font-size: 28px;">{{ total_workflows }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="layui-card" style="margin-top: 15px;">
+    <div class="layui-card-header">快速入口</div>
+    <div class="layui-card-body">
+        <a href="{% url 'ai:model_config_list' %}" class="layui-btn layui-btn-primary">模型配置</a>
+        <a href="{% url 'ai:knowledge_base_list' %}" class="layui-btn">知识库</a>
+        <a href="{% url 'ai:workflow_list' %}" class="layui-btn layui-btn-normal">工作流</a>
+        <a href="{% url 'ai:sales_strategy_list' %}" class="layui-btn layui-btn-warm">销售策略</a>
+        <a href="{% url 'ai:log_list' %}" class="layui-btn layui-btn-danger">操作日志</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends 'home/iframe_base.html' %}
+
+{% block title %}删除情绪分析规则{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">删除情绪分析规则</div>
+    <div class="layui-card-body">
+        <div class="layui-bg-red" style="padding: 15px; color: #fff; margin-bottom: 20px;">
+            确认删除规则 `{{ object }}` 吗？此操作不可恢复。
+        </div>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="layui-btn layui-btn-danger">确认删除</button>
+            <a href="{% url 'ai:emotion_analysis_list' %}" class="layui-btn layui-btn-primary">取消</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

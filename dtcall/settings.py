@@ -99,7 +99,7 @@ INSTALLED_APPS = [
     'apps.message',
     'apps.spider',
     'apps.disk',
-    'apps.system',
+    'apps.system.apps.SystemConfig',
     'apps.personal',
     'apps.production',
     'apps.ai',

@@ -3,8 +3,11 @@
 """
 
 import os
+import logging
 from typing import Dict, Any, List
 from .base_processor import BaseNodeProcessor, NodeProcessorRegistry
+
+logger = logging.getLogger(__name__)
 
 
 @NodeProcessorRegistry.register('data_input')
@@ -635,10 +638,11 @@ class DataInputProcessor(BaseNodeProcessor):
             }
 
         except Exception as e:
+            logger.error(f"数据输入失败: {str(e)}")
             return {
                 'input_type': input_type,
                 'success': False,
-                'message': f"数据输入失败: {str(e)}",
+                'message': "数据输入失败，请检查输入配置后重试",
                 'output_variable': output_var
             }
 
@@ -847,7 +851,8 @@ class DataInputProcessor(BaseNodeProcessor):
                 else:
                     return {'affected_rows': cursor.rowcount}
         except Exception as e:
-            raise Exception(f"数据库查询失败: {str(e)}")
+            logger.error(f"数据库查询失败: {str(e)}")
+            raise Exception("数据库查询失败，请检查查询配置后重试")
 
     def _read_api_data(self, config: dict):
         """读取API数据"""
@@ -934,7 +939,8 @@ class DataInputProcessor(BaseNodeProcessor):
                 # 简单的转换规则评估（注意安全限制）
                 data = eval(transform_rule, {'data': data})
             except Exception as e:
-                raise Exception(f"转换规则执行失败: {str(e)}")
+                logger.error(f"变量转换规则执行失败: {str(e)}")
+                raise Exception("转换规则执行失败，请检查转换配置后重试")
 
         return data
 
@@ -1247,10 +1253,11 @@ class DataOutputProcessor(BaseNodeProcessor):
             return result
 
         except Exception as e:
+            logger.error(f"数据输出失败: {str(e)}")
             return {
                 'output_type': output_type,
                 'success': False,
-                'message': f"数据输出失败: {str(e)}",
+                'message': "数据输出失败，请检查输出配置后重试",
                 'input_variable': input_var
             }
 
@@ -1738,10 +1745,11 @@ class TextProcessingProcessor(BaseNodeProcessor):
                 'output_length': len(str(result))
             }
         except Exception as e:
+            logger.error(f"文本处理失败: {str(e)}")
             return {
                 'processing_type': processing_type,
                 'success': False,
-                'message': f"文本处理失败: {str(e)}",
+                'message': "文本处理失败，请检查处理配置后重试",
                 'input_variable': input_var,
                 'output_variable': output_var
             }
@@ -1779,7 +1787,8 @@ class TextProcessingProcessor(BaseNodeProcessor):
             # 执行转换规则
             return eval(transform_rule, {'text': text})
         except Exception as e:
-            raise Exception(f"转换规则执行失败: {str(e)}")
+            logger.error(f"文本转换规则执行失败: {str(e)}")
+            raise Exception("转换规则执行失败，请检查转换配置后重试")
 
     def _extract_text(self, config: dict, text: str) -> str:
         """提取文本"""
@@ -2061,10 +2070,11 @@ class DataTransformationProcessor(BaseNodeProcessor):
                 'output_variable': output_var
             }
         except Exception as e:
+            logger.error(f"数据转换失败: {str(e)}")
             return {
                 'transformation_type': transformation_type,
                 'success': False,
-                'message': f"数据转换失败: {str(e)}",
+                'message': "数据转换失败，请检查转换配置后重试",
                 'input_variable': input_var,
                 'output_variable': output_var
             }
@@ -2081,7 +2091,8 @@ class DataTransformationProcessor(BaseNodeProcessor):
             # 执行映射规则
             return eval(mapping_rule, {'data': data})
         except Exception as e:
-            raise Exception(f"映射规则执行失败: {str(e)}")
+            logger.error(f"映射规则执行失败: {str(e)}")
+            raise Exception("映射规则执行失败，请检查映射配置后重试")
 
     def _filter_data(self, config: dict, data: list) -> list:
         """过滤数据"""
@@ -2098,7 +2109,8 @@ class DataTransformationProcessor(BaseNodeProcessor):
             # 执行过滤规则
             return [item for item in data if eval(filter_rule, {'item': item})]
         except Exception as e:
-            raise Exception(f"过滤规则执行失败: {str(e)}")
+            logger.error(f"过滤规则执行失败: {str(e)}")
+            raise Exception("过滤规则执行失败，请检查过滤配置后重试")
 
     def _sort_data(self, config: dict, data: list) -> list:
         """排序数据"""
@@ -2189,7 +2201,8 @@ class DataTransformationProcessor(BaseNodeProcessor):
             # 执行计算规则
             return eval(calculate_rule, {'data': data})
         except Exception as e:
-            raise Exception(f"计算规则执行失败: {str(e)}")
+            logger.error(f"计算规则执行失败: {str(e)}")
+            raise Exception("计算规则执行失败，请检查计算配置后重试")
 
 
 @NodeProcessorRegistry.register('data_filter')
@@ -2403,8 +2416,9 @@ class DatabaseQueryProcessor(BaseNodeProcessor):
                         list) else 1,
                     'status': 'completed'}
         except Exception as e:
+            logger.error(f"数据库查询执行失败: {str(e)}")
             return {
-                'error': str(e),
+                'error': '数据库查询执行失败，请检查SQL配置后重试',
                 'status': 'failed'
             }
 

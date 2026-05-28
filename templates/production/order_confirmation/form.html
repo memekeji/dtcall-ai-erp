@@ -1,0 +1,105 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ action|default:'新增' }}订单材料确认</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .page-wrap { padding: 20px; }
+        .layui-input-block input,
+        .layui-input-block select,
+        .layui-input-block textarea {
+            width: 100%;
+            min-height: 38px;
+            padding: 8px 12px;
+            border: 1px solid #e6e6e6;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .layui-input-block textarea { min-height: 120px; }
+        .field-error { margin-top: 6px; color: #ff5722; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="layui-fluid page-wrap">
+        <div class="layui-card">
+            <div class="layui-card-header">{{ action|default:'新增' }}订单材料确认</div>
+            <div class="layui-card-body">
+                <form class="layui-form" method="post">
+                    {% csrf_token %}
+                    {% if form.non_field_errors %}
+                    <div class="layui-bg-red" style="padding: 12px; margin-bottom: 15px; color: #fff;">{{ form.non_field_errors }}</div>
+                    {% endif %}
+                    {% for field in form %}
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">{{ field.label }}</label>
+                        <div class="layui-input-block">
+                            {{ field }}
+                            {% for error in field.errors %}
+                            <div class="field-error">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                    <div class="layui-form-item">
+                        <div class="layui-input-block">
+                            <button type="submit" class="layui-btn">保存</button>
+                            <a href="{% url 'production:order_material_confirmation_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+<script>
+        function openRightPopup(title, url) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: title,
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: url,
+                    success: function(layero, index) {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    },
+                    end: function() {
+                        window.location.reload();
+                    }
+                });
+            });
+        }
+</script>
+
+    <!-- 注入的消息提示脚本 -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var msgs = [
+                {% for message in messages %}
+                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
+                {% endfor %}
+            ];
+
+            if (msgs.length > 0 && typeof layui !== 'undefined') {
+                layui.use(['layer'], function() {
+                    msgs.forEach(function(m) {
+                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
+                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
+                    });
+                });
+            }
+        });
+    </script>
+</body>
+</html>

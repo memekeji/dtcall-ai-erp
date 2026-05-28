@@ -10,7 +10,7 @@ system_menus = {
     1: {
         "id": 1,
         "title": "收藏文件",
-        "src": "/adm/disk/starred/",
+        "src": "/disk/starred/",
         "pid_id": 1274,
         "sort": 138,
         "status": 1
@@ -139,7 +139,7 @@ system_menus = {
     1122: {
         "id": 1122,
         "title": "行政办公",
-        "src": "/system/admin_office/notice/",
+        "src": "javascript:;",
         "pid_id": 0,
         "sort": 16,
         "status": 1
@@ -147,7 +147,7 @@ system_menus = {
     1123: {
         "id": 1123,
         "title": "固定资产",
-        "src": "/oa/assets/",
+        "src": "javascript:;",
         "pid_id": 1122,
         "sort": 17,
         "status": 1
@@ -155,15 +155,15 @@ system_menus = {
     1126: {
         "id": 1126,
         "title": "资产归还",
-        "src": "/oa/assets/return/",
+        "src": "/system/admin_office/asset/",
         "pid_id": 1123,
         "sort": 19,
-        "status": 1
+        "status": 0
     },
     1127: {
         "id": 1127,
         "title": "资产维修",
-        "src": "/oa/assets/repair/",
+        "src": "/system/admin_office/asset_repair/",
         "pid_id": 1123,
         "sort": 20,
         "status": 1
@@ -171,15 +171,15 @@ system_menus = {
     1128: {
         "id": 1128,
         "title": "资产报废",
-        "src": "/oa/assets/scrap/",
+        "src": "/system/admin_office/asset/",
         "pid_id": 1123,
         "sort": 21,
-        "status": 1
+        "status": 0
     },
     1129: {
         "id": 1129,
         "title": "车辆管理",
-        "src": "/oa/vehicle/",
+        "src": "javascript:;",
         "pid_id": 1122,
         "sort": 22,
         "status": 1
@@ -187,7 +187,7 @@ system_menus = {
     1130: {
         "id": 1130,
         "title": "车辆信息",
-        "src": "/oa/vehicle/info/",
+        "src": "/system/admin_office/vehicle/",
         "pid_id": 1129,
         "sort": 23,
         "status": 1
@@ -195,15 +195,15 @@ system_menus = {
     1131: {
         "id": 1131,
         "title": "用车申请",
-        "src": "/oa/vehicle/apply/",
+        "src": "/system/admin_office/vehicle/",
         "pid_id": 1129,
         "sort": 24,
-        "status": 1
+        "status": 0
     },
     1132: {
         "id": 1132,
-        "title": "车辆维修",
-        "src": "/oa/vehicle/maintain/",
+        "title": "车辆维修保养",
+        "src": "/system/admin_office/vehicle_maintenance/",
         "pid_id": 1129,
         "sort": 25,
         "status": 1
@@ -211,39 +211,39 @@ system_menus = {
     1133: {
         "id": 1133,
         "title": "车辆调度",
-        "src": "/oa/vehicle/dispatch/",
+        "src": "/system/admin_office/vehicle/",
         "pid_id": 1129,
         "sort": 26,
-        "status": 1
+        "status": 0
     },
     1134: {
         "id": 1134,
-        "title": "车辆保养",
-        "src": "/oa/vehicle/maintain/",
+        "title": "车辆费用",
+        "src": "/system/admin_office/vehicle_fee/",
         "pid_id": 1129,
         "sort": 27,
         "status": 1
     },
     1135: {
         "id": 1135,
-        "title": "车辆费用",
-        "src": "/oa/vehicle/",
+        "title": "车辆油耗",
+        "src": "/system/admin_office/vehicle_oil/",
         "pid_id": 1129,
         "sort": 28,
         "status": 1
     },
     1136: {
         "id": 1136,
-        "title": "车辆油耗",
-        "src": "/oa/vehicle/",
+        "title": "车辆费用旧入口",
+        "src": "/system/admin_office/vehicle_fee/",
         "pid_id": 1129,
         "sort": 29,
-        "status": 1
+        "status": 0
     },
     1137: {
         "id": 1137,
         "title": "会议管理",
-        "src": "/oa/meeting/",
+        "src": "javascript:;",
         "pid_id": 1122,
         "sort": 30,
         "status": 1
@@ -254,7 +254,7 @@ system_menus = {
         "src": "/oa/meeting/minutes/",
         "pid_id": 1137,
         "sort": 33,
-        "status": 1
+        "status": 0
     },
     1140: {
         "id": 1140,
@@ -267,15 +267,15 @@ system_menus = {
     1141: {
         "id": 1141,
         "title": "会议记录",
-        "src": "/oa/meeting/",
+        "src": "/oa/meeting/list/",
         "pid_id": 1137,
         "sort": 32,
-        "status": 1
+        "status": 0
     },
     1142: {
         "id": 1142,
         "title": "公文管理",
-        "src": "/oa/document/",
+        "src": "javascript:;",
         "pid_id": 1122,
         "sort": 34,
         "status": 1
@@ -283,7 +283,7 @@ system_menus = {
     1143: {
         "id": 1143,
         "title": "公文起草",
-        "src": "/oa/document/draft/",
+        "src": "/system/admin_office/document/create/",
         "pid_id": 1142,
         "sort": 35,
         "status": 1
@@ -291,23 +291,23 @@ system_menus = {
     1144: {
         "id": 1144,
         "title": "公文审核",
-        "src": "/oa/document/check/",
+        "src": "/system/admin_office/document/",
         "pid_id": 1142,
         "sort": 36,
-        "status": 1
+        "status": 0
     },
     1145: {
         "id": 1145,
         "title": "公文发布",
-        "src": "/oa/document/publish/",
+        "src": "/system/admin_office/document/",
         "pid_id": 1142,
         "sort": 37,
-        "status": 1
+        "status": 0
     },
     1146: {
         "id": 1146,
         "title": "公文查看",
-        "src": "/oa/document/view/",
+        "src": "/system/admin_office/document/",
         "pid_id": 1142,
         "sort": 38,
         "status": 1
@@ -315,7 +315,7 @@ system_menus = {
     1147: {
         "id": 1147,
         "title": "公文分类",
-        "src": "/oa/document/",
+        "src": "/system/admin_office/document_category/",
         "pid_id": 1142,
         "sort": 39,
         "status": 1
@@ -323,7 +323,7 @@ system_menus = {
     1150: {
         "id": 1150,
         "title": "用章管理",
-        "src": "/oa/seal/",
+        "src": "javascript:;",
         "pid_id": 1122,
         "sort": 42,
         "status": 1
@@ -331,7 +331,7 @@ system_menus = {
     1151: {
         "id": 1151,
         "title": "印章管理",
-        "src": "/oa/seal/manage/",
+        "src": "/system/admin_office/seal/",
         "pid_id": 1150,
         "sort": 43,
         "status": 1
@@ -339,7 +339,7 @@ system_menus = {
     1152: {
         "id": 1152,
         "title": "用章申请",
-        "src": "/oa/seal/apply/",
+        "src": "/system/admin_office/seal_application/create/",
         "pid_id": 1150,
         "sort": 44,
         "status": 1
@@ -347,7 +347,7 @@ system_menus = {
     1153: {
         "id": 1153,
         "title": "用章记录",
-        "src": "/oa/seal/record/",
+        "src": "/system/admin_office/seal_application/",
         "pid_id": 1150,
         "sort": 45,
         "status": 1
@@ -378,16 +378,16 @@ system_menus = {
     },
     1161: {
         "id": 1161,
-        "title": "通知类型",
+        "title": "通知类型旧入口",
         "src": "/system/admin_office/notice/",
         "pid_id": 1122,
         "sort": 50,
-        "status": 1
+        "status": 0
     },
     1162: {
         "id": 1162,
         "title": "个人办公",
-        "src": "/personal/schedule/",
+        "src": "javascript:;",
         "pid_id": 0,
         "sort": 51,
         "status": 1
@@ -403,7 +403,7 @@ system_menus = {
     1169: {
         "id": 1169,
         "title": "工作日历",
-        "src": "/personal/schedule/",
+        "src": "/personal/calendar/",
         "pid_id": 1162,
         "sort": 53,
         "status": 1
@@ -474,16 +474,16 @@ system_menus = {
     },
     1180: {
         "id": 1180,
-        "title": "费用类型",
+        "title": "费用类型旧入口",
         "src": "/finance/expense/",
         "pid_id": 1172,
         "sort": 62,
-        "status": 1
+        "status": 0
     },
     1181: {
         "id": 1181,
         "title": "财务统计",
-        "src": "/finance/stat/",
+        "src": "javascript:;",
         "pid_id": 1172,
         "sort": 63,
         "status": 1
@@ -491,7 +491,7 @@ system_menus = {
     1182: {
         "id": 1182,
         "title": "报销记录",
-        "src": "/adm/finance/statistics/reimbursement/",
+        "src": "/finance/statistics/reimbursement/",
         "pid_id": 1181,
         "sort": 64,
         "status": 1
@@ -499,7 +499,7 @@ system_menus = {
     1183: {
         "id": 1183,
         "title": "开票记录",
-        "src": "/adm/finance/statistics/invoice/",
+        "src": "/finance/statistics/invoice/",
         "pid_id": 1181,
         "sort": 65,
         "status": 1
@@ -507,7 +507,7 @@ system_menus = {
     1184: {
         "id": 1184,
         "title": "收票记录",
-        "src": "/adm/finance/statistics/receiveinvoice/",
+        "src": "/finance/statistics/receiveinvoice/",
         "pid_id": 1181,
         "sort": 66,
         "status": 1
@@ -515,7 +515,7 @@ system_menus = {
     1185: {
         "id": 1185,
         "title": "回款记录",
-        "src": "/adm/finance/statistics/paymentreceive/",
+        "src": "/finance/statistics/paymentreceive/",
         "pid_id": 1181,
         "sort": 67,
         "status": 1
@@ -523,7 +523,7 @@ system_menus = {
     1186: {
         "id": 1186,
         "title": "付款记录",
-        "src": "/adm/finance/statistics/payment/",
+        "src": "/finance/statistics/payment/",
         "pid_id": 1181,
         "sort": 68,
         "status": 1
@@ -547,7 +547,7 @@ system_menus = {
     1189: {
         "id": 1189,
         "title": "客户公海",
-        "src": "/customer/public/list/",
+        "src": "javascript:;",
         "pid_id": 1187,
         "sort": 71,
         "status": 1
@@ -563,7 +563,7 @@ system_menus = {
     1191: {
         "id": 1191,
         "title": "爬虫任务",
-        "src": "/adm/customer/spider_task/",
+        "src": "/customer/spider_task/",
         "pid_id": 1189,
         "sort": 73,
         "status": 1
@@ -595,7 +595,7 @@ system_menus = {
     1196: {
         "id": 1196,
         "title": "跟进记录",
-        "src": "/adm/customer/followup/",
+        "src": "/customer/followup/",
         "pid_id": 1187,
         "sort": 77,
         "status": 1
@@ -603,7 +603,7 @@ system_menus = {
     1197: {
         "id": 1197,
         "title": "拨号记录",
-        "src": "/adm/customer/callrecord/",
+        "src": "/customer/callrecord/",
         "pid_id": 1187,
         "sort": 78,
         "status": 1
@@ -659,7 +659,7 @@ system_menus = {
     1207: {
         "id": 1207,
         "title": "合同管理",
-        "src": "/contract/",
+        "src": "javascript:;",
         "pid_id": 0,
         "sort": 85,
         "status": 1
@@ -667,26 +667,26 @@ system_menus = {
     1208: {
         "id": 1208,
         "title": "合同列表",
-        "src": "/contract/list/",
+        "src": "/contract/sales/",
         "pid_id": 1207,
         "sort": 86,
-        "status": 1
+        "status": 0
     },
     1209: {
         "id": 1209,
         "title": "合同模板",
-        "src": "/contract/template/",
+        "src": "/contract/category/",
         "pid_id": 1207,
         "sort": 87,
-        "status": 1
+        "status": 0
     },
     1210: {
         "id": 1210,
         "title": "合同审核",
-        "src": "/contract/audit/",
+        "src": "/contract/sales/",
         "pid_id": 1207,
         "sort": 88,
-        "status": 1
+        "status": 0
     },
     1212: {
         "id": 1212,
@@ -699,7 +699,7 @@ system_menus = {
     1213: {
         "id": 1213,
         "title": "销售合同",
-        "src": "/adm/contract/sales/",
+        "src": "/contract/sales/",
         "pid_id": 1207,
         "sort": 90,
         "status": 1
@@ -707,7 +707,7 @@ system_menus = {
     1214: {
         "id": 1214,
         "title": "采购合同",
-        "src": "/adm/contract/purchase/",
+        "src": "/contract/purchase/",
         "pid_id": 1207,
         "sort": 91,
         "status": 1
@@ -715,7 +715,7 @@ system_menus = {
     1215: {
         "id": 1215,
         "title": "中止合同",
-        "src": "/adm/contract/terminate/",
+        "src": "/contract/terminate/",
         "pid_id": 1207,
         "sort": 92,
         "status": 1
@@ -723,7 +723,7 @@ system_menus = {
     1216: {
         "id": 1216,
         "title": "作废合同",
-        "src": "/adm/contract/cancel/",
+        "src": "/contract/cancel/",
         "pid_id": 1207,
         "sort": 93,
         "status": 1
@@ -755,7 +755,7 @@ system_menus = {
     1220: {
         "id": 1220,
         "title": "服务管理",
-        "src": "/contract/servicecategory/",
+        "src": "/contract/service/",
         "pid_id": 1207,
         "sort": 97,
         "status": 1
@@ -779,7 +779,7 @@ system_menus = {
     1223: {
         "id": 1223,
         "title": "采购项目",
-        "src": "/contract/purchase/",
+        "src": "/contract/purchaseitem/",
         "pid_id": 1207,
         "sort": 100,
         "status": 1
@@ -787,7 +787,7 @@ system_menus = {
     1224: {
         "id": 1224,
         "title": "项目管理",
-        "src": "/project/",
+        "src": "javascript:;",
         "pid_id": 0,
         "sort": 101,
         "status": 1
@@ -858,11 +858,11 @@ system_menus = {
     },
     1233: {
         "id": 1233,
-        "title": "项目分类",
+        "title": "项目分类旧入口",
         "src": "/project/category/",
         "pid_id": 1224,
         "sort": 110,
-        "status": 1
+        "status": 0
     },
     1234: {
         "id": 1234,
@@ -987,7 +987,7 @@ system_menus = {
     1249: {
         "id": 1249,
         "title": "物料管理",
-        "src": "/production/material/",
+        "src": "javascript:;",
         "pid_id": 1235,
         "sort": 1225,
         "status": 1
@@ -1097,7 +1097,7 @@ system_menus = {
         "status": 1
     },
     1263: {
-        "id": 1270,
+        "id": 1263,
         "title": "成品入库",
         "src": "/production/product/receipt/",
         "pid_id": 1253,
@@ -1107,7 +1107,7 @@ system_menus = {
     1271: {
         "id": 1271,
         "title": "AI智能中心",
-        "src": "/ai/",
+        "src": "javascript:;",
         "pid_id": 0,
         "sort": 129,
         "status": 1
@@ -1115,7 +1115,7 @@ system_menus = {
     1272: {
         "id": 1272,
         "title": "AI模型配置",
-        "src": "/ai/config/models/",
+        "src": "/ai/model-config/list/",
         "pid_id": 1271,
         "sort": 131,
         "status": 1
@@ -1131,7 +1131,7 @@ system_menus = {
     1274: {
         "id": 1274,
         "title": "企业网盘",
-        "src": "/disk/",
+        "src": "javascript:;",
         "pid_id": 0,
         "sort": 134,
         "status": 1
@@ -1139,7 +1139,7 @@ system_menus = {
     1275: {
         "id": 1275,
         "title": "网盘首页",
-        "src": "/adm/disk/",
+        "src": "/disk/",
         "pid_id": 1274,
         "sort": 135,
         "status": 1
@@ -1147,47 +1147,47 @@ system_menus = {
     1276: {
         "id": 1276,
         "title": "个人文件",
-        "src": "/adm/disk/personal/",
+        "src": "/disk/personal/",
         "pid_id": 1274,
         "sort": 136,
         "status": 1
     },
-    1259: {
-        "id": 1259,
+    1277: {
+        "id": 1277,
         "title": "共享文件",
-        "src": "/adm/disk/share/",
+        "src": "/disk/share/",
         "pid_id": 1274,
         "sort": 137,
         "status": 1
     },
-    1260: {
-        "id": 1260,
+    1278: {
+        "id": 1278,
         "title": "回收站",
-        "src": "/adm/disk/recycle/",
+        "src": "/disk/recycle/",
         "pid_id": 1274,
         "sort": 139,
         "status": 1
     },
-    1261: {
-        "id": 1261,
+    1279: {
+        "id": 1279,
         "title": "员工管理",
         "src": "/user/employee/",
         "pid_id": 1107,
         "sort": 13,
         "status": 1
     },
-    1262: {
-        "id": 1262,
+    1280: {
+        "id": 1280,
         "title": "资产管理",
-        "src": "/oa/assets/borrow/",
+        "src": "/system/admin_office/asset/",
         "pid_id": 1123,
         "sort": 18,
         "status": 1
     },
-    1263: {
-        "id": 1263,
+    1281: {
+        "id": 1281,
         "title": "AI工作流",
-        "src": "/ai/workflow/",
+        "src": "/ai/workflow/list/",
         "pid_id": 1271,
         "sort": 133,
         "status": 1

@@ -1,12 +1,8 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>批量导入客户</title>
-    <meta name="renderer" content="webkit">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+{% extends 'include/popup.html' %}
+
+{% block title %}批量导入客户{% endblock %}
+
+{% block content %}
     <style>
         .upload-area {
             border: 2px dashed #d2d2d2;
@@ -383,5 +379,4 @@
             }
         });
     </script>
-</body>
-</html>
+{% endblock %}

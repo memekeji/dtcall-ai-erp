@@ -387,7 +387,7 @@ class WorkflowService:
             # 更新执行状态为失败
             if 'execution' in locals():
                 execution.status = 'failed'
-                execution.error_message = str(e)
+                execution.error_message = '工作流执行失败，请稍后重试'
                 execution.completed_at = timezone.now()
                 execution.save()
             raise
@@ -465,7 +465,7 @@ class WorkflowService:
             try:
                 execution = AIWorkflowExecution.objects.get(id=execution_id)
                 execution.status = 'failed'
-                execution.error_message = str(e)
+                execution.error_message = '工作流执行失败，请稍后重试'
                 execution.completed_at = timezone.now()
                 execution.save()
             except AIWorkflowExecution.DoesNotExist:
@@ -739,7 +739,7 @@ class WorkflowService:
                 logger.error(f"节点处理器执行失败: {str(e)}")
                 return {
                     'success': False,
-                    'error': str(e),
+                    'error': '节点处理器执行失败，请检查节点配置后重试',
                     'node_type': node_type
                 }
         else:
@@ -917,7 +917,7 @@ class WorkflowService:
         except Exception as e:
             logger.error(f'数据库查询失败: {str(e)}')
             output['query_success'] = False
-            output['error_message'] = str(e)
+            output['error_message'] = '数据库查询失败，请检查查询配置后重试'
 
         return output
 
@@ -1023,7 +1023,7 @@ class WorkflowService:
         except Exception as e:
             logger.error(f'文件操作失败: {str(e)}')
             output['operation_success'] = False
-            output['error_message'] = str(e)
+            output['error_message'] = '文件操作失败，请检查文件配置后重试'
 
         return output
 
@@ -1154,7 +1154,7 @@ class WorkflowService:
         except Exception as e:
             logger.error(f'API调用失败: {str(e)}')
             output['api_call_success'] = False
-            output['error_message'] = str(e)
+            output['error_message'] = 'API调用失败，请检查接口配置后重试'
 
         return output
 
@@ -1372,7 +1372,7 @@ class WorkflowService:
         except Exception as e:
             logger.error(f'数据转换失败: {str(e)}')
             output['transformation_success'] = False
-            output['error_message'] = str(e)
+            output['error_message'] = '数据转换失败，请检查转换配置后重试'
 
         return output
 
@@ -1424,7 +1424,7 @@ class WorkflowService:
         except Exception as e:
             logger.error(f'文本处理失败: {str(e)}')
             output['text_processing_success'] = False
-            output['error_message'] = str(e)
+            output['error_message'] = '文本处理失败，请检查文本处理配置后重试'
 
         return output
 
@@ -1481,7 +1481,7 @@ class WorkflowService:
         except Exception as e:
             logger.error(f'数据输入失败: {str(e)}')
             output['data_input_success'] = False
-            output['error_message'] = str(e)
+            output['error_message'] = '数据输入失败，请检查输入配置后重试'
 
         return output
 
@@ -1664,7 +1664,7 @@ class WorkflowService:
         except Exception as e:
             logger.error(f'数据输出失败: {str(e)}')
             output['data_output_success'] = False
-            output['error_message'] = str(e)
+            output['error_message'] = '数据输出失败，请检查输出配置后重试'
 
         return output
 
@@ -1717,7 +1717,7 @@ class WorkflowService:
         except Exception as e:
             logger.error(f'等待节点执行失败: {str(e)}')
             output['wait_success'] = False
-            output['error_message'] = str(e)
+            output['error_message'] = '等待节点执行失败，请检查等待配置后重试'
 
         return output
 
@@ -1770,11 +1770,12 @@ class WorkflowService:
                     return result
 
                 except Exception as e:
+                    logger.error(f"并行子任务执行失败: {str(e)}")
                     return {
                         'task_name': task_config.get('name', 'unknown'),
                         'task_type': task_config.get('type', 'unknown'),
                         'status': 'failed',
-                        'error': str(e),
+                        'error': '并行子任务执行失败，请检查任务配置后重试',
                         'execution_time': 0
                     }
 
@@ -1808,11 +1809,12 @@ class WorkflowService:
                             'execution_time': timeout
                         })
                     except Exception as e:
+                        logger.error(f"并行任务结果收集失败: {str(e)}")
                         failed_tasks.append({
                             'task_name': task_config.get('name', 'unknown'),
                             'task_type': task_config.get('type', 'unknown'),
                             'status': 'failed',
-                            'error': str(e),
+                            'error': '并行任务结果收集失败，请稍后重试',
                             'execution_time': 0
                         })
 
@@ -1831,7 +1833,7 @@ class WorkflowService:
         except Exception as e:
             logger.error(f'并行处理节点执行失败: {str(e)}')
             output['parallel_success'] = False
-            output['error_message'] = str(e)
+            output['error_message'] = '并行处理节点执行失败，请检查节点配置后重试'
 
         return output
 
@@ -1914,7 +1916,7 @@ class WorkflowService:
         except Exception as e:
             logger.error(f'循环节点执行失败: {str(e)}')
             output['loop_success'] = False
-            output['error_message'] = str(e)
+            output['error_message'] = '循环节点执行失败，请检查循环配置后重试'
 
         return output
 
@@ -1973,12 +1975,13 @@ class WorkflowService:
                                 break
 
                     except Exception as e:
+                        logger.error(f'条件分支表达式执行失败: {str(e)}')
                         condition_results.append({
                             'branch': branch_name,
                             'expression': condition_expression,
                             'description': condition_description,
                             'result': False,
-                            'error': str(e)
+                            'error': '条件表达式执行失败，请检查表达式配置'
                         })
                         continue
 
@@ -2004,7 +2007,7 @@ class WorkflowService:
         except Exception as e:
             logger.error(f'多条件分支节点执行失败: {str(e)}')
             output['multi_condition_success'] = False
-            output['error_message'] = str(e)
+            output['error_message'] = '多条件分支节点执行失败，请检查节点配置后重试'
 
         return output
 
@@ -2061,7 +2064,7 @@ class WorkflowService:
         except Exception as e:
             logger.error(f'AI生成节点执行失败: {str(e)}')
             output['ai_generation_success'] = False
-            output['error_message'] = str(e)
+            output['error_message'] = 'AI生成节点执行失败，请检查模型配置后重试'
 
         return output
 
@@ -2128,7 +2131,7 @@ class WorkflowService:
         except Exception as e:
             logger.error(f'AI分类节点执行失败: {str(e)}')
             output['ai_classification_success'] = False
-            output['error_message'] = str(e)
+            output['error_message'] = 'AI分类节点执行失败，请检查模型配置后重试'
 
         return output
 
@@ -2207,7 +2210,7 @@ class WorkflowService:
         except Exception as e:
             logger.error(f'AI信息提取节点执行失败: {str(e)}')
             output['ai_extraction_success'] = False
-            output['error_message'] = str(e)
+            output['error_message'] = 'AI信息提取节点执行失败，请检查模型配置后重试'
 
         return output
 
@@ -2371,7 +2374,7 @@ class WorkflowService:
                 'success': False,
                 'node_type': node_type,
                 'input_data': input_data,
-                'error_message': str(e),
+                'error_message': '节点测试失败，请检查节点配置后重试',
                 'tested_at': timezone.now()
             }
 

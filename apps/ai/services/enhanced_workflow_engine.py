@@ -225,12 +225,12 @@ class EnhancedWorkflowEngine:
         except Exception as e:
             logger.error(f"工作流执行失败: {e}", exc_info=True)
             execution.status = 'failed'
-            execution.error_message = str(e)
+            execution.error_message = '工作流执行失败，请稍后重试'
             execution.completed_at = timezone.now()
 
             await self._notify_subscribers('workflow_failed', {
                 'execution_id': str(execution.id),
-                'error': str(e)
+                'error': '工作流执行失败，请稍后重试'
             })
 
         await sync_to_async(execution.save)()
@@ -442,7 +442,7 @@ class EnhancedWorkflowEngine:
 
                 if attempt >= max_retries - 1:
                     node_state.status = NodeStatus.FAILED
-                    node_state.error_message = str(e)
+                    node_state.error_message = '节点执行失败，请检查节点配置后重试'
                     await self._handle_node_failure(node, context, node_state)
 
                 await asyncio.sleep(2 ** attempt)
@@ -543,8 +543,9 @@ class EnhancedWorkflowEngine:
                     output['api_call_success'] = response.status < 400
 
         except Exception as e:
+            logger.error(f"API调用失败: {e}")
             output['api_call_success'] = False
-            output['error_message'] = str(e)
+            output['error_message'] = 'API调用失败，请检查接口配置后重试'
 
         return output
 

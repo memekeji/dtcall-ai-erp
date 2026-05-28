@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{% if object %}编辑客户字段{% else %}新增客户字段{% endif %}</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+</head>
+<body>
+    <div class="layui-fluid">
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">
+                        <h3>{% if object %}编辑客户字段{% else %}新增客户字段{% endif %}</h3>
+                    </div>
+                    <div class="layui-card-body">
+                        <form class="layui-form" method="post">
+                            {% csrf_token %}
+                            {% if form.errors %}
+                                <div class="layui-form-item">
+                                    <div class="layui-input-block">
+                                        <div class="layui-alert layui-bg-red" style="margin: 10px 0;">
+                                            {% for field in form %}
+                                                {% for error in field.errors %}
+                                                    <div>{{ field.label }}: {{ error }}</div>
+                                                {% endfor %}
+                                            {% endfor %}
+                                            {% for error in form.non_field_errors %}
+                                                <div>{{ error }}</div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+
+                            <div class="layui-row layui-col-space15">
+                                <div class="layui-col-md6">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">字段名称 <span style="color: red;">*</span></label>
+                                        <div class="layui-input-block">
+                                            {{ form.name }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="layui-col-md6">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">字段标识 <span style="color: red;">*</span></label>
+                                        <div class="layui-input-block">
+                                            {{ form.field_name }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="layui-row layui-col-space15">
+                                <div class="layui-col-md6">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">字段类型 <span style="color: red;">*</span></label>
+                                        <div class="layui-input-block">
+                                            {{ form.field_type }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="layui-col-md6">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">排序</label>
+                                        <div class="layui-input-block">
+                                            {{ form.sort }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">选项配置</label>
+                                <div class="layui-input-block">
+                                    {{ form.options }}
+                                    <div class="layui-form-mid layui-word-aux">下拉、单选、复选字段可填写选项，每行一个。</div>
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">字段属性</label>
+                                <div class="layui-input-block">
+                                    <input type="checkbox"
+                                           name="is_required"
+                                           title="必填"
+                                           {% if form.is_required.value %}checked{% endif %}>
+                                    <input type="checkbox"
+                                           name="is_unique"
+                                           title="唯一"
+                                           {% if form.is_unique.value %}checked{% endif %}>
+                                    <input type="checkbox"
+                                           name="is_list_display"
+                                           title="列表显示"
+                                           {% if form.is_list_display.value %}checked{% endif %}>
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">状态</label>
+                                <div class="layui-input-block">
+                                    {{ form.status }}
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
+                                <div class="layui-input-block">
+                                    <button class="layui-btn" type="submit">保存</button>
+                                    <a href="{% url 'customer:customer_field_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(["form"], function () {
+            var form = layui.form;
+            form.render();
+        });
+    </script>
+</body>
+</html>

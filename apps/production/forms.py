@@ -1084,11 +1084,13 @@ class DataCollectionTaskForm(forms.ModelForm):
     """数据采集任务表单"""
     class Meta:
         model = DataCollectionTask
-        fields = ['name', 'task_type', 'cron_expression', 'interval_seconds',
-                  'max_retries', 'timeout_seconds', 'status', 'is_active']
+        fields = ['name', 'task_type', 'data_sources', 'cron_expression',
+                  'interval_seconds', 'max_retries', 'timeout_seconds',
+                  'status', 'is_active']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'task_type': forms.Select(attrs={'class': 'form-control'}),
+            'data_sources': forms.SelectMultiple(attrs={'class': 'form-control', 'size': 6}),
             'cron_expression': forms.TextInput(attrs={'class': 'form-control'}),
             'interval_seconds': forms.NumberInput(attrs={'class': 'form-control'}),
             'max_retries': forms.NumberInput(attrs={'class': 'form-control'}),
@@ -1096,6 +1098,26 @@ class DataCollectionTaskForm(forms.ModelForm):
             'status': forms.Select(attrs={'class': 'form-control'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        task_type = cleaned_data.get('task_type')
+        cron_expression = cleaned_data.get('cron_expression')
+        interval_seconds = cleaned_data.get('interval_seconds')
+        data_sources = cleaned_data.get('data_sources')
+
+        if not data_sources:
+            raise ValidationError('请至少选择一个数据源')
+
+        if task_type == 'scheduled' and not (cron_expression or interval_seconds):
+            raise ValidationError('定时任务必须配置 Cron 表达式或执行间隔')
+
+        if interval_seconds is not None and interval_seconds <= 0:
+            raise ValidationError({
+                'interval_seconds': '执行间隔必须大于 0 秒'
+            })
+
+        return cleaned_data
 
 
 class ProductionDataPointForm(forms.ModelForm):

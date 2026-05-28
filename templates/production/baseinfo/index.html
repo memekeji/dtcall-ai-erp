@@ -84,19 +84,19 @@
                 <div class="layui-card">
                     <div class="layui-card-header">快速添加</div>
                     <div class="layui-card-body">
-                        <button class="layui-btn layui-btn-normal production-action-btn" onclick="location.href='{% url 'production:procedure_add' %}'">
+                        <button class="layui-btn layui-btn-normal production-action-btn" onclick="openRightPopup('添加', '{% url 'production:procedure_add' %}')">
                             <i class="layui-icon layui-icon-add-1"></i> 添加工序
                         </button>
-                        <button class="layui-btn layui-btn-warm production-action-btn" onclick="location.href='{% url 'production:procedureset_add' %}'">
+                        <button class="layui-btn layui-btn-warm production-action-btn" onclick="openRightPopup('添加', '{% url 'production:procedureset_add' %}')">
                             <i class="layui-icon layui-icon-add-1"></i> 添加工序集
                         </button>
-                        <button class="layui-btn layui-btn-danger production-action-btn" onclick="location.href='{% url 'production:bom_add' %}'">
+                        <button class="layui-btn layui-btn-danger production-action-btn" onclick="openRightPopup('添加', '{% url 'production:bom_add' %}')">
                             <i class="layui-icon layui-icon-add-1"></i> 添加BOM
                         </button>
-                        <button class="layui-btn production-action-btn" onclick="location.href='{% url 'production:equipment_add' %}'">
+                        <button class="layui-btn production-action-btn" onclick="openRightPopup('添加', '{% url 'production:equipment_add' %}')">
                             <i class="layui-icon layui-icon-add-1"></i> 添加设备
                         </button>
-                        <button class="layui-btn layui-btn-primary production-action-btn" onclick="location.href='{% url 'production:sop_add' %}'">
+                        <button class="layui-btn layui-btn-primary production-action-btn" onclick="openRightPopup('添加', '{% url 'production:sop_add' %}')">
                             <i class="layui-icon layui-icon-add-1"></i> 添加SOP
                         </button>
                     </div>
@@ -110,6 +110,72 @@
     <script>
         layui.use(['layer'], function () {
             var layer = layui.layer;
+        });
+
+        function openRightPopup(title, url) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: title,
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: url,
+                    success: function(layero, index) {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    },
+                    end: function() {
+                        window.location.reload();
+                    }
+                });
+            });
+        }
+</script>
+
+    <!-- 注入的 iframe 自动关闭及消息提示脚本 -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var msgs = [
+                {% for message in messages %}
+                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
+                {% endfor %}
+            ];
+
+            var flashMsg = sessionStorage.getItem('flash_msg');
+            if (flashMsg) {
+                sessionStorage.removeItem('flash_msg');
+                try {
+                    var parsedMsgs = JSON.parse(flashMsg);
+                    msgs = msgs.concat(parsedMsgs);
+                } catch(e) {}
+            }
+
+            if (window !== window.parent) {
+                // 如果在 iframe 中加载了 list/index 页面，说明是操作成功后的重定向，或者点击了返回
+                if (msgs.length > 0) {
+                    sessionStorage.setItem('flash_msg', JSON.stringify(msgs));
+                }
+                parent.location.reload();
+                return;
+            }
+
+            // 正常独立访问 list 页面
+            if (msgs.length > 0 && typeof layui !== 'undefined') {
+                layui.use(['layer'], function() {
+                    msgs.forEach(function(m) {
+                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
+                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
+                    });
+                });
+            }
         });
     </script>
 </body>

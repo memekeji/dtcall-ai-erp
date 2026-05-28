@@ -23,7 +23,7 @@
 
         <div class="layui-row table-toolbar">
             <div class="layui-col-md6">
-                <button class="layui-btn" onclick="location.href='{% url 'production:material_return_add' %}'">
+                <button class="layui-btn" onclick="openRightPopup('添加', '{% url 'production:material_return_add' %}')">
                     <i class="layui-icon layui-icon-add-1"></i> 新建退料单
                 </button>
             </div>
@@ -127,16 +127,7 @@
                 icon: 3,
                 title: '确认审核'
             }, function(index) {
-                $.post('/adm/production/material/return/' + id + '/approve/', {
-                    csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
-                }, function(res) {
-                    if (res.success) {
-                        layer.msg('审核成功', {icon: 1});
-                        setTimeout(function() { location.reload(); }, 500);
-                    } else {
-                        layer.msg(res.error || '审核失败', {icon: 2});
-                    }
-                });
+                window.location.href = '{% url 'production:material_return_approve' 0 %}'.replace('0', id);
                 layer.close(index);
             });
         }
@@ -146,19 +137,76 @@
                 icon: 3,
                 title: '确认取消'
             }, function(index) {
-                $.post('/adm/production/material/return/' + id + '/cancel/', {
-                    csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
-                }, function(res) {
-                    if (res.success) {
-                        layer.msg('取消成功', {icon: 1});
-                        setTimeout(function() { location.reload(); }, 500);
-                    } else {
-                        layer.msg(res.error || '取消失败', {icon: 2});
-                    }
-                });
+                window.location.href = '{% url 'production:material_return_cancel' 0 %}'.replace('0', id);
                 layer.close(index);
             });
         }
+
+        function openRightPopup(title, url) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: title,
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: url,
+                    success: function(layero, index) {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    },
+                    end: function() {
+                        window.location.reload();
+                    }
+                });
+            });
+        }
+</script>
+
+    <!-- 注入的 iframe 自动关闭及消息提示脚本 -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var msgs = [
+                {% for message in messages %}
+                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
+                {% endfor %}
+            ];
+
+            var flashMsg = sessionStorage.getItem('flash_msg');
+            if (flashMsg) {
+                sessionStorage.removeItem('flash_msg');
+                try {
+                    var parsedMsgs = JSON.parse(flashMsg);
+                    msgs = msgs.concat(parsedMsgs);
+                } catch(e) {}
+            }
+
+            if (window !== window.parent) {
+                // 如果在 iframe 中加载了 list/index 页面，说明是操作成功后的重定向，或者点击了返回
+                if (msgs.length > 0) {
+                    sessionStorage.setItem('flash_msg', JSON.stringify(msgs));
+                }
+                parent.location.reload();
+                return;
+            }
+
+            // 正常独立访问 list 页面
+            if (msgs.length > 0 && typeof layui !== 'undefined') {
+                layui.use(['layer'], function() {
+                    msgs.forEach(function(m) {
+                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
+                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
+                    });
+                });
+            }
+        });
     </script>
 </body>
 </html>

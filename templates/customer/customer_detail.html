@@ -383,7 +383,7 @@
                         
                         {% if follow_records %}
                         <div style="text-align: center; margin-top: 15px;">
-                            <a href="{% url 'contract:contract_sales' %}?customer_id={{ customer.id }}" class="layui-btn layui-btn-xs layui-btn-primary">查看更多</a>
+                            <a href="{% url 'customer:follow_record_list' %}?customer_id={{ customer.id }}" class="layui-btn layui-btn-xs layui-btn-primary">查看更多</a>
                         </div>
                         {% endif %}
                     </div>
@@ -416,7 +416,7 @@
                         
                         {% if orders %}
                         <div style="text-align: center; margin-top: 15px;">
-                            <a href="#" class="layui-btn layui-btn-xs layui-btn-primary">查看更多</a>
+                            <a href="{% url 'customer:customer_order_list' %}?customer_id={{ customer.id }}" class="layui-btn layui-btn-xs layui-btn-primary">查看更多</a>
                         </div>
                         {% endif %}
                     </div>

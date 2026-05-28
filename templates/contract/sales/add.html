@@ -1,11 +1,9 @@
+{% extends 'include/popup.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>新增销售合同</title>
-    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+
+{% block title %}新增销售合同{% endblock %}
+
+{% block head %}
     <style>
         /* 表单区域样式 */
         .contract-form-section {
@@ -154,8 +152,9 @@
             background: linear-gradient(135deg, #009688 0%, #1E9FFF 100%);
         }
     </style>
-</head>
-<body>
+{% endblock %}
+
+{% block content %}
     <div class="contract-form-container">
         <!-- 头部 -->
         <div class="contract-form-header">
@@ -205,6 +204,7 @@
                             <label>客户名称 <span style="color: red;">*</span></label>
                             <div class="customer-selector">
                                 <input type="hidden" name="customer_id" id="customerId">
+                                <input type="hidden" name="cate_id" value="{{ category_id|default:'0' }}">
                                 <input type="text" name="customer" id="customerName" placeholder="请选择客户" class="layui-input" lay-verify="required|customer" readonly>
                                 <button type="button" class="layui-btn layui-btn-sm layui-btn-primary" id="selectCustomerBtn">
                                     <i class="layui-icon layui-icon-search"></i> 选择客户
@@ -274,8 +274,9 @@
             <button type="submit" class="layui-btn layui-btn-normal" lay-submit lay-filter="contractForm">提交</button>
         </div>
     </div>
+{% endblock %}
 
-    <script src="{% static 'layui/layui.js' %}"></script>
+{% block script %}
     <script>
         layui.use(['form', 'layer', 'laydate'], function() {
             var form = layui.form;
@@ -340,8 +341,7 @@
 
             // 关闭按钮事件
             $('#closeContract').on('click', function() {
-                var index = parent.layer.getFrameIndex(window.name);
-                parent.layer.close(index);
+                closePopup();
             });
 
             // 表单验证
@@ -453,9 +453,10 @@
                         layer.close(loadIndex);
                         if (res.code === 0) {
                             layer.msg('合同创建成功', {icon: 1, time: 2000}, function() {
-                                var index = parent.layer.getFrameIndex(window.name);
-                                parent.layer.close(index);
-                                parent.location.reload();
+                                if (window.parent && window.parent.layui && window.parent.layui.table) {
+                                    window.parent.layui.table.reload('contractTable');
+                                }
+                                closePopup();
                             });
                         } else {
                             layer.msg(res.msg || '创建失败', {icon: 2});
@@ -503,12 +504,11 @@
                             layer.msg('客户信息加载失败', {icon: 2});
                         }
                     },
-                    error: function(xhr, status, error) {
-                        layer.msg('客户信息加载失败: ' + error, {icon: 2});
+                    error: function() {
+                        layer.msg('客户信息加载失败，请稍后重试', {icon: 2});
                     }
                 });
             }
         });
     </script>
-</body>
-</html>
+{% endblock %}

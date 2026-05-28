@@ -884,18 +884,19 @@ class IntelligentDataAssistant:
                 if parsed_intent.get('is_statistics'):
                     return self._handle_statistics(parsed_intent)
                 return self._handle_query(parsed_intent)
-            elif operation == 'CREATE':
-                return self._handle_create(parsed_intent, user_message)
-            elif operation == 'UPDATE':
-                return self._handle_update(parsed_intent, user_message)
-            elif operation == 'DELETE':
-                return self._handle_delete(parsed_intent)
+            elif operation in {'CREATE', 'UPDATE', 'DELETE'}:
+                return {
+                    "success": False,
+                    "message": "数据新增、修改、删除需要在对应业务页面核对并确认后执行",
+                    "requires_confirmation": True,
+                    "operation": operation
+                }
             else:
                 return self._handle_conversation(user_message)
 
         except Exception as e:
             logger.error(f"处理消息失败: {e}")
-            return {"success": False, "message": f"处理请求时发生错误: {str(e)}"}
+            return {"success": False, "message": "处理请求时发生错误，请稍后重试"}
 
     def _ai_parse_intent(self, user_message):
         """使用 AI 解析意图 - 增强版"""
@@ -1410,7 +1411,7 @@ class IntelligentDataAssistant:
 
         except Exception as e:
             logger.error(f"查询失败: {e}")
-            return {"success": False, "message": f"查询失败: {str(e)}"}
+            return {"success": False, "message": "查询失败，请稍后重试"}
 
     def _handle_create(self, intent, user_message):
         """处理创建数据"""
@@ -1418,38 +1419,12 @@ class IntelligentDataAssistant:
         if not target:
             return {"success": False, "message": "请告诉我要创建什么数据"}
 
-        config = self.model_mappings.get(target)
-        if not config:
-            return {"success": False, "message": f"暂不支持创建 {target}"}
-
-        can_add_perm = config.get('can_add')
-        if not self._check_operation_permission(can_add_perm):
-            return {"success": False, "message": f"您没有创建{target}的权限"}
-
-        try:
-            model = config['model']
-
-            create_data = self._parse_create_data(user_message, config)
-            if not create_data:
-                return {"success": False, "message": f"请提供创建{target}所需的完整信息"}
-
-            if hasattr(model, 'created_by') and self.user:
-                create_data['created_by'] = self.user
-
-            if hasattr(model, 'owner') and self.user:
-                create_data['owner'] = self.user
-
-            instance = model.objects.create(**create_data)
-
-            return {
-                "success": True,
-                "message": f"成功创建{target}：{getattr(instance, config.get('primary_field', 'id'), '记录')}",
-                "operation": "CREATE",
-                "data_id": instance.id}
-
-        except Exception as e:
-            logger.error(f"创建失败: {e}")
-            return {"success": False, "message": f"创建失败: {str(e)}"}
+        return {
+            "success": False,
+            "message": "数据创建需要在对应业务页面核对并确认后执行",
+            "requires_confirmation": True,
+            "operation": "CREATE"
+        }
 
     def _parse_create_data(self, user_message, config):
         """从用户消息中解析创建数据"""
@@ -1488,59 +1463,12 @@ class IntelligentDataAssistant:
         if not target:
             return {"success": False, "message": "请告诉我要修改什么数据"}
 
-        config = self.model_mappings.get(target)
-        if not config:
-            return {"success": False, "message": f"暂不支持修改 {target}"}
-
-        can_change_perm = config.get('can_change')
-        if not self._check_operation_permission(can_change_perm):
-            return {"success": False, "message": f"您没有修改{target}的权限"}
-
-        try:
-            model = config['model']
-            owner_field = config.get('owner_field', 'created_by')
-
-            keyword = intent.get('search_keyword')
-            search_fields = config.get('search_fields', [])
-
-            queryset = model.objects.all()
-            queryset = self._apply_data_filter(queryset, model, owner_field)
-
-            if keyword and search_fields:
-                q = Q()
-                for field in search_fields:
-                    if hasattr(model, field):
-                        q |= Q(**{f'{field}__icontains': keyword})
-                queryset = queryset.filter(q)
-
-            instance = queryset.first()
-            if not instance:
-                return {"success": False, "message": f"未找到您有权修改的{target}记录"}
-
-            if not self._check_data_ownership(instance, owner_field):
-                data_scope = self._get_user_data_scope()
-                if not data_scope.get('can_view_all'):
-                    return {
-                        "success": False,
-                        "message": f"您没有权限修改这条{target}记录"}
-
-            update_data = self._parse_update_data(user_message, config)
-            if not update_data:
-                return {"success": False, "message": f"请提供要修改的内容"}
-
-            for key, value in update_data.items():
-                setattr(instance, key, value)
-            instance.save()
-
-            return {
-                "success": True,
-                "message": f"成功修改{target}：{getattr(instance, config.get('primary_field', 'id'), '记录')}",
-                "operation": "UPDATE",
-                "data_id": instance.id}
-
-        except Exception as e:
-            logger.error(f"修改失败: {e}")
-            return {"success": False, "message": f"修改失败: {str(e)}"}
+        return {
+            "success": False,
+            "message": "数据修改需要在对应业务页面核对并确认后执行",
+            "requires_confirmation": True,
+            "operation": "UPDATE"
+        }
 
     def _parse_update_data(self, user_message, config):
         """从用户消息中解析更新数据"""
@@ -1575,56 +1503,12 @@ class IntelligentDataAssistant:
         if not target:
             return {"success": False, "message": "请告诉我要删除什么数据"}
 
-        config = self.model_mappings.get(target)
-        if not config:
-            return {"success": False, "message": f"暂不支持删除 {target}"}
-
-        can_delete_perm = config.get('can_delete')
-        if not self._check_operation_permission(can_delete_perm):
-            return {"success": False, "message": f"您没有删除{target}的权限"}
-
-        try:
-            model = config['model']
-            owner_field = config.get('owner_field', 'created_by')
-
-            keyword = intent.get('search_keyword')
-            search_fields = config.get('search_fields', [])
-
-            queryset = model.objects.all()
-            queryset = self._apply_data_filter(queryset, model, owner_field)
-
-            if keyword and search_fields:
-                q = Q()
-                for field in search_fields:
-                    if hasattr(model, field):
-                        q |= Q(**{f'{field}__icontains': keyword})
-                queryset = queryset.filter(q)
-
-            instance = queryset.first()
-            if not instance:
-                return {"success": False, "message": f"未找到您有权删除的{target}记录"}
-
-            if not self._check_data_ownership(instance, owner_field):
-                data_scope = self._get_user_data_scope()
-                if not data_scope.get('can_view_all'):
-                    return {
-                        "success": False,
-                        "message": f"您没有权限删除这条{target}记录"}
-
-            instance_name = getattr(
-                instance, config.get(
-                    'primary_field', 'id'), '记录')
-            instance.delete()
-
-            return {
-                "success": True,
-                "message": f"成功删除{target}：{instance_name}",
-                "operation": "DELETE"
-            }
-
-        except Exception as e:
-            logger.error(f"删除失败: {e}")
-            return {"success": False, "message": f"删除失败: {str(e)}"}
+        return {
+            "success": False,
+            "message": "数据删除需要在对应业务页面核对并确认后执行",
+            "requires_confirmation": True,
+            "operation": "DELETE"
+        }
 
     def _handle_statistics(self, intent):
         """处理统计"""
@@ -1725,7 +1609,7 @@ class IntelligentDataAssistant:
 
         except Exception as e:
             logger.error(f"统计失败: {e}")
-            return {"success": False, "message": f"统计失败: {str(e)}"}
+            return {"success": False, "message": "统计失败，请稍后重试"}
 
     def _format_for_query_service(self, results, config, target):
         """格式化结果"""
@@ -1774,7 +1658,7 @@ class IntelligentDataAssistant:
             }
         except Exception as e:
             logger.error(f"AI 对话失败: {e}")
-            return {"success": False, "message": f"AI 对话失败: {str(e)}"}
+            return {"success": False, "message": "AI 对话失败，请稍后重试"}
 
     def get_supported_operations(self):
         """获取支持的操作"""

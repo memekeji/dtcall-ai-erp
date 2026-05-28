@@ -22,6 +22,9 @@
         .status-completed {
             color: #5FB878;
         }
+        .status-cancelled {
+            color: #FF5722;
+        }
     </style>
 </head>
 <body>
@@ -34,7 +37,7 @@
 
         <div class="layui-row table-toolbar">
             <div class="layui-col-md6">
-                <button class="layui-btn" onclick="location.href='{% url 'production:production_line_day_plan_add' %}'">
+                <button class="layui-btn" onclick="openRightPopup('添加', '{% url 'production:production_line_day_plan_add' %}')">
                     <i class="layui-icon layui-icon-add-1"></i> 新建日计划
                 </button>
                 <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:production_task_index' %}'">
@@ -80,8 +83,8 @@
                                     <td>{{ plan.name }}</td>
                                     <td>{{ plan.plan_date|date:"Y-m-d" }}</td>
                                     <td>{{ plan.production_line|default:"-" }}</td>
-                                    <td>{{ plan.planned_quantity }}</td>
-                                    <td>{{ plan.actual_quantity|default:0 }}</td>
+                                    <td>{{ plan.quantity }}</td>
+                                    <td>{{ plan.completed_quantity|default:0 }}</td>
                                     <td>
                                         {% if plan.completion_rate >= 100 %}
                                             <span style="color: #5FB878;">{{ plan.completion_rate }}%</span>
@@ -93,15 +96,19 @@
                                     </td>
                                     <td>
                                         {% if plan.status == 1 %}
-                                            <span class="status-pending">待执行</span>
+                                            <span class="status-pending">待审核</span>
                                         {% elif plan.status == 2 %}
-                                            <span class="status-active">进行中</span>
+                                            <span class="status-active">已审核</span>
                                         {% elif plan.status == 3 %}
+                                            <span class="status-active">执行中</span>
+                                        {% elif plan.status == 4 %}
                                             <span class="status-completed">已完成</span>
+                                        {% elif plan.status == 5 %}
+                                            <span class="status-cancelled">已取消</span>
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <button class="layui-btn layui-btn-xs" onclick="location.href='{% url 'production:production_line_day_plan_edit' plan.pk %}'">
+                                        <button class="layui-btn layui-btn-xs" onclick="openRightPopup('编辑', '{% url 'production:production_line_day_plan_edit' plan.pk %}')">
                                             <i class="layui-icon layui-icon-edit"></i> 编辑
                                         </button>
                                         <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deletePlan({{ plan.pk }})">
@@ -163,11 +170,77 @@
                     icon: 3,
                     title: '确认删除'
                 }, function(index) {
-                    window.location.href = '/adm/production/line/dayplan/' + id + '/delete/';
+                    window.location.href = '{% url 'production:production_line_day_plan_delete' 0 %}'.replace('0', id);
                     layer.close(index);
                 });
             });
         }
+
+        function openRightPopup(title, url) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: title,
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: url,
+                    success: function(layero, index) {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    },
+                    end: function() {
+                        window.location.reload();
+                    }
+                });
+            });
+        }
+</script>
+
+    <!-- 注入的 iframe 自动关闭及消息提示脚本 -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var msgs = [
+                {% for message in messages %}
+                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
+                {% endfor %}
+            ];
+
+            var flashMsg = sessionStorage.getItem('flash_msg');
+            if (flashMsg) {
+                sessionStorage.removeItem('flash_msg');
+                try {
+                    var parsedMsgs = JSON.parse(flashMsg);
+                    msgs = msgs.concat(parsedMsgs);
+                } catch(e) {}
+            }
+
+            if (window !== window.parent) {
+                // 如果在 iframe 中加载了 list/index 页面，说明是操作成功后的重定向，或者点击了返回
+                if (msgs.length > 0) {
+                    sessionStorage.setItem('flash_msg', JSON.stringify(msgs));
+                }
+                parent.location.reload();
+                return;
+            }
+
+            // 正常独立访问 list 页面
+            if (msgs.length > 0 && typeof layui !== 'undefined') {
+                layui.use(['layer'], function() {
+                    msgs.forEach(function(m) {
+                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
+                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
+                    });
+                });
+            }
+        });
     </script>
 </body>
 </html>

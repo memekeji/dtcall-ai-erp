@@ -2,7 +2,11 @@
 AI模型节点处理器
 """
 
+import logging
+
 from .base_processor import BaseNodeProcessor, NodeProcessorRegistry
+
+logger = logging.getLogger(__name__)
 
 
 @NodeProcessorRegistry.register('ai_model')
@@ -165,6 +169,7 @@ class AIModelProcessor(BaseNodeProcessor):
             }
 
         except Exception as e:
+            logger.error(f"AI模型调用失败: {str(e)}")
             return {
                 'ai_result': None,
                 'model_used': ai_config.get('name', 'unknown'),
@@ -172,7 +177,7 @@ class AIModelProcessor(BaseNodeProcessor):
                 'config_id': ai_config.get('id'),
                 'prompt_length': len(prompt),
                 'response_length': 0,
-                'error': str(e)
+                'error': 'AI模型调用失败，请检查模型配置后重试'
             }
 
 

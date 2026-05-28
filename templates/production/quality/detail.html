@@ -1,0 +1,117 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>质检详情</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+</head>
+<body>
+    <div class="layui-fluid" style="padding: 20px;">
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <div class="layui-row">
+                    <div class="layui-col-md8">
+                        <h2>质量检查详情</h2>
+                    </div>
+                    <div class="layui-col-md4" style="text-align: right;">
+                        <a href="{% url 'production:quality_check_edit' check.pk %}" class="layui-btn layui-btn-sm">编辑</a>
+                        <a href="{% url 'production:quality_check_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">返回列表</a>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-card-body">
+                <div class="layui-row layui-col-space15">
+                    <div class="layui-col-md4"><strong>关联任务：</strong>{{ check.task.name }}</div>
+                    <div class="layui-col-md4"><strong>任务编号：</strong>{{ check.task.code }}</div>
+                    <div class="layui-col-md4"><strong>检查员：</strong>{{ check.created_by.username|default:'-' }}</div>
+                </div>
+
+                <hr>
+
+                <div class="layui-row layui-col-space15">
+                    <div class="layui-col-md3"><strong>检查数量：</strong>{{ check.check_quantity }}</div>
+                    <div class="layui-col-md3"><strong>合格数量：</strong>{{ check.qualified_quantity }}</div>
+                    <div class="layui-col-md3"><strong>不合格数量：</strong>{{ check.defective_quantity }}</div>
+                    <div class="layui-col-md3"><strong>合格率：</strong>{{ check.qualified_rate }}%</div>
+                </div>
+
+                <hr>
+
+                <div class="layui-row layui-col-space15">
+                    <div class="layui-col-md4">
+                        <strong>检查结果：</strong>
+                        {% if check.result == 1 %}
+                        <span class="layui-badge layui-bg-green">合格</span>
+                        {% elif check.result == 2 %}
+                        <span class="layui-badge layui-bg-red">不合格</span>
+                        {% else %}
+                        <span class="layui-badge layui-bg-orange">待检</span>
+                        {% endif %}
+                    </div>
+                    <div class="layui-col-md8"><strong>检查时间：</strong>{{ check.check_time|date:"Y-m-d H:i:s" }}</div>
+                </div>
+
+                <fieldset class="layui-elem-field layui-field-title">
+                    <legend>缺陷描述</legend>
+                </fieldset>
+                <div class="layui-text" style="line-height: 1.8;">{{ check.defect_description|default:'-'|linebreaks }}</div>
+
+                <fieldset class="layui-elem-field layui-field-title">
+                    <legend>改进建议</legend>
+                </fieldset>
+                <div class="layui-text" style="line-height: 1.8;">{{ check.improvement_suggestion|default:'-'|linebreaks }}</div>
+            </div>
+        </div>
+    </div>
+<script>
+        function openRightPopup(title, url) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: title,
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: url,
+                    success: function(layero, index) {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    },
+                    end: function() {
+                        window.location.reload();
+                    }
+                });
+            });
+        }
+</script>
+
+    <!-- 注入的消息提示脚本 -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var msgs = [
+                {% for message in messages %}
+                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
+                {% endfor %}
+            ];
+
+            if (msgs.length > 0 && typeof layui !== 'undefined') {
+                layui.use(['layer'], function() {
+                    msgs.forEach(function(m) {
+                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
+                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
+                    });
+                });
+            }
+        });
+    </script>
+</body>
+</html>

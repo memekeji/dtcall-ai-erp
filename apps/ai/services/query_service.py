@@ -25,11 +25,8 @@ class QueryService:
 
     def __init__(self):
         self.intent_handlers = {
-            # 通用问候
             'greeting': self.handle_greeting,
-            # AI聊天
             'ai_chat': self.handle_ai_chat,
-            # 客户相关
             'customer_count': self.handle_customer_count,
             'customer_count_deal': self.handle_customer_count_deal,
             'customer_count_potential': self.handle_customer_count_potential,
@@ -39,10 +36,6 @@ class QueryService:
             'customer_deal_last_month': self.handle_customer_deal_last_month,
             'customer_deal_this_month': self.handle_customer_deal_this_month,
             'customer_detail': self.handle_customer_detail,
-            'add_order': self.handle_add_order,
-            'add_followup': self.handle_add_followup,
-
-            # 订单相关
             'order_count': self.handle_order_count,
             'order_count_completed': self.handle_order_count_completed,
             'order_count_in_progress': self.handle_order_count_in_progress,
@@ -50,15 +43,11 @@ class QueryService:
             'order_total': self.handle_order_total,
             'order_total_last_month': self.handle_order_total_last_month,
             'order_total_this_month': self.handle_order_total_this_month,
-
-            # 合同相关
             'contract_count': self.handle_contract_count,
             'contract_count_effective': self.handle_contract_count_effective,
             'contract_count_expired': self.handle_contract_count_expired,
             'contract_list': self.handle_contract_list,
             'contract_total': self.handle_contract_total,
-
-            # 项目相关
             'project_count': self.handle_project_count,
             'project_count_in_progress': self.handle_project_count_in_progress,
             'project_count_completed': self.handle_project_count_completed,
@@ -67,24 +56,16 @@ class QueryService:
             'project_list_in_progress': self.handle_project_list_in_progress,
             'project_list_completed': self.handle_project_list_completed,
             'project_progress': self.handle_project_progress,
-
-            # 发票相关
             'invoice_count': self.handle_invoice_count,
             'invoice_count_issued': self.handle_invoice_count_issued,
             'invoice_count_unissued': self.handle_invoice_count_unissued,
             'invoice_list': self.handle_invoice_list,
-
-            # 员工相关
             'employee_count': self.handle_employee_count,
             'employee_count_active': self.handle_employee_count_active,
             'employee_count_inactive': self.handle_employee_count_inactive,
             'employee_list': self.handle_employee_list,
-
-            # 部门相关
             'department_count': self.handle_department_count,
             'department_list': self.handle_department_list,
-
-            # 财务相关
             'finance_expense_count': self.handle_finance_expense_count,
             'finance_expense_list': self.handle_finance_expense_list,
             'finance_invoice_count': self.handle_finance_invoice_count,
@@ -93,8 +74,6 @@ class QueryService:
             'finance_income_list': self.handle_finance_income_list,
             'finance_order_record_count': self.handle_finance_order_record_count,
             'finance_order_record_list': self.handle_finance_order_record_list,
-
-            # 生产相关
             'production_plan_count': self.handle_production_plan_count,
             'production_plan_list': self.handle_production_plan_list,
             'production_task_count': self.handle_production_task_count,
@@ -103,6 +82,14 @@ class QueryService:
             'production_equipment_list': self.handle_production_equipment_list,
             'production_procedure_count': self.handle_production_procedure_count,
             'production_procedure_list': self.handle_production_procedure_list,
+            'supplier_count': self.handle_supplier_count,
+            'supplier_list': self.handle_supplier_list,
+            'product_count': self.handle_product_count,
+            'product_list': self.handle_product_list,
+            'inventory_count': self.handle_inventory_count,
+            'inventory_list': self.handle_inventory_list,
+            'followup_count': self.handle_followup_count,
+            'followup_list': self.handle_followup_list,
         }
 
         # 权限映射
@@ -113,27 +100,81 @@ class QueryService:
             'project': 'project.view_project',
             'invoice': 'customer.view_customerinvoice',
             'employee': 'user.view_employeefile',
-            'department': 'user.view_department',
-            'finance': 'finance.view_finance',
-            'production': 'production.view_production',
+            'department': 'department.view_department',
+            'finance': 'finance.view_expense',
+            'production': 'production.view_productionplan',
+            'supplier': 'contract.view_supplier',
+            'product': 'contract.view_product',
+            'inventory': 'inventory.view_inventory',
+            'followup': 'customer.view_followrecord',
+        }
+        self.specific_intent_permissions = {
+            'customer_count': 'customer.view_customer',
+            'customer_list': 'customer.view_customer',
+            'order_count': 'customer.view_customerorder',
+            'order_list': 'customer.view_customerorder',
+            'contract_count': 'contract.view_contract',
+            'contract_list': 'contract.view_contract',
+            'project_count': 'project.view_project',
+            'project_list': 'project.view_project',
+            'invoice_count': 'customer.view_customerinvoice',
+            'invoice_list': 'customer.view_customerinvoice',
+            'employee_count': 'user.view_employeefile',
+            'employee_list': 'user.view_employeefile',
+            'department_count': 'department.view_department',
+            'department_list': 'department.view_department',
+            'finance_expense_count': 'finance.view_expense',
+            'finance_expense_list': 'finance.view_expense',
+            'finance_invoice_count': 'finance.view_invoice',
+            'finance_invoice_list': 'finance.view_invoice',
+            'finance_income_count': 'finance.view_income',
+            'finance_income_list': 'finance.view_income',
+            'finance_order_record_count': 'finance.view_orderfinancerecord',
+            'finance_order_record_list': 'finance.view_orderfinancerecord',
+            'production_plan_count': 'production.view_productionplan',
+            'production_plan_list': 'production.view_productionplan',
+            'production_task_count': 'production.view_productiontask',
+            'production_task_list': 'production.view_productiontask',
+            'production_equipment_count': 'production.view_equipment',
+            'production_equipment_list': 'production.view_equipment',
+            'production_procedure_count': 'production.view_productionprocedure',
+            'production_procedure_list': 'production.view_productionprocedure',
+            'supplier_count': 'contract.view_supplier',
+            'supplier_list': 'contract.view_supplier',
+            'product_count': 'contract.view_product',
+            'product_list': 'contract.view_product',
+            'inventory_count': 'inventory.view_inventory',
+            'inventory_list': 'inventory.view_inventory',
+            'followup_count': 'customer.view_followrecord',
+            'followup_list': 'customer.view_followrecord',
         }
 
-    def process_query(self, user: User, query: str) -> Dict[str, Any]:
+    def process_query(
+            self,
+            user: User,
+            query: str,
+            intent_result: Dict[str, Any] | None = None) -> Dict[str, Any]:
         """
         处理用户查询
 
         Args:
             user: 当前用户
             query: 用户查询文本
+            intent_result: AI 意图识别结果
 
         Returns:
             Dict[str, Any]: 查询结果
         """
         try:
-            # 1. 直接使用query_service自己的意图识别方法获取具体意图
-            specific_intent, specific_entities = self.recognize_intent(query)
+            intent_result = intent_result or {}
+            specific_intent, specific_entities = self.resolve_specific_intent(query, intent_result)
+            if specific_entities.get('requires_business_page_confirmation'):
+                return {
+                    'success': False,
+                    'message': '数据新增、修改、删除需要在对应业务页面核对并确认后执行',
+                    'requires_confirmation': True
+                }
 
-            # 2. 权限检查
             if not self.check_permission(user, 'data_query'):
                 return {
                     'success': False,
@@ -141,24 +182,28 @@ class QueryService:
                     'suggestion': '请联系管理员获取相应权限'
                 }
 
-            # 3. 执行查询
+            if specific_intent and not self.check_permission(user, specific_intent):
+                return {
+                    'success': False,
+                    'message': '您没有权限访问该数据',
+                    'suggestion': '请联系管理员获取相应权限'
+                }
+
             result = None
 
             if specific_intent:
-                # 执行具体意图
                 result = self.execute_query(
                     specific_intent, specific_entities, user)
             else:
-                # 如果无法获取具体意图，使用默认AI聊天响应
                 result = self.execute_query('ai_chat', {}, user)
 
-            # 4. 格式化结果为可读字符串
             formatted_result = self.format_result(result)
 
             return {
                 'success': True,
                 'intent': 'data_query',
-                'confidence': 1.0,
+                'specific_intent': specific_intent,
+                'confidence': intent_result.get('confidence', 1.0),
                 'result': formatted_result,
                 'entities': specific_entities
             }
@@ -167,8 +212,69 @@ class QueryService:
             logger.error(f"处理查询失败: {str(e)}")
             return {
                 'success': False,
-                'message': f'查询过程中发生错误: {str(e)}'
+                'message': '查询过程中发生错误，请稍后重试'
             }
+
+    def resolve_specific_intent(
+            self,
+            query: str,
+            intent_result: Dict[str, Any] | None = None) -> tuple[str, Dict[str, Any]]:
+        intent_result = intent_result or {}
+        entities = dict(intent_result.get('entities') or {})
+        data_type = intent_result.get('data_type')
+        action = intent_result.get('action') or 'query'
+
+        if intent_result.get('time_range'):
+            entities['time_range'] = intent_result.get('time_range')
+        if intent_result.get('status'):
+            entities['status'] = intent_result.get('status')
+        if intent_result.get('customer_name'):
+            entities['customer_name'] = intent_result.get('customer_name')
+
+        if action in {'list', 'detail', 'summary', 'query', 'count'}:
+            action = self._infer_query_action(query, action)
+        else:
+            action = 'list'
+
+        specific_intent = self._map_data_type_to_specific_intent(data_type, action)
+        if specific_intent:
+            logger.info(
+                f"AI意图映射: intent={intent_result.get('intent')} data_type={data_type} action={action} specific_intent={specific_intent}")
+            return specific_intent, entities
+
+        if data_type or intent_result.get('source') == 'ai':
+            logger.warning(
+                f"AI意图未映射到可执行查询处理器: data_type={data_type}, action={action}")
+            return 'ai_chat', entities
+
+        return self.recognize_intent(query)
+
+    def _infer_query_action(self, query: str, action: str) -> str:
+        query_lower = (query or '').lower()
+        if action == 'count' or any(keyword in query_lower for keyword in ['多少', '数量', '总数', '统计', '合计']):
+            return 'count'
+        return 'list'
+
+    def _map_data_type_to_specific_intent(self, data_type: str | None, action: str) -> str | None:
+        if not data_type:
+            return None
+        action_type = 'count' if action == 'count' else 'list'
+        mapping = {
+            'customer': {'count': 'customer_count', 'list': 'customer_list'},
+            'order': {'count': 'order_count', 'list': 'order_list'},
+            'contract': {'count': 'contract_count', 'list': 'contract_list'},
+            'project': {'count': 'project_count', 'list': 'project_list'},
+            'invoice': {'count': 'invoice_count', 'list': 'invoice_list'},
+            'employee': {'count': 'employee_count', 'list': 'employee_list'},
+            'department': {'count': 'department_count', 'list': 'department_list'},
+            'finance': {'count': 'finance_expense_count', 'list': 'finance_expense_list'},
+            'production': {'count': 'production_plan_count', 'list': 'production_plan_list'},
+            'supplier': {'count': 'supplier_count', 'list': 'supplier_list'},
+            'product': {'count': 'product_count', 'list': 'product_list'},
+            'inventory': {'count': 'inventory_count', 'list': 'inventory_list'},
+            'followup': {'count': 'followup_count', 'list': 'followup_list'},
+        }
+        return mapping.get(data_type, {}).get(action_type)
 
     def recognize_intent(self, query: str) -> tuple[str, Dict[str, Any]]:
         """识别用户意图
@@ -183,50 +289,10 @@ class QueryService:
         entities = {}
         intent = None
 
-        # 检查数据添加意图
-        if any(keyword in query_lower for keyword in ['添加', '新增', '创建', '增加']):
-            # 提取客户名称
-            import re
-            customer_name_pattern = r'[\u4e00-\u9fa5]+'
-            customer_name_matches = re.findall(
-                customer_name_pattern, query_lower)
-            customer_name = None
-            if customer_name_matches:
-                # 尝试找到最可能是客户名称的匹配项
-                for match in customer_name_matches:
-                    if match not in [
-                        '客户',
-                        '订单',
-                        '合同',
-                        '项目',
-                        '发票',
-                        '查询',
-                        '列出',
-                        '展示',
-                        '查看',
-                        '数量',
-                        '有多少',
-                        '几个',
-                        '统计',
-                        '关联',
-                        '所有',
-                        '的',
-                        '添加',
-                        '帮我',
-                        '新增',
-                        '创建',
-                        '增加',
-                            '跟进记录']:
-                        customer_name = match
-                        entities['customer_name'] = customer_name
-                        break
-
-            if '订单' in query_lower:
-                intent = 'add_order'
-            elif '跟进记录' in query_lower or '跟进' in query_lower:
-                intent = 'add_followup'
+        if any(keyword in query_lower for keyword in ['添加', '新增', '创建', '增加', '修改', '更新', '删除', '移除', '作废']):
+            return 'ai_chat', {'requires_business_page_confirmation': True}
         # 通用问候意图
-        elif any(keyword in query_lower for keyword in ['你好', '您好', 'hi', 'hello', '早上好', '下午好', '晚上好']):
+        if any(keyword in query_lower for keyword in ['你好', '您好', 'hi', 'hello', '早上好', '下午好', '晚上好']):
             intent = 'greeting'
         # 订单相关意图（优先于客户相关意图，因为订单查询可能包含客户名称）
         elif '订单' in query_lower:
@@ -527,9 +593,11 @@ class QueryService:
             logger.info(f"用户 {user.username} 访问 data_query 高层意图，允许访问")
             return True
 
-        # 1. 基于意图的权限检查
-        data_type = intent.split('_')[0]
-        permission = self.permission_mapping.get(data_type)
+        # 1. 基于具体意图的权限检查
+        permission = self.specific_intent_permissions.get(intent)
+        if not permission:
+            data_type = intent.split('_')[0]
+            permission = self.permission_mapping.get(data_type)
 
         if permission:
             # 2. 使用Django内置权限系统检查
@@ -537,10 +605,9 @@ class QueryService:
             logger.info(f"用户 {user.username} 访问 {intent} 权限检查结果: {has_perm}")
             return has_perm
 
-        # 3. 如果没有找到权限映射，尝试基于实体类型检查
-        # 这是为了兼容旧的意图识别逻辑
-        logger.warning(f"用户 {user.username} 访问 {intent} 未找到对应权限映射，默认允许访问")
-        return True
+        # 3. 未找到权限映射时拒绝访问，避免 AI 查询绕过具体业务权限
+        logger.warning(f"用户 {user.username} 访问 {intent} 未找到对应权限映射，拒绝访问")
+        return False
 
     def format_result(self, result: Dict[str, Any]) -> str:
         """格式化查询结果为可读字符串
@@ -1727,139 +1794,22 @@ class QueryService:
     def handle_add_order(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理添加订单请求"""
-        from apps.customer.models import Customer, CustomerOrder
-        from datetime import datetime
-
-        # 验证必填字段
-        customer_name = entities.get('customer_name')
-        if not customer_name:
-            return {
-                'type': 'error',
-                'message': '请提供客户名称',
-                'data_type': 'order'
-            }
-
-        # 查找客户
-        customer = Customer.objects.filter(
-            name__icontains=customer_name).first()
-        if not customer:
-            return {
-                'type': 'error',
-                'message': f'未找到名称包含{customer_name}的客户',
-                'data_type': 'order'
-            }
-
-        # 检查用户权限，确保只有客户归属者或管理员才能添加订单
-        if not user.is_superuser and customer.belong_uid != user.id:
-            return {
-                'type': 'error',
-                'message': '您没有权限为该客户添加订单',
-                'data_type': 'order'
-            }
-
-        # 创建新订单
-        try:
-            # 这里可以根据实际需求从entities中提取更多订单信息
-            # 目前默认创建一个基本订单
-            order = CustomerOrder.objects.create(
-                customer=customer,
-                order_number=f'ORD-{datetime.now().strftime("%Y%m%d%H%M%S")}',
-                amount=0.0,
-                status='待处理',
-                order_date=datetime.now()
-            )
-
-            return {
-                'type': 'success',
-                'message': f'成功为客户{customer_name}添加订单，订单号：{order.order_number}',
-                'order_id': order.id,
-                'order_number': order.order_number,
-                'data_type': 'order'}
-        except Exception as e:
-            logger.error(f'添加订单失败: {str(e)}')
-            return {
-                'type': 'error',
-                'message': '添加订单失败，请稍后重试',
-                'data_type': 'order'
-            }
+        return {
+            'type': 'error',
+            'message': '订单创建需要在对应业务页面核对并确认后执行',
+            'data_type': 'order',
+            'requires_confirmation': True
+        }
 
     def handle_add_followup(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理添加客户跟进记录请求"""
-        from apps.customer.models import Customer
-        from datetime import datetime
-
-        # 验证必填字段
-        customer_name = entities.get('customer_name')
-        if not customer_name:
-            return {
-                'type': 'error',
-                'message': '请提供客户名称',
-                'data_type': 'followup'
-            }
-
-        # 查找客户
-        customer = Customer.objects.filter(
-            name__icontains=customer_name).first()
-        if not customer:
-            return {
-                'type': 'error',
-                'message': f'未找到名称包含{customer_name}的客户',
-                'data_type': 'followup'
-            }
-
-        # 检查用户权限，确保只有客户归属者或管理员才能添加跟进记录
-        if not user.is_superuser and customer.belong_uid != user.id:
-            return {
-                'type': 'error',
-                'message': '您没有权限为该客户添加跟进记录',
-                'data_type': 'followup'
-            }
-
-        # 创建新跟进记录
-        try:
-            # 检查是否存在客户跟进记录表
-            from django.apps import apps
-            FollowupModel = None
-
-            # 尝试获取客户跟进记录表
-            try:
-                FollowupModel = apps.get_model('customer', 'CustomerFollowup')
-            except LookupError:
-                try:
-                    FollowupModel = apps.get_model('customer', 'Followup')
-                except LookupError:
-                    pass
-
-            if FollowupModel:
-                # 如果存在跟进记录表，创建新记录
-                followup = FollowupModel.objects.create(
-                    customer=customer,
-                    followup_type='电话',  # 默认跟进类型
-                    content='系统自动创建的跟进记录',  # 默认内容，实际应用中应该从entities中提取
-                    followup_person=user.username,
-                    create_time=datetime.now()
-                )
-                return {
-                    'type': 'success',
-                    'message': f'成功为客户{customer_name}添加跟进记录',
-                    'followup_id': followup.id,
-                    'data_type': 'followup'
-                }
-            else:
-                # 如果不存在跟进记录表，返回提示
-                return {
-                    'type': 'error',
-                    'message': '客户跟进记录功能尚未实现',
-                    'data_type': 'followup'
-                }
-        except Exception as e:
-            logger.error(f'添加跟进记录失败: {str(e)}')
-            return {
-                'type': 'error',
-                'message': '添加跟进记录失败，请稍后重试',
-                'data_type': 'followup'
-            }
+        return {
+            'type': 'error',
+            'message': '跟进记录创建需要在对应业务页面核对并确认后执行',
+            'data_type': 'followup',
+            'requires_confirmation': True
+        }
 
     # 员工相关处理函数
     def handle_employee_count_active(
@@ -2178,6 +2128,121 @@ class QueryService:
             'data_type': 'production_procedure'
         }
 
+    def handle_supplier_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.contract.models import Supplier
+        count = Supplier.objects.count()
+        return {
+            'type': 'count',
+            'value': count,
+            'data_type': 'supplier'
+        }
+
+    def handle_supplier_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.contract.models import Supplier
+        suppliers = Supplier.objects.all()[:5]
+        supplier_list = [{
+            'id': supplier.id,
+            'code': supplier.code,
+            'name': supplier.name,
+            'contact_person': supplier.contact_person,
+            'contact_phone': supplier.contact_phone,
+            'is_active': supplier.is_active
+        } for supplier in suppliers]
+        return {
+            'type': 'list',
+            'items': supplier_list,
+            'total': Supplier.objects.count(),
+            'data_type': 'supplier'
+        }
+
+    def handle_product_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.contract.models import Product
+        count = Product.objects.filter(delete_time__isnull=True).count()
+        return {
+            'type': 'count',
+            'value': count,
+            'data_type': 'product'
+        }
+
+    def handle_product_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.contract.models import Product
+        products = Product.objects.filter(delete_time__isnull=True)[:5]
+        product_list = [{
+            'id': product.id,
+            'code': product.code,
+            'name': product.name,
+            'specs': product.specs,
+            'unit': product.unit,
+            'price': product.price
+        } for product in products]
+        return {
+            'type': 'list',
+            'items': product_list,
+            'total': Product.objects.filter(delete_time__isnull=True).count(),
+            'data_type': 'product'
+        }
+
+    def handle_inventory_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.inventory.models import Inventory
+        count = Inventory.objects.count()
+        return {
+            'type': 'count',
+            'value': count,
+            'data_type': 'inventory'
+        }
+
+    def handle_inventory_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.inventory.models import Inventory
+        inventories = Inventory.objects.select_related('item', 'warehouse', 'location').all()[:5]
+        inventory_list = [{
+            'id': inventory.id,
+            'item_code': inventory.item.code,
+            'item_name': inventory.item.name,
+            'warehouse': inventory.warehouse.name,
+            'location': inventory.location.name if inventory.location else '',
+            'available_quantity': inventory.available_quantity
+        } for inventory in inventories]
+        return {
+            'type': 'list',
+            'items': inventory_list,
+            'total': Inventory.objects.count(),
+            'data_type': 'inventory'
+        }
+
+    def handle_followup_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.customer.models import CustomerFollowUp
+        count = CustomerFollowUp.objects.count()
+        return {
+            'type': 'count',
+            'value': count,
+            'data_type': 'followup'
+        }
+
+    def handle_followup_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.customer.models import CustomerFollowUp
+        followups = CustomerFollowUp.objects.select_related('customer', 'creator').all()[:5]
+        followup_list = [{
+            'id': followup.id,
+            'customer': followup.customer.name if followup.customer else '',
+            'follow_type': followup.follow_type,
+            'next_follow_time': followup.next_follow_time.strftime('%Y-%m-%d %H:%M') if followup.next_follow_time else '',
+            'creator': followup.creator.username if followup.creator else ''
+        } for followup in followups]
+        return {
+            'type': 'list',
+            'items': followup_list,
+            'total': CustomerFollowUp.objects.count(),
+            'data_type': 'followup'
+        }
+
     def format_result(self, result: Dict[str, Any]) -> str:
         """格式化查询结果为自然语言
 
@@ -2224,7 +2289,11 @@ class QueryService:
             'production_plan': '生产计划',
             'production_task': '生产任务',
             'production_equipment': '生产设备',
-            'production_procedure': '生产工序'
+            'production_procedure': '生产工序',
+            'supplier': '供应商',
+            'product': '产品',
+            'inventory': '库存',
+            'followup': '跟进记录'
         }
 
         if result_type == 'count':

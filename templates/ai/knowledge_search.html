@@ -1,0 +1,54 @@
+{% extends 'home/iframe_base.html' %}
+
+{% block title %}知识搜索{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">知识搜索</div>
+    <div class="layui-card-body">
+        <form class="layui-form" method="get" style="margin-bottom: 20px;">
+            <div class="layui-row layui-col-space10">
+                <div class="layui-col-md10">
+                    <input type="text" name="q" value="{{ query }}" placeholder="请输入关键词搜索知识条目" class="layui-input">
+                </div>
+                <div class="layui-col-md2">
+                    <button type="submit" class="layui-btn layui-btn-fluid">搜索</button>
+                </div>
+            </div>
+        </form>
+
+        <table class="layui-table" lay-skin="line">
+            <thead>
+                <tr>
+                    <th>标题</th>
+                    <th>知识库</th>
+                    <th>知识类型</th>
+                    <th>内容摘要</th>
+                    <th>创建人</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in object_list %}
+                <tr>
+                    <td>{{ item.title }}</td>
+                    <td>{{ item.knowledge_base.name|default:'-' }}</td>
+                    <td>{{ item.get_knowledge_type_display }}</td>
+                    <td>{{ item.content|truncatechars:80 }}</td>
+                    <td>{{ item.creator.username|default:'-' }}</td>
+                    <td>{{ item.created_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        <a href="{% url 'ai:knowledge_item_detail' item.pk %}" class="layui-btn layui-btn-xs">查看</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; color: #999; padding: 40px;">{% if query %}未找到匹配的知识条目{% else %}请输入关键词开始搜索{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

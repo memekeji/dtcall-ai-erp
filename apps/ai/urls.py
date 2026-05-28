@@ -335,6 +335,7 @@ urlpatterns = [
         views.ParseFileContentView.as_view(),
         name='parse_file_content'),
     # AI聊天流
+    path('intent/recognize/', views.AIIntentRecognizeAPIView.as_view(), name='intent_recognize'),
     path('chat/stream/', views.AIChatStreamView.as_view(), name='chat_stream'),
 
     # 节点配置Schema API

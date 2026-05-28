@@ -37,7 +37,7 @@
 
         <div class="layui-row table-toolbar">
             <div class="layui-col-md6">
-                <button class="layui-btn" onclick="location.href='{% url 'production:production_order_change_add' %}'">
+                <button class="layui-btn" onclick="openRightPopup('添加', '{% url 'production:production_order_change_add' %}')">
                     <i class="layui-icon layui-icon-add-1"></i> 新建变更
                 </button>
                 <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:production_task_index' %}'">
@@ -75,9 +75,9 @@
                                     <th>变更编号</th>
                                     <th>变更类型</th>
                                     <th>变更原因</th>
-                                    <th>关联订单</th>
-                                    <th>申请人</th>
-                                    <th>申请时间</th>
+                                    <th>关联计划</th>
+                                    <th>创建人</th>
+                                    <th>创建时间</th>
                                     <th>状态</th>
                                     <th>操作</th>
                                 </tr>
@@ -85,7 +85,7 @@
                             <tbody>
                                 {% for change in page_obj %}
                                 <tr>
-                                    <td>{{ change.code }}</td>
+                                    <td>BG{{ change.pk|stringformat:"05d" }}</td>
                                     <td>
                                         {% if change.change_type == 'quantity' %}
                                             数量变更
@@ -98,9 +98,9 @@
                                         {% endif %}
                                     </td>
                                     <td>{{ change.change_reason|default:"-" }}</td>
-                                    <td>{{ change.production_order|default:"-" }}</td>
-                                    <td>{{ change.applicant.username|default:"-" }}</td>
-                                    <td>{{ change.created_at|date:"Y-m-d H:i" }}</td>
+                                    <td>{{ change.production_plan.code }} / {{ change.production_plan.name|default:"-" }}</td>
+                                    <td>{{ change.creator.username|default:"-" }}</td>
+                                    <td>{{ change.create_time|date:"Y-m-d H:i" }}</td>
                                     <td>
                                         {% if change.status == 1 %}
                                             <span class="status-pending">待审核</span>
@@ -122,7 +122,7 @@
                                             <i class="layui-icon layui-icon-play"></i> 执行
                                         </button>
                                         {% endif %}
-                                        <button class="layui-btn layui-btn-xs" onclick="location.href='{% url 'production:production_order_change_edit' change.pk %}'">
+                                        <button class="layui-btn layui-btn-xs" onclick="openRightPopup('编辑', '{% url 'production:production_order_change_edit' change.pk %}')">
                                             <i class="layui-icon layui-icon-edit"></i> 编辑
                                         </button>
                                     </td>
@@ -181,7 +181,7 @@
                     icon: 3,
                     title: '确认审核'
                 }, function(index) {
-                    window.location.href = '/adm/production/order/change/' + id + '/approve/';
+                    window.location.href = '{% url 'production:production_order_change_approve' 0 %}'.replace('0', id);
                     layer.close(index);
                 });
             });
@@ -194,11 +194,77 @@
                     icon: 3,
                     title: '确认执行'
                 }, function(index) {
-                    window.location.href = '/adm/production/order/change/' + id + '/execute/';
+                    window.location.href = '{% url 'production:production_order_change_execute' 0 %}'.replace('0', id);
                     layer.close(index);
                 });
             });
         }
+
+        function openRightPopup(title, url) {
+            layui.use(['layer'], function () {
+                var layer = layui.layer;
+                layer.open({
+                    type: 2,
+                    title: title,
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: url,
+                    success: function(layero, index) {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    },
+                    end: function() {
+                        window.location.reload();
+                    }
+                });
+            });
+        }
+</script>
+
+    <!-- 注入的 iframe 自动关闭及消息提示脚本 -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var msgs = [
+                {% for message in messages %}
+                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
+                {% endfor %}
+            ];
+
+            var flashMsg = sessionStorage.getItem('flash_msg');
+            if (flashMsg) {
+                sessionStorage.removeItem('flash_msg');
+                try {
+                    var parsedMsgs = JSON.parse(flashMsg);
+                    msgs = msgs.concat(parsedMsgs);
+                } catch(e) {}
+            }
+
+            if (window !== window.parent) {
+                // 如果在 iframe 中加载了 list/index 页面，说明是操作成功后的重定向，或者点击了返回
+                if (msgs.length > 0) {
+                    sessionStorage.setItem('flash_msg', JSON.stringify(msgs));
+                }
+                parent.location.reload();
+                return;
+            }
+
+            // 正常独立访问 list 页面
+            if (msgs.length > 0 && typeof layui !== 'undefined') {
+                layui.use(['layer'], function() {
+                    msgs.forEach(function(m) {
+                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
+                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
+                    });
+                });
+            }
+        });
     </script>
 </body>
 </html>

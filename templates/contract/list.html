@@ -218,7 +218,6 @@
     <script>
         // 页面初始化
         document.addEventListener('DOMContentLoaded', function() {
-            // console.log('合同列表页面加载完成');
             
             // 初始化分页
             initPagination();
@@ -256,12 +255,8 @@
             // 为所有按钮添加点击效果
             var buttons = document.querySelectorAll('.contract-btn');
             buttons.forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    // console.log('按钮被点击:', btn.textContent);
-                });
+                btn.addEventListener('click', function() {});
             });
-            
-            // console.log('按钮事件绑定完成，共绑定', buttons.length, '个按钮');
         }
         
         // 新增合同
@@ -278,7 +273,7 @@
                     area: ['80%', '100%'],
                     offset: 'r',
                     anim: 2,
-                    content: '/contract/add/',
+                    content: '/contract/sales/add/',
                     success: function(layero, index) {
                         if (layero && typeof layero.css === 'function') {
                             layero.css({
@@ -297,41 +292,94 @@
         
         // 查看合同
         function viewContract(id) {
-            // console.log('查看合同:', id);
-            
             layui.use('layer', function() {
                 var layer = layui.layer;
-                layer.msg('查看功能待实现 - 合同ID: ' + id, {icon: 1});
+                layer.open({
+                    type: 2,
+                    title: '查看合同',
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: '/contract/view/' + id + '/',
+                    success: function(layero, index) {
+                        if (layero && typeof layero.css === 'function') {
+                            layero.css({
+                                'right': '0',
+                                'top': '0',
+                                'height': '100%'
+                            });
+                        }
+                    }
+                });
             });
         }
         
         // 编辑合同
         function editContract(id) {
-            // console.log('编辑合同:', id);
-            
             layui.use('layer', function() {
                 var layer = layui.layer;
-                layer.msg('编辑功能待实现 - 合同ID: ' + id, {icon: 1});
+                layer.open({
+                    type: 2,
+                    title: '编辑合同',
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: '/contract/update/' + id + '/',
+                    success: function(layero, index) {
+                        if (layero && typeof layero.css === 'function') {
+                            layero.css({
+                                'right': '0',
+                                'top': '0',
+                                'height': '100%'
+                            });
+                        }
+                    },
+                    end: function() {
+                        window.location.reload();
+                    }
+                });
             });
         }
         
         // 删除合同
         function deleteContract(id) {
-            // console.log('删除合同:', id);
-            
-            layui.use('layer', function() {
+            layui.use(['layer', 'jquery'], function() {
                 var layer = layui.layer;
+                var $ = layui.jquery;
                 layer.confirm('确定要删除这个合同吗？', {icon: 3, title:'提示'}, function(index) {
-                    layer.msg('删除功能待实现', {icon: 1});
+                    $.ajax({
+                        url: '/contract/del/',
+                        type: 'POST',
+                        data: {
+                            id: id,
+                            csrfmiddlewaretoken: '{{ csrf_token }}'
+                        },
+                        success: function(res) {
+                            if (res.code === 0 || res.status === 'success') {
+                                layer.msg('删除成功', {icon: 1, time: 1000}, function() {
+                                    window.location.reload();
+                                });
+                            } else {
+                                layer.msg(res.msg || res.message || '删除失败', {icon: 2});
+                            }
+                        },
+                        error: function() {
+                            layer.msg('网络错误，请稍后重试', {icon: 2});
+                        }
+                    });
                     layer.close(index);
                 });
             });
         }
         
         // 全局错误处理
-        window.addEventListener('error', function(e) {
-            // console.error('页面错误:', e.error);
-        });
+        window.addEventListener('error', function() {});
     </script>
 </body>
 </html>

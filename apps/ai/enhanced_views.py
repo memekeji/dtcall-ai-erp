@@ -106,7 +106,7 @@ class WorkflowEnhancedExecuteView(View):
         except Exception as e:
             logger.error(f"工作流执行失败: {e}", exc_info=True)
             return JsonResponse(
-                {'status': 'error', 'message': str(e)}, status=500)
+                {'status': 'error', 'message': '工作流执行失败，请稍后重试'}, status=500)
 
     def _get_client_ip(self, request):
         """获取客户端IP"""
@@ -191,7 +191,7 @@ class WorkflowInputFieldsView(View):
         except Exception as e:
             logger.error(f"获取工作流输入字段失败: {e}", exc_info=True)
             return JsonResponse(
-                {'status': 'error', 'message': str(e)}, status=500)
+                {'status': 'error', 'message': '获取工作流输入字段失败，请稍后重试'}, status=500)
 
     def _generate_form_schema(self, form_config: dict) -> dict:
         """生成表单JSON Schema"""
@@ -318,7 +318,7 @@ class WorkflowDebugView(View):
         except Exception as e:
             logger.error(f"调试失败: {e}", exc_info=True)
             return JsonResponse(
-                {'status': 'error', 'message': str(e)}, status=500)
+                {'status': 'error', 'message': '启动工作流调试失败，请稍后重试'}, status=500)
 
     def get(self, request, pk):
         """获取调试会话状态"""
@@ -370,7 +370,7 @@ class WorkflowMonitorView(View):
         except Exception as e:
             logger.error(f"获取监控数据失败: {e}", exc_info=True)
             return JsonResponse(
-                {'status': 'error', 'message': str(e)}, status=500)
+                {'status': 'error', 'message': '获取监控数据失败，请稍后重试'}, status=500)
 
     def post(self, request, pk):
         """设置告警阈值"""
@@ -398,7 +398,7 @@ class WorkflowMonitorView(View):
         except Exception as e:
             logger.error(f"设置告警阈值失败: {e}", exc_info=True)
             return JsonResponse(
-                {'status': 'error', 'message': str(e)}, status=500)
+                {'status': 'error', 'message': '设置告警阈值失败，请稍后重试'}, status=500)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -422,7 +422,7 @@ class WorkflowPermissionView(View):
         except Exception as e:
             logger.error(f"获取权限信息失败: {e}", exc_info=True)
             return JsonResponse(
-                {'status': 'error', 'message': str(e)}, status=500)
+                {'status': 'error', 'message': '获取权限信息失败，请稍后重试'}, status=500)
 
     def post(self, request, pk):
         """授予权限"""
@@ -456,7 +456,7 @@ class WorkflowPermissionView(View):
         except Exception as e:
             logger.error(f"授予权限失败: {e}", exc_info=True)
             return JsonResponse(
-                {'status': 'error', 'message': str(e)}, status=500)
+                {'status': 'error', 'message': '授予权限失败，请稍后重试'}, status=500)
 
     def delete(self, request, pk):
         """撤销权限"""
@@ -484,7 +484,7 @@ class WorkflowPermissionView(View):
         except Exception as e:
             logger.error(f"撤销权限失败: {e}", exc_info=True)
             return JsonResponse(
-                {'status': 'error', 'message': str(e)}, status=500)
+                {'status': 'error', 'message': '撤销权限失败，请稍后重试'}, status=500)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -508,7 +508,7 @@ class APIKeyManagementView(View):
         except Exception as e:
             logger.error(f"获取API密钥列表失败: {e}", exc_info=True)
             return JsonResponse(
-                {'status': 'error', 'message': str(e)}, status=500)
+                {'status': 'error', 'message': '获取API密钥列表失败，请稍后重试'}, status=500)
 
     def post(self, request):
         """创建API密钥"""
@@ -544,7 +544,7 @@ class APIKeyManagementView(View):
         except Exception as e:
             logger.error(f"创建API密钥失败: {e}", exc_info=True)
             return JsonResponse(
-                {'status': 'error', 'message': str(e)}, status=500)
+                {'status': 'error', 'message': '创建API密钥失败，请稍后重试'}, status=500)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -569,7 +569,7 @@ class APIKeyRevokeView(View):
         except Exception as e:
             logger.error(f"撤销API密钥失败: {e}", exc_info=True)
             return JsonResponse(
-                {'status': 'error', 'message': str(e)}, status=500)
+                {'status': 'error', 'message': '撤销API密钥失败，请稍后重试'}, status=500)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -592,7 +592,7 @@ class ContentSecurityView(View):
         except Exception as e:
             logger.error(f"内容安全检查失败: {e}", exc_info=True)
             return JsonResponse(
-                {'status': 'error', 'message': str(e)}, status=500)
+                {'status': 'error', 'message': '内容安全检查失败，请稍后重试'}, status=500)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -631,7 +631,7 @@ class AuditLogView(View):
         except Exception as e:
             logger.error(f"查询审计日志失败: {e}", exc_info=True)
             return JsonResponse(
-                {'status': 'error', 'message': str(e)}, status=500)
+                {'status': 'error', 'message': '查询审计日志失败，请稍后重试'}, status=500)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -651,7 +651,7 @@ class ModelListView(View):
         except Exception as e:
             logger.error(f"获取模型列表失败: {e}", exc_info=True)
             return JsonResponse(
-                {'status': 'error', 'message': str(e)}, status=500)
+                {'status': 'error', 'message': '获取模型列表失败，请稍后重试'}, status=500)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -674,7 +674,7 @@ class PerformanceAnalysisView(View):
         except Exception as e:
             logger.error(f"性能分析失败: {e}", exc_info=True)
             return JsonResponse(
-                {'status': 'error', 'message': str(e)}, status=500)
+                {'status': 'error', 'message': '性能分析失败，请稍后重试'}, status=500)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -701,4 +701,4 @@ class WorkflowExecutionHistoryView(View):
         except Exception as e:
             logger.error(f"获取执行历史失败: {e}", exc_info=True)
             return JsonResponse(
-                {'status': 'error', 'message': str(e)}, status=500)
+                {'status': 'error', 'message': '获取执行历史失败，请稍后重试'}, status=500)

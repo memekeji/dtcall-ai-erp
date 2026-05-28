@@ -16,6 +16,7 @@ import json
 import logging
 import time
 
+from .forms import InvoiceForm, IncomeForm
 from .models import (
     Expense, Invoice, Income, Payment,
     InvoiceRequest, OrderFinanceRecord,
@@ -318,6 +319,8 @@ class InvoiceCreateView(
     """创建发票"""
     login_url = '/user/login/'
     permission_required = 'finance.add_invoice'
+    model = Invoice
+    form_class = InvoiceForm
     template_name = 'finance/invoice_form.html'
     success_url = reverse_lazy('finance:invoice_list')
 
@@ -330,6 +333,7 @@ class InvoiceUpdateView(
     login_url = '/user/login/'
     permission_required = 'finance.change_invoice'
     model = Invoice
+    form_class = InvoiceForm
     template_name = 'finance/invoice_form.html'
     success_url = reverse_lazy('finance:invoice_list')
 
@@ -381,6 +385,8 @@ class IncomeCreateView(LoginRequiredMixin, FinancePermissionMixin, CreateView):
     """创建回款"""
     login_url = '/user/login/'
     permission_required = 'finance.add_income'
+    model = Income
+    form_class = IncomeForm
     template_name = 'finance/income_form.html'
     success_url = reverse_lazy('finance:income_list')
 
@@ -442,9 +448,11 @@ class PaymentReceiveCreateView(
         CreateView):
     """创建收付款记录"""
     login_url = '/user/login/'
-    permission_required = 'finance.add_payment'
-    template_name = 'finance/paymentreceive_form.html'
-    success_url = reverse_lazy('finance:paymentreceive_list')
+    permission_required = 'finance.add_income'
+    model = Income
+    form_class = IncomeForm
+    template_name = 'finance/income_form.html'
+    success_url = reverse_lazy('finance:income_list')
 
 
 class InvoiceRequestListView(LoginRequiredMixin, FinancePermissionMixin, View):

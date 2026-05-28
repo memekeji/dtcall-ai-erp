@@ -96,10 +96,10 @@
                                 </td>
                                 <td>
                                     <div class="layui-btn-group">
-                                        <button class="layui-btn layui-btn-xs">
-                                            <i class="layui-icon layui-icon-search"></i> 预览
-                                        </button>
-                                        <a href="{% url 'production:data_mapping_list' %}" class="layui-btn layui-btn-xs">
+                                        <a href="{% url 'production:data_source_detail' source.id %}" class="layui-btn layui-btn-xs">
+                                            <i class="layui-icon layui-icon-search"></i> 详情
+                                        </a>
+                                        <a href="{% url 'production:data_mapping_list' %}?data_source={{ source.id }}" class="layui-btn layui-btn-xs">
                                             <i class="layui-icon layui-icon-set"></i> 映射
                                         </a>
                                         <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="manualCollect({{ source.id }})">

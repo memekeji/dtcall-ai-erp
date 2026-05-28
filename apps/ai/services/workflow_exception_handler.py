@@ -607,7 +607,7 @@ class NodeExceptionHandler:
                 return {
                     'status': 'failed',
                     'result': None,
-                    'error': str(e),
+                    'error': '节点执行失败，请检查节点配置后重试',
                     'strategy': strategy.value
                 }
 
@@ -641,10 +641,11 @@ class NodeExceptionHandler:
             }
 
         except Exception as e:
+            logger.error(f"节点重试失败: {e}")
             return {
                 'status': 'failed',
                 'result': None,
-                'error': str(e),
+                'error': '节点重试失败，请稍后重试',
                 'strategy': 'retry_exhausted'
             }
 
@@ -785,10 +786,11 @@ class WorkflowExceptionHandler:
             execution_result['completed_at'] = timezone.now()
 
         except WorkflowExecutionError as e:
+            logger.error(f"工作流执行失败: {e}")
             execution_result['status'] = 'failed'
             execution_result['error_info'] = {
                 'exception_type': 'WorkflowExecutionError',
-                'message': str(e)
+                'message': '工作流执行失败，请检查工作流配置后重试'
             }
             execution_result['completed_at'] = timezone.now()
 

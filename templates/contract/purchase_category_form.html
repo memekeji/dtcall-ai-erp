@@ -1,9 +1,9 @@
-{% extends "home/base.html" %}
+{% extends 'include/popup.html' %}
 {% load static %}
 
 {% block title %}{{ page_title }}{% endblock %}
 
-{% block css %}
+{% block head %}
 <style>
 .layui-form {
     max-width: 800px;
@@ -148,14 +148,14 @@
             
             <div class="form-buttons">
                 <button type="submit" class="layui-btn layui-btn-normal">保存</button>
-                <button type="button" class="layui-btn layui-btn-primary" onclick="window.location.href='{{ back_url }}'">返回</button>
+                <button type="button" class="layui-btn layui-btn-primary" onclick="closePopup()">返回</button>
             </div>
         </form>
     </div>
 </div>
 {% endblock %}
 
-{% block js %}
+{% block script %}
 <script>
 layui.use(['form'], function(){
     var form = layui.form;

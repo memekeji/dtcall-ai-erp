@@ -1,7 +1,7 @@
 {% extends 'include/common.html' %}
 {% load static %}
 
-{% block title %}数据映射配置 - {{ data_source.name }}{% endblock %}
+{% block title %}数据映射配置{% endblock %}
 
 {% block content %}
 <div class="layui-fluid">
@@ -9,7 +9,7 @@
         <div class="layui-col-md12">
             <div class="layui-card">
                 <div class="layui-card-header">
-                    <h3>数据映射配置 - {{ data_source.name }}</h3>
+                    <h3>数据映射配置{% if current_source %} - {{ current_source.name }}{% endif %}</h3>
                     <div style="float: right;">
                         <a href="{% url 'production:data_source_list' %}" class="layui-btn layui-btn-primary layui-btn-sm">
                             <i class="layui-icon layui-icon-return"></i> 返回数据源
@@ -17,26 +17,48 @@
                     </div>
                 </div>
                 <div class="layui-card-body">
+                    <!-- 过滤器 -->
+                    <form class="layui-form" method="get" style="margin-bottom: 20px;">
+                        <div class="layui-row layui-col-space10">
+                            <div class="layui-col-md4">
+                                <select name="data_source">
+                                    <option value="">全部数据源</option>
+                                    {% for source in source_options %}
+                                    <option value="{{ source.id }}" {% if current_source and current_source.id == source.id %}selected{% endif %}>
+                                        {{ source.name }} ({{ source.code }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="layui-col-md2">
+                                <button type="submit" class="layui-btn">
+                                    <i class="layui-icon layui-icon-search"></i> 筛选
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+
                     <!-- 数据源信息 -->
+                    {% if current_source %}
                     <div class="layui-row layui-col-space15" style="margin-bottom: 20px;">
                         <div class="layui-col-md12">
                             <div style="background: #f8f9fa; padding: 15px; border-radius: 6px;">
                                 <div class="layui-row">
                                     <div class="layui-col-md3">
-                                        <strong>数据源类型：</strong>{{ data_source.get_source_type_display }}
+                                        <strong>数据源类型：</strong>{{ current_source.get_source_type_display }}
                                     </div>
                                     <div class="layui-col-md3">
                                         <strong>连接地址：</strong>
-                                        {% if data_source.endpoint_url %}
-                                            {{ data_source.endpoint_url|truncatechars:30 }}
-                                        {% elif data_source.host %}
-                                            {{ data_source.host }}:{{ data_source.port|default:"" }}
+                                        {% if current_source.endpoint_url %}
+                                            {{ current_source.endpoint_url|truncatechars:30 }}
+                                        {% elif current_source.host %}
+                                            {{ current_source.host }}:{{ current_source.port|default:"" }}
                                         {% else %}
                                             -
                                         {% endif %}
                                     </div>
                                     <div class="layui-col-md3">
-                                        <strong>采集间隔：</strong>{{ data_source.collection_interval }}秒
+                                        <strong>采集间隔：</strong>{{ current_source.collection_interval }}秒
                                     </div>
                                     <div class="layui-col-md3">
 
@@ -45,10 +67,11 @@
                             </div>
                         </div>
                     </div>
+                    {% endif %}
 
                     <!-- 操作按钮 -->
                     <div style="margin-bottom: 20px;">
-                        <a href="{% url 'production:data_mapping_add' %}" class="layui-btn layui-btn-normal">
+                        <a href="{% url 'production:data_mapping_add' %}{% if current_source %}?data_source={{ current_source.id }}{% endif %}" class="layui-btn layui-btn-normal">
                             <i class="layui-icon layui-icon-add-1"></i> 新增映射字段
                         </a>
                         <button class="layui-btn layui-btn-primary" onclick="batchImport()">
@@ -72,7 +95,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for mapping in mappings %}
+                            {% for mapping in page_obj %}
                             <tr>
                                 <td>
                                     <input type="number" value="{{ mapping.sort }}" 
@@ -119,7 +142,7 @@
                                 </td>
                                 <td>
                                     <div class="layui-btn-group">
-                                        <a href="{% url 'production:data_mapping_edit' data_source.id mapping.id %}" class="layui-btn layui-btn-xs">
+                                        <a href="{% url 'production:data_mapping_edit' mapping.id %}" class="layui-btn layui-btn-xs">
                                             <i class="layui-icon layui-icon-edit"></i> 编辑
                                         </a>
                                         <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteMapping({{ mapping.id }})">
@@ -133,7 +156,7 @@
                                 <td colspan="8" style="text-align: center; padding: 50px;">
                                     <i class="layui-icon layui-icon-face-cry" style="font-size: 48px; color: #ccc;"></i>
                                     <p style="color: #999; margin-top: 10px;">暂无映射字段配置</p>
-                                    <a href="{% url 'production:data_mapping_add' %}" class="layui-btn layui-btn-normal">
+                                    <a href="{% url 'production:data_mapping_add' %}{% if current_source %}?data_source={{ current_source.id }}{% endif %}" class="layui-btn layui-btn-normal">
                                         <i class="layui-icon layui-icon-add-1"></i> 添加第一个映射字段
                                     </a>
                                 </td>

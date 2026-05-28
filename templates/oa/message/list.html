@@ -1,0 +1,102 @@
+{% extends 'include/common.html' %}
+
+{% block title %}OA消息中心{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <span class="layui-breadcrumb">
+                    <a href="javascript:;">OA办公</a>
+                    <a><cite>消息中心</cite></a>
+                </span>
+            </div>
+            <div class="layui-col-md6" style="text-align:right;">
+                <span class="layui-badge layui-bg-orange">未读 {{ unread_count }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form" style="margin-bottom:16px;">
+            <div class="layui-row layui-col-space12">
+                <div class="layui-col-md4">
+                    <input type="text" id="keywords" placeholder="搜索标题或内容" class="layui-input">
+                </div>
+                <div class="layui-col-md8">
+                    <button type="button" class="layui-btn" id="searchBtn">查询</button>
+                    <button type="button" class="layui-btn layui-btn-primary" id="resetBtn">重置</button>
+                </div>
+            </div>
+        </form>
+
+        <table class="layui-table" lay-skin="line">
+            <thead>
+                <tr>
+                    <th style="width: 18%;">消息标题</th>
+                    <th style="width: 10%;">消息类型</th>
+                    <th style="width: 10%;">优先级</th>
+                    <th style="width: 12%;">发送人</th>
+                    <th>消息内容</th>
+                    <th style="width: 14%;">发送时间</th>
+                    <th style="width: 8%;">状态</th>
+                    <th style="width: 8%;">操作</th>
+                </tr>
+            </thead>
+            <tbody id="messageTableBody">
+                {% for item in messages_list %}
+                <tr>
+                    <td>{{ item.title }}</td>
+                    <td>{{ item.get_message_type_display }}</td>
+                    <td>{{ item.get_priority_display }}</td>
+                    <td>{{ item.sender.name|default:item.sender.username }}</td>
+                    <td>{{ item.content|truncatechars:80 }}</td>
+                    <td>{{ item.send_time|date:"Y-m-d H:i"|default:"-" }}</td>
+                    <td><span class="layui-badge layui-bg-blue">查看详情</span></td>
+                    <td>
+                        <button type="button" class="layui-btn layui-btn-xs" onclick="openRightPopup('消息详情', '{% url 'message_detail' item.id %}')">查看</button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align:center; color:#999; padding:50px 0;">暂无消息</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function openRightPopup(title, url) {
+        layui.use(['layer'], function () {
+            var layer = layui.layer;
+            layer.open({
+                type: 2,
+                title: title,
+                shadeClose: false,
+                shade: 0.3,
+                maxmin: true,
+                area: ['80%', '100%'],
+                offset: 'r',
+                anim: 2,
+                content: url,
+                success: function(layero, index) {
+                    layero.css({
+                        'right': '0',
+                        'top': '0',
+                        'height': '100%'
+                    });
+                },
+                end: function() {
+                    window.location.reload();
+                }
+            });
+        });
+    }
+
+    layui.use(['form'], function(){
+        var form = layui.form;
+    });
+</script>
+{% endblock %}

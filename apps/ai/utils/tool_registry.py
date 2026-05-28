@@ -3,9 +3,11 @@ from typing import Dict, Any, Callable, List
 
 logger = logging.getLogger(__name__)
 
+
 class AIToolRegistry:
     """全站统一的业务工具注册中心 (Function Calling Registry)"""
     _tools: Dict[str, Dict[str, Any]] = {}
+    ai_execution_enabled = False
 
     @classmethod
     def register(cls, name: str, description: str, parameters: dict):
@@ -33,6 +35,9 @@ class AIToolRegistry:
     @classmethod
     def get_all_tools_schema(cls) -> List[Dict[str, Any]]:
         """获取所有工具的 OpenAI schema 格式"""
+        if not cls.ai_execution_enabled:
+            return []
+
         schemas = []
         for name, tool in cls._tools.items():
             schemas.append({
@@ -48,16 +53,20 @@ class AIToolRegistry:
     @classmethod
     def execute_tool(cls, name: str, kwargs: dict) -> Any:
         """执行工具"""
+        if not cls.ai_execution_enabled:
+            logger.warning(f"AI工具执行被安全策略阻止: {name}")
+            return "AI工具执行已被安全策略禁用，请在业务页面中确认后操作"
+
         tool = cls.get_tool(name)
         if not tool:
             raise ValueError(f"未找到名为 {name} 的工具")
-        
+
         try:
             logger.info(f"正在执行AI工具: {name}, 参数: {kwargs}")
             return tool["func"](**kwargs)
         except Exception as e:
             logger.error(f"执行工具 {name} 失败: {str(e)}")
-            return f"执行失败: {str(e)}"
+            return "工具执行失败，请稍后重试"
 
 # 提供便捷访问
 tool_registry = AIToolRegistry()

@@ -1,0 +1,74 @@
+{% extends 'include/common.html' %}
+
+{% block title %}OA会议记录{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">OA会议记录</div>
+    <div class="layui-card-body">
+        <div style="margin-bottom: 15px;">
+            <button class="layui-btn" onclick="openRightPopup('发起会议申请', '{% url 'meeting_apply' %}')">发起会议申请</button>
+        </div>
+        <table class="layui-table" lay-skin="line">
+            <thead>
+                <tr>
+                    <th>会议主题</th>
+                    <th>会议时间</th>
+                    <th>主持人</th>
+                    <th>记录人</th>
+                    <th>会议室</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for meeting in meetings %}
+                <tr>
+                    <td>{{ meeting.title }}</td>
+                    <td>{{ meeting.start_time|date:"Y-m-d H:i" }} - {{ meeting.end_time|date:"H:i" }}</td>
+                    <td>{{ meeting.host.username }}</td>
+                    <td>{{ meeting.recorder.username }}</td>
+                    <td>{{ meeting.room.name|default:"-" }}</td>
+                    <td>
+                        <button class="layui-btn layui-btn-xs" onclick="openRightPopup('会议详情', '{% url 'meeting_view' meeting.id %}')">查看详情</button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center; color: #999; padding: 40px;">暂无会议记录</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function openRightPopup(title, url) {
+        layui.use(['layer'], function () {
+            var layer = layui.layer;
+            layer.open({
+                type: 2,
+                title: title,
+                shadeClose: false,
+                shade: 0.3,
+                maxmin: true,
+                area: ['80%', '100%'],
+                offset: 'r',
+                anim: 2,
+                content: url,
+                success: function(layero, index) {
+                    layero.css({
+                        'right': '0',
+                        'top': '0',
+                        'height': '100%'
+                    });
+                },
+                end: function() {
+                    window.location.reload();
+                }
+            });
+        });
+    }
+</script>
+
+{% endblock %}

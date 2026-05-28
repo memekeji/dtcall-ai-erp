@@ -544,7 +544,8 @@ class WorkflowInteractionEngine:
             }
 
         except Exception as e:
-            return {'success': False, 'error': str(e)}
+            logger.error(f'完成交互响应处理失败: {e}')
+            return {'success': False, 'error': '完成交互失败，请检查输入后重试'}
 
     def create_checkpoint(
         self,

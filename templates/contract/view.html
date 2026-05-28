@@ -1,11 +1,9 @@
+{% extends 'include/popup.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>合同详情</title>
-    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+
+{% block title %}合同详情{% endblock %}
+
+{% block head %}
     <style>
         .detail-item {
             margin-bottom: 15px;
@@ -33,8 +31,9 @@
         .status-3 { background-color: #f44336; }
         .status-4 { background-color: #9e9e9e; }
     </style>
-</head>
-<body>
+{% endblock %}
+
+{% block content %}
     <div class="layui-fluid" style="padding: 20px;">
         <div class="layui-card">
             <div class="layui-card-header">
@@ -313,9 +312,9 @@
             </div>
         </div>
     </div>
+{% endblock %}
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="{% static 'layui/layui.js' %}"></script>
+{% block script %}
     <script>
         // 将Django模板变量转换为JavaScript变量，避免语法错误
         var contractId = {{ contract.id }};
@@ -334,7 +333,7 @@
                     area: ['80%', '100%'],
                     offset: 'r',
                     anim: 2,
-                    content: '/adm/contract/sales/edit/' + contractId + '/',
+                    content: '/contract/sales/view/' + contractId + '/',
                     success: function(layero, index) {
                         if (layero && typeof layero.css === 'function') {
                             layero.css({
@@ -358,19 +357,24 @@
                 
                 layer.confirm('确定要归档这个合同吗？', function(index) {
                     $.ajax({
-                        url: '/adm/contract/archive/',
+                        url: '/contract/archive/action/',
                         type: 'POST',
                         data: JSON.stringify({id: contractId, action: 'archive'}),
                         contentType: 'application/json',
                         success: function(response) {
                             if (response.code === 0) {
                                 layer.msg('归档成功', {icon: 1}, function() {
-                                    var parentIndex = parent.layer.getFrameIndex(window.name);
-                                    parent.layer.close(parentIndex);
+                                    if (window.parent && window.parent.layui && window.parent.layui.table) {
+                                        window.parent.layui.table.reload('contractTable');
+                                    }
+                                    closePopup();
                                 });
                             } else {
                                 layer.msg(response.msg, {icon: 2});
                             }
+                        },
+                        error: function() {
+                            layer.msg('归档失败，请稍后重试', {icon: 2});
                         }
                     });
                     layer.close(index);
@@ -388,7 +392,7 @@
                     formType: 2
                 }, function(value, index) {
                     $.ajax({
-                        url: '/adm/contract/terminate/',
+                        url: '/contract/terminate/action/',
                         type: 'POST',
                         data: JSON.stringify({
                             id: contractId, 
@@ -399,12 +403,17 @@
                         success: function(response) {
                             if (response.code === 0) {
                                 layer.msg('终止成功', {icon: 1}, function() {
-                                    var parentIndex = parent.layer.getFrameIndex(window.name);
-                                    parent.layer.close(parentIndex);
+                                    if (window.parent && window.parent.layui && window.parent.layui.table) {
+                                        window.parent.layui.table.reload('contractTable');
+                                    }
+                                    closePopup();
                                 });
                             } else {
                                 layer.msg(response.msg, {icon: 2});
                             }
+                        },
+                        error: function() {
+                            layer.msg('终止失败，请稍后重试', {icon: 2});
                         }
                     });
                     layer.close(index);
@@ -412,5 +421,4 @@
             });
         }
     </script>
-</body>
-</html>
+{% endblock %}

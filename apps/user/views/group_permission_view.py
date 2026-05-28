@@ -171,8 +171,9 @@ class GroupPermissionView(LoginRequiredMixin, View):
             """获取菜单对应的权限ID"""
             perm_codename = None
 
-            if menu.permission_required:
-                perm_codename = menu.permission_required
+            permission_required = getattr(menu, 'permission_required', None)
+            if permission_required:
+                perm_codename = permission_required
             else:
                 perm_codename = get_permission_from_src(menu.src)
 
@@ -195,7 +196,8 @@ class GroupPermissionView(LoginRequiredMixin, View):
                         'src': menu.src,
                         'icon': menu.icon,
                         'sort': menu.sort,
-                        'permission_required': menu.permission_required,
+                        'permission_required': getattr(
+                            menu, 'permission_required', None),
                         'view_permission_id': view_perm_id,
                         'has_view_permission': (
                             view_perm_id in group_permission_ids

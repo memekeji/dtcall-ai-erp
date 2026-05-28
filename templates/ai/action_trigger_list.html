@@ -1,0 +1,49 @@
+{% extends 'home/iframe_base.html' %}
+
+{% block title %}AI自动行动触发{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md8">AI自动行动触发</div>
+            <div class="layui-col-md4" style="text-align: right;">
+                <a href="{% url 'ai:action_trigger_create' %}" class="layui-btn layui-btn-sm">新增触发器</a>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <table class="layui-table" lay-skin="line">
+            <thead>
+                <tr>
+                    <th>触发名称</th>
+                    <th>行动类型</th>
+                    <th>触发条件</th>
+                    <th>状态</th>
+                    <th>更新时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in object_list %}
+                <tr>
+                    <td>{{ item.name }}</td>
+                    <td>{{ item.get_action_type_display }}</td>
+                    <td>{{ item.conditions|truncatechars:60 }}</td>
+                    <td>{% if item.is_active %}<span class="layui-badge layui-bg-green">启用</span>{% else %}<span class="layui-badge">停用</span>{% endif %}</td>
+                    <td>{{ item.updated_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        <a href="{% url 'ai:action_trigger_update' item.pk %}" class="layui-btn layui-btn-xs layui-btn-normal">编辑</a>
+                        <a href="{% url 'ai:action_trigger_delete' item.pk %}" class="layui-btn layui-btn-xs layui-btn-danger">删除</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center; color: #999; padding: 40px;">暂无自动行动触发器</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

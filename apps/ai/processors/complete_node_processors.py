@@ -699,7 +699,8 @@ class TemplateProcessor(BaseNodeProcessor):
                     rendered = rendered.replace(
                         '{{ ' + key + ' }}', str(value))
         except Exception as e:
-            errors.append(str(e))
+            logger.error(f"Template rendering failed: {e}")
+            errors.append('模板渲染失败，请检查模板配置后重试')
             rendered = template
 
         return {
@@ -788,7 +789,8 @@ class CodeBlockProcessor(BaseNodeProcessor):
             else:
                 result['output']['javascript_not_implemented'] = True
         except Exception as e:
-            result['output']['error'] = str(e)
+            logger.error(f"Code block execution failed: {e}")
+            result['output']['error'] = '代码块执行失败，请检查代码配置后重试'
             result['status'] = 'failed'
 
         return result
@@ -887,7 +889,8 @@ class ToolCallProcessor(BaseNodeProcessor):
                 result = {'chunks': chunks, 'count': len(chunks)}
 
         except Exception as e:
-            errors.append(f"工具执行失败: {str(e)}")
+            logger.error(f"工具执行失败: {str(e)}")
+            errors.append("工具执行失败，请检查工具参数后重试")
             result = {}
 
         return {
@@ -1086,7 +1089,8 @@ class WebhookProcessor(BaseNodeProcessor):
                         result['status_code'] = resp.status
                         result['response'] = await resp.text()
             except Exception as e:
-                result['error'] = str(e)
+                logger.error(f"HTTP request execution failed: {e}")
+                result['error'] = 'HTTP请求执行失败，请检查请求配置后重试'
                 result['status'] = 'failed'
         else:
             result['message'] = 'Webhook接收配置已设置'
@@ -1239,7 +1243,7 @@ class DocumentExtractorProcessor(BaseNodeProcessor):
             return {output_var: content, 'status': 'completed'}
         except Exception as e:
             logger.error(f"Document extraction failed: {e}")
-            return {output_var: '', 'error': str(e), 'status': 'failed'}
+            return {output_var: '', 'error': '文档内容提取失败，请检查文件配置后重试', 'status': 'failed'}
 
     async def _extract_from_image(self, file_path: str) -> str:
         return await self.ai_service.extract_text_from_image(file_path)
@@ -1441,9 +1445,10 @@ class HttpRequestProcessor(BaseNodeProcessor):
 
                 except Exception as e:
                     if attempt == retry_times:
+                        logger.error(f"HTTP request failed: {e}")
                         return {
                             output_var: {},
-                            'error': str(e),
+                            'error': 'HTTP请求执行失败，请检查请求配置后重试',
                             'status': 'failed'}
 
         return {output_var: {}, 'status': 'failed'}
@@ -1525,76 +1530,8 @@ class DatabaseProcessor(BaseNodeProcessor):
             return {output_var: result, 'status': 'completed'}
         except Exception as e:
             logger.error(f"Database operation failed: {e}")
-            return {output_var: {}, 'error': str(e), 'status': 'failed'}
+            return {output_var: {}, 'error': '数据库操作失败，请检查SQL配置后重试', 'status': 'failed'}
 
-
-class TemplateProcessor(BaseNodeProcessor):
-    """Template rendering node for text templating"""
-
-    def __init__(self, node_type_code: str):
-        super().__init__(node_type_code)
-
-    def _get_config_schema(self) -> Dict[str, Any]:
-        return {
-            'template': {
-                'type': 'text',
-                'required': True,
-                'label': 'Template Content',
-                'placeholder': 'Hello {{name}}, your score is {{score}}'
-            },
-            'data_variable': {
-                'type': 'string',
-                'required': True,
-                'label': 'Data Variable',
-                'placeholder': 'Enter data object variable name'
-            },
-            'template_engine': {
-                'type': 'select',
-                'required': False,
-                'label': 'Template Engine',
-                'options': [
-                    {'value': 'jinja2', 'label': 'Jinja2'},
-                    {'value': 'simple', 'label': 'Simple Template'}
-                ],
-                'default': 'jinja2'
-            },
-            'output_variable': {
-                'type': 'string',
-                'required': True,
-                'label': 'Output Variable',
-                'default': 'rendered_text'
-            }
-        }
-
-    async def execute_async(
-            self, config: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-        from jinja2 import Environment, BaseLoader
-
-        template_text = config.get('template', '')
-        data_var = config.get('data_variable', 'data')
-        engine = config.get('template_engine', 'jinja2')
-        output_var = config.get('output_variable', 'rendered_text')
-
-        data = self._get_variable_value(data_var, context) or {}
-
-        try:
-            if engine == 'jinja2':
-                env = Environment(loader=BaseLoader())
-                template = env.from_string(template_text)
-                result = template.render(
-                    **data) if isinstance(data, dict) else str(data)
-            else:
-                rendered = template_text
-                if isinstance(data, dict):
-                    for key, value in data.items():
-                        rendered = rendered.replace(
-                            '{{' + key + '}}', str(value))
-                result = rendered
-
-            return {output_var: result, 'status': 'completed'}
-        except Exception as e:
-            logger.error(f"Template rendering failed: {e}")
-            return {output_var: '', 'error': str(e), 'status': 'failed'}
 
 @NodeProcessorRegistry.register('sentiment_analysis')
 class SentimentAnalysisProcessor(BaseNodeProcessor):
@@ -1659,7 +1596,7 @@ class SentimentAnalysisProcessor(BaseNodeProcessor):
                 output_var: {
                     'sentiment': 'unknown',
                     'score': 0},
-                'error': str(e),
+                'error': '情感分析失败，请检查模型配置后重试',
                 'status': 'failed'}
 
 @NodeProcessorRegistry.register('image_processing')
@@ -1767,7 +1704,7 @@ class ImageProcessor(BaseNodeProcessor):
                 return {output_var: output_path, 'status': 'completed'}
         except Exception as e:
             logger.error(f"Image processing failed: {e}")
-            return {output_var: '', 'error': str(e), 'status': 'failed'}
+            return {output_var: '', 'error': '图片处理失败，请检查图片配置后重试', 'status': 'failed'}
 
     async def _ocr_image(self, image_path: str) -> str:
         from apps.ai.services.ai_analysis_service import AIAnalysisService
@@ -1853,7 +1790,7 @@ class AudioProcessor(BaseNodeProcessor):
             return {output_var: result, 'status': 'completed'}
         except Exception as e:
             logger.error(f"Audio processing failed: {e}")
-            return {output_var: '', 'error': str(e), 'status': 'failed'}
+            return {output_var: '', 'error': '音频处理失败，请检查音频配置后重试', 'status': 'failed'}
 
     async def _speech_to_text(self, audio_path: str, params: Dict) -> str:
         from apps.ai.utils.stt_service import STTService
@@ -1949,704 +1886,4 @@ class MessageQueueProcessor(BaseNodeProcessor):
                 'status': 'completed'}
         except Exception as e:
             logger.error(f"Message queue operation failed: {e}")
-            return {output_var: {}, 'error': str(e), 'status': 'failed'}
-
-
-class ScheduledTaskProcessor(BaseNodeProcessor):
-    """Scheduled task node for time-based triggers"""
-
-    def __init__(self, node_type_code: str):
-        super().__init__(node_type_code)
-
-    def _get_config_schema(self) -> Dict[str, Any]:
-        return {
-            'trigger_type': {
-                'type': 'select',
-                'required': True,
-                'label': 'Trigger Type',
-                'options': [
-                    {'value': 'interval', 'label': 'Fixed Interval'},
-                    {'value': 'cron', 'label': 'Cron Expression'},
-                    {'value': 'specific_time', 'label': 'Specific Time'}
-                ]
-            },
-            'interval': {
-                'type': 'object',
-                'required': False,
-                'label': 'Interval',
-                'fields': {
-                    'value': {'type': 'number', 'label': 'Value'},
-                    'unit': {'type': 'select', 'options': [
-                        {'value': 'seconds', 'label': 'Seconds'},
-                        {'value': 'minutes', 'label': 'Minutes'},
-                        {'value': 'hours', 'label': 'Hours'},
-                        {'value': 'days', 'label': 'Days'}
-                    ]}
-                }
-            },
-            'cron_expression': {
-                'type': 'string',
-                'required': False,
-                'label': 'Cron Expression',
-                'placeholder': '*/5 * * * *'
-            },
-            'specific_time': {
-                'type': 'string',
-                'required': False,
-                'label': 'Specific Time',
-                'placeholder': 'HH:MM:SS'
-            },
-            'output_variable': {
-                'type': 'string',
-                'required': True,
-                'label': 'Output Variable',
-                'default': 'schedule_result'
-            }
-        }
-
-    async def execute_async(
-            self, config: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-        trigger_type = config.get('trigger_type', 'interval')
-        output_var = config.get('output_variable', 'schedule_result')
-
-        now = datetime.now()
-
-        if trigger_type == 'interval':
-            interval = config.get('interval', {})
-            value = interval.get('value', 60)
-            unit = interval.get('unit', 'seconds')
-            next_run = self._calculate_next_interval(now, value, unit)
-        elif trigger_type == 'cron':
-            cron_expr = config.get('cron_expression', '')
-            next_run = self._calculate_next_cron(now, cron_expr)
-        else:
-            time_str = config.get('specific_time', '00:00:00')
-            next_run = self._calculate_specific_time(now, time_str)
-
-        return {
-            output_var: {
-                'triggered_at': now.isoformat(),
-                'next_run': next_run.isoformat(),
-                'trigger_type': trigger_type
-            },
-            'status': 'completed'
-        }
-
-    def _calculate_next_interval(
-            self,
-            now: datetime,
-            value: int,
-            unit: str) -> datetime:
-        delta = timedelta(**{unit: value})
-        return now + delta
-
-    def _calculate_next_cron(self, now: datetime, cron_expr: str) -> datetime:
-        return now + timedelta(hours=1)
-
-    def _calculate_specific_time(
-            self,
-            now: datetime,
-            time_str: str) -> datetime:
-        try:
-            hour, minute, second = map(int, time_str.split(':'))
-            next_time = now.replace(
-                hour=hour,
-                minute=minute,
-                second=second,
-                microsecond=0)
-            if next_time <= now:
-                next_time += timedelta(days=1)
-            return next_time
-        except BaseException:
-            return now + timedelta(days=1)
-
-
-class WorkflowTriggerProcessor(BaseNodeProcessor):
-    """Workflow trigger node for calling other workflows"""
-
-    def __init__(self, node_type_code: str):
-        super().__init__(node_type_code)
-
-    def _get_config_schema(self) -> Dict[str, Any]:
-        return {
-            'workflow_id': {
-                'type': 'string',
-                'required': True,
-                'label': 'Target Workflow',
-                'placeholder': 'Select workflow to trigger'
-            },
-            'input_data': {
-                'type': 'object',
-                'required': False,
-                'label': 'Input Data',
-                'fields': {}
-            },
-            'execution_mode': {
-                'type': 'select',
-                'required': False,
-                'label': 'Execution Mode',
-                'options': [
-                    {'value': 'sync', 'label': 'Synchronous'},
-                    {'value': 'async', 'label': 'Asynchronous'}
-                ],
-                'default': 'sync'
-            },
-            'output_variable': {
-                'type': 'string',
-                'required': True,
-                'label': 'Output Variable',
-                'default': 'workflow_result'
-            }
-        }
-
-    async def execute_async(
-            self, config: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-        from apps.ai.services.workflow_service import WorkflowService
-
-        workflow_id = config.get('workflow_id', '')
-        input_data = config.get('input_data', {})
-        mode = config.get('execution_mode', 'sync')
-        output_var = config.get('output_variable', 'workflow_result')
-
-        if not workflow_id:
-            return {
-                output_var: {},
-                'error': 'Workflow ID required',
-                'status': 'failed'}
-
-        try:
-            service = WorkflowService()
-
-            rendered_input = {}
-            for key, value in input_data.items():
-                rendered_input[key] = self._get_variable_value(
-                    str(value), context) if isinstance(
-                    value, str) else value
-
-            if mode == 'async':
-                loop = asyncio.get_event_loop()
-                loop.create_task(
-                    service.execute_workflow_async(
-                        workflow_id, rendered_input))
-                return {
-                    output_var: {
-                        'status': 'started',
-                        'workflow_id': workflow_id},
-                    'status': 'completed'}
-            else:
-                result = await service.execute_workflow(workflow_id, rendered_input)
-                return {output_var: result, 'status': 'completed'}
-        except Exception as e:
-            logger.error(f"Workflow trigger failed: {e}")
-            return {output_var: {}, 'error': str(e), 'status': 'failed'}
-
-
-class IteratorProcessor(BaseNodeProcessor):
-    """Iterator node for sequential iteration over collections"""
-
-    def __init__(self, node_type_code: str):
-        super().__init__(node_type_code)
-
-    def _get_config_schema(self) -> Dict[str, Any]:
-        return {
-            'collection_variable': {
-                'type': 'string',
-                'required': True,
-                'label': 'Collection Variable',
-                'placeholder': 'Enter collection variable name'
-            },
-            'loop_variable': {
-                'type': 'string',
-                'required': True,
-                'label': 'Loop Variable Name',
-                'default': 'item'
-            },
-            'index_variable': {
-                'type': 'string',
-                'required': False,
-                'label': 'Index Variable Name',
-                'default': 'index'
-            },
-            'max_iterations': {
-                'type': 'number',
-                'required': False,
-                'label': 'Max Iterations',
-                'default': 1000
-            },
-            'output_variable': {
-                'type': 'string',
-                'required': True,
-                'label': 'Output Variable',
-                'default': 'iteration_results'
-            }
-        }
-
-    async def execute_async(
-            self, config: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-        collection_var = config.get('collection_variable', '')
-        collection = self._get_variable_value(collection_var, context)
-        loop_var = config.get('loop_variable', 'item')
-        index_var = config.get('index_variable', 'index')
-        max_iter = config.get('max_iterations', 1000)
-        output_var = config.get('output_variable', 'iteration_results')
-
-        if not collection or not isinstance(collection, (list, dict, str)):
-            return {output_var: [], 'status': 'completed'}
-
-        results = []
-        iteration_count = 0
-
-        if isinstance(collection, str):
-            collection = list(collection)
-
-        if isinstance(collection, dict):
-            iterator = collection.items()
-        else:
-            iterator = enumerate(collection)
-
-        for idx, item in iterator:
-            if iteration_count >= max_iter:
-                break
-
-            iteration_context = context.copy()
-            iteration_context[loop_var] = item
-            iteration_context[index_var] = idx
-
-            loop_result = await self._execute_loop_body(config, iteration_context)
-            results.append({
-                'index': idx,
-                'item': item,
-                'result': loop_result
-            })
-
-            iteration_count += 1
-
-        return {output_var: results, 'status': 'completed'}
-
-    async def _execute_loop_body(self, config: Dict, context: Dict) -> Any:
-        return context.get('item')
-
-
-class ParameterAggregatorProcessor(BaseNodeProcessor):
-    """Parameter aggregator node for collecting parameters"""
-
-    def __init__(self, node_type_code: str):
-        super().__init__(node_type_code)
-
-    def _get_config_schema(self) -> Dict[str, Any]:
-        return {
-            'inputs': {
-                'type': 'array',
-                'required': True,
-                'label': 'Input Parameters',
-                'item_fields': {
-                    'variable': {'type': 'string', 'label': 'Variable Name'},
-                    'alias': {'type': 'string', 'label': 'Alias'}
-                }
-            },
-            'output_structure': {
-                'type': 'select',
-                'required': False,
-                'label': 'Output Structure',
-                'options': [
-                    {'value': 'object', 'label': 'Object'},
-                    {'value': 'array', 'label': 'Array'}
-                ],
-                'default': 'object'
-            },
-            'output_variable': {
-                'type': 'string',
-                'required': True,
-                'label': 'Output Variable',
-                'default': 'aggregated_params'
-            }
-        }
-
-    async def execute_async(
-            self, config: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-        inputs = config.get('inputs', [])
-        output_structure = config.get('output_structure', 'object')
-        output_var = config.get('output_variable', 'aggregated_params')
-
-        if output_structure == 'array':
-            result = []
-            for inp in inputs:
-                value = self._get_variable_value(
-                    inp.get('variable', ''), context)
-                result.append(value)
-        else:
-            result = {}
-            for inp in inputs:
-                value = self._get_variable_value(
-                    inp.get('variable', ''), context)
-                alias = inp.get('alias', inp.get('variable', ''))
-                result[alias] = value
-
-        return {output_var: result, 'status': 'completed'}
-
-
-class VariableAssignProcessor(BaseNodeProcessor):
-    """Variable assignment node for setting variables"""
-
-    def __init__(self, node_type_code: str):
-        super().__init__(node_type_code)
-
-    def _get_config_schema(self) -> Dict[str, Any]:
-        return {
-            'assignments': {
-                'type': 'array',
-                'required': True,
-                'label': 'Variable Assignments',
-                'item_fields': {
-                    'variable': {'type': 'string', 'label': 'Variable Name'},
-                    'value': {'type': 'text', 'label': 'Value'}
-                }
-            },
-            'scope': {
-                'type': 'select',
-                'required': False,
-                'label': 'Scope',
-                'options': [
-                    {'value': 'local', 'label': 'Local'},
-                    {'value': 'global', 'label': 'Global'}
-                ],
-                'default': 'local'
-            }
-        }
-
-    async def execute_async(
-            self, config: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-        assignments = config.get('assignments', [])
-        scope = config.get('scope', 'local')
-
-        result_vars = {}
-
-        for assignment in assignments:
-            var_name = assignment.get('variable', '')
-            value_str = assignment.get('value', '')
-            value = self._get_variable_value(value_str, context)
-            if value is None:
-                value = value_str
-
-            result_vars[var_name] = value
-
-        if scope == 'global':
-            context.update(result_vars)
-        else:
-            context.update(result_vars)
-
-        return {**result_vars, 'status': 'completed'}
-
-
-class ConversationHistoryProcessor(BaseNodeProcessor):
-    """Conversation history node for managing chat history"""
-
-    def __init__(self, node_type_code: str):
-        super().__init__(node_type_code)
-
-    def _get_config_schema(self) -> Dict[str, Any]:
-        return {
-            'action': {
-                'type': 'select',
-                'required': True,
-                'label': 'Operation',
-                'options': [
-                    {'value': 'get', 'label': 'Get History'},
-                    {'value': 'add', 'label': 'Add Message'},
-                    {'value': 'clear', 'label': 'Clear History'},
-                    {'value': 'count', 'label': 'Message Count'}
-                ]
-            },
-            'conversation_id': {
-                'type': 'string',
-                'required': False,
-                'label': 'Conversation ID',
-                'placeholder': 'Enter conversation ID variable'
-            },
-            'message': {
-                'type': 'text',
-                'required': False,
-                'label': 'Message Content',
-                'placeholder': 'user: Hello\nassistant: Hi'
-            },
-            'message_variable': {
-                'type': 'string',
-                'required': False,
-                'label': 'Message Variable',
-                'placeholder': 'Enter message variable name'
-            },
-            'role': {
-                'type': 'select',
-                'required': False,
-                'label': 'Role',
-                'options': [
-                    {'value': 'user', 'label': 'User'},
-                    {'value': 'assistant', 'label': 'Assistant'},
-                    {'value': 'system', 'label': 'System'}
-                ]
-            },
-            'max_messages': {
-                'type': 'number',
-                'required': False,
-                'label': 'Max Messages',
-                'default': 20
-            },
-            'output_variable': {
-                'type': 'string',
-                'required': True,
-                'label': 'Output Variable',
-                'default': 'history'
-            }
-        }
-
-    async def execute_async(
-            self, config: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-        action = config.get('action', 'get')
-        conv_id_var = config.get('conversation_id', 'conversation_id')
-        message = config.get('message', '')
-        message_var = config.get('message_variable', '')
-        role = config.get('role', 'user')
-        max_msgs = config.get('max_messages', 20)
-        output_var = config.get('output_variable', 'history')
-
-        conv_id = self._get_variable_value(conv_id_var, context) or 'default'
-
-        history_key = f'chat_history_{conv_id}'
-        history = context.get(history_key, [])
-
-        if action == 'get':
-            return {output_var: history[-max_msgs:], 'status': 'completed'}
-
-        elif action == 'add':
-            msg = message or self._get_variable_value(message_var, context)
-            if msg:
-                new_message = {'role': role, 'content': msg}
-                history.append(new_message)
-                context[history_key] = history[-max_msgs:]
-            return {output_var: history, 'status': 'completed'}
-
-        elif action == 'clear':
-            context[history_key] = []
-            return {output_var: [], 'status': 'completed'}
-
-        elif action == 'count':
-            return {output_var: len(history), 'status': 'completed'}
-
-        return {output_var: history, 'status': 'completed'}
-
-
-class CodeBlockProcessor(BaseNodeProcessor):
-    """Code block node for executing custom code"""
-
-    def __init__(self, node_type_code: str):
-        super().__init__(node_type_code)
-
-    def _get_config_schema(self) -> Dict[str, Any]:
-        return {
-            'code': {
-                'type': 'text',
-                'required': True,
-                'label': 'Python Code',
-                'placeholder': '# Enter your Python code here\n# Access input variables via context\nresult = input_data * 2'
-            },
-            'input_variables': {
-                'type': 'array',
-                'required': False,
-                'label': 'Input Variables',
-                'item_fields': {
-                    'variable': {'type': 'string', 'label': 'Variable Name'}
-                }
-            },
-            'output_variables': {
-                'type': 'array',
-                'required': False,
-                'label': 'Output Variables',
-                'item_fields': {
-                    'variable': {'type': 'string', 'label': 'Variable Name'}
-                }
-            },
-            'timeout': {
-                'type': 'number',
-                'required': False,
-                'label': 'Timeout (seconds)',
-                'default': 30
-            },
-            'sandboxed': {
-                'type': 'boolean',
-                'required': False,
-                'label': 'Run in Sandbox',
-                'default': True
-            }
-        }
-
-    async def execute_async(
-            self, config: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-        code = config.get('code', '')
-        input_vars = config.get('input_variables', [])
-        output_vars = config.get('output_variables', [])
-        timeout = config.get('timeout', 30)
-        sandboxed = config.get('sandboxed', True)
-
-        try:
-            local_context = {}
-            for inp in input_vars:
-                var_name = inp.get('variable', '')
-                local_context[var_name] = self._get_variable_value(
-                    var_name, context)
-
-            local_context['context'] = context
-
-            if sandboxed:
-                await self._execute_sandboxed(code, local_context, timeout)
-            else:
-                await self._execute_direct(code, local_context, timeout)
-
-            output = {}
-            for out in output_vars:
-                var_name = out.get('variable', '')
-                output[var_name] = local_context.get(var_name)
-
-            return {**output, 'status': 'completed'}
-        except Exception as e:
-            logger.error(f"Code execution failed: {e}")
-            return {'error': str(e), 'status': 'failed'}
-
-    async def _execute_sandboxed(
-            self,
-            code: str,
-            local_context: Dict,
-            timeout: int) -> Any:
-        import RestrictedPython
-
-        byte_code = RestrictedPython.compile(code, '<string>', 'exec')
-        if byte_code is None:
-            raise SyntaxError("Invalid code syntax")
-
-        restricted_globals = {
-            '_print_': print,
-            '_getattr_': getattr,
-            '_setattr_': setattr,
-            '_delattr_': delattr,
-        }
-
-        exec(byte_code, restricted_globals, local_context)
-        return local_context
-
-    async def _execute_direct(
-            self,
-            code: str,
-            local_context: Dict,
-            timeout: int) -> Any:
-        exec(code, {}, local_context)
-        return local_context
-
-
-class ToolCallProcessor(BaseNodeProcessor):
-    """Tool call node for invoking external tools"""
-
-    def __init__(self, node_type_code: str):
-        super().__init__(node_type_code)
-
-    def _get_config_schema(self) -> Dict[str, Any]:
-        return {
-            'tool_name': {
-                'type': 'string',
-                'required': True,
-                'label': 'Tool Name',
-                'placeholder': 'Enter tool name'
-            },
-            'tool_params': {
-                'type': 'object',
-                'required': False,
-                'label': 'Tool Parameters'
-            },
-            'input_variable': {
-                'type': 'string',
-                'required': False,
-                'label': 'Input Variable',
-                'placeholder': 'Enter input variable name'
-            },
-            'output_variable': {
-                'type': 'string',
-                'required': True,
-                'label': 'Output Variable',
-                'default': 'tool_result'
-            }
-        }
-
-    async def execute_async(
-            self, config: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-        tool_name = config.get('tool_name', '')
-        tool_params = config.get('tool_params', {})
-        input_var = config.get('input_variable', '')
-        output_var = config.get('output_variable', 'tool_result')
-
-        input_data = self._get_variable_value(
-            input_var, context) if input_var else {}
-
-        rendered_params = {}
-        for key, value in tool_params.items():
-            if isinstance(value, str):
-                rendered_value = self._get_variable_value(value, context)
-                rendered_params[key] = rendered_value if rendered_value is not None else value
-            else:
-                rendered_params[key] = value
-
-        try:
-            result = await self._call_tool(tool_name, rendered_params, input_data)
-            return {output_var: result, 'status': 'completed'}
-        except Exception as e:
-            logger.error(f"Tool call failed: {e}")
-            return {output_var: {}, 'error': str(e), 'status': 'failed'}
-
-    async def _call_tool(
-            self,
-            tool_name: str,
-            params: Dict,
-            input_data: Any) -> Any:
-        available_tools = {
-            'calculator': self._tool_calculator,
-            'date_time': self._tool_datetime,
-            'url_encoder': self._tool_url_encoder,
-            'hash': self._tool_hash,
-            'random': self._tool_random,
-        }
-
-        if tool_name in available_tools:
-            return await available_tools[tool_name](params, input_data)
-        else:
-            raise ValueError(f"Unknown tool: {tool_name}")
-
-    async def _tool_calculator(self, params: Dict, input_data: Any) -> Any:
-        expression = params.get('expression', '')
-        try:
-            result = eval(expression)
-            return {'result': result}
-        except BaseException:
-            return {'error': 'Invalid expression'}
-
-    async def _tool_datetime(self, params: Dict, input_data: Any) -> Any:
-        from datetime import datetime
-        format_str = params.get('format', '%Y-%m-%d %H:%M:%S')
-        return {'datetime': datetime.now().strftime(format_str)}
-
-    async def _tool_url_encoder(self, params: Dict, input_data: Any) -> Any:
-        text = params.get('text', '')
-        return {'encoded': quote(text)}
-
-    async def _tool_hash(self, params: Dict, input_data: Any) -> Any:
-        text = params.get('text', '')
-        algorithm = params.get('algorithm', 'md5')
-        if algorithm == 'md5':
-            return {'hash': hashlib.md5(text.encode()).hexdigest()}
-        elif algorithm == 'sha256':
-            return {'hash': hashlib.sha256(text.encode()).hexdigest()}
-        return {}
-
-    async def _tool_random(self, params: Dict, input_data: Any) -> Any:
-        import random
-        min_val = params.get('min', 0)
-        max_val = params.get('max', 100)
-        return {'random': random.randint(min_val, max_val)}
-
-
+            return {output_var: {}, 'error': '消息队列操作失败，请检查队列配置后重试', 'status': 'failed'}

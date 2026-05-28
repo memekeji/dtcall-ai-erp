@@ -587,6 +587,11 @@ class AlertRuleService:
         data_manager = RealTimeDataManager()
         return list(data_manager.alert_rules.values())
 
+    def get_all_alerts(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """获取所有告警"""
+        data_manager = RealTimeDataManager()
+        return data_manager.get_all_alerts(limit)
+
     def acknowledge_alert(self, alert_id: str, user_id: int = None) -> bool:
         """确认告警"""
         data_manager = RealTimeDataManager()

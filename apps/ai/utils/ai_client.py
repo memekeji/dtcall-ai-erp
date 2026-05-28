@@ -6,6 +6,9 @@ from apps.ai.models import AIModelConfig
 logger = logging.getLogger(__name__)
 
 
+SAFE_AI_ERROR_MESSAGE = "AI模型调用失败，请检查模型配置后重试"
+
+
 class AIClientError(Exception):
     """AI客户端错误"""
 
@@ -20,48 +23,88 @@ class BaseAIClient:
             api_key=None,
             model_config=None):
         self.provider = provider or 'openai'
-
-        # 只使用传入的配置参数，不依赖settings配置
         self.api_key = api_key or ''
         self.base_url = base_url or ''
-        self.api_base = base_url or ''  # 添加 api_base 属性
+        self.api_base = base_url or ''
         self.model_config = model_config or {}
         self.provider_specific_config = {}
+        if isinstance(model_config, dict):
+            provider_specific_config = model_config.get(
+                'provider_specific_config') or {}
+            if isinstance(provider_specific_config, dict):
+                self.provider_specific_config.update(provider_specific_config)
+            for key in [
+                    'organization',
+                    'project',
+                    'api_version',
+                    'secret_key',
+                    'access_token',
+                    'anthropic_version']:
+                if model_config.get(key):
+                    self.provider_specific_config[key] = model_config.get(key)
+        elif model_config:
+            for key in ['organization', 'project']:
+                if hasattr(model_config, key) and getattr(model_config, key):
+                    self.provider_specific_config[key] = getattr(model_config, key)
 
-        # 如果model_config是数据库模型配置对象，则使用其配置
         if model_config:
-            # 判断是字典还是模型对象
             if hasattr(
                     model_config,
                     'api_key') and hasattr(
                     model_config,
                     'api_base'):
-                # Django 模型对象
                 self.api_key = model_config.api_key or self.api_key
                 self.base_url = model_config.api_base or self.base_url
                 self.api_base = model_config.api_base or self.api_base
                 self.model_name = model_config.model_name or ''
-                # 更新 model_config 字典以便 chat_completion 使用
                 if isinstance(self.model_config, dict):
                     self.model_config['chat'] = model_config.model_name or ''
             elif isinstance(model_config, dict):
-                # 字典配置
                 self.api_key = model_config.get('api_key') or self.api_key
                 self.base_url = model_config.get(
                     'api_base') or model_config.get('base_url') or self.base_url
                 self.api_base = model_config.get(
                     'api_base') or model_config.get('base_url') or self.api_base
                 self.model_name = model_config.get('model_name') or ''
-                # 更新 model_config['chat'] 以便 chat_completion 使用
                 if isinstance(self.model_config,
                               dict) and 'chat' not in self.model_config:
                     self.model_config['chat'] = model_config.get(
                         'model_name') or ''
 
-        # 请求配置
-        self.timeout = 60
-        self.max_retries = 3
-        self.retry_delay = 2
+        self.timeout = 30
+        self.max_retries = 1
+        self.retry_delay = 1
+
+    def _join_url(self, path, default_base=None):
+        base = (self.base_url or default_base or '').rstrip('/')
+        if not base:
+            raise AIClientError("AI接口基础URL未配置")
+
+        target_path = '/' + path.lstrip('/')
+        target_suffix = target_path.rstrip('/')
+        endpoint_suffixes = [
+            '/chat/completions',
+            '/embeddings',
+            '/responses',
+            '/messages',
+            '/api/chat',
+            '/api/embeddings'
+        ]
+        for suffix in endpoint_suffixes:
+            if base.endswith(suffix):
+                if suffix == target_suffix:
+                    return base
+                base = base[:-len(suffix)]
+                break
+        return f"{base}{target_path}"
+
+    def _request_headers(self):
+        if self.api_key:
+            return {
+                'Authorization': f'Bearer {self.api_key}',
+                'Content-Type': 'application/json',
+            }
+        return {'Content-Type': 'application/json'}
 
     def _make_request(self, method, url, **kwargs):
         """通用请求方法，包含重试机制"""
@@ -74,16 +117,19 @@ class BaseAIClient:
                 return response
             except requests.exceptions.RequestException as e:
                 if attempt == self.max_retries:
-                    raise AIClientError(f"请求失败: {str(e)}")
-                time.sleep(self.retry_delay * (2 ** attempt))  # 指数退避
+                    logger.error(f"请求失败: {str(e)}")
+                    raise AIClientError(SAFE_AI_ERROR_MESSAGE) from None
+                time.sleep(self.retry_delay * (2 ** attempt))
+
+    def _raise_safe_error(self, message, error):
+        logger.error(f"{message}: {str(error)}")
+        raise AIClientError(SAFE_AI_ERROR_MESSAGE) from None
 
     def _parse_chat_response(self, result, kwargs):
-        """解析聊天完成响应，支持返回工具调用或纯文本"""
+        """解析聊天完成响应"""
         if not result.get('choices'):
             return ""
         message = result['choices'][0].get('message', {})
-        if "tools" in kwargs or kwargs.get("raw_message"):
-            return message
         return message.get('content', '') or ""
 
     def chat_completion(self, messages, **kwargs):
@@ -111,7 +157,7 @@ class BaseAIClient:
             response = self.chat_completion(messages, **kwargs)
             return response
         except Exception as e:
-            raise AIClientError(f"文本摘要生成失败: {str(e)}")
+            self._raise_safe_error("文本摘要生成失败", e)
 
     def analyze_sentiment(self, text, **kwargs):
         """情感分析"""
@@ -126,7 +172,7 @@ class BaseAIClient:
             response = self.chat_completion(messages, **kwargs)
             return response
         except Exception as e:
-            raise AIClientError(f"情感分析失败: {str(e)}")
+            self._raise_safe_error("情感分析失败", e)
 
     def generate_content(self, prompt, **kwargs):
         """通用内容生成"""
@@ -139,31 +185,28 @@ class BaseAIClient:
             response = self.chat_completion(messages, **kwargs)
             return response
         except Exception as e:
-            raise AIClientError(f"内容生成失败: {str(e)}")
+            self._raise_safe_error("内容生成失败", e)
 
 
 class OpenAIClient(BaseAIClient):
     """OpenAI客户端实现"""
 
     def __init__(self, base_url=None, api_key=None, model_config=None):
-        # 调用父类初始化
         super().__init__(
             provider='openai',
             base_url=base_url,
             api_key=api_key,
             model_config=model_config)
 
-        # 延迟初始化，避免启动时的错误
         self.client = None
         self.chat_completion_function = None
-        self._openai = None  # 延迟导入
+        self._openai = None
 
     def _ensure_client(self):
         """懒加载OpenAI客户端"""
         if self.client is not None:
             return True
 
-        # 尝试导入OpenAI
         if self._openai is None:
             try:
                 import openai
@@ -171,22 +214,16 @@ class OpenAIClient(BaseAIClient):
             except ImportError:
                 return False
 
-        # 获取配置
         api_key = self.api_key
         if not api_key:
             return False
 
-        # 创建客户端（只使用api_key参数）
         try:
-            # 最简单的客户端创建方式
-            self.client = self._openai.OpenAI(api_key=api_key)
+            client_kwargs = {'api_key': api_key}
+            if self.base_url:
+                client_kwargs['base_url'] = self.base_url
+            self.client = self._openai.OpenAI(**client_kwargs)
 
-            # 尝试设置base_url（如果有）
-            base_url = self.base_url
-            if base_url and hasattr(self.client, 'base_url'):
-                self.client.base_url = base_url
-
-            # 尝试获取旧版API调用函数
             try:
                 self.chat_completion_function = self._openai.ChatCompletion.create
             except (AttributeError, TypeError):
@@ -198,10 +235,7 @@ class OpenAIClient(BaseAIClient):
             return False
 
     def _rest_url(self, path: str) -> str:
-        base = (self.base_url or "https://api.openai.com/v1").rstrip("/")
-        if not base.endswith("/v1") and "/v1/" not in (base + "/"):
-            base = base + "/v1"
-        return f"{base}/{path.lstrip('/')}"
+        return self._join_url(path, "https://api.openai.com/v1")
 
     def _rest_chat_completion(self, messages, **kwargs):
         if not self.api_key:
@@ -214,10 +248,10 @@ class OpenAIClient(BaseAIClient):
         data = {
             "model": self.model_config.get("chat", "gpt-3.5-turbo"),
             "messages": messages,
-            "temperature": kwargs.get("temperature", 0.7),
-            "max_tokens": kwargs.get("max_tokens", 2000),
+            "temperature": kwargs.get("temperature", self.model_config.get('temperature', 0.7)),
+            "max_tokens": kwargs.get("max_tokens", self.model_config.get('max_tokens', 2000)),
         }
-        for k in ["top_p", "presence_penalty", "frequency_penalty", "stream", "tools", "tool_choice"]:
+        for k in ["top_p", "presence_penalty", "frequency_penalty", "stream"]:
             if k in kwargs:
                 data[k] = kwargs[k]
         try:
@@ -225,7 +259,7 @@ class OpenAIClient(BaseAIClient):
             result = response.json()
             return self._parse_chat_response(result, kwargs)
         except Exception as e:
-            raise AIClientError(f"OpenAI REST 调用失败：{str(e)}")
+            self._raise_safe_error("OpenAI REST 调用失败", e)
 
     def _rest_embedding(self, text, **kwargs):
         if not self.api_key:
@@ -247,22 +281,13 @@ class OpenAIClient(BaseAIClient):
             result = response.json()
             return result["data"][0]["embedding"]
         except Exception as e:
-            raise AIClientError(f"OpenAI REST 嵌入请求失败: {str(e)}")
+            self._raise_safe_error("OpenAI REST 嵌入请求失败", e)
 
     def _call_responses_api(self, messages, params):
         """调用新的 /v1/responses API"""
-        # 服务商支持的模型名称列表
-        fallback_models = [
-            'gpt-5.4',
-            'gpt-5.3-codex',
-            'gpt-5.2-codex',
-            'gpt-5.1-codex',
-            'gpt-5-codex']
-        current_model = params.get('model', 'gpt-5.4')
-
         try:
             response = self.client.responses.create(
-                model=current_model,
+                model=params.get('model', 'gpt-3.5-turbo'),
                 input=messages,
                 temperature=params.get('temperature', 0.7),
                 max_output_tokens=params.get('max_tokens', 2000),
@@ -280,102 +305,49 @@ class OpenAIClient(BaseAIClient):
                 return response.text
             return str(response)
         except Exception as e:
-            error_msg = str(e)
-            # 如果是 502 错误且包含 "unknown provider"，尝试备用模型
-            if '502' in error_msg and 'unknown provider' in error_msg.lower():
-                for fallback_model in fallback_models:
-                    if fallback_model != current_model:
-                        try:
-                            params['model'] = fallback_model
-                            response = self.client.responses.create(**params)
-                            if hasattr(response, 'output') and response.output:
-                                for item in response.output:
-                                    if hasattr(
-                                            item, 'content') and item.content:
-                                        if isinstance(item.content, list):
-                                            for content_item in item.content:
-                                                if hasattr(
-                                                        content_item, 'text'):
-                                                    return f"[使用模型 {fallback_model}] " + \
-                                                        content_item.text
-                                        elif hasattr(item.content, 'text'):
-                                            return f"[使用模型 {fallback_model}] " + \
-                                                item.content.text
-                            if hasattr(response, 'text'):
-                                return f"[使用模型 {fallback_model}] " + \
-                                    response.text
-                        except Exception:
-                            continue
-                raise AIClientError(
-                    f"Responses API 调用失败：未找到可用的模型。请检查模型名称是否正确。错误详情：{error_msg}")
-            raise AIClientError(f"Responses API 调用失败：{error_msg}")
+            logger.error(f"Responses API 调用失败: {str(e)}")
+            raise
 
     def chat_completion(self, messages, **kwargs):
         """生成聊天完成内容"""
         params = {
-            'model': self.model_config.get('chat', 'gpt-3.5-turbo'),
-            'temperature': kwargs.get('temperature', 0.7),
-            'max_tokens': kwargs.get('max_tokens', 2000),
+            'model': kwargs.get('model', self.model_config.get('chat', 'gpt-3.5-turbo')),
+            'temperature': kwargs.get('temperature', self.model_config.get('temperature', 0.7)),
+            'max_tokens': kwargs.get('max_tokens', self.model_config.get('max_tokens', 2000)),
             'messages': messages
         }
-        params.update(kwargs)
+        if 'top_p' in kwargs or self.model_config.get('top_p') is not None:
+            params['top_p'] = kwargs.get('top_p', self.model_config.get('top_p', 1.0))
 
         if not self._ensure_client():
             return self._rest_chat_completion(messages, **kwargs)
 
         try:
-            # 尝试顺序：
-            # 1. 新的 Responses API (/v1/responses)
-            # 2. Chat Completions API (/v1/chat/completions)
-            # 3. 旧版 ChatCompletion.create
             try:
-                return self._call_responses_api(messages, params)
-            except Exception as responses_error:
+                response = self.client.chat.completions.create(**params)
+                return response.choices[0].message.content
+            except Exception as chat_error:
                 try:
-                    response = self.client.chat.completions.create(**params)
-                    if "tools" in kwargs or kwargs.get("raw_message"):
-                        return response.choices[0].message
-                    return response.choices[0].message.content
-                except Exception as chat_error:
-                    try:
-                        old_params = params.copy()
-                        if 'messages' in old_params:
-                            old_params['messages'] = messages
-                        response = self._openai.ChatCompletion.create(
-                            **old_params)
-                        if "tools" in kwargs or kwargs.get("raw_message"):
-                            return response['choices'][0]['message']
-                        return response['choices'][0]['message']['content']
-                    except Exception:
-                        raise responses_error
+                    return self._rest_chat_completion(messages, **kwargs)
+                except Exception as rest_error:
+                    if self._is_official_endpoint():
+                        try:
+                            return self._call_responses_api(messages, params)
+                        except Exception:
+                            pass
+                    logger.error(f"OpenAI Chat Completions 调用失败: {str(chat_error)}")
+                    raise rest_error
         except Exception as e:
-            raise AIClientError(f"OpenAI API 调用失败：{str(e)}")
+            self._raise_safe_error("OpenAI API 调用失败", e)
+
+    def _is_official_endpoint(self):
+        base_url = (self.base_url or 'https://api.openai.com/v1').lower()
+        return 'api.openai.com' in base_url
 
     def text_completion(self, prompt, **kwargs):
         """生成文本完成内容"""
-        params = {
-            'model': self.model_config.get('chat', 'gpt-3.5-turbo'),
-            'temperature': kwargs.get('temperature', 0.7),
-            'max_tokens': kwargs.get('max_tokens', 2000),
-        }
-        params.update(kwargs)
-
-        # 懒加载客户端
-        if not self._ensure_client():
-            raise AIClientError("无法初始化OpenAI客户端")
-
-        try:
-            # 对于较新的API版本，使用ChatCompletion
-            if 'gpt' in params.get('model', ''):
-                messages = [{'role': 'user', 'content': prompt}]
-                return self.chat_completion(messages, **params)
-            else:
-                # 对于旧版API，使用self._openai而不是直接引用openai
-                params['prompt'] = prompt
-                response = self._openai.Completion.create(**params)
-                return response['choices'][0]['text']
-        except Exception as e:
-            raise AIClientError(f"OpenAI文本生成失败: {str(e)}")
+        messages = [{'role': 'user', 'content': prompt}]
+        return self.chat_completion(messages, **kwargs)
 
     def embedding(self, text, **kwargs):
         """生成文本嵌入向量"""
@@ -384,27 +356,27 @@ class OpenAIClient(BaseAIClient):
                 'model',
                 self.model_config.get(
                     'embedding',
-                    'text-embedding-ada-002')),
+                    'text-embedding-3-small')),
             'input': text}
 
-        # 懒加载客户端
         if not self._ensure_client():
             return self._rest_embedding(text, **kwargs)
 
         try:
-            response = self._openai.Embedding.create(**params)
-            return response['data'][0]['embedding']
+            try:
+                response = self.client.embeddings.create(**params)
+                return response.data[0].embedding
+            except Exception:
+                return self._rest_embedding(text, **kwargs)
         except Exception as e:
-            raise AIClientError(f"OpenAI嵌入向量请求失败: {str(e)}")
+            self._raise_safe_error("OpenAI嵌入向量请求失败", e)
 
 
 class QwenClient(BaseAIClient):
     """阿里千问客户端实现（兼容OpenAI格式）"""
 
     def __init__(self, base_url=None, api_key=None, model_config=None):
-        # 处理阿里千问API地址，确保使用兼容OpenAI格式的地址
         if base_url and 'dashscope.aliyuncs.com' in base_url and '/compatible-mode' not in base_url:
-            # 替换为兼容OpenAI格式的地址
             base_url = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
         super().__init__(
             provider='qwen',
@@ -415,22 +387,14 @@ class QwenClient(BaseAIClient):
 
     def chat_completion(self, messages, **kwargs):
         """生成聊天完成内容（兼容OpenAI格式）"""
-        # 如果base_url已经包含完整路径，则直接使用base_url
-        if self.base_url and '/chat/completions' in self.base_url:
-            url = self.base_url
-        else:
-            url = f"{self.base_url}/chat/completions"
-
-        headers = {
-            'Authorization': f'Bearer {self.api_key}',
-            'Content-Type': 'application/json',
-        }
+        url = self._join_url('/chat/completions')
+        headers = self._request_headers()
 
         data = {
             'model': self.model_config.get('chat', 'qwen-turbo'),
             'messages': messages,
-            'temperature': kwargs.get('temperature', 0.7),
-            'max_tokens': kwargs.get('max_tokens', 1024),
+            'temperature': kwargs.get('temperature', self.model_config.get('temperature', 0.7)),
+            'max_tokens': kwargs.get('max_tokens', self.model_config.get('max_tokens', 1024)),
         }
         data.update(kwargs)
 
@@ -440,7 +404,7 @@ class QwenClient(BaseAIClient):
             result = response.json()
             return self._parse_chat_response(result, kwargs)
         except Exception as e:
-            raise AIClientError(f"千问聊天完成请求失败: {str(e)}")
+            self._raise_safe_error("千问聊天完成请求失败", e)
 
     def text_completion(self, prompt, **kwargs):
         """生成文本完成内容"""
@@ -449,11 +413,8 @@ class QwenClient(BaseAIClient):
 
     def embedding(self, text, **kwargs):
         """生成文本嵌入向量（兼容OpenAI格式）"""
-        url = f"{self.base_url}/embeddings"
-        headers = {
-            'Authorization': f'Bearer {self.api_key}',
-            'Content-Type': 'application/json',
-        }
+        url = self._join_url('/embeddings')
+        headers = self._request_headers()
 
         data = {
             'model': self.model_config.get('embedding', 'text-embedding-v1'),
@@ -467,7 +428,7 @@ class QwenClient(BaseAIClient):
             result = response.json()
             return result['data'][0]['embedding']
         except Exception as e:
-            raise AIClientError(f"阿里千问嵌入向量请求失败: {str(e)}")
+            self._raise_safe_error("阿里千问嵌入向量请求失败", e)
 
 
 class DeepSeekClient(BaseAIClient):
@@ -484,25 +445,21 @@ class DeepSeekClient(BaseAIClient):
 
     def chat_completion(self, messages, **kwargs):
         """生成聊天完成内容（优化版，确保快速响应）"""
-        url = f"{self.base_url}/chat/completions"
-        headers = {
-            'Authorization': f'Bearer {self.api_key}',
-            'Content-Type': 'application/json',
-        }
+        url = self._join_url('/chat/completions')
+        headers = self._request_headers()
         if self.organization:
             headers['OpenAI-Organization'] = self.organization
 
         data = {
             'model': self.model_config.get('chat', 'deepseek-chat'),
             'messages': messages,
-            'temperature': kwargs.get('temperature', 0.7),
-            'max_tokens': kwargs.get('max_tokens', 2000),
+            'temperature': kwargs.get('temperature', self.model_config.get('temperature', 0.7)),
+            'max_tokens': kwargs.get('max_tokens', self.model_config.get('max_tokens', 2000)),
         }
         data.update(kwargs)
 
-        # 优化超时设置：总处理时间控制在30秒内
         original_timeout = self.timeout
-        self.timeout = 30  # 30秒超时，确保整体流程在1分钟内完成
+        self.timeout = 30
 
         try:
             response = self._make_request(
@@ -510,9 +467,8 @@ class DeepSeekClient(BaseAIClient):
             result = response.json()
             return self._parse_chat_response(result, kwargs)
         except Exception as e:
-            raise AIClientError(f"DeepSeek聊天完成请求失败: {str(e)}")
+            self._raise_safe_error("DeepSeek聊天完成请求失败", e)
         finally:
-            # 恢复原始超时设置
             self.timeout = original_timeout
 
     def text_completion(self, prompt, **kwargs):
@@ -522,11 +478,8 @@ class DeepSeekClient(BaseAIClient):
 
     def embedding(self, text, **kwargs):
         """生成文本嵌入向量"""
-        url = f"{self.base_url}/embeddings"
-        headers = {
-            'Authorization': f'Bearer {self.api_key}',
-            'Content-Type': 'application/json',
-        }
+        url = self._join_url('/embeddings')
+        headers = self._request_headers()
         if self.organization:
             headers['OpenAI-Organization'] = self.organization
 
@@ -542,7 +495,7 @@ class DeepSeekClient(BaseAIClient):
             result = response.json()
             return result['data'][0]['embedding']
         except Exception as e:
-            raise AIClientError(f"DeepSeek嵌入向量请求失败: {str(e)}")
+            self._raise_safe_error("DeepSeek嵌入向量请求失败", e)
 
 
 class DoubaoClient(BaseAIClient):
@@ -558,18 +511,16 @@ class DoubaoClient(BaseAIClient):
 
     def chat_completion(self, messages, **kwargs):
         """生成聊天完成内容"""
-        url = f"{self.base_url}/chat/completions"
-        headers = {
-            'Authorization': f'Bearer {self.api_key}',
-            'Content-Type': 'application/json',
-            'X-AppKey': self.app_key,
-        }
+        url = self._join_url('/chat/completions')
+        headers = self._request_headers()
+        if self.app_key:
+            headers['X-AppKey'] = self.app_key
 
         data = {
             'model': self.model_config.get('chat', 'doubao-pro'),
             'messages': messages,
-            'temperature': kwargs.get('temperature', 0.7),
-            'max_tokens': kwargs.get('max_tokens', 2000),
+            'temperature': kwargs.get('temperature', self.model_config.get('temperature', 0.7)),
+            'max_tokens': kwargs.get('max_tokens', self.model_config.get('max_tokens', 2000)),
         }
         data.update(kwargs)
 
@@ -579,7 +530,7 @@ class DoubaoClient(BaseAIClient):
             result = response.json()
             return self._parse_chat_response(result, kwargs)
         except Exception as e:
-            raise AIClientError(f"豆包聊天完成请求失败: {str(e)}")
+            self._raise_safe_error("豆包聊天完成请求失败", e)
 
     def text_completion(self, prompt, **kwargs):
         """生成文本完成内容"""
@@ -588,12 +539,10 @@ class DoubaoClient(BaseAIClient):
 
     def embedding(self, text, **kwargs):
         """生成文本嵌入向量"""
-        url = f"{self.base_url}/embeddings"
-        headers = {
-            'Authorization': f'Bearer {self.api_key}',
-            'Content-Type': 'application/json',
-            'X-AppKey': self.app_key,
-        }
+        url = self._join_url('/embeddings')
+        headers = self._request_headers()
+        if self.app_key:
+            headers['X-AppKey'] = self.app_key
 
         data = {
             'model': self.model_config.get('embedding', 'doubao-embedding'),
@@ -607,7 +556,7 @@ class DoubaoClient(BaseAIClient):
             result = response.json()
             return result['data'][0]['embedding']
         except Exception as e:
-            raise AIClientError(f"豆包嵌入向量请求失败: {str(e)}")
+            self._raise_safe_error("豆包嵌入向量请求失败", e)
 
 
 class WenxinClient(BaseAIClient):
@@ -622,7 +571,6 @@ class WenxinClient(BaseAIClient):
         self.secret_key = self.provider_specific_config.get('secret_key', '')
         self.access_token = self.provider_specific_config.get(
             'access_token', '')
-        # 如果没有access_token，则通过API Key和Secret Key获取
         if not self.access_token and self.api_key and self.secret_key:
             self.access_token = self._get_access_token()
 
@@ -640,7 +588,7 @@ class WenxinClient(BaseAIClient):
             result = response.json()
             return result.get('access_token', '')
         except Exception as e:
-            raise AIClientError(f"获取文心一言Access Token失败: {str(e)}")
+            self._raise_safe_error("获取文心一言Access Token失败", e)
 
     def chat_completion(self, messages, **kwargs):
         """生成聊天完成内容"""
@@ -652,7 +600,6 @@ class WenxinClient(BaseAIClient):
             'Content-Type': 'application/json',
         }
 
-        # 转换消息格式为文心一言格式
         prompt = self._convert_messages_to_prompt(messages)
 
         data = {
@@ -662,12 +609,11 @@ class WenxinClient(BaseAIClient):
                     'content': prompt
                 }
             ],
-            'temperature': kwargs.get('temperature', 0.7),
-            'max_tokens': kwargs.get('max_tokens', 1024),
+            'temperature': kwargs.get('temperature', self.model_config.get('temperature', 0.7)),
+            'max_tokens': kwargs.get('max_tokens', self.model_config.get('max_tokens', 1024)),
         }
         data.update(kwargs)
 
-        # 添加access_token到URL参数
         url_with_token = f"{url}?access_token={self.access_token}"
 
         try:
@@ -675,11 +621,9 @@ class WenxinClient(BaseAIClient):
                 'POST', url_with_token, headers=headers, json=data)
             result = response.json()
             content = result.get('result', '')
-            if "tools" in kwargs or kwargs.get("raw_message"):
-                return {"content": content}
             return content
         except Exception as e:
-            raise AIClientError(f"文心一言聊天完成请求失败: {str(e)}")
+            self._raise_safe_error("文心一言聊天完成请求失败", e)
 
     def _convert_messages_to_prompt(self, messages):
         """将OpenAI格式消息转换为文心一言格式"""
@@ -713,7 +657,6 @@ class WenxinClient(BaseAIClient):
         }
         data.update(kwargs)
 
-        # 添加access_token到URL参数
         url_with_token = f"{url}?access_token={self.access_token}"
 
         try:
@@ -722,7 +665,7 @@ class WenxinClient(BaseAIClient):
             result = response.json()
             return result.get('data', [{}])[0].get('embedding', [])
         except Exception as e:
-            raise AIClientError(f"文心一言嵌入向量请求失败: {str(e)}")
+            self._raise_safe_error("文心一言嵌入向量请求失败", e)
 
 
 class LocalModelClient(BaseAIClient):
@@ -734,15 +677,12 @@ class LocalModelClient(BaseAIClient):
             base_url=base_url,
             api_key=api_key,
             model_config=model_config)
-        self.local_config = {}  # 不再使用settings配置
+        self.local_config = {}
 
     def chat_completion(self, messages, **kwargs):
         """生成聊天完成内容"""
-        url = f"{self.base_url}/chat/completions"
-        headers = {
-            'Authorization': f'Bearer {self.api_key}',
-            'Content-Type': 'application/json',
-        }
+        url = self._join_url('/chat/completions')
+        headers = self._request_headers()
 
         data = {
             'model': self.model_config.get(
@@ -751,14 +691,10 @@ class LocalModelClient(BaseAIClient):
             'messages': messages,
             'temperature': kwargs.get(
                 'temperature',
-                self.local_config.get(
-                    'temperature',
-                    0.7)),
+                self.model_config.get('temperature', 0.7)),
             'max_tokens': kwargs.get(
                 'max_tokens',
-                self.local_config.get(
-                    'max_tokens',
-                    4096)),
+                self.model_config.get('max_tokens', 4096)),
         }
         data.update(kwargs)
 
@@ -768,7 +704,7 @@ class LocalModelClient(BaseAIClient):
             result = response.json()
             return self._parse_chat_response(result, kwargs)
         except Exception as e:
-            raise AIClientError(f"本地大模型聊天完成请求失败: {str(e)}")
+            self._raise_safe_error("本地大模型聊天完成请求失败", e)
 
     def text_completion(self, prompt, **kwargs):
         """生成文本完成内容"""
@@ -777,11 +713,8 @@ class LocalModelClient(BaseAIClient):
 
     def embedding(self, text, **kwargs):
         """生成文本嵌入向量"""
-        url = f"{self.base_url}/embeddings"
-        headers = {
-            'Authorization': f'Bearer {self.api_key}',
-            'Content-Type': 'application/json',
-        }
+        url = self._join_url('/embeddings')
+        headers = self._request_headers()
 
         data = {
             'model': self.model_config.get('embedding', 'local-embedding'),
@@ -795,7 +728,7 @@ class LocalModelClient(BaseAIClient):
             result = response.json()
             return result['data'][0]['embedding']
         except Exception as e:
-            raise AIClientError(f"本地大模型嵌入向量请求失败: {str(e)}")
+            self._raise_safe_error("本地大模型嵌入向量请求失败", e)
 
 
 class OllamaClient(BaseAIClient):
@@ -830,11 +763,9 @@ class OllamaClient(BaseAIClient):
             response = self._make_request('POST', url, headers=headers, json=data)
             result = response.json()
             message = result.get('message', {})
-            if "tools" in kwargs or kwargs.get("raw_message"):
-                return message
             return message.get('content', '') or ""
         except Exception as e:
-            raise AIClientError(f"Ollama聊天完成请求失败: {str(e)}")
+            self._raise_safe_error("Ollama聊天完成请求失败", e)
 
     def text_completion(self, prompt, **kwargs):
         messages = [{'role': 'user', 'content': prompt}]
@@ -857,32 +788,286 @@ class OllamaClient(BaseAIClient):
             result = response.json()
             return result.get('embedding', [])
         except Exception as e:
-            raise AIClientError(f"Ollama嵌入向量请求失败: {str(e)}")
+            self._raise_safe_error("Ollama嵌入向量请求失败", e)
+
+
+class AzureOpenAIClient(OpenAIClient):
+    """Azure OpenAI客户端实现"""
+
+    def __init__(self, base_url=None, api_key=None, model_config=None):
+        super().__init__(base_url=base_url, api_key=api_key, model_config=model_config)
+        self.provider = 'azure'
+        self.api_version = self.provider_specific_config.get(
+            'api_version', '2024-02-15-preview')
+
+    def _ensure_client(self):
+        if self.client is not None:
+            return True
+        if self._openai is None:
+            try:
+                import openai
+                self._openai = openai
+            except ImportError:
+                return False
+        if not self.api_key or not self.base_url:
+            return False
+        try:
+            self.client = self._openai.AzureOpenAI(
+                api_key=self.api_key,
+                azure_endpoint=self.base_url,
+                api_version=self.api_version)
+            return True
+        except Exception as e:
+            logger.error(f"创建Azure OpenAI客户端失败: {str(e)}")
+            return False
+
+    def _rest_url(self, path: str) -> str:
+        if not self.base_url:
+            raise AIClientError("Azure OpenAI API基础URL未配置")
+        deployment = self.model_config.get('chat') or self.model_config.get('model_name')
+        if not deployment:
+            raise AIClientError("Azure OpenAI部署名称未配置")
+        base = self.base_url.rstrip('/')
+        if '/openai/deployments/' in base:
+            endpoint = self._join_url(path, base)
+        else:
+            endpoint = f"{base}/openai/deployments/{deployment}{path}"
+        separator = '&' if '?' in endpoint else '?'
+        if 'api-version=' not in endpoint:
+            endpoint = f"{endpoint}{separator}api-version={self.api_version}"
+        return endpoint
+
+    def _request_headers(self):
+        return {
+            'api-key': self.api_key,
+            'Content-Type': 'application/json',
+        }
+
+
+class AnthropicClient(BaseAIClient):
+    """Anthropic Claude客户端实现"""
+
+    def __init__(self, base_url=None, api_key=None, model_config=None):
+        if not base_url:
+            base_url = 'https://api.anthropic.com/v1'
+        super().__init__(
+            provider='anthropic',
+            base_url=base_url,
+            api_key=api_key,
+            model_config=model_config)
+        self.anthropic_version = self.provider_specific_config.get(
+            'anthropic_version', '2023-06-01')
+
+    def chat_completion(self, messages, **kwargs):
+        if not self.api_key:
+            raise AIClientError("Anthropic API Key未配置")
+        url = self._join_url('/messages')
+        headers = {
+            'x-api-key': self.api_key,
+            'anthropic-version': self.anthropic_version,
+            'Content-Type': 'application/json',
+        }
+        system_prompt = None
+        anthropic_messages = []
+        for message in messages:
+            role = message.get('role')
+            content = message.get('content', '')
+            if role == 'system':
+                system_prompt = content if system_prompt is None else f"{system_prompt}\n{content}"
+            elif role in ['user', 'assistant']:
+                anthropic_messages.append({'role': role, 'content': content})
+        data = {
+            'model': self.model_config.get('chat', 'claude-3-haiku-20240307'),
+            'messages': anthropic_messages or [{'role': 'user', 'content': ''}],
+            'temperature': kwargs.get('temperature', self.model_config.get('temperature', 0.7)),
+            'max_tokens': kwargs.get('max_tokens', self.model_config.get('max_tokens', 2000)),
+        }
+        if system_prompt:
+            data['system'] = system_prompt
+        if 'top_p' in kwargs or self.model_config.get('top_p') is not None:
+            data['top_p'] = kwargs.get('top_p', self.model_config.get('top_p', 1.0))
+        try:
+            response = self._make_request('POST', url, headers=headers, json=data)
+            result = response.json()
+            contents = result.get('content') or []
+            for item in contents:
+                if item.get('type') == 'text':
+                    return item.get('text', '')
+            return ''
+        except Exception as e:
+            self._raise_safe_error("Anthropic聊天完成请求失败", e)
+
+    def text_completion(self, prompt, **kwargs):
+        messages = [{'role': 'user', 'content': prompt}]
+        return self.chat_completion(messages, **kwargs)
+
+    def embedding(self, text, **kwargs):
+        raise AIClientError("Anthropic暂不支持嵌入向量接口")
+
+
+class GoogleGeminiClient(BaseAIClient):
+    """Google Gemini客户端实现"""
+
+    def __init__(self, base_url=None, api_key=None, model_config=None):
+        if not base_url:
+            base_url = 'https://generativelanguage.googleapis.com/v1beta'
+        super().__init__(
+            provider='google',
+            base_url=base_url,
+            api_key=api_key,
+            model_config=model_config)
+
+    def _convert_messages(self, messages):
+        contents = []
+        system_parts = []
+        for message in messages:
+            role = message.get('role')
+            content = message.get('content', '')
+            if role == 'system':
+                system_parts.append({'text': content})
+            else:
+                contents.append({
+                    'role': 'model' if role == 'assistant' else 'user',
+                    'parts': [{'text': content}]
+                })
+        return contents or [{'role': 'user', 'parts': [{'text': ''}]}], system_parts
+
+    def chat_completion(self, messages, **kwargs):
+        if not self.api_key:
+            raise AIClientError("Google Gemini API Key未配置")
+        model = self.model_config.get('chat', 'gemini-1.5-flash')
+        base = self.base_url.rstrip('/')
+        if ':generateContent' in base:
+            safe_url = base
+        elif '/models/' in base:
+            safe_url = f"{base}:generateContent"
+        else:
+            safe_url = f"{base}/models/{model}:generateContent"
+        headers = {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': self.api_key,
+        }
+        contents, system_parts = self._convert_messages(messages)
+        data = {
+            'contents': contents,
+            'generationConfig': {
+                'temperature': kwargs.get('temperature', self.model_config.get('temperature', 0.7)),
+                'maxOutputTokens': kwargs.get('max_tokens', self.model_config.get('max_tokens', 2000)),
+                'topP': kwargs.get('top_p', self.model_config.get('top_p', 1.0)),
+            }
+        }
+        if system_parts:
+            data['systemInstruction'] = {'parts': system_parts}
+        try:
+            response = self._make_request('POST', safe_url, headers=headers, json=data)
+            result = response.json()
+            candidates = result.get('candidates') or []
+            if not candidates:
+                return ''
+            parts = candidates[0].get('content', {}).get('parts') or []
+            return ''.join(part.get('text', '') for part in parts)
+        except Exception as e:
+            self._raise_safe_error("Google Gemini聊天完成请求失败", e)
+
+    def text_completion(self, prompt, **kwargs):
+        messages = [{'role': 'user', 'content': prompt}]
+        return self.chat_completion(messages, **kwargs)
+
+    def embedding(self, text, **kwargs):
+        if not self.api_key:
+            raise AIClientError("Google Gemini API Key未配置")
+        model = kwargs.get(
+            'model',
+            self.model_config.get('embedding', self.model_config.get('chat', 'text-embedding-004')))
+        base = self.base_url.rstrip('/')
+        if ':embedContent' in base:
+            safe_url = base
+        elif '/models/' in base:
+            safe_url = f"{base}:embedContent"
+        else:
+            safe_url = f"{base}/models/{model}:embedContent"
+        headers = {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': self.api_key,
+        }
+        data = {'content': {'parts': [{'text': text}]}}
+        try:
+            response = self._make_request('POST', safe_url, headers=headers, json=data)
+            result = response.json()
+            return result.get('embedding', {}).get('values', [])
+        except Exception as e:
+            self._raise_safe_error("Google Gemini嵌入向量请求失败", e)
+
+
+class TencentHunyuanClient(BaseAIClient):
+    """腾讯混元OpenAI兼容客户端实现"""
+
+    def __init__(self, base_url=None, api_key=None, model_config=None):
+        if not base_url:
+            base_url = 'https://api.hunyuan.cloud.tencent.com/v1'
+        super().__init__(
+            provider='tencent',
+            base_url=base_url,
+            api_key=api_key,
+            model_config=model_config)
+
+    def chat_completion(self, messages, **kwargs):
+        url = self._join_url('/chat/completions')
+        headers = self._request_headers()
+        data = {
+            'model': self.model_config.get('chat', 'hunyuan-lite'),
+            'messages': messages,
+            'temperature': kwargs.get('temperature', self.model_config.get('temperature', 0.7)),
+            'max_tokens': kwargs.get('max_tokens', self.model_config.get('max_tokens', 2000)),
+        }
+        if 'top_p' in kwargs or self.model_config.get('top_p') is not None:
+            data['top_p'] = kwargs.get('top_p', self.model_config.get('top_p', 1.0))
+        try:
+            response = self._make_request('POST', url, headers=headers, json=data)
+            result = response.json()
+            return self._parse_chat_response(result, kwargs)
+        except Exception as e:
+            self._raise_safe_error("腾讯混元聊天完成请求失败", e)
+
+    def text_completion(self, prompt, **kwargs):
+        messages = [{'role': 'user', 'content': prompt}]
+        return self.chat_completion(messages, **kwargs)
+
+    def embedding(self, text, **kwargs):
+        url = self._join_url('/embeddings')
+        headers = self._request_headers()
+        data = {
+            'model': self.model_config.get('embedding', self.model_config.get('chat', 'hunyuan-embedding')),
+            'input': text
+        }
+        try:
+            response = self._make_request('POST', url, headers=headers, json=data)
+            result = response.json()
+            return result.get('data', [{}])[0].get('embedding', [])
+        except Exception as e:
+            self._raise_safe_error("腾讯混元嵌入向量请求失败", e)
 
 
 class AIClient:
     """AI模型客户端入口类"""
 
     def __init__(self, model_config_id=None, provider=None):
-        # 支持从数据库模型配置初始化
         if model_config_id:
             try:
                 self.model_config = AIModelConfig.objects.get(
                     id=model_config_id, is_active=True)
                 self.provider = self.model_config.provider or provider or 'openai'
             except AIModelConfig.DoesNotExist:
-                raise AIClientError(f"未找到ID为{model_config_id}的AI模型配置")
+                logger.error(f"AI模型配置不存在或未启用: {model_config_id}")
+                raise AIClientError("AI模型配置不存在或未启用，请检查模型配置后重试") from None
         else:
             self.provider = provider or 'openai'
             self.model_config = None
 
-        # 根据提供商创建相应的客户端实例
         self.client = self._create_client()
 
     def _create_client(self):
         """根据提供商创建客户端实例"""
-        # 准备传递给客户端的配置参数
-        # 支持模型对象和字典两种格式
         if hasattr(self.model_config, 'api_base'):
             base_url = self.model_config.api_base
             api_key = self.model_config.api_key
@@ -906,10 +1091,18 @@ class AIClient:
 
         model_config = {
             'chat': model_name,
+            'model_name': model_name,
             'temperature': temperature,
             'max_tokens': max_tokens,
             'top_p': top_p
         }
+
+        if hasattr(self.model_config, 'provider_specific_config'):
+            model_config['provider_specific_config'] = getattr(
+                self.model_config, 'provider_specific_config') or {}
+        elif isinstance(self.model_config, dict):
+            model_config['provider_specific_config'] = self.model_config.get(
+                'provider_specific_config') or {}
 
         if self.provider == 'openai':
             client = OpenAIClient(
@@ -946,10 +1139,30 @@ class AIClient:
                 base_url=base_url,
                 api_key=api_key,
                 model_config=model_config)
+        elif self.provider == 'azure':
+            client = AzureOpenAIClient(
+                base_url=base_url,
+                api_key=api_key,
+                model_config=model_config)
+        elif self.provider == 'anthropic':
+            client = AnthropicClient(
+                base_url=base_url,
+                api_key=api_key,
+                model_config=model_config)
+        elif self.provider == 'google':
+            client = GoogleGeminiClient(
+                base_url=base_url,
+                api_key=api_key,
+                model_config=model_config)
+        elif self.provider == 'tencent':
+            client = TencentHunyuanClient(
+                base_url=base_url,
+                api_key=api_key,
+                model_config=model_config)
         else:
-            raise AIClientError(f"不支持的AI提供商: {self.provider}")
+            logger.error(f"不支持的AI提供商: {self.provider}")
+            raise AIClientError("不支持的AI提供商，请检查模型配置后重试")
 
-        # 如果存在模型配置，则应用配置到客户端
         if self.model_config:
             self._apply_model_config_to_client(client)
 
@@ -957,29 +1170,36 @@ class AIClient:
 
     def _apply_model_config_to_client(self, client):
         """将模型配置应用到客户端实例"""
-        # 应用基础URL，处理阿里千问API地址格式
-        if self.model_config.api_base:
+        if not self.model_config:
+            return
+
+        if hasattr(self.model_config, 'api_base') and self.model_config.api_base:
             api_base = self.model_config.api_base
-            # 对于阿里千问，确保使用兼容OpenAI格式的地址
-            if client.provider in [
-                'qwen',
-                    'alibaba'] and 'dashscope.aliyuncs.com' in api_base and '/compatible-mode' not in api_base:
-                # 替换为兼容OpenAI格式的地址
+            if client.provider in ['qwen', 'alibaba'] and 'dashscope.aliyuncs.com' in api_base and '/compatible-mode' not in api_base:
                 client.base_url = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
             else:
                 client.base_url = api_base
+            client.api_base = client.base_url
 
-        # 应用API密钥
-        if self.model_config.api_key:
+        for key in ['organization', 'project', 'api_version', 'anthropic_version']:
+            if hasattr(self.model_config, key) and getattr(self.model_config, key):
+                client.provider_specific_config[key] = getattr(self.model_config, key)
+
+        if client.provider == 'azure' and hasattr(client, 'api_version'):
+            client.api_version = client.provider_specific_config.get(
+                'api_version', getattr(client, 'api_version', '2024-02-15-preview'))
+        if client.provider == 'anthropic' and hasattr(client, 'anthropic_version'):
+            client.anthropic_version = client.provider_specific_config.get(
+                'anthropic_version', getattr(client, 'anthropic_version', '2023-06-01'))
+        if hasattr(self.model_config, 'api_key') and self.model_config.api_key:
             client.api_key = self.model_config.api_key
 
-        # 应用模型配置
         client.model_config['chat'] = self.model_config.model_name
+        client.model_config['model_name'] = self.model_config.model_name
         client.model_config['temperature'] = self.model_config.temperature
         client.model_config['max_tokens'] = self.model_config.max_tokens
         client.model_config['top_p'] = self.model_config.top_p
 
-    # 代理方法到具体的客户端实例
     def chat_completion(self, messages, **kwargs):
         return self.client.chat_completion(messages, **kwargs)
 
@@ -1015,12 +1235,10 @@ class AIClient:
         if not config:
             raise AIClientError("配置不能为空")
 
-        # 从配置中提取必要字段
         provider = config.get('provider')
         api_key = config.get('api_key')
         base_url = config.get('base_url') or config.get('api_base')
 
-        # 创建客户端实例
         if provider == 'openai':
             return OpenAIClient(
                 base_url=base_url,
@@ -1056,5 +1274,26 @@ class AIClient:
                 base_url=base_url,
                 api_key=api_key,
                 model_config=config)
+        elif provider == 'azure':
+            return AzureOpenAIClient(
+                base_url=base_url,
+                api_key=api_key,
+                model_config=config)
+        elif provider == 'anthropic':
+            return AnthropicClient(
+                base_url=base_url,
+                api_key=api_key,
+                model_config=config)
+        elif provider == 'google':
+            return GoogleGeminiClient(
+                base_url=base_url,
+                api_key=api_key,
+                model_config=config)
+        elif provider == 'tencent':
+            return TencentHunyuanClient(
+                base_url=base_url,
+                api_key=api_key,
+                model_config=config)
         else:
-            raise AIClientError(f"不支持的AI提供商: {provider}")
+            logger.error(f"不支持的AI提供商: {provider}")
+            raise AIClientError("不支持的AI提供商，请检查模型配置后重试")

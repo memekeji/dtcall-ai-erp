@@ -287,10 +287,10 @@
                             <!-- 操作按钮区域 -->
                             <div class="button-group">
                                 <div class="layui-btn-group">
-                                    <button type="button" class="layui-btn layui-btn-sm" id="addCustomer">
+                                    <button type="button" class="layui-btn layui-btn-sm" onclick="showCustomerDialog('add')">
                                         <i class="layui-icon layui-icon-add-1"></i> 添加客户
                                     </button>
-                                    <button type="button" class="layui-btn layui-btn-sm layui-btn-normal" id="batchImport">
+                                    <button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="showImportDialog()">
                                         <i class="layui-icon layui-icon-upload"></i> 批量导入
                                     </button>
                                     <button type="button" class="layui-btn layui-btn-sm layui-btn-danger" id="batchDelete">
@@ -468,6 +468,43 @@
             var table = layui.table;
             var form = layui.form;
             var layer = layui.layer;
+
+            function openRightPopup(title, url, onClose) {
+                if (!url) {
+                    return;
+                }
+                layer.open({
+                    type: 2,
+                    title: title || '详情',
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: url,
+                    success: function(layero) {
+                        if (layero && typeof layero.css === 'function') {
+                            layero.css({
+                                'right': '0',
+                                'top': '0',
+                                'height': '100%'
+                            });
+                        }
+                    },
+                    end: function() {
+                        if (typeof onClose === 'function') {
+                            onClose();
+                            return;
+                        }
+                        if (table && typeof table.reload === 'function') {
+                            table.reload('customerTable');
+                        }
+                    }
+                });
+            }
+
+            window.openRightPopup = openRightPopup;
             
             // 检查必要模块是否加载
             if (!table || !form || !layer) {
@@ -1540,11 +1577,7 @@
                     var checkStatus = table.checkStatus(obj.config.id);
                     switch(obj.event) {
                         case 'add':
-                            if (typeof window !== 'undefined' && typeof window.location !== 'undefined') {
-                                window.location.href = '/customer/create/';
-                            } else {
-                                console.warn('无法执行页面跳转：window对象不可用');
-                            }
+                            showCustomerDialog('add');
                             break;
                         case 'import':
                             if (typeof showImportDialog === 'function') {
@@ -1577,17 +1610,13 @@
                     var data = obj.data;
                     switch(obj.event) {
                         case 'detail':
-                            if (typeof showCustomerDialog === 'function') {
-                                showCustomerDialog('detail', data && data.id ? data.id : '');
-                            } else {
-                                console.warn('无法打开客户详情：函数未定义');
+                            if (data && data.id) {
+                                openRightPopup('客户详情', '/customer/detail/' + data.id + '/');
                             }
                             break;
                         case 'edit':
-                            if (typeof showCustomerDialog === 'function') {
-                                showCustomerDialog('edit', data && data.id ? data.id : '');
-                            } else {
-                                console.warn('无法打开客户编辑：函数未定义');
+                            if (data && data.id) {
+                                openRightPopup('编辑客户', '/customer/edit/' + data.id + '/');
                             }
                             break;
                         case 'follow':
@@ -1765,18 +1794,6 @@
             
             // 页面按钮事件处理
             if (typeof $ === 'function') {
-                $('#batchImport').click(function() {
-                    if (typeof showImportDialog === 'function') {
-                        showImportDialog();
-                    }
-                });
-            
-                $('#addCustomer').click(function() {
-                    if (typeof showCustomerDialog === 'function') {
-                        showCustomerDialog('add');
-                    }
-                });
-            
                 $('#batchDelete').click(function() {
                     if (!table || typeof table.checkStatus !== 'function') {
                         return;
@@ -1797,7 +1814,7 @@
             
             // 查看客户详情
             function viewCustomerDetail(customerId) {
-                window.location.href = '/customer/detail/' + customerId + '/';
+                openRightPopup('客户详情', '/customer/detail/' + customerId + '/');
             }
         });
     }
@@ -1825,35 +1842,13 @@
                 url = '/customer/detail/' + customerId + '/';
                 break;
         }
-        
-        window.layer.open({
-            type: 2,
-            title: title,
-            shadeClose: false,
-            shade: 0.3,
-            maxmin: true,
-            area: ['80%', '100%'],
-            offset: 'r',
-            anim: 2,
-            content: url,
-            success: function(layero, index) {
-                // 设置弹窗从右侧滑入
-                if (layero && typeof layero.css === 'function') {
-                    layero.css({
-                        'right': '0',
-                        'top': '0',
-                        'height': '100%'
-                    });
-                }
-            },
-            end: function() {
-                // 关闭后刷新表格
-                if (table && typeof table.reload === 'function') {
-                    table.reload('customerTable');
-                }
-            }
-        });
-    }
+        openRightPopup(title, url);
+    };
+
+    // 显示导入对话框
+    window.showImportDialog = function() {
+        openRightPopup('批量导入客户', '/customer/batch/import/');
+    };
 //]]>
     </script>
     

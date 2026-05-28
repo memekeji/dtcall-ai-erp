@@ -1,87 +1,117 @@
+{% extends 'include/common.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>数据采集记录详情</title>
-    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
-</head>
-<body>
-    <div class="layui-fluid" style="padding: 20px;">
-        <div class="layui-row">
-            <div class="layui-col-md12">
-                <h2 style="margin-bottom: 20px;">数据采集记录详情</h2>
-            </div>
-        </div>
 
-        <div class="layui-row">
-            <div class="layui-col-md12">
-                <div class="layui-card">
-                    <div class="layui-card-body">
-                        <div class="layui-row">
-                            <div class="layui-col-md6">
-                                <table class="layui-table">
-                                    <tr>
-                                        <th style="width: 120px;">数据源</th>
-                                        <td>{{ record.data_source.name|default:"-" }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>采集时间</th>
-                                        <td>{{ record.collection_time|date:"Y-m-d H:i:s" }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>参数名称</th>
-                                        <td>{{ record.parameter_name|default:"-" }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>参数值</th>
-                                        <td>{{ record.parameter_value|default:"-" }}</td>
-                                    </tr>
-                                </table>
-                            </div>
-                            <div class="layui-col-md6">
-                                <table class="layui-table">
-                                    <tr>
-                                        <th style="width: 120px;">采集设备</th>
-                                        <td>{{ record.equipment.name|default:"-" }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>操作员</th>
-                                        <td>{{ record.operator.username|default:"-" }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>状态</th>
-                                        <td>
-                                            {% if record.status == 1 %}
-                                                <span style="color: #5FB878;">正常</span>
-                                            {% elif record.status == 2 %}
-                                                <span style="color: #FFB800;">警告</span>
-                                            {% else %}
-                                                <span style="color: #FF5722;">异常</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <th>创建时间</th>
-                                        <td>{{ record.created_at|date:"Y-m-d H:i:s" }}</td>
-                                    </tr>
-                                </table>
-                            </div>
-                        </div>
+{% block title %}数据采集记录详情{% endblock %}
 
-                        <div style="margin-top: 20px;">
-                            <button class="layui-btn layui-btn-primary" onclick="history.back();">
-                                <i class="layui-icon layui-icon-return"></i> 返回
-                            </button>
+{% block content %}
+<div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-col-md12">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <h3>数据采集记录详情</h3>
+                </div>
+                <div class="layui-card-body">
+                    <div class="layui-row layui-col-space15">
+                        <div class="layui-col-md6">
+                            <table class="layui-table">
+                                <tr>
+                                    <th style="width: 140px;">数据源</th>
+                                    <td>{{ record.data_source.name }}</td>
+                                </tr>
+                                <tr>
+                                    <th>数据源编码</th>
+                                    <td>{{ record.data_source.code }}</td>
+                                </tr>
+                                <tr>
+                                    <th>采集时间</th>
+                                    <td>{{ record.collection_time|date:"Y-m-d H:i:s" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>开始时间</th>
+                                    <td>{{ record.start_time|date:"Y-m-d H:i:s"|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>结束时间</th>
+                                    <td>{{ record.end_time|date:"Y-m-d H:i:s"|default:"-" }}</td>
+                                </tr>
+                            </table>
                         </div>
+                        <div class="layui-col-md6">
+                            <table class="layui-table">
+                                <tr>
+                                    <th style="width: 140px;">状态</th>
+                                    <td>
+                                        {% if record.status == 'success' %}
+                                        <span class="layui-badge layui-bg-green">成功</span>
+                                        {% elif record.status == 'partial' %}
+                                        <span class="layui-badge layui-bg-orange">部分成功</span>
+                                        {% elif record.status == 'failed' %}
+                                        <span class="layui-badge">失败</span>
+                                        {% elif record.status == 'processing' %}
+                                        <span class="layui-badge layui-bg-blue">处理中</span>
+                                        {% else %}
+                                        <span class="layui-badge layui-bg-gray">{{ record.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>记录数量</th>
+                                    <td>{{ record.record_count }}</td>
+                                </tr>
+                                <tr>
+                                    <th>成功数量</th>
+                                    <td>{{ record.success_count }}</td>
+                                </tr>
+                                <tr>
+                                    <th>错误数量</th>
+                                    <td>{{ record.error_count }}</td>
+                                </tr>
+                                <tr>
+                                    <th>处理时长</th>
+                                    <td>{{ record.duration|floatformat:2 }} 秒</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <fieldset class="layui-elem-field layui-field-title">
+                        <legend>原始数据</legend>
+                    </fieldset>
+                    <pre style="margin: 0; padding: 12px; background: #fafafa; border: 1px solid #eee; white-space: pre-wrap;">{{ record.raw_data|default:"-" }}</pre>
+
+                    <fieldset class="layui-elem-field layui-field-title">
+                        <legend>处理后数据</legend>
+                    </fieldset>
+                    <pre style="margin: 0; padding: 12px; background: #fafafa; border: 1px solid #eee; white-space: pre-wrap;">{{ record.processed_data|default:"-" }}</pre>
+
+                    <fieldset class="layui-elem-field layui-field-title">
+                        <legend>原始响应</legend>
+                    </fieldset>
+                    <pre style="margin: 0; padding: 12px; background: #fafafa; border: 1px solid #eee; white-space: pre-wrap;">{{ record.raw_response|default:"-" }}</pre>
+
+                    {% if record.error_message %}
+                    <fieldset class="layui-elem-field layui-field-title">
+                        <legend>错误信息</legend>
+                    </fieldset>
+                    <div class="layui-text" style="color: #ff5722;">{{ record.error_message|linebreaks }}</div>
+                    {% endif %}
+
+                    {% if record.error_details %}
+                    <fieldset class="layui-elem-field layui-field-title">
+                        <legend>错误详情</legend>
+                    </fieldset>
+                    <pre style="margin: 0; padding: 12px; background: #fff7f7; border: 1px solid #f2dede; white-space: pre-wrap;">{{ record.error_details }}</pre>
+                    {% endif %}
+
+                    <div style="margin-top: 20px;">
+                        <a href="{% url 'production:data_collection_record_list' %}" class="layui-btn layui-btn-primary">
+                            <i class="layui-icon layui-icon-return"></i> 返回列表
+                        </a>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="{% static 'layui/layui.js' %}"></script>
-</body>
-</html>
+</div>
+{% endblock %}

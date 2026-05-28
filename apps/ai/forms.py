@@ -80,6 +80,17 @@ class AIModelConfigForm(forms.ModelForm):
         self.fields['top_p'].widget.attrs.update(
             {'type': 'number', 'step': '0.1', 'min': '0', 'max': '1'})
 
+    def clean_provider(self):
+        provider = self.cleaned_data.get('provider')
+        aliases = {
+            'qwen': 'alibaba',
+            'wenxin': 'baidu',
+        }
+        return aliases.get(provider, provider)
+
+    def clean_api_base(self):
+        return (self.cleaned_data.get('api_base') or '').strip().rstrip('/')
+
 
 class AIWorkflowForm(forms.ModelForm):
     """AI工作流表单"""

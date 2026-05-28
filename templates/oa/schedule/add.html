@@ -1,0 +1,166 @@
+{% extends 'include/common.html' %}
+
+{% block title %}新增工作日程{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-row">
+            <div class="layui-col-md6">
+                <span class="layui-breadcrumb">
+                    <a href="javascript:;">OA办公</a>
+                    <a href="{% url 'oa_schedule' %}">工作日程</a>
+                    <a><cite>新增日程</cite></a>
+                </span>
+            </div>
+            <div class="layui-col-md6" style="text-align: right;">
+                <button type="button" class="layui-btn layui-btn-primary" id="closeBtn">关闭</button>
+            </div>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <div class="layui-bg-gray" style="padding: 12px 15px; margin-bottom: 20px;">
+            该页面用于登记个人工作日程，默认只允许记录当前时间及以前的工作安排，提交后会同步到 OA 日程列表和日历视图。
+        </div>
+        <form class="layui-form" id="scheduleForm" lay-filter="scheduleForm">
+            {% csrf_token %}
+            <div class="layui-row layui-col-space16">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">日程标题</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="title" required lay-verify="required" placeholder="请输入工作主题" class="layui-input">
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">工作类型</label>
+                        <div class="layui-input-block">
+                            <select name="labor_type">
+                                <option value="1">案头工作</option>
+                                <option value="2">外勤工作</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-row layui-col-space16">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">开始时间</label>
+                        <div class="layui-input-block">
+                            <input type="datetime-local" name="start_time" value="{{ default_start }}" required lay-verify="required" class="layui-input">
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">结束时间</label>
+                        <div class="layui-input-block">
+                            <input type="datetime-local" name="end_time" value="{{ default_end }}" required lay-verify="required" class="layui-input">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-row layui-col-space16">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">工作分类</label>
+                        <div class="layui-input-block">
+                            <select name="cid">
+                                <option value="">请选择工作分类</option>
+                                {% for item in categories %}
+                                <option value="{{ item.id }}">{{ item.title }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">关联任务</label>
+                        <div class="layui-input-block">
+                            <select name="tid" lay-search>
+                                <option value="">请选择任务</option>
+                                {% for task in tasks %}
+                                <option value="{{ task.id }}">{{ task.title }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">工作说明</label>
+                <div class="layui-input-block">
+                    <textarea name="content" placeholder="请输入工作内容、结果或备注" class="layui-textarea" rows="8"></textarea>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" lay-submit lay-filter="scheduleSubmit">保存日程</button>
+                    <button type="button" class="layui-btn layui-btn-primary" id="resetBtn">重置</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+layui.use(['form', 'layer', 'jquery'], function () {
+    var form = layui.form;
+    var layer = layui.layer;
+    var $ = layui.jquery;
+
+    function closeLayerAndReload() {
+        if (window.parent && window.parent.layer) {
+            var index = window.parent.layer.getFrameIndex(window.name);
+            window.parent.layer.close(index);
+            if (window.parent.location) {
+                window.parent.location.reload();
+            }
+            return;
+        }
+        window.location.href = '{% url "oa_schedule" %}';
+    }
+
+    $('#closeBtn').on('click', closeLayerAndReload);
+    $('#resetBtn').on('click', function () {
+        document.getElementById('scheduleForm').reset();
+        form.render();
+    });
+
+    form.on('submit(scheduleSubmit)', function (data) {
+        var submitIndex = layer.load(2);
+        $.ajax({
+            url: window.location.href,
+            type: 'POST',
+            headers: {
+                'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val(),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            contentType: 'application/json',
+            data: JSON.stringify(data.field),
+            success: function (res) {
+                layer.close(submitIndex);
+                if (res.code === 0) {
+                    layer.msg(res.msg || '保存成功', {icon: 1, time: 1200}, closeLayerAndReload);
+                } else {
+                    layer.msg(res.msg || '保存失败', {icon: 2});
+                }
+            },
+            error: function () {
+                layer.close(submitIndex);
+                layer.msg('提交失败，请稍后重试', {icon: 2});
+            }
+        });
+        return false;
+    });
+});
+</script>
+{% endblock %}

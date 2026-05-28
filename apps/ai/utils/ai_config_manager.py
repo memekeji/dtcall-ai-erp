@@ -80,11 +80,30 @@ class AIConfigManager:
         if not provider or not api_key:
             return
 
+        if provider in ['qwen', 'wenxin']:
+            provider = {'qwen': 'alibaba', 'wenxin': 'baidu'}[provider]
+
         if not api_base:
             if provider == 'openai':
                 api_base = 'https://api.openai.com/v1'
             elif provider in ['qwen', 'alibaba']:
                 api_base = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+            elif provider == 'deepseek':
+                api_base = 'https://api.deepseek.com/v1'
+            elif provider == 'anthropic':
+                api_base = 'https://api.anthropic.com/v1'
+            elif provider == 'google':
+                api_base = 'https://generativelanguage.googleapis.com/v1beta'
+            elif provider == 'tencent':
+                api_base = 'https://api.hunyuan.cloud.tencent.com/v1'
+            elif provider == 'doubao':
+                api_base = 'https://ark.cn-beijing.volces.com/api/v3'
+            elif provider == 'ollama':
+                api_base = 'http://localhost:11434'
+            elif provider == 'local':
+                api_base = 'http://localhost:8001'
+            else:
+                api_base = ''
 
         config_id = 'settings-default'
         self._configs[config_id] = {
@@ -159,22 +178,41 @@ class AIConfigManager:
         errors = []
 
         # 检查必要字段
-        if not config.get('api_key'):
-            errors.append('API密钥未配置')
-
-        if not config.get('provider'):
+        provider = config.get('provider')
+        if not provider:
             errors.append('提供商未配置')
 
-        # 检查基础URL（某些提供商可能需要）
-        provider = config.get('provider')
-        if provider not in ['local'] and not config.get('base_url'):
+        if provider not in ['local', 'ollama'] and not config.get('api_key'):
+            errors.append('API密钥未配置')
+
+        if provider not in ['local', 'ollama'] and not config.get('base_url') and not config.get('api_base'):
             errors.append('基础URL未配置')
 
         # 提供商特定验证
-        if provider == 'wenxin':
-            if not config.get('api_key') or not config.get(
-                    'default_params', {}).get('secret_key'):
-                errors.append('文心一言需要API Key和Secret Key')
+        if provider in ['openai', 'deepseek', 'doubao', 'alibaba', 'tencent']:
+            if not config.get('api_key'):
+                errors.append(f'{provider}需要API Key')
+
+        if provider == 'anthropic':
+            if not config.get('api_key'):
+                errors.append('Anthropic需要API Key')
+
+        if provider == 'google':
+            if not config.get('api_key'):
+                errors.append('Google Gemini需要API Key')
+
+        if provider == 'azure':
+            if not config.get('api_key'):
+                errors.append('Azure OpenAI需要API Key')
+            if not config.get('api_base') and not config.get('base_url'):
+                errors.append('Azure OpenAI需要API基础URL')
+
+        if provider in ['wenxin', 'baidu']:
+            provider_specific_config = config.get('provider_specific_config') or {}
+            secret_key = config.get('secret_key') or provider_specific_config.get('secret_key')
+            access_token = config.get('access_token') or provider_specific_config.get('access_token')
+            if not access_token and (not config.get('api_key') or not secret_key):
+                errors.append('文心一言需要Access Token或API Key和Secret Key')
 
         return {
             'valid': len(errors) == 0,
@@ -222,13 +260,13 @@ class AIConfigManager:
         """根据使用场景获取推荐配置"""
         # 根据使用场景推荐不同的提供商
         recommendations = {
-            'general': ['openai', 'qwen', 'deepseek'],
-            'chinese': ['qwen', 'wenxin', 'doubao'],
-            'creative': ['openai', 'deepseek'],
-            'local': ['local']
+            'general': ['openai', 'alibaba', 'deepseek'],
+            'chinese': ['alibaba', 'baidu', 'doubao'],
+            'creative': ['openai', 'deepseek', 'anthropic'],
+            'local': ['ollama', 'local']
         }
 
-        preferred_providers = recommendations.get(use_case, ['openai', 'qwen'])
+        preferred_providers = recommendations.get(use_case, ['openai', 'alibaba'])
 
         for provider in preferred_providers:
             config = self.get_config_by_provider(provider)
@@ -259,12 +297,12 @@ def validate_ai_configuration():
         logger.info("跳过AI配置验证（迁移过程中）")
         return {}
 
-    # 在迁移过程中直接返回空结果，避免任何数据库访问
-    if 'migrate' in sys.argv or 'makemigrations' in sys.argv:
-        return {}
-
     manager = get_ai_config_manager()
     validation_results = manager.validate_all_configs()
+
+    if not validation_results:
+        logger.info("未检测到AI配置，跳过AI有效性校验")
+        return {}
 
     valid_configs = 0
     for config_id, result in validation_results.items():
@@ -319,21 +357,14 @@ def validate_model_config(model_config):
     if not model_config.provider:
         errors.append('提供商不能为空')
 
-    if not model_config.api_key:
+    if model_config.provider not in ['local', 'ollama'] and not model_config.api_key:
         errors.append('API密钥不能为空')
 
     # 检查基础URL（某些提供商可能需要）
     provider = model_config.provider
-    if provider not in ['local'] and not model_config.api_base:
+    if provider not in ['local', 'ollama'] and not model_config.api_base:
         errors.append('基础URL不能为空')
 
-    # 提供商特定验证
-    if provider == 'wenxin':
-        # 检查文心一言的Secret Key
-        # 文心一言的Secret Key现在存储在api_key中，或者需要单独配置
-        pass
-
-    # 检查模型类型
     if not model_config.model_type:
         errors.append('模型类型不能为空')
 
@@ -352,25 +383,39 @@ def validate_model_config(model_config):
         # 创建AI客户端实例，使用模型配置ID
         client = AIClient(model_config_id=model_config.id)
 
-        # 发送简单的测试消息
-        test_message = "你好，这是一个连接测试。"
-        response = client.chat_completion(
-            [{"role": "user", "content": test_message}])
-
-        # 检查响应是否有效
-        if response and isinstance(
-                response, str) and len(
-                response.strip()) > 0:
-            return {
-                'success': True,
-                'details': f'配置验证成功 - 模型响应正常: {response}'
-            }
+        if model_config.model_type == 'embedding':
+            response = client.embedding('你好，这是一个连接测试。', model=model_config.model_name)
+        elif model_config.model_type in ['chat', 'text']:
+            test_message = "你好，这是一个连接测试。"
+            if model_config.model_type == 'text':
+                response = client.text_completion(test_message, model=model_config.model_name)
+            else:
+                response = client.chat_completion(
+                    [{"role": "user", "content": test_message}],
+                    model=model_config.model_name)
         else:
             return {
                 'success': False,
                 'error': '连接测试失败',
-                'details': f'模型响应为空或无效: {response}'
+                'details': f'当前暂不支持验证{model_config.get_model_type_display()}接口'
             }
+
+        if isinstance(response, (list, tuple)) and len(response) > 0:
+            return {
+                'success': True,
+                'details': f'配置验证成功 - 嵌入向量维度: {len(response)}'
+            }
+
+        if response and isinstance(response, str) and len(response.strip()) > 0:
+            return {
+                'success': True,
+                'details': f'配置验证成功 - 模型响应正常: {response}'
+            }
+        return {
+            'success': False,
+            'error': '连接测试失败',
+            'details': f'模型响应为空或无效: {response}'
+        }
 
     except Exception as e:
         return {

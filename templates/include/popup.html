@@ -1,0 +1,58 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>{% block title %}弹窗{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    {% block head %}{% endblock %}
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    {% block content %}{% endblock %}
+
+    <script src="{% static 'js/jquery.min.js' %}"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        function closePopup() {
+            if (window.parent && window.parent !== window && window.parent.layer && typeof window.parent.layer.getFrameIndex === 'function') {
+                var index = window.parent.layer.getFrameIndex(window.name);
+                if (index !== undefined && index !== null) {
+                    window.parent.layer.close(index);
+                    return;
+                }
+            }
+            if (window.layer && typeof window.layer.closeAll === 'function') {
+                window.layer.closeAll();
+                return;
+            }
+            window.close();
+        }
+
+        window.closePopup = closePopup;
+
+        if (window.jQuery) {
+            window.jQuery.ajaxSetup({
+                beforeSend: function(xhr, settings) {
+                    if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                        var csrfToken = window.jQuery('meta[name="csrf-token"]').attr('content');
+                        if (csrfToken) {
+                            xhr.setRequestHeader('X-CSRFToken', csrfToken);
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+    {% block script %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,37 @@
+{% extends 'home/iframe_base.html' %}
+
+{% block title %}AI操作日志{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">AI操作日志</div>
+    <div class="layui-card-body">
+        <table class="layui-table" lay-skin="line">
+            <thead>
+                <tr>
+                    <th>日志类型</th>
+                    <th>操作用户</th>
+                    <th>IP地址</th>
+                    <th>日志内容</th>
+                    <th>创建时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in object_list %}
+                <tr>
+                    <td>{{ log.get_log_type_display }}</td>
+                    <td>{{ log.user.username|default:'系统' }}</td>
+                    <td>{{ log.ip_address|default:'-' }}</td>
+                    <td>{{ log.content|truncatechars:100 }}</td>
+                    <td>{{ log.created_at|date:"Y-m-d H:i:s" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="text-align: center; color: #999; padding: 40px;">暂无AI操作日志</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

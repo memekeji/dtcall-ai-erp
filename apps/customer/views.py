@@ -134,7 +134,7 @@ class CustomerListView(LoginRequiredMixin, ListView):
 class CustomerListSimpleView(LoginRequiredMixin, TemplateView):
     login_url = '/user/login/'
     redirect_field_name = 'next'
-    template_name = 'customer/customer_list_simple.html'
+    template_name = 'customer/customer_list.html'
 
 
 class CustomerListDataView(LoginRequiredMixin, View):
@@ -1058,144 +1058,6 @@ class CustomerBatchImportView(LoginRequiredMixin, TemplateView):
         return context
 
 
-# 添加缺失的视图函数
-@login_required
-# 客户字段管理相关视图将在文件下方定义
-
-
-
-@login_required
-def customer_field_create(request):
-    """创建客户字段"""
-    if request.method == 'POST':
-        try:
-            name = request.POST.get('name', '').strip()
-            field_type = request.POST.get('field_type', '')
-            options = request.POST.get('options', '').strip()
-            is_required = request.POST.get('is_required') == 'on'
-            is_unique = request.POST.get('is_unique') == 'on'
-            is_list_display = request.POST.get('is_list_display') == 'on'
-            sort = int(request.POST.get('sort', 0))
-            
-            if not name or not field_type:
-                return JsonResponse({'code': 1, 'msg': '字段名称和类型不能为空'})
-            
-            # 生成字段标识
-            field_name = generate_field_name(name)
-            
-            # 检查字段标识是否重复
-            if CustomerField.objects.filter(field_name=field_name, delete_time=0).exists():
-                field_name = f"{field_name}_{int(timezone.now().timestamp())}"
-            
-            # 创建字段
-            CustomerField.objects.create(
-                name=name,
-                field_name=field_name,
-                field_type=field_type,
-                options=options,
-                is_required=is_required,
-                is_unique=is_unique,
-                is_list_display=is_list_display,
-                sort=sort,
-                status=True,
-                delete_time=0
-            )
-            
-            return JsonResponse({'code': 0, 'msg': '创建成功'}, json_dumps_params={'ensure_ascii': False})
-            
-        except Exception as e:
-            logger.error(f"创建客户字段失败: {str(e)}")
-            return JsonResponse({'code': 1, 'msg': f'创建失败: {str(e)}'}, json_dumps_params={'ensure_ascii': False})
-    
-    return render(request, 'customer/customer_field_form.html')
-
-
-@login_required
-def customer_field_edit(request, pk):
-    """编辑客户字段"""
-    try:
-        field = get_object_or_404(CustomerField, pk=pk, delete_time=0)
-        
-        if request.method == 'POST':
-            field.name = request.POST.get('name', '').strip()
-            field.field_type = request.POST.get('field_type', '')
-            field.options = request.POST.get('options', '').strip()
-            field.is_required = request.POST.get('is_required') == 'on'
-            field.is_unique = request.POST.get('is_unique') == 'on'
-            field.is_list_display = request.POST.get('is_list_display') == 'on'
-            field.sort = int(request.POST.get('sort', 0))
-            
-            if not field.name or not field.field_type:
-                return JsonResponse({'code': 1, 'msg': '字段名称和类型不能为空'})
-            
-            field.save()
-            return JsonResponse({'code': 0, 'msg': '更新成功'})
-        
-        # 创建表单对象
-        form = CustomerFieldForm(instance=field)
-        return render(request, 'basedata/customer/customer_field_form.html', {'object': field, 'form': form})
-        
-    except Exception as e:
-        logger.error(f"编辑客户字段失败: {str(e)}")
-        return JsonResponse({'code': 1, 'msg': f'编辑失败: {str(e)}'})
-
-
-@login_required
-def customer_field_delete(request, pk):
-    """删除客户字段"""
-    try:
-        field = get_object_or_404(CustomerField, pk=pk, delete_time=0)
-        field.delete_time = int(timezone.now().timestamp())
-        field.save()
-        
-        return JsonResponse({'code': 0, 'msg': '删除成功'})
-        
-    except Exception as e:
-        logger.error(f"删除客户字段失败: {str(e)}")
-        return JsonResponse({'code': 1, 'msg': f'删除失败: {str(e)}'})
-
-
-@login_required
-def customer_field_toggle(request, pk):
-    """切换客户字段状态"""
-    try:
-        field = get_object_or_404(CustomerField, pk=pk, delete_time=0)
-        field.status = not field.status
-        field.save()
-        
-        status_text = '启用' if field.status else '禁用'
-        return JsonResponse({'code': 0, 'msg': f'{status_text}成功'})
-        
-    except Exception as e:
-        logger.error(f"切换客户字段状态失败: {str(e)}")
-        return JsonResponse({'code': 1, 'msg': f'操作失败: {str(e)}'})
-
-
-def generate_field_name(name):
-    """生成字段标识"""
-    import re
-    
-    # 中文转拼音映射表（简化版）
-    pinyin_map = {
-        '客': 'ke', '户': 'hu', '账': 'zhang', '号': 'hao',
-        '姓': 'xing', '名': 'ming', '电': 'dian', '话': 'hua',
-        '手': 'shou', '机': 'ji', '邮': 'you', '箱': 'xiang',
-        '地': 'di', '址': 'zhi', '公': 'gong', '司': 'si',
-        '联': 'lian', '系': 'xi', '人': 'ren', '备': 'bei',
-        '注': 'zhu', '描': 'miao', '述': 'shu', '类': 'lei',
-        '型': 'xing', '状': 'zhuang', '态': 'tai'
-    }
-    
-    result = ''
-    for char in name:
-        if char in pinyin_map:
-            result += pinyin_map[char]
-        elif char.isalnum():
-            result += char.lower()
-    
-    # 清理结果
-    result = re.sub(r'[^a-zA-Z0-9]', '', result)
-    return result or 'custom_field'
 # 公海客户管理视图
 class PublicCustomerListView(LoginRequiredMixin, ListView):
     """公海客户列表视图"""
@@ -3106,140 +2968,6 @@ def customer_field_page(request):
     """客户字段页面"""
     return render(request, 'customer/customer_field_list.html')
 
-@login_required
-def customer_field_list(request):
-    """客户字段列表"""
-    # 视图实现已迁移到下方
-
-
-@login_required
-def customer_field_form(request, pk=None):
-    """客户字段表单"""
-    # 视图实现已迁移到下方
-
-
-@login_required
-def customer_field_list_data(request):
-    """客户字段列表数据API"""
-    # 视图实现已迁移到下方
-
-
-@login_required
-def customer_field_toggle(request, pk):
-    """切换客户字段状态"""
-    # 视图实现已迁移到下方
-
-
-@login_required
-def customer_field_delete(request, pk):
-    """删除客户字段"""
-    # 视图实现已迁移到下方
-
-
-# 客户来源管理视图
-@login_required
-def customer_source_list(request):
-    """客户来源列表"""
-    # 视图实现已迁移到下方
-
-
-@login_required
-def customer_source_form(request, pk=None):
-    """客户来源表单"""
-    # 视图实现已迁移到下方
-
-
-@login_required
-def customer_source_list_data(request):
-    """客户来源列表数据API"""
-    # 视图实现已迁移到下方
-
-
-@login_required
-def customer_source_toggle(request, pk):
-    """切换客户来源状态"""
-    # 视图实现已迁移到下方
-
-
-@login_required
-def customer_source_delete(request, pk):
-    """删除客户来源"""
-    # 视图实现已迁移到下方
-
-
-# 客户等级管理视图
-@login_required
-def customer_grade_list(request):
-    """客户等级列表"""
-    # 视图实现已迁移到下方
-
-
-@login_required
-def customer_grade_form(request, pk=None):
-    """客户等级表单"""
-    # 视图实现已迁移到下方
-
-
-@login_required
-def customer_grade_list_data(request):
-    """客户等级列表数据API"""
-    # 视图实现已迁移到下方
-
-
-@login_required
-def customer_grade_toggle(request, pk):
-    """切换客户等级状态"""
-    # 视图实现已迁移到下方
-
-
-@login_required
-def customer_grade_delete(request, pk):
-    """删除客户等级"""
-    # 视图实现已迁移到下方
-
-
-# 客户意向管理视图
-@login_required
-def customer_intent_list(request):
-    """客户意向列表"""
-    # 视图实现已迁移到下方
-
-
-@login_required
-def customer_intent_form(request, pk=None):
-    """客户意向表单"""
-    # 视图实现已迁移到下方
-
-
-@login_required
-def customer_intent_list_data(request):
-    """客户意向列表数据API"""
-    # 视图实现已迁移到下方
-
-
-@login_required
-def customer_intent_toggle(request, pk):
-    """切换客户意向状态"""
-    # 视图实现已迁移到下方
-
-
-@login_required
-def customer_intent_delete(request, pk):
-    """删除客户意向"""
-    # 视图实现已迁移到下方
-
-
-@login_required
-def customer_intent_update_sort(request, pk):
-    """更新单个客户意向的排序"""
-    # 视图实现已迁移到下方
-
-
-@login_required
-def customer_intent_batch_update_sort(request):
-    """批量更新客户意向的排序"""
-    # 视图实现已迁移到下方
-
 
 @login_required
 @require_POST
@@ -3815,30 +3543,30 @@ class ContractAddView(LoginRequiredMixin, View):
         # 加载合同分类数据
         try:
             from apps.contract.models import ContractCategory
-            contract_categories = ContractCategory.objects.filter(delete_time=0).order_by('name')
+            contract_categories = ContractCategory.objects.all()
+            if hasattr(ContractCategory, 'is_active'):
+                contract_categories = contract_categories.filter(is_active=True)
+            contract_categories = contract_categories.order_by('name')
         except ImportError:
-            # 如果basedata模块不可用，创建一个空列表
             contract_categories = []
+
+        context = {
+            'default_contract_number': default_contract_number,
+            'contract_categories': contract_categories,
+            'status_choices': CustomerContract.STATUS_CHOICES,
+            'type_choices': CustomerContract.TYPE_CHOICES,
+        }
         
         if customer_id:
             try:
                 customer = Customer.objects.get(id=customer_id, delete_time=0)
-                return render(request, 'customer/add_contract.html', {
-                    'customer': customer,
-                    'default_contract_number': default_contract_number,
-                    'contract_categories': contract_categories
-                })
+                context['customer'] = customer
+                return render(request, 'customer/add_contract.html', context)
             except Customer.DoesNotExist:
-                return render(request, 'customer/add_contract.html', {
-                    'error': '客户不存在',
-                    'default_contract_number': default_contract_number,
-                    'contract_categories': contract_categories
-                })
+                context['error'] = '客户不存在'
+                return render(request, 'customer/add_contract.html', context)
         
-        return render(request, 'customer/add_contract.html', {
-            'default_contract_number': default_contract_number,
-            'contract_categories': contract_categories
-        })
+        return render(request, 'customer/add_contract.html', context)
 
     def post(self, request):
         """处理合同添加表单提交"""
@@ -3846,8 +3574,10 @@ class ContractAddView(LoginRequiredMixin, View):
         import json
         
         try:
-            # 解析JSON数据
-            data = json.loads(request.body)
+            if request.content_type and 'application/json' in request.content_type:
+                data = json.loads(request.body or '{}')
+            else:
+                data = request.POST.dict()
             
             # 获取客户ID
             customer_id = data.get('customer_id')

@@ -1,0 +1,72 @@
+{% extends 'include/popup.html' %}
+
+{% block title %}会议详情 - {{ detail.title }}{% endblock %}
+
+{% block content %}
+<div class="layui-card" style="margin: 15px;">
+    <div class="layui-card-header">会议详情 - {{ detail.title }}</div>
+    <div class="layui-card-body">
+        <table class="layui-table">
+            <colgroup>
+                <col width="120">
+                <col>
+                <col width="120">
+                <col>
+            </colgroup>
+            <tbody>
+                <tr>
+                    <td style="background-color: #f8f8f8; text-align: right;">会议主题</td>
+                    <td colspan="3">{{ detail.title }}</td>
+                </tr>
+                <tr>
+                    <td style="background-color: #f8f8f8; text-align: right;">会议时间</td>
+                    <td colspan="3">{{ detail.start_time|date:"Y-m-d H:i" }} - {{ detail.end_time|date:"Y-m-d H:i" }}</td>
+                </tr>
+                <tr>
+                    <td style="background-color: #f8f8f8; text-align: right;">主持人</td>
+                    <td>{{ detail.host.username }}</td>
+                    <td style="background-color: #f8f8f8; text-align: right;">记录人</td>
+                    <td>{{ detail.recorder.username }}</td>
+                </tr>
+                <tr>
+                    <td style="background-color: #f8f8f8; text-align: right;">会议室</td>
+                    <td colspan="3">{{ detail.room.name|default:"外部/线上会议" }}</td>
+                </tr>
+                <tr>
+                    <td style="background-color: #f8f8f8; text-align: right;">参与人员</td>
+                    <td colspan="3">
+                        {% for p in detail.participants.all %}
+                            <span class="layui-badge layui-bg-blue">{{ p.username }}</span>
+                        {% empty %}
+                            -
+                        {% endfor %}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="background-color: #f8f8f8; text-align: right;">会议内容</td>
+                    <td colspan="3">
+                        <div style="min-height: 100px; white-space: pre-wrap; line-height: 1.6;">{{ detail.content|default:"无" }}</div>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="background-color: #f8f8f8; text-align: right;">决议/纪要</td>
+                    <td colspan="3">
+                        <div style="min-height: 100px; white-space: pre-wrap; line-height: 1.6;">{{ detail.summary|default:"暂无纪要" }}</div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div style="text-align: center; margin-top: 20px;">
+            <button class="layui-btn layui-btn-primary" onclick="closePopup()">关闭</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function closePopup() {
+        var index = parent.layer.getFrameIndex(window.name);
+        parent.layer.close(index);
+    }
+</script>
+{% endblock %}

@@ -8,81 +8,155 @@ from typing import Dict, Any
 from django.contrib.auth.models import User
 from apps.ai.services.ai_intent_classifier import ai_intent_classifier
 from apps.ai.services.query_service import query_service
-from apps.ai.services.intelligent_assistant import IntelligentDataAssistant
-from apps.ai.utils.ai_client import AIClient
+from apps.user.services.permission_node_mapper import permission_node_mapper
 from apps.system.middleware.data_permission_middleware import PermissionChecker
 
 logger = logging.getLogger(__name__)
 
 
 class EnhancedIntentService:
-    """
-    增强的意图识别服务
-    提供完整的意图识别、权限验证和数据处理能力
-    """
+    """增强的意图处理服务"""
+
+    MUTATING_ACTIONS = {'create', 'update', 'delete'}
+    MUTATING_INTENTS = {'DATA_CREATE', 'DATA_UPDATE', 'DATA_DELETE'}
+
+    BUSINESS_HANDOFF_CONFIG = {
+        'customer': {
+            'name': '客户',
+            'module': '客户管理',
+            'list_url': '/customer/',
+            'create_url': '/customer/create/',
+            'edit_url_template': '/customer/edit/{id}/',
+            'permission_base': 'customer',
+        },
+        'order': {
+            'name': '客户订单',
+            'module': '客户管理',
+            'list_url': '/customer/orders/',
+            'create_url': '/customer/orders/create/',
+            'edit_url_template': '/customer/orders/{id}/edit/',
+            'permission_base': 'customer_order',
+        },
+        'contract': {
+            'name': '合同',
+            'module': '合同管理',
+            'list_url': '/contract/sales/',
+            'create_url': '/contract/create/',
+            'edit_url_template': '/contract/sales/update/{id}/',
+            'permission_base': 'contract',
+        },
+        'project': {
+            'name': '项目',
+            'module': '项目管理',
+            'list_url': '/project/',
+            'create_url': '/project/add/',
+            'edit_url_template': '/project/edit/{id}/',
+            'permission_base': 'project',
+        },
+        'invoice': {
+            'name': '发票',
+            'module': '财务管理',
+            'list_url': '/finance/invoice/',
+            'create_url': '/finance/invoice/add/',
+            'edit_url_template': '/finance/invoice/edit/{id}/',
+            'permission_base': 'invoice',
+        },
+        'employee': {
+            'name': '员工',
+            'module': '人事管理',
+            'list_url': '/user/employee/',
+            'create_url': '/user/employee/create/',
+            'edit_url_template': '/user/employee/update/{id}/',
+            'permission_base': 'employee',
+        },
+        'department': {
+            'name': '部门',
+            'module': '组织管理',
+            'list_url': '/system/department/',
+            'create_url': '/system/department/add/',
+            'edit_url_template': '/system/department/{id}/update/',
+            'permission_base': 'department',
+        },
+        'finance': {
+            'name': '费用报销',
+            'module': '财务管理',
+            'list_url': '/finance/expense/',
+            'create_url': '/finance/expense/add/',
+            'edit_url_template': None,
+            'permission_base': 'reimbursement',
+        },
+        'production': {
+            'name': '生产计划',
+            'module': '生产管理',
+            'list_url': '/production/task/plan/',
+            'create_url': '/production/task/plan/add/',
+            'edit_url_template': '/production/task/plan/edit/{id}/',
+            'permission_base': 'production_plan',
+        },
+        'followup': {
+            'name': '跟进记录',
+            'module': '客户管理',
+            'list_url': '/customer/followup/',
+            'create_url': '/customer/followup/create/',
+            'edit_url_template': '/customer/followup/{id}/edit/',
+            'permission_base': 'follow_record',
+        },
+        'supplier': {
+            'name': '供应商',
+            'module': '合同管理',
+            'list_url': '/contract/supplier/',
+            'create_url': '/contract/supplier/add/',
+            'edit_url_template': '/contract/supplier/edit/{id}/',
+            'permission_base': 'supplier',
+        },
+        'product': {
+            'name': '产品',
+            'module': '合同管理',
+            'list_url': '/contract/product/',
+            'create_url': '/contract/product/add/',
+            'edit_url_template': '/contract/product/edit/{id}/',
+            'permission_base': 'product',
+        },
+        'inventory': {
+            'name': '库存物料',
+            'module': '库存管理',
+            'list_url': '/inventory/inventory/',
+            'create_url': '/inventory/item/add/',
+            'edit_url_template': '/inventory/item/{id}/',
+            'permission_base': 'inventory',
+            'available': False,
+            'unavailable_reason': '库存模块当前未接入系统根路由，请先完成模块接入后再进入业务页面操作',
+        },
+    }
 
     def __init__(self):
         self.classifier = ai_intent_classifier
         self.query_service = query_service
-        self._intelligent_assistant = None
+        self.permission_checker = PermissionChecker()
 
     @property
     def intelligent_assistant(self):
-        """获取智能助手实例（懒加载）"""
-        return self._intelligent_assistant
+        """获取智能助手实例（已禁用直接业务执行）"""
+        return None
 
     def _get_intelligent_assistant(self, user):
-        """获取带用户上下文的智能助手实例"""
-        try:
-            from apps.ai.utils.ai_config_manager import get_ai_config_manager
-            config_manager = get_ai_config_manager()
-            config = config_manager.get_recommended_config()
-
-            if config:
-                ai_client = AIClient.from_config(config)
-                return IntelligentDataAssistant(ai_client=ai_client, user=user)
-            else:
-                return IntelligentDataAssistant(ai_client=None, user=user)
-        except Exception as e:
-            logger.warning(f"初始化智能助手失败: {e}")
-            return IntelligentDataAssistant(ai_client=None, user=user)
+        """阻止通过智能助手绕过意图识别和权限确认"""
+        logger.warning("直接智能助手业务执行已被安全策略禁用")
+        return None
 
     def process_user_request(self, user: User, query: str) -> Dict[str, Any]:
-        """
-        处理用户请求的完整流程
-
-        Args:
-            user: 当前用户
-            query: 用户查询文本
-
-        Returns:
-            Dict[str, Any]: 处理结果
-        """
+        """处理用户请求"""
         try:
-            # 首先尝试使用智能助手处理（基于 AI 的自然语言理解）
-            try:
-                assistant = self._get_intelligent_assistant(user)
-                assistant_result = assistant.process(query, user)
-                # 如果智能助手成功处理了数据操作，返回结果
-                if assistant_result.get(
-                        'success') and not assistant_result.get('is_conversation'):
-                    return {
-                        'success': True,
-                        'intent_type': 'DATA_OPERATION',
-                        'result': assistant_result.get('message', '操作完成'),
-                        'data': assistant_result.get('data'),
-                        'operation': assistant_result.get('operation'),
-                        'confidence': 0.99
-                    }
-                # 如果是闲聊或未识别，继续使用原来的逻辑
-            except Exception as e:
-                logger.warning(f"智能助手处理失败: {e}")
-
-            # 使用原有的意图识别逻辑
             intent_result = self.classifier.classify_intent(user, query)
 
             if not intent_result.get('intent'):
                 return self._create_error_response('无法识别您的意图，请重新描述您的需求')
+
+            if intent_result.get('source') != 'ai' and intent_result.get('intent') != 'UI_ACTION':
+                return self._create_confirmation_response(intent_result, query)
+
+            if self._is_mutating_intent(intent_result):
+                return self._create_confirmation_response(intent_result, query)
 
             permission_result = self._check_data_permission(
                 user, intent_result)
@@ -90,7 +164,7 @@ class EnhancedIntentService:
                 return self._create_permission_denied_response(
                     intent_result, permission_result)
 
-            if intent_result['confidence'] < 0.65:
+            if intent_result['confidence'] < 0.65 or intent_result.get('requires_confirmation'):
                 return self._create_confirmation_response(intent_result, query)
 
             execution_result = self._execute_intent(user, intent_result, query)
@@ -99,7 +173,7 @@ class EnhancedIntentService:
 
         except Exception as e:
             logger.error(f"处理用户请求失败：{str(e)}")
-            return self._create_error_response(f'处理请求时发生错误：{str(e)}')
+            return self._create_error_response('处理请求时发生错误，请稍后重试')
 
     def _check_data_permission(
             self, user: User, intent_result: Dict[str, Any]) -> Dict[str, Any]:
@@ -138,6 +212,16 @@ class EnhancedIntentService:
                 'data_scope': 'knowledge'
             }
 
+        if intent_result.get('intent') == 'UI_ACTION':
+            return {'has_permission': True}
+
+        if intent_result.get('action') in {'create', 'update', 'delete'} or intent_result.get('intent') in {'DATA_CREATE', 'DATA_UPDATE', 'DATA_DELETE'}:
+            return {
+                'has_permission': False,
+                'required_permission': 'explicit_confirmation',
+                'message': '数据新增、修改、删除需要在业务页面中确认后执行'
+            }
+
         if not data_type:
             return {
                 'has_permission': True,
@@ -152,23 +236,28 @@ class EnhancedIntentService:
             'project': 'project.view_project',
             'invoice': 'customer.view_customerinvoice',
             'employee': 'user.view_employeefile',
-            'department': 'user.view_department',
-            'finance': 'finance.view_finance',
-            'production': 'production.view_production',
+            'department': 'department.view_department',
+            'finance': 'finance.view_expense',
+            'production': 'production.view_productionplan',
+            'supplier': 'contract.view_supplier',
+            'product': 'contract.view_product',
+            'inventory': 'inventory.view_inventory',
+            'followup': 'customer.view_followrecord',
         }
 
         required_permission = permission_map.get(data_type)
 
         if not required_permission:
             return {
-                'has_permission': True,
-                'message': f'{data_type} 类型无需特殊权限',
-                'data_scope': 'general'
+                'has_permission': False,
+                'required_permission': 'mapped_business_permission',
+                'message': f'{data_type} 类型暂未配置 AI 查询权限映射',
+                'data_scope': 'forbidden'
             }
 
-        has_perm = user.has_perm(required_permission)
+        has_permission = user.has_perm(required_permission)
 
-        if not has_perm:
+        if not has_permission:
             return {
                 'has_permission': False,
                 'message': f'您没有权限访问{data_type}数据',
@@ -220,47 +309,50 @@ class EnhancedIntentService:
         action = intent_result.get('action')
         intent_result.get('data_type')
 
+        if intent_type == 'UI_ACTION':
+            return {
+                'success': True,
+                'intent_type': intent_type,
+                'result': '已识别为安全界面操作',
+                'ui_action': intent_result.get('action'),
+                'confidence': intent_result.get('confidence', 0.0),
+                'requires_client_action': True
+            }
+
         if intent_type == 'AI_CHAT':
             return self._handle_ai_chat(user, query)
 
         if intent_type == 'KNOWLEDGE_BASE':
             return self._handle_knowledge_base(user, query)
 
-        if intent_type in ['DATA_QUERY', 'DATA_CREATE', 'DATA_UPDATE']:
-            if action == 'create':
-                return self._handle_data_create(user, intent_result, query)
-            elif action == 'update':
-                return self._handle_data_update(user, intent_result, query)
-            else:
-                return self._handle_data_query(user, intent_result, query)
+        if intent_type in ['DATA_QUERY', 'DATA_CREATE', 'DATA_UPDATE', 'DATA_DELETE']:
+            if self._is_mutating_intent(intent_result):
+                return self._create_confirmation_response(intent_result, query)
+            return self._handle_data_query(user, intent_result, query)
 
         return self._handle_data_query(user, intent_result, query)
 
     def _handle_data_query(
             self, user: User, intent_result: Dict[str, Any], query: str) -> Dict[str, Any]:
-        """
-        处理数据查询
-
-        Args:
-            user: 当前用户
-            intent_result: 意图识别结果
-            query: 原始查询
-
-        Returns:
-            Dict[str, Any]: 查询结果
-        """
+        """处理数据查询"""
         try:
-            result = self.query_service.process_query(user, query)
+            result = self.query_service.process_query(user, query, intent_result)
 
-            result['intent_type'] = intent_result.get('intent')
-            result['confidence'] = intent_result.get('confidence')
-            result['entities'] = intent_result.get('entities')
-
-            return result
+            if result.get('success'):
+                return {
+                    'success': True,
+                    'intent_type': 'DATA_QUERY',
+                    'result': result['result'],
+                    'data': result.get('data'),
+                    'confidence': intent_result.get('confidence', 0.0),
+                    'specific_intent': result.get('specific_intent')
+                }
+            else:
+                return self._create_error_response(result.get('message', '查询失败'))
 
         except Exception as e:
-            logger.error(f"数据查询失败：{str(e)}")
-            return self._create_error_response(f'查询失败：{str(e)}')
+            logger.error(f"数据查询处理失败：{str(e)}")
+            return self._create_error_response('数据查询失败，请稍后重试')
 
     def _handle_data_create(
             self, user: User, intent_result: Dict[str, Any], query: str) -> Dict[str, Any]:
@@ -275,21 +367,7 @@ class EnhancedIntentService:
         Returns:
             Dict[str, Any]: 创建结果
         """
-        data_type = intent_result.get('data_type')
-        customer_name = intent_result.get('customer_name')
-
-        if not data_type:
-            return self._create_error_response('无法确定要创建的数据类型')
-
-        if data_type == 'order' and customer_name:
-            return self.query_service.handle_add_order(
-                {'customer_name': customer_name}, user)
-
-        if data_type == 'followup' and customer_name:
-            return self.query_service.handle_add_followup(
-                {'customer_name': customer_name}, user)
-
-        return self._create_error_response(f'暂不支持创建{data_type}数据，请通过界面操作')
+        return self._create_confirmation_response(intent_result, query)
 
     def _handle_data_update(
             self, user: User, intent_result: Dict[str, Any], query: str) -> Dict[str, Any]:
@@ -304,7 +382,7 @@ class EnhancedIntentService:
         Returns:
             Dict[str, Any]: 修改结果
         """
-        return self._create_error_response('数据修改功能暂不支持，请通过界面操作')
+        return self._create_confirmation_response(intent_result, query)
 
     def _handle_knowledge_base(self, user: User, query: str) -> Dict[str, Any]:
         """
@@ -325,76 +403,20 @@ class EnhancedIntentService:
         }
 
     def _handle_ai_chat(self, user: User, query: str) -> Dict[str, Any]:
-        """
-        处理 AI 对话，支持 Function Calling
-        
-        Args:
-            user: 当前用户
-            query: 原始查询
-
-        Returns:
-            Dict[str, Any]: 对话结果
-        """
+        """处理 AI 对话"""
         try:
             from apps.ai.services.ai_intent_classifier import ai_intent_classifier
-            from apps.ai.utils.tool_registry import tool_registry
-            import json
 
             ai_client = ai_intent_classifier.ai_client
             if ai_client is None:
                 return self._create_fallback_response(query)
 
             messages = [
-                {'role': 'system', 'content': '你是一个强大且友好的企业级智能助手。如果用户要求你执行特定任务且你有对应的工具，请调用工具。否则，请与用户进行自然对话。'},
+                {'role': 'system', 'content': '你是友好的企业级智能助手。只进行安全的自然语言回答，不直接执行业务数据新增、修改、删除，不调用工具。'},
                 {'role': 'user', 'content': query}
             ]
 
-            tools = tool_registry.get_all_tools_schema()
-            
-            if tools:
-                response = ai_client.chat_completion(messages, tools=tools)
-            else:
-                response = ai_client.chat_completion(messages)
-
-            # 检查是否触发了工具调用
-            if isinstance(response, dict) and response.get('tool_calls'):
-                tool_calls = response['tool_calls']
-                tool_results = []
-                for tool_call in tool_calls:
-                    function_name = tool_call.get('function', {}).get('name')
-                    try:
-                        function_args = json.loads(tool_call.get('function', {}).get('arguments', '{}'))
-                    except:
-                        function_args = {}
-                    
-                    # 执行工具
-                    tool_result = tool_registry.execute_tool(function_name, function_args)
-                    tool_results.append({
-                        "tool_call_id": tool_call.get('id', ''),
-                        "role": "tool",
-                        "name": function_name,
-                        "content": str(tool_result)
-                    })
-                
-                # 将工具结果发回给模型以生成最终回答
-                messages.append(response)  # 包含 tool_calls 的 assistant 消息
-                messages.extend(tool_results)
-                final_response = ai_client.chat_completion(messages)
-                
-                if isinstance(final_response, dict):
-                    final_text = final_response.get('content', '')
-                else:
-                    final_text = str(final_response)
-                    
-                return {
-                    'success': True,
-                    'message': final_text,
-                    'intent_type': 'AI_CHAT',
-                    'result': final_text,
-                    'confidence': 1.0
-                }
-
-            # 正常返回内容
+            response = ai_client.chat_completion(messages)
             response_text = response.get('content', '') if isinstance(response, dict) else str(response)
 
             if not response_text or not response_text.strip():
@@ -410,38 +432,19 @@ class EnhancedIntentService:
             }
         except Exception as e:
             logger.error(f"AI 对话失败：{str(e)}")
-            # AI 调用失败，使用降级响应
             return self._create_fallback_response(query)
 
     def _create_fallback_response(self, query: str) -> Dict[str, Any]:
         """创建降级响应（AI 不可用时）"""
-        query_lower = query.lower()
-
-        # 根据用户输入提供智能响应
-        if any(
-            greeting in query_lower for greeting in [
-                '你好',
-                '您好',
-                'hi',
-                'hello',
-                '早',
-                '好']):
-            response = '您好！👋 我是您的智能助手，很高兴为您服务！我可以帮您查询和管理业务数据，比如：\n• 客户管理：查询客户数量、客户列表、客户详情\n• 订单管理：查看订单总额、订单列表、订单统计\n• 合同管理：查询合同信息、合同总额\n• 项目管理：查看项目进度、项目列表\n\n请问有什么可以帮您？'
-        elif any(question_word in query_lower for question_word in ['多少', '几个', '数量', '统计', '总额', '汇总']):
-            response = '您好！我可以帮您查询各类业务数据。\n\n您可以这样问我：\n• "我有多少客户？"\n• "查询订单列表"\n• "查看合同总额"\n• "统计本月成交客户"\n• "有哪些正在进行的项目"\n\n请告诉我您想查询什么？'
-        elif any(action_word in query_lower for action_word in ['添加', '新增', '创建', '修改', '更新', '删除']):
-            response = '您好！我可以帮您操作业务数据。\n\n您可以这样告诉我：\n• "添加一个新客户"\n• "创建订单"\n• "修改客户电话"\n• "更新项目进度"\n\n请告诉我您的具体需求？'
-        elif any(keyword in query_lower for keyword in ['帮助', '帮助文档', '教程', '怎么', '如何', '怎样']):
-            response = '您好！我很乐意为您提供帮助！\n\n我可以帮您：\n• 查询业务数据（客户、订单、合同、项目等）\n• 创建和修改业务记录\n• 统计和分析业务数据\n\n您想了解什么呢？'
-        else:
-            response = '您好！👋 我是您的智能助手，很高兴为您服务！\n\n我可以帮您：\n• 查询客户、订单、合同、项目等业务数据\n• 创建和修改业务记录\n• 统计和分析业务数据\n\n请问有什么可以帮您？'
+        response = '当前未配置可用的 AI 模型，我可以继续提供基础帮助。请配置 AI 模型后获得更准确的意图识别和自然语言理解能力。'
 
         return {
             'success': True,
             'message': response,
             'intent_type': 'AI_CHAT',
             'result': response,
-            'confidence': 1.0
+            'confidence': 0.35,
+            'source': 'safe_fallback'
         }
 
     def _create_error_response(self, message: str) -> Dict[str, Any]:
@@ -471,24 +474,279 @@ class EnhancedIntentService:
         """创建确认响应"""
         intent_type = intent_result.get('intent')
         confidence = intent_result.get('confidence', 0)
+        business_task = None
 
-        options = intent_result.get('fallback_options', [])
-        if not options:
-            options = [
-                {'text': '查询项目数据', 'intent': 'DATA_QUERY', 'action': 'select'},
-                {'text': '调用知识库', 'intent': 'KNOWLEDGE_BASE', 'action': 'select'},
-                {'text': '纯 AI 对话', 'intent': 'AI_CHAT', 'action': 'select'},
-            ]
+        if self._is_mutating_intent(intent_result):
+            business_task = self._build_business_handoff(intent_result, query)
+            if business_task:
+                options = business_task.get('options', [])
+                message = business_task.get('message')
+            else:
+                options = [
+                    {'text': '打开相关业务列表', 'intent': intent_type, 'action': 'open_business_page'},
+                    {'text': '取消操作', 'intent': 'AI_CHAT', 'action': 'cancel'},
+                ]
+                message = '已识别到数据新增、修改或删除意图。为保护业务数据安全，请在对应业务页面核对并确认后执行。'
+        else:
+            options = intent_result.get('fallback_options', [])
+            if not options:
+                options = [
+                    {'text': '按普通 AI 对话处理', 'intent': 'AI_CHAT', 'action': 'chat'},
+                    {'text': '补充数据查询条件', 'intent': 'DATA_QUERY', 'action': 'query'},
+                    {'text': '取消操作', 'intent': 'AI_CHAT', 'action': 'cancel'},
+                ]
 
-        return {
+            if intent_result.get('source') != 'ai':
+                message = '当前未配置可用的 AI 模型，无法进行高置信度意图识别。请补充说明或先配置 AI 模型。'
+            else:
+                message = f'我不太确定您的意图（置信度：{confidence:.0%}），请选择：'
+
+        response = {
             'success': True,
             'requires_confirmation': True,
-            'message': f'我不太确定您的意图（置信度：{confidence:.0%}），请选择：',
+            'message': message,
             'intent_type': intent_type,
             'confidence': confidence,
             'options': options,
-            'original_query': query
+            'original_query': query,
+            'source': intent_result.get('source'),
+            'action': intent_result.get('action'),
+            'data_type': intent_result.get('data_type'),
+            'entities': intent_result.get('entities') or {},
         }
+        if business_task:
+            response['task'] = business_task
+            response['requires_client_action'] = True
+        return response
+
+    def _is_mutating_intent(self, intent_result: Dict[str, Any]) -> bool:
+        return (
+            intent_result.get('action') in self.MUTATING_ACTIONS or
+            intent_result.get('intent') in self.MUTATING_INTENTS
+        )
+
+    def _build_business_handoff(
+            self, intent_result: Dict[str, Any], query: str) -> Dict[str, Any]:
+        data_type = intent_result.get('data_type')
+        if not data_type:
+            return self._build_unknown_business_handoff(intent_result, query)
+
+        config = self.BUSINESS_HANDOFF_CONFIG.get(data_type)
+        if not config:
+            return self._build_unknown_business_handoff(intent_result, query)
+
+        action = self._normalize_business_action(intent_result)
+        title = self._build_business_title(action, config['name'])
+        target_url, disabled_reason = self._resolve_business_target_url(config, action, intent_result)
+        permission = self._build_business_permission(config.get('permission_base'), action)
+        entities = intent_result.get('entities') or {}
+        permission_exists = self._has_business_permission(permission)
+        disabled_reason = self._merge_disabled_reason(disabled_reason, None if permission_exists else '当前业务操作权限节点未配置，已阻止直接打开')
+        enabled = bool(target_url and not disabled_reason and config.get('available', True))
+        safety_notice = self._get_business_safety_notice(action)
+        message = f'已识别到{title}意图。{safety_notice}'
+        if disabled_reason:
+            message = f'已识别到{title}意图，但{disabled_reason}。'
+
+        task = {
+            'type': 'business_handoff',
+            'intent_type': intent_result.get('intent'),
+            'action': action,
+            'data_type': data_type,
+            'module': config.get('module'),
+            'title': title,
+            'target_url': target_url,
+            'list_url': config.get('list_url'),
+            'open_mode': 'tab',
+            'requires_user_confirmation': True,
+            'safety_notice': safety_notice,
+            'message': message,
+            'prefill': self._sanitize_prefill(entities),
+            'permission_required': permission,
+            'has_business_permission': permission_exists,
+            'enabled': enabled,
+            'disabled_reason': disabled_reason,
+            'confidence': intent_result.get('confidence', 0),
+            'options': [],
+        }
+        task['options'] = self._build_business_options(task, config)
+        return task
+
+    def _build_unknown_business_handoff(
+            self, intent_result: Dict[str, Any], query: str) -> Dict[str, Any]:
+        action = self._normalize_business_action(intent_result)
+        title = self._build_business_title(action, '业务数据')
+        message = f'已识别到{title}意图，但暂时无法确定具体业务模块。请补充说明客户、项目、合同、订单等业务类型后再继续。'
+        task = {
+            'type': 'business_handoff',
+            'intent_type': intent_result.get('intent'),
+            'action': action,
+            'data_type': intent_result.get('data_type'),
+            'module': None,
+            'title': title,
+            'target_url': None,
+            'list_url': None,
+            'open_mode': 'tab',
+            'requires_user_confirmation': True,
+            'safety_notice': 'AI 不会直接新增、修改或删除业务数据。',
+            'message': message,
+            'prefill': {},
+            'permission_required': None,
+            'has_business_permission': False,
+            'enabled': False,
+            'disabled_reason': '无法确定具体业务模块',
+            'confidence': intent_result.get('confidence', 0),
+            'options': [],
+        }
+        task['options'] = [
+            {'text': '补充业务类型', 'intent': 'DATA_QUERY', 'action': 'clarify', 'enabled': True},
+            {'text': '取消操作', 'intent': 'AI_CHAT', 'action': 'cancel', 'enabled': True},
+        ]
+        return task
+
+    def _normalize_business_action(self, intent_result: Dict[str, Any]) -> str:
+        action = intent_result.get('action')
+        intent_type = intent_result.get('intent')
+        if action in self.MUTATING_ACTIONS:
+            return action
+        if intent_type == 'DATA_CREATE':
+            return 'create'
+        if intent_type == 'DATA_UPDATE':
+            return 'update'
+        if intent_type == 'DATA_DELETE':
+            return 'delete'
+        return 'query'
+
+    def _build_business_title(self, action: str, business_name: str) -> str:
+        action_names = {
+            'create': '新增',
+            'update': '修改',
+            'delete': '删除',
+            'query': '查看',
+        }
+        return f"{action_names.get(action, '处理')}{business_name}"
+
+    def _get_business_safety_notice(self, action: str) -> str:
+        if action == 'delete':
+            return 'AI 不会直接删除业务数据，只会打开对应业务页面或列表，请您核对记录后在页面内按系统流程确认。'
+        if action == 'update':
+            return 'AI 不会直接修改业务数据，只会打开对应业务页面，请您核对记录和字段后再保存。'
+        return 'AI 只负责识别和带您进入业务页面，不会直接新增业务数据，请在页面内核对后再保存。'
+
+    def _resolve_business_target_url(
+            self, config: Dict[str, Any], action: str, intent_result: Dict[str, Any]):
+        if not config.get('available', True):
+            return None, config.get('unavailable_reason') or '该业务模块当前不可用'
+
+        if action == 'create':
+            return config.get('create_url'), None if config.get('create_url') else '未配置新增页面入口'
+
+        if action in {'update', 'delete'}:
+            record_id = self._extract_record_id(intent_result)
+            template = config.get('edit_url_template')
+            if action == 'update' and record_id and template:
+                return template.format(id=record_id), None
+            if action == 'delete' and record_id and template:
+                return template.format(id=record_id), None
+            return config.get('list_url'), '请先在列表中定位具体记录后再继续操作'
+
+        return config.get('list_url'), None if config.get('list_url') else '未配置业务页面入口'
+
+    def _extract_record_id(self, intent_result: Dict[str, Any]):
+        entities = intent_result.get('entities') or {}
+        for key in ('id', 'pk', 'record_id', 'object_id'):
+            value = entities.get(key) or intent_result.get(key)
+            if isinstance(value, int):
+                return value
+            if isinstance(value, str) and value.isdigit():
+                return value
+        return None
+
+    def _build_business_permission(self, permission_base: str, action: str):
+        if not permission_base:
+            return None
+        permission_actions = {
+            'create': 'add',
+            'update': 'change',
+            'delete': 'delete',
+            'query': 'view',
+        }
+        permission_action = permission_actions.get(action, 'view')
+        codename = f'{permission_action}_{permission_base}'
+        return {
+            'app_label': 'user',
+            'codename': codename,
+            'full_code': f'user.{codename}',
+            'action': permission_action,
+            'name': self._get_permission_display_name(codename),
+        }
+
+    def _has_business_permission(self, permission: Dict[str, Any]) -> bool:
+        if not permission:
+            return False
+        codename = permission.get('codename')
+        if not codename:
+            return False
+        try:
+            return permission_node_mapper.get_full_permission(codename) is not None
+        except Exception:
+            return False
+
+    def _get_permission_display_name(self, codename: str) -> str:
+        try:
+            permission = permission_node_mapper.get_full_permission(codename)
+            if permission:
+                return permission
+        except Exception:
+            pass
+        return codename
+
+    def _merge_disabled_reason(self, current_reason, new_reason):
+        if current_reason and new_reason:
+            return f'{current_reason}；{new_reason}'
+        return current_reason or new_reason
+
+    def _sanitize_prefill(self, entities: Dict[str, Any]) -> Dict[str, Any]:
+        if not isinstance(entities, dict):
+            return {}
+        sanitized = {}
+        for key, value in entities.items():
+            if key in {'password', 'token', 'secret', 'api_key', 'csrfmiddlewaretoken'}:
+                continue
+            if value is None or isinstance(value, (str, int, float, bool)):
+                sanitized[key] = value
+            elif isinstance(value, (list, tuple)):
+                sanitized[key] = [item for item in value if isinstance(item, (str, int, float, bool))][:10]
+        return sanitized
+
+    def _build_business_options(
+            self, task: Dict[str, Any], config: Dict[str, Any]) -> list:
+        options = []
+        if task.get('target_url'):
+            options.append({
+                'text': f"打开{task.get('title')}",
+                'intent': task.get('intent_type'),
+                'action': 'open_business_page',
+                'target_url': task.get('target_url'),
+                'open_mode': task.get('open_mode'),
+                'title': task.get('title'),
+                'enabled': task.get('enabled', True),
+                'disabled_reason': task.get('disabled_reason'),
+            })
+        if config.get('list_url') and config.get('list_url') != task.get('target_url'):
+            options.append({
+                'text': f"打开{config.get('name')}列表",
+                'intent': 'DATA_QUERY',
+                'action': 'open_business_page',
+                'target_url': config.get('list_url'),
+                'open_mode': task.get('open_mode'),
+                'title': f"{config.get('name')}列表",
+                'enabled': config.get('available', True),
+                'disabled_reason': config.get('unavailable_reason'),
+            })
+        options.append({'text': '取消操作', 'intent': 'AI_CHAT', 'action': 'cancel', 'enabled': True})
+        return options
+
 
 
 enhanced_intent_service = EnhancedIntentService()

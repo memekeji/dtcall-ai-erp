@@ -1,9 +1,9 @@
-{% extends "home/base.html" %}
+{% extends 'include/popup.html' %}
 {% load static %}
 
 {% block title %}{% if object %}编辑产品{% else %}新增产品{% endif %}{% endblock %}
 
-{% block css %}
+{% block head %}
 <style>
 .layui-form {
     max-width: 800px;
@@ -162,14 +162,14 @@
             
             <div class="form-buttons">
                 <button type="submit" class="layui-btn layui-btn-normal">保存</button>
-                <button type="button" class="layui-btn layui-btn-primary" onclick="parent.layer.close(parent.layer.getFrameIndex(window.name))">返回</button>
+                <button type="button" class="layui-btn layui-btn-primary" onclick="closePopup()">返回</button>
             </div>
         </form>
     </div>
 </div>
 {% endblock %}
 
-{% block js %}
+{% block script %}
 <script>
 layui.use(['form', 'layer'], function(){
     var form = layui.form;
@@ -186,9 +186,8 @@ layui.use(['form', 'layer'], function(){
     
     // 表单提交
     form.on('submit', function(data){
-        // 使用AJAX提交表单
         $.ajax({
-            url: window.location.href,
+            url: '{{ request.path }}',
             type: 'POST',
             data: data.field,
             dataType: 'json',
@@ -198,21 +197,18 @@ layui.use(['form', 'layer'], function(){
             },
             success: function(res){
                 if(res.code == 0){
-                    // 保存成功，关闭弹窗并刷新父页面
                     layer.msg(res.msg, {icon: 1, time: 1500}, function(){
-                        // 关闭当前弹窗
-                        var index = parent.layer.getFrameIndex(window.name);
-                        parent.layer.close(index);
-                        // 刷新父页面的表格
-                        parent.layui.table.reload('dataTable');
+                        if (window.parent && window.parent.layui && window.parent.layui.table) {
+                            window.parent.layui.table.reload('dataTable');
+                        }
+                        closePopup();
                     });
                 } else {
-                    // 保存失败，显示错误信息
                     layer.msg(res.msg, {icon: 2, time: 2000});
                 }
             },
-            error: function(xhr, status, error){
-                layer.msg('请求失败：' + error, {icon: 2, time: 2000});
+            error: function(){
+                layer.msg('请求失败，请检查产品信息后重试', {icon: 2, time: 2000});
             }
         });
         return false;
