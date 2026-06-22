@@ -287,9 +287,10 @@
     </script>
     <script src="{% static 'js/jquery.min.js' %}"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/common.js' %}"></script>
     <script>
         // 获取CSRF令牌的辅助函数
-        function getCookie(name) {
+        var getCookie = (window.DTCallCommon && window.DTCallCommon.getCookie) || function(name) {
             var cookieValue = null;
             if (document.cookie && document.cookie !== '') {
                 var cookies = document.cookie.split(';');
@@ -302,7 +303,7 @@
                 }
             }
             return cookieValue;
-        }
+        };
         
         // 获取并设置CSRF令牌
         var csrftoken = getCookie('csrftoken');
@@ -344,7 +345,6 @@
             // 渲染部门树形结构
             // 使用后端传递的部门树形数据渲染
             var departmentData = JSON.parse('{{ department_tree|safe|default:"[]" }}');
-            console.log('部门树形数据:', departmentData);
             if (departmentData && departmentData.length > 0) {
                 tree.render({
                     elem: '#departmentTree',
@@ -353,7 +353,6 @@
                     showCheckbox: false,
                     id: 'departmentTreeId',
                     click: function(obj) {
-                        console.log('点击部门节点:', obj.data);
                         $('input[name=dept_id]').val(obj.data.id);
                         table.reload('employeeTable', {
                             where: { dept_id: obj.data.id },

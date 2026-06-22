@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
 <title>{% if web_title %}{{ web_title }}{% else %}DTcall - 登录{% endif %}</title>
+<link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
 <style>
 * {
     margin: 0;
@@ -20,7 +21,7 @@ html, body {
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%);
     min-height: 100vh;
     display: flex;
     align-items: center;
@@ -131,7 +132,7 @@ body {
 
 .quote-section {
     flex: 0 0 320px;
-    background: linear-gradient(145deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(145deg, #1677ff 0%, #06b6d4 100%);
     padding: 45px 35px;
     display: flex;
     flex-direction: column;
@@ -377,9 +378,9 @@ body {
 }
 
 .captcha-input:focus {
-    border-color: #667eea;
+    border-color: #1677ff;
     background: #fff;
-    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.12);
+    box-shadow: 0 0 0 4px rgba(22, 119, 255, 0.12);
 }
 
 .captcha-input::placeholder {
@@ -398,7 +399,7 @@ body {
 }
 
 .captcha-img:hover {
-    border-color: #667eea;
+    border-color: #1677ff;
 }
 
 .submit-btn {
@@ -406,7 +407,7 @@ body {
     height: 48px;
     border: none;
     border-radius: 10px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%);
     color: #fff;
     font-size: 16px;
     font-weight: 600;
@@ -434,7 +435,7 @@ body {
 
 .submit-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.35);
+    box-shadow: 0 8px 25px rgba(22, 119, 255, 0.28);
 }
 
 .submit-btn:hover::before {
@@ -466,22 +467,22 @@ body {
 }
 
 .footer-text a {
-    color: #667eea;
+    color: #1677ff;
     text-decoration: none;
     transition: color 0.3s ease;
 }
 
 .footer-text a:hover {
-    color: #764ba2;
+    color: #06b6d4;
 }
 
 .version-badge {
     display: inline-block;
     padding: 2px 8px;
-    background: rgba(102, 126, 234, 0.1);
+    background: rgba(22, 119, 255, 0.1);
     border-radius: 12px;
     font-size: 10px;
-    color: #667eea;
+    color: #1677ff;
     margin-left: 6px;
 }
 
@@ -583,6 +584,60 @@ body {
     .captcha-input {
         height: 42px;
     }
+}
+
+body {
+    background:
+        linear-gradient(135deg, rgba(255,255,255,0.92), rgba(238,247,255,0.9)),
+        radial-gradient(circle at 18% 8%, rgba(22, 119, 255, 0.18), transparent 28%),
+        linear-gradient(180deg, #f7fbff 0%, #eef5fc 100%);
+}
+
+.bubbles-container {
+    display: none;
+}
+
+.login-card {
+    border: 1px solid #e5edf6;
+    border-radius: 8px;
+    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.14);
+}
+
+.quote-section {
+    background:
+        linear-gradient(145deg, #0f5bd8 0%, #1677ff 58%, #06b6d4 100%);
+}
+
+.captcha-input,
+.captcha-img,
+.submit-btn {
+    border-radius: 6px;
+}
+
+.captcha-input:focus {
+    border-color: #1677ff;
+    box-shadow: 0 0 0 4px rgba(22, 119, 255, 0.12);
+}
+
+.captcha-img:hover {
+    border-color: #1677ff;
+}
+
+.submit-btn {
+    background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%);
+}
+
+.submit-btn:hover {
+    box-shadow: 0 8px 25px rgba(22, 119, 255, 0.28);
+}
+
+.footer-text a,
+.version-badge {
+    color: #1677ff;
+}
+
+.version-badge {
+    background: rgba(22, 119, 255, 0.1);
 }
 </style>
 </head>

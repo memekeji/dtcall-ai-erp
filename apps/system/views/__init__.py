@@ -10,7 +10,6 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from apps.system.decorators.module_check import module_active_required
-from django.views.decorators.csrf import csrf_exempt
 from django.core.paginator import Paginator
 from django.db.models import Q
 
@@ -103,6 +102,46 @@ STATIC_SYSTEM_CONFIGS = [
         'category': 'business',
         'icon': 'layui-icon-phone',
         'extra': {'placeholder': '例如: http://192.168.1.200:9078', 'maxlength': 500}
+    },
+    {
+        'key': 'spider_tianyancha_cookie',
+        'name': '天眼查Cookie',
+        'value': '',
+        'description': '客户公海爬虫访问企业公开数据源使用的授权Cookie，留空时无法访问需要登录的数据源',
+        'value_type': 'textarea',
+        'category': 'service',
+        'icon': 'layui-icon-search',
+        'extra': {'placeholder': '请输入已授权账号的Cookie'}
+    },
+    {
+        'key': 'spider_tianyancha_auth_token',
+        'name': '天眼查授权Token',
+        'value': '',
+        'description': '客户公海爬虫访问企业公开数据源使用的授权Token，可按数据源要求填写 Bearer Token 或完整授权值',
+        'value_type': 'textarea',
+        'category': 'service',
+        'icon': 'layui-icon-vercode',
+        'extra': {'placeholder': '请输入授权Token'}
+    },
+    {
+        'key': 'spider_proxy_enabled',
+        'name': '爬虫代理开关',
+        'value': 'false',
+        'description': '是否为企业公开数据爬虫启用代理IP访问',
+        'value_type': 'switch',
+        'category': 'service',
+        'icon': 'layui-icon-engine',
+        'extra': {'on_text': '开启', 'off_text': '关闭'}
+    },
+    {
+        'key': 'spider_proxy_url',
+        'name': '爬虫代理地址',
+        'value': '',
+        'description': '代理服务器地址，支持 http、https、socks5 等格式，建议包含账号密码认证信息',
+        'value_type': 'text',
+        'category': 'service',
+        'icon': 'layui-icon-link',
+        'extra': {'placeholder': '例如: http://127.0.0.1:7890 或 socks5://user:pass@127.0.0.1:1080', 'maxlength': 500}
     },
     {
         'key': 'sms_enabled',
@@ -244,7 +283,6 @@ def config_toggle(request):
 
 @login_required
 @require_http_methods(['POST'])
-@csrf_exempt
 @module_active_required()
 def config_upload_logo(request):
     """上传系统Logo"""

@@ -229,6 +229,7 @@
     </div>
 
     <script src="/static/layui/layui.js"></script>
+    <script src="/static/js/common.js"></script>
     <script>
     layui.use(['layer', 'form', 'upload'], function(){
         var layer = layui.layer;
@@ -237,6 +238,24 @@
         var configs = {{ configs_json|safe }};
         var serviceConfigs = {{ service_configs_json|safe }};
         var storageConfigs = {{ storage_configs_json|safe }};
+        var serviceConfigByCategory = {};
+        serviceConfigs.forEach(function(item) {
+            if (item && item.category) {
+                serviceConfigByCategory[item.category] = item;
+            }
+        });
+
+        var escapeHtml = window.DTCallCommon.escapeHtml;
+        var getCookie = window.DTCallCommon.getCookie;
+
+        function getServiceCategoryMeta(category) {
+            var meta = {
+                sms: { label: '短信服务' },
+                stt: { label: '语音转文本服务' },
+                tts: { label: '文本转语音服务' }
+            };
+            return meta[category] || null;
+        }
         
         function showSaveIndicator(show, text) {
             var indicator = document.getElementById('saveIndicator');
@@ -360,6 +379,11 @@
                                 ' onblur="saveConfigValue(\'' + config.key + '\', this.value)" ' +
                                 ' oninput="this.classList.add(\'config-input-changed\')" ' +
                                 ' onchange="this.classList.remove(\'config-input-changed\')">';
+                    } else if (config.value_type === 'textarea') {
+                        html += '<textarea name="value_' + config.key + '" ' + extraAttrs + ' class="layui-textarea config-input" ' +
+                                ' onblur="saveConfigValue(\'' + config.key + '\', this.value)" ' +
+                                ' oninput="this.classList.add(\'config-input-changed\')" ' +
+                                ' onchange="this.classList.remove(\'config-input-changed\')">' + (config.value || '') + '</textarea>';
                     } else {
                         html += '<input type="text" name="value_' + config.key + '" value="' + config.value + '" ' + 
                                 extraAttrs + ' class="layui-input config-input" ' +
@@ -373,9 +397,24 @@
                     html += '    <div class="layui-form-item" style="margin-bottom: 0;">';
                     html += '      <label class="layui-form-label" style="width: 90px;">描述：</label>';
                     html += '      <div class="layui-input-block" style="margin-left: 120px;">';
-                    html += '        <p class="config-desc">' + config.description + '</p>';
+                    html += '        <p class="config-desc">' + escapeHtml(config.description) + '</p>';
                     html += '      </div>';
                     html += '    </div>';
+                    if (config.key === 'sms_enabled' || config.key === 'stt_enabled' || config.key === 'tts_enabled') {
+                        var serviceCategory = config.key.replace('_enabled', '');
+                        var matchedService = serviceConfigByCategory[serviceCategory];
+                        html += '    <div class="layui-form-item" style="margin-bottom: 0;">';
+                        html += '      <label class="layui-form-label" style="width: 90px;">接口配置：</label>';
+                        html += '      <div class="layui-input-block" style="margin-left: 120px;">';
+                        html += '        <div style="margin-bottom: 8px; color: #999; font-size: 13px;">';
+                        html += matchedService ? '已配置：' + escapeHtml(matchedService.provider_display || matchedService.provider || matchedService.name) : '尚未配置服务商、API Key、接口地址等参数';
+                        html += '        </div>';
+                        html += '        <button type="button" class="layui-btn layui-btn-xs layui-btn-normal" onclick="event.stopPropagation(); openServiceConfig(\'' + serviceCategory + '\')">';
+                        html += matchedService ? '编辑接口配置' : '新增接口配置';
+                        html += '        </button>';
+                        html += '      </div>';
+                        html += '    </div>';
+                    }
                     html += '  </div>';
                     html += '</div>';
                 }
@@ -386,7 +425,7 @@
         }
         
         window.saveConfigValue = function(key, value) {
-            var input = document.querySelector('input[name="value_' + key + '"]');
+            var input = document.querySelector('[name="value_' + key + '"]');
             if (input) {
                 input.classList.remove('config-input-changed');
             }
@@ -459,6 +498,10 @@
             var oldValue = config.value;
             var newValue = String(isActive);
             config.value = newValue;
+            var serviceCategory = null;
+            if (key === 'sms_enabled' || key === 'stt_enabled' || key === 'tts_enabled') {
+                serviceCategory = key.replace('_enabled', '');
+            }
             
             showSaveIndicator(true, '保存中...');
             
@@ -480,6 +523,15 @@
                     showSaveSuccess();
                     config.value = newValue;
                     renderSystemCards();
+                    if (isActive && serviceCategory && !serviceConfigByCategory[serviceCategory]) {
+                        layer.confirm('功能开关已启用，但还没有配置服务商、API Key 和接口地址。是否现在配置？', {
+                            icon: 3,
+                            title: '需要接口配置'
+                        }, function(confirmIndex) {
+                            layer.close(confirmIndex);
+                            openServiceConfig(serviceCategory);
+                        });
+                    }
                 } else {
                     config.value = oldValue;
                     layer.msg(data.msg, {icon: 2});
@@ -500,13 +552,13 @@
                 var statusClass = config.is_enabled ? 'enabled' : 'disabled';
                 var statusText = config.is_enabled ? '已启用' : '已禁用';
                 
-                html += '<div class="layui-card service-card" onclick="openServiceDetail(' + config.pk + ')">';
+                html += '<div class="layui-card service-card" onclick="openServiceEdit(' + config.pk + ')">';
                 html += '  <div class="layui-card-header">';
                 html += '    <i class="layui-icon ' + (config.icon || 'layui-icon技术服务') + '" style="margin-right: 5px;"></i>';
-                html += '    <span>' + config.name + '</span>';
+                html += '    <span>' + escapeHtml(config.name) + '</span>';
                 html += '    <span class="service-badge ' + statusClass + '">' + statusText + '</span>';
                 html += '    <span class="config-category" style="float: right; font-size: 12px; color: #999;">' + 
-                        (config.category_display || config.category) + '</span>';
+                        escapeHtml(config.category_display || config.category) + '</span>';
                 html += '  </div>';
                 html += '  <div class="layui-card-body">';
                 html += '    <div class="service-info">';
@@ -514,34 +566,34 @@
                 if (config.provider) {
                 html += '      <div class="service-info-item">';
                 html += '        <label>服务商：</label>';
-                html += '        <span>' + config.provider + '</span>';
+                html += '        <span>' + escapeHtml(config.provider_display || config.provider) + '</span>';
                 html += '      </div>';
                 }
                 
                 if (config.api_key_masked) {
                 html += '      <div class="service-info-item">';
                 html += '        <label>API密钥：</label>';
-                html += '        <span>' + config.api_key_masked + '</span>';
+                html += '        <span>' + escapeHtml(config.api_key_masked) + '</span>';
                 html += '      </div>';
                 }
                 
                 if (config.base_url) {
                 html += '      <div class="service-info-item" style="width: 100%;">';
                 html += '        <label>接口地址：</label>';
-                html += '        <span>' + config.base_url + '</span>';
+                html += '        <span>' + escapeHtml(config.base_url) + '</span>';
                 html += '      </div>';
                 }
                 
                 if (config.description) {
                 html += '      <div class="service-info-item" style="width: 100%;">';
                 html += '        <label>描述：</label>';
-                html += '        <span>' + config.description + '</span>';
+                html += '        <span>' + escapeHtml(config.description) + '</span>';
                 html += '      </div>';
                 }
                 
                 html += '    </div>';
                 html += '    <div class="storage-actions">';
-                html += '      <button class="layui-btn layui-btn-xs" onclick="event.stopPropagation(); openServiceDetail(' + config.pk + ')">配置</button>';
+                html += '      <button class="layui-btn layui-btn-xs" onclick="event.stopPropagation(); openServiceEdit(' + config.pk + ')">编辑</button>';
                 
                 if (config.is_enabled) {
                 html += '      <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="event.stopPropagation(); toggleService(' + config.pk + ', false)">禁用</button>';
@@ -559,14 +611,41 @@
                 html += '</div>';
             });
             document.getElementById('serviceConfigCards').innerHTML = html;
+            var countEl = document.getElementById('serviceCount');
+            if (countEl) {
+                countEl.textContent = '(' + serviceConfigs.length + ')';
+            }
         }
         
-        window.openServiceDetail = function(pk) {
+        window.openServiceEdit = function(pk) {
             layer.open({
                 type: 2,
-                title: '服务配置详情',
-                area: ['80%', '100%'],
-                content: '/system/config/service/' + pk + '/',
+                title: '编辑服务配置',
+                area: ['68%', '100%'],
+                offset: 'r',
+                shadeClose: true,
+                content: '/system/config/service/' + pk + '/edit/',
+                end: function() {
+                    location.reload();
+                }
+            });
+        };
+
+        window.openServiceConfig = function(category) {
+            var service = serviceConfigByCategory[category];
+            if (service && service.pk) {
+                openServiceEdit(service.pk);
+                return;
+            }
+
+            var meta = getServiceCategoryMeta(category) || {};
+            layer.open({
+                type: 2,
+                title: '新增' + (meta.label || '服务') + '配置',
+                area: ['68%', '100%'],
+                offset: 'r',
+                shadeClose: true,
+                content: '/system/config/service/add/?category=' + encodeURIComponent(category),
                 end: function() {
                     location.reload();
                 }
@@ -854,7 +933,9 @@
             layer.open({
                 type: 2,
                 title: '新增服务配置',
-                area: ['80%', '100%'],
+                area: ['68%', '100%'],
+                offset: 'r',
+                shadeClose: true,
                 content: '/system/config/service/add/',
                 end: function() {
                     location.reload();
@@ -874,14 +955,11 @@
         function initLogoUpload() {
             var uploadBtn = document.getElementById('logoUploadBtn');
             if (!uploadBtn) {
-                console.log('Logo upload button not found');
                 return;
             }
             
-            console.log('Initializing logo upload...');
             
             if (window.logoUploadInstance) {
-                console.log('Upload instance already exists, reloading...');
                 try { window.logoUploadInstance.reload(); } catch(e) { console.error('Reload error:', e); }
                 return;
             }
@@ -902,14 +980,11 @@
                     };
                 },
                 done: function(res, index, upload) {
-                    console.log('Upload done, raw response:', res);
-                    console.log('Response type:', typeof res);
                     var status = document.getElementById('logoUploadStatus');
                     
                     if (typeof res === 'string') {
                         try {
                             res = JSON.parse(res);
-                            console.log('Parsed response:', res);
                         } catch(e) {
                             console.error('JSON parse error:', e);
                             status.innerHTML = '<span style="color: #ff5722;">解析响应失败</span>';
@@ -938,20 +1013,10 @@
                     }
                 },
                 error: function(index, upload) {
-                    console.log('Upload error callback triggered');
                     var status = document.getElementById('logoUploadStatus');
                     status.innerHTML = '<span style="color: #ff5722;">上传失败，请检查控制台</span>';
                 }
             });
-            console.log('Upload instance created');
-        }
-        
-        function getCookie(name) {
-            var arr, reg = new RegExp('(^| )' + name + '=([^;]*)(;|$)');
-            if (arr = document.cookie.match(reg)) {
-                return unescape(arr[2]);
-            }
-            return null;
         }
         
         renderSystemCards();

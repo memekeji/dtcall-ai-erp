@@ -151,6 +151,10 @@ urlpatterns = [
     # 角色管理
     path('group/', group_views.RoleListView.as_view(), name='group_list'),
     path(
+        'group/create/',
+        group_views.GroupCreateAPIView.as_view(),
+        name='group_create'),
+    path(
         'group/api/',
         group_views.GroupListAPIView.as_view(),
         name='group_list_api'),

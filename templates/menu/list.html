@@ -213,6 +213,7 @@
     </div>
 
     <script src="/static/layui/layui.js"></script>
+    <script src="/static/js/common.js"></script>
     <script>
         function searchMenu() {
             var search = document.querySelector('input[name="search"]').value;
@@ -275,7 +276,7 @@
             }
             
             // 获取CSRF令牌
-            function getCookie(name) {
+            const getCookie = (window.DTCallCommon && window.DTCallCommon.getCookie) || function(name) {
                 let cookieValue = null;
                 if (document.cookie && document.cookie !== '') {
                     const cookies = document.cookie.split(';');
@@ -288,7 +289,7 @@
                     }
                 }
                 return cookieValue;
-            }
+            };
             
             const csrftoken = getCookie('csrftoken');
             
@@ -770,7 +771,7 @@
             formData.append('pid', ''); // 顶级菜单的pid为空
             
             // 获取CSRF令牌 - 使用Django推荐的方式
-            function getCookie(name) {
+            const getCookie = (window.DTCallCommon && window.DTCallCommon.getCookie) || function(name) {
                 let cookieValue = null;
                 if (document.cookie && document.cookie !== '') {
                     const cookies = document.cookie.split(';');
@@ -783,7 +784,7 @@
                     }
                 }
                 return cookieValue;
-            }
+            };
             
             // 获取CSRF令牌，确保令牌不为空
             const csrftoken = getCookie('csrftoken');

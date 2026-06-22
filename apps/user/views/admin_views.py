@@ -495,7 +495,6 @@ def login_view(request):
                 cache.set(login_attempts_key, attempts, 300)  # 5分钟内有效
                 
                 # 检查IP维度的全局失败次数
-                ip_attempts_key = f'login_ip_attempts:{client_ip}'
                 ip_attempts = cache.get(ip_attempts_key, 0) + 1
                 cache.set(ip_attempts_key, ip_attempts, 300)  # 5分钟内有效
                 

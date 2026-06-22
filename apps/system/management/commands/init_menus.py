@@ -32,6 +32,8 @@ class Command(BaseCommand):
             f"删除 {result['deleted']} 个，"
             f"禁用额外菜单 {result['disabled_extra']} 个，"
             f"父级关联调整 {result['parent_updated']} 个，"
+            f"新增模块 {result['module_created']} 个，"
+            f"更新模块 {result['module_updated']} 个，"
             f"配置总数 {result['total']} 个"
         ))
         return 0

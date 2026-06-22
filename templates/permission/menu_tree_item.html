@@ -1,7 +1,7 @@
 {% load permission_tags %}
 {% get_menu_level menu_items as level %}
 {% for menu in menu_items %}
-<div class="menu-item level-{{ level|default:1 }}" data-menu-id="{{ menu.id }}" data-menu-title="{{ menu.title }}" data-menu-path="{{ menu.menu_path|default:'[]' }}" data-has-children="{% if menu.children %}true{% else %}false{% endif %}">
+<div class="menu-item level-{{ level|default:1 }}" data-menu-id="{{ menu.id }}" data-menu-title="{{ menu.title }}" data-menu-path="{{ menu.menu_path|default:'[]' }}" data-has-children="{% if menu.children %}true{% else %}false{% endif %}" data-permission-id="{{ menu.view_permission_id|default:'' }}" data-permission-code="{{ menu.permission_required|default:'' }}">
     {% if menu.icon %}
         <i class="layui-icon {{ menu.icon }}" aria-hidden="true"></i>
     {% else %}

@@ -41,10 +41,18 @@
     .container {
         max-width: 100%;
         margin: 0 auto;
-        padding: 12px 24px;
-        height: calc(100vh - 80px);
+        padding: 8px 12px;
+        height: 100vh;
+        min-height: 0;
         display: flex;
         flex-direction: column;
+        overflow: hidden;
+    }
+
+    .iframe-content {
+        padding: 0;
+        height: 100vh;
+        overflow: hidden;
     }
 
     .page-header {
@@ -89,36 +97,99 @@
         border-color: var(--gray-400);
     }
 
+    .role-overview-bar {
+        display: flex;
+        align-items: stretch;
+        gap: 8px;
+        margin-bottom: 8px;
+        flex-shrink: 0;
+        min-height: 40px;
+        max-height: 48px;
+    }
+
     .role-info-card {
         background: white;
-        padding: 12px 16px;
+        padding: 8px 12px;
         border-radius: var(--border-radius);
         box-shadow: var(--shadow-sm);
-        margin-bottom: 12px;
         border-left: 4px solid var(--primary);
         display: flex;
-        flex-wrap: wrap;
-        gap: 24px;
+        flex: 1 1 360px;
+        flex-wrap: nowrap;
+        gap: 12px;
         align-items: center;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    .permission-summary {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(96px, 1fr));
+        gap: 8px;
+        flex: 1.2 1 500px;
+        min-width: 0;
+    }
+
+    .summary-card {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
+        border: 1px solid #dbeafe;
+        border-radius: var(--border-radius);
+        padding: 7px 10px;
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        min-height: 34px;
+    }
+
+    .summary-label {
+        color: var(--gray-500);
+        font-size: 12px;
+        margin-bottom: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .summary-value {
+        color: var(--gray-800);
+        font-size: 16px;
+        font-weight: 700;
+        line-height: 1;
+    }
+
+    .summary-desc {
+        display: none;
     }
 
     .role-info-item {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 4px;
         white-space: nowrap;
+        min-width: 0;
+        flex-shrink: 0;
+    }
+
+    .role-info-item.role-desc {
+        flex: 1;
+        min-width: 160px;
     }
 
     .role-info-label {
         font-weight: 500;
         color: var(--gray-600);
         font-size: 12px;
+        flex-shrink: 0;
     }
 
     .role-info-value {
-        font-size: 14px;
+        font-size: 13px;
         color: var(--gray-800);
         font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .role-info-label.error,
@@ -128,44 +199,118 @@
 
     .permission-layout {
         display: flex;
-        gap: 12px;
-        flex: 1;
+        gap: 10px;
+        flex: 1 1 auto;
+        min-height: 0;
         overflow: hidden;
     }
 
     .menu-sidebar {
-        width: 280px;
+        width: 260px;
         background: white;
         border-radius: var(--border-radius);
         box-shadow: var(--shadow-sm);
         display: flex;
         flex-direction: column;
         overflow: hidden;
+        min-height: 0;
     }
 
     .menu-sidebar-header {
-        padding: 12px 16px;
+        padding: 9px 12px;
         background-color: var(--gray-50);
         border-bottom: 1px solid var(--gray-200);
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 600;
         color: var(--gray-800);
+        flex-shrink: 0;
+    }
+
+    .menu-search-wrap {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--gray-200);
+        background: white;
+        flex-shrink: 0;
+    }
+
+    .permission-search-wrap {
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--gray-200);
+        background: white;
+        flex-shrink: 0;
+    }
+
+    .permission-search-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .search-input {
+        width: 100%;
+        height: 30px;
+        border: 1px solid var(--gray-300);
+        border-radius: 6px;
+        padding: 0 9px;
+        color: var(--gray-700);
+        font-size: 12px;
+        outline: none;
+        transition: var(--transition);
+    }
+
+    .search-input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    .category-filter {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 6px;
+        margin-top: 6px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding-bottom: 1px;
+    }
+
+    .category-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: 24px;
+        padding: 0 9px;
+        border: 1px solid var(--gray-200);
+        border-radius: 999px;
+        background: #fff;
+        color: var(--gray-600);
+        cursor: pointer;
+        font-size: 12px;
+        white-space: nowrap;
+        transition: var(--transition);
+    }
+
+    .category-chip:hover,
+    .category-chip.active {
+        background: #eff6ff;
+        border-color: #93c5fd;
+        color: var(--primary);
     }
 
     .menu-tree {
         flex: 1;
+        min-height: 0;
         overflow-y: auto;
-        padding: 8px;
+        padding: 6px;
     }
 
     .menu-item {
-        padding: 8px 12px;
+        padding: 7px 10px;
         cursor: pointer;
         border-radius: 4px;
         transition: var(--transition);
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 7px;
         font-size: 13px;
         color: var(--gray-700);
     }
@@ -195,6 +340,13 @@
 
     .menu-item i {
         font-size: 14px;
+    }
+
+    .menu-item.hidden-by-search,
+    .permission-group.hidden-by-filter,
+    .permission-item.hidden-by-filter,
+    .permission-model.hidden-by-filter {
+        display: none;
     }
 
     .menu-children {
@@ -232,15 +384,19 @@
         display: flex;
         flex-direction: column;
         overflow: hidden;
+        min-width: 0;
+        min-height: 0;
     }
 
     .permission-content-header {
-        padding: 12px 16px;
+        padding: 9px 12px;
         background-color: var(--gray-50);
         border-bottom: 1px solid var(--gray-200);
         display: flex;
         justify-content: space-between;
         align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
     }
 
     .permission-content-title {
@@ -251,17 +407,23 @@
         display: flex;
         align-items: center;
         gap: 6px;
+        min-width: 0;
+        line-height: 1.35;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .action-buttons {
         display: flex;
-        gap: 8px;
+        gap: 6px;
+        flex-shrink: 0;
     }
 
     .action-buttons .layui-btn {
         height: 28px;
         line-height: 28px;
-        padding: 0 14px;
+        padding: 0 12px;
         font-size: 12px;
         margin: 0;
         border-radius: 4px;
@@ -275,55 +437,53 @@
 
     .permission-container {
         flex: 1;
+        min-height: 0;
         overflow-y: auto;
-        padding: 16px;
+        padding: 10px 12px;
     }
 
     .permission-group {
-        margin-bottom: 16px;
+        margin-bottom: 10px;
         border: 1px solid var(--gray-200);
         border-radius: var(--border-radius);
         overflow: hidden;
     }
 
     .permission-group-header {
-        padding: 10px 14px;
-        background-color: var(--gray-50);
-        border-bottom: 1px solid var(--gray-200);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        transition: var(--transition);
+        padding: 8px 12px;
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border-bottom: 1px solid #bfdbfe;
+        cursor: pointer;
     }
 
     .permission-group-title {
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--gray-800);
-        margin: 0;
         display: flex;
         align-items: center;
         gap: 6px;
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--primary);
     }
 
     .permission-list {
-        padding: 12px;
+        padding: 8px;
     }
 
     .empty-state {
-        padding: 60px 20px;
+        padding: 34px 20px;
         text-align: center;
         color: var(--gray-500);
     }
 
     .empty-state i {
-        font-size: 48px;
-        margin-bottom: 16px;
+        font-size: 38px;
+        margin-bottom: 10px;
         opacity: 0.5;
     }
 
     .permission-model {
-        margin-bottom: 12px;
+        margin-bottom: 8px;
         background-color: var(--gray-50);
         border-radius: var(--border-radius);
         overflow: hidden;
@@ -334,9 +494,104 @@
         font-weight: 600;
         color: var(--primary);
         margin: 0;
-        padding: 8px 12px;
+        padding: 7px 10px;
         background-color: var(--gray-100);
         border-bottom: 1px solid var(--gray-200);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .permission-item {
+        padding: 8px 10px;
+        margin-bottom: 6px;
+        background: white;
+        border: 1px solid var(--gray-200);
+        border-radius: 6px;
+        transition: var(--transition);
+    }
+
+    .permission-item:hover {
+        border-color: #bfdbfe;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+    }
+
+    .view-permission-box .permission-item {
+        margin-bottom: 0;
+        background: #ffffff;
+    }
+
+    .permission-main {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .permission-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        min-width: 180px;
+    }
+
+    .permission-name {
+        color: var(--gray-800);
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .permission-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-top: 6px;
+        padding-left: 24px;
+    }
+
+    .permission-badge {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 1px 7px;
+        font-size: 12px;
+        background: #eff6ff;
+        color: var(--primary);
+        border: 1px solid #bfdbfe;
+    }
+
+    .permission-code {
+        color: var(--gray-600);
+        background: var(--gray-50);
+        border-color: var(--gray-200);
+        font-family: Consolas, Monaco, monospace;
+    }
+
+    .permission-description {
+        color: var(--gray-500);
+        font-size: 12px;
+        line-height: 1.45;
+        margin-top: 4px;
+        padding-left: 24px;
+    }
+
+    .view-permission-box {
+        margin-bottom: 8px;
+        border: 1px solid #bfdbfe;
+        background: #eff6ff;
+        border-radius: var(--border-radius);
+        padding: 9px 10px;
+    }
+
+    .view-permission-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: var(--gray-800);
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 6px;
     }
 
     .permission-group-content {
@@ -344,13 +599,40 @@
     }
 
     @media (max-width: 768px) {
+        .container {
+            padding: 8px;
+        }
+
+        .role-overview-bar {
+            flex-direction: column;
+            min-height: 0;
+            max-height: none;
+        }
+
+        .role-info-card {
+            flex-wrap: wrap;
+        }
+
+        .permission-summary {
+            grid-template-columns: repeat(2, minmax(120px, 1fr));
+        }
+
         .permission-layout {
             flex-direction: column;
         }
 
         .menu-sidebar {
             width: 100%;
-            max-height: 300px;
+            max-height: 220px;
+        }
+
+        .permission-content-header {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .action-buttons {
+            flex-wrap: wrap;
         }
     }
 </style>
@@ -361,31 +643,58 @@
 <div class="iframe-content">
 {% endif %}
 <div class="container">
-    <div class="role-info-card">
-        {% if group %}
-            <div class="role-info-item">
-                {% if group.name and group.name != '' %}
-                    <span class="role-info-label">角色名称：</span>
-                    <span class="role-info-value">{{ group.name }}</span>
-                {% else %}
-                    <span class="role-info-label error">角色名称：</span>
-                    <span class="role-info-value error">未设置或为空</span>
-                {% endif %}
-            </div>
-            {% if group.description and group.description != '' %}
+    <div class="role-overview-bar">
+        <div class="role-info-card">
+            {% if group %}
                 <div class="role-info-item">
-                    <span class="role-info-label">角色描述：</span>
-                    <span class="role-info-value">{{ group.description }}</span>
+                    {% if group.name and group.name != '' %}
+                        <span class="role-info-label">角色名称：</span>
+                        <span class="role-info-value">{{ group.name }}</span>
+                    {% else %}
+                        <span class="role-info-label error">角色名称：</span>
+                        <span class="role-info-value error">未设置或为空</span>
+                    {% endif %}
+                </div>
+                {% if group.description and group.description != '' %}
+                    <div class="role-info-item role-desc">
+                        <span class="role-info-label">角色描述：</span>
+                        <span class="role-info-value">{{ group.description }}</span>
+                    </div>
+                {% endif %}
+                <div class="role-info-item">
+                    <span class="role-info-label">当前权限数：</span>
+                    <span class="role-info-value">{% if permission_summary %}{{ permission_summary.selected }}{% else %}{{ group_permissions.count }}{% endif %}</span>
+                </div>
+                <div class="role-info-item">
+                    <span class="role-info-label">系统总权限数：</span>
+                    <span class="role-info-value">{% if permission_summary %}{{ permission_summary.total }}{% else %}{{ permissions|length }}{% endif %}</span>
                 </div>
             {% endif %}
-            <div class="role-info-item">
-                <span class="role-info-label">当前权限数：</span>
-                <span class="role-info-value">{{ group_permissions.count }}</span>
+        </div>
+
+        {% if permission_summary %}
+        <div class="permission-summary">
+            <div class="summary-card">
+                <div class="summary-label">已授权权限</div>
+                <div class="summary-value" id="selectedSummary">{{ permission_summary.selected }}</div>
+                <div class="summary-desc">当前角色已拥有的页面与操作权限</div>
             </div>
-            <div class="role-info-item">
-                <span class="role-info-label">系统总权限数：</span>
-                <span class="role-info-value">{{ permissions|length }}</span>
+            <div class="summary-card">
+                <div class="summary-label">系统权限总量</div>
+                <div class="summary-value">{{ permission_summary.total }}</div>
+                <div class="summary-desc">由初始化权限节点统一生成</div>
             </div>
+            <div class="summary-card">
+                <div class="summary-label">页面入口权限</div>
+                <div class="summary-value">{{ permission_summary.page_total }}</div>
+                <div class="summary-desc">控制菜单、页面访问范围</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">按钮操作权限</div>
+                <div class="summary-value">{{ permission_summary.button_total }}</div>
+                <div class="summary-desc">控制新增、编辑、删除、导入导出等动作</div>
+            </div>
+        </div>
         {% endif %}
     </div>
 
@@ -394,6 +703,9 @@
             <div class="menu-sidebar-header">
                 <i class="layui-icon layui-icon-list"></i>
                 菜单列表
+            </div>
+            <div class="menu-search-wrap">
+                <input type="text" class="search-input" id="menuSearchInput" placeholder="搜索菜单名称，快速定位权限页面">
             </div>
             <div class="menu-tree" id="menuTree">
                 {% if menu_tree %}
@@ -415,14 +727,27 @@
                 </h3>
                 <div class="action-buttons">
                     <button type="button" class="layui-btn layui-btn-primary" onclick="selectAllPermissions()">
-                        <i class="layui-icon layui-icon-checkbox"></i> 全选
+                        <i class="layui-icon layui-icon-checkbox"></i> 全选当前页
                     </button>
                     <button type="button" class="layui-btn layui-btn-primary" onclick="deselectAllPermissions()">
-                        <i class="layui-icon layui-icon-close"></i> 取消全选
+                        <i class="layui-icon layui-icon-close"></i> 清空当前页
                     </button>
                     <button type="button" class="layui-btn layui-btn-warm" onclick="savePermissions()">
                         <i class="layui-icon layui-icon-save"></i> 保存配置
                     </button>
+                </div>
+            </div>
+            <div class="permission-search-wrap">
+                <div class="permission-search-row">
+                    <input type="text" class="search-input" id="permissionSearchInput" placeholder="搜索权限名称、权限码或说明">
+                </div>
+                <div class="category-filter" id="categoryFilter">
+                    <span class="category-chip active" data-category="">全部权限</span>
+                    {% if permission_summary %}
+                        {% for category in permission_summary.categories %}
+                            <span class="category-chip" data-category="{{ category.name }}">{{ category.name }} {{ category.selected }}/{{ category.total }}</span>
+                        {% endfor %}
+                    {% endif %}
                 </div>
             </div>
 
@@ -442,22 +767,28 @@
 
 {% block extra_js %}
 <script>
-layui.use(['form', 'layer', 'jquery'], function(){  
+layui.use(['form', 'layer', 'jquery'], function(){
     var form = layui.form;
     var layer = layui.layer;
     var $ = layui.jquery;
-    
+    var groupId = {{ group.id }};
+    var initialPermissionIds = {{ group_permission_ids|safe }};
     var currentMenuId = null;
     var currentMenuPath = [];
-    var savedPermissions = {}; // 保存每个菜单的已选中权限
-    
-    function getCookie(name) {
+    var currentPermissionIds = [];
+    var selectedPermissionIdMap = {};
+    var initialPermissionSignature = initialPermissionIds.map(function(id) {
+        return String(id);
+    }).sort().join(',');
+    var storageKey = 'rolePermissionDraft:' + groupId;
+
+    var common = window.DTCallCommon || {};
+    var getCookie = common.getCookie || function(name) {
         var cookieValue = null;
         if (document.cookie && document.cookie !== '') {
             var cookies = document.cookie.split(';');
             for (var i = 0; i < cookies.length; i++) {
                 var cookie = cookies[i].trim();
-                // Does this cookie string begin with the name we want?
                 if (cookie.substring(0, name.length + 1) === (name + '=')) {
                     cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
                     break;
@@ -465,146 +796,185 @@ layui.use(['form', 'layer', 'jquery'], function(){
             }
         }
         return cookieValue;
-    }
-    
-    var csrfToken = getCookie('csrftoken') || '';
-    $.ajaxSetup({
-        headers: {
-            'X-CSRFToken': csrfToken
-        }
-    });
-    
-    // 从localStorage加载保存的权限
-    function loadSavedPermissionsFromStorage() {
-        try {
-            var savedData = localStorage.getItem('savedPermissions');
-            if (savedData) {
-                var parsedData = JSON.parse(savedData);
-                // 确保parsedData是对象，不是null或undefined
-                if (parsedData && typeof parsedData === 'object') {
-                    savedPermissions = parsedData;
-                }
-            }
-        } catch (e) {
-            console.error('Load saved permissions error:', e);
-            // 如果加载失败，清空savedPermissions
-            savedPermissions = {};
-        }
-    }
-    
-    // 保存权限到localStorage
-    function savePermissionsToStorage() {
-        try {
-            localStorage.setItem('savedPermissions', JSON.stringify(savedPermissions));
-        } catch (e) {
-            console.error('Save permissions error:', e);
-        }
-    }
-    
-    // 统一的菜单点击事件处理
-    $(document).on('click', '.menu-item', function(e) {
-        var menuItem = $(this);
-        var menuId = menuItem.data('menu-id');
-        var menuTitle = menuItem.data('menu-title');
-        var menuPath = menuItem.data('menu-path');
-        var hasChildren = menuItem.data('has-children') === true;
-        
-        if (hasChildren) {
-            // 如果有子菜单，处理折叠/展开逻辑
-            var children = menuItem.next('.menu-children');
-            var toggle = menuItem.find('.menu-toggle');
-            
-            if (children.hasClass('show')) {
-                children.removeClass('show');
-                toggle.removeClass('expanded').addClass('collapsed');
-            } else {
-                children.addClass('show');
-                toggle.removeClass('collapsed').addClass('expanded');
-            }
-        } else {
-            // 如果没有子菜单，正常切换选中状态
-            selectMenu(menuId, menuTitle, menuPath);
-        }
-    });
-    
-    window.selectMenu = function(menuId, menuTitle, menuPath) {
-        currentMenuId = menuId;
-        currentMenuPath = menuPath || [];
-        
-        $('.menu-item').removeClass('active');
-        $('.menu-item[data-menu-id="' + menuId + '"]').addClass('active');
-        
-        var titleHtml = '<i class="layui-icon layui-icon-set"></i> ';
-        if (currentMenuPath.length > 0) {
-            titleHtml += currentMenuPath.join(' > ') + ' > ';
-        }
-        titleHtml += menuTitle + ' - 权限配置';
-        
-        $('#permissionTitle').html(titleHtml);
-        loadMenuPermissions(menuId);
     };
-    
-    function saveCurrentPermissions() {
-        if (currentMenuId) {
-            var selectedIds = [];
-            $('#permissionContainer .permission-checkbox:checked').each(function() {
-                selectedIds.push($(this).data('id'));
-            });
-            savedPermissions[currentMenuId] = selectedIds;
-            // 保存到localStorage
-            savePermissionsToStorage();
+
+    var escapeHtml = common.escapeHtml || function(value) {
+        if (value === null || value === undefined) {
+            return '';
         }
-    }
-    
-    function loadMenuPermissions(menuId) {
-        var container = $('#permissionContainer');
-        container.html('<div class="empty-state"><i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i><p>加载中...</p></div>');
-        
-        var groupId = {{ group.id }};
-        
-        $.ajax({
-            url: '/user/menu/' + menuId + '/permissions/',
-            type: 'GET',
-            data: {
-                'group_id': groupId
-            },
-            success: function(res) {
-                if (res && res.code === 200) {
-                    var permissions = res.data.permissions || {};
-                    var savedIds = savedPermissions[menuId] || [];
-                    
-                    for (var groupName in permissions) {
-                        var models = permissions[groupName];
-                        for (var modelName in models) {
-                            var perms = models[modelName];
-                            for (var i = 0; i < perms.length; i++) {
-                                var perm = perms[i];
-                                if (savedIds.length > 0 && savedIds.indexOf(perm.id) !== -1) {
-                                    perm.checked = true;
-                                }
-                            }
-                        }
-                    }
-                    
-                    renderPermissions(permissions);
-                    
-                    saveCurrentPermissions();
-                } else {
-                    container.html('<div class="empty-state"><i class="layui-icon layui-icon-face-cry"></i><p>' + (res.msg || '加载失败') + '</p></div>');
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('Load permissions error:', error);
-                container.html('<div class="empty-state"><i class="layui-icon layui-icon-face-cry"></i><p>加载失败，请重试</p></div>');
+        return String(value).replace(/[&<>'"]/g, function(item) {
+            return {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                "'": '&#39;',
+                '"': '&quot;'
+            }[item];
+        });
+    };
+
+    function setSelectedIds(ids) {
+        selectedPermissionIdMap = {};
+        for (var i = 0; i < ids.length; i++) {
+            if (ids[i] !== null && ids[i] !== undefined && ids[i] !== '') {
+                selectedPermissionIdMap[String(ids[i])] = true;
             }
+        }
+        updateSelectedSummary();
+    }
+
+    function getSelectedIds() {
+        return Object.keys(selectedPermissionIdMap).filter(function(id) {
+            return selectedPermissionIdMap[id];
         });
     }
-    
-    function renderPermissions(data) {
-        const container = document.getElementById('permissionContainer');
+
+    function updateSelectedSummary() {
+        $('#selectedSummary').text(getSelectedIds().length);
+    }
+
+    function loadPermissionDraft() {
+        setSelectedIds(initialPermissionIds);
+        localStorage.removeItem('savedPermissions');
+        try {
+            var draftText = localStorage.getItem(storageKey);
+            if (!draftText) {
+                return;
+            }
+            var draft = JSON.parse(draftText);
+            if (draft && draft.initialPermissionSignature === initialPermissionSignature && Array.isArray(draft.permissionIds)) {
+                setSelectedIds(draft.permissionIds);
+            } else {
+                localStorage.removeItem(storageKey);
+            }
+        } catch (e) {
+            localStorage.removeItem(storageKey);
+        }
+    }
+
+    function savePermissionDraft() {
+        try {
+            localStorage.setItem(storageKey, JSON.stringify({
+                groupId: groupId,
+                initialPermissionSignature: initialPermissionSignature,
+                permissionIds: getSelectedIds(),
+                updatedAt: new Date().getTime()
+            }));
+        } catch (e) {
+        }
+    }
+
+    function parseMenuPath(menuItem) {
+        var menuPathStr = menuItem.attr('data-menu-path') || '[]';
+        try {
+            return JSON.parse(menuPathStr);
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function refreshModelCheckboxes() {
+        $('#permissionContainer .model-checkbox').each(function() {
+            var scope = $(this).data('scope');
+            var items = $('#permissionContainer .permission-checkbox[data-scope="' + scope + '"]');
+            var checkedItems = items.filter(':checked');
+            $(this).prop('checked', items.length > 0 && items.length === checkedItems.length);
+        });
+        form.render('checkbox');
+    }
+
+    function saveCurrentPermissions() {
+        if (!currentMenuId || currentPermissionIds.length === 0) {
+            return;
+        }
+        for (var i = 0; i < currentPermissionIds.length; i++) {
+            delete selectedPermissionIdMap[String(currentPermissionIds[i])];
+        }
+        $('#permissionContainer .permission-checkbox:checked').each(function() {
+            selectedPermissionIdMap[String($(this).data('id'))] = true;
+        });
+        updateSelectedSummary();
+        savePermissionDraft();
+    }
+
+    function collectPermissionIds(permissions, viewPermission) {
+        var ids = [];
+        if (viewPermission && viewPermission.id) {
+            ids.push(viewPermission.id);
+        }
+        for (var groupName in permissions) {
+            if (!permissions.hasOwnProperty(groupName)) {
+                continue;
+            }
+            var models = permissions[groupName];
+            for (var modelName in models) {
+                if (!models.hasOwnProperty(modelName)) {
+                    continue;
+                }
+                var perms = models[modelName];
+                for (var i = 0; i < perms.length; i++) {
+                    ids.push(perms[i].id);
+                }
+            }
+        }
+        return ids;
+    }
+
+    function syncCheckedState(permissions, viewPermission) {
+        if (viewPermission && viewPermission.id) {
+            viewPermission.checked = selectedPermissionIdMap[String(viewPermission.id)] === true;
+        }
+        for (var groupName in permissions) {
+            if (!permissions.hasOwnProperty(groupName)) {
+                continue;
+            }
+            var models = permissions[groupName];
+            for (var modelName in models) {
+                if (!models.hasOwnProperty(modelName)) {
+                    continue;
+                }
+                var perms = models[modelName];
+                for (var i = 0; i < perms.length; i++) {
+                    perms[i].checked = selectedPermissionIdMap[String(perms[i].id)] === true;
+                }
+            }
+        }
+    }
+
+    function renderPermissionItem(perm, scope, isViewPermission) {
+        var category = perm.category || (isViewPermission ? '页面权限' : '按钮权限');
+        var actionLabel = perm.action_label || perm.name || perm.codename;
+        var description = perm.description || '控制对应页面或业务动作的访问权限';
+        var fullCodename = perm.full_codename || ('user.' + perm.codename);
+        return `
+            <div class="permission-item" data-category="${escapeHtml(category)}">
+                <div class="permission-main">
+                    <label class="permission-label">
+                        <input type="checkbox"
+                               class="permission-checkbox"
+                               data-scope="${escapeHtml(scope)}"
+                               data-id="${escapeHtml(perm.id)}"
+                               data-codename="${escapeHtml(perm.codename)}"
+                               ${perm.checked ? 'checked' : ''}>
+                        <span class="permission-name">${escapeHtml(perm.name)}</span>
+                    </label>
+                    <span class="permission-badge">${escapeHtml(actionLabel)}</span>
+                </div>
+                <div class="permission-meta">
+                    <span class="permission-badge">${escapeHtml(category)}</span>
+                    <span class="permission-badge permission-code">${escapeHtml(fullCodename)}</span>
+                </div>
+                <div class="permission-description">${escapeHtml(description)}</div>
+            </div>
+        `;
+    }
+
+    function renderPermissions(data, viewPermission) {
+        var container = document.getElementById('permissionContainer');
         container.innerHTML = '';
-        
-        if (!data || Object.keys(data).length === 0) {
+        currentPermissionIds = collectPermissionIds(data || {}, viewPermission);
+
+        if ((!data || Object.keys(data).length === 0) && !viewPermission) {
             container.innerHTML = `
                 <div class="empty-state">
                     <i class="layui-icon layui-icon-face-cry"></i>
@@ -615,109 +985,222 @@ layui.use(['form', 'layer', 'jquery'], function(){
             return;
         }
 
-        let html = '';
-        
-        for (const [groupName, models] of Object.entries(data)) {
+        var html = '';
+        if (viewPermission) {
             html += `
-            <div class="permission-group">
-                <div class="permission-group-header">
-                    <i class="layui-icon layui-icon-down" style="margin-right:5px;"></i>
-                    ${groupName}
+                <div class="view-permission-box">
+                    <div class="view-permission-title">
+                        <span><i class="layui-icon layui-icon-website"></i> 页面访问权限</span>
+                        <span class="permission-badge">进入页面与菜单可见</span>
+                    </div>
+                    ${renderPermissionItem(viewPermission, 'view-permission', true)}
                 </div>
-                <div class="permission-group-content">
             `;
-            
-            for (const [modelName, permissions] of Object.entries(models)) {
+        }
+
+        var groupIndex = 0;
+        for (var groupName in data) {
+            if (!data.hasOwnProperty(groupName)) {
+                continue;
+            }
+            var models = data[groupName];
+            html += `
+                <div class="permission-group">
+                    <div class="permission-group-header">
+                        <h4 class="permission-group-title">
+                            <i class="layui-icon layui-icon-down"></i>
+                            ${escapeHtml(groupName)}
+                        </h4>
+                    </div>
+                    <div class="permission-group-content">
+            `;
+
+            var modelIndex = 0;
+            for (var modelName in models) {
+                if (!models.hasOwnProperty(modelName)) {
+                    continue;
+                }
+                var permissions = models[modelName] || [];
+                var scope = 'scope-' + groupIndex + '-' + modelIndex;
                 html += `
-                    <div class="permission-model">
+                    <div class="permission-model" data-category="${escapeHtml(modelName)}">
                         <div class="permission-model-title">
-                            <label style="cursor:pointer;">
-                                <input type="checkbox" class="model-checkbox" data-group="${groupName}" data-model="${modelName}">
-                                <span style="margin-left:5px;">${modelName}</span>
+                            <label class="permission-label">
+                                <input type="checkbox" class="model-checkbox" data-scope="${scope}">
+                                <span>${escapeHtml(modelName)}</span>
                             </label>
+                            <span>${permissions.length} 项</span>
                         </div>
                         <div class="permission-list">
                 `;
-                
-                for (const perm of permissions) {
-                    html += `
-                            <div class="permission-item">
-                                <label style="cursor:pointer;">
-                                    <input type="checkbox" 
-                                           class="permission-checkbox" 
-                                           data-group="${groupName}" 
-                                           data-model="${modelName}"
-                                           data-id="${perm.id}"
-                                           data-codename="${perm.codename}"
-                                           ${perm.checked ? 'checked' : ''}>
-                                    <span style="margin-left:5px;">${perm.name}</span>
-                                </label>
-                            </div>
-                    `;
+
+                for (var i = 0; i < permissions.length; i++) {
+                    html += renderPermissionItem(permissions[i], scope, false);
                 }
-                
+
                 html += `
                         </div>
                     </div>
                 `;
+                modelIndex++;
             }
-            
-            html += `
-                </div>
-            </div>
-            `;
-        }
-        
-        container.innerHTML = html;
-        
-        for (const [groupName, models] of Object.entries(data)) {
-            for (const [modelName, permissions] of Object.entries(models)) {
-                for (const perm of permissions) {
-                    if (perm.checked) {
-                        $('#permissionContainer .permission-checkbox[data-id="' + perm.id + '"]').prop('checked', true);
-                    }
-                }
-            }
-        }
-        
-        layui.form.render('checkbox');
-        
-        initCheckboxEvents();
-    }
-    
-    function initCheckboxEvents() {
-        $('#permissionContainer').on('change', '.model-checkbox', function() {
-            var isChecked = $(this).is(':checked');
-            var group = $(this).data('group');
-            var model = $(this).data('model');
-            $('#permissionContainer input[data-group="' + group + '"][data-model="' + model + '"].permission-checkbox')
-                .prop('checked', isChecked);
-            layui.form.render('checkbox');
-            // 保存当前菜单的已选中权限
-            saveCurrentPermissions();
-        });
-        
-        $('#permissionContainer').on('change', '.permission-checkbox', function() {
-            var group = $(this).data('group');
-            var model = $(this).data('model');
-            var allChecked = true;
-            $('#permissionContainer input[data-group="' + group + '"][data-model="' + model + '"].permission-checkbox')
-                .each(function() {
-                    if (!$(this).is(':checked')) {
-                        allChecked = false;
-                        return false;
-                    }
-                });
-            $('#permissionContainer input[data-group="' + group + '"][data-model="' + model + '"].model-checkbox')
-                .prop('checked', allChecked);
-            layui.form.render('checkbox');
-            // 保存当前菜单的已选中权限
-            saveCurrentPermissions();
-        });
-    }
-    
 
-    
+            html += `
+                    </div>
+                </div>
+            `;
+            groupIndex++;
+        }
+
+        container.innerHTML = html;
+        form.render('checkbox');
+        initCheckboxEvents();
+        refreshModelCheckboxes();
+        applyPermissionFilters();
+    }
+
+    function loadMenuPermissions(menuId) {
+        var container = $('#permissionContainer');
+        container.html('<div class="empty-state"><i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i><p>加载中...</p></div>');
+
+        $.ajax({
+            url: '/user/menu/' + menuId + '/permissions/',
+            type: 'GET',
+            data: {
+                'group_id': groupId
+            },
+            success: function(res) {
+                if (res && res.code === 200) {
+                    var permissions = res.data.permissions || {};
+                    var viewPermission = res.data.view_permission || null;
+                    syncCheckedState(permissions, viewPermission);
+                    renderPermissions(permissions, viewPermission);
+                } else {
+                    container.html('<div class="empty-state"><i class="layui-icon layui-icon-face-cry"></i><p>' + escapeHtml(res.msg || '加载失败') + '</p></div>');
+                }
+            },
+            error: function(xhr, status, error) {
+                container.html('<div class="empty-state"><i class="layui-icon layui-icon-face-cry"></i><p>加载失败，请重试</p></div>');
+            }
+        });
+    }
+
+    function applyPermissionFilters() {
+        var keyword = $.trim($('#permissionSearchInput').val() || '').toLowerCase();
+        var activeCategory = $('#categoryFilter .category-chip.active').data('category') || '';
+        var visibleCount = 0;
+
+        $('#permissionContainer .permission-item').each(function() {
+            var item = $(this);
+            var itemText = item.text().toLowerCase();
+            var itemCategory = item.data('category') || '';
+            var matchedKeyword = !keyword || itemText.indexOf(keyword) !== -1;
+            var matchedCategory = !activeCategory || itemCategory === activeCategory;
+            var visible = matchedKeyword && matchedCategory;
+            item.toggleClass('hidden-by-filter', !visible);
+            if (visible) {
+                visibleCount++;
+            }
+        });
+
+        $('#permissionContainer .permission-model').each(function() {
+            var hasVisibleItem = $(this).find('.permission-item').not('.hidden-by-filter').length > 0;
+            $(this).toggleClass('hidden-by-filter', !hasVisibleItem);
+        });
+
+        $('#permissionContainer .permission-group').each(function() {
+            var hasVisibleModel = $(this).find('.permission-model').not('.hidden-by-filter').length > 0;
+            $(this).toggleClass('hidden-by-filter', !hasVisibleModel);
+        });
+
+        $('#permissionContainer .filter-empty-state').remove();
+        if (currentPermissionIds.length > 0 && visibleCount === 0) {
+            $('#permissionContainer').append('<div class="empty-state filter-empty-state"><i class="layui-icon layui-icon-search"></i><p>未找到匹配的权限项</p></div>');
+        }
+    }
+
+    function initCheckboxEvents() {
+        $('#permissionContainer').off('change', '.model-checkbox').on('change', '.model-checkbox', function() {
+            var isChecked = $(this).is(':checked');
+            var scope = $(this).data('scope');
+            $('#permissionContainer .permission-checkbox[data-scope="' + scope + '"]')
+                .prop('checked', isChecked);
+            form.render('checkbox');
+            saveCurrentPermissions();
+        });
+
+        $('#permissionContainer').off('change', '.permission-checkbox').on('change', '.permission-checkbox', function() {
+            refreshModelCheckboxes();
+            saveCurrentPermissions();
+        });
+    }
+
+    function selectMenu(menuId, menuTitle, menuPath) {
+        if (currentMenuId) {
+            saveCurrentPermissions();
+        }
+        currentMenuId = menuId;
+        currentMenuPath = menuPath || [];
+
+        $('.menu-item').removeClass('active');
+        $('.menu-item[data-menu-id="' + menuId + '"]').addClass('active');
+
+        var titleHtml = '<i class="layui-icon layui-icon-set"></i> ';
+        if (currentMenuPath.length > 0) {
+            titleHtml += escapeHtml(currentMenuPath.join(' > ')) + ' > ';
+        }
+        titleHtml += escapeHtml(menuTitle) + ' - 权限配置';
+        $('#permissionTitle').html(titleHtml);
+        loadMenuPermissions(menuId);
+    }
+
+    window.selectMenu = selectMenu;
+
+    $(document).on('click', '.menu-item', function(e) {
+        e.stopPropagation();
+        var menuItem = $(this);
+        var menuId = menuItem.data('menu-id');
+        var menuTitle = menuItem.data('menu-title');
+        var menuPath = parseMenuPath(menuItem);
+        var hasChildren = menuItem.data('has-children') === true;
+
+        if (hasChildren) {
+            var children = menuItem.next('.menu-children');
+            var toggle = menuItem.find('.menu-toggle');
+            if (children.hasClass('show')) {
+                children.removeClass('show');
+                toggle.removeClass('expanded').addClass('collapsed');
+            } else {
+                children.addClass('show');
+                toggle.removeClass('collapsed').addClass('expanded');
+            }
+        }
+        selectMenu(menuId, menuTitle, menuPath);
+    });
+
+    $('#menuSearchInput').on('input', function() {
+        var keyword = $.trim($(this).val() || '').toLowerCase();
+        if (!keyword) {
+            $('#menuTree .menu-item').removeClass('hidden-by-search');
+            return;
+        }
+        $('#menuTree .menu-children').addClass('show');
+        $('#menuTree .menu-item').each(function() {
+            var item = $(this);
+            var title = String(item.data('menu-title') || '').toLowerCase();
+            var code = String(item.data('permission-code') || '').toLowerCase();
+            item.toggleClass('hidden-by-search', title.indexOf(keyword) === -1 && code.indexOf(keyword) === -1);
+        });
+    });
+
+    $('#permissionSearchInput').on('input', applyPermissionFilters);
+
+    $('#categoryFilter').on('click', '.category-chip', function() {
+        $('#categoryFilter .category-chip').removeClass('active');
+        $(this).addClass('active');
+        applyPermissionFilters();
+    });
+
     window.selectAllPermissions = function() {
         var checkboxes = $('#permissionContainer .permission-checkbox');
         if (checkboxes.length === 0) {
@@ -725,12 +1208,12 @@ layui.use(['form', 'layer', 'jquery'], function(){
             return;
         }
         checkboxes.prop('checked', true);
-        layui.form.render('checkbox');
-        // 保存当前菜单的已选中权限
+        form.render('checkbox');
+        refreshModelCheckboxes();
         saveCurrentPermissions();
-        layer.msg('已全选 ' + checkboxes.length + ' 个权限', {icon: 1});
+        layer.msg('已全选当前页 ' + checkboxes.length + ' 个权限', {icon: 1});
     };
-    
+
     window.deselectAllPermissions = function() {
         var checkboxes = $('#permissionContainer .permission-checkbox');
         if (checkboxes.length === 0) {
@@ -738,40 +1221,25 @@ layui.use(['form', 'layer', 'jquery'], function(){
             return;
         }
         checkboxes.prop('checked', false);
-        layui.form.render('checkbox');
-        // 保存当前菜单的已选中权限
+        form.render('checkbox');
+        refreshModelCheckboxes();
         saveCurrentPermissions();
-        layer.msg('已取消全选', {icon: 1});
+        layer.msg('已清空当前页权限，未访问菜单权限保持不变', {icon: 1});
     };
-    
+
     window.savePermissions = function() {
         if (currentMenuId) {
             saveCurrentPermissions();
         }
-        
-        var allSelectedIds = [];
-        for (var menuId in savedPermissions) {
-            if (savedPermissions.hasOwnProperty(menuId)) {
-                allSelectedIds = allSelectedIds.concat(savedPermissions[menuId]);
-            }
-        }
-        
-        var uniqueIds = [];
-        for (var i = 0; i < allSelectedIds.length; i++) {
-            if (uniqueIds.indexOf(allSelectedIds[i]) === -1) {
-                uniqueIds.push(allSelectedIds[i]);
-            }
-        }
-        
+        var uniqueIds = getSelectedIds();
         var selectedCount = uniqueIds.length;
-        
         var formData = {
             'permissions[]': uniqueIds
         };
-        
+
         if (selectedCount === 0) {
             layer.confirm('未选择任何权限，确定要保存吗？这将使该角色失去所有权限。', {
-                icon: 3, 
+                icon: 3,
                 title: '警告',
                 btn: ['确定保存', '取消']
             }, function(index){
@@ -779,8 +1247,8 @@ layui.use(['form', 'layer', 'jquery'], function(){
                 layer.close(index);
             });
         } else {
-            layer.confirm('确定要保存选中的 ' + selectedCount + ' 个权限吗？', {
-                icon: 1, 
+            layer.confirm('确定要保存当前角色的 ' + selectedCount + ' 个权限吗？未访问菜单的既有权限会保留。', {
+                icon: 1,
                 title: '确认保存',
                 btn: ['确定保存', '取消']
             }, function(index){
@@ -789,10 +1257,10 @@ layui.use(['form', 'layer', 'jquery'], function(){
             });
         }
     };
-    
+
     window.submitFormData = function(formData) {
         var loadingIndex = layer.load(1, {shade: [0.3, '#000']});
-        
+
         $.ajax({
             url: window.location.href,
             type: 'POST',
@@ -801,9 +1269,10 @@ layui.use(['form', 'layer', 'jquery'], function(){
             success: function(res) {
                 layer.close(loadingIndex);
                 if (res && res.code === 200) {
+                    localStorage.removeItem(storageKey);
                     layer.msg('权限配置保存成功', {icon: 1, time: 1000});
-                    setTimeout(function() { 
-                        window.location.reload(); 
+                    setTimeout(function() {
+                        window.location.reload();
                     }, 1000);
                 } else {
                     layer.msg(res && res.msg ? res.msg : '权限配置保存失败', {icon: 2});
@@ -815,61 +1284,40 @@ layui.use(['form', 'layer', 'jquery'], function(){
                 if (xhr) {
                     if (xhr.responseJSON && xhr.responseJSON.msg) {
                         errorMsg = xhr.responseJSON.msg;
-                    } else {
-                        if (xhr.responseText) {
-                            try {
-                                var responseObj = JSON.parse(xhr.responseText);
-                                if (responseObj && responseObj.msg) {
-                                    errorMsg = responseObj.msg;
-                                }
-                            } catch (e) {
+                    } else if (xhr.responseText) {
+                        try {
+                            var responseObj = JSON.parse(xhr.responseText);
+                            if (responseObj && responseObj.msg) {
+                                errorMsg = responseObj.msg;
                             }
-                        } else if (xhr.statusText) {
-                            errorMsg = xhr.statusText;
+                        } catch (e) {
                         }
+                    } else if (xhr.statusText) {
+                        errorMsg = xhr.statusText;
                     }
                 }
                 layer.msg(errorMsg, {icon: 2});
-                console.error('Save error:', error, 'Status:', xhr ? xhr.status : 'N/A', 'Response:', xhr ? xhr.responseText : 'N/A');
             }
         });
     };
-    
+
+    $.ajaxSetup({
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken') || ''
+        }
+    });
+
     form.render();
-    
-    // 从localStorage加载保存的权限
-    loadSavedPermissionsFromStorage();
-    
-    if (typeof initMenuTree === 'function') {
-        initMenuTree();
-    }
-    
+    loadPermissionDraft();
+
     setTimeout(function() {
         var firstMenuItem = $('.menu-item').first();
         if (firstMenuItem.length > 0) {
-            var menuId = firstMenuItem.data('menu-id');
-            var menuTitle = firstMenuItem.data('menu-title');
-            var menuPathStr = firstMenuItem.attr('data-menu-path');
-            if (menuId) {
-                var menuPath = [];
-                if (menuPathStr) {
-                    try {
-                        menuPath = JSON.parse(menuPathStr);
-                    } catch (e) {
-                        console.error('Parse menu path error:', e, 'menuPathStr:', menuPathStr);
-                    }
-                }
-                currentMenuId = menuId;
-                currentMenuPath = menuPath;
-                firstMenuItem.addClass('active');
-                var titleHtml = '<i class="layui-icon layui-icon-set"></i> ';
-                if (currentMenuPath.length > 0) {
-                    titleHtml += currentMenuPath.join(' > ') + ' > ';
-                }
-                titleHtml += menuTitle + ' - 权限配置';
-                $('#permissionTitle').html(titleHtml);
-                loadMenuPermissions(menuId);
-            }
+            selectMenu(
+                firstMenuItem.data('menu-id'),
+                firstMenuItem.data('menu-title'),
+                parseMenuPath(firstMenuItem)
+            );
         }
     }, 300);
 });

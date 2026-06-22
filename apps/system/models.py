@@ -1171,6 +1171,7 @@ class ServiceProvider:
     ANTHROPIC = 'anthropic'
     OPENAI = 'openai'
     ZHIPU = 'zhipu'
+    CUSTOM = 'custom'
 
     SMS_PROVIDERS = (
         (ALIYUN, '阿里云'),
@@ -1191,6 +1192,7 @@ class ServiceProvider:
         (TENCENT, '腾讯云'),
         (BAIDU, '百度云'),
         (AZURE, 'Azure'),
+        (CUSTOM, '自定义/内网网关'),
     )
 
     OCR_PROVIDERS = (

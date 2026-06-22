@@ -6,13 +6,14 @@ from django.contrib.auth.models import Group
 from django.urls import reverse_lazy
 from django.shortcuts import render
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import IntegrityError
 
 from apps.user.models.permission import GroupExtension, DepartmentGroup
 
 
 class GroupListAPIView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """用户组列表API视图"""
-    permission_required = 'auth.view_group'
+    permission_required = 'user.view_role'
 
     def get(self, request):
         """获取用户组列表"""
@@ -72,7 +73,12 @@ class GroupListAPIView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
 class GroupDetailAPIView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """用户组详情API视图"""
-    permission_required = 'auth.view_group'
+    permission_required = 'user.view_role'
+
+    def get_permission_required(self):
+        if self.request.method == 'DELETE':
+            return ('user.delete_role',)
+        return super().get_permission_required()
 
     def get(self, request, pk):
         """获取用户组详情"""
@@ -153,7 +159,7 @@ class GroupListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     template_name = 'permission/index.html'
     context_object_name = 'groups'
     paginate_by = 10
-    permission_required = 'auth.view_group'
+    permission_required = 'user.view_role'
 
     def get_queryset(self):
         return Group.objects.all().order_by('-id')
@@ -164,7 +170,7 @@ class GroupDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     model = Group
     template_name = 'permission/view.html'
     context_object_name = 'group'
-    permission_required = 'auth.view_group'
+    permission_required = 'user.view_role'
 
 
 class GroupCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
@@ -173,7 +179,7 @@ class GroupCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     template_name = 'permission/form.html'
     fields = ['name']
     success_url = reverse_lazy('user:group_list')
-    permission_required = 'auth.add_group'
+    permission_required = 'user.add_role'
 
     def form_valid(self, form):
         """在创建Group后自动创建GroupExtension"""
@@ -191,7 +197,7 @@ class GroupUpdateViewCBV(
     template_name = 'permission/form.html'
     fields = ['name']
     success_url = reverse_lazy('user:group_list')
-    permission_required = 'auth.change_group'
+    permission_required = 'user.change_role'
 
 
 class GroupDeleteViewCBV(
@@ -199,7 +205,7 @@ class GroupDeleteViewCBV(
     """删除角色组视图（CBV版本）"""
     model = Group
     success_url = reverse_lazy('user:group_list')
-    permission_required = 'auth.delete_group'
+    permission_required = 'user.delete_role'
 
     def delete(self, request, *args, **kwargs):
         self.object = self.get_object()
@@ -207,9 +213,39 @@ class GroupDeleteViewCBV(
         return JsonResponse({'code': 200, 'msg': 'success'})
 
 
+class GroupCreateAPIView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """创建角色信息"""
+    permission_required = 'user.add_role'
+
+    def post(self, request):
+        try:
+            name = request.POST.get('name', '').strip()
+            description = request.POST.get('description', '')
+            status = request.POST.get('status', 'true') == 'true'
+
+            if not name:
+                return JsonResponse({'code': 400, 'msg': '角色名称不能为空'})
+
+            group = Group.objects.create(name=name)
+            GroupExtension.objects.create(
+                group=group,
+                description=description,
+                status=status,
+            )
+            return JsonResponse({
+                'code': 200,
+                'msg': '创建成功',
+                'data': {'id': group.id, 'name': group.name}
+            })
+        except IntegrityError:
+            return JsonResponse({'code': 400, 'msg': '角色名称已存在'})
+        except Exception as e:
+            return JsonResponse({'code': 500, 'msg': f'创建失败: {str(e)}'})
+
+
 class GroupUpdateView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """更新角色信息"""
-    permission_required = 'auth.change_group'
+    permission_required = 'user.change_role'
 
     def post(self, request, pk):
         """更新角色信息"""
@@ -222,11 +258,9 @@ class GroupUpdateView(LoginRequiredMixin, PermissionRequiredMixin, View):
             if not name:
                 return JsonResponse({'code': 400, 'msg': '角色名称不能为空'})
 
-            # 更新Group名称
             group.name = name
             group.save()
 
-            # 更新或创建GroupExtension
             extension, created = GroupExtension.objects.get_or_create(
                 group=group)
             extension.description = description
@@ -237,11 +271,13 @@ class GroupUpdateView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
         except Group.DoesNotExist:
             return JsonResponse({'code': 404, 'msg': '角色不存在'})
+        except IntegrityError:
+            return JsonResponse({'code': 400, 'msg': '角色名称已存在'})
 
 
 class GroupStatusToggleView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """切换角色状态"""
-    permission_required = 'auth.change_group'
+    permission_required = 'user.toggle_role_status'
 
     def post(self, request, pk):
         """切换角色状态"""
@@ -266,7 +302,7 @@ class GroupStatusToggleView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
 class GetGroupsAPIView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """获取所有权限组（auth.Group）数据的API视图"""
-    permission_required = 'auth.view_group'
+    permission_required = 'user.view_role'
 
     def get(self, request, *args, **kwargs):
         # 获取所有的auth.Group数据

@@ -74,12 +74,10 @@
 <script>
 // 直接在HTML中嵌入JavaScript，确保立即执行
 (function() {
-    console.log('备份表单初始化');
     
     // 初始化layui表单
     if (window.layui && window.layui.form) {
         window.layui.form.render();
-        console.log('layui表单初始化完成');
     }
     
     // 等待DOM加载完成
@@ -129,12 +127,10 @@
             function updateSaveButtonState() {
                 // 确保获取最新的备份类型
                 var selectedType = backupTypeSelect.value;
-                console.log('当前选择的备份类型值:', selectedType, '类型:', typeof selectedType);
                 
                 // 精确匹配备份类型值
                 var isUnsupported = selectedType === 'incremental' || selectedType === 'differential';
                 
-                console.log('更新保存按钮状态，备份类型:', selectedType, '是否不支持:', isUnsupported);
                 
                 if (isUnsupported) {
                     // 禁用按钮
@@ -237,7 +233,6 @@
             try {
                 backupTypeSelect.removeEventListener('change', updateSaveButtonState);
             } catch (e) {
-                console.log('没有旧的事件监听器需要移除');
             }
             
             // 重新绑定change事件
@@ -246,7 +241,6 @@
             // 添加layui表单监听，确保下拉选择变化时能触发事件
             if (window.layui && window.layui.form) {
                 window.layui.form.on('select(backupTypeSelect)', function(data) {
-                    console.log('layui select事件触发，选择值:', data.value);
                     updateSaveButtonState();
                 });
             }

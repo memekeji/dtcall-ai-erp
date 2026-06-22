@@ -16,7 +16,7 @@ html, body {
     height: 100%;
     width: 100%;
     overflow: hidden;
-    background: #fff;
+    background: #f5f7fb;
 }
 
 .layui-form-container {
@@ -34,8 +34,9 @@ html, body {
     align-items: center;
     justify-content: space-between;
     padding: 15px 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%);
     color: #fff;
+    box-shadow: 0 8px 20px rgba(22, 119, 255, 0.16);
 }
 
 .layui-form-header h3 {
@@ -69,7 +70,7 @@ html, body {
     flex: 1;
     overflow-y: auto;
     padding: 20px;
-    background: #fff;
+    background: #f5f7fb;
 }
 
 .form-section {
@@ -81,7 +82,7 @@ html, body {
     font-weight: 600;
     color: #333;
     padding: 8px 0;
-    border-bottom: 2px solid #667eea;
+    border-bottom: 1px solid #d7e3f7;
     margin-bottom: 16px;
     display: flex;
     align-items: center;
@@ -92,7 +93,7 @@ html, body {
     content: '';
     width: 4px;
     height: 16px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%);
     border-radius: 2px;
 }
 
@@ -146,8 +147,8 @@ html, body {
     height: 38px;
     line-height: 38px;
     line-height: 1.3;
-    border: 1px solid #e6e6e6;
-    border-radius: 2px;
+    border: 1px solid #d7dfe9;
+    border-radius: 6px;
     background-color: #fff;
     color: #333;
     font-size: 14px;
@@ -155,7 +156,8 @@ html, body {
 }
 
 .layui-input:focus, .layui-input:active, .layui-textarea:focus {
-    border-color: #667eea !important;
+    border-color: #1677ff !important;
+    box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.10);
     outline: none;
 }
 
@@ -193,7 +195,7 @@ html, body {
     right: 4px;
     top: 4px;
     bottom: 4px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%);
     color: #fff;
     border: none;
     padding: 0 12px;
@@ -215,8 +217,8 @@ html, body {
 .layui-form-footer {
     flex-shrink: 0;
     padding: 15px 20px;
-    background: #fafafa;
-    border-top: 1px solid #e6e6e6;
+    background: #fff;
+    border-top: 1px solid #e5edf8;
     display: flex;
     justify-content: flex-end;
     gap: 12px;
@@ -227,20 +229,20 @@ html, body {
     height: 38px;
     line-height: 38px;
     padding: 0 24px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%);
     color: #fff;
     white-space: nowrap;
     text-align: center;
     font-size: 14px;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
 }
 
 .layui-btn:hover {
     opacity: 0.9;
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 6px 16px rgba(22, 119, 255, 0.22);
 }
 
 .layui-btn:active {
@@ -254,8 +256,8 @@ html, body {
 }
 
 .layui-btn-primary:hover {
-    color: #667eea;
-    border-color: #667eea;
+    color: #1677ff;
+    border-color: #1677ff;
 }
 
 @media screen and (max-width: 768px) {

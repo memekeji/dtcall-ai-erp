@@ -131,6 +131,7 @@
     </div>
 
     <script src="/static/layui/layui.js"></script>
+    <script src="/static/js/common.js"></script>
     <script>
         layui.use(['layer', 'form'], function(){
             var layer = layui.layer;
@@ -234,14 +235,14 @@
             });
         }
 
-        function getCookie(name) {
+        var getCookie = (window.DTCallCommon && window.DTCallCommon.getCookie) || function(name) {
             var arr, reg = new RegExp("(^| )" + name + "=([^;]*)(;|$)");
             if (arr = document.cookie.match(reg)) {
                 return unescape(arr[2]);
             } else {
                 return null;
             }
-        }
+        };
     </script>
 </body>
 </html>

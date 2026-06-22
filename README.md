@@ -188,11 +188,20 @@ pip install -r requirements.txt
 数据库环境变量配置如下：
 
 ```bash
+export DATABASE_ENGINE='postgresql'  # 可选：sqlite、postgresql、mysql、mariadb
 export DATABASE_HOST='your_database_host'
-export DATABASE_PORT='5432'
+export DATABASE_PORT=''              # 留空时 PostgreSQL 默认 5432，MySQL 默认 3306
 export DATABASE_NAME='dtcall'
 export DATABASE_USER='dtcall_user'
-export DATABASE_PASSWORD='your_secure_password'
+export DATABASE_PASSWORD='<your-database-password>'
+```
+
+也可以使用 `DATABASE_URL` 统一配置数据库连接：
+
+```bash
+export DATABASE_URL='postgresql://dtcall_user:password@127.0.0.1:5432/dtcall'
+# 或
+export DATABASE_URL='mysql://dtcall_user:password@127.0.0.1:3306/dtcall'
 ```
 
 Redis缓存环境变量配置如下：
@@ -200,23 +209,28 @@ Redis缓存环境变量配置如下：
 ```bash
 export REDIS_HOST='your_redis_host'
 export REDIS_PORT='6379'
-export REDIS_PASSWORD='your_redis_password'
+export REDIS_PASSWORD='<your-redis-password>'
 ```
 
 系统还支持通过环境变量配置Django密钥和其他安全参数：
 
 ```bash
-export DJANGO_SECRET_KEY='your-very-secret-key-change-this-in-production'
+export DJANGO_SECRET_KEY='<your-django-secret-key>'
+export DJANGO_ALLOWED_HOSTS='erp.dtcall.cn,www.dtcall.cn,dtcall.cn,127.0.0.1'
+export CSRF_TRUSTED_ORIGINS='https://erp.dtcall.cn,https://www.dtcall.cn,https://dtcall.cn'
 export DEBUG=False
+export APP_HOST='0.0.0.0'
+export APP_PORT='8000'
+export AUTO_MIGRATE_ON_STARTUP=True
 ```
 
-如果选择直接编辑配置文件，请打开dtcall/settings.py文件，找到DATABASES和CACHES配置部分，按照实际环境修改连接参数。
-
-完成配置后，运行数据库迁移命令创建所需的表结构：
+推荐复制 `.env.example` 为 `.env` 后按环境填写，不建议直接修改 `dtcall/settings.py`。首次部署或切换数据库后，可手动运行数据库迁移命令创建所需表结构：
 
 ```bash
-python manage.py migrate
+python manage.py migrate --noinput
 ```
+
+如果项目启动时未检测到可用数据库、数据库连接失败，或数据库可连接但尚未创建基础表，系统会自动跳转到 `/setup/database/`。在该页面验证连接成功后，系统会写入 `.env` 并自动执行基础迁移；当数据库可连接且已有数据表时，该配置页会被禁止访问。
 
 如果需要初始化默认数据，可以执行数据初始化命令：
 
@@ -224,10 +238,10 @@ python manage.py migrate
 python manage.py init_data
 ```
 
-迁移完成后，启动Django开发服务器：
+启动Django开发服务器时，项目会按 `APP_HOST` 和 `APP_PORT` 自动设置监听地址，并在启动前自动执行基础迁移：
 
 ```bash
-python manage.py runserver 0.0.0.0:8000
+python manage.py runserver
 ```
 
 启动成功后，在浏览器中访问http://your_server_ip:8000即可看到系统登录页面。首次访问时需要使用管理员账户登录，默认管理员账户信息请参考系统初始化文档。
@@ -236,11 +250,13 @@ python manage.py runserver 0.0.0.0:8000
 
 对于生产环境部署，不建议使用Django自带的开发服务器。建议使用Gunicorn或uWSGI作为WSGI服务器，它们是高性能的Python WSGI服务器，能够更好地处理并发请求。
 
-使用Gunicorn部署的典型配置如下：
+使用Gunicorn部署时，推荐走项目提供的 `docker-entrypoint.sh` 或在自己的进程管理脚本中先执行迁移，再启动服务：
 
 ```bash
 pip install gunicorn
-gunicorn dtcall.wsgi:application --bind 0.0.0.0:8000 --workers 4 --timeout 120
+python manage.py migrate --noinput
+python manage.py collectstatic --noinput
+gunicorn dtcall.wsgi:application --bind ${APP_HOST:-0.0.0.0}:${APP_PORT:-8000} --workers ${GUNICORN_WORKERS:-4} --timeout 120
 ```
 
 建议配置Nginx作为反向代理服务器和静态文件服务器，Nginx可以提供静态文件的快速响应、请求负载均衡、SSL终端等功能。以下是Nginx配置的关键配置项示例：

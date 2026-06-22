@@ -71,7 +71,10 @@ class PermissionMiddleware:
             '/user/login/', '/user/logout/', '/user/login-submit/',
             '/static/', '/media/', '/favicon.ico', '/captcha/',
             '/admin/', '/home/main/', '/home/dashboard/',
-            '/get-new-captcha/', '/api/common/',
+            '/get-new-captcha/', '/api/common/', '/setup/database/',
+            '/disk/share/view/', '/disk/share/download/',
+            '/disk/share/folder/', '/disk/share/preview/',
+            '/disk/preview/',
         ]
         return any(path.startswith(url) for url in skip_urls)
 

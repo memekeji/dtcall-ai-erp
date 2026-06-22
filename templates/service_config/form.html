@@ -8,140 +8,336 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
     <style>
-    .layui-form-item {
-        margin-bottom: 20px;
+    body {
+        background: #f6f9fc;
+        color: #26364d;
+    }
+    .service-config-shell {
+        padding: 18px 22px 78px;
+    }
+    .config-hero {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 18px 20px;
+        margin-bottom: 14px;
+        background: linear-gradient(135deg, #f7fbff 0%, #eef6ff 100%);
+        border: 1px solid #dcecff;
+        border-radius: 8px;
+    }
+    .config-hero-title {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 17px;
+        font-weight: 600;
+        color: #172b4d;
+    }
+    .config-hero-icon {
+        width: 38px;
+        height: 38px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        color: #1677ff;
+        background: #fff;
+        box-shadow: 0 6px 18px rgba(22, 119, 255, 0.12);
+    }
+    .config-hero-subtitle {
+        margin-top: 6px;
+        color: #7a8aa0;
+        font-size: 13px;
+    }
+    .form-section {
+        background: #fff;
+        border: 1px solid #e8eef5;
+        border-radius: 8px;
+        margin-bottom: 14px;
+        overflow: hidden;
+    }
+    .section-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 46px;
+        padding: 0 18px;
+        border-bottom: 1px solid #eef2f7;
+        background: #fbfdff;
+        font-weight: 600;
+        color: #26364d;
+    }
+    .section-title i {
+        color: #1677ff;
+    }
+    .section-body {
+        padding: 18px 18px 4px;
+    }
+    .field-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0 18px;
+    }
+    .field-grid .full-row {
+        grid-column: 1 / -1;
     }
     .layui-form-label {
-        width: 100px;
+        width: 94px;
+        padding-left: 0;
+        color: #526579;
     }
     .layui-input-block {
-        margin-left: 130px;
+        margin-left: 118px;
     }
-    .provider-select {
-        display: none;
+    .layui-form-item {
+        margin-bottom: 16px;
     }
-    .provider-select.active {
-        display: block;
+    .layui-input,
+    .layui-textarea,
+    .layui-select-title input {
+        border-color: #dde6f0;
+        border-radius: 4px;
+        background-color: #fff;
+    }
+    .layui-input:focus,
+    .layui-textarea:focus {
+        border-color: #8dc5ff !important;
+        box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.08);
     }
     .extra-config-area {
-        min-height: 100px;
+        min-height: 92px;
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 12px;
+    }
+    .field-help {
+        margin-top: 6px;
+        color: #9aa8b8;
+        font-size: 12px;
+        line-height: 1.5;
+    }
+    .type-field {
+        display: none;
+    }
+    .type-field.is-visible {
+        display: block;
+    }
+    .action-bar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 10;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 12px 22px;
+        background: rgba(255, 255, 255, 0.96);
+        border-top: 1px solid #e8eef5;
+        box-shadow: 0 -8px 24px rgba(15, 35, 55, 0.06);
+        backdrop-filter: blur(8px);
+    }
+    .action-bar .layui-btn {
+        min-width: 88px;
+        border-radius: 4px;
+    }
+    @media (max-width: 900px) {
+        .field-grid {
+            grid-template-columns: 1fr;
+        }
+        .service-config-shell {
+            padding: 14px 14px 76px;
+        }
     }
     </style>
 </head>
 <body>
-    <div class="layui-fluid">
-        <div class="layui-row layui-col-space15">
-            <div class="layui-col-md12">
-                <div class="layui-card">
-                    <div class="layui-card-header">
-                        <i class="layui-icon layui-icon技术服务" style="margin-right: 5px;"></i>
-                        <span>{% if service %}编辑{% else %}新增{% endif %}服务配置</span>
-                    </div>
-                    <div class="layui-card-body">
-                        <form class="layui-form" method="post" action="">
-                            {% csrf_token %}
-                            
-                            <div class="layui-form-item">
-                                <label class="layui-form-label">配置名称</label>
-                                <div class="layui-input-block">
-                                    <input type="text" name="name" required lay-verify="required" placeholder="请输入配置名称" 
-                                           value="{{ service.name|default:'' }}" class="layui-input">
-                                </div>
+    <div class="service-config-shell">
+        <div class="config-hero">
+            <div>
+                <div class="config-hero-title">
+                    <span class="config-hero-icon">
+                        <i class="layui-icon layui-icon-engine"></i>
+                    </span>
+                    <span>{% if service %}编辑服务接口配置{% else %}新增服务接口配置{% endif %}</span>
+                </div>
+                <div class="config-hero-subtitle">配置服务商、鉴权密钥和接口参数，启用后相关业务功能才会调用该服务。</div>
+            </div>
+            <input type="checkbox" name="is_enabled" lay-skin="switch" lay-text="启用|禁用" form="serviceConfigForm"
+                   {% if service.is_enabled or initial_is_enabled %}checked{% endif %}>
+        </div>
+
+        <form class="layui-form" id="serviceConfigForm" method="post" action="">
+            {% csrf_token %}
+
+            <div class="form-section">
+                <div class="section-title">
+                    <i class="layui-icon layui-icon-tabs"></i>
+                    <span>基础信息</span>
+                </div>
+                <div class="section-body">
+                    <div class="field-grid">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">配置名称</label>
+                            <div class="layui-input-block">
+                                <input type="text" name="name" required lay-verify="required" placeholder="请输入配置名称"
+                                       value="{{ service.name|default:initial_name|default:'' }}" class="layui-input">
                             </div>
-                            
-                            <div class="layui-form-item">
-                                <label class="layui-form-label">服务类别</label>
-                                <div class="layui-input-block">
-                                    <select name="category" lay-verify="required" lay-filter="categorySelect" id="categorySelect">
-                                        <option value="">请选择服务类别</option>
-                                        {% for value, text in categories %}
-                                        <option value="{{ value }}" {% if service.category == value %}selected{% endif %}>{{ text }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
+                        </div>
+
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">服务类别</label>
+                            <div class="layui-input-block">
+                                <select name="category" lay-verify="required" lay-filter="categorySelect" id="categorySelect">
+                                    <option value="">请选择服务类别</option>
+                                    {% for value, text in categories %}
+                                    <option value="{{ value }}" {% if current_category == value %}selected{% endif %}>{{ text }}</option>
+                                    {% endfor %}
+                                </select>
                             </div>
-                            
-                            <div class="layui-form-item">
-                                <label class="layui-form-label">服务商</label>
-                                <div class="layui-input-block">
-                                    <select name="provider" lay-verify="required" lay-filter="providerSelect" id="providerSelect">
-                                        <option value="">请先选择服务类别</option>
-                                    </select>
-                                </div>
+                        </div>
+
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">服务商</label>
+                            <div class="layui-input-block">
+                                <select name="provider" lay-verify="required" lay-filter="providerSelect" id="providerSelect">
+                                    <option value="">请先选择服务类别</option>
+                                </select>
                             </div>
-                            
-                            <div class="layui-form-item">
-                                <label class="layui-form-label">API密钥</label>
-                                <div class="layui-input-block">
-                                    <input type="password" name="api_key" placeholder="请输入API密钥" 
-                                           value="{{ service.api_key|default:'' }}" class="layui-input">
-                                </div>
+                        </div>
+
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">请求频率</label>
+                            <div class="layui-input-block">
+                                <input type="number" name="request_rate_limit" min="0" placeholder="0 表示不限制"
+                                       value="{{ service.request_rate_limit|default:'0' }}" class="layui-input">
                             </div>
-                            
-                            <div class="layui-form-item">
-                                <label class="layui-form-label">API密钥Secret</label>
-                                <div class="layui-input-block">
-                                    <input type="password" name="api_secret" placeholder="请输入API密钥Secret（可选）" 
-                                           value="{{ service.api_secret|default:'' }}" class="layui-input">
-                                </div>
-                            </div>
-                            
-                            <div class="layui-form-item">
-                                <label class="layui-form-label">接口地址</label>
-                                <div class="layui-input-block">
-                                    <input type="text" name="base_url" placeholder="请输入接口地址（可选，如不填则使用默认地址）" 
-                                           value="{{ service.base_url|default:'' }}" class="layui-input">
-                                </div>
-                            </div>
-                            
-                            <div class="layui-form-item">
-                                <label class="layui-form-label">额外配置</label>
-                                <div class="layui-input-block">
-                                    <textarea name="extra_config" placeholder="请输入额外配置（JSON格式，可选）" 
-                                              class="layui-textarea extra-config-area">{{ service.extra_config|default:'' }}</textarea>
-                                </div>
-                            </div>
-                            
-                            <div class="layui-form-item">
-                                <label class="layui-form-label">是否启用</label>
-                                <div class="layui-input-block">
-                                    <input type="checkbox" name="is_enabled" lay-skin="switch" lay-text="启用|禁用"
-                                           {% if service.is_enabled %}checked{% endif %}>
-                                </div>
-                            </div>
-                            
-                            <div class="layui-form-item">
-                                <label class="layui-form-label">描述</label>
-                                <div class="layui-input-block">
-                                    <textarea name="description" placeholder="请输入描述（可选）" 
-                                              class="layui-textarea">{{ service.description|default:'' }}</textarea>
-                                </div>
-                            </div>
-                            
-                            <div class="layui-form-item">
-                                <div class="layui-input-block">
-                                    <button type="submit" class="layui-btn" lay-submit lay-filter="submitForm">
-                                        <i class="layui-icon layui-icon-ok"></i> 保存
-                                    </button>
-                                    <button type="reset" class="layui-btn layui-btn-primary">
-                                        <i class="layui-icon layui-icon-refresh"></i> 重置
-                                    </button>
-                                </div>
-                            </div>
-                        </form>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+
+            <div class="form-section">
+                <div class="section-title">
+                    <i class="layui-icon layui-icon-vercode"></i>
+                    <span>鉴权与接口</span>
+                </div>
+                <div class="section-body">
+                    <div class="field-grid">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">API密钥</label>
+                            <div class="layui-input-block">
+                                <input type="password" name="api_key" placeholder="请输入 API Key / AccessKey"
+                                       value="{{ service.api_key|default:'' }}" class="layui-input">
+                            </div>
+                        </div>
+
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">API Secret</label>
+                            <div class="layui-input-block">
+                                <input type="password" name="api_secret" placeholder="可选，按服务商要求填写"
+                                       value="{{ service.api_secret|default:'' }}" class="layui-input">
+                            </div>
+                        </div>
+
+                        <div class="layui-form-item full-row">
+                            <label class="layui-form-label">接口地址</label>
+                            <div class="layui-input-block">
+                                <input type="text" name="base_url" placeholder="可选；自定义/内网网关请填写完整接口地址"
+                                       value="{{ service.base_url|default:'' }}" class="layui-input">
+                                <div class="field-help">留空时使用服务商默认地址；自定义网关、兼容接口或私有部署请填写 Base URL。</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="section-title">
+                    <i class="layui-icon layui-icon-set"></i>
+                    <span>类型参数</span>
+                </div>
+                <div class="section-body">
+                    <div class="field-grid">
+                        <div class="layui-form-item type-field" data-categories="sms">
+                            <label class="layui-form-label">短信模板ID</label>
+                            <div class="layui-input-block">
+                                <input type="text" name="template_id" placeholder="请输入短信模板ID"
+                                       value="{{ service.template_id|default:'' }}" class="layui-input">
+                            </div>
+                        </div>
+
+                        <div class="layui-form-item type-field" data-categories="sms">
+                            <label class="layui-form-label">短信签名</label>
+                            <div class="layui-input-block">
+                                <input type="text" name="sign_name" placeholder="请输入短信签名名称"
+                                       value="{{ service.sign_name|default:'' }}" class="layui-input">
+                            </div>
+                        </div>
+
+                        <div class="layui-form-item type-field" data-categories="stt tts">
+                            <label class="layui-form-label">音频大小</label>
+                            <div class="layui-input-block">
+                                <input type="number" name="max_audio_size" min="0" placeholder="最大音频字节数，0 表示不限制"
+                                       value="{{ service.max_audio_size|default:'0' }}" class="layui-input">
+                            </div>
+                        </div>
+
+                        <div class="layui-form-item type-field" data-categories="stt tts">
+                            <label class="layui-form-label">支持格式</label>
+                            <div class="layui-input-block">
+                                <input type="text" name="supported_formats" placeholder="如 mp3,wav,m4a,webm"
+                                       value="{{ service.supported_formats|default:'' }}" class="layui-input">
+                            </div>
+                        </div>
+
+                        <div class="layui-form-item full-row">
+                            <label class="layui-form-label">额外配置</label>
+                            <div class="layui-input-block">
+                                <textarea name="extra_config" placeholder='JSON 格式，可选。例如 {"model":"whisper-1"}'
+                                          class="layui-textarea extra-config-area">{{ service.extra_config|default:'' }}</textarea>
+                                <div class="field-help">需要模型名、区域、回调地址等非通用参数时填写；没有特殊要求可留空。</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="section-title">
+                    <i class="layui-icon layui-icon-note"></i>
+                    <span>备注</span>
+                </div>
+                <div class="section-body">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">描述</label>
+                        <div class="layui-input-block">
+                            <textarea name="description" placeholder="请输入描述（可选）"
+                                      class="layui-textarea">{{ service.description|default:'' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="action-bar">
+                <button type="reset" class="layui-btn layui-btn-primary">
+                    <i class="layui-icon layui-icon-refresh"></i> 重置
+                </button>
+                <button type="submit" class="layui-btn layui-btn-normal" lay-submit lay-filter="submitForm">
+                    <i class="layui-icon layui-icon-ok"></i> 保存配置
+                </button>
+            </div>
+        </form>
     </div>
 
     <script src="/static/layui/layui.js"></script>
+    <script src="/static/js/common.js"></script>
     <script>
     layui.use(['form', 'layer'], function(){
         var form = layui.form;
         var layer = layui.layer;
-        
-        var currentProvider = '{{ service.provider|default:'' }}';
+
+        var currentProvider = '{{ current_provider|default:'' }}';
         var categoryProviders = {
             'sms': [
                 {% for value, text in sms_providers %}
@@ -169,11 +365,11 @@
                 {% endfor %}
             ]
         };
-        
+
         function updateProviders(category) {
             var providerSelect = document.getElementById('providerSelect');
             providerSelect.innerHTML = '<option value="">请选择服务商</option>';
-            
+
             if (category && categoryProviders[category]) {
                 categoryProviders[category].forEach(function(p) {
                     var option = document.createElement('option');
@@ -185,28 +381,44 @@
                     providerSelect.appendChild(option);
                 });
             }
-            
+
             form.render('select');
         }
-        
+
+        function updateTypeFields(category) {
+            document.querySelectorAll('.type-field').forEach(function(field) {
+                var categories = (field.getAttribute('data-categories') || '').split(/\s+/);
+                field.classList.toggle('is-visible', categories.indexOf(category) !== -1);
+            });
+        }
+
         form.on('select(categorySelect)', function(data) {
             currentProvider = '';
             updateProviders(data.value);
+            updateTypeFields(data.value);
         });
-        
+
         var initialCategory = document.getElementById('categorySelect').value;
         if (initialCategory) {
             updateProviders(initialCategory);
+            updateTypeFields(initialCategory);
+            if (!currentProvider && '{{ current_provider|default:"" }}') {
+                currentProvider = '{{ current_provider|default:"" }}';
+                updateProviders(initialCategory);
+            }
+        } else {
+            updateTypeFields('');
         }
-        
+
         form.on('submit(submitForm)', function(data) {
             var formData = new FormData(data.form);
-            
+
             fetch(data.form.action, {
                 method: 'POST',
                 body: formData,
                 headers: {
-                    'X-CSRFToken': getCookie('csrftoken')
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
             })
             .then(function(response) {
@@ -251,17 +463,17 @@
             .catch(function(error) {
                 layer.msg('保存失败: ' + error, {icon: 2});
             });
-            
+
             return false;
         });
-        
-        function getCookie(name) {
+
+        var getCookie = (window.DTCallCommon && window.DTCallCommon.getCookie) || function(name) {
             var arr, reg = new RegExp('(^| )' + name + '=([^;]*)(;|$)');
             if (arr = document.cookie.match(reg)) {
                 return unescape(arr[2]);
             }
             return null;
-        }
+        };
     });
     </script>
 </body>

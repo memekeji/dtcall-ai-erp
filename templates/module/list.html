@@ -72,7 +72,7 @@
         </div>
 
         <!-- 右侧弹出层 -->
-        <div id="module-form-panel" style="position: fixed; top: 0; right: -75%; width: 75%; height: 100%; background: white; z-index: 10000; box-shadow: -5px 0 15px rgba(0,0,0,0.1); transition: right 0.3s ease; overflow-y: auto;">
+        <div id="module-form-panel" style="position: fixed; top: 0; right: -80%; width: 80%; height: 100%; background: white; z-index: 10000; box-shadow: -5px 0 15px rgba(0,0,0,0.1); transition: right 0.3s ease; overflow-y: auto;">
             <div class="layui-card">
                 <div class="layui-card-header" style="display: flex; justify-content: space-between; align-items: center;">
                     <h3 id="form-title">编辑功能模块</h3>
@@ -110,7 +110,7 @@
             var formPanel = $('#module-form-panel');
             var formMask = $('#module-form-mask');
             var isMaximized = false;
-            var originalWidth = '75%';
+            var originalWidth = '80%';
             
             // 搜索功能
             window.searchModule = function() {
@@ -156,7 +156,7 @@
             
             // 关闭表单
             window.closeForm = function() {
-                formPanel.css('right', '-75%');
+                formPanel.css('right', '-80%');
                 formMask.hide();
                 // 重置表单状态
                 isMaximized = false;
@@ -165,7 +165,7 @@
             
             // 最小化表单
             window.minimizeForm = function() {
-                formPanel.css('right', '-75%');
+                formPanel.css('right', '-80%');
             };
             
             // 最大化表单

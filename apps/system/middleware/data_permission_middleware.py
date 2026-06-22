@@ -25,8 +25,14 @@ class DataPermissionMiddleware:
         r'^/api/common/',
         r'^/media/',
         r'^/static/',
+        r'^/setup/database/',
         r'^/captcha/',
         r'^/logout/',
+        r'^/disk/share/view/',
+        r'^/disk/share/download/',
+        r'^/disk/share/folder/',
+        r'^/disk/share/preview/',
+        r'^/disk/preview/',
     ]
 
     EXEMPT_VIEWS = [

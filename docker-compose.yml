@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: dtcall
       POSTGRES_USER: dtcall_user
-      POSTGRES_PASSWORD: your_secure_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -15,7 +15,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: redis-server --requirepass your_redis_password
+    command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     ports:
       - "6379:6379"
     volumes:
@@ -25,17 +25,23 @@ services:
   web:
     build: .
     ports:
-      - "8000:8000"
+      - "${APP_PORT:-8000}:${APP_PORT:-8000}"
     environment:
-      - DATABASE_HOST=db
-      - DATABASE_PORT=5432
-      - DATABASE_NAME=dtcall
-      - DATABASE_USER=dtcall_user
-      - DATABASE_PASSWORD=your_secure_password
+      - APP_PORT=${APP_PORT:-8000}
+      - APP_HOST=${APP_HOST:-0.0.0.0}
+      - AUTO_MIGRATE_ON_STARTUP=${AUTO_MIGRATE_ON_STARTUP:-true}
+      - DATABASE_ENGINE=${DATABASE_ENGINE:-postgresql}
+      - DATABASE_HOST=${DATABASE_HOST:-db}
+      - DATABASE_PORT=${DATABASE_PORT:-5432}
+      - DATABASE_NAME=${DATABASE_NAME:-dtcall}
+      - DATABASE_USER=${DATABASE_USER:-dtcall_user}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=your_redis_password
-      - DJANGO_SECRET_KEY=your-very-secret-key-change-this-in-production
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY is required}
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,testserver,erp.dtcall.cn,www.dtcall.cn,dtcall.cn}
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-https://erp.dtcall.cn,https://www.dtcall.cn,https://dtcall.cn}
       - DEBUG=False
     depends_on:
       - db
@@ -50,14 +56,18 @@ services:
     build: .
     command: ["python", "manage.py", "run_ai_orchestrator"]
     environment:
-      - DATABASE_HOST=db
-      - DATABASE_PORT=5432
-      - DATABASE_NAME=dtcall
-      - DATABASE_USER=dtcall_user
-      - DATABASE_PASSWORD=your_secure_password
+      - DATABASE_ENGINE=${DATABASE_ENGINE:-postgresql}
+      - DATABASE_HOST=${DATABASE_HOST:-db}
+      - DATABASE_PORT=${DATABASE_PORT:-5432}
+      - DATABASE_NAME=${DATABASE_NAME:-dtcall}
+      - DATABASE_USER=${DATABASE_USER:-dtcall_user}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=your_redis_password
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY is required}
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,testserver,erp.dtcall.cn,www.dtcall.cn,dtcall.cn}
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-https://erp.dtcall.cn,https://www.dtcall.cn,https://dtcall.cn}
     depends_on:
       - db
       - redis

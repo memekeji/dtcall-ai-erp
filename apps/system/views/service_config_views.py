@@ -3,8 +3,6 @@ from django.views.generic import ListView, DetailView, CreateView, UpdateView, D
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 
 from apps.system.models import ServiceConfiguration, ServiceCategory, ServiceProvider
 
@@ -29,7 +27,6 @@ class ServiceConfigListView(LoginRequiredMixin, ListView):
         return context
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class ServiceConfigFormView(LoginRequiredMixin, CreateView):
     """服务配置表单"""
     permission_required = ()
@@ -41,23 +38,58 @@ class ServiceConfigFormView(LoginRequiredMixin, CreateView):
         'api_key',
         'api_secret',
         'base_url',
+        'template_id',
+        'sign_name',
+        'request_rate_limit',
+        'max_audio_size',
+        'supported_formats',
         'extra_config',
         'is_enabled',
         'description']
     template_name = 'service_config/form.html'
     success_url = reverse_lazy('system:service_config_list')
 
+    def get_initial(self):
+        initial = super().get_initial()
+        category = self.request.GET.get('category', '')
+        provider = self.request.GET.get('provider', '')
+        valid_categories = dict(ServiceCategory.CHOICES)
+
+        if category in valid_categories:
+            initial['category'] = category
+            initial['name'] = valid_categories[category]
+            initial['is_enabled'] = True
+
+            provider_options = get_provider_options(category)
+            if provider and provider in dict(provider_options):
+                initial['provider'] = provider
+            elif provider_options:
+                initial['provider'] = provider_options[0][0]
+
+        return initial
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        initial = self.get_initial()
+        context['service'] = None
         context['categories'] = ServiceCategory.CHOICES
         context['sms_providers'] = ServiceProvider.SMS_PROVIDERS
         context['stt_providers'] = ServiceProvider.STT_PROVIDERS
         context['tts_providers'] = ServiceProvider.TTS_PROVIDERS
         context['ocr_providers'] = ServiceProvider.OCR_PROVIDERS
         context['ai_providers'] = ServiceProvider.AI_PROVIDERS
+        context['initial_category'] = initial.get('category', '')
+        context['initial_provider'] = initial.get('provider', '')
+        context['initial_name'] = initial.get('name', '')
+        context['initial_is_enabled'] = initial.get('is_enabled', False)
+        context['current_category'] = initial.get('category', '')
+        context['current_provider'] = initial.get('provider', '')
         return context
 
     def form_valid(self, form):
+        if not form.instance.creator_id:
+            form.instance.creator = self.request.user
+        form.instance.status = 'active' if form.instance.is_enabled else 'inactive'
         response = super().form_valid(form)
         if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({
@@ -80,7 +112,6 @@ class ServiceConfigFormView(LoginRequiredMixin, CreateView):
         return super().form_invalid(form)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class ServiceConfigDetailView(LoginRequiredMixin, DetailView):
     """服务配置详情"""
     permission_required = ()
@@ -90,16 +121,18 @@ class ServiceConfigDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        context['service'] = self.object
         context['categories'] = ServiceCategory.CHOICES
         context['sms_providers'] = ServiceProvider.SMS_PROVIDERS
         context['stt_providers'] = ServiceProvider.STT_PROVIDERS
         context['tts_providers'] = ServiceProvider.TTS_PROVIDERS
         context['ocr_providers'] = ServiceProvider.OCR_PROVIDERS
         context['ai_providers'] = ServiceProvider.AI_PROVIDERS
+        context['current_category'] = self.object.category
+        context['current_provider'] = self.object.provider
         return context
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class ServiceConfigUpdateView(LoginRequiredMixin, UpdateView):
     """服务配置更新"""
     permission_required = ()
@@ -111,6 +144,11 @@ class ServiceConfigUpdateView(LoginRequiredMixin, UpdateView):
         'api_key',
         'api_secret',
         'base_url',
+        'template_id',
+        'sign_name',
+        'request_rate_limit',
+        'max_audio_size',
+        'supported_formats',
         'extra_config',
         'is_enabled',
         'description']
@@ -119,15 +157,19 @@ class ServiceConfigUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        context['service'] = self.object
         context['categories'] = ServiceCategory.CHOICES
         context['sms_providers'] = ServiceProvider.SMS_PROVIDERS
         context['stt_providers'] = ServiceProvider.STT_PROVIDERS
         context['tts_providers'] = ServiceProvider.TTS_PROVIDERS
         context['ocr_providers'] = ServiceProvider.OCR_PROVIDERS
         context['ai_providers'] = ServiceProvider.AI_PROVIDERS
+        context['current_category'] = self.object.category
+        context['current_provider'] = self.object.provider
         return context
 
     def form_valid(self, form):
+        form.instance.status = 'active' if form.instance.is_enabled else 'inactive'
         response = super().form_valid(form)
         if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({
@@ -158,17 +200,15 @@ class ServiceConfigDeleteView(LoginRequiredMixin, DeleteView):
 
     def delete(self, request, *args, **kwargs):
         self.object = self.get_object()
-        self.get_success_url()
         self.object.delete()
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({
-                'success': True,
-                'message': '服务配置删除成功！'
-            })
-        return super().delete(request, *args, **kwargs)
+        return JsonResponse({
+            'code': 0,
+            'msg': '服务配置删除成功！',
+            'success': True,
+            'message': '服务配置删除成功！'
+        })
 
 
-@csrf_exempt
 def service_config_toggle(request):
     """切换服务配置状态"""
     if not request.user.is_authenticated:
@@ -197,14 +237,13 @@ def service_config_toggle(request):
         return JsonResponse({'code': 1, 'msg': f'更新失败: {str(e)}'})
 
 
-@csrf_exempt
-def service_config_test(request):
+def service_config_test(request, pk=None):
     """测试服务配置连接"""
     if not request.user.is_authenticated:
         return JsonResponse({'status': 'error', 'message': '请先登录'})
 
     try:
-        pk = request.POST.get('pk')
+        pk = pk or request.POST.get('pk')
         if not pk:
             return JsonResponse({'status': 'error', 'message': '配置ID不能为空'})
 
@@ -334,6 +373,10 @@ def test_tts_service(provider, api_key, api_secret, base_url, headers):
         if not base_url:
             base_url = 'https://<region>.tts.speech.microsoft.com'
         return {'status': 'success', 'message': '文本转语音服务配置正确（Azure）'}
+    elif provider == 'custom':
+        if not base_url:
+            return {'status': 'error', 'message': '自定义TTS服务必须配置接口地址'}
+        return {'status': 'success', 'message': '文本转语音服务配置正确（自定义/内网网关）'}
     return {'status': 'success', 'message': '文本转语音服务配置正确'}
 
 
@@ -356,8 +399,6 @@ def test_ocr_service(provider, api_key, api_secret, base_url, headers):
 
 def test_ai_service(provider, api_key, api_secret, base_url, headers):
     """测试AI服务"""
-    test_messages = [{"role": "user", "content": "Hello"}]
-
     if provider == 'openai':
         if not base_url:
             base_url = 'https://api.openai.com/v1'
@@ -389,7 +430,20 @@ def test_ai_service(provider, api_key, api_secret, base_url, headers):
     return {'status': 'success', 'message': 'AI服务配置正确'}
 
 
-@csrf_exempt
+def get_provider_options(category):
+    if category == ServiceCategory.SMS:
+        return ServiceProvider.SMS_PROVIDERS
+    if category == ServiceCategory.STT:
+        return ServiceProvider.STT_PROVIDERS
+    if category == ServiceCategory.TTS:
+        return ServiceProvider.TTS_PROVIDERS
+    if category == ServiceCategory.OCR:
+        return ServiceProvider.OCR_PROVIDERS
+    if category == ServiceCategory.AI:
+        return ServiceProvider.AI_PROVIDERS
+    return []
+
+
 def get_providers_by_category(request):
     """根据服务类别获取提供商列表"""
     category = request.GET.get('category', '')
@@ -397,18 +451,7 @@ def get_providers_by_category(request):
     if not category:
         return JsonResponse({'providers': []})
 
-    if category == ServiceCategory.SMS:
-        providers = ServiceProvider.SMS_PROVIDERS
-    elif category == ServiceCategory.STT:
-        providers = ServiceProvider.STT_PROVIDERS
-    elif category == ServiceCategory.TTS:
-        providers = ServiceProvider.TTS_PROVIDERS
-    elif category == ServiceCategory.OCR:
-        providers = ServiceProvider.OCR_PROVIDERS
-    elif category == ServiceCategory.AI:
-        providers = ServiceProvider.AI_PROVIDERS
-    else:
-        providers = []
+    providers = get_provider_options(category)
 
     provider_list = [{'value': value, 'text': text}
                      for value, text in providers]

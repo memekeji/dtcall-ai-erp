@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据库配置</title>
+    <link rel="stylesheet" href="/static/layui/css/layui.css">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Arial, "Microsoft YaHei", sans-serif;
+            color: #1f2937;
+            background: #f4f7fb;
+        }
+
+        .setup-shell {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 16px;
+        }
+
+        .setup-panel {
+            width: min(980px, 100%);
+            background: #fff;
+            border: 1px solid #e5eaf3;
+            border-radius: 8px;
+            box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+            overflow: hidden;
+        }
+
+        .setup-header {
+            padding: 24px 28px;
+            border-bottom: 1px solid #e5eaf3;
+            background: #f8fbff;
+        }
+
+        .setup-header h1 {
+            margin: 0 0 8px;
+            font-size: 22px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .setup-header p {
+            margin: 0;
+            color: #64748b;
+            line-height: 1.7;
+        }
+
+        .setup-body {
+            padding: 28px;
+        }
+
+        .setup-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 18px 20px;
+        }
+
+        .setup-grid .full {
+            grid-column: 1 / -1;
+        }
+
+        .layui-form-label {
+            width: 128px;
+            padding-left: 0;
+            text-align: left;
+        }
+
+        .layui-input-block {
+            margin-left: 128px;
+        }
+
+        .setup-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-top: 24px;
+            padding-top: 22px;
+            border-top: 1px solid #edf1f7;
+        }
+
+        .status-line {
+            padding: 12px 14px;
+            margin-bottom: 18px;
+            border-radius: 6px;
+            line-height: 1.6;
+        }
+
+        .status-warning {
+            color: #92400e;
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+        }
+
+        .status-error {
+            color: #991b1b;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+        }
+
+        .status-success {
+            color: #065f46;
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+        }
+
+        .field-hint {
+            margin-top: 6px;
+            color: #94a3b8;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 760px) {
+            .setup-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .layui-form-label {
+                float: none;
+                width: auto;
+                display: block;
+                padding-bottom: 8px;
+            }
+
+            .layui-input-block {
+                margin-left: 0;
+            }
+
+            .setup-body,
+            .setup-header {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="setup-shell">
+        <section class="setup-panel">
+            <header class="setup-header">
+                <h1>数据库配置</h1>
+                <p>当前数据库不可用或未检测到基础表，请配置连接并执行初始化迁移。</p>
+            </header>
+
+            <div class="setup-body">
+                {% if success %}
+                    <div class="status-line status-success">
+                        数据库连接验证和基础迁移已完成。<a href="/">进入系统</a>
+                    </div>
+                {% endif %}
+
+                {% if state.reason %}
+                    <div class="status-line status-warning">
+                        当前连接状态：{{ state.reason }}
+                    </div>
+                {% elif not state.has_tables %}
+                    <div class="status-line status-warning">
+                        当前数据库可连接，但尚未检测到基础数据表。
+                    </div>
+                {% endif %}
+
+                {% for error in errors %}
+                    <div class="status-line status-error">{{ error }}</div>
+                {% endfor %}
+
+                <form class="layui-form" method="post" action="/setup/database/">
+                    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+
+                    <div class="layui-form-item full" data-db-field="url">
+                        <label class="layui-form-label" for="DATABASE_URL">DATABASE_URL</label>
+                        <div class="layui-input-block">
+                            <input id="DATABASE_URL" type="text" name="DATABASE_URL" value="{{ values.DATABASE_URL }}" placeholder="postgresql://user:password@127.0.0.1:5432/dtcall" class="layui-input">
+                            <div class="field-hint">填写后优先使用该连接串；留空时使用下方分项配置。</div>
+                        </div>
+                    </div>
+
+                    <div class="setup-grid">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label" for="DATABASE_ENGINE">数据库类型</label>
+                            <div class="layui-input-block">
+                                <select id="DATABASE_ENGINE" name="DATABASE_ENGINE" lay-filter="databaseEngine">
+                                    <option value="postgresql" {% if values.DATABASE_ENGINE == 'postgresql' or values.DATABASE_ENGINE == 'postgres' or values.DATABASE_ENGINE == 'pgsql' %}selected{% endif %}>PostgreSQL</option>
+                                    <option value="mysql" {% if values.DATABASE_ENGINE == 'mysql' %}selected{% endif %}>MySQL</option>
+                                    <option value="mariadb" {% if values.DATABASE_ENGINE == 'mariadb' %}selected{% endif %}>MariaDB</option>
+                                    <option value="sqlite" {% if values.DATABASE_ENGINE == 'sqlite' or values.DATABASE_ENGINE == 'sqlite3' %}selected{% endif %}>SQLite</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="layui-form-item" data-db-field="host">
+                            <label class="layui-form-label" for="DATABASE_HOST">主机</label>
+                            <div class="layui-input-block">
+                                <input id="DATABASE_HOST" type="text" name="DATABASE_HOST" value="{{ values.DATABASE_HOST }}" placeholder="127.0.0.1" class="layui-input">
+                            </div>
+                        </div>
+
+                        <div class="layui-form-item" data-db-field="port">
+                            <label class="layui-form-label" for="DATABASE_PORT">端口</label>
+                            <div class="layui-input-block">
+                                <input id="DATABASE_PORT" type="text" name="DATABASE_PORT" value="{{ values.DATABASE_PORT }}" placeholder="自动匹配默认端口" class="layui-input">
+                            </div>
+                        </div>
+
+                        <div class="layui-form-item">
+                            <label class="layui-form-label" for="DATABASE_NAME" id="DATABASE_NAME_LABEL">数据库名</label>
+                            <div class="layui-input-block">
+                                <input id="DATABASE_NAME" type="text" name="DATABASE_NAME" value="{{ values.DATABASE_NAME }}" placeholder="dtcall" class="layui-input">
+                                <div class="field-hint" id="DATABASE_NAME_HINT">PostgreSQL、MySQL 或 MariaDB 的数据库名称。</div>
+                            </div>
+                        </div>
+
+                        <div class="layui-form-item" data-db-field="user">
+                            <label class="layui-form-label" for="DATABASE_USER">用户名</label>
+                            <div class="layui-input-block">
+                                <input id="DATABASE_USER" type="text" name="DATABASE_USER" value="{{ values.DATABASE_USER }}" class="layui-input">
+                            </div>
+                        </div>
+
+                        <div class="layui-form-item" data-db-field="password">
+                            <label class="layui-form-label" for="DATABASE_PASSWORD">密码</label>
+                            <div class="layui-input-block">
+                                <input id="DATABASE_PASSWORD" type="password" name="DATABASE_PASSWORD" value="{{ values.DATABASE_PASSWORD }}" autocomplete="new-password" class="layui-input">
+                            </div>
+                        </div>
+
+                        <div class="layui-form-item" data-db-field="timeout">
+                            <label class="layui-form-label" for="DATABASE_CONNECT_TIMEOUT">超时秒数</label>
+                            <div class="layui-input-block">
+                                <input id="DATABASE_CONNECT_TIMEOUT" type="number" min="1" name="DATABASE_CONNECT_TIMEOUT" value="{{ values.DATABASE_CONNECT_TIMEOUT }}" class="layui-input">
+                            </div>
+                        </div>
+
+                        <div class="layui-form-item" data-db-field="pool">
+                            <label class="layui-form-label" for="DATABASE_CONN_MAX_AGE">连接复用</label>
+                            <div class="layui-input-block">
+                                <input id="DATABASE_CONN_MAX_AGE" type="number" min="0" name="DATABASE_CONN_MAX_AGE" value="{{ values.DATABASE_CONN_MAX_AGE }}" class="layui-input">
+                            </div>
+                        </div>
+
+                        <div class="layui-form-item" data-db-field="mysql">
+                            <label class="layui-form-label" for="MYSQL_CHARSET">MySQL字符集</label>
+                            <div class="layui-input-block">
+                                <input id="MYSQL_CHARSET" type="text" name="MYSQL_CHARSET" value="{{ values.MYSQL_CHARSET }}" placeholder="utf8mb4" class="layui-input">
+                            </div>
+                        </div>
+
+                        <div class="layui-form-item" data-db-field="health">
+                            <label class="layui-form-label" for="DATABASE_CONN_HEALTH_CHECKS">健康检查</label>
+                            <div class="layui-input-block">
+                                <select id="DATABASE_CONN_HEALTH_CHECKS" name="DATABASE_CONN_HEALTH_CHECKS">
+                                    <option value="True" {% if values.DATABASE_CONN_HEALTH_CHECKS != 'False' %}selected{% endif %}>开启</option>
+                                    <option value="False" {% if values.DATABASE_CONN_HEALTH_CHECKS == 'False' %}selected{% endif %}>关闭</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="layui-form-item full" data-db-field="mysql">
+                            <label class="layui-form-label" for="MYSQL_INIT_COMMAND">MySQL模式</label>
+                            <div class="layui-input-block">
+                                <input id="MYSQL_INIT_COMMAND" type="text" name="MYSQL_INIT_COMMAND" value="{{ values.MYSQL_INIT_COMMAND }}" placeholder="SET sql_mode='STRICT_TRANS_TABLES'" class="layui-input">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="setup-actions">
+                        <button type="submit" class="layui-btn layui-btn-normal">保存配置并验证迁移</button>
+                        <a class="layui-btn layui-btn-primary" href="/">返回系统</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+
+    <script src="/static/layui/layui.js"></script>
+    <script>
+        layui.use(['form'], function() {
+            var form = layui.form;
+            var engineSelect = document.getElementById('DATABASE_ENGINE');
+            var setupForm = document.querySelector('form.layui-form');
+            var dbNameInput = document.getElementById('DATABASE_NAME');
+            var dbNameLabel = document.getElementById('DATABASE_NAME_LABEL');
+            var dbNameHint = document.getElementById('DATABASE_NAME_HINT');
+            var sqlFields = ['url', 'host', 'port', 'user', 'password', 'timeout', 'pool', 'health'];
+            var sqliteOnlyEmptyFields = [
+                'DATABASE_URL',
+                'DATABASE_HOST',
+                'DATABASE_PORT',
+                'DATABASE_USER',
+                'DATABASE_PASSWORD',
+                'DATABASE_CONNECT_TIMEOUT',
+                'DATABASE_CONN_MAX_AGE',
+                'MYSQL_CHARSET',
+                'MYSQL_INIT_COMMAND'
+            ];
+
+            function normalizedEngine() {
+                return (engineSelect.value || '').toLowerCase();
+            }
+
+            function isSqlite() {
+                return normalizedEngine() === 'sqlite' || normalizedEngine() === 'sqlite3';
+            }
+
+            function isMysqlFamily() {
+                var engine = normalizedEngine();
+                return engine === 'mysql' || engine === 'mariadb';
+            }
+
+            function setFieldGroupVisible(group, visible) {
+                document.querySelectorAll('[data-db-field="' + group + '"]').forEach(function(field) {
+                    field.style.display = visible ? '' : 'none';
+                });
+            }
+
+            function valueOf(id) {
+                var input = document.getElementById(id);
+                return input ? input.value.trim() : '';
+            }
+
+            function setValue(id, value) {
+                var input = document.getElementById(id);
+                if (input) {
+                    input.value = value;
+                }
+            }
+
+            function clearSqliteIgnoredFields() {
+                sqliteOnlyEmptyFields.forEach(function(id) {
+                    setValue(id, '');
+                });
+                setValue('DATABASE_CONN_HEALTH_CHECKS', 'False');
+            }
+
+            function applyDatabaseMode() {
+                var sqlite = isSqlite();
+                sqlFields.forEach(function(group) {
+                    setFieldGroupVisible(group, !sqlite);
+                });
+                setFieldGroupVisible('mysql', !sqlite && isMysqlFamily());
+
+                if (sqlite) {
+                    clearSqliteIgnoredFields();
+                    if (!valueOf('DATABASE_NAME') || valueOf('DATABASE_NAME') === 'dtcall') {
+                        dbNameInput.value = 'db.sqlite3';
+                    }
+                    dbNameLabel.textContent = 'SQLite文件';
+                    dbNameInput.placeholder = 'db.sqlite3';
+                    dbNameHint.textContent = '留空时使用 db.sqlite3；可填写相对路径或绝对路径，文件不存在会自动创建。';
+                } else {
+                    if (!valueOf('DATABASE_NAME') || valueOf('DATABASE_NAME') === 'db.sqlite3') {
+                        dbNameInput.value = 'dtcall';
+                    }
+                    dbNameLabel.textContent = '数据库名';
+                    dbNameInput.placeholder = 'dtcall';
+                    dbNameHint.textContent = 'PostgreSQL、MySQL 或 MariaDB 的数据库名称。';
+                    if (!valueOf('DATABASE_CONNECT_TIMEOUT')) {
+                        setValue('DATABASE_CONNECT_TIMEOUT', '10');
+                    }
+                    if (!valueOf('DATABASE_CONN_MAX_AGE')) {
+                        setValue('DATABASE_CONN_MAX_AGE', '1800');
+                    }
+                    if (!valueOf('MYSQL_CHARSET')) {
+                        setValue('MYSQL_CHARSET', 'utf8mb4');
+                    }
+                }
+                form.render();
+            }
+
+            engineSelect.addEventListener('change', applyDatabaseMode);
+            form.on('select(databaseEngine)', applyDatabaseMode);
+            setupForm.addEventListener('submit', function() {
+                if (isSqlite()) {
+                    clearSqliteIgnoredFields();
+                    if (!valueOf('DATABASE_NAME')) {
+                        dbNameInput.value = 'db.sqlite3';
+                    }
+                }
+            });
+            applyDatabaseMode();
+        });
+    </script>
+</body>
+</html>

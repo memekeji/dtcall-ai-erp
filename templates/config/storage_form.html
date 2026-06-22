@@ -441,6 +441,7 @@
     </div>
 
     <script src="/static/layui/layui.js"></script>
+    <script src="/static/js/common.js"></script>
     <script>
     layui.use(['form', 'element', 'layer'], function(){
         var form = layui.form;
@@ -577,13 +578,13 @@
             return true;
         });
         
-        function getCookie(name) {
+        var getCookie = (window.DTCallCommon && window.DTCallCommon.getCookie) || function(name) {
             var arr, reg = new RegExp("(^| )" + name + "=([^;]*)(;|$)");
             if (arr = document.cookie.match(reg)) {
                 return unescape(arr[2]);
             }
             return null;
-        }
+        };
         
         var initialStorageType = document.getElementById('storageTypeInput').value;
         if (initialStorageType) {

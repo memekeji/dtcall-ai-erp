@@ -94,9 +94,9 @@
                     <div class="layui-card-header section-header">
                         <span><h3>服务接口配置</h3></span>
                         <div>
-                            <a href="{% url 'system:service_config_add' %}" class="layui-btn layui-btn-sm layui-btn-normal">
+                            <button type="button" onclick="openServiceForm()" class="layui-btn layui-btn-sm layui-btn-normal">
                                 <i class="layui-icon layui-icon-add-1"></i> 新增配置
-                            </a>
+                            </button>
                             <a href="{% url 'system:config_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">
                                 <i class="layui-icon layui-icon-return"></i> 返回系统配置
                             </a>
@@ -143,7 +143,7 @@
                                         {% endif %}
                                     </div>
                                     <div class="storage-actions">
-                                        <a href="{% url 'system:service_config_edit' service.pk %}" class="layui-btn layui-btn-xs">编辑</a>
+                                        <button type="button" class="layui-btn layui-btn-xs" onclick="openServiceForm({{ service.pk }})">编辑</button>
                                         {% if service.is_enabled %}
                                         <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="toggleService({{ service.pk }}, false)">禁用</button>
                                         {% else %}
@@ -170,10 +170,25 @@
     </div>
 
     <script src="/static/layui/layui.js"></script>
+    <script src="/static/js/common.js"></script>
     <script>
     layui.use(['layer', 'form'], function(){
         var layer = layui.layer;
         var form = layui.form;
+
+        window.openServiceForm = function(pk) {
+            layer.open({
+                type: 2,
+                title: pk ? '编辑服务配置' : '新增服务配置',
+                area: ['68%', '100%'],
+                offset: 'r',
+                shadeClose: true,
+                content: pk ? '/system/config/service/' + pk + '/edit/' : '/system/config/service/add/',
+                end: function() {
+                    location.reload();
+                }
+            });
+        };
         
         window.toggleService = function(pk, isEnabled) {
             var statusText = isEnabled ? '启用' : '禁用';
@@ -256,13 +271,13 @@
             });
         };
         
-        function getCookie(name) {
+        var getCookie = (window.DTCallCommon && window.DTCallCommon.getCookie) || function(name) {
             var arr, reg = new RegExp('(^| )' + name + '=([^;]*)(;|$)');
             if (arr = document.cookie.match(reg)) {
                 return unescape(arr[2]);
             }
             return null;
-        }
+        };
     });
     </script>
 </body>
