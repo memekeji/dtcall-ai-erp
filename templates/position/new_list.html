@@ -44,13 +44,19 @@
             </div>
         </div>
         <div class="toolbar-info">
-            <span class="total-count">共 {{ totalCount }} 个岗位</span>
+            <span class="total-count">共 [[ totalCount ]] 个岗位</span>
         </div>
     </div>
 
     <!-- 表格容器 -->
     <div class="table-container">
-        <table class="layui-table">
+        <table class="layui-table position-table">
+            <colgroup>
+                <col>
+                <col style="width: 120px;">
+                <col style="width: 190px;">
+                <col style="width: 200px;">
+            </colgroup>
             <thead>
                 <tr>
                     <th>岗位名称</th>
@@ -79,7 +85,7 @@
                         class="position-row"
                         :style="{ animationDelay: index * 50 + 'ms' }"
                     >
-                        <td>{{ position.title }}</td>
+                        <td>[[ position.title ]]</td>
                         <td>
                             <span 
                                 class="status-badge"
@@ -89,39 +95,31 @@
                                 <template v-else>禁用</template>
                             </span>
                         </td>
-                        <td>{{ position.create_time }}</td>
+                        <td>[[ position.create_time ]]</td>
                         <td>
                             <div class="action-buttons">
                                 <button 
-                                    class="action-btn btn-edit" 
+                                    type="button"
+                                    class="layui-btn layui-btn-xs layui-btn-normal"
                                     @click="openEditForm(position)"
-                                    title="编辑"
-                                >
-                                    <i class="fa fa-pencil"></i>
-                                </button>
+                                >编辑</button>
                                 <button 
                                     v-if="position.status"
-                                    class="action-btn btn-disable" 
+                                    type="button"
+                                    class="layui-btn layui-btn-xs layui-btn-warm"
                                     @click="disablePosition(position)"
-                                    title="禁用"
-                                >
-                                    <i class="fa fa-ban"></i>
-                                </button>
+                                >禁用</button>
                                 <button 
                                     v-else
-                                    class="action-btn btn-enable" 
+                                    type="button"
+                                    class="layui-btn layui-btn-xs layui-btn-primary"
                                     @click="enablePosition(position)"
-                                    title="启用"
-                                >
-                                    <i class="fa fa-check"></i>
-                                </button>
+                                >启用</button>
                                 <button 
-                                    class="action-btn btn-delete" 
+                                    type="button"
+                                    class="layui-btn layui-btn-xs layui-btn-danger"
                                     @click="deletePosition(position)"
-                                    title="删除"
-                                >
-                                    <i class="fa fa-trash"></i>
-                                </button>
+                                >删除</button>
                             </div>
                         </td>
                     </tr>
@@ -133,7 +131,7 @@
     <!-- 分页 -->
     <div class="pagination-container" v-if="totalCount > 0">
         <div class="pagination-info">
-            显示第 {{ paginationStart }} 到第 {{ paginationEnd }} 条，共 {{ totalCount }} 条
+            显示第 [[ paginationStart ]] 到第 [[ paginationEnd ]] 条，共 [[ totalCount ]] 条
         </div>
         <div class="pagination-controls">
             <button 
@@ -152,7 +150,7 @@
             </button>
             
             <span class="pagination-page-info">
-                第 {{ currentPage }} / {{ totalPages }} 页
+                第 [[ currentPage ]] / [[ totalPages ]] 页
             </span>
             
             <button 
@@ -184,10 +182,10 @@
             <div class="confirm-dialog" @click.stop>
                 <div class="confirm-header">
                     <i :class="confirmConfig.icon"></i>
-                    <span>{{ confirmConfig.title }}</span>
+                    <span>[[ confirmConfig.title ]]</span>
                 </div>
                 <div class="confirm-body">
-                    {{ confirmConfig.message }}
+                    [[ confirmConfig.message ]]
                 </div>
                 <div class="confirm-footer">
                     <button class="btn-cancel" @click="hideConfirmDialog">取消</button>
@@ -207,7 +205,7 @@
     <transition name="slide-up">
         <div class="toast-message" v-if="toastMessage">
             <i :class="toastConfig.icon"></i>
-            <span>{{ toastMessage }}</span>
+            <span>[[ toastMessage ]]</span>
         </div>
     </transition>
 </div>
@@ -530,6 +528,7 @@
     };
     
     const app = createApp(PositionApp);
+    app.config.compilerOptions.delimiters = ['[[', ']]'];
     app.mount('#position-app');
     
     // 初始化LayUI模块
@@ -794,56 +793,22 @@
     /* 操作按钮组 */
     .action-buttons {
         display: flex;
+        flex-wrap: nowrap;
         gap: 6px;
         justify-content: flex-end;
-    }
-    
-    .action-btn {
-        padding: 4px 12px;
-        border-radius: var(--border-radius);
-        font-size: 12px;
-        border: none;
-        cursor: pointer;
-        transition: var(--transition);
-        display: flex;
         align-items: center;
-        gap: 4px;
+        min-width: 168px;
     }
     
-    .btn-edit {
-        background-color: #ecfdf5;
-        color: var(--success);
+    .action-buttons .layui-btn + .layui-btn {
+        margin-left: 0;
     }
     
-    .btn-edit:hover {
-        background-color: #d1fae5;
-    }
-    
-    .btn-disable {
-        background-color: #fef3c7;
-        color: var(--warning);
-    }
-    
-    .btn-disable:hover {
-        background-color: #fde68a;
-    }
-    
-    .btn-enable {
-        background-color: #dbeafe;
-        color: var(--primary);
-    }
-    
-    .btn-enable:hover {
-        background-color: #bfdbfe;
-    }
-    
-    .btn-delete {
-        background-color: #fee2e2;
-        color: var(--danger);
-    }
-    
-    .btn-delete:hover {
-        background-color: #fecaca;
+    .action-buttons .layui-btn-xs {
+        height: 24px;
+        line-height: 24px;
+        padding: 0 8px;
+        border-radius: 4px;
     }
     
     /* 分页 */

@@ -138,32 +138,7 @@
         </div>
     </div>
 <script>
-        function openRightPopup(title, url) {
-            layui.use(['layer'], function () {
-                var layer = layui.layer;
-                layer.open({
-                    type: 2,
-                    title: title,
-                    shadeClose: false,
-                    shade: 0.3,
-                    maxmin: true,
-                    area: ['80%', '100%'],
-                    offset: 'r',
-                    anim: 2,
-                    content: url,
-                    success: function(layero, index) {
-                        layero.css({
-                            'right': '0',
-                            'top': '0',
-                            'height': '100%'
-                        });
-                    },
-                    end: function() {
-                        window.location.reload();
-                    }
-                });
-            });
-        }
+        {% include "production/_right_popup_function.html" %}
 </script>
 
     <!-- 注入的消息提示脚本 -->

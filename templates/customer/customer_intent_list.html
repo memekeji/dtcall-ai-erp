@@ -233,7 +233,7 @@
                         layer.msg(res.msg || '排序更新失败');
                     }
                 }).fail(function(jqXHR, textStatus, errorThrown) {
-                    console.log('AJAX error:', textStatus, errorThrown);
+                    console.error('AJAX error:', textStatus, errorThrown);
                     layer.msg('排序更新失败: ' + textStatus);
                 });
             }
@@ -241,11 +241,9 @@
             // 删除意向
             function deleteIntent(id) {
                 var url = '{% url "customer:customer_intent_delete" 0 %}'.replace('0', id);
-                console.log('Delete URL:', url);
                 $.post(url, {
                     csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
                 }, function(res) {
-                    console.log('Delete response:', res);
                     if (res.code === 0) {
                         layer.msg('删除成功');
                         table.reload('intentTable');
@@ -253,8 +251,8 @@
                         layer.msg(res.msg || '删除失败');
                     }
                 }).fail(function(jqXHR, textStatus, errorThrown) {
-                    console.log('AJAX error:', textStatus, errorThrown);
-                    console.log('Response:', jqXHR.responseText);
+                    console.error('AJAX error:', textStatus, errorThrown);
+                    console.error('Response:', jqXHR.responseText);
                     layer.msg('删除失败: ' + textStatus);
                 });
             }
@@ -399,7 +397,7 @@
                             layer.msg(res.msg || '排序更新失败');
                         }
                     }).fail(function(jqXHR, textStatus, errorThrown) {
-                        console.log('AJAX error:', textStatus, errorThrown);
+                        console.error('AJAX error:', textStatus, errorThrown);
                         layer.msg('排序更新失败: ' + textStatus);
                     });
                     

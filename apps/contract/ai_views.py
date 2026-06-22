@@ -2,6 +2,7 @@ import logging
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from .models import Contract
+from apps.ai.services.business_result import build_business_ai_result
 from apps.ai.utils.analysis_tools import default_contract_analysis_tool
 
 logger = logging.getLogger(__name__)
@@ -21,8 +22,15 @@ def ai_contract_risk_analysis(request, contract_id):
         }
         
         result = default_contract_analysis_tool.analyze_risk(contract_data)
+        normalized_result = build_business_ai_result(
+            result,
+            scenario='contract_risk_analysis',
+            source_refs=[{'type': 'contract', 'id': contract.id}],
+            request=request,
+            raw_input=contract_data,
+        )
         
-        return JsonResponse({'code': 0, 'msg': '分析成功', 'data': result})
+        return JsonResponse({'code': 0, 'msg': '分析成功', 'data': normalized_result})
     except Contract.DoesNotExist:
         return JsonResponse({'code': 404, 'msg': '合同不存在'}, status=404)
     except Exception as e:
@@ -37,9 +45,17 @@ def ai_contract_term_extraction(request, contract_id):
     try:
         contract = Contract.objects.get(id=contract_id, delete_time=0)
         
-        result = default_contract_analysis_tool.extract_key_terms(contract.content or contract.remark)
+        content = contract.content or contract.remark
+        result = default_contract_analysis_tool.extract_key_terms(content)
+        normalized_result = build_business_ai_result(
+            result,
+            scenario='contract_term_extraction',
+            source_refs=[{'type': 'contract', 'id': contract.id}],
+            request=request,
+            raw_input={'content_length': len(content or '')},
+        )
         
-        return JsonResponse({'code': 0, 'msg': '提取成功', 'data': result})
+        return JsonResponse({'code': 0, 'msg': '提取成功', 'data': normalized_result})
     except Contract.DoesNotExist:
         return JsonResponse({'code': 404, 'msg': '合同不存在'}, status=404)
     except Exception as e:

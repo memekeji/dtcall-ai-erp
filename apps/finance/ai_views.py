@@ -2,15 +2,24 @@ from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views import View
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
 from .models import Expense
 import json
 from django.shortcuts import get_object_or_404
 
 # 导入AI分析工具
+from apps.ai.services.business_result import build_business_ai_result
 from apps.ai.utils.analysis_tools import default_expense_analysis_tool
+
+
+def _normalize_expense_result(raw_result, scenario, expense, request=None, raw_input=None):
+    return build_business_ai_result(
+        raw_result,
+        scenario=scenario,
+        source_refs=[{'type': 'expense', 'id': expense.id}],
+        request=request,
+        raw_input=raw_input,
+    )
 
 
 class AIExpenseReviewView(LoginRequiredMixin, View):
@@ -18,7 +27,6 @@ class AIExpenseReviewView(LoginRequiredMixin, View):
     login_url = '/user/login/'
     redirect_field_name = 'next'
 
-    @method_decorator(csrf_exempt)
     def post(self, request):
         try:
             # 获取报销单ID
@@ -54,11 +62,18 @@ class AIExpenseReviewView(LoginRequiredMixin, View):
                 user_comment=user_comment,
                 user_id=request.user.id
             )
+            normalized_result = _normalize_expense_result(
+                analysis_result,
+                'expense_review',
+                expense,
+                request=request,
+                raw_input=expense_data,
+            )
 
             # 返回AI审核建议
             return JsonResponse({
                 'code': 0,
-                'data': analysis_result
+                'data': normalized_result
             })
         except Exception as e:
             return JsonResponse({
@@ -72,7 +87,6 @@ class AIExpenseAnomalyDetectionView(LoginRequiredMixin, View):
     login_url = '/user/login/'
     redirect_field_name = 'next'
 
-    @method_decorator(csrf_exempt)
     def post(self, request):
         try:
             # 获取报销单ID
@@ -101,11 +115,18 @@ class AIExpenseAnomalyDetectionView(LoginRequiredMixin, View):
                 expense_data=expense_data,
                 user_id=request.user.id
             )
+            normalized_result = _normalize_expense_result(
+                detection_result,
+                'expense_anomaly_detection',
+                expense,
+                request=request,
+                raw_input=expense_data,
+            )
 
             # 返回异常检测结果
             return JsonResponse({
                 'code': 0,
-                'data': detection_result
+                'data': normalized_result
             })
         except Exception as e:
             return JsonResponse({
@@ -149,11 +170,18 @@ def ai_expense_review(request, expense_id):
             user_comment='',
             user_id=request.user.id
         )
+        normalized_result = _normalize_expense_result(
+            analysis_result,
+            'expense_review',
+            expense,
+            request=request,
+            raw_input=expense_data,
+        )
 
         # 返回AI审核建议
         return JsonResponse({
             'code': 0,
-            'data': analysis_result
+            'data': normalized_result
         })
     except Exception as e:
         return JsonResponse({
@@ -191,11 +219,18 @@ def ai_expense_anomaly_detection(request, expense_id):
             expense_data=expense_data,
             user_id=request.user.id
         )
+        normalized_result = _normalize_expense_result(
+            detection_result,
+            'expense_anomaly_detection',
+            expense,
+            request=request,
+            raw_input=expense_data,
+        )
 
         # 返回异常检测结果
         return JsonResponse({
             'code': 0,
-            'data': detection_result
+            'data': normalized_result
         })
     except Exception as e:
         return JsonResponse({

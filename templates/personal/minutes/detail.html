@@ -234,51 +234,21 @@
             } else if (['.mp3', '.wav', '.ogg', '.flac'].includes(extension)) {
                 // 音频文件预览
                 layer.close(loadingIndex);
-                showAudioPreview(fileName, filePath, getMimeType(extension));
+                showAudioPreview(fileName, filePath, OfficePreviewUtils.getMimeType(extension));
             } else if (['.mp4', '.webm', '.ogg', '.avi'].includes(extension)) {
                 // 视频文件预览
                 layer.close(loadingIndex);
-                showVideoPreview(fileName, filePath, getMimeType(extension));
+                showVideoPreview(fileName, filePath, OfficePreviewUtils.getMimeType(extension));
             } else if (['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'].includes(extension)) {
                 // Office文档使用统一预览组件
                 layer.close(loadingIndex);
-                
-                // 构建预览数据对象
-                var previewData = {
-                    name: fileName,
-                    office_type: extension.substring(1).toUpperCase(),
-                    file_path: filePath,
-                    // 由于是直接文件路径，我们需要模拟preview_options数据
-                    preview_options: [{
-                        name: '文档内容',
-                        type: 'iframe',
-                        content: filePath
-                    }]
-                };
-                
-                // 调用统一预览组件
-                standardOfficePreview(previewData);
+                standardOfficePreview(OfficePreviewUtils.buildOfficePreviewData(fileName, filePath, extension));
             } else {
                 // 不支持的文件类型
                 layer.close(loadingIndex);
                 layer.msg('不支持此文件类型的预览', {icon: 0});
             }
         });
-    }
-
-    // 获取文件MIME类型
-    function getMimeType(extension) {
-        const mimeTypes = {
-            '.mp3': 'audio/mpeg',
-            '.wav': 'audio/wav',
-            '.ogg': 'audio/ogg',
-            '.flac': 'audio/flac',
-            '.mp4': 'video/mp4',
-            '.webm': 'video/webm',
-            '.ogg': 'video/ogg',
-            '.avi': 'video/avi'
-        };
-        return mimeTypes[extension] || 'application/octet-stream';
     }
 
     // 显示文本预览
@@ -480,16 +450,5 @@
         });
     }
 
-    // HTML转义函数
-    function escapeHtml(text) {
-        var map = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;'
-        };
-        return text.replace(/[&<>"']/g, function(m) { return map[m]; });
-    }
 </script>
 {% endblock script %}

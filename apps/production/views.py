@@ -96,6 +96,63 @@ def _build_copy_code(model_class, source_code):
     return candidate_code
 
 
+def _render_paginated_list(
+        request,
+        queryset,
+        template_name,
+        model_name,
+        search_fields=None,
+        default_order='-create_time',
+        extra_context=None):
+    """渲染标准分页列表页。"""
+    page_obj, context = _get_paginated_queryset(
+        request,
+        queryset,
+        search_fields=search_fields,
+        default_order=default_order
+    )
+    context['model_name'] = model_name
+    if extra_context:
+        context.update(extra_context)
+    return render(request, template_name, context)
+
+
+def _render_model_form(
+        request,
+        form_class,
+        template_name,
+        success_route,
+        success_label,
+        model_class=None,
+        pk=None,
+        extra_context=None):
+    """渲染标准新增/编辑表单页。"""
+    instance = get_object_or_404(model_class, pk=pk) if model_class and pk else None
+    action = '编辑' if instance else '添加'
+
+    if request.method == 'POST':
+        form = form_class(request.POST, instance=instance)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'{success_label}{action}成功')
+            return redirect(success_route)
+    else:
+        form = form_class(instance=instance)
+
+    context = {'form': form, 'action': action}
+    if extra_context:
+        context.update(extra_context)
+    return render(request, template_name, context)
+
+
+def _delete_model_object(request, model_class, pk, success_route, success_label):
+    """删除标准模型对象并跳回列表页。"""
+    obj = get_object_or_404(model_class, pk=pk)
+    obj.delete()
+    messages.success(request, f'{success_label}删除成功')
+    return redirect(success_route)
+
+
 def baseinfo_index(request):
     """基础信息首页"""
     context = {
@@ -109,151 +166,127 @@ def baseinfo_index(request):
 
 def procedure_list(request):
     """基本工序列表"""
-    procedures = ProductionProcedure.objects.all()
-    page_obj, context = _get_paginated_queryset(
-        request, procedures,
+    return _render_paginated_list(
+        request,
+        ProductionProcedure.objects.all(),
+        'production/procedure/list.html',
+        '基本工序',
         search_fields=['name', 'code'],
         default_order='-create_time'
     )
-    context['model_name'] = '基本工序'
-    return render(request, 'production/procedure/list.html', context)
 
 
 def procedure_add(request):
     """添加工序"""
-    if request.method == 'POST':
-        form = ProductionProcedureForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, '工序添加成功')
-            return redirect('production:procedure_list')
-    else:
-        form = ProductionProcedureForm()
-    return render(request, 'production/procedure/form.html',
-                  {'form': form, 'action': '添加'})
+    return _render_model_form(
+        request,
+        ProductionProcedureForm,
+        'production/procedure/form.html',
+        'production:procedure_list',
+        '工序'
+    )
 
 
 def procedure_edit(request, pk):
     """编辑工序"""
-    procedure = get_object_or_404(ProductionProcedure, pk=pk)
-    if request.method == 'POST':
-        form = ProductionProcedureForm(request.POST, instance=procedure)
-        if form.is_valid():
-            form.save()
-            messages.success(request, '工序编辑成功')
-            return redirect('production:procedure_list')
-    else:
-        form = ProductionProcedureForm(instance=procedure)
-    return render(request, 'production/procedure/form.html',
-                  {'form': form, 'action': '编辑'})
+    return _render_model_form(
+        request,
+        ProductionProcedureForm,
+        'production/procedure/form.html',
+        'production:procedure_list',
+        '工序',
+        model_class=ProductionProcedure,
+        pk=pk
+    )
 
 
 def procedure_delete(request, pk):
     """删除工序"""
-    procedure = get_object_or_404(ProductionProcedure, pk=pk)
-    procedure.delete()
-    messages.success(request, '工序删除成功')
-    return redirect('production:procedure_list')
+    return _delete_model_object(
+        request, ProductionProcedure, pk, 'production:procedure_list', '工序')
 
 
 def procedureset_list(request):
     """工序集列表"""
-    proceduresets = ProcedureSet.objects.all()
-    page_obj, context = _get_paginated_queryset(
-        request, proceduresets,
+    return _render_paginated_list(
+        request,
+        ProcedureSet.objects.all(),
+        'production/procedureset/list.html',
+        '工序集',
         search_fields=['name', 'code'],
         default_order='-create_time'
     )
-    context['model_name'] = '工序集'
-    return render(request, 'production/procedureset/list.html', context)
 
 
 def procedureset_add(request):
     """添加工序集"""
-    if request.method == 'POST':
-        form = ProcedureSetForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, '工序集添加成功')
-            return redirect('production:procedureset_list')
-    else:
-        form = ProcedureSetForm()
-    return render(request, 'production/procedureset/form.html',
-                  {'form': form, 'action': '添加'})
+    return _render_model_form(
+        request,
+        ProcedureSetForm,
+        'production/procedureset/form.html',
+        'production:procedureset_list',
+        '工序集'
+    )
 
 
 def procedureset_edit(request, pk):
     """编辑工序集"""
-    procedureset = get_object_or_404(ProcedureSet, pk=pk)
-    if request.method == 'POST':
-        form = ProcedureSetForm(request.POST, instance=procedureset)
-        if form.is_valid():
-            form.save()
-            messages.success(request, '工序集编辑成功')
-            return redirect('production:procedureset_list')
-    else:
-        form = ProcedureSetForm(instance=procedureset)
-    return render(request, 'production/procedureset/form.html',
-                  {'form': form, 'action': '编辑'})
+    return _render_model_form(
+        request,
+        ProcedureSetForm,
+        'production/procedureset/form.html',
+        'production:procedureset_list',
+        '工序集',
+        model_class=ProcedureSet,
+        pk=pk
+    )
 
 
 def procedureset_delete(request, pk):
     """删除工序集"""
-    procedureset = get_object_or_404(ProcedureSet, pk=pk)
-    procedureset.delete()
-    messages.success(request, '工序集删除成功')
-    return redirect('production:procedureset_list')
+    return _delete_model_object(
+        request, ProcedureSet, pk, 'production:procedureset_list', '工序集')
 
 
 def bom_list(request):
     """BOM列表"""
-    boms = BOM.objects.select_related(
-        'product', 'creator'
-    ).all()
-    page_obj, context = _get_paginated_queryset(
-        request, boms,
+    return _render_paginated_list(
+        request,
+        BOM.objects.select_related('product', 'creator').all(),
+        'production/bom/list.html',
+        'BOM',
         search_fields=['name', 'code'],
         default_order='-create_time'
     )
-    context['model_name'] = 'BOM'
-    return render(request, 'production/bom/list.html', context)
 
 
 def bom_add(request):
     """添加BOM"""
-    if request.method == 'POST':
-        form = BOMForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'BOM添加成功')
-            return redirect('production:bom_list')
-    else:
-        form = BOMForm()
-    return render(request, 'production/bom/form.html',
-                  {'form': form, 'action': '添加'})
+    return _render_model_form(
+        request,
+        BOMForm,
+        'production/bom/form.html',
+        'production:bom_list',
+        'BOM'
+    )
 
 
 def bom_edit(request, pk):
     """编辑BOM"""
-    bom = get_object_or_404(BOM, pk=pk)
-    if request.method == 'POST':
-        form = BOMForm(request.POST, instance=bom)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'BOM编辑成功')
-            return redirect('production:bom_list')
-    else:
-        form = BOMForm(instance=bom)
-    return render(request, 'production/bom/form.html',
-                  {'form': form, 'action': '编辑'})
+    return _render_model_form(
+        request,
+        BOMForm,
+        'production/bom/form.html',
+        'production:bom_list',
+        'BOM',
+        model_class=BOM,
+        pk=pk
+    )
 
 
 def bom_delete(request, pk):
     """删除BOM"""
-    bom = get_object_or_404(BOM, pk=pk)
-    bom.delete()
-    messages.success(request, 'BOM删除成功')
-    return redirect('production:bom_list')
+    return _delete_model_object(request, BOM, pk, 'production:bom_list', 'BOM')
 
 
 def bom_detail(request, pk):
@@ -306,39 +339,32 @@ def equipment_list(request):
 
 def equipment_add(request):
     """添加设备"""
-    if request.method == 'POST':
-        form = EquipmentForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, '设备添加成功')
-            return redirect('production:equipment_list')
-    else:
-        form = EquipmentForm()
-    return render(request, 'production/equipment/form.html',
-                  {'form': form, 'action': '添加'})
+    return _render_model_form(
+        request,
+        EquipmentForm,
+        'production/equipment/form.html',
+        'production:equipment_list',
+        '设备'
+    )
 
 
 def equipment_edit(request, pk):
     """编辑设备"""
-    equipment = get_object_or_404(Equipment, pk=pk)
-    if request.method == 'POST':
-        form = EquipmentForm(request.POST, instance=equipment)
-        if form.is_valid():
-            form.save()
-            messages.success(request, '设备编辑成功')
-            return redirect('production:equipment_list')
-    else:
-        form = EquipmentForm(instance=equipment)
-    return render(request, 'production/equipment/form.html',
-                  {'form': form, 'action': '编辑'})
+    return _render_model_form(
+        request,
+        EquipmentForm,
+        'production/equipment/form.html',
+        'production:equipment_list',
+        '设备',
+        model_class=Equipment,
+        pk=pk
+    )
 
 
 def equipment_delete(request, pk):
     """删除设备"""
-    equipment = get_object_or_404(Equipment, pk=pk)
-    equipment.delete()
-    messages.success(request, '设备删除成功')
-    return redirect('production:equipment_list')
+    return _delete_model_object(
+        request, Equipment, pk, 'production:equipment_list', '设备')
 
 
 def equipment_detail(request, pk):
@@ -410,16 +436,13 @@ def data_collection_list(request):
 
 def data_collection_add(request):
     """添加数据采集"""
-    if request.method == 'POST':
-        form = DataCollectionForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, '数据采集添加成功')
-            return redirect('production:data_collection_list')
-    else:
-        form = DataCollectionForm()
-    return render(request, 'production/data/form.html',
-                  {'form': form, 'action': '添加'})
+    return _render_model_form(
+        request,
+        DataCollectionForm,
+        'production/data/form.html',
+        'production:data_collection_list',
+        '数据采集'
+    )
 
 
 def data_chart(request, equipment_id):
@@ -433,51 +456,43 @@ def data_chart(request, equipment_id):
 
 def sop_list(request):
     """SOP列表"""
-    sops = SOP.objects.all()
-    page_obj, context = _get_paginated_queryset(
-        request, sops,
+    return _render_paginated_list(
+        request,
+        SOP.objects.all(),
+        'production/sop/list.html',
+        'SOP',
         search_fields=['name', 'code'],
         default_order='-create_time'
     )
-    context['model_name'] = 'SOP'
-    return render(request, 'production/sop/list.html', context)
 
 
 def sop_add(request):
     """添加SOP"""
-    if request.method == 'POST':
-        form = SOPForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'SOP添加成功')
-            return redirect('production:sop_list')
-    else:
-        form = SOPForm()
-    return render(request, 'production/sop/form.html',
-                  {'form': form, 'action': '添加'})
+    return _render_model_form(
+        request,
+        SOPForm,
+        'production/sop/form.html',
+        'production:sop_list',
+        'SOP'
+    )
 
 
 def sop_edit(request, pk):
     """编辑SOP"""
-    sop = get_object_or_404(SOP, pk=pk)
-    if request.method == 'POST':
-        form = SOPForm(request.POST, instance=sop)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'SOP编辑成功')
-            return redirect('production:sop_list')
-    else:
-        form = SOPForm(instance=sop)
-    return render(request, 'production/sop/form.html',
-                  {'form': form, 'action': '编辑'})
+    return _render_model_form(
+        request,
+        SOPForm,
+        'production/sop/form.html',
+        'production:sop_list',
+        'SOP',
+        model_class=SOP,
+        pk=pk
+    )
 
 
 def sop_delete(request, pk):
     """删除SOP"""
-    sop = get_object_or_404(SOP, pk=pk)
-    sop.delete()
-    messages.success(request, 'SOP删除成功')
-    return redirect('production:sop_list')
+    return _delete_model_object(request, SOP, pk, 'production:sop_list', 'SOP')
 
 
 def sop_detail(request, pk):
@@ -530,39 +545,32 @@ def production_plan_list(request):
 
 def production_plan_add(request):
     """添加计划"""
-    if request.method == 'POST':
-        form = ProductionPlanForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, '生产计划添加成功')
-            return redirect('production:production_plan_list')
-    else:
-        form = ProductionPlanForm()
-    return render(request, 'production/plan/form.html',
-                  {'form': form, 'action': '添加'})
+    return _render_model_form(
+        request,
+        ProductionPlanForm,
+        'production/plan/form.html',
+        'production:production_plan_list',
+        '生产计划'
+    )
 
 
 def production_plan_edit(request, pk):
     """编辑计划"""
-    plan = get_object_or_404(ProductionPlan, pk=pk)
-    if request.method == 'POST':
-        form = ProductionPlanForm(request.POST, instance=plan)
-        if form.is_valid():
-            form.save()
-            messages.success(request, '生产计划编辑成功')
-            return redirect('production:production_plan_list')
-    else:
-        form = ProductionPlanForm(instance=plan)
-    return render(request, 'production/plan/form.html',
-                  {'form': form, 'action': '编辑'})
+    return _render_model_form(
+        request,
+        ProductionPlanForm,
+        'production/plan/form.html',
+        'production:production_plan_list',
+        '生产计划',
+        model_class=ProductionPlan,
+        pk=pk
+    )
 
 
 def production_plan_delete(request, pk):
     """删除计划"""
-    plan = get_object_or_404(ProductionPlan, pk=pk)
-    plan.delete()
-    messages.success(request, '生产计划删除成功')
-    return redirect('production:production_plan_list')
+    return _delete_model_object(
+        request, ProductionPlan, pk, 'production:production_plan_list', '生产计划')
 
 
 def production_plan_detail(request, pk):
@@ -594,39 +602,32 @@ def production_task_list(request):
 
 def production_task_add(request):
     """添加任务"""
-    if request.method == 'POST':
-        form = ProductionTaskForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, '生产任务添加成功')
-            return redirect('production:production_task_list')
-    else:
-        form = ProductionTaskForm()
-    return render(request, 'production/task_execution/form.html',
-                  {'form': form, 'action': '添加'})
+    return _render_model_form(
+        request,
+        ProductionTaskForm,
+        'production/task_execution/form.html',
+        'production:production_task_list',
+        '生产任务'
+    )
 
 
 def production_task_edit(request, pk):
     """编辑任务"""
-    task = get_object_or_404(ProductionTask, pk=pk)
-    if request.method == 'POST':
-        form = ProductionTaskForm(request.POST, instance=task)
-        if form.is_valid():
-            form.save()
-            messages.success(request, '生产任务编辑成功')
-            return redirect('production:production_task_list')
-    else:
-        form = ProductionTaskForm(instance=task)
-    return render(request, 'production/task_execution/form.html',
-                  {'form': form, 'action': '编辑'})
+    return _render_model_form(
+        request,
+        ProductionTaskForm,
+        'production/task_execution/form.html',
+        'production:production_task_list',
+        '生产任务',
+        model_class=ProductionTask,
+        pk=pk
+    )
 
 
 def production_task_delete(request, pk):
     """删除任务"""
-    task = get_object_or_404(ProductionTask, pk=pk)
-    task.delete()
-    messages.success(request, '生产任务删除成功')
-    return redirect('production:production_task_list')
+    return _delete_model_object(
+        request, ProductionTask, pk, 'production:production_task_list', '生产任务')
 
 
 def production_task_detail(request, pk):
@@ -723,39 +724,32 @@ def quality_check_list(request):
 
 def quality_check_add(request):
     """添加检查"""
-    if request.method == 'POST':
-        form = QualityCheckForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, '质量检查添加成功')
-            return redirect('production:quality_check_list')
-    else:
-        form = QualityCheckForm()
-    return render(request, 'production/quality/form.html',
-                  {'form': form, 'action': '添加'})
+    return _render_model_form(
+        request,
+        QualityCheckForm,
+        'production/quality/form.html',
+        'production:quality_check_list',
+        '质量检查'
+    )
 
 
 def quality_check_edit(request, pk):
     """编辑检查"""
-    check = get_object_or_404(QualityCheck, pk=pk)
-    if request.method == 'POST':
-        form = QualityCheckForm(request.POST, instance=check)
-        if form.is_valid():
-            form.save()
-            messages.success(request, '质量检查编辑成功')
-            return redirect('production:quality_check_list')
-    else:
-        form = QualityCheckForm(instance=check)
-    return render(request, 'production/quality/form.html',
-                  {'form': form, 'action': '编辑'})
+    return _render_model_form(
+        request,
+        QualityCheckForm,
+        'production/quality/form.html',
+        'production:quality_check_list',
+        '质量检查',
+        model_class=QualityCheck,
+        pk=pk
+    )
 
 
 def quality_check_delete(request, pk):
     """删除检查"""
-    check = get_object_or_404(QualityCheck, pk=pk)
-    check.delete()
-    messages.success(request, '质量检查删除成功')
-    return redirect('production:quality_check_list')
+    return _delete_model_object(
+        request, QualityCheck, pk, 'production:quality_check_list', '质量检查')
 
 
 def quality_check_detail(request, pk):
@@ -1078,51 +1072,44 @@ def sop_copy(request, pk):
 
 def process_route_list(request):
     """工艺路线列表"""
-    routes = ProcessRoute.objects.all()
-    page_obj, context = _get_paginated_queryset(
-        request, routes,
+    return _render_paginated_list(
+        request,
+        ProcessRoute.objects.all(),
+        'production/process_route/list.html',
+        '工艺路线',
         search_fields=['name', 'code'],
         default_order='-create_time'
     )
-    context['model_name'] = '工艺路线'
-    return render(request, 'production/process_route/list.html', context)
 
 
 def process_route_add(request):
     """添加工艺路线"""
-    if request.method == 'POST':
-        form = ProcessRouteForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, '工艺路线添加成功')
-            return redirect('production:process_route_list')
-    else:
-        form = ProcessRouteForm()
-    return render(request, 'production/process_route/form.html',
-                  {'form': form, 'action': '添加'})
+    return _render_model_form(
+        request,
+        ProcessRouteForm,
+        'production/process_route/form.html',
+        'production:process_route_list',
+        '工艺路线'
+    )
 
 
 def process_route_edit(request, pk):
     """编辑工艺路线"""
-    route = get_object_or_404(ProcessRoute, pk=pk)
-    if request.method == 'POST':
-        form = ProcessRouteForm(request.POST, instance=route)
-        if form.is_valid():
-            form.save()
-            messages.success(request, '工艺路线编辑成功')
-            return redirect('production:process_route_list')
-    else:
-        form = ProcessRouteForm(instance=route)
-    return render(request, 'production/process_route/form.html',
-                  {'form': form, 'action': '编辑'})
+    return _render_model_form(
+        request,
+        ProcessRouteForm,
+        'production/process_route/form.html',
+        'production:process_route_list',
+        '工艺路线',
+        model_class=ProcessRoute,
+        pk=pk
+    )
 
 
 def process_route_delete(request, pk):
     """删除工艺路线"""
-    route = get_object_or_404(ProcessRoute, pk=pk)
-    route.delete()
-    messages.success(request, '工艺路线删除成功')
-    return redirect('production:process_route_list')
+    return _delete_model_object(
+        request, ProcessRoute, pk, 'production:process_route_list', '工艺路线')
 
 
 def process_route_detail(request, pk):

@@ -15,9 +15,6 @@
                     <button class="layui-btn layui-btn-sm" onclick="addPaymentReceive()">
                         <i class="layui-icon layui-icon-add-1"></i> 新增收款
                     </button>
-                    <button class="layui-btn layui-btn-sm layui-btn-normal" onclick="exportData()">
-                        <i class="layui-icon layui-icon-export"></i> 导出数据
-                    </button>
                 </div>
             </div>
             <div class="layui-card-body">
@@ -26,7 +23,7 @@
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'js/jquery.min.js' %}"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
         layui.use(['table', 'layer'], function() {
@@ -45,15 +42,15 @@
                 url: url,
                 cols: [[
                     {field: 'id', title: 'ID', width: 80},
-                    {field: 'invoice_code', title: '关联发票', width: 150},
-                    {% if customer_id %}
-                    {field: 'customer_name', title: '客户名称', width: 150},
-                    {% endif %}
+                    {field: 'invoice_code', title: '关联发票', width: 180, templet: function(d) {
+                        return d.invoice_code || ('发票ID：' + d.invoice_id);
+                    }},
+                    {field: 'invoice_title', title: '开票抬头', minWidth: 180},
                     {field: 'amount', title: '收款金额', width: 120},
-                    {field: 'income_date', title: '收款日期', width: 120},
+                    {field: 'income_date', title: '收款日期', width: 180},
                     {field: 'remark', title: '备注', width: 200},
                     {field: 'create_time', title: '创建时间', width: 180},
-                    {title: '操作', width: 200, toolbar: '#paymentReceiveToolBar'}
+                    {title: '操作', width: 100, toolbar: '#paymentReceiveToolBar'}
                 ]],
                 page: true,
                 limit: 20,
@@ -65,50 +62,23 @@
                 var data = obj.data;
                 var layEvent = obj.event;
 
-                if (layEvent === 'view') {
-                    layer.open({
-                        type: 2,
-                        title: '收款详情',
-                        shadeClose: false,
-                        shade: 0.3,
-                        maxmin: true,
-                        area: ['80%', '100%'],
-                        offset: 'r',
-                        anim: 2,
-                        content: '/adm/finance/paymentreceive/view/' + data.id + '/',
-                        success: function(layero, index) {
-                            if (layero && typeof layero.css === 'function') {
-                                layero.css({
-                                    'right': '0',
-                                    'top': '0',
-                                    'height': '100%'
-                                });
+                if (layEvent === 'delete') {
+                    layer.confirm('确定删除这条收款记录吗？', function(index) {
+                        $.ajax({
+                            url: '/adm/finance/income/del/',
+                            type: 'POST',
+                            data: JSON.stringify({id: data.id}),
+                            contentType: 'application/json',
+                            success: function(response) {
+                                if (response.code === 0) {
+                                    layer.msg('删除成功', {icon: 1});
+                                    table.reload('paymentReceiveTable');
+                                } else {
+                                    layer.msg(response.msg, {icon: 2});
+                                }
                             }
-                        }
-                    });
-                } else if (layEvent === 'edit') {
-                    layer.open({
-                        type: 2,
-                        title: '编辑收款',
-                        shadeClose: false,
-                        shade: 0.3,
-                        maxmin: true,
-                        area: ['80%', '100%'],
-                        offset: 'r',
-                        anim: 2,
-                        content: '/adm/finance/paymentreceive/edit/' + data.id + '/',
-                        success: function(layero, index) {
-                            if (layero && typeof layero.css === 'function') {
-                                layero.css({
-                                    'right': '0',
-                                    'top': '0',
-                                    'height': '100%'
-                                });
-                            }
-                        },
-                        end: function() {
-                            table.reload('paymentReceiveTable');
-                        }
+                        });
+                        layer.close(index);
                     });
                 }
             });
@@ -136,21 +106,18 @@
                     }
                 },
                 end: function() {
-                    layui.table.reload('paymentReceiveTable');
+                    layui.table.reload('paymentReceiveTable', {
+                        page: { curr: 1 }
+                    });
                 }
             });
         }
 
-        // 导出数据
-        function exportData() {
-            layer.msg('导出功能开发中...', {icon: 1});
-        }
     </script>
 
     <!-- 工具栏模板 -->
     <script type="text/html" id="paymentReceiveToolBar">
-        <a class="layui-btn layui-btn-xs" lay-event="view">查看</a>
-        <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
+        <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
     </script>
 </body>
 </html>

@@ -18,6 +18,7 @@ from .views import (
     PurchaseDetailView,
     ContractAddView,
     ContractDetailView,
+    ContractScanUploadView,
     ContractUpdateView,
     ContractDeleteView,
     ContractExportView,
@@ -286,6 +287,10 @@ urlpatterns = [
         'sales/view/<int:id>/',
         ContractDetailView.as_view(),
         name='contract_sales_detail'),
+    path(
+        'sales/scan/<int:id>/',
+        ContractScanUploadView.as_view(),
+        name='contract_sales_scan_upload'),
     path('sales/update/<int:id>/',
          ContractUpdateView.as_view(),
          name='contract_sales_update'),

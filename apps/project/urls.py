@@ -8,6 +8,7 @@ urlpatterns = [
     path('api/', include('apps.project.api_urls')),
     # 项目管理路由
     path('', views.ProjectListView.as_view(), name='project_list'),
+    path('list/', views.ProjectListView.as_view(), name='project_list_page'),
     path('datalist/', views.ProjectListView.as_view(), name='project_datalist'),
     path(
         'detail/<int:project_id>/',

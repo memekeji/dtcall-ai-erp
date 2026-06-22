@@ -32,9 +32,7 @@
                         <button class="layui-btn layui-btn-warm layui-btn-sm" onclick="batchApproval()" style="margin-left: 8px; position: relative; z-index: 100;">
                             <i class="layui-icon layui-icon-ok"></i> 批量审批
                         </button>
-                        <button class="layui-btn layui-btn-primary layui-btn-sm" onclick="exportExpense()" style="margin-left: 8px; position: relative; z-index: 100;">
-                            <i class="layui-icon layui-icon-export"></i> 导出
-                        </button>
+
                     </div>
                     <div class="layui-col-md6" style="text-align: right;">
                         <!-- 搜索区域 -->
@@ -61,7 +59,7 @@
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'js/jquery.min.js' %}"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
         layui.use(['element', 'table', 'layer', 'laydate', 'form'], function() {
@@ -223,13 +221,25 @@
                     layer.msg('请选择要审批的报销记录', {icon: 2});
                     return;
                 }
-                layer.msg('批量审批功能开发中...', {icon: 0});
+                layer.confirm('确定批量通过选中的报销记录吗？', function(index) {
+                    $.ajax({
+                        url: '/finance/reimbursement/batch-approve/',
+                        type: 'POST',
+                        data: JSON.stringify({ids: data.map(function(item) { return item.id; }), action: 'approve'}),
+                        contentType: 'application/json',
+                        success: function(response) {
+                            if (response.code === 0) {
+                                layer.msg(response.msg || '批量审批成功', {icon: 1});
+                                table.reload('expenseTable');
+                            } else {
+                                layer.msg(response.msg || '批量审批失败', {icon: 2});
+                            }
+                        }
+                    });
+                    layer.close(index);
+                });
             };
 
-            // 导出报销
-            window.exportExpense = function() {
-                layer.msg('导出功能开发中...', {icon: 0});
-            };
 
             // 搜索报销
             window.searchExpense = function() {

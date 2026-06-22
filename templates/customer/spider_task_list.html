@@ -45,6 +45,7 @@
             <script type="text/html" id="toolbar">
                 <div class="layui-btn-container">
                     <button class="layui-btn layui-btn-sm" lay-event="addTask"><i class="layui-icon layui-icon-add"></i> 添加任务</button>
+                    <button class="layui-btn layui-btn-sm layui-btn-normal" lay-event="dataSourceConfig"><i class="layui-icon layui-icon-set"></i> 数据源配置</button>
                     <button class="layui-btn layui-btn-sm" lay-event="refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
                     <button class="layui-btn layui-btn-sm layui-btn-danger" lay-event="batchDelete"><i class="layui-icon layui-icon-delete"></i> 批量删除</button>
                 </div>
@@ -138,6 +139,7 @@ layui.use(['table', 'layer', 'form', 'laytpl'], function() {
         }
         taskTable = table.render({
             elem: '#spiderTaskTable',
+            id: 'spiderTaskTable',
             url: '{% url 'customer:spider_task_list_data' %}',
             method: 'GET',
             headers: {'X-CSRFToken': window.csrfToken},
@@ -228,6 +230,9 @@ layui.use(['table', 'layer', 'form', 'laytpl'], function() {
                 taskTable.reload();
                 layer.msg('数据已刷新', {icon: 1});
                 break;
+            case 'dataSourceConfig':
+                openDataSourceConfig();
+                break;
             case 'batchDelete':
                 const data = checkStatus.data;
                 if (data.length === 0) return layer.msg('请选择要删除的任务', {icon: 0});
@@ -267,10 +272,53 @@ layui.use(['table', 'layer', 'form', 'laytpl'], function() {
                 handleTaskAction(data.id, obj.event, obj);
                 break;
             case 'settings':
-                layer.msg('设置功能待实现', {icon: 0});
+                layer.open({
+                    type: 2,
+                    title: '设置爬虫任务',
+                    shadeClose: false,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '100%'],
+                    offset: 'r',
+                    anim: 2,
+                    content: '{% url 'customer:spider_task_edit' 0 %}'.replace('0', data.id),
+                    success: function(layero) {
+                        if (layero && typeof layero.css === 'function') {
+                            layero.css({
+                                'right': '0',
+                                'top': '0',
+                                'height': '100%'
+                            });
+                        }
+                    }
+                });
                 break;
         }
     });
+
+    // 打开爬虫数据源配置
+    const openDataSourceConfig = () => {
+        layer.open({
+            type: 2,
+            title: '爬虫数据源配置',
+            shadeClose: false,
+            shade: 0.3,
+            maxmin: true,
+            area: ['80%', '100%'],
+            offset: 'r',
+            anim: 2,
+            content: '{% url 'system:config_list' %}',
+            success: function(layero) {
+                if (layero && typeof layero.css === 'function') {
+                    layero.css({
+                        'right': '0',
+                        'top': '0',
+                        'height': '100%'
+                    });
+                }
+            }
+        });
+    };
 
     // 处理任务操作
     const handleTaskAction = (taskId, action, obj) => {
@@ -318,11 +366,23 @@ layui.use(['table', 'layer', 'form', 'laytpl'], function() {
                     success: function(res) {
                         layer.closeAll('loading');
                         if(res.code === 0) {
-                            layer.msg(res.msg, {icon: 1});
+                            layer.msg(res.msg || '任务执行完成', {icon: 1, time: 3000});
                             // 刷新表格数据
                             taskTable.reload();
                         } else {
-                            layer.msg(res.msg || '操作失败', {icon: 2});
+                            const message = res.msg || '操作失败';
+                            if (message.indexOf('spider_tianyancha_cookie') !== -1 || message.indexOf('公开数据源要求登录') !== -1) {
+                                layer.confirm(message + '<br>是否现在打开数据源配置？', {
+                                    icon: 0,
+                                    title: '需要配置数据源授权',
+                                    btn: ['去配置', '取消']
+                                }, function(confirmIndex) {
+                                    layer.close(confirmIndex);
+                                    openDataSourceConfig();
+                                });
+                            } else {
+                                layer.msg(message, {icon: 2, time: 4000});
+                            }
                         }
                     },
                     error: function(xhr) {

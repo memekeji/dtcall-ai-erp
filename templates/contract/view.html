@@ -30,6 +30,51 @@
         .status-2 { background-color: #4caf50; }
         .status-3 { background-color: #f44336; }
         .status-4 { background-color: #9e9e9e; }
+        .scan-panel {
+            margin-top: 20px;
+            border: 1px solid #e6eef7;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .scan-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 15px;
+            background: #f7fbff;
+            border-bottom: 1px solid #e6eef7;
+        }
+        .scan-panel-title {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 600;
+            color: #2f3a45;
+        }
+        .scan-panel-body {
+            padding: 15px;
+            background: #fff;
+        }
+        .scan-preview-frame {
+            width: 100%;
+            height: 560px;
+            border: 1px solid #edf0f5;
+            border-radius: 4px;
+            background: #f7f7f7;
+        }
+        .scan-upload-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .scan-upload-row input[type="file"] {
+            max-width: 420px;
+        }
+        .scan-empty {
+            color: #8a929c;
+            margin-bottom: 12px;
+        }
     </style>
 {% endblock %}
 
@@ -172,6 +217,42 @@
                     <div class="detail-value" id="contractRemark" style="margin-top: 10px;">{{ contract.remark }}</div>
                 </div>
                 {% endif %}
+
+                <div class="scan-panel">
+                    <div class="scan-panel-header">
+                        <h4 class="scan-panel-title">合同扫描件</h4>
+                        {% if contract.scan_file %}
+                        <div>
+                            <button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="previewScanFile()">
+                                <i class="layui-icon layui-icon-read"></i> 预览
+                            </button>
+                            <a class="layui-btn layui-btn-sm layui-btn-normal" href="{{ contract.scan_file.url }}" target="_blank">
+                                <i class="layui-icon layui-icon-link"></i> 打开原件
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="scan-panel-body">
+                        {% if contract.scan_file %}
+                            <div class="detail-item">
+                                <span class="detail-label">文件名称:</span>
+                                <span class="detail-value" id="scanFileName">{{ contract.scan_file_name }}</span>
+                            </div>
+                            <iframe class="scan-preview-frame" src="{{ contract.scan_file.url }}" title="合同扫描件预览"></iframe>
+                        {% else %}
+                            <div class="scan-empty">尚未上传真实合同扫描件。</div>
+                        {% endif %}
+                        <form id="scanUploadForm" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="scan-upload-row">
+                                <input type="file" name="scan_file" id="scanFileInput" accept=".pdf,.jpg,.jpeg,.png,.tif,.tiff" class="layui-input">
+                                <button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="uploadScanFile()">
+                                    <i class="layui-icon layui-icon-upload"></i> {% if contract.scan_file %}替换扫描件{% else %}上传扫描件{% endif %}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
 
                 <!-- 财务数据 - 发票信息 -->
                 <div class="layui-card" style="margin-top: 20px;">
@@ -318,6 +399,69 @@
     <script>
         // 将Django模板变量转换为JavaScript变量，避免语法错误
         var contractId = {{ contract.id }};
+        var scanFileUrl = {% if contract.scan_file %}'{{ contract.scan_file.url|escapejs }}'{% else %}''{% endif %};
+
+        var getCsrfToken = (window.DTCallCommon && window.DTCallCommon.getCsrfToken) || function() {
+            return $('input[name="csrfmiddlewaretoken"]').val() || $('meta[name="csrf-token"]').attr('content') || '';
+        };
+
+        function previewScanFile() {
+            if (!scanFileUrl) {
+                layui.use('layer', function() {
+                    layui.layer.msg('该合同尚未上传扫描件', {icon: 0});
+                });
+                return;
+            }
+            layui.use('layer', function() {
+                layui.layer.open({
+                    type: 2,
+                    title: '合同扫描件预览',
+                    shadeClose: true,
+                    shade: 0.3,
+                    maxmin: true,
+                    area: ['80%', '90%'],
+                    content: scanFileUrl
+                });
+            });
+        }
+
+        function uploadScanFile() {
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                var input = document.getElementById('scanFileInput');
+                if (!input || !input.files || input.files.length === 0) {
+                    layer.msg('请选择要上传的合同扫描件', {icon: 0});
+                    return;
+                }
+
+                var formData = new FormData(document.getElementById('scanUploadForm'));
+                var loadIndex = layer.load(2, {shade: [0.2, '#000']});
+                $.ajax({
+                    url: '/contract/sales/scan/' + contractId + '/',
+                    type: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCsrfToken()
+                    },
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        layer.close(loadIndex);
+                        if (response.code === 0) {
+                            layer.msg('扫描件上传成功', {icon: 1, time: 1000}, function() {
+                                location.reload();
+                            });
+                        } else {
+                            layer.msg(response.msg || '扫描件上传失败', {icon: 2});
+                        }
+                    },
+                    error: function() {
+                        layer.close(loadIndex);
+                        layer.msg('网络错误，请稍后重试', {icon: 2});
+                    }
+                });
+            });
+        }
 
         // 编辑合同
         function editContract() {

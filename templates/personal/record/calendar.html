@@ -11,7 +11,7 @@
                 <h3>工作日历</h3>
             </div>
             <div class="layui-col-md6" style="text-align: right;">
-                <a href="{% url 'personal:work_record_add' %}" class="layui-btn layui-btn-sm">
+                <a href="javascript:;" class="layui-btn layui-btn-sm" onclick="openWorkRecordDrawer('{% url 'personal:work_record_add' %}?drawer=1')">
                     <i class="layui-icon layui-icon-add-1"></i> 新增工作记录
                 </a>
             </div>
@@ -45,7 +45,7 @@
         <div class="layui-row">
             <div class="layui-col-md12">
                 <div id="work-calendar-container" style="background: white; border-radius: 4px; overflow: hidden;">
-                    <table class="layui-table" style="margin: 0; border-collapse: collapse;">
+                    <table class="layui-table" style="margin: 0; border-collapse: collapse; table-layout: fixed; width: 100%;">
                         <thead>
                             <tr style="background-color: #f8f9fa;">
                                 <th style="text-align: center; padding: 15px; color: #666; font-weight: bold; width: 14.28%;">周日</th>
@@ -90,6 +90,33 @@ workData[dateKey].push({
     end_time: '{{ record.end_time|date:"H:i"|default:"" }}'
 });
 {% endfor %}
+
+function openWorkRecordDrawer(url, title) {
+    layui.use(['layer'], function() {
+        var layer = layui.layer;
+
+        layer.open({
+            type: 2,
+            title: title || '新增工作记录',
+            shadeClose: false,
+            shade: 0.3,
+            maxmin: true,
+            area: ['80%', '100%'],
+            offset: 'r',
+            anim: 2,
+            content: url,
+            success: function(layero) {
+                if (layero && typeof layero.css === 'function') {
+                    layero.css({
+                        'right': '0',
+                        'top': '0',
+                        'height': '100%'
+                    });
+                }
+            }
+        });
+    });
+}
 
 // 生成工作日历
 function generateWorkCalendar(year, month) {
@@ -211,7 +238,7 @@ function generateWorkCalendar(year, month) {
             // 双击添加工作记录
             cell.ondblclick = function(date) {
                 return function() {
-                    window.location.href = '{% url "personal:work_record_add" %}?date=' + date;
+                    openWorkRecordDrawer('{% url "personal:work_record_add" %}?drawer=1&date=' + date);
                 };
             }(dateStr);
             
@@ -258,7 +285,7 @@ function showWorkDetail(work) {
         type: 1,
         title: '工作记录详情',
         content: $('#work-detail'),
-        area: ['80%', '100%'], '350px']
+        area: ['350px', 'auto']
     });
 }
 
@@ -287,7 +314,7 @@ function showDayWorks(date, works) {
         type: 1,
         title: '当日工作记录',
         content: content,
-        area: ['80%', '100%'], '400px']
+        area: ['400px', '420px']
     });
 }
 

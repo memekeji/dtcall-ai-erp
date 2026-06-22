@@ -44,32 +44,7 @@
         </div>
     </div>
 <script>
-        function openRightPopup(title, url) {
-            layui.use(['layer'], function () {
-                var layer = layui.layer;
-                layer.open({
-                    type: 2,
-                    title: title,
-                    shadeClose: false,
-                    shade: 0.3,
-                    maxmin: true,
-                    area: ['80%', '100%'],
-                    offset: 'r',
-                    anim: 2,
-                    content: url,
-                    success: function(layero, index) {
-                        layero.css({
-                            'right': '0',
-                            'top': '0',
-                            'height': '100%'
-                        });
-                    },
-                    end: function() {
-                        window.location.reload();
-                    }
-                });
-            });
-        }
+        {% include "production/_right_popup_function.html" %}
 </script>
 
     <!-- 注入的 iframe 自动关闭及消息提示脚本 -->
@@ -90,8 +65,20 @@
                 } catch(e) {}
             }
 
+            var isLayerFrame = false;
             if (window !== window.parent) {
-                // 如果在 iframe 中加载了 list/index 页面，说明是操作成功后的重定向，或者点击了返回
+                if (window.frameElement && window.frameElement.closest) {
+                    isLayerFrame = !!window.frameElement.closest('.layui-layer-iframe');
+                }
+                if (!isLayerFrame && window.name && window.parent.layer && typeof window.parent.layer.getFrameIndex === 'function') {
+                    try {
+                        var frameIndex = window.parent.layer.getFrameIndex(window.name);
+                        isLayerFrame = frameIndex !== undefined && frameIndex !== null && frameIndex !== '';
+                    } catch(e) {}
+                }
+            }
+
+            if (isLayerFrame) {
                 if (msgs.length > 0) {
                     sessionStorage.setItem('flash_msg', JSON.stringify(msgs));
                 }

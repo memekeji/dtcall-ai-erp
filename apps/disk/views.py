@@ -96,6 +96,61 @@ def validate_file_path_security(file_path, media_root):
         return False, f'路径验证失败: {str(e)}'
 
 
+def build_share_download_url(request, share_code, file_id, preview=False):
+    preview_param = '&preview=1' if preview else ''
+    return request.build_absolute_uri(
+        f'/disk/share/download/?share_code={share_code}&file_id={file_id}{preview_param}'
+    )
+
+
+def get_client_ip(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        return x_forwarded_for.split(',')[0].strip()
+    return request.META.get('HTTP_X_REAL_IP') or request.META.get('REMOTE_ADDR')
+
+
+def get_user_department_id(user):
+    """Return the department id used by the legacy disk sharing fields."""
+    return getattr(user, 'did', None) or getattr(user, 'department_id', None)
+
+
+def user_can_access_shared_folder(user, folder):
+    if folder.owner_id == user.id or folder.is_public:
+        return True
+    if folder.shared_users.filter(id=user.id).exists():
+        return True
+
+    user_dept_id = get_user_department_id(user)
+    if user_dept_id and folder.shared_departments.filter(id=user_dept_id).exists():
+        return True
+
+    current = folder.parent
+    while current:
+        if current.owner_id == user.id or current.is_public:
+            return True
+        if current.shared_users.filter(id=user.id).exists():
+            return True
+        if user_dept_id and current.shared_departments.filter(id=user_dept_id).exists():
+            return True
+        current = current.parent
+
+    return False
+
+
+def user_can_access_shared_file(user, disk_file):
+    if disk_file.owner_id == user.id or disk_file.is_public:
+        return True
+    if disk_file.shared_users.filter(id=user.id).exists():
+        return True
+
+    user_dept_id = get_user_department_id(user)
+    if user_dept_id and disk_file.shared_departments.filter(id=user_dept_id).exists():
+        return True
+
+    return disk_file.folder and user_can_access_shared_folder(user, disk_file.folder)
+
+
 def get_preview_cache_key(file_id, update_timestamp):
     """生成预览缓存键"""
     return f'disk_preview_{file_id}_{int(update_timestamp)}'
@@ -122,6 +177,33 @@ def invalidate_preview_cache(file_id):
             cache.delete(key)
     except Exception:
         pass
+
+
+def _soft_delete_folder_recursive(folder):
+    """递归软删除文件夹及其子内容。"""
+    for disk_file in folder.files.filter(delete_time__isnull=True):
+        disk_file.delete_time = timezone.now()
+        disk_file.save(update_fields=['delete_time', 'update_time'])
+
+    for child_folder in folder.children.filter(delete_time__isnull=True):
+        _soft_delete_folder_recursive(child_folder)
+
+    folder.delete_time = timezone.now()
+    folder.save(update_fields=['delete_time', 'update_time'])
+
+
+def _permanent_delete_folder_recursive(folder):
+    """递归永久删除文件夹及其子内容。"""
+    for disk_file in folder.files.all():
+        file_path = os.path.join(settings.MEDIA_ROOT, disk_file.file_path)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        disk_file.delete()
+
+    for child_folder in folder.children.all():
+        _permanent_delete_folder_recursive(child_folder)
+
+    folder.delete()
 
 
 class BaseDiskView(LoginRequiredMixin, View):
@@ -284,38 +366,97 @@ class SharedDiskView(BaseDiskView):
     """共享文件视图"""
 
     def get(self, request):
-        user_dept_id = getattr(request.user, 'did', None)
+        folder_id = request.GET.get('folder_id')
 
-        if user_dept_id:
-            shared_files = DiskFile.objects.filter(
-                Q(shared_users=request.user) |
-                Q(shared_departments__id=user_dept_id),
-                delete_time__isnull=True
-            ).distinct().order_by('-update_time')
+        if folder_id:
+            current_folder = get_object_or_404(
+                DiskFolder, id=folder_id, delete_time__isnull=True)
+            if not user_can_access_shared_folder(request.user, current_folder):
+                return HttpResponse('您没有权限访问该共享文件夹', status=403)
 
             shared_folders = DiskFolder.objects.filter(
-                Q(shared_users=request.user) |
-                Q(shared_departments__id=user_dept_id),
+                parent=current_folder,
                 delete_time__isnull=True
-            ).distinct().order_by('name')
+            ).order_by('name')
+            shared_files = DiskFile.objects.filter(
+                folder=current_folder,
+                delete_time__isnull=True
+            ).order_by('-update_time')
         else:
+            current_folder = None
+            user_dept_id = get_user_department_id(request.user)
+            conditions = Q(shared_users=request.user) | Q(is_public=True)
+
+            if user_dept_id:
+                conditions |= Q(shared_departments__id=user_dept_id)
+
             shared_files = DiskFile.objects.filter(
-                Q(shared_users=request.user) |
-                Q(is_public=True),
+                conditions,
                 delete_time__isnull=True
             ).distinct().order_by('-update_time')
 
             shared_folders = DiskFolder.objects.filter(
-                Q(shared_users=request.user) |
-                Q(is_public=True),
+                conditions,
                 delete_time__isnull=True
             ).distinct().order_by('name')
+
+        breadcrumbs = []
+        cursor = current_folder
+        while cursor:
+            breadcrumbs.insert(0, cursor)
+            cursor = cursor.parent
 
         context = {
+            'current_folder': current_folder,
+            'breadcrumbs': breadcrumbs,
             'shared_files': shared_files,
             'shared_folders': shared_folders,
         }
         return render(request, 'disk/shared.html', context)
+
+
+class SharedFolderChildrenView(BaseDiskView):
+    """获取内部共享文件夹的真实子内容"""
+
+    def get(self, request):
+        folder_id = request.GET.get('folder_id')
+        if not folder_id:
+            return JsonResponse({'code': 1, 'msg': '参数错误'})
+
+        folder = get_object_or_404(
+            DiskFolder, id=folder_id, delete_time__isnull=True)
+        if not user_can_access_shared_folder(request.user, folder):
+            return JsonResponse({'code': 1, 'msg': '没有权限访问该共享文件夹'})
+
+        folders = DiskFolder.objects.filter(
+            parent=folder,
+            delete_time__isnull=True
+        ).order_by('name')
+        files = DiskFile.objects.filter(
+            folder=folder,
+            delete_time__isnull=True
+        ).order_by('-update_time')
+
+        return JsonResponse({
+            'code': 0,
+            'msg': 'success',
+            'data': {
+                'folders': [{
+                    'id': item.id,
+                    'name': item.name,
+                    'owner': item.owner.username,
+                    'update_time': item.update_time.strftime('%Y-%m-%d %H:%M')
+                } for item in folders],
+                'files': [{
+                    'id': item.id,
+                    'name': item.name,
+                    'owner': item.owner.username,
+                    'file_type': item.file_type,
+                    'size': item.get_size_display(),
+                    'update_time': item.update_time.strftime('%Y-%m-%d %H:%M')
+                } for item in files]
+            }
+        })
 
 
 class RecycleBinView(BaseDiskView):
@@ -409,17 +550,34 @@ class FileShareCreateView(BaseDiskView):
         share_type = request.GET.get('type', 'file')
         item_id = request.GET.get('id', '')
 
-        if not item_id:
+        if not item_id or share_type not in ['file', 'folder']:
             return JsonResponse({'code': 1, 'msg': '参数错误'})
+
+        item = self.get_share_item(request.user, share_type, item_id)
+        share_filter = {
+            'creator': request.user,
+            'share_type': share_type,
+        }
+        if share_type == 'file':
+            share_filter['file'] = item
+        else:
+            share_filter['folder'] = item
+
+        existing_shares = DiskShare.objects.filter(
+            **share_filter
+        ).order_by('-is_active', '-create_time')
 
         context = {
             'share_type': share_type,
-            'item_id': item_id
+            'item_id': item_id,
+            'item': item,
+            'existing_shares': existing_shares,
         }
         return render(request, 'disk/share_create.html', context)
 
     def post(self, request):
         try:
+            share_id = request.POST.get('share_id')
             share_type = request.POST.get('type')
             item_id = request.POST.get('id')
             password = request.POST.get('password', '')
@@ -427,72 +585,76 @@ class FileShareCreateView(BaseDiskView):
 
             permission_type = request.POST.get('permission_type', 'download')
             allow_download = request.POST.get('allow_download') == 'on'
+            allow_preview = request.POST.get('allow_preview', 'on') == 'on'
             access_limit = int(request.POST.get('access_limit', 0))
             download_limit = int(request.POST.get('download_limit', 0))
 
             if not item_id or share_type not in ['file', 'folder']:
                 return JsonResponse({'code': 1, 'msg': '参数错误'})
 
-            if share_type == 'file':
-                item = get_object_or_404(
-                    DiskFile,
-                    id=item_id,
-                    owner=request.user,
-                    delete_time__isnull=True)
+            item = self.get_share_item(request.user, share_type, item_id)
+
+            if share_id:
+                share = get_object_or_404(
+                    DiskShare,
+                    id=share_id,
+                    creator=request.user,
+                    share_type=share_type)
+                if share.get_item() != item:
+                    return JsonResponse({'code': 1, 'msg': '分享记录与当前项目不匹配'})
+                action_msg = '分享更新成功'
             else:
-                item = get_object_or_404(
-                    DiskFolder,
-                    id=item_id,
-                    owner=request.user,
-                    delete_time__isnull=True)
+                share = DiskShare(
+                    share_type=share_type,
+                    share_code=self.generate_share_code(),
+                    creator=request.user)
+                if share_type == 'file':
+                    share.file = item
+                else:
+                    share.folder = item
+                action_msg = '分享创建成功'
 
-            share_code = self.generate_share_code()
+            if share_id and request.POST.get('keep_expire_time') == '1':
+                expire_time = share.expire_time
+            else:
+                expire_time = None
+                if expire_days > 0:
+                    expire_time = timezone.now() + timedelta(days=expire_days)
 
-            expire_time = None
-            if expire_days > 0:
-                expire_time = timezone.now() + timedelta(days=expire_days)
-
-            hashed_password = ''
             if password:
-                hashed_password = hashlib.sha256(password.encode()).hexdigest()
+                share.password = hashlib.sha256(password.encode()).hexdigest()
+            elif not share_id or request.POST.get('keep_password') != '1':
+                share.password = ''
 
-            share_data = {
-                'share_type': share_type,
-                'share_code': share_code,
-                'password': hashed_password,
-                'creator': request.user,
-                'expire_time': expire_time,
-                'permission_type': permission_type,
-                'allow_download': allow_download,
-                'access_limit': access_limit,
-                'download_limit': download_limit
-            }
-
-            if share_type == 'file':
-                share_data['file'] = item
-            else:
-                share_data['folder'] = item
-
-            DiskShare.objects.create(**share_data)
+            share.expire_time = expire_time
+            share.permission_type = permission_type
+            share.allow_download = allow_download
+            share.allow_preview = allow_preview
+            share.access_limit = access_limit
+            share.download_limit = download_limit
+            share.is_active = request.POST.get('is_active', 'on') == 'on'
+            share.save()
 
             self.log_operation(request, 'share',
                                file=item if share_type == 'file' else None,
                                folder=item if share_type == 'folder' else None,
-                               description=f'创建分享: {item.name}')
+                               description=f'{action_msg}: {item.name}')
 
             share_url = request.build_absolute_uri(
-                f'/disk/share/view/{share_code}/')
+                f'/disk/share/view/{share.share_code}/')
 
             return JsonResponse({
                 'code': 0,
-                'msg': '分享创建成功',
+                'msg': action_msg,
                 'data': {
-                    'share_code': share_code,
+                    'share_id': share.id,
+                    'share_code': share.share_code,
                     'share_url': share_url,
                     'password': password if password else '',
                     'expire_time': expire_time.strftime('%Y-%m-%d %H:%M') if expire_time else '永久有效',
                     'permission_type': permission_type,
                     'allow_download': allow_download,
+                    'allow_preview': allow_preview,
                     'access_limit': access_limit,
                     'download_limit': download_limit
                 }
@@ -509,6 +671,49 @@ class FileShareCreateView(BaseDiskView):
             if not DiskShare.objects.filter(share_code=code).exists():
                 return code
 
+    def get_share_item(self, user, share_type, item_id):
+        if share_type == 'file':
+            return get_object_or_404(
+                DiskFile,
+                id=item_id,
+                owner=user,
+                delete_time__isnull=True)
+        return get_object_or_404(
+            DiskFolder,
+            id=item_id,
+            owner=user,
+            delete_time__isnull=True)
+
+
+class FileShareManageView(BaseDiskView):
+    """管理外链分享记录"""
+
+    def post(self, request):
+        try:
+            share_id = request.POST.get('share_id')
+            action = request.POST.get('action')
+            share = get_object_or_404(
+                DiskShare, id=share_id, creator=request.user)
+
+            if action == 'disable':
+                share.is_active = False
+                share.save(update_fields=['is_active', 'update_time'])
+                return JsonResponse({'code': 0, 'msg': '分享已停用'})
+
+            if action == 'enable':
+                share.is_active = True
+                share.save(update_fields=['is_active', 'update_time'])
+                return JsonResponse({'code': 0, 'msg': '分享已启用'})
+
+            if action == 'delete':
+                share.delete()
+                return JsonResponse({'code': 0, 'msg': '分享记录已删除'})
+
+            return JsonResponse({'code': 1, 'msg': '未知操作'})
+        except Exception as e:
+            logger.error(f'管理分享失败: {str(e)}')
+            return JsonResponse({'code': 1, 'msg': f'操作失败: {str(e)}'})
+
 
 class FileShareView(View):
     """查看分享文件视图"""
@@ -523,7 +728,8 @@ class FileShareView(View):
                               'disk/share_expired.html',
                               {'share': share})
 
-            if not share.can_access():
+            client_ip = get_client_ip(request)
+            if not share.can_access(client_ip):
                 return render(request,
                               'disk/share_error.html',
                               {'error': '访问次数已达上限'})
@@ -534,7 +740,6 @@ class FileShareView(View):
                               'disk/share_password.html',
                               {'share': share})
 
-            client_ip = self.get_client_ip(request)
             share.record_access(client_ip)
 
             if share.share_type == 'file':
@@ -547,7 +752,8 @@ class FileShareView(View):
             context = {
                 'share': share,
                 'item': item,
-                'item_type': item_type
+                'item_type': item_type,
+                'can_preview': share.can_preview(client_ip),
             }
             return render(request, 'disk/share_view.html', context)
 
@@ -572,14 +778,6 @@ class FileShareView(View):
         except Exception as e:
             return JsonResponse({'code': 1, 'msg': f'验证失败: {str(e)}'})
 
-    def get_client_ip(self, request):
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
-        else:
-            ip = request.META.get('REMOTE_ADDR')
-        return ip
-
 
 class SharePreviewView(View):
     """分享文件预览视图"""
@@ -596,8 +794,12 @@ class SharePreviewView(View):
             if share.is_expired():
                 return JsonResponse({'code': 1, 'msg': '分享已过期'})
 
-            if not share.can_access():
+            client_ip = get_client_ip(request)
+            if not share.can_access(client_ip):
                 return JsonResponse({'code': 1, 'msg': '访问次数已达上限'})
+
+            if not share.can_preview(client_ip):
+                return JsonResponse({'code': 1, 'msg': '没有预览权限或访问次数已达上限'})
 
             if share.password and not request.session.get(
                     f'share_auth_{share_code}'):
@@ -631,6 +833,13 @@ class SharePreviewView(View):
             preview_data = preview_view._get_preview_content(file_obj, request)
 
             if preview_data:
+                share_file_url = build_share_download_url(
+                    request, share_code, file_obj.id, preview=True)
+                preview_data['url'] = share_file_url
+                preview_data['download_url'] = share_file_url
+                if preview_data.get('thumbnail_url'):
+                    preview_data['thumbnail_url'] = share_file_url
+                    preview_data['use_thumbnail'] = False
                 return JsonResponse({
                     'code': 0,
                     'msg': 'success',
@@ -1136,18 +1345,7 @@ class ImageThumbnailView(LoginRequiredMixin, View):
                                 json_dumps_params={'ensure_ascii': False})
 
     def has_permission(self, user, disk_file):
-        if user == disk_file.owner:
-            return True
-        if disk_file.is_public:
-            return True
-        if user in disk_file.shared_users.all():
-            return True
-        if hasattr(
-                user,
-                'did') and user.did and disk_file.shared_departments.filter(
-                id=user.did).exists():
-            return True
-        return False
+        return user_can_access_shared_file(user, disk_file)
 
 
 class ShareDownloadView(View):
@@ -1164,7 +1362,8 @@ class ShareDownloadView(View):
             share = get_object_or_404(
                 DiskShare, share_code=share_code, is_active=True)
 
-            if not share.can_download():
+            client_ip = get_client_ip(request)
+            if not share.can_download(client_ip):
                 return JsonResponse({'code': 1, 'msg': '没有下载权限或已达下载限制'})
 
             if share.password and not request.session.get(
@@ -1177,12 +1376,70 @@ class ShareDownloadView(View):
             if not share.contains_file(disk_file.id):
                 return JsonResponse({'code': 1, 'msg': '文件不属于此分享'})
 
-            share.record_download()
-
-            return JsonResponse({'code': 0, 'msg': '下载授权成功'})
+            return JsonResponse({
+                'code': 0,
+                'msg': '下载授权成功',
+                'data': {
+                    'download_url': f'/disk/share/download/?share_code={share_code}&file_id={file_id}'
+                }
+            })
 
         except Exception as e:
             logger.error(f'分享下载失败: {str(e)}')
+            return JsonResponse({'code': 1, 'msg': f'下载失败: {str(e)}'})
+
+    def get(self, request):
+        try:
+            share_code = request.GET.get('share_code')
+            file_id = request.GET.get('file_id')
+            is_preview_request = request.GET.get('preview') == '1'
+
+            if not share_code or not file_id:
+                return JsonResponse({'code': 1, 'msg': '参数错误'})
+
+            share = get_object_or_404(
+                DiskShare, share_code=share_code, is_active=True)
+
+            client_ip = get_client_ip(request)
+            if is_preview_request:
+                if not share.can_preview(client_ip):
+                    return JsonResponse({'code': 1, 'msg': '没有预览权限或访问次数已达上限'})
+            elif not share.can_download(client_ip):
+                return JsonResponse({'code': 1, 'msg': '没有下载权限或已达下载限制'})
+
+            if share.password and not request.session.get(
+                    f'share_auth_{share_code}'):
+                return JsonResponse({'code': 1, 'msg': '请先验证密码'})
+
+            disk_file = get_object_or_404(
+                DiskFile, id=file_id, delete_time__isnull=True)
+
+            if not share.contains_file(disk_file.id):
+                return JsonResponse({'code': 1, 'msg': '文件不属于此分享'})
+
+            file_path = os.path.join(settings.MEDIA_ROOT, disk_file.file_path)
+            if not os.path.exists(file_path):
+                return JsonResponse({'code': 1, 'msg': '文件不存在'})
+
+            is_valid, error_msg = validate_file_path_security(
+                file_path, settings.MEDIA_ROOT)
+            if not is_valid:
+                return JsonResponse({'code': 1, 'msg': error_msg})
+
+            if not is_preview_request:
+                share.record_download()
+                disk_file.download_count += 1
+                disk_file.save(update_fields=['download_count'])
+
+            response = FileResponse(
+                open(file_path, 'rb'),
+                as_attachment=not is_preview_request,
+                filename=disk_file.original_name
+            )
+            return response
+
+        except Exception as e:
+            logger.error(f'分享文件流下载失败: {str(e)}')
             return JsonResponse({'code': 1, 'msg': f'下载失败: {str(e)}'})
 
     def is_file_in_folder(self, file, folder):
@@ -1208,7 +1465,7 @@ class ShareFolderView(View):
             share = get_object_or_404(
                 DiskShare, share_code=share_code, is_active=True)
 
-            if not share.can_access():
+            if not share.can_access(get_client_ip(request)):
                 return JsonResponse({'code': 1, 'msg': '没有访问权限'})
 
             if share.password and not request.session.get(
@@ -1593,18 +1850,7 @@ class FileDownloadView(BaseDiskView):
             return JsonResponse({'code': 1, 'msg': f'下载失败: {str(e)}'})
 
     def has_permission(self, user, disk_file):
-        if user == disk_file.owner:
-            return True
-        if disk_file.is_public:
-            return True
-        if user in disk_file.shared_users.all():
-            return True
-        if hasattr(
-                user,
-                'did') and user.did and disk_file.shared_departments.filter(
-                id=user.did).exists():
-            return True
-        return False
+        return user_can_access_shared_file(user, disk_file)
 
 
 class FolderCreateView(BaseDiskView):
@@ -1970,7 +2216,7 @@ class FolderDeleteView(BaseDiskView):
             if is_permanent:
                 folder = get_object_or_404(
                     DiskFolder, id=folder_id, owner=request.user)
-                self.permanent_delete_folder_recursive(folder)
+                _permanent_delete_folder_recursive(folder)
                 msg = '文件夹已永久删除'
             else:
                 folder = get_object_or_404(
@@ -1978,7 +2224,7 @@ class FolderDeleteView(BaseDiskView):
                     id=folder_id,
                     owner=request.user,
                     delete_time__isnull=True)
-                self.soft_delete_folder_recursive(folder)
+                _soft_delete_folder_recursive(folder)
                 msg = '文件夹已移至回收站'
 
             self.log_operation(
@@ -1992,30 +2238,6 @@ class FolderDeleteView(BaseDiskView):
         except Exception as e:
             logger.error(f'删除文件夹失败: {str(e)}')
             return JsonResponse({'code': 1, 'msg': f'删除失败: {str(e)}'})
-
-    def soft_delete_folder_recursive(self, folder):
-        for file in folder.files.filter(delete_time__isnull=True):
-            file.delete_time = timezone.now()
-            file.save(update_fields=['delete_time', 'update_time'])
-
-        for child_folder in folder.children.filter(delete_time__isnull=True):
-            self.soft_delete_folder_recursive(child_folder)
-
-        folder.delete_time = timezone.now()
-        folder.save(update_fields=['delete_time', 'update_time'])
-
-    def permanent_delete_folder_recursive(self, folder):
-        for file in folder.files.all():
-            file_path = os.path.join(settings.MEDIA_ROOT, file.file_path)
-            if os.path.exists(file_path):
-                os.remove(file_path)
-            file.delete()
-
-        for child_folder in folder.children.all():
-            self.permanent_delete_folder_recursive(child_folder)
-
-        folder.delete()
-
 
 class FolderRestoreView(BaseDiskView):
     """恢复文件夹视图"""
@@ -2076,7 +2298,7 @@ class RecycleBinClearView(BaseDiskView):
             deleted_files.delete()
 
             for folder in deleted_folders:
-                self.permanent_delete_folder_recursive(folder)
+                _permanent_delete_folder_recursive(folder)
 
             self.log_operation(
                 request,
@@ -2089,19 +2311,6 @@ class RecycleBinClearView(BaseDiskView):
         except Exception as e:
             logger.error(f'清空回收站失败: {str(e)}')
             return JsonResponse({'code': 1, 'msg': f'清空失败: {str(e)}'})
-
-    def permanent_delete_folder_recursive(self, folder):
-        for file in folder.files.all():
-            file_path = os.path.join(settings.MEDIA_ROOT, file.file_path)
-            if os.path.exists(file_path):
-                os.remove(file_path)
-            file.delete()
-
-        for child_folder in folder.children.all():
-            self.permanent_delete_folder_recursive(child_folder)
-
-        folder.delete()
-
 
 class PermissionManageView(BaseDiskView):
     """权限管理视图"""

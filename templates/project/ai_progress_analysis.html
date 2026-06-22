@@ -79,11 +79,13 @@
             <div class="progress-card" id="progressDetail" style="margin-top: 20px;">
                 <!-- 进度详情 -->
             </div>
+            <div id="progressInsight" style="margin-top: 20px;"></div>
         </div>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/ai-agent-sdk.js' %}"></script>
     <script>
         layui.use(['form', 'layer'], function() {
             var form = layui.form;
@@ -122,41 +124,70 @@
 
         function renderProgressStats(data) {
             var html = '';
+            var raw = data.raw_result && typeof data.raw_result === 'object' ? data.raw_result : {};
+            var totalTasks = normalizeNumber(data.total_tasks || raw.total_tasks, 0);
+            var completedTasks = normalizeNumber(data.completed_tasks || raw.completed_tasks, 0);
+            var inProgressTasks = normalizeNumber(data.in_progress_tasks || raw.in_progress_tasks, 0);
+            var pendingTasks = normalizeNumber(data.pending_tasks || raw.pending_tasks, 0);
             
             html += '<div class="layui-col-md3">';
             html += '<div class="stat-box">';
             html += '<h4>总任务数</h4>';
-            html += '<h2 style="color: #009688; margin-top: 10px;">' + (data.total_tasks || 0) + '</h2>';
+            html += '<h2 style="color: #009688; margin-top: 10px;">' + totalTasks + '</h2>';
             html += '</div></div>';
             
             html += '<div class="layui-col-md3">';
             html += '<div class="stat-box">';
             html += '<h4>已完成</h4>';
-            html += '<h2 style="color: #20bf6b; margin-top: 10px;">' + (data.completed_tasks || 0) + '</h2>';
+            html += '<h2 style="color: #20bf6b; margin-top: 10px;">' + completedTasks + '</h2>';
             html += '</div></div>';
             
             html += '<div class="layui-col-md3">';
             html += '<div class="stat-box">';
             html += '<h4>进行中</h4>';
-            html += '<h2 style="color: #feca57; margin-top: 10px;">' + (data.in_progress_tasks || 0) + '</h2>';
+            html += '<h2 style="color: #feca57; margin-top: 10px;">' + inProgressTasks + '</h2>';
             html += '</div></div>';
             
             html += '<div class="layui-col-md3">';
             html += '<div class="stat-box">';
             html += '<h4>待开始</h4>';
-            html += '<h2 style="color: #54a0ff; margin-top: 10px;">' + (data.pending_tasks || 0) + '</h2>';
+            html += '<h2 style="color: #54a0ff; margin-top: 10px;">' + pendingTasks + '</h2>';
             html += '</div></div>';
             
             $('#progressStats').html(html);
             
             // 进度条
-            var progressPercent = data.progress_percent || 0;
+            var progressPercent = normalizePercent(data.progress_percent || raw.progress_percent || calculateProgressPercent(totalTasks, completedTasks));
             var detailHtml = '<h4>项目总体进度</h4>';
             detailHtml += '<div class="progress-bar-container">';
             detailHtml += '<div class="progress-bar" style="width: ' + progressPercent + '%;">' + progressPercent + '%</div>';
             detailHtml += '</div>';
             
             $('#progressDetail').html(detailHtml);
+            renderBusinessAIInsight('#progressInsight', data);
+        }
+
+        function calculateProgressPercent(totalTasks, completedTasks) {
+            if (!totalTasks) return 0;
+            return Math.round((completedTasks / totalTasks) * 100);
+        }
+
+        function normalizeNumber(value, fallback) {
+            var numberValue = Number(value);
+            return Number.isFinite(numberValue) ? numberValue : fallback;
+        }
+
+        function normalizePercent(value) {
+            var numberValue = normalizeNumber(value, 0);
+            return Math.max(0, Math.min(100, Math.round(numberValue)));
+        }
+
+        function renderBusinessAIInsight(selector, data) {
+            if (window.aiAgent && typeof window.aiAgent.mountBusinessAIResult === 'function') {
+                window.aiAgent.mountBusinessAIResult(selector, data);
+            } else {
+                $(selector).text(data.summary || 'AI 分析已完成');
+            }
         }
     </script>
 </body>

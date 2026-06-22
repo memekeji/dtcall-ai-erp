@@ -161,9 +161,45 @@ function standardOfficePreview(data) {
     });
 }
 
+function getFileExtension(filename) {
+    var lastDotIndex = String(filename || '').lastIndexOf('.');
+    if (lastDotIndex === -1) return '';
+    return String(filename).substring(lastDotIndex).toLowerCase();
+}
+
+function getMimeType(extension) {
+    var normalizedExtension = String(extension || '').toLowerCase();
+    var mimeTypes = {
+        '.mp3': 'audio/mpeg',
+        '.wav': 'audio/wav',
+        '.ogg': 'audio/ogg',
+        '.flac': 'audio/flac',
+        '.mp4': 'video/mp4',
+        '.webm': 'video/webm',
+        '.avi': 'video/avi'
+    };
+    return mimeTypes[normalizedExtension] || 'application/octet-stream';
+}
+
+function buildOfficePreviewData(fileName, filePath, extension) {
+    return {
+        name: fileName,
+        office_type: String(extension || '').replace('.', '').toUpperCase(),
+        file_path: filePath,
+        preview_options: [{
+            name: '文档内容',
+            type: 'iframe',
+            content: filePath
+        }]
+    };
+}
+
 // HTML转义函数
 function escapeHtml(text) {
-    if (!text) return '';
+    if (window.DTCallCommon && typeof window.DTCallCommon.escapeHtml === 'function') {
+        return window.DTCallCommon.escapeHtml(text);
+    }
+    if (text === null || text === undefined) return '';
     var map = {
         '&': '&amp;',
         '<': '&lt;',
@@ -171,5 +207,12 @@ function escapeHtml(text) {
         '"': '&quot;',
         "'": '&#039;'
     };
-    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+    return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
 }
+
+window.OfficePreviewUtils = {
+    getFileExtension: getFileExtension,
+    getMimeType: getMimeType,
+    buildOfficePreviewData: buildOfficePreviewData,
+    escapeHtml: escapeHtml
+};

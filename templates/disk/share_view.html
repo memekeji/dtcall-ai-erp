@@ -7,18 +7,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% if item_type == 'file' %}{{ item.name }}{% else %}{{ item.name }}{% endif %} - 分享文件</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
     <style>
         * {
             box-sizing: border-box;
         }
-        
+
         body {
             background-color: #f5f7fa;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             margin: 0;
             padding: 0;
         }
-        
+
         .share-container {
             width: 100%;
             max-width: 1000px;
@@ -31,26 +32,26 @@
             display: flex;
             flex-direction: column;
         }
-        
+
         .share-header {
             text-align: center;
             padding: 15px 0;
             border-bottom: 1px solid #e6e6e6;
             margin-bottom: 15px;
         }
-        
+
         .share-title {
             font-size: 18px;
             margin-bottom: 6px;
             color: #333;
             font-weight: 600;
         }
-        
+
         .share-info {
             color: #666;
             font-size: 12px;
         }
-        
+
         .file-item {
             display: flex;
             align-items: center;
@@ -61,23 +62,23 @@
             background-color: #fff;
             transition: all 0.3s ease;
         }
-        
+
         .file-item:hover {
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             border-color: #1E9FFF;
         }
-        
+
         .file-icon {
             font-size: 28px;
             margin-right: 12px;
             width: 40px;
             text-align: center;
         }
-        
+
         .file-info {
             flex: 1;
         }
-        
+
         .file-name {
             font-size: 15px;
             font-weight: 600;
@@ -85,17 +86,17 @@
             color: #333;
             word-break: break-all;
         }
-        
+
         .file-meta {
             font-size: 11px;
             color: #666;
         }
-        
+
         .file-actions {
             display: flex;
             gap: 8px;
         }
-        
+
         .folder-content {
             margin-top: 0;
             flex: 1;
@@ -103,28 +104,28 @@
             display: flex;
             flex-direction: column;
         }
-        
+
         .breadcrumb {
             padding: 8px 0;
             margin-bottom: 15px;
             border-bottom: 1px solid #f0f0f0;
             font-size: 13px;
         }
-        
+
         .breadcrumb a {
             color: #1E9FFF;
             text-decoration: none;
             margin-right: 5px;
         }
-        
+
         .breadcrumb a:hover {
             text-decoration: underline;
         }
-        
+
         .breadcrumb span {
             color: #666;
         }
-        
+
         .share-stats {
             background-color: #f8f9fa;
             padding: 12px;
@@ -136,24 +137,24 @@
             flex-wrap: wrap;
             gap: 12px;
         }
-        
+
         .stats-item {
             flex: 1;
             min-width: 80px;
             color: #666;
         }
-        
+
         .stats-value {
             font-size: 14px;
             font-weight: bold;
             color: #333;
             margin-bottom: 2px;
         }
-        
+
         .stats-label {
             font-size: 11px;
         }
-        
+
         .permission-notice {
             background-color: #fff3cd;
             border: 1px solid #ffeaa7;
@@ -166,30 +167,30 @@
             gap: 8px;
             font-size: 13px;
         }
-        
+
         .permission-notice i {
             font-size: 18px;
         }
-        
+
         .no-permission {
             text-align: center;
             padding: 60px 20px;
             color: #999;
         }
-        
+
         .no-permission i {
             font-size: 64px;
             margin-bottom: 20px;
             display: block;
             color: #e0e0e0;
         }
-        
+
         .no-permission h3 {
             margin: 0;
             font-size: 18px;
             font-weight: 400;
         }
-        
+
         /* 响应式设计 */
         @media (max-width: 1000px) {
             .share-container {
@@ -198,34 +199,34 @@
                 min-height: 650px;
             }
         }
-        
+
         @media (max-width: 768px) {
             .share-container {
                 padding: 10px;
             }
-            
+
             .file-item {
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 8px;
             }
-            
+
             .file-actions {
                 width: 100%;
                 justify-content: flex-start;
                 flex-wrap: wrap;
             }
-            
+
             .file-actions button {
                 flex: 1;
                 min-width: 90px;
             }
-            
+
             .share-stats {
                 flex-direction: column;
                 gap: 12px;
             }
-            
+
             .stats-item {
                 min-width: auto;
             }
@@ -242,8 +243,8 @@
                 {% if item_type == 'file' %}{{ item.name }}{% else %}{{ item.name }}{% endif %}
             </h1>
             <div class="share-info">
-                由 {{ share.creator.username }} 分享 · 
-                创建于 {{ share.create_time|date:"Y-m-d H:i" }} · 
+                由 {{ share.creator.username }} 分享 ·
+                创建于 {{ share.create_time|date:"Y-m-d H:i" }} ·
                 {% if share.expire_time %}
                     有效期至 {{ share.expire_time|date:"Y-m-d H:i" }}
                 {% else %}
@@ -316,20 +317,20 @@
                 <div class="file-info">
                     <div class="file-name">{{ item.name }}</div>
                     <div class="file-meta">
-                        {{ item.get_size_display }} · 
+                        {{ item.get_size_display }} ·
                         {{ item.update_time|date:"Y-m-d H:i" }}
                     </div>
                 </div>
                 <div class="file-actions">
                     {% if share.allow_preview %}
-                    <button class="layui-btn layui-btn-sm layui-btn-primary" onclick="previewFile('{{ item.id }}')">
+                    <button type="button" class="layui-btn layui-btn-sm layui-btn-primary js-share-preview" data-file-id="{{ item.id }}" data-file-name="{{ item.name|escapejs }}" data-file-type="{{ item.file_type }}">
                         <i class="layui-icon layui-icon-search"></i> 预览
                     </button>
                     {% endif %}
                     {% if share.allow_download %}
-                    <button class="layui-btn layui-btn-sm" onclick="downloadFile('{{ item.id }}')">
+                    <a class="layui-btn layui-btn-sm js-share-download" href="{% url 'disk:share_download' %}?share_code={{ share.share_code|urlencode }}&file_id={{ item.id }}">
                         <i class="layui-icon layui-icon-download-circle"></i> 下载
-                    </button>
+                    </a>
                     {% endif %}
                 </div>
             </div>
@@ -338,10 +339,10 @@
             <div class="folder-content" style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
                 <!-- 面包屑导航 -->
                 <div class="breadcrumb">
-                    <a href="javascript:void(0)" onclick="loadFolder('')">{{ item.name }}</a>
+                    <a href="javascript:void(0)" class="js-folder-root">{{ item.name }}</a>
                     <span id="breadcrumbPath"></span>
                 </div>
-                
+
                 <!-- 文件列表 -->
                 <div id="fileList" style="flex: 1; overflow-y: auto;">
                     <!-- 这里通过AJAX加载文件夹内容 -->
@@ -358,168 +359,154 @@
         {% endif %}
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'js/jquery.min.js' %}"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
-    <script src="{% static 'js/office_preview.js' %}"></script>
-    <script>
-        layui.use(['layer'], function () {
-            var layer = layui.layer;
-            /* Django Template Tag: item_type check */
-            /*{% if item_type == 'folder' %}*/
-            loadFolder('');
-            /*{% endif %}*/
-        });
-        
-        function downloadFile(fileId) {
-            /* Django Template Tag: allow_download check */
-            /*{% if share.allow_download %}*/
-            if ("{{ share.download_limit }}".replace(/,/g, '') > 0 && "{{ share.download_count }}".replace(/,/g, '') >= "{{ share.download_limit }}".replace(/,/g, '')) {
-                layui.use('layer', function() {
-                    var layer = layui.layer;
-                    layer.msg('已达到下载次数限制', {icon: 2});
-                });
-                return;
-            }
-            
-            $.post('/disk/share/download/', {
-                share_code: "{{ share.share_code }}".replace(/,/g, ''),
-                file_id: fileId,
-                csrfmiddlewaretoken: "{{ csrf_token }}"
-            }, function(response) {
-                if (response.code === 0) {
-                    window.open('/disk/download/' + fileId + '/', '_blank');
-                    location.reload();
-                } else {
-                    layui.use('layer', function() {
-                        var layer = layui.layer;
-                        layer.msg(response.msg, {icon: 2});
-                    });
-                }
-            });
-            /* Django Template Tag: else block */
-            /*{% else %}*/
-            layui.use('layer', function() {
-                var layer = layui.layer;
-                layer.msg('没有下载权限', {icon: 2});
-            });
-            /* Django Template Tag: endif */
-            /*{% endif %}*/
-        }
-        
-        function loadFolder(folderId) {
-            /* Django Template Tag: item_type check */
-            /*{% if item_type == 'folder' %}*/
-            $.get('/disk/share/folder/', {
-                share_code: '{{ share.share_code }}',
-                folder_id: folderId
-            }, function(response) {
-                if (response.code === 0) {
-                    renderFileList(response.data);
-                } else {
-                    $('#fileList').html('<div class="no-permission"><h3>' + response.msg + '</h3></div>');
-                }
-            });
-            /* Django Template Tag: endif */
-            /*{% endif %}*/
-        }
-        
-        function renderFileList(data) {
-            var html = '';
-            
-            // 渲染文件夹
-            if (data.folders && data.folders.length > 0) {
-                data.folders.forEach(function(folder) {
-                    html += '<div class="file-item">';
-                    html += '<div class="file-icon"><i class="layui-icon layui-icon-file" style="color: #FFB800;"></i></div>';
-                    html += '<div class="file-info">';
-                    html += '<div class="file-name">' + folder.name + '</div>';
-                    html += '<div class="file-meta">文件夹 · ' + folder.update_time + '</div>';
-                    html += '</div>';
-                    html += '<div class="file-actions">';
-                    html += '<button class="layui-btn layui-btn-primary layui-btn-sm" onclick="loadFolder(' + folder.id + ')">打开</button>';
-                    html += '</div>';
-                    html += '</div>';
-                });
-            }
-            
-            // 渲染文件
-            if (data.files && data.files.length > 0) {
-                data.files.forEach(function(file) {
-                    html += '<div class="file-item">';
-                    html += '<div class="file-icon">';
-                    
-                    // 根据文件类型显示不同图标
-                    if (file.file_type === 'document') {
-                        html += '<i class="layui-icon layui-icon-file" style="color: #1E9FFF;"></i>';
-                    } else if (file.file_type === 'image') {
-                        html += '<i class="layui-icon layui-icon-picture" style="color: #5FB878;"></i>';
-                    } else if (file.file_type === 'video') {
-                        html += '<i class="layui-icon layui-icon-video" style="color: #FF5722;"></i>';
-                    } else if (file.file_type === 'audio') {
-                        html += '<i class="layui-icon layui-icon-voice" style="color: #FFB800;"></i>';
-                    } else {
-                        html += '<i class="layui-icon layui-icon-file" style="color: #999;"></i>';
-                    }
-                    
-                    html += '</div>';
-                    html += '<div class="file-info">';
-                    html += '<div class="file-name">' + file.name + '</div>';
-                    html += '<div class="file-meta">' + file.size + ' · ' + file.update_time + '</div>';
-                    html += '</div>';
-                    html += '<div class="file-actions">';
-                      
-                    /* Django Template Tag: allow_preview check */
-                    /*{% if share.allow_preview %}*/
-                    html += '<button class="layui-btn layui-btn-sm layui-btn-primary" onclick="previewFile(' + file.id + ')">预览</button>';
-                    /* Django Template Tag: endif */
-                    /*{% endif %}*/
+    <script src="{% static 'js/common.js' %}"></script>
+<script src="{% static 'js/office_preview.js' %}"></script>
+<script>
+(function() {
+    var SHARE = {
+        code: '{{ share.share_code }}',
+        allowDownload: {% if share.allow_download %}true{% else %}false{% endif %},
+        allowPreview: {% if can_preview %}true{% else %}false{% endif %},
+        downloadLimit: {{ share.download_limit }},
+        downloadCount: {{ share.download_count }},
+        itemType: '{{ item_type }}',
+        shareType: '{{ share.share_type }}',
+        csrfToken: '{{ csrf_token }}'
+    };
 
-                    /* Django Template Tag: allow_download check */
-                    /*{% if share.allow_download %}*/
-                    html += '<button class="layui-btn layui-btn-sm" onclick="downloadFile(' + file.id + ')">下载</button>';
-                    /* Django Template Tag: endif */
-                    /*{% endif %}*/
-                    
-                    html += '</div>';
-                    html += '</div>';
-                });
-            }
-            
-            if (html === '') {
-                html = '<div class="no-permission"><i class="layui-icon layui-icon-folder"></i><h3>文件夹为空</h3></div>';
-            }
-            
-            $('#fileList').html(html);
+    layui.use(['layer'], function () {
+        var layer = layui.layer;
+        if (SHARE.itemType === 'folder') {
+            loadFolder('');
         }
-        
-        function previewFile(fileId) {
-            /* Django Template Tag: allow_preview check */
-            /*{% if share.allow_preview %}*/
-            layui.use('layer', function() {
-                var layer = layui.layer;
-                var previewUrl = '/disk/preview/?file_id=' + fileId + '&share_code={{ share.share_code }}';
-                
-                layer.open({
-                    type: 2,
-                    title: '文件预览',
-                    area: ['80%', '100%'],
-                    content: previewUrl,
-                    maxmin: true,
-                    btn: ['下载', '关闭'],
-                    btn1: function(index) {
-                        downloadFile(fileId);
-                        return false;
-                    }
-                });
-            });
-            /*{% else %}*/
-            layui.use('layer', function() {
-                var layer = layui.layer;
-                layer.msg('分享未开启预览功能', {icon: 2});
-            });
-            /*{% endif %}*/
+    });
+
+    function downloadFile(fileId) {
+        if (!SHARE.allowDownload) {
+            layui.use('layer', function() { layui.layer.msg('没有下载权限', {icon: 2}); });
+            return;
         }
-    </script>
-</body>
+        if (SHARE.downloadLimit > 0 && SHARE.downloadCount >= SHARE.downloadLimit) {
+            layui.use('layer', function() { layui.layer.msg('已达到下载次数限制', {icon: 2}); });
+            return;
+        }
+        window.location.href = getDownloadUrl(fileId);
+    }
+
+    function previewFile(fileId, fileName, fileType) {
+        if (!SHARE.allowPreview) {
+            layui.use('layer', function() { layui.layer.msg('分享未开启预览功能', {icon: 2}); });
+            return;
+        }
+        layui.use('layer', function() {
+            var layer = layui.layer;
+            var previewUrl = '/disk/preview/?file_id=' + encodeURIComponent(fileId)
+                + '&share_code=' + encodeURIComponent(SHARE.code)
+                + '&file_name=' + encodeURIComponent(fileName || '')
+                + '&file_type=' + encodeURIComponent(fileType || '');
+            layer.open({
+                type: 2,
+                title: '文件预览' + (fileName ? ' - ' + fileName : ''),
+                area: ['80%', '100%'],
+                content: previewUrl,
+                maxmin: true,
+                btn: ['下载', '关闭'],
+                btn1: function(index) {
+                    downloadFile(fileId);
+                    return false;
+                }
+            });
+        });
+    }
+
+    function loadFolder(folderId) {
+        $.get('/disk/share/folder/', {
+            share_code: SHARE.code,
+            folder_id: folderId || ''
+        }, function(response) {
+            if (response.code === 0) {
+                renderFileList(response.data);
+            } else {
+                $('#fileList').html('<div class="no-permission"><h3>' + response.msg + '</h3></div>');
+            }
+        });
+    }
+
+    function renderFileList(data) {
+        var html = '';
+
+        if (data.folders && data.folders.length > 0) {
+            data.folders.forEach(function(folder) {
+                html += '<div class="file-item">';
+                html += '<div class="file-icon"><i class="layui-icon layui-icon-file" style="color: #FFB800;"></i></div>';
+                html += '<div class="file-info"><div class="file-name">' + escapeHtml(folder.name) + '</div><div class="file-meta">文件夹 · ' + escapeHtml(folder.update_time) + '</div></div>';
+                html += '<div class="file-actions"><button type="button" class="layui-btn layui-btn-primary layui-btn-sm js-folder-open" data-folder-id="' + escapeHtml(String(folder.id)) + '">打开</button></div>';
+                html += '</div>';
+            });
+        }
+
+        if (data.files && data.files.length > 0) {
+            data.files.forEach(function(file) {
+                var iconClass = 'layui-icon-file';
+                var iconColor = '#999';
+                switch (file.file_type) {
+                    case 'document': iconClass = 'layui-icon-file'; iconColor = '#1E9FFF'; break;
+                    case 'image': iconClass = 'layui-icon-picture'; iconColor = '#5FB878'; break;
+                    case 'video': iconClass = 'layui-icon-video'; iconColor = '#FF5722'; break;
+                    case 'audio': iconClass = 'layui-icon-voice'; iconColor = '#FFB800'; break;
+                }
+
+                html += '<div class="file-item">';
+                html += '<div class="file-icon"><i class="layui-icon ' + iconClass + '" style="color: ' + iconColor + ';"></i></div>';
+                html += '<div class="file-info"><div class="file-name">' + escapeHtml(file.name) + '</div><div class="file-meta">' + escapeHtml(file.size) + ' · ' + escapeHtml(file.update_time) + '</div></div>';
+                html += '<div class="file-actions">';
+                if (SHARE.allowPreview) {
+                    html += '<button type="button" class="layui-btn layui-btn-sm layui-btn-primary js-share-preview" data-file-id="' + escapeHtml(String(file.id)) + '" data-file-name="' + escapeHtml(file.name) + '" data-file-type="' + escapeHtml(file.file_type) + '">预览</button>';
+                }
+                if (SHARE.allowDownload) {
+                    html += '<a class="layui-btn layui-btn-sm js-share-download" href="' + getDownloadUrl(file.id) + '">下载</a>';
+                }
+                html += '</div>';
+                html += '</div>';
+            });
+        }
+
+        if (html === '') {
+            html = '<div class="no-permission"><i class="layui-icon layui-icon-folder"></i><h3>文件夹为空</h3></div>';
+        }
+
+        $('#fileList').html(html);
+    }
+
+    var escapeHtml = window.DTCallCommon.escapeHtml;
+
+    function getDownloadUrl(fileId) {
+        return '/disk/share/download/?share_code=' + encodeURIComponent(SHARE.code) + '&file_id=' + encodeURIComponent(fileId);
+    }
+
+    $(document)
+        .on('click', '.js-share-preview', function() {
+            previewFile($(this).data('file-id'), $(this).data('file-name'), $(this).data('file-type'));
+        })
+        .on('click', '.js-folder-open', function() {
+            loadFolder($(this).data('folder-id'));
+        })
+        .on('click', '.js-folder-root', function() {
+            loadFolder('');
+        })
+        .on('click', '.js-share-download', function(e) {
+            if (!SHARE.allowDownload || (SHARE.downloadLimit > 0 && SHARE.downloadCount >= SHARE.downloadLimit)) {
+                e.preventDefault();
+                downloadFile($(this).data('file-id') || '');
+            }
+        });
+
+    window.previewFile = previewFile;
+    window.downloadFile = downloadFile;
+    window.loadFolder = loadFolder;
+})();
+</script></body>
 
 </html>

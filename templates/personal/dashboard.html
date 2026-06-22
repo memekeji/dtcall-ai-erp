@@ -80,28 +80,28 @@
 </div>
 
 <div class="layui-row layui-col-space15" style="margin-top: 15px;">
-    <!-- 今日日程 -->
+    <!-- 今日工作记录 -->
     <div class="layui-col-md6">
         <div class="layui-card">
             <div class="layui-card-header">
-                <h3>今日日程</h3>
-                <a href="{% url 'personal:schedule_list' %}" class="layui-btn layui-btn-xs layui-btn-primary"
-                    style="float: right;">查看更多</a>
+                <h3>今日工作记录</h3>
+                <a href="{% url 'personal:work_calendar' %}" class="layui-btn layui-btn-xs layui-btn-primary"
+                    style="float: right;">查看日历</a>
             </div>
             <div class="layui-card-body">
-                {% if today_schedules %}
-                {% for schedule in today_schedules %}
+                {% if today_records %}
+                {% for record in today_records %}
                 <div class="layui-timeline-item">
                     <i class="layui-icon layui-timeline-axis">&#xe63f;</i>
                     <div class="layui-timeline-content layui-text">
-                        <h3 class="layui-timeline-title">{{ schedule.start_time|time:"H:i" }} - {{ schedule.title }}
+                        <h3 class="layui-timeline-title">{{ record.start_time|time:"H:i" }} - {{ record.title }}
                         </h3>
-                        <p>{{ schedule.content|truncatechars:50 }}</p>
+                        <p>{{ record.content|truncatechars:50 }}</p>
                     </div>
                 </div>
                 {% endfor %}
                 {% else %}
-                <p style="text-align: center; color: #999; padding: 20px;">今日暂无日程安排</p>
+                <p style="text-align: center; color: #999; padding: 20px;">今日暂无工作记录</p>
                 {% endif %}
             </div>
         </div>
@@ -188,8 +188,8 @@
             <div class="layui-card-body">
                 <div class="layui-row">
                     <div class="layui-col-md2">
-                        <a href="{% url 'personal:schedule_add' %}" class="layui-btn layui-btn-fluid">
-                            <i class="layui-icon layui-icon-add-1"></i> 新增日程
+                        <a href="{% url 'personal:work_calendar' %}" class="layui-btn layui-btn-fluid">
+                            <i class="layui-icon layui-icon-date"></i> 工作日历
                         </a>
                     </div>
                     <div class="layui-col-md2">

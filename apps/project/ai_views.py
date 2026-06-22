@@ -5,9 +5,20 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView
 from django.db.models import Q, Count, Sum
 from .models import Project, Task, WorkHour
+from apps.ai.services.business_result import build_business_ai_result
 from apps.ai.utils.analysis_tools import default_project_analysis_tool
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_project_ai_result(raw_result, scenario, project, request=None, raw_input=None):
+    return build_business_ai_result(
+        raw_result,
+        scenario=scenario,
+        source_refs=[{'type': 'project', 'id': project.id}],
+        request=request,
+        raw_input=raw_input,
+    )
 
 
 @login_required
@@ -73,6 +84,13 @@ def ai_project_risk_prediction(request, project_id):
         result = default_project_analysis_tool.predict_project_risk(
             project_data, task_data, task_stats, total_hours
         )
+        normalized_result = _normalize_project_ai_result(
+            result,
+            'project_risk_prediction',
+            project,
+            request=request,
+            raw_input={'project': project_data, 'task_count': len(task_data)},
+        )
 
         # 记录分析日志
         logger.info(f"项目ID {project_id} 风险预测完成")
@@ -80,7 +98,7 @@ def ai_project_risk_prediction(request, project_id):
         return JsonResponse({
             'code': 0,
             'msg': '风险预测成功',
-            'data': result
+            'data': normalized_result
         })
 
     except Project.DoesNotExist:
@@ -133,6 +151,13 @@ def ai_project_progress_analysis(request, project_id):
         result = default_project_analysis_tool.analyze_project_progress(
             project_data, task_data
         )
+        normalized_result = _normalize_project_ai_result(
+            result,
+            'project_progress_analysis',
+            project,
+            request=request,
+            raw_input={'project': project_data, 'task_count': len(task_data)},
+        )
 
         # 记录分析日志
         logger.info(f"项目ID {project_id} 进度分析完成")
@@ -140,7 +165,7 @@ def ai_project_progress_analysis(request, project_id):
         return JsonResponse({
             'code': 0,
             'msg': '进度分析成功',
-            'data': result
+            'data': normalized_result
         })
 
     except Project.DoesNotExist:

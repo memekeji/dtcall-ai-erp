@@ -1,7 +1,5 @@
 from django.http import JsonResponse
 from django.views import View
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 import random
 from datetime import datetime
 
@@ -29,7 +27,6 @@ DAILY_QUOTES = [
 ]
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class DailyQuoteView(View):
     def get(self, request):
         try:

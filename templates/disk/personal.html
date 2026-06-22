@@ -94,6 +94,36 @@
         .file-grid-item {
             display: flex;
             flex-direction: column;
+            position: relative;
+        }
+        
+        .file-grid-item.selected {
+            border-color: #1E9FFF;
+            box-shadow: 0 0 0 2px rgba(30, 159, 255, 0.18), 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .item-select {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            z-index: 5;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.92);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.16);
+            cursor: pointer;
+        }
+        
+        .item-select-checkbox {
+            width: 16px;
+            height: 16px;
+            margin: 0;
+            cursor: pointer;
+            accent-color: #1E9FFF;
         }
         
         /* 文件内容预览区域 */
@@ -211,6 +241,11 @@
             background: #f8f9fa;
         }
         
+        .view-list .file-row.selected {
+            background: #eaf6ff;
+            box-shadow: inset 3px 0 0 #1E9FFF;
+        }
+        
         .view-list .file-row td {
             padding: 12px 15px;
             vertical-align: middle;
@@ -232,6 +267,10 @@
         
         .view-list .file-row .file-actions-cell {
             width: 200px;
+        }
+        .view-list .select-cell {
+            width: 44px;
+            text-align: center;
         }
         .empty-state {
             text-align: center;
@@ -437,7 +476,10 @@
             
             <!-- 文件夹 -->
             {% for folder in folders %}
-            <div class="grid-item file-grid-item" data-type="folder" data-id="{{ folder.id }}" oncontextmenu="showContextMenu(event, 'folder', '{{ folder.id }}')" onclick="if (!event.target.closest('.file-actions')) { toggleItemSelection('folder', '{{ folder.id }}'); } (window.event || event).stopPropagation();" ondblclick="navigateToFolder('{{ folder.id }}'); (window.event || event).stopPropagation();">
+            <div class="grid-item file-grid-item" data-type="folder" data-id="{{ folder.id }}" oncontextmenu="showContextMenu(event, 'folder', '{{ folder.id }}')" onclick="if (!event.target.closest('.file-actions, .item-select')) { navigateToFolder('{{ folder.id }}'); } (window.event || event).stopPropagation();">
+                <label class="item-select" onclick="event.stopPropagation();">
+                    <input type="checkbox" class="item-select-checkbox" data-type="folder" data-id="{{ folder.id }}" onchange="setItemSelection(this)">
+                </label>
                 <div class="file-preview">
                     <i class="layui-icon layui-icon-folder icon" style="color: #FFB800; font-size: 64px;"></i>
                 </div>
@@ -457,7 +499,10 @@
             
             <!-- 文件 -->
             {% for file in files %}
-            <div class="grid-item file-grid-item" data-type="file" data-id="{{ file.id }}" oncontextmenu="showContextMenu(event, 'file', '{{ file.id }}')" onclick="if (!event.target.closest('.file-actions')) { toggleItemSelection('file', '{{ file.id }}'); } (window.event || event).stopPropagation();" ondblclick="previewFile('{{ file.id }}', '{{ file.name }}', '{{ file.file_type }}'); (window.event || event).stopPropagation();">
+            <div class="grid-item file-grid-item" data-type="file" data-id="{{ file.id }}" oncontextmenu="showContextMenu(event, 'file', '{{ file.id }}')" onclick="if (!event.target.closest('.file-actions, .item-select')) { previewFile('{{ file.id }}', '{{ file.name }}', '{{ file.file_type }}'); } (window.event || event).stopPropagation();">
+                <label class="item-select" onclick="event.stopPropagation();">
+                    <input type="checkbox" class="item-select-checkbox" data-type="file" data-id="{{ file.id }}" onchange="setItemSelection(this)">
+                </label>
                 <div class="file-preview">
                     {% if file.file_type == 'image' %}
                     <img src="/disk/download/{{ file.id }}/" alt="{{ file.name }}" style="pointer-events: none;">
@@ -508,6 +553,7 @@
             <div class="file-header">
                 <table style="width: 100%; border-collapse: collapse;">
                     <tr>
+                        <th style="width: 50px; padding: 12px 15px; text-align: center;">选择</th>
                         <th style="width: 50px; padding: 12px 15px;"></th>
                         <th style="padding: 12px 15px; text-align: left;">名称</th>
                         <th style="width: 120px; padding: 12px 15px; text-align: right;">大小</th>
@@ -518,9 +564,12 @@
             </div>
             <div class="file-body">
                 {% for folder in folders %}
-                <div class="file-row" data-type="folder" data-id="{{ folder.id }}" onclick="if (!event.target.closest('.file-actions-cell')) { toggleItemSelection('folder', '{{ folder.id }}'); } (window.event || event).stopPropagation();" ondblclick="navigateToFolder('{{ folder.id }}'); (window.event || event).stopPropagation();">
+                <div class="file-row" data-type="folder" data-id="{{ folder.id }}" onclick="if (!event.target.closest('.file-actions-cell, .select-cell, .item-select-checkbox')) { navigateToFolder('{{ folder.id }}'); } (window.event || event).stopPropagation();">
                     <table style="width: 100%; border-collapse: collapse;">
                         <tr>
+                            <td class="select-cell" style="padding: 12px 15px;">
+                                <input type="checkbox" class="item-select-checkbox" data-type="folder" data-id="{{ folder.id }}" onchange="setItemSelection(this)" onclick="event.stopPropagation();">
+                            </td>
                             <td class="file-icon" style="padding: 12px 15px;">
                                 <i class="layui-icon layui-icon-folder" style="color: #FFB800; font-size: 24px;"></i>
                             </td>
@@ -543,9 +592,12 @@
                 </div>
                 {% endfor %}
                 {% for file in files %}
-                <div class="file-row" data-type="file" data-id="{{ file.id }}" onclick="if (!event.target.closest('.file-actions-cell')) { toggleItemSelection('file', '{{ file.id }}'); } (window.event || event).stopPropagation();" ondblclick="previewFile('{{ file.id }}', '{{ file.name }}', '{{ file.file_type }}'); (window.event || event).stopPropagation();">
+                <div class="file-row" data-type="file" data-id="{{ file.id }}" onclick="if (!event.target.closest('.file-actions-cell, .select-cell, .item-select-checkbox')) { previewFile('{{ file.id }}', '{{ file.name }}', '{{ file.file_type }}'); } (window.event || event).stopPropagation();">
                     <table style="width: 100%; border-collapse: collapse;">
                         <tr>
+                            <td class="select-cell" style="padding: 12px 15px;">
+                                <input type="checkbox" class="item-select-checkbox" data-type="file" data-id="{{ file.id }}" onchange="setItemSelection(this)" onclick="event.stopPropagation();">
+                            </td>
                             <td class="file-icon" style="padding: 12px 15px;">
                                 {% if file.file_type == 'image' %}
                                 <i class="layui-icon layui-icon-picture" style="color: #5FB878; font-size: 24px;"></i>
@@ -1255,15 +1307,42 @@
             }
         }
         
+        function syncItemSelectionUI(type, id, selected) {
+            document.querySelectorAll(`.file-grid-item[data-type="${type}"][data-id="${id}"], .file-row[data-type="${type}"][data-id="${id}"]`).forEach(function(item) {
+                item.classList.toggle('selected', selected);
+            });
+            document.querySelectorAll(`.item-select-checkbox[data-type="${type}"][data-id="${id}"]`).forEach(function(checkbox) {
+                checkbox.checked = selected;
+            });
+        }
+        
+        function setItemSelection(checkbox) {
+            const type = checkbox.dataset.type;
+            const id = checkbox.dataset.id;
+            const index = selectedItems.findIndex(item => item.type === type && item.id === id);
+            
+            if (checkbox.checked && index === -1) {
+                selectedItems.push({ type, id });
+            } else if (!checkbox.checked && index > -1) {
+                selectedItems.splice(index, 1);
+            }
+            
+            syncItemSelectionUI(type, id, checkbox.checked);
+            updateBatchActions();
+        }
+        
         function toggleItemSelection(type, id) {
             const index = selectedItems.findIndex(item => item.type === type && item.id === id);
+            let selected = false;
             
             if (index > -1) {
                 selectedItems.splice(index, 1);
             } else {
                 selectedItems.push({ type, id });
+                selected = true;
             }
             
+            syncItemSelectionUI(type, id, selected);
             updateBatchActions();
         }
         
@@ -1348,6 +1427,9 @@
         }
         
         function clearSelection() {
+            selectedItems.forEach(function(item) {
+                syncItemSelectionUI(item.type, item.id, false);
+            });
             selectedItems = [];
             updateBatchActions();
         }

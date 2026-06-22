@@ -1,0 +1,52 @@
+function openRightPopup(title, url, onClose) {
+    if (!url) {
+        return;
+    }
+
+    layui.use(['layer', 'table'], function () {
+        var layer = layui.layer;
+        var table = layui.table;
+        var common = window.DTCallCommon || {};
+        var reloadTableId = '{{ popup_reload_table_id|default:""|escapejs }}';
+        var openPopup = common.openRightPopup || function(layerInstance, popupTitle, popupUrl, options) {
+            options = options || {};
+            return layerInstance.open({
+                type: 2,
+                title: popupTitle,
+                shadeClose: false,
+                shade: 0.3,
+                maxmin: true,
+                area: ['80%', '100%'],
+                offset: 'r',
+                anim: 2,
+                content: popupUrl,
+                success: function(layero) {
+                    if (layero && typeof layero.css === 'function') {
+                        layero.css({
+                            'right': '0',
+                            'top': '0',
+                            'height': '100%'
+                        });
+                    }
+                },
+                end: options.onClose
+            });
+        };
+
+        openPopup(layer, title || '详情', url, {
+            onClose: function() {
+                if (typeof onClose === 'function') {
+                    onClose();
+                    return;
+                }
+                if (reloadTableId && table && typeof table.reload === 'function') {
+                    table.reload(reloadTableId);
+                    return;
+                }
+                window.location.reload();
+            }
+        });
+    });
+}
+
+window.openRightPopup = openRightPopup;

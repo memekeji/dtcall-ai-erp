@@ -21,9 +21,6 @@
                         <button class="layui-btn layui-btn-normal layui-btn-sm" onclick="addReceipt()">
                             <i class="layui-icon layui-icon-add-1"></i> 新增回款
                         </button>
-                        <button class="layui-btn layui-btn-primary layui-btn-sm" onclick="exportPendingPayment()" style="margin-left: 8px;">
-                            <i class="layui-icon layui-icon-export"></i> 导出
-                        </button>
                     </div>
                     <div class="layui-col-md6" style="text-align: right;">
                         <!-- 搜索区域 -->
@@ -61,7 +58,7 @@
         <a class="layui-btn layui-btn-warm layui-btn-xs" lay-event="invoice">查看发票</a>
     </script>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'js/jquery.min.js' %}"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
         layui.use(['element', 'table', 'layer', 'form'], function() {
@@ -206,14 +203,6 @@
         // 确保函数在全局作用域可用
         window.addReceipt = addReceipt;
 
-        // 导出待回款数据
-        function exportPendingPayment() {
-            layui.use(['layer'], function() {
-                var layer = layui.layer;
-                layer.msg('导出功能开发中...', {icon: 0});
-            });
-        }
-        window.exportPendingPayment = exportPendingPayment;
 
         // 搜索待回款记录
         function searchPendingPayment() {

@@ -8,62 +8,6 @@ from apps.oa.constants import MeetingTypeChoices
 User = get_user_model()
 
 
-class PersonalSchedule(models.Model):
-    """个人日程安排"""
-    PRIORITY_CHOICES = (
-        (1, '低'),
-        (2, '中'),
-        (3, '高'),
-        (4, '紧急'),
-    )
-
-    STATUS_CHOICES = (
-        ('pending', '待处理'),
-        ('in_progress', '进行中'),
-        ('completed', '已完成'),
-        ('cancelled', '已取消'),
-    )
-
-    title = models.CharField(max_length=200, verbose_name='日程标题')
-    content = models.TextField(blank=True, verbose_name='日程内容')
-    start_time = models.DateTimeField(verbose_name='开始时间')
-    end_time = models.DateTimeField(verbose_name='结束时间')
-    priority = models.IntegerField(
-        choices=PRIORITY_CHOICES,
-        default=2,
-        verbose_name='优先级')
-    status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default='pending',
-        verbose_name='状态')
-    location = models.CharField(max_length=200, blank=True, verbose_name='地点')
-    reminder_time = models.DateTimeField(
-        null=True, blank=True, verbose_name='提醒时间')
-    is_all_day = models.BooleanField(default=False, verbose_name='全天事件')
-    is_private = models.BooleanField(default=False, verbose_name='私人事件')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='用户')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
-
-    class Meta:
-        verbose_name = '个人日程'
-        verbose_name_plural = verbose_name
-        db_table = 'personal_schedule'
-        ordering = ['-start_time']
-
-    def __str__(self):
-        return self.title
-
-    @property
-    def priority_display(self):
-        return dict(self.PRIORITY_CHOICES).get(self.priority, '未知')
-
-    @property
-    def status_display(self):
-        return dict(self.STATUS_CHOICES).get(self.status, '未知')
-
-
 class WorkRecord(models.Model):
     """工作记录"""
     WORK_TYPES = (

@@ -234,8 +234,6 @@
                 var formData = data.field;
                 formData.csrfmiddlewaretoken = $('[name=csrfmiddlewaretoken]').val();
                 
-                console.log('Submitting project to:', url);
-                console.log('Project data:', formData);
                 
                 $.ajax({
                     url: url,
@@ -243,7 +241,6 @@
                     data: formData,
                     dataType: 'json',
                     success: function (res) {
-                        console.log('Project response:', res);
                         if (res.code === 0) {
                             layer.msg(res.msg, { icon: 1 });
                             setTimeout(function () {
@@ -270,7 +267,6 @@
                         }
                     },
                     error: function (xhr, status, error) {
-                        console.log('Project error:', xhr.responseText);
                         var errorMsg = '提交失败';
                         
                         // 尝试解析服务器返回的错误信息

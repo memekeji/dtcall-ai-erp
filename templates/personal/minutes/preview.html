@@ -213,8 +213,10 @@ $(document).ready(function() {
         return html;
     }
     
-    // HTML转义函数
-    function escapeHtml(text) {
+    // HTML转义函数，会议预览需要保留换行显示。
+    var escapeHtml = (window.DTCallCommon && window.DTCallCommon.escapeHtml) ? function(text) {
+        return window.DTCallCommon.escapeHtml(text).replace(/\n/g, '<br>');
+    } : function(text) {
         if (!text) return '';
         var map = {
             '&': '&amp;',
@@ -225,7 +227,7 @@ $(document).ready(function() {
             '\n': '<br>'
         };
         return text.toString().replace(/[&<>"']|\n/g, function(m) { return map[m]; });
-    }
+    };
 });
 </script>
 {% endblock %}

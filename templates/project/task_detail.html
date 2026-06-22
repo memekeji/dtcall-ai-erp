@@ -1,0 +1,241 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>任务详情 - {{ task.title }}</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <style>
+        .task-header {
+            background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .task-header h2 {
+            margin: 0 0 10px 0;
+            font-size: 22px;
+        }
+        .task-meta {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            font-size: 13px;
+            opacity: 0.9;
+        }
+        .progress-container { margin-top: 12px; }
+        .progress-bar {
+            background: rgba(255,255,255,0.2);
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            background: #fff;
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        .stat-card {
+            text-align: center;
+            padding: 15px;
+            border-radius: 6px;
+            color: white;
+            margin-bottom: 15px;
+        }
+        .stat-card.purple { background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%); }
+        .stat-card.blue { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .stat-card.green { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+        .stat-card.orange { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .stat-number { font-size: 24px; font-weight: bold; }
+        .stat-label { font-size: 12px; opacity: 0.85; margin-top: 4px; }
+        .status-badge { padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+        .status-pending { background: #FFB800; color: #fff; }
+        .status-progress { background: #1E9FFF; color: #fff; }
+        .status-done { background: #5FB878; color: #fff; }
+        .status-delay { background: #FF5722; color: #fff; }
+        .status-cancel { background: #999; color: #fff; }
+        .priority-badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+        .priority-low { background: #e6f7ff; color: #1890ff; }
+        .priority-medium { background: #fff7e6; color: #fa8c16; }
+        .priority-high { background: #fff2e8; color: #f5222d; }
+        .priority-urgent { background: #fff1f0; color: #cf1322; font-weight: bold; }
+        .info-row { display: flex; margin-bottom: 10px; }
+        .info-label { width: 90px; color: #999; flex-shrink: 0; }
+        .info-value { flex: 1; color: #333; }
+        .overdue-tag {
+            background: #FF5722;
+            color: #fff;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            margin-left: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layui-container" style="padding: 20px;">
+        <div class="task-header">
+            <h2>
+                {{ task.title }}
+                <span class="status-badge
+                    {% if task.status == 1 %}status-pending
+                    {% elif task.status == 2 %}status-progress
+                    {% elif task.status == 3 %}status-done
+                    {% elif task.status == 4 %}status-delay
+                    {% elif task.status == 5 %}status-cancel
+                    {% endif %}">
+                    {{ task.status_display }}
+                </span>
+            </h2>
+            <div class="task-meta">
+                <span><i class="layui-icon layui-icon-user"></i> {{ task.assignee.username|default:'未分配' }}</span>
+                <span><i class="layui-icon layui-icon-date"></i> {{ task.start_date|date:'Y-m-d'|default:'-' }} ~ {{ task.end_date|date:'Y-m-d'|default:'-' }}</span>
+                {% if task.is_overdue %}<span class="overdue-tag">已逾期</span>{% endif %}
+            </div>
+            <div class="progress-container">
+                <span style="font-size:12px;">完成进度: {{ task.progress|default:0 }}%</span>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {{ task.progress|default:0 }}%"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md3">
+                <div class="stat-card purple">
+                    <div class="stat-number">{{ task.estimated_hours|default:'-' }}</div>
+                    <div class="stat-label">预估工时(小时)</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="stat-card blue">
+                    <div class="stat-number">{{ task.actual_hours|default:'-' }}</div>
+                    <div class="stat-label">实际工时(小时)</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="stat-card green">
+                    <div class="stat-number">{{ task.progress|default:0 }}%</div>
+                    <div class="stat-label">完成进度</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="stat-card orange">
+                    <div class="stat-number">
+                        <span class="priority-badge
+                            {% if task.priority == 1 %}priority-low
+                            {% elif task.priority == 2 %}priority-medium
+                            {% elif task.priority == 3 %}priority-high
+                            {% elif task.priority == 4 %}priority-urgent
+                            {% endif %}">
+                            {{ task.priority_display }}
+                        </span>
+                    </div>
+                    <div class="stat-label">优先级</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="layui-card">
+            <div class="layui-card-header">基本信息</div>
+            <div class="layui-card-body">
+                <div class="layui-row layui-col-space15">
+                    <div class="layui-col-md6">
+                        <div class="info-row"><span class="info-label">所属项目:</span><span class="info-value">{{ task.project.name|default:'无项目' }}</span></div>
+                        <div class="info-row"><span class="info-label">创建人:</span><span class="info-value">{{ task.creator.username|default:'-' }}</span></div>
+                        <div class="info-row"><span class="info-label">负责人:</span><span class="info-value">{{ task.assignee.username|default:'未分配' }}</span></div>
+                        <div class="info-row"><span class="info-label">开始日期:</span><span class="info-value">{{ task.start_date|date:'Y-m-d'|default:'-' }}</span></div>
+                    </div>
+                    <div class="layui-col-md6">
+                        <div class="info-row"><span class="info-label">结束日期:</span><span class="info-value">{{ task.end_date|date:'Y-m-d'|default:'-' }}</span></div>
+                        <div class="info-row"><span class="info-label">预估工时:</span><span class="info-value">{{ task.estimated_hours|default:'-' }} 小时</span></div>
+                        <div class="info-row"><span class="info-label">实际工时:</span><span class="info-value">{{ task.actual_hours|default:'-' }} 小时</span></div>
+                        <div class="info-row"><span class="info-label">创建时间:</span><span class="info-value">{{ task.create_time|date:'Y-m-d H:i'|default:'-' }}</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if task.description %}
+        <div class="layui-card">
+            <div class="layui-card-header">任务描述</div>
+            <div class="layui-card-body">
+                <div style="color: #666; line-height: 1.8;">{{ task.description|linebreaksbr }}</div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="layui-card">
+            <div class="layui-card-header">工时记录</div>
+            <div class="layui-card-body">
+                {% if work_hours %}
+                <table class="layui-table">
+                    <thead>
+                        <tr><th>日期</th><th>工时(小时)</th><th>记录人</th><th>描述</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for wh in work_hours %}
+                        <tr>
+                            <td>{{ wh.date|date:'Y-m-d'|default:'-' }}</td>
+                            <td>{{ wh.hours }}</td>
+                            <td>{{ wh.user.username|default:'-' }}</td>
+                            <td>{{ wh.description|default:'-' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div style="text-align: center; padding: 30px; color: #999;">
+                    <i class="layui-icon layui-icon-about" style="font-size: 40px;"></i>
+                    <p>暂无工时记录</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="layui-btn-container" style="margin-top: 15px;">
+            <button type="button" class="layui-btn" onclick="editTask({{ task.id }})"><i class="layui-icon layui-icon-edit"></i> 编辑任务</button>
+            <button type="button" class="layui-btn layui-btn-danger" onclick="deleteTask({{ task.id }})"><i class="layui-icon layui-icon-delete"></i> 删除任务</button>
+            <button type="button" class="layui-btn layui-btn-primary" onclick="closeWindow()">返回</button>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['layer'], function() {
+            var layer = layui.layer;
+            window.editTask = function(taskId) {
+                layer.open({ type: 2, title: '编辑任务', content: '/task/edit/' + taskId + '/', area: ['800px', '600px'], maxmin: true });
+            };
+            window.deleteTask = function(taskId) {
+                layer.confirm('确定要删除该任务吗？', { btn: ['确定', '取消'] }, function() {
+                    $.ajax({
+                        url: '/task/delete/' + taskId + '/',
+                        type: 'POST',
+                        data: {'csrfmiddlewaretoken': '{{ csrf_token }}'},
+                        success: function(res) {
+                            if (res.code === 0) {
+                                layer.msg('删除成功', {icon: 1}, function() { closeWindow(); });
+                            } else {
+                                layer.msg(res.msg || '删除失败', {icon: 2});
+                            }
+                        },
+                        error: function() { layer.msg('网络错误', {icon: 2}); }
+                    });
+                });
+            };
+            window.closeWindow = function() {
+                var index = parent.layer.getFrameIndex(window.name);
+                if (index) { parent.layer.close(index); }
+                else { window.history.back(); }
+            };
+        });
+    </script>
+</body>
+</html>

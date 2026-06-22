@@ -2,9 +2,20 @@ import logging
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from .models import MeetingRecord
+from apps.ai.services.business_result import build_business_ai_result
 from apps.ai.utils.analysis_tools import default_meeting_analysis_tool
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_meeting_ai_result(raw_result, scenario, meeting, request=None, raw_input=None):
+    return build_business_ai_result(
+        raw_result,
+        scenario=scenario,
+        source_refs=[{'type': 'meeting', 'id': meeting.id}],
+        request=request,
+        raw_input=raw_input,
+    )
 
 
 @login_required
@@ -49,11 +60,18 @@ def ai_meeting_summary(request, meeting_id):
                 dict) and 'resolutions' in result and result['resolutions']:
             meeting.resolution = result['resolutions']
             meeting.save()
+        normalized_result = _normalize_meeting_ai_result(
+            result,
+            'meeting_summary',
+            meeting,
+            request=request,
+            raw_input=meeting_data,
+        )
 
         return JsonResponse({
             'code': 0,
             'msg': '会议纪要生成成功',
-            'data': result
+            'data': normalized_result
         })
 
     except MeetingRecord.DoesNotExist:
@@ -93,11 +111,18 @@ def ai_meeting_action_items(request, meeting_id):
 
         # 记录分析日志
         logger.info(f"会议ID {meeting_id} 任务项提取完成")
+        normalized_result = _normalize_meeting_ai_result(
+            result,
+            'meeting_action_items',
+            meeting,
+            request=request,
+            raw_input=meeting_data,
+        )
 
         return JsonResponse({
             'code': 0,
             'msg': '任务项提取成功',
-            'data': result
+            'data': normalized_result
         })
 
     except MeetingRecord.DoesNotExist:

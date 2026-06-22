@@ -29,7 +29,7 @@
                     placeholder="请输入岗位名称"
                     @blur="validateField('title')"
                 >
-                <div class="error-message" v-if="errors.title">{{ errors.title }}</div>
+                <div class="error-message" v-if="errors.title">[[ errors.title ]]</div>
             </div>
             
             <!-- 部门ID -->
@@ -43,7 +43,7 @@
                     placeholder="请输入部门ID"
                     @blur="validateField('did')"
                 >
-                <div class="error-message" v-if="errors.did">{{ errors.did }}</div>
+                <div class="error-message" v-if="errors.did">[[ errors.did ]]</div>
             </div>
             
             <!-- 排序 -->
@@ -102,7 +102,7 @@
     <transition name="slide-up">
         <div class="toast-message" v-if="toastMessage">
             <i :class="toastConfig.icon"></i>
-            <span>{{ toastMessage }}</span>
+            <span>[[ toastMessage ]]</span>
         </div>
     </transition>
 </div>
@@ -331,6 +331,7 @@
     };
     
     const app = createApp(PositionFormApp);
+    app.config.compilerOptions.delimiters = ['[[', ']]'];
     app.mount('#position-form-app');
 </script>
 

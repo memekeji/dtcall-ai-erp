@@ -132,6 +132,19 @@
         .customer-selector input {
             flex: 1;
         }
+
+        .scan-upload-box {
+            padding: 14px 16px;
+            background: #f7fbff;
+            border: 1px dashed #8cc8ff;
+            border-radius: 4px;
+        }
+
+        .scan-upload-box .scan-tip {
+            margin-top: 8px;
+            color: #77808a;
+            font-size: 12px;
+        }
         
         /* 滚动条样式 */
         body::-webkit-scrollbar {
@@ -163,7 +176,7 @@
 
         <!-- 主体内容 -->
         <div class="contract-form-body" style="padding: 0;">
-            <form class="layui-form" lay-filter="contractForm">
+            <form class="layui-form" lay-filter="contractForm" enctype="multipart/form-data">
                 {% csrf_token %}
                 
                 <!-- 基本信息区域 -->
@@ -253,6 +266,15 @@
                             <label>结束时间 <span style="color: red;">*</span></label>
                             <input type="text" name="end_time" id="endTime" placeholder="请选择结束时间" class="layui-input" lay-verify="required">
                         </div>
+                    </div>
+                </div>
+
+                <!-- 合同扫描件区域 -->
+                <div class="contract-form-section">
+                    <h3><i class="layui-icon layui-icon-upload-drag"></i> 合同扫描件</h3>
+                    <div class="scan-upload-box">
+                        <input type="file" name="scan_file" id="scanFile" accept=".pdf,.jpg,.jpeg,.png,.tif,.tiff" class="layui-input">
+                        <div class="scan-tip">支持 PDF、JPG、PNG、TIF 格式，可上传已签章或签字后的真实合同扫描件。</div>
                     </div>
                 </div>
 
@@ -441,6 +463,10 @@
                 
                 var loadIndex = layer.load(2, {shade: [0.3, '#000']});
                 var csrfToken = $('input[name="csrfmiddlewaretoken"]').val();
+                var formData = new FormData(data.form);
+                Object.keys(data.field).forEach(function(key) {
+                    formData.set(key, data.field[key]);
+                });
                 
                 $.ajax({
                     url: '/contract/sales/add/',
@@ -448,7 +474,9 @@
                     headers: {
                         'X-CSRFToken': csrfToken
                     },
-                    data: data.field,
+                    data: formData,
+                    processData: false,
+                    contentType: false,
                     success: function(res) {
                         layer.close(loadIndex);
                         if (res.code === 0) {

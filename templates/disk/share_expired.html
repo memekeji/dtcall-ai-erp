@@ -7,6 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>分享已过期</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
     <style>
         body {
             background: linear-gradient(135deg, #ff6b6b 0%, #ffa500 100%);
@@ -89,12 +90,12 @@
             display: inline-block;
         }
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%);
             color: white;
         }
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 10px 20px rgba(22, 119, 255, 0.22);
         }
         .btn-secondary {
             background: #f8f9fa;
@@ -116,6 +117,26 @@
         }
         .tips i {
             margin-right: 8px;
+        }
+        body {
+            background:
+                linear-gradient(135deg, rgba(255,255,255,0.92), rgba(238,247,255,0.9)),
+                radial-gradient(circle at 18% 8%, rgba(22, 119, 255, 0.16), transparent 28%),
+                linear-gradient(180deg, #f7fbff 0%, #eef5fc 100%);
+        }
+        .expired-container {
+            border: 1px solid #e5edf6;
+            border-radius: 8px;
+            box-shadow: 0 18px 42px rgba(15, 23, 42, 0.14);
+        }
+        .btn {
+            border-radius: 6px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%);
+        }
+        .btn-primary:hover {
+            box-shadow: 0 10px 20px rgba(22, 119, 255, 0.24);
         }
     </style>
 </head>
@@ -159,7 +180,7 @@
                 <i class="layui-icon layui-icon-return"></i>
                 返回上页
             </button>
-            <a href="/adm/disk/personal/" class="btn btn-primary">
+            <a href="/disk/personal/" class="btn btn-primary">
                 <i class="layui-icon layui-icon-home"></i>
                 访问网盘
             </a>
@@ -178,7 +199,6 @@
             var layer = layui.layer;
             
             // 可以在这里添加一些交互效果
-            console.log('分享链接已过期');
         });
     </script>
 </body>

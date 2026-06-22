@@ -3,71 +3,11 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from apps.user.models import Admin
 from .models import (
-    PersonalSchedule, WorkRecord, WorkReport,
+    WorkRecord, WorkReport,
     PersonalNote, PersonalTask, PersonalContact, MeetingMinutes
 )
 
 User = get_user_model()
-
-
-class PersonalScheduleForm(forms.ModelForm):
-    class Meta:
-        model = PersonalSchedule
-        fields = [
-            'title', 'content', 'start_time', 'end_time', 'priority',
-            'status', 'location', 'reminder_time', 'is_all_day', 'is_private'
-        ]
-        widgets = {
-            'title': forms.TextInput(
-                attrs={
-                    'class': 'layui-input',
-                    'placeholder': '请输入日程标题'}),
-            'content': forms.Textarea(
-                attrs={
-                    'class': 'layui-textarea',
-                    'placeholder': '请输入日程内容',
-                    'rows': 4}),
-            'start_time': forms.DateTimeInput(
-                attrs={
-                    'class': 'layui-input',
-                    'type': 'datetime-local'}),
-            'end_time': forms.DateTimeInput(
-                attrs={
-                    'class': 'layui-input',
-                    'type': 'datetime-local'}),
-            'priority': forms.Select(
-                attrs={
-                    'class': 'layui-input'}),
-            'status': forms.Select(
-                attrs={
-                    'class': 'layui-input'}),
-            'location': forms.TextInput(
-                attrs={
-                    'class': 'layui-input',
-                    'placeholder': '请输入地点'}),
-            'reminder_time': forms.DateTimeInput(
-                attrs={
-                    'class': 'layui-input',
-                    'type': 'datetime-local'}),
-            'is_all_day': forms.CheckboxInput(
-                attrs={
-                    'class': 'layui-checkbox',
-                    'lay-skin': 'primary'}),
-            'is_private': forms.CheckboxInput(
-                attrs={
-                    'class': 'layui-checkbox',
-                    'lay-skin': 'primary'}),
-        }
-
-    def clean(self):
-        cleaned_data = super().clean()
-        start_time = cleaned_data.get('start_time')
-        end_time = cleaned_data.get('end_time')
-
-        if start_time and end_time and start_time > end_time:
-            self.add_error('end_time', '结束时间必须晚于开始时间')
-
-        return cleaned_data
 
 
 class WorkRecordForm(forms.ModelForm):
@@ -92,6 +32,7 @@ class WorkRecordForm(forms.ModelForm):
                 attrs={
                     'class': 'layui-input'}),
             'work_date': forms.DateInput(
+                format='%Y-%m-%d',
                 attrs={
                     'class': 'layui-input',
                     'type': 'date'}),

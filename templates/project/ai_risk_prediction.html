@@ -65,11 +65,13 @@
             <div class="layui-row layui-col-space15" id="riskCards">
                 <!-- 风险卡片将通过AJAX加载 -->
             </div>
+            <div id="riskInsight" style="margin-top: 20px;"></div>
         </div>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/ai-agent-sdk.js' %}"></script>
     <script>
         layui.use(['form', 'layer'], function() {
             var form = layui.form;
@@ -108,31 +110,68 @@
 
         function renderRiskCards(data) {
             var html = '';
+            var raw = data.raw_result && typeof data.raw_result === 'object' ? data.raw_result : {};
             
             // 风险概览
-            var riskLevel = data.risk_level || 'low';
+            var riskLevel = normalizeRiskLevel(data.risk_level || 'low');
             var riskClass = 'risk-' + riskLevel;
+            var riskScore = normalizeNumber(data.risk_score || raw.risk_score || Math.round((data.confidence || 0) * 100), 0);
+            var warningCount = normalizeNumber(data.warning_count || raw.warning_count || (data.risk_points ? data.risk_points.length : 0), 0);
             
             html += '<div class="layui-col-md4">';
             html += '<div class="stat-box">';
             html += '<h4>风险等级</h4>';
             html += '<div class="risk-card ' + riskClass + '" style="margin-top: 10px;">';
-            html += '<h2>' + (data.risk_level_display || '低风险') + '</h2>';
+            html += '<h2>' + getRiskLevelDisplay(data.risk_level_display || raw.risk_level_display || riskLevel) + '</h2>';
             html += '</div></div></div>';
             
             html += '<div class="layui-col-md4">';
             html += '<div class="stat-box">';
             html += '<h4>风险得分</h4>';
-            html += '<h2 style="color: #009688; margin-top: 10px;">' + (data.risk_score || 0) + '</h2>';
+            html += '<h2 style="color: #009688; margin-top: 10px;">' + riskScore + '</h2>';
             html += '</div></div>';
             
             html += '<div class="layui-col-md4">';
             html += '<div class="stat-box">';
             html += '<h4>预警指标</h4>';
-            html += '<h2 style="color: #ff6b6b; margin-top: 10px;">' + (data.warning_count || 0) + '</h2>';
+            html += '<h2 style="color: #ff6b6b; margin-top: 10px;">' + warningCount + '</h2>';
             html += '</div></div>';
             
             $('#riskCards').html(html);
+            renderBusinessAIInsight('#riskInsight', data);
+        }
+
+        function renderBusinessAIInsight(selector, data) {
+            if (window.aiAgent && typeof window.aiAgent.mountBusinessAIResult === 'function') {
+                window.aiAgent.mountBusinessAIResult(selector, data);
+            } else {
+                $(selector).text(data.summary || 'AI 分析已完成');
+            }
+        }
+
+        function getRiskLevelDisplay(level) {
+            var labels = {
+                high: '高风险',
+                medium: '中风险',
+                low: '低风险',
+                unknown: '风险未知'
+            };
+            return labels[normalizeRiskLevel(level)] || '风险未知';
+        }
+
+        function normalizeRiskLevel(level) {
+            var allowed = {
+                high: true,
+                medium: true,
+                low: true,
+                unknown: true
+            };
+            return allowed[level] ? level : 'unknown';
+        }
+
+        function normalizeNumber(value, fallback) {
+            var numberValue = Number(value);
+            return Number.isFinite(numberValue) ? numberValue : fallback;
         }
     </script>
 </body>

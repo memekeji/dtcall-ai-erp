@@ -612,12 +612,10 @@
         // 表单控件事件监听
         form.on('select(role-select)', function(data) {
             // 角色选择事件
-            console.log('选择了角色:', data.value);
         });
         
         form.on('switch(default-switch)', function(data) {
             // 默认角色开关事件
-            console.log('默认角色开关:', data.elem.checked);
         });
         
         // 添加按钮点击效果
@@ -732,7 +730,7 @@
     }
     
     // 获取CSRF令牌
-    function getCsrfToken() {
+    var getCsrfToken = (window.DTCallCommon && window.DTCallCommon.getCsrfToken) || function() {
         var name = 'csrftoken';
         var cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -746,7 +744,7 @@
             }
         }
         return cookieValue;
-    }
+    };
     
     // 添加页面加载动画
     $(document).ready(function() {

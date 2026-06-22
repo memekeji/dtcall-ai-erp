@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
-from django.db.models import Count, Sum
+from django.db.models import Avg, Count, Sum
 from django.utils import timezone
 from apps.user.models import Admin
 from datetime import timedelta
@@ -10,6 +10,30 @@ import logging
 
 User = get_user_model()
 logger = logging.getLogger('django')
+
+
+def _month_start(value=None, offset=0):
+    """Return the first instant of a month with an optional month offset."""
+    value = value or timezone.now()
+    month_index = value.year * 12 + value.month - 1 + offset
+    year = month_index // 12
+    month = month_index % 12 + 1
+    return value.replace(
+        year=year,
+        month=month,
+        day=1,
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0)
+
+
+def _timestamp(value):
+    return int(value.timestamp())
+
+
+def _amount(value):
+    return float(value or 0)
 
 
 def _build_menu_tree(
@@ -148,7 +172,7 @@ def dashboard(request):
         from apps.project.models import Project
 
         # 基础统计数据
-        current_month = timezone.now().replace(day=1)
+        current_month = _month_start()
 
         # 删除错误的卡片数据，这些数据不准确
         # 不再计算总销售额、活跃用户、进行中项目、客户转化率
@@ -160,19 +184,13 @@ def dashboard(request):
         target_data = []
 
         for i in range(6):
-            month_start = (
-                timezone.now().replace(
-                    day=1) -
-                timedelta(
-                    days=i *
-                    30))
-            month_end = (month_start + timedelta(days=32)
-                         ).replace(day=1) - timedelta(days=1)
+            month_start = _month_start(offset=-i)
+            month_end = _month_start(offset=-i + 1)
 
             # 使用客户订单数据计算销售趋势
             month_sales = CustomerOrder.objects.filter(
                 create_time__gte=month_start,
-                create_time__lte=month_end,
+                create_time__lt=month_end,
                 delete_time=0,
                 status__in=[
                     'confirmed',
@@ -252,7 +270,8 @@ def dashboard(request):
                     'amount': f'{order.amount:,.0f}',
                     'status_class': status_class_map.get(order.status, 'bg-gray-100 text-gray-800'),
                     'status_text': order.get_status_display(),
-                    'time': order.created_at.strftime('%Y-%m-%d') if order.created_at else '-'
+                    'time': order.created_at.strftime('%Y-%m-%d') if order.created_at else '-',
+                    'detail_url': f'/customer/orders/{order.id}/detail/'
                 })
         except Exception as e:
             logger.error(f'获取订单数据失败: {str(e)}')
@@ -354,8 +373,8 @@ def finance_dashboard(request):
     from datetime import timedelta
 
     try:
-        current_month = timezone.now().replace(day=1)
-        last_month = (current_month - timedelta(days=1)).replace(day=1)
+        current_month = _month_start()
+        last_month = _month_start(offset=-1)
 
         current_month_ts = int(current_month.timestamp())
         last_month_ts = int(last_month.timestamp())
@@ -430,14 +449,8 @@ def finance_dashboard(request):
         profit_trend_data = []
 
         for i in range(12):
-            month_start = (
-                timezone.now().replace(
-                    day=1) -
-                timedelta(
-                    days=i *
-                    30))
-            month_end = (month_start + timedelta(days=32)
-                         ).replace(day=1) - timedelta(days=1)
+            month_start = _month_start(offset=-i)
+            month_end = _month_start(offset=-i + 1)
 
             month_start_ts = int(month_start.timestamp())
             month_end_ts = int(month_end.timestamp())
@@ -445,14 +458,14 @@ def finance_dashboard(request):
             # 收入
             month_contract = Contract.objects.filter(
                 create_time__gte=month_start,
-                create_time__lte=month_end,
+                create_time__lt=month_end,
                 delete_time=0,
                 check_status=2
             ).aggregate(total=Sum('cost'))['total'] or 0
 
             month_other = Income.objects.filter(
                 create_time__gte=month_start_ts,
-                create_time__lte=month_end_ts
+                create_time__lt=month_end_ts
             ).aggregate(total=Sum('amount'))['total'] or 0
 
             month_income = float(month_contract) + float(month_other)
@@ -460,7 +473,7 @@ def finance_dashboard(request):
             # 支出
             month_exp = Expense.objects.filter(
                 create_time__gte=month_start_ts,
-                create_time__lte=month_end_ts
+                create_time__lt=month_end_ts
             ).aggregate(total=Sum('cost'))['total'] or 0
 
             months.append(month_start.strftime('%Y-%m'))
@@ -519,23 +532,25 @@ def finance_dashboard(request):
         ).aggregate(total=Sum('enter_amount'))['total'] or 0
 
         # 待回款（未回款+部分回款）
-        pending_amount = Invoice.objects.filter(
+        pending_summary = Invoice.objects.filter(
             create_time__gte=current_month_ts,
             enter_status__in=[0, 1]
-        ).aggregate(total=Sum('amount') - Sum('enter_amount'))['total'] or 0
+        ).aggregate(amount=Sum('amount'), entered=Sum('enter_amount'))
+        pending_amount = max(
+            _amount(pending_summary['amount']) -
+            _amount(pending_summary['entered']),
+            0)
 
         # 逾期金额（假设发票创建超过30天且未全回款为逾期）
-        overdue_amount = Invoice.objects.filter(
-            create_time__gte=int(
-                (current_month -
-                 timedelta(
-                     days=30)).timestamp()),
-            create_time__lt=current_month_ts,
+        overdue_summary = Invoice.objects.filter(
+            create_time__lt=_timestamp(timezone.now() - timedelta(days=30)),
             enter_status__in=[
                 0,
-                1]).aggregate(
-                    total=Sum('amount') -
-            Sum('enter_amount'))['total'] or 0
+                1]).aggregate(amount=Sum('amount'), entered=Sum('enter_amount'))
+        overdue_amount = max(
+            _amount(overdue_summary['amount']) -
+            _amount(overdue_summary['entered']),
+            0)
 
         # 回款率
         total_receivable = float(received_amount) + \
@@ -669,8 +684,8 @@ def business_dashboard(request):
         from apps.customer.models import CustomerOrder
         from apps.finance.models import Expense
 
-        current_month = timezone.now().replace(day=1)
-        last_month = (current_month - timedelta(days=1)).replace(day=1)
+        current_month = _month_start()
+        last_month = _month_start(offset=-1)
 
         # 经营核心指标
         # 新增客户 - 客户的 create_time 是 DateTimeField
@@ -780,6 +795,13 @@ def business_dashboard(request):
             'opportunity': opportunity_customers,
             'signed': signed_all_customers
         }
+        funnel_base = max(all_customers, 1)
+        funnel_rates = {
+            'potential': 100 if all_customers > 0 else 0,
+            'interested': min(round(interested_customers / funnel_base * 100), 100),
+            'opportunity': min(round(opportunity_customers / funnel_base * 100), 100),
+            'signed': min(round(signed_all_customers / funnel_base * 100), 100),
+        }
 
         # 销售排行榜（基于订单金额）
         sales_ranking = []
@@ -844,9 +866,7 @@ def business_dashboard(request):
                     'processing',
                     'shipped',
                     'delivered',
-                    'completed']).aggregate(
-                avg=Sum('amount') /
-                Count('id'))['avg'] or 0
+                    'completed']).aggregate(avg=Avg('amount'))['avg'] or 0
             avg_orders_per_customer = CustomerOrder.objects.filter(
                 delete_time=0,
                 status__in=[
@@ -879,9 +899,7 @@ def business_dashboard(request):
                     'processing',
                     'shipped',
                     'delivered',
-                    'completed']).aggregate(
-                avg=Sum('amount') /
-                Count('id'))['avg'] or 0
+                    'completed']).aggregate(avg=Avg('amount'))['avg'] or 0
             aov = round(aov, 2)
         except BaseException:
             aov = 0
@@ -905,6 +923,12 @@ def business_dashboard(request):
             'interested': 0,
             'opportunity': 0,
             'signed': 0}
+        funnel_rates = {
+            'potential': 0,
+            'interested': 0,
+            'opportunity': 0,
+            'signed': 0,
+        }
         sales_ranking = []
         industry_data = {'labels': '[]', 'data': '[]'}
         cac = 0
@@ -923,6 +947,7 @@ def business_dashboard(request):
         'market_share_growth': market_share_growth,
         'distribution_data': distribution_data,
         'funnel_data': funnel_data,
+        'funnel_rates': funnel_rates,
         'sales_ranking': sales_ranking,
         'industry_data': industry_data,
         'cac': cac,
@@ -943,8 +968,8 @@ def production_dashboard(request):
     from datetime import timedelta
 
     try:
-        current_month = timezone.now().replace(day=1)
-        last_month = (current_month - timedelta(days=1)).replace(day=1)
+        current_month = _month_start()
+        last_month = _month_start(offset=-1)
 
         # 本月核心生产指标
         # 本月生产计划
@@ -1022,11 +1047,13 @@ def production_dashboard(request):
             if item['status'] == 1:
                 status_labels.append('正常')
             elif item['status'] == 2:
-                status_labels.append('维护中')
+                status_labels.append('维修中')
             elif item['status'] == 3:
-                status_labels.append('故障')
-            else:
                 status_labels.append('停用')
+            elif item['status'] == 4:
+                status_labels.append('报废')
+            else:
+                status_labels.append('未知')
             status_data.append(item['count'])
 
         equipment_data = {
@@ -1055,7 +1082,7 @@ def production_dashboard(request):
                         'name': line.name or f'设备{line.id}',
                         'status': 'running' if line.status == 1 else (
                             'maintenance' if line.status == 2 else (
-                                'error' if line.status == 3 else 'stopped')),
+                                'stopped' if line.status in [3, 4] else 'unknown')),
                         'planned': total_plan,
                         'produced': total_produced,
                         'efficiency': round(
@@ -1114,13 +1141,13 @@ def production_dashboard(request):
         # 生产预警
         production_warnings = []
         try:
-            # 设备故障预警
-            fault_equipment = Equipment.objects.filter(status=3)
+            # 停用/报废设备预警
+            fault_equipment = Equipment.objects.filter(status__in=[3, 4])
             for eq in fault_equipment:
                 production_warnings.append({
                     'level': 'danger',
-                    'title': '设备故障',
-                    'description': f'{eq.name} 出现故障，需要立即处理'
+                    'title': '设备不可用',
+                    'description': f'{eq.name} 当前{eq.get_status_display()}，请检查排产影响'
                 })
 
             # 延期任务预警

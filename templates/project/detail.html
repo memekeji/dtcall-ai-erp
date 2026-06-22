@@ -7,9 +7,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>项目详情 - {{ project.name }}</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
     <style>
         .project-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%);
             color: white;
             padding: 20px;
             border-radius: 6px;
@@ -703,6 +704,7 @@
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/common.js' %}"></script>
     <script src="{% static 'js/lib/axios.min.js' %}"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <script>
@@ -830,8 +832,6 @@
                 }
             })
                 .then(function(response) {
-                    console.log('[CommentDebug] 加载评论响应:', response.data);
-                    console.log('[CommentDebug] API响应数据:', response.data);
                     var comments = response.data;
                     var commentsList = $('#comments-ul');
                     var commentsLoading = $('#comments-loading');
@@ -1070,7 +1070,7 @@
             });
         }
 
-        function getCsrfToken() {
+        var getCsrfToken = (window.DTCallCommon && window.DTCallCommon.getCsrfToken) || function() {
             var cookieValue = null;
             if (document.cookie && document.cookie !== '') {
                 var cookies = document.cookie.split(';');
@@ -1083,7 +1083,7 @@
                 }
             }
             return cookieValue;
-        }
+        };
 
         // 甘特图视图
         $(document).ready(function() {
@@ -1128,7 +1128,6 @@
                         window.ganttRetryCount = 0;
                         return;
                     }
-                    console.log('[GanttDebug] 甘特图容器尺寸为0，延迟初始化...(' + window.ganttRetryCount + '/' + window.ganttMaxRetries + ')');
                     setTimeout(initGanttChart, 300);
                     return;
                 }
@@ -1142,7 +1141,6 @@
                 existingChart.resize();
                 $('#gantt-chart').show();
                 $('#gantt-loading').hide();
-                console.log('[GanttDebug] 甘特图已resize并显示');
                 return;
             }
             
@@ -1162,7 +1160,6 @@
                 }
             })
                 .then(function(response) {
-                    console.log('[GanttDebug] 甘特图响应:', response.data);
                     
                     // 处理分页格式数据
                     var responseData = response.data;
@@ -1333,7 +1330,6 @@
             // 检查看板容器是否存在
             var kanbanContainer = $('#kanban-container');
             if (kanbanContainer.length === 0) {
-                console.log('[KanbanDebug] 看板容器不存在，跳过加载');
                 return;
             }
             
@@ -1355,7 +1351,6 @@
                 rect = containerDom.getBoundingClientRect();
                 
                 if (rect.width === 0 || rect.height === 0) {
-                    console.log('[KanbanDebug] 看板容器尺寸为0，延迟加载...');
                     setTimeout(loadKanbanTasks, 300);
                     return;
                 }
@@ -1371,7 +1366,6 @@
                 }
             })
                 .then(function(response) {
-                    console.log('[KanbanDebug] 看板响应:', response.data);
                     
                     // 处理分页格式数据
                     var responseData = response.data;
@@ -1494,9 +1488,6 @@
         // 团队成员工作量数据（由Django模板渲染，JSON格式）
         var memberWorkload = {{ member_workload_json|safe }};
         
-        console.log('[StatsDebug] 任务统计数据:', taskStats);
-        console.log('[StatsDebug] 任务趋势数据:', taskTrendData);
-        console.log('[StatsDebug] 团队成员工作量:', memberWorkload);
 
         // 统计分析
         var statsInitialized = false;
@@ -1526,7 +1517,6 @@
             // 如果容器不可见或尺寸为0，延迟重试
             if (statusRect.width === 0 || statusRect.height === 0 || 
                 priorityRect.width === 0 || priorityRect.height === 0) {
-                console.log('[StatsDebug] 图表容器尺寸为0，延迟初始化...');
                 if (statsInitTimer) clearTimeout(statsInitTimer);
                 statsInitTimer = setTimeout(initStatsCharts, 300);
                 return;
@@ -1543,13 +1533,11 @@
                     if (priorityChart) priorityChart.resize();
                     if (trendChart) trendChart.resize();
                     if (workloadChart) workloadChart.resize();
-                    console.log('[StatsDebug] 图表已调整尺寸');
                 }, 100);
                 return;
             }
             
             statsInitialized = true;
-            console.log('[StatsDebug] 开始初始化统计图表');
             
             // 任务状态分布
             var statusChart = echarts.init(statusChartDom);

@@ -41,6 +41,16 @@ def generate_code(prefix):
 
 
 class InventoryMixin:
+    @classmethod
+    def as_view(cls, actions):
+        def view(request, *args, **kwargs):
+            action = actions.get(request.method.lower())
+            if not action:
+                return JsonResponse({'code': 405, 'msg': '请求方法不支持'}, status=405)
+            handler = getattr(cls(), action)
+            return handler(request, *args, **kwargs)
+        return view
+
     def get_queryset(self, model, request):
         queryset = model.objects.all()
         return queryset

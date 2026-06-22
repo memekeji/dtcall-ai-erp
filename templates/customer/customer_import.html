@@ -156,13 +156,14 @@
 
     <script src="/static/layui/layui.js"></script>
     <script>
-        layui.use(['upload', 'element', 'layer'], function(){
+        layui.use(['upload', 'layer', 'element'], function(){
             var upload = layui.upload;
-            var element = layui.element;
             var layer = layui.layer;
+            var element = layui.element;
             
             var uploadedFile = null;
             var fieldMapping = {};
+            var importFields = {{ import_fields_json|safe }};
             
             // 文件上传
             var uploadInst = upload.render({
@@ -203,57 +204,49 @@
                 }
             });
             
-            // 显示字段映射
+            function normalizeHeader(value) {
+                return String(value || '').replace(/\*/g, '').replace(/（必填）|\(必填\)/g, '').trim();
+            }
+
+            var escapeHtml = (window.DTCallCommon && window.DTCallCommon.escapeHtml) || function(value) {
+                return String(value || '').replace(/[&<>'"]/g, function(char) {
+                    return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '\'': '&#39;', '"': '&quot;'}[char];
+                });
+            };
+
             function showFieldMapping(headers) {
-                var systemFields = [
-                    {key: 'name', label: '客户名称', required: true},
-                    {key: 'contact_person', label: '联系人', required: true},
-                    {key: 'phone', label: '联系电话', required: true},
-                    {key: 'email', label: '邮箱', required: false},
-                    {key: 'address', label: '地址', required: false},
-                    {key: 'province', label: '省份', required: false},
-                    {key: 'city', label: '城市', required: false},
-                    {key: 'district', label: '区县', required: false},
-                    {key: 'content', label: '客户描述', required: false},
-                    {key: 'market', label: '主要经营业务', required: false},
-                    {key: 'remark', label: '备注信息', required: false}
-                ];
-                
+                fieldMapping = {};
                 var mappingHtml = '';
-                systemFields.forEach(function(field) {
-                    mappingHtml += `
-                        <div class="mapping-item">
-                            <label>${field.label}${field.required ? ' *' : ''}：</label>
-                            <select name="mapping_${field.key}" class="layui-input" style="width: 200px;">
-                                <option value="">请选择Excel列</option>
-                    `;
+                importFields.forEach(function(field) {
+                    var safeKey = String(field.key).replace(/[^A-Za-z0-9_-]/g, '');
+                    mappingHtml += '<div class="mapping-item">' +
+                        '<label>' + escapeHtml(field.label) + (field.required ? ' *' : '') + '：</label>' +
+                        '<select name="mapping_' + safeKey + '" class="layui-input" style="width: 200px;">' +
+                        '<option value="">请选择Excel列</option>';
                     
                     headers.forEach(function(header, index) {
+                        var headerText = normalizeHeader(header);
+                        var labelText = normalizeHeader(field.label);
                         var selected = '';
-                        // 智能匹配
-                        if (field.label.includes(header) || header.includes(field.label)) {
+                        if (headerText === labelText || headerText === field.field_name || labelText.indexOf(headerText) >= 0 || headerText.indexOf(labelText) >= 0) {
                             selected = 'selected';
                             fieldMapping[field.key] = index;
                         }
-                        mappingHtml += `<option value="${index}" ${selected}>${header}</option>`;
+                        mappingHtml += '<option value="' + index + '" ' + selected + '>' + escapeHtml(header) + '</option>';
                     });
                     
-                    mappingHtml += `
-                            </select>
-                        </div>
-                    `;
+                    mappingHtml += '</select></div>';
                 });
                 
                 $('#mappingContainer').html(mappingHtml);
                 $('#fieldMapping').show();
                 $('#startImport').show();
                 
-                // 监听映射变化
                 $('select[name^="mapping_"]').change(function() {
                     var fieldKey = $(this).attr('name').replace('mapping_', '');
                     var columnIndex = $(this).val();
-                    if (columnIndex) {
-                        fieldMapping[fieldKey] = parseInt(columnIndex);
+                    if (columnIndex !== '') {
+                        fieldMapping[fieldKey] = parseInt(columnIndex, 10);
                     } else {
                         delete fieldMapping[fieldKey];
                     }
@@ -265,17 +258,16 @@
             // 开始导入
             $('#startImport').click(function() {
                 // 验证必填字段映射
-                var requiredFields = ['name', 'contact_person', 'phone'];
                 var missingFields = [];
                 
-                requiredFields.forEach(function(field) {
-                    if (!fieldMapping[field]) {
-                        missingFields.push(field);
+                importFields.forEach(function(field) {
+                    if (field.required && fieldMapping[field.key] === undefined) {
+                        missingFields.push(field.label);
                     }
                 });
                 
                 if (missingFields.length > 0) {
-                    layer.msg('请完成必填字段的映射');
+                    layer.msg('请完成必填字段的映射：' + missingFields.join('、'));
                     return;
                 }
                 

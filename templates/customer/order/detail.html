@@ -2,402 +2,797 @@
 
 {% block title %}订单详情 - DTCall系统{% endblock %}
 
-{% block css %}
+{% block extra_css %}
 <style>
-    .layui-card {
-        margin-bottom: 20px;
-        border-radius: 4px;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    :root {
+        --order-primary: #1677ff;
+        --order-primary-dark: #155bd4;
+        --order-bg: #f4f7fb;
+        --order-card: #ffffff;
+        --order-border: #e6edf5;
+        --order-text: #172033;
+        --order-muted: #667085;
+        --order-soft: #f8fbff;
+        --order-shadow: 0 10px 30px rgba(21, 91, 212, 0.08);
     }
-    .layui-card-header {
-        font-weight: 600;
-        background-color: #f8f8f8;
-        padding: 12px 20px;
-        border-bottom: 1px solid #f0f0f0;
+
+    html,
+    body {
+        height: auto;
+        min-height: 100%;
+        overflow: auto;
+        background: var(--order-bg);
     }
-    .layui-card-body {
-        padding: 20px;
+
+    .order-detail-page {
+        min-height: 100%;
+        padding: 16px 18px 18px;
+        background: var(--order-bg);
+        color: var(--order-text);
+        box-sizing: border-box;
     }
-    .detail-container {
-        background: #fff;
-        padding: 20px;
-    }
-    .detail-section {
-        margin-bottom: 25px;
-    }
-    .section-title {
-        font-size: 16px;
-        font-weight: 600;
-        color: #333;
-        margin-bottom: 15px;
-        padding-bottom: 8px;
-        border-bottom: 1px solid #f0f0f0;
-    }
-    .info-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 15px 30px;
-    }
-    .info-item {
+
+    .order-crumb {
         display: flex;
-        align-items: flex-start;
-        min-height: 36px;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+        color: var(--order-muted);
+        font-size: 13px;
     }
-    .info-label {
-        width: 100px;
-        color: #666;
-        font-weight: 500;
-        padding-right: 15px;
-        flex-shrink: 0;
+
+    .order-crumb .layui-breadcrumb a,
+    .order-crumb .layui-breadcrumb cite {
+        color: var(--order-muted) !important;
     }
-    .info-value {
-        flex: 1;
-        word-break: break-all;
-        color: #333;
+
+    .order-hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 22px;
+        padding: 22px 24px;
+        border: 1px solid #dbeafe;
+        border-radius: 10px;
+        background:
+            linear-gradient(135deg, rgba(22, 119, 255, 0.10), rgba(56, 189, 248, 0.03) 46%, rgba(255, 255, 255, 0.98)),
+            var(--order-card);
+        box-shadow: var(--order-shadow);
     }
-    .amount-value {
-        font-size: 18px;
-        font-weight: 600;
-        color: #1aa094;
+
+    .order-title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
     }
-    .status-badge {
-        padding: 4px 12px;
-        border-radius: 4px;
+
+    .order-title {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 700;
+        line-height: 1.25;
+        color: var(--order-text);
+    }
+
+    .order-number {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        max-width: 100%;
+        padding: 5px 10px;
+        border-radius: 999px;
+        border: 1px solid #cfe0ff;
+        background: #ffffff;
+        color: #315a9f;
         font-size: 12px;
-        font-weight: 500;
+        line-height: 1.2;
     }
-    .btn-group {
-        margin-top: 30px;
-        padding-top: 20px;
-        border-top: 1px solid #f0f0f0;
+
+    .order-subtitle {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 18px;
+        color: var(--order-muted);
+        font-size: 14px;
+        line-height: 1.7;
+    }
+
+    .order-subtitle a {
+        color: var(--order-primary);
+        font-weight: 600;
+    }
+
+    .order-amount-box {
+        min-width: 190px;
+        padding: 16px 18px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.88);
+        border: 1px solid rgba(207, 224, 255, 0.92);
+        text-align: right;
+    }
+
+    .order-amount-label {
+        color: var(--order-muted);
+        font-size: 13px;
+        margin-bottom: 6px;
+    }
+
+    .order-amount {
+        color: #0f766e;
+        font-size: 28px;
+        font-weight: 800;
+        line-height: 1.15;
+        word-break: break-all;
+    }
+
+    .status-badge,
+    .mini-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 24px;
+        padding: 0 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1;
+        white-space: nowrap;
+    }
+
+    .status-pending { background: #fff7e6; color: #b76e00; border: 1px solid #ffd591; }
+    .status-confirmed { background: #e8f2ff; color: #155bd4; border: 1px solid #b8d4ff; }
+    .status-processing { background: #ecfeff; color: #087b8a; border: 1px solid #a5f3fc; }
+    .status-shipped { background: #f4ecff; color: #6941c6; border: 1px solid #d8b4fe; }
+    .status-delivered,
+    .status-completed { background: #eafaf0; color: #15803d; border: 1px solid #bbf7d0; }
+    .status-cancelled { background: #fff1f0; color: #c2410c; border: 1px solid #fecaca; }
+    .status-default { background: #eef2f7; color: #475467; border: 1px solid #d0d5dd; }
+
+    .quick-stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin: 14px 0;
+    }
+
+    .stat-item {
+        min-width: 0;
+        padding: 12px 14px;
+        border: 1px solid var(--order-border);
+        border-radius: 8px;
+        background: var(--order-card);
+    }
+
+    .stat-label {
+        margin-bottom: 6px;
+        color: var(--order-muted);
+        font-size: 12px;
+    }
+
+    .stat-value {
+        color: var(--order-text);
+        font-size: 14px;
+        font-weight: 650;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .detail-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.18fr) minmax(300px, 0.82fr);
+        gap: 14px;
+    }
+
+    .detail-card {
+        border: 1px solid var(--order-border);
+        border-radius: 10px;
+        background: var(--order-card);
+        box-shadow: 0 6px 18px rgba(16, 24, 40, 0.04);
+        overflow: hidden;
+    }
+
+    .detail-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--order-border);
+        background: var(--order-soft);
+    }
+
+    .detail-card-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+        color: var(--order-text);
+        font-size: 15px;
+        font-weight: 700;
+    }
+
+    .detail-card-title .layui-icon {
+        color: var(--order-primary);
+        font-size: 16px;
+    }
+
+    .detail-card-body {
+        padding: 6px 18px 16px;
+    }
+
+    .info-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0 24px;
+    }
+
+    .detail-card.compact .info-list {
+        grid-template-columns: 1fr;
+    }
+
+    .info-row {
+        display: grid;
+        grid-template-columns: 92px minmax(0, 1fr);
+        gap: 12px;
+        align-items: start;
+        min-height: 42px;
+        padding: 13px 0;
+        border-bottom: 1px dashed #edf2f7;
+    }
+
+    .info-row:last-child,
+    .info-row:nth-last-child(2):nth-child(odd) {
+        border-bottom-color: transparent;
+    }
+
+    .info-label {
+        color: var(--order-muted);
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
+    .info-value {
+        min-width: 0;
+        color: var(--order-text);
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.6;
+        word-break: break-word;
+    }
+
+    .info-value a {
+        color: var(--order-primary);
+    }
+
+    .money-value {
+        color: #0f766e;
+        font-weight: 800;
+    }
+
+    .notes-card {
+        margin-top: 14px;
+    }
+
+    .notes-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        padding: 16px 18px 18px;
+    }
+
+    .note-box {
+        min-height: 94px;
+        padding: 14px 15px;
+        border: 1px solid #edf2f7;
+        border-radius: 8px;
+        background: #fbfdff;
+    }
+
+    .note-title {
+        margin-bottom: 8px;
+        color: var(--order-muted);
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    .note-content {
+        color: var(--order-text);
+        font-size: 14px;
+        line-height: 1.75;
+        word-break: break-word;
+        white-space: normal;
+    }
+
+    .empty-text {
+        color: #98a2b3;
+        font-weight: 400;
+    }
+
+    .action-bar {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 10px;
+        margin-top: 14px;
+        padding: 12px 0 0;
+        background: linear-gradient(180deg, rgba(244, 247, 251, 0), var(--order-bg) 24%);
+    }
+
+    .action-bar .layui-btn {
+        height: 36px;
+        line-height: 36px;
+        border-radius: 6px;
+        padding: 0 15px;
+        font-weight: 600;
+    }
+
+    .action-bar .layui-btn-primary {
+        background: #ffffff;
+        border-color: #d0d5dd;
+        color: #344054;
+    }
+
+    .order-payment-form {
+        padding: 22px 24px 10px;
+    }
+
+    .order-payment-form .layui-form-label {
+        width: 86px;
+    }
+
+    .order-payment-form .layui-input-block {
+        margin-left: 116px;
+    }
+
+    .order-payment-form .payment-actions {
+        margin: 22px 0 8px 116px;
         display: flex;
         gap: 10px;
     }
-    .btn-group .layui-btn {
-        padding: 0 20px;
-        height: 36px;
-    }
-    .info-label.required::after {
-        content: "*";
-        color: #ff4d4f;
-        margin-left: 4px;
-    }
-    @media (max-width: 768px) {
-        .info-grid {
+
+    @media (max-width: 992px) {
+        .order-hero,
+        .detail-grid,
+        .notes-grid {
             grid-template-columns: 1fr;
         }
-        .btn-group {
+
+        .order-amount-box {
+            text-align: left;
+        }
+
+        .quick-stats {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 640px) {
+        .order-detail-page {
+            padding: 12px;
+        }
+
+        .order-hero {
+            padding: 18px;
+        }
+
+        .info-list,
+        .quick-stats {
+            grid-template-columns: 1fr;
+        }
+
+        .info-row {
+            grid-template-columns: 78px minmax(0, 1fr);
+        }
+
+        .action-bar {
             flex-wrap: wrap;
+            justify-content: stretch;
+        }
+
+        .action-bar .layui-btn,
+        .action-bar a.layui-btn {
+            flex: 1 1 calc(50% - 8px);
+            margin-left: 0;
+            text-align: center;
         }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="layui-card">
-    <div class="layui-card-header">
-        <div class="layui-flex">
-            <div class="layui-left">
-                <span class="layui-breadcrumb">
-                    <a href="{% url 'customer:customer_list' %}">客户管理</a>
-                    <a href="{% url 'customer:customer_order_list' %}">订单列表</a>
-                    <a><cite>订单详情</cite></a>
+<div class="order-detail-page">
+    <div class="order-crumb">
+        <span class="layui-breadcrumb">
+            <a href="{% url 'customer:customer_list' %}">客户管理</a>
+            <a href="{% url 'customer:customer_order_list' %}">订单列表</a>
+            <a><cite>订单详情</cite></a>
+        </span>
+        {% if order.auto_generated %}
+            <span class="mini-badge status-default">自动生成</span>
+        {% endif %}
+    </div>
+
+    <section class="order-hero">
+        <div>
+            <div class="order-title-row">
+                <h1 class="order-title">订单详情</h1>
+                <span class="order-number">
+                    <i class="layui-icon layui-icon-template-1"></i>
+                    {{ order.order_number|default:"-" }}
+                </span>
+                <span class="status-badge status-{{ order.status|default:'default' }}">
+                    {{ order.get_status_display|default:"未知状态" }}
                 </span>
             </div>
-            <div class="layui-right">
-                <span class="layui-badge-rim">订单号: {{ order.order_number }}</span>
+            <div class="order-subtitle">
+                <span><i class="layui-icon layui-icon-cart"></i> {{ order.product_name|default:"未填写产品名称" }}</span>
+                <span>
+                    <i class="layui-icon layui-icon-user"></i>
+                    {% if order.customer %}
+                        <a href="{% url 'customer:customer_detail' order.customer.id %}">{{ order.customer.name|default:"未命名客户" }}</a>
+                    {% else %}
+                        未关联客户
+                    {% endif %}
+                </span>
+                <span><i class="layui-icon layui-icon-date"></i> {{ order.order_date|date:'Y-m-d'|default:"-" }}</span>
             </div>
+        </div>
+        <div class="order-amount-box">
+            <div class="order-amount-label">订单金额</div>
+            <div class="order-amount">¥{{ order.amount|floatformat:2|default:"0.00" }}</div>
+        </div>
+    </section>
+
+    <div class="quick-stats">
+        <div class="stat-item">
+            <div class="stat-label">财务状态</div>
+            <div class="stat-value">{{ order.get_finance_status_display|default:"-" }}</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">开票申请</div>
+            <div class="stat-value">{{ order.get_invoice_request_status_display|default:"-" }}</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">创建时间</div>
+            <div class="stat-value">{{ order.create_time|date:'Y-m-d H:i'|default:"-" }}</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">更新时间</div>
+            <div class="stat-value">{{ order.update_time|date:'Y-m-d H:i'|default:"-" }}</div>
         </div>
     </div>
-    
-    <div class="layui-card-body">
-        <div class="detail-container">
-            <!-- 基本信息 -->
-            <div class="detail-section">
-                <h3 class="section-title">基本信息</h3>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <div class="info-label">订单编号：</div>
-                        <div class="info-value">{{ order.order_number }}</div>
+
+    <div class="detail-grid">
+        <section class="detail-card">
+            <div class="detail-card-header">
+                <h2 class="detail-card-title"><i class="layui-icon layui-icon-list"></i> 基本信息</h2>
+            </div>
+            <div class="detail-card-body">
+                <div class="info-list">
+                    <div class="info-row">
+                        <div class="info-label">订单编号</div>
+                        <div class="info-value">{{ order.order_number|default:"-" }}</div>
                     </div>
-                    
-                    <div class="info-item">
-                        <div class="info-label">客户名称：</div>
-                        <div class="info-value"><a href="{% url 'customer:customer_detail' order.customer.id %}" class="layui-text-primary">{{ order.customer.name }}</a></div>
-                    </div>
-                    
-                    <div class="info-item">
-                        <div class="info-label">产品名称：</div>
-                        <div class="info-value">{{ order.product_name }}</div>
-                    </div>
-                    
-                    <div class="info-item">
-                        <div class="info-label">订单金额：</div>
-                        <div class="info-value amount-value">¥{{ order.amount|default:0 }}</div>
-                    </div>
-                    
-                    <div class="info-item">
-                        <div class="info-label">订单日期：</div>
-                        <div class="info-value">{{ order.order_date|date:'Y-m-d' }}</div>
-                    </div>
-                    
-                    <div class="info-item">
-                        <div class="info-label">订单状态：</div>
+                    <div class="info-row">
+                        <div class="info-label">订单状态</div>
                         <div class="info-value">
-                            {% if order.status == 0 %}<span class="status-badge" style="background-color: #faad14; color: #fff;">待处理</span>{% endif %}
-                            {% if order.status == 1 %}<span class="status-badge" style="background-color: #1890ff; color: #fff;">进行中</span>{% endif %}
-                            {% if order.status == 2 %}<span class="status-badge" style="background-color: #52c41a; color: #fff;">已完成</span>{% endif %}
-                            {% if order.status == 3 %}<span class="status-badge" style="background-color: #f5222d; color: #fff;">已取消</span>{% endif %}
+                            <span class="status-badge status-{{ order.status|default:'default' }}">{{ order.get_status_display|default:"-" }}</span>
                         </div>
                     </div>
+                    <div class="info-row">
+                        <div class="info-label">客户名称</div>
+                        <div class="info-value">
+                            {% if order.customer %}
+                                <a href="{% url 'customer:customer_detail' order.customer.id %}">{{ order.customer.name|default:"-" }}</a>
+                            {% else %}
+                                <span class="empty-text">未关联</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">产品名称</div>
+                        <div class="info-value">{{ order.product_name|default:"-" }}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">订单金额</div>
+                        <div class="info-value money-value">¥{{ order.amount|floatformat:2|default:"0.00" }}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">订单日期</div>
+                        <div class="info-value">{{ order.order_date|date:'Y-m-d'|default:"-" }}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">关联合同</div>
+                        <div class="info-value">
+                            {% if order.contract %}
+                                {{ order.contract.name|default:order.contract.contract_number|default:"已关联" }}
+                            {% else %}
+                                <span class="empty-text">未关联</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">创建人</div>
+                        <div class="info-value">{{ order.create_user|default:"系统" }}</div>
+                    </div>
                 </div>
             </div>
-            
-            <!-- 其他信息 -->
-            <div class="detail-section">
-                <h3 class="section-title">其他信息</h3>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <div class="info-label">描述：</div>
-                        <div class="info-value">{{ order.description|default:'<span class="layui-text-muted">无</span>'|safe }}</div>
+        </section>
+
+        <section class="detail-card compact">
+            <div class="detail-card-header">
+                <h2 class="detail-card-title"><i class="layui-icon layui-icon-rmb"></i> 财务与开票</h2>
+            </div>
+            <div class="detail-card-body">
+                <div class="info-list">
+                    <div class="info-row">
+                        <div class="info-label">财务状态</div>
+                        <div class="info-value">{{ order.get_finance_status_display|default:"-" }}</div>
                     </div>
-                    
-                    <div class="info-item">
-                        <div class="info-label">备注：</div>
-                        <div class="info-value">{{ order.remark|default:'<span class="layui-text-muted">无</span>'|safe }}</div>
+                    <div class="info-row">
+                        <div class="info-label">开票状态</div>
+                        <div class="info-value">{{ order.get_invoice_request_status_display|default:"-" }}</div>
                     </div>
-                    
-                    <div class="info-item">
-                        <div class="info-label">创建人：</div>
-                        <div class="info-value">{{ order.create_user|default:'系统' }}</div>
+                    <div class="info-row">
+                        <div class="info-label">申请时间</div>
+                        <div class="info-value">{{ order.invoice_request_time|date:'Y-m-d H:i'|default:"-" }}</div>
                     </div>
-                    
-                    <div class="info-item">
-                        <div class="info-label">创建时间：</div>
-                        <div class="info-value">{{ order.create_time|date:'Y-m-d H:i:s' }}</div>
+                    <div class="info-row">
+                        <div class="info-label">申请人</div>
+                        <div class="info-value">{{ order.invoice_request_user|default:"-" }}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">来源</div>
+                        <div class="info-value">{% if order.auto_generated %}系统自动生成{% else %}人工创建{% endif %}</div>
                     </div>
                 </div>
             </div>
-            
-            <!-- 操作按钮 -->
-            <div class="btn-group">
-                <a href="/customer/orders/{{ order.id }}/edit/" class="layui-btn layui-btn-normal">
-                    <i class="layui-icon layui-icon-edit"></i> 编辑订单
-                </a>
-                <button class="layui-btn layui-btn-warm" data-order-id="{{ order.id }}" id="paymentBtn">
-                    <i class="layui-icon layui-icon-rmb"></i> 收款操作
-                </button>
-                <button class="layui-btn layui-btn-danger" data-order-id="{{ order.id }}" id="deleteBtn">
-                    <i class="layui-icon layui-icon-delete"></i> 删除订单
-                </button>
-                <a href="{% url 'customer:customer_order_list' %}" class="layui-btn">
-                    <i class="layui-icon layui-icon-return"></i> 返回列表
-                </a>
+        </section>
+    </div>
+
+    <section class="detail-card notes-card">
+        <div class="detail-card-header">
+            <h2 class="detail-card-title"><i class="layui-icon layui-icon-note"></i> 备注与说明</h2>
+        </div>
+        <div class="notes-grid">
+            <div class="note-box">
+                <div class="note-title">订单描述</div>
+                <div class="note-content">
+                    {% if order.description %}
+                        {{ order.description|linebreaksbr }}
+                    {% else %}
+                        <span class="empty-text">暂无订单描述</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="note-box">
+                <div class="note-title">备注信息</div>
+                <div class="note-content">
+                    {% if order.remark %}
+                        {{ order.remark|linebreaksbr }}
+                    {% else %}
+                        <span class="empty-text">暂无备注信息</span>
+                    {% endif %}
+                </div>
             </div>
         </div>
+    </section>
+
+    <div class="action-bar">
+        <a href="{% url 'customer:customer_order_list' %}" class="layui-btn layui-btn-primary">
+            <i class="layui-icon layui-icon-return"></i> 返回列表
+        </a>
+        <a href="/customer/orders/{{ order.id }}/edit/" class="layui-btn layui-btn-normal">
+            <i class="layui-icon layui-icon-edit"></i> 编辑订单
+        </a>
+        <button type="button" class="layui-btn layui-btn-warm" data-order-id="{{ order.id }}" id="paymentBtn">
+            <i class="layui-icon layui-icon-rmb"></i> 收款操作
+        </button>
+        <button type="button" class="layui-btn layui-btn-danger" data-order-id="{{ order.id }}" id="deleteBtn">
+            <i class="layui-icon layui-icon-delete"></i> 删除订单
+        </button>
     </div>
 </div>
 {% endblock %}
 
-{% block js %}
+{% block extra_js %}
 <script>
-    // 检查layui是否加载
     if (typeof layui !== 'undefined') {
         layui.use(['layer', 'form'], function() {
-            // 检查每个模块是否加载成功
             var layer = layui.layer;
             var form = layui.form;
             var $ = layui.jquery || window.jQuery || window.$;
-            
-            // 添加事件监听器
+
             if (typeof $ !== 'undefined') {
-                // 收款按钮点击事件
-                $('#paymentBtn').click(function() {
+                $('#paymentBtn').on('click', function() {
                     var orderId = $(this).data('order-id');
                     showPaymentDialog(orderId);
                 });
-                
-                // 删除按钮点击事件
-                $('#deleteBtn').click(function() {
+
+                $('#deleteBtn').on('click', function() {
                     var orderId = $(this).data('order-id');
                     deleteOrder(orderId);
                 });
             }
-            
-            // 删除订单
+
             function deleteOrder(id) {
-                if (layer && typeof layer.confirm === 'function' && typeof layer.msg === 'function' && typeof layer.close === 'function') {
-                    layer.confirm('确定要删除该订单吗？删除后无法恢复。', {
-                        icon: 3,
-                        title: '删除确认',
-                        btn: ['确定删除', '取消']
-                    }, function(index) {
-                        if (typeof $ !== 'undefined' && typeof $.ajax === 'function') {
-                            $.ajax({
-                                url: '/customer/orders/' + id + '/delete/',
-                                type: 'POST',
-                                dataType: 'json',
-                                data: {},
-                                headers: {
-                                    'X-CSRFToken': '{{ csrf_token }}'
-                                },
-                                beforeSend: function() {
-                                    // 显示加载提示
-                                    if (layer && typeof layer.load === 'function') {
-                                        layer.load(2);
-                                    }
-                                },
-                                success: function(res) {
-                                    if (layer && typeof layer.closeAll === 'function') {
-                                        layer.closeAll('loading');
-                                    }
-                                    if (res && res.status === 'success') {
-                                        if (layer && typeof layer.msg === 'function' && window && typeof window.location !== 'undefined') {
-                                            layer.msg(res.message || '删除成功', {icon: 1, time: 1500}, function() {
-                                                window.location.href = '/customer/orders/';
-                                            });
-                                        }
-                                    } else {
-                                        if (layer && typeof layer.msg === 'function') {
-                                            layer.msg(res && res.message || '操作失败', {icon: 2});
-                                        }
-                                    }
-                                },
-                                error: function() {
-                                    if (layer && typeof layer.closeAll === 'function' && typeof layer.msg === 'function') {
-                                        layer.closeAll('loading');
-                                        layer.msg('网络错误，请稍后重试', {icon: 2});
-                                    }
+                if (!layer || typeof layer.confirm !== 'function') {
+                    return;
+                }
+
+                layer.confirm('确定要删除该订单吗？删除后无法恢复。', {
+                    icon: 3,
+                    title: '删除确认',
+                    btn: ['确定删除', '取消']
+                }, function(index) {
+                    if (typeof $ !== 'undefined' && typeof $.ajax === 'function') {
+                        $.ajax({
+                            url: '/customer/orders/' + id + '/delete/',
+                            type: 'POST',
+                            dataType: 'json',
+                            headers: {
+                                'X-CSRFToken': '{{ csrf_token }}'
+                            },
+                            beforeSend: function() {
+                                if (layer && typeof layer.load === 'function') {
+                                    layer.load(2);
                                 }
+                            },
+                            success: function(res) {
+                                if (layer && typeof layer.closeAll === 'function') {
+                                    layer.closeAll('loading');
+                                }
+
+                                if (res && res.status === 'success') {
+                                    layer.msg(res.message || '删除成功', {icon: 1, time: 1500}, function() {
+                                        window.location.href = '/customer/orders/';
+                                    });
+                                } else {
+                                    layer.msg(res && res.message || '操作失败', {icon: 2});
+                                }
+                            },
+                            error: function() {
+                                if (layer && typeof layer.closeAll === 'function') {
+                                    layer.closeAll('loading');
+                                }
+                                if (layer && typeof layer.msg === 'function') {
+                                    layer.msg('网络错误，请稍后重试', {icon: 2});
+                                }
+                            }
+                        });
+                    }
+                    layer.close(index);
+                });
+            }
+
+            function showPaymentDialog(orderId) {
+                if (!layer || typeof layer.open !== 'function') {
+                    return;
+                }
+
+                layer.open({
+                    type: 1,
+                    title: '订单收款',
+                    area: [window.innerWidth < 640 ? '92%' : '560px', '520px'],
+                    shade: 0.25,
+                    resize: false,
+                    content: '<div class="layui-form order-payment-form">' +
+                        '<div class="layui-form-item">' +
+                            '<label class="layui-form-label">收款金额</label>' +
+                            '<div class="layui-input-block">' +
+                                '<input type="number" name="amount" placeholder="请输入收款金额" class="layui-input" min="0" step="0.01" required lay-verify="required|number">' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="layui-form-item">' +
+                            '<label class="layui-form-label">收款方式</label>' +
+                            '<div class="layui-input-block">' +
+                                '<select name="payment_method" lay-verify="required">' +
+                                    '<option value="">请选择收款方式</option>' +
+                                    '<option value="alipay">支付宝</option>' +
+                                    '<option value="wechat">微信支付</option>' +
+                                    '<option value="bank">银行转账</option>' +
+                                    '<option value="cash">现金</option>' +
+                                '</select>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="layui-form-item">' +
+                            '<label class="layui-form-label">收款日期</label>' +
+                            '<div class="layui-input-block">' +
+                                '<input type="text" name="payment_date" class="layui-input" lay-verify="required" readonly placeholder="请选择收款日期">' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="layui-form-item">' +
+                            '<label class="layui-form-label">备注</label>' +
+                            '<div class="layui-input-block">' +
+                                '<textarea name="remark" placeholder="请输入收款备注" class="layui-textarea"></textarea>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="payment-actions">' +
+                            '<button class="layui-btn layui-btn-normal" lay-submit lay-filter="submitPayment">确认收款</button>' +
+                            '<button type="button" class="layui-btn layui-btn-primary js-payment-cancel">取消</button>' +
+                        '</div>' +
+                    '</div>',
+                    success: function(layero, index) {
+                        if (layero && layero.find) {
+                            layero.find('.js-payment-cancel').on('click', function() {
+                                layer.close(index);
                             });
                         }
-                        layer.close(index);
-                    }, function(index) {
-                        layer.close(index);
-                    });
-                }
-            };
-            
-            // 收款对话框
-            function showPaymentDialog(orderId) {
-                if (layer && typeof layer.open === 'function') {
-                    layer.open({
-                        type: 1,
-                        title: '订单收款',
-                        area: ['80%', '100%'],
-                        shade: 0.3,
-                        content: '<div class="layui-form" style="padding: 20px;">' +
-                            '<div class="layui-form-item">' +
-                                '<label class="layui-form-label">收款金额</label>' +
-                                '<div class="layui-input-block">' +
-                                    '<input type="number" name="amount" placeholder="请输入收款金额" ' +
-                                           'class="layui-input" min="0" step="0.01" required lay-verify="required|number">' +
-                                '</div>' +
-                            '</div>' +
-                            '<div class="layui-form-item">' +
-                                '<label class="layui-form-label">收款方式</label>' +
-                                '<div class="layui-input-block">' +
-                                    '<select name="payment_method" lay-verify="required">' +
-                                        '<option value="">请选择收款方式</option>' +
-                                        '<option value="alipay">支付宝</option>' +
-                                        '<option value="wechat">微信支付</option>' +
-                                        '<option value="bank">银行转账</option>' +
-                                        '<option value="cash">现金</option>' +
-                                    '</select>' +
-                                '</div>' +
-                            '</div>' +
-                            '<div class="layui-form-item">' +
-                                '<label class="layui-form-label">收款日期</label>' +
-                                '<div class="layui-input-block">' +
-                                    '<input type="text" name="payment_date" class="layui-input" ' +
-                                           'lay-verify="required" readonly placeholder="请选择收款日期">' +
-                                '</div>' +
-                            '</div>' +
-                            '<div class="layui-form-item">' +
-                                '<label class="layui-form-label">备注</label>' +
-                                '<div class="layui-input-block">' +
-                                    '<textarea name="remark" placeholder="请输入收款备注" ' +
-                                              'class="layui-textarea"></textarea>' +
-                                '</div>' +
-                            '</div>' +
-                            '<div class="layui-form-item" style="text-align: center; margin-top: 30px;">' +
-                                '<button class="layui-btn layui-btn-normal" lay-submit lay-filter="submitPayment">确认收款</button>' +
-                                '<button type="button" class="layui-btn layui-btn-primary" onclick="if(typeof layer !== \'undefined\' && layer.closeAll) layer.closeAll()">取消</button>' +
-                            '</div>' +
-                        '</div>',
-                        success: function(layero, index) {
-                            // 加载日期选择器（如果项目有集成）
-                            try {
-                                if (typeof layui !== 'undefined') {
-                                    layui.use('laydate', function() {
-                                        var laydate = layui.laydate;
-                                        if (laydate && typeof laydate.render === 'function' && layero && layero.find) {
-                                            laydate.render({
-                                                elem: layero.find('[name="payment_date"]')[0],
-                                                type: 'date',
-                                                value: new Date().toISOString().split('T')[0]
-                                            });
+
+                        try {
+                            if (typeof layui !== 'undefined') {
+                                layui.use('laydate', function() {
+                                    var laydate = layui.laydate;
+                                    if (laydate && typeof laydate.render === 'function' && layero && layero.find) {
+                                        laydate.render({
+                                            elem: layero.find('[name="payment_date"]')[0],
+                                            type: 'date',
+                                            value: new Date().toISOString().split('T')[0]
+                                        });
+                                    }
+                                });
+                            }
+                        } catch (e) {
+                            console.warn('日期选择器未加载:', e);
+                        }
+
+                        if (form && typeof form.on === 'function') {
+                            form.on('submit(submitPayment)', function(data) {
+                                var loadIndex;
+                                if (layer && typeof layer.load === 'function') {
+                                    loadIndex = layer.load(1);
+                                }
+
+                                var postData = Object.assign({}, data && data.field || {}, {
+                                    csrfmiddlewaretoken: '{{ csrf_token }}'
+                                });
+
+                                if (typeof $ !== 'undefined' && typeof $.ajax === 'function') {
+                                    $.ajax({
+                                        url: '/customer/orders/' + orderId + '/payment/',
+                                        type: 'post',
+                                        data: postData,
+                                        dataType: 'json',
+                                        success: function(res) {
+                                            if (layer && typeof layer.close === 'function') {
+                                                layer.close(loadIndex);
+                                            }
+                                            if (res && res.status === 'success') {
+                                                layer.msg(res.message || '收款操作成功！', {icon: 1}, function() {
+                                                    layer.close(index);
+                                                    window.location.reload();
+                                                });
+                                            } else if (layer && typeof layer.msg === 'function') {
+                                                layer.msg(res && res.message || '收款操作失败', {icon: 2});
+                                            }
+                                        },
+                                        error: function() {
+                                            if (layer && typeof layer.close === 'function') {
+                                                layer.close(loadIndex);
+                                            }
+                                            if (layer && typeof layer.msg === 'function') {
+                                                layer.msg('收款请求失败，请稍后重试', {icon: 2});
+                                            }
                                         }
                                     });
                                 }
-                            } catch (e) {
-                                console.log('日期选择器未加载:', e);
-                            }
-                            
-                            // 表单提交
-                            if (form && typeof form.on === 'function') {
-                                form.on('submit(submitPayment)', function(data) {
-                                    // 显示加载提示
-                                    var loadIndex;
-                                    if (layer && typeof layer.load === 'function') {
-                                        loadIndex = layer.load(1);
-                                    }
-                                    
-                                    // 构建请求数据
-                                    var postData = Object.assign({}, data && data.field || {}, {
-                                        csrfmiddlewaretoken: '{{ csrf_token }}'
-                                    });
-                                    
-                                    // 发送AJAX请求到后端处理收款
-                                    if (typeof $ !== 'undefined' && typeof $.ajax === 'function') {
-                                        $.ajax({
-                                            url: '/customer/orders/' + orderId + '/payment/',
-                                            type: 'post',
-                                            data: postData,
-                                            dataType: 'json',
-                                            success: function(res) {
-                                                if (layer && typeof layer.close === 'function') {
-                                                    layer.close(loadIndex);
-                                                }
-                                                if (res && res.status === 'success') {
-                                                    if (layer && typeof layer.msg === 'function' && typeof layer.close === 'function' && window && typeof window.location !== 'undefined') {
-                                                        layer.msg(res.message || '收款操作成功！', {icon: 1}, function() {
-                                                            layer.close(index);
-                                                            // 刷新页面以显示最新数据
-                                                            window.location.reload();
-                                                        });
-                                                    }
-                                                }
-                                            },
-                                            error: function() {
-                                                if (layer && typeof layer.close === 'function' && typeof layer.msg === 'function') {
-                                                    layer.close(loadIndex);
-                                                    layer.msg('收款请求失败，请稍后重试', {icon: 2});
-                                                }
-                                            }
-                                        });
-                                    }
-                                    return false;
-                                });
-                                
-                                if (typeof form.render === 'function') {
-                                    form.render();
-                                }
+                                return false;
+                            });
+
+                            if (typeof form.render === 'function') {
+                                form.render();
                             }
                         }
-                    });
-                }
-            };
+                    }
+                });
+            }
         });
     } else {
         console.warn('layui框架未加载，部分功能可能无法使用');

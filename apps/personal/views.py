@@ -17,117 +17,17 @@ import tempfile
 
 # 导入网盘中的Office文档预览处理器
 from apps.disk.utils.office_preview import OfficePreviewHandler
+from apps.ai.services.business_result import build_business_ai_result
 
 from .models import (
-    PersonalSchedule, WorkRecord, WorkReport,
+    WorkRecord, WorkReport,
     PersonalNote, PersonalTask, PersonalContact, MeetingMinutes
 )
 from apps.oa.constants import MeetingTypeChoices
 from .forms import (
-    PersonalScheduleForm, WorkRecordForm, WorkReportForm,
+    WorkRecordForm, WorkReportForm,
     PersonalNoteForm, PersonalTaskForm, PersonalContactForm, MeetingMinutesForm
 )
-
-
-@login_required
-def schedule_list(request):
-    """日程安排列表"""
-    date = request.GET.get('date', '')
-    if not date:
-        date = timezone.now().date()
-    else:
-        date = datetime.strptime(date, '%Y-%m-%d').date()
-
-    schedules = PersonalSchedule.objects.filter(
-        user=request.user,
-        start_time__date=date
-    ).order_by('start_time')
-
-    context = {
-        'schedules': schedules,
-        'current_date': date,
-    }
-    return render(request, 'personal/schedule/list.html', context)
-
-
-@login_required
-def schedule_calendar(request):
-    """日程日历"""
-    year = int(request.GET.get('year', timezone.now().year))
-    month = int(request.GET.get('month', timezone.now().month))
-
-    # 获取当月的所有日程
-    start_date = datetime(year, month, 1).date()
-    if month == 12:
-        end_date = datetime(year + 1, 1, 1).date()
-    else:
-        end_date = datetime(year, month + 1, 1).date()
-
-    schedules = PersonalSchedule.objects.filter(
-        user=request.user,
-        start_time__date__gte=start_date,
-        start_time__date__lt=end_date
-    ).order_by('start_time')
-
-    # 按日期分组
-    schedule_dict = {}
-    for schedule in schedules:
-        date_key = schedule.start_time.date().strftime('%Y-%m-%d')
-        if date_key not in schedule_dict:
-            schedule_dict[date_key] = []
-        schedule_dict[date_key].append(schedule)
-
-    context = {
-        'year': year,
-        'month': month,
-        'schedule_dict': schedule_dict,
-        'schedules': schedules,
-    }
-    return render(request, 'personal/schedule/calendar.html', context)
-
-
-@login_required
-def schedule_form(request, pk=None):
-    """日程表单"""
-    schedule = None
-    if pk:
-        schedule = get_object_or_404(
-            PersonalSchedule, pk=pk, user=request.user)
-
-    if request.method == 'POST':
-        form = PersonalScheduleForm(request.POST, instance=schedule)
-        if form.is_valid():
-            try:
-                schedule = form.save(commit=False)
-                schedule.user = request.user
-                schedule.save()
-                messages.success(request, '日程保存成功！')
-                return redirect('personal:schedule_list')
-            except Exception as e:
-                messages.error(request, f'保存日程时出错：{str(e)}')
-        else:
-            # 显示表单错误信息
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, f'{field}: {error}')
-    else:
-        # 如果是新建日程，设置默认值
-        if not schedule:
-            now = timezone.now()
-            initial = {
-                'start_time': now.strftime('%Y-%m-%dT%H:%M'),
-                'end_time': (
-                    now +
-                    timedelta(
-                        hours=1)).strftime('%Y-%m-%dT%H:%M'),
-                'status': 'pending',
-                'priority': 2}
-            form = PersonalScheduleForm(initial=initial)
-        else:
-            form = PersonalScheduleForm(instance=schedule)
-
-    context = {'form': form, 'schedule': schedule}
-    return render(request, 'personal/schedule/form.html', context)
 
 
 @login_required
@@ -177,6 +77,7 @@ def work_record_list(request):
 def work_record_form(request, pk=None):
     """工作记录表单"""
     record = None
+    is_drawer = request.GET.get('drawer') == '1'
     if pk:
         record = get_object_or_404(WorkRecord, pk=pk, user=request.user)
 
@@ -188,11 +89,27 @@ def work_record_form(request, pk=None):
             record.department = request.user.department
             record.save()
             messages.success(request, '工作记录保存成功！')
+            if is_drawer:
+                context = {
+                    'form': WorkRecordForm(instance=record),
+                    'record': record,
+                    'saved_success': True,
+                    'is_drawer': is_drawer,
+                }
+                return render(request, 'personal/record/form.html', context)
             return redirect('personal:work_record_list')
     else:
-        form = WorkRecordForm(instance=record)
+        initial = {}
+        date_param = request.GET.get('date')
+        if date_param and not record:
+            try:
+                initial['work_date'] = datetime.strptime(
+                    date_param, '%Y-%m-%d').date()
+            except ValueError:
+                pass
+        form = WorkRecordForm(instance=record, initial=initial)
 
-    context = {'form': form, 'record': record}
+    context = {'form': form, 'record': record, 'is_drawer': is_drawer}
     return render(request, 'personal/record/form.html', context)
 
 
@@ -456,10 +373,10 @@ def dashboard(request):
     """个人办公首页"""
     today = timezone.now().date()
 
-    # 今日日程
-    today_schedules = PersonalSchedule.objects.filter(
+    # 今日工作记录
+    today_records = WorkRecord.objects.filter(
         user=request.user,
-        start_time__date=today
+        work_date=today
     ).order_by('start_time')[:5]
 
     # 待办任务
@@ -496,19 +413,6 @@ def dashboard(request):
         'stats': stats,
     }
     return render(request, 'personal/dashboard.html', context)
-
-
-@login_required
-def schedule_delete(request, pk):
-    """删除日程"""
-    schedule = get_object_or_404(PersonalSchedule, pk=pk, user=request.user)
-    if request.method == 'POST':
-        schedule.delete()
-        messages.success(request, '日程删除成功！')
-        return redirect('personal:schedule_list')
-    return render(request,
-                  'personal/schedule/delete.html',
-                  {'schedule': schedule})
 
 
 @login_required
@@ -906,8 +810,19 @@ def minutes_form(request, pk=None):
                     # 调用AI生成纪要
                     ai_result = default_meeting_analysis_tool.generate_meeting_minutes(
                         meeting_data)
+                    normalized_result = build_business_ai_result(
+                        ai_result,
+                        scenario='personal_meeting_minutes_generation',
+                        source_refs=[{'type': 'meeting', 'id': meeting_record.id}],
+                        request=request,
+                        raw_input={
+                            'meeting_id': meeting_record.id,
+                            'participant_count': meeting_record.participants.count(),
+                            'has_audio': bool(audio_file_path),
+                        },
+                    )
 
-                    return JsonResponse({'code': 0, 'data': ai_result})
+                    return JsonResponse({'code': 0, 'data': normalized_result})
                 except Exception as e:
                     import logging
                     logging.error(f"AI生成会议纪要失败: {str(e)}")

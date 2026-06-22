@@ -9,6 +9,7 @@ urlpatterns = [
     path('', views.DiskIndexView.as_view(), name='index'),
     path('personal/', views.PersonalDiskView.as_view(), name='personal'),
     path('share/', views.SharedDiskView.as_view(), name='shared'),
+    path('share/children/', views.SharedFolderChildrenView.as_view(), name='shared_children'),
     path('recycle/', views.RecycleBinView.as_view(), name='recycle'),
     path('starred/', views.StarredFilesView.as_view(), name='starred'),
 
@@ -67,6 +68,10 @@ urlpatterns = [
         'share/create/',
         views.FileShareCreateView.as_view(),
         name='share_create'),
+    path(
+        'share/manage/',
+        views.FileShareManageView.as_view(),
+        name='share_manage'),
     path(
         'share/view/<str:share_code>/',
         views.FileShareView.as_view(),

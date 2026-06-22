@@ -7,16 +7,6 @@ urlpatterns = [
     # 个人办公首页
     path('', views.dashboard, name='dashboard'),
 
-    # 日程安排
-    path('schedule/', views.schedule_list, name='schedule_list'),
-    path('schedule/add/', views.schedule_form, name='schedule_add'),
-    path('schedule/<int:pk>/edit/', views.schedule_form, name='schedule_edit'),
-    path(
-        'schedule/<int:pk>/delete/',
-        views.schedule_delete,
-        name='schedule_delete'),
-    path('calendar/', views.schedule_calendar, name='schedule_calendar'),
-
     # 工作记录
     path('record/', views.work_record_list, name='work_record_list'),
     path('record/add/', views.work_record_form, name='work_record_add'),

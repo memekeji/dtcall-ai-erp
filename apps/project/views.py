@@ -373,7 +373,7 @@ class ProjectDetailView(LoginRequiredMixin, View):
         # 获取关联供应商（通过订单关联）
         try:
             from apps.customer.models import CustomerOrder
-            from apps.supplier.models import Supplier
+            from apps.contract.models import Supplier
             # 获取所有相关订单的供应商ID
             order_supplier_ids = CustomerOrder.objects.filter(
                 contract_id=project.contract.id if project.contract else 0,

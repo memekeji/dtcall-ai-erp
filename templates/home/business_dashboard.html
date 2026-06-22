@@ -5,10 +5,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>经营大屏 - DTCall管理系统</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="{% static 'css/tailwind-runtime-replacement.css' %}">
+    <link rel="stylesheet" href="{% static 'css/font-awesome.min.css' %}">
+    <script src="{% static 'js/simple-chart.js' %}"></script>
     <style>
+        html, body {
+            width: 100%;
+            min-height: 100%;
+            margin: 0;
+            overflow-x: hidden;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+        .dashboard-shell {
+            width: 100%;
+            max-width: none;
+            margin: 0;
+            padding-left: 24px;
+            padding-right: 24px;
+        }
+        .dashboard-content {
+            width: 100%;
+            flex: 1 1 auto;
+            padding: 24px;
+        }
         .card-gradient {
             background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 1));
             backdrop-filter: blur(10px);
@@ -20,7 +42,7 @@
 <body class="bg-gray-50 font-sans text-gray-800 min-h-screen">
     <!-- 顶部导航 -->
     <header class="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
-        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="dashboard-shell py-3 flex items-center justify-between">
             <div class="flex items-center space-x-6">
                 <h1 class="text-xl font-bold text-purple-600">经营数据大屏</h1>
             </div>
@@ -32,7 +54,7 @@
     </header>
 
     <!-- 主内容区 -->
-    <main class="container mx-auto px-4 py-6">
+    <main class="dashboard-content">
         <!-- 核心指标卡片 -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <!-- 新增客户 -->
@@ -137,8 +159,8 @@
                             <span class="font-medium">{{ funnel_data.potential|default:0 }}</span>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-8 relative overflow-hidden">
-                            <div class="h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-medium" style="width: 100%">
-                                100%
+                            <div class="h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-medium" style="width: {{ funnel_rates.potential|default:0 }}%">
+                                {{ funnel_rates.potential|default:0 }}%
                             </div>
                         </div>
                     </div>
@@ -150,9 +172,8 @@
                             <span class="font-medium">{{ funnel_data.interested|default:0 }}</span>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-8 relative overflow-hidden">
-                            {% widthratio funnel_data.interested|default:1 funnel_data.potential|default:1 100 as width %}
-                            <div class="h-8 rounded-full bg-green-500 flex items-center justify-center text-white text-xs font-medium" style="width: {{ width }}%">
-                                {{ width }}%
+                            <div class="h-8 rounded-full bg-green-500 flex items-center justify-center text-white text-xs font-medium" style="width: {{ funnel_rates.interested|default:0 }}%">
+                                {{ funnel_rates.interested|default:0 }}%
                             </div>
                         </div>
                     </div>
@@ -164,9 +185,8 @@
                             <span class="font-medium">{{ funnel_data.opportunity|default:0 }}</span>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-8 relative overflow-hidden">
-                            {% widthratio funnel_data.opportunity|default:1 funnel_data.potential|default:1 100 as width %}
-                            <div class="h-8 rounded-full bg-yellow-500 flex items-center justify-center text-white text-xs font-medium" style="width: {{ width }}%">
-                                {{ width }}%
+                            <div class="h-8 rounded-full bg-yellow-500 flex items-center justify-center text-white text-xs font-medium" style="width: {{ funnel_rates.opportunity|default:0 }}%">
+                                {{ funnel_rates.opportunity|default:0 }}%
                             </div>
                         </div>
                     </div>
@@ -178,9 +198,8 @@
                             <span class="font-medium">{{ funnel_data.signed|default:0 }}</span>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-8 relative overflow-hidden">
-                            {% widthratio funnel_data.signed|default:1 funnel_data.potential|default:1 100 as width %}
-                            <div class="h-8 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs font-medium" style="width: {{ width }}%">
-                                {{ width }}%
+                            <div class="h-8 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs font-medium" style="width: {{ funnel_rates.signed|default:0 }}%">
+                                {{ funnel_rates.signed|default:0 }}%
                             </div>
                         </div>
                     </div>
@@ -195,12 +214,12 @@
                 <h3 class="font-semibold text-lg mb-4">销售排行榜</h3>
                 <div class="space-y-3">
                     {% for seller in sales_ranking %}
-                    <div class="flex items-center justify-between p-3 {% if forloop.first %}bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-lg border-l-4 border-yellow-400{% elif forloop.second %}bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border-l-4 border-gray-400{% elif forloop.third %}bg-gradient-to-r from-orange-50 to-orange-100 rounded-lg border-l-4 border-orange-400{% else %}bg-gray-50 rounded-lg{% endif %}">
+                    <div class="flex items-center justify-between p-3 {% if forloop.first %}bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-lg border-l-4 border-yellow-400{% elif forloop.counter == 2 %}bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border-l-4 border-gray-400{% elif forloop.counter == 3 %}bg-gradient-to-r from-orange-50 to-orange-100 rounded-lg border-l-4 border-orange-400{% else %}bg-gray-50 rounded-lg{% endif %}">
                         <div class="flex items-center">
-                            <span class="w-6 h-6 {% if forloop.first %}bg-yellow-400{% elif forloop.second %}bg-gray-400{% elif forloop.third %}bg-orange-400{% else %}bg-gray-300 text-gray-600{% endif %} text-white rounded-full flex items-center justify-center text-xs font-bold mr-3">{{ forloop.counter }}</span>
+                            <span class="w-6 h-6 {% if forloop.first %}bg-yellow-400{% elif forloop.counter == 2 %}bg-gray-400{% elif forloop.counter == 3 %}bg-orange-400{% else %}bg-gray-300 text-gray-600{% endif %} text-white rounded-full flex items-center justify-center text-xs font-bold mr-3">{{ forloop.counter }}</span>
                             <span class="font-medium">{{ seller.name }}</span>
                         </div>
-                        <span class="font-bold {% if forloop.first %}text-yellow-600{% elif forloop.second %}text-gray-600{% elif forloop.third %}text-orange-600{% else %}text-gray-600{% endif %}">¥{{ seller.amount|default:0|floatformat:0 }}</span>
+                        <span class="font-bold {% if forloop.first %}text-yellow-600{% elif forloop.counter == 2 %}text-gray-600{% elif forloop.counter == 3 %}text-orange-600{% else %}text-gray-600{% endif %}">¥{{ seller.amount|default:0|floatformat:0 }}</span>
                     </div>
                     {% empty %}
                     <div class="text-center text-gray-500 py-4">暂无销售数据</div>

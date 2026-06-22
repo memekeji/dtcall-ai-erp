@@ -90,6 +90,7 @@
 
     <script src="{% static 'js/jquery.min.js' %}"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/common.js' %}"></script>
     <script>
         window.addEventListener('error', function(e) {
             if (window.layui && layui.layer) {
@@ -99,9 +100,9 @@
 
         var currentTab = '0';
 
-        function getCsrfToken() {
+        var getCsrfToken = (window.DTCallCommon && window.DTCallCommon.getCsrfToken) || function() {
             return $('input[name="csrfmiddlewaretoken"]').val() || '';
-        }
+        };
 
         function appendQuery(url, params) {
             var query = $.param(params || {});
@@ -135,8 +136,14 @@
                                 var colorMap = {0: 'orange', 1: 'blue', 2: 'green', 3: 'red', 4: 'gray'};
                                 return '<span style="color: ' + colorMap[d.check_status] + '">' + statusMap[d.check_status] + '</span>';
                             }},
+                            {field: 'has_scan_file', title: '扫描件', width: 100, templet: function(d) {
+                                if (d.has_scan_file) {
+                                    return '<span class="layui-badge layui-bg-green">已上传</span>';
+                                }
+                                return '<span class="layui-badge layui-bg-gray">未上传</span>';
+                            }},
                             {field: 'create_time', title: '创建时间', width: 180},
-                            {title: '操作', width: 250, toolbar: '#contractToolBar'}
+                            {title: '操作', width: 310, toolbar: '#contractToolBar'}
                         ]],
                         page: true,
                         limit: 20,
@@ -185,6 +192,20 @@
                                     });
                                 }
                             }
+                        });
+                    } else if (layEvent === 'previewScan') {
+                        if (!data.scan_file_url) {
+                            layer.msg('该合同尚未上传扫描件', {icon: 0});
+                            return;
+                        }
+                        layer.open({
+                            type: 2,
+                            title: data.scan_file_name || '合同扫描件',
+                            shadeClose: true,
+                            shade: 0.3,
+                            maxmin: true,
+                            area: ['80%', '90%'],
+                            content: data.scan_file_url
                         });
                     } else if (layEvent === 'edit') {
                         layer.open({
@@ -368,9 +389,14 @@
 
     <!-- 工具栏模板 -->
     <script type="text/html" id="contractToolBar">
+        {% verbatim %}
         <a class="layui-btn layui-btn-xs" lay-event="view">查看</a>
+        {{# if(d.has_scan_file){ }}
+        <a class="layui-btn layui-btn-xs layui-btn-primary" lay-event="previewScan">预览</a>
+        {{# } }}
         <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
         <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
+        {% endverbatim %}
     </script>
 </body>
 </html>

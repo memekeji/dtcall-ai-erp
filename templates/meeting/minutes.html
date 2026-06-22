@@ -182,9 +182,10 @@
     </div>
 
     <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/common.js' %}"></script>
     <script>
         // 获取CSRF token
-        function getCookie(name) {
+        var getCookie = (window.DTCallCommon && window.DTCallCommon.getCookie) || function(name) {
             var cookieValue = null;
             if (document.cookie && document.cookie !== '') {
                 var cookies = document.cookie.split(';');
@@ -197,7 +198,7 @@
                 }
             }
             return cookieValue;
-        }
+        };
         
         var csrftoken = getCookie('csrftoken');
         

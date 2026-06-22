@@ -251,9 +251,8 @@ class MessageCache:
         return f'{CACHE_KEY_PREFIX}:message:unread:{user_id}'
 
     @classmethod
-    def get_unread_count(cls, user_id: int) -> int:
-        count = CacheService.get(cls.get_unread_key(user_id))
-        return count if count is not None else 0
+    def get_unread_count(cls, user_id: int) -> Optional[int]:
+        return CacheService.get(cls.get_unread_key(user_id))
 
     @classmethod
     def set_unread_count(cls, user_id: int, count: int) -> bool:

@@ -49,10 +49,11 @@
 
     <script src="{% static 'js/jquery.min.js' %}"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/common.js' %}"></script>
     <script>
-        function getCsrfToken() {
+        var getCsrfToken = (window.DTCallCommon && window.DTCallCommon.getCsrfToken) || function() {
             return $('input[name="csrfmiddlewaretoken"]').val() || '';
-        }
+        };
 
         function appendQuery(url, params) {
             var query = $.param(params || {});

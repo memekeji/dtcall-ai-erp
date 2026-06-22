@@ -13,10 +13,7 @@
             <div class="layui-card-header">
                 <div class="layui-btn-group">
                     <button class="layui-btn layui-btn-sm" onclick="addReceiveInvoice()">
-                        <i class="layui-icon layui-icon-add-1"></i> 新增收票
-                    </button>
-                    <button class="layui-btn layui-btn-sm layui-btn-normal" onclick="exportData()">
-                        <i class="layui-icon layui-icon-export"></i> 导出数据
+                        <i class="layui-icon layui-icon-add-1"></i> 新增发票
                     </button>
                 </div>
             </div>
@@ -26,7 +23,7 @@
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'js/jquery.min.js' %}"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
         layui.use(['table', 'layer'], function() {
@@ -66,7 +63,7 @@
                         area: ['80%', '100%'],
                         offset: 'r',
                         anim: 2,
-                        content: '/adm/finance/receiveinvoice/view/' + data.id + '/',
+                        content: '/adm/finance/invoice/view/' + data.id + '/',
                         success: function(layero, index) {
                             if (layero && typeof layero.css === 'function') {
                                 layero.css({
@@ -87,7 +84,7 @@
                         area: ['80%', '100%'],
                         offset: 'r',
                         anim: 2,
-                        content: '/adm/finance/receiveinvoice/edit/' + data.id + '/',
+                        content: '/adm/finance/invoice/edit/' + data.id + '/',
                         success: function(layero, index) {
                             if (layero && typeof layero.css === 'function') {
                                 layero.css({
@@ -105,18 +102,18 @@
             });
         });
 
-        // 新增收票
+        // 新增发票
         function addReceiveInvoice() {
             layer.open({
                 type: 2,
-                title: '新增收票',
+                title: '新增发票',
                 shadeClose: false,
                 shade: 0.3,
                 maxmin: true,
                 area: ['80%', '100%'],
                 offset: 'r',
                 anim: 2,
-                content: '/adm/finance/receiveinvoice/add/',
+                content: '/adm/finance/invoice/add/',
                 success: function(layero, index) {
                     if (layero && typeof layero.css === 'function') {
                         layero.css({
@@ -132,10 +129,6 @@
             });
         }
 
-        // 导出数据
-        function exportData() {
-            layer.msg('导出功能开发中...', {icon: 1});
-        }
     </script>
 
     <!-- 工具栏模板 -->

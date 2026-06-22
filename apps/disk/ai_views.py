@@ -3,12 +3,22 @@ from django.http import JsonResponse
 from django.views import View
 from django.contrib.auth.mixins import LoginRequiredMixin
 from apps.disk.models import DiskFile
+from apps.ai.services.business_result import build_business_ai_result
 from apps.ai.utils.ai_client import AIClient
 import os
 import PyPDF2
 from docx import Document
 
 logger = logging.getLogger(__name__)
+
+def _normalize_disk_file_ai_result(raw_result, disk_file, request=None, raw_input=None):
+    return build_business_ai_result(
+        raw_result,
+        scenario='disk_file_analysis',
+        source_refs=[{'type': 'disk_file', 'id': disk_file.id}],
+        request=request,
+        raw_input=raw_input,
+    )
 
 class FileAIAssistantView(LoginRequiredMixin, View):
     """网盘文件AI智能助手"""
@@ -44,13 +54,14 @@ class FileAIAssistantView(LoginRequiredMixin, View):
             
             # 如果已经有AI处理结果，直接返回
             if disk_file.ai_status == 2 and disk_file.ai_summary:
+                cached_result = {
+                    'summary': disk_file.ai_summary,
+                    'tags': disk_file.ai_tags
+                }
                 return JsonResponse({
                     'code': 0,
                     'msg': 'success',
-                    'data': {
-                        'summary': disk_file.ai_summary,
-                        'tags': disk_file.ai_tags
-                    }
+                    'data': _normalize_disk_file_ai_result(cached_result, disk_file)
                 })
                 
             # 提取文件内容
@@ -95,14 +106,20 @@ class FileAIAssistantView(LoginRequiredMixin, View):
             disk_file.ai_content_text = text
             disk_file.ai_status = 2
             disk_file.save()
+            result = {
+                'summary': summary,
+                'tags': tags
+            }
             
             return JsonResponse({
                 'code': 0,
                 'msg': '分析完成',
-                'data': {
-                    'summary': summary,
-                    'tags': tags
-                }
+                'data': _normalize_disk_file_ai_result(
+                    result,
+                    disk_file,
+                    request=request,
+                    raw_input={'file_ext': file_ext, 'text_length': len(text)},
+                )
             })
             
         except DiskFile.DoesNotExist:

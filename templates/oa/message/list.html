@@ -54,7 +54,7 @@
                     <td>{{ item.send_time|date:"Y-m-d H:i"|default:"-" }}</td>
                     <td><span class="layui-badge layui-bg-blue">查看详情</span></td>
                     <td>
-                        <button type="button" class="layui-btn layui-btn-xs" onclick="openRightPopup('消息详情', '{% url 'message_detail' item.id %}')">查看</button>
+                        <button type="button" class="layui-btn layui-btn-xs" onclick="openRightPopup('消息详情', '{% url 'message_view' item.id %}')">查看</button>
                     </td>
                 </tr>
                 {% empty %}
@@ -68,32 +68,7 @@
 </div>
 
 <script>
-    function openRightPopup(title, url) {
-        layui.use(['layer'], function () {
-            var layer = layui.layer;
-            layer.open({
-                type: 2,
-                title: title,
-                shadeClose: false,
-                shade: 0.3,
-                maxmin: true,
-                area: ['80%', '100%'],
-                offset: 'r',
-                anim: 2,
-                content: url,
-                success: function(layero, index) {
-                    layero.css({
-                        'right': '0',
-                        'top': '0',
-                        'height': '100%'
-                    });
-                },
-                end: function() {
-                    window.location.reload();
-                }
-            });
-        });
-    }
+    {% include "common/_right_popup_function.html" %}
 
     layui.use(['form'], function(){
         var form = layui.form;

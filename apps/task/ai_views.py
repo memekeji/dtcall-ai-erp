@@ -2,9 +2,19 @@ import logging
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from .models import Task
+from apps.ai.services.business_result import build_business_ai_result
 from apps.ai.utils.analysis_tools import default_task_analysis_tool
 
 logger = logging.getLogger(__name__)
+
+def _normalize_task_ai_result(raw_result, task, request=None, raw_input=None):
+    return build_business_ai_result(
+        raw_result,
+        scenario='task_estimation',
+        source_refs=[{'type': 'task', 'id': task.id}],
+        request=request,
+        raw_input=raw_input,
+    )
 
 @login_required
 def ai_task_estimation(request, task_id):
@@ -27,8 +37,14 @@ def ai_task_estimation(request, task_id):
         } if task.assignee else None
         
         result = default_task_analysis_tool.estimate_task(task_data, assignee_data)
+        normalized_result = _normalize_task_ai_result(
+            result,
+            task,
+            request=request,
+            raw_input={'task': task_data, 'has_assignee': bool(assignee_data)},
+        )
         
-        return JsonResponse({'code': 0, 'msg': '预估成功', 'data': result})
+        return JsonResponse({'code': 0, 'msg': '预估成功', 'data': normalized_result})
     except Task.DoesNotExist:
         return JsonResponse({'code': 404, 'msg': '任务不存在'}, status=404)
     except Exception as e:

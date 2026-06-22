@@ -159,6 +159,7 @@
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/ai-agent-sdk.js' %}"></script>
     <script>
         layui.use(['layer', 'laypage', 'form'], function () {
             var layer = layui.layer;
@@ -207,17 +208,16 @@
                     success: function(res) {
                         layer.close(index);
                         if (res.code === 0) {
-                            var aiData = res.data;
-                            if (typeof aiData === 'object') {
-                                aiData = JSON.stringify(aiData, null, 2);
+                            if (window.aiAgent && typeof window.aiAgent.showBusinessAIResult === 'function') {
+                                window.aiAgent.showBusinessAIResult(res.data, {
+                                    title: 'AI 优化建议 - ' + name,
+                                    area: ['700px', '540px']
+                                });
+                            } else {
+                                layer.alert(res.data && res.data.summary ? res.data.summary : 'AI 优化建议已生成', {
+                                    title: 'AI 优化建议 - ' + name
+                                });
                             }
-                            layer.open({
-                                type: 1,
-                                title: 'AI 优化建议 - ' + name,
-                                area: ['600px', '400px'],
-                                content: '<div style="padding: 20px; white-space: pre-wrap; font-size: 14px; line-height: 1.6;">' + aiData + '</div>',
-                                btn: ['关闭']
-                            });
                         } else {
                             layer.msg(res.msg || '优化失败', {icon: 2});
                         }
@@ -230,32 +230,7 @@
             });
         }
 
-        function openRightPopup(title, url) {
-            layui.use(['layer'], function () {
-                var layer = layui.layer;
-                layer.open({
-                    type: 2,
-                    title: title,
-                    shadeClose: false,
-                    shade: 0.3,
-                    maxmin: true,
-                    area: ['80%', '100%'],
-                    offset: 'r',
-                    anim: 2,
-                    content: url,
-                    success: function(layero, index) {
-                        layero.css({
-                            'right': '0',
-                            'top': '0',
-                            'height': '100%'
-                        });
-                    },
-                    end: function() {
-                        window.location.reload();
-                    }
-                });
-            });
-        }
+        {% include "production/_right_popup_function.html" %}
 </script>
 
     <!-- 注入的 iframe 自动关闭及消息提示脚本 -->
@@ -276,8 +251,20 @@
                 } catch(e) {}
             }
 
+            var isLayerFrame = false;
             if (window !== window.parent) {
-                // 如果在 iframe 中加载了 list/index 页面，说明是操作成功后的重定向，或者点击了返回
+                if (window.frameElement && window.frameElement.closest) {
+                    isLayerFrame = !!window.frameElement.closest('.layui-layer-iframe');
+                }
+                if (!isLayerFrame && window.name && window.parent.layer && typeof window.parent.layer.getFrameIndex === 'function') {
+                    try {
+                        var frameIndex = window.parent.layer.getFrameIndex(window.name);
+                        isLayerFrame = frameIndex !== undefined && frameIndex !== null && frameIndex !== '';
+                    } catch(e) {}
+                }
+            }
+
+            if (isLayerFrame) {
                 if (msgs.length > 0) {
                     sessionStorage.setItem('flash_msg', JSON.stringify(msgs));
                 }

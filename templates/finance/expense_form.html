@@ -6,7 +6,7 @@
 {% block head %}
     <style>
         body {
-            background: #f8f9fa;
+            background: #f5f7fb;
             font-family: 'Microsoft YaHei', sans-serif;
         }
         .form-container {
@@ -14,11 +14,12 @@
             margin: 20px auto;
             background: #fff;
             border-radius: 8px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            border: 1px solid #e5edf8;
+            box-shadow: 0 10px 28px rgba(15, 35, 80, 0.08);
             overflow: hidden;
         }
         .form-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%);
             color: white;
             padding: 20px 30px;
             position: relative;
@@ -35,8 +36,8 @@
         }
         .form-header h2 {
             margin: 0;
-            font-size: 24px;
-            font-weight: 300;
+            font-size: 20px;
+            font-weight: 600;
             position: relative;
             z-index: 1;
         }
@@ -69,8 +70,8 @@
             transition: all 0.3s ease;
         }
         .layui-input:focus, .layui-textarea:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+            border-color: #1677ff;
+            box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.10);
         }
         .required-field::after {
             content: '*';
@@ -82,7 +83,7 @@
             padding: 20px;
             background: #f8f9fa;
             border-radius: 6px;
-            border-left: 4px solid #667eea;
+            border-left: 4px solid #1677ff;
         }
         .section-title {
             font-size: 16px;
@@ -94,7 +95,7 @@
         }
         .section-title i {
             margin-right: 8px;
-            color: #667eea;
+            color: #1677ff;
         }
         .form-actions {
             text-align: center;
@@ -105,17 +106,17 @@
         }
         .layui-btn {
             padding: 10px 30px;
-            border-radius: 25px;
+            border-radius: 6px;
             font-weight: 500;
             transition: all 0.3s ease;
         }
         .layui-btn-normal {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%);
             border: none;
         }
         .layui-btn-normal:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 6px 16px rgba(22, 119, 255, 0.22);
         }
         .layui-btn-primary {
             background: #fff;
@@ -123,8 +124,8 @@
             color: #666;
         }
         .layui-btn-primary:hover {
-            border-color: #667eea;
-            color: #667eea;
+            border-color: #1677ff;
+            color: #1677ff;
         }
         .upload-area {
             border: 2px dashed #d9d9d9;
@@ -135,8 +136,8 @@
             cursor: pointer;
         }
         .upload-area:hover {
-            border-color: #667eea;
-            background: rgba(102, 126, 234, 0.05);
+            border-color: #1677ff;
+            background: rgba(22, 119, 255, 0.05);
         }
         .upload-icon {
             font-size: 48px;

@@ -1,6 +1,8 @@
 # 标准库导入
 import json
 import logging
+import os
+import time
 import uuid
 from datetime import datetime, timedelta
 
@@ -10,7 +12,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import models, transaction
 from django.db.models import Prefetch, Q, Count
-from django.http import JsonResponse, HttpResponseRedirect
+from django.http import JsonResponse, HttpResponseRedirect, HttpResponse
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse_lazy
 from django.utils import timezone
@@ -21,14 +23,14 @@ from django.views.generic import (
 )
 
 # 系统日志导入
-from apps.user.models import SystemLog
+from apps.user.models import SystemLog, SystemConfiguration
 from apps.common.cache_service import SystemCache
 from apps.common.services import CommonService
 
 # 本地应用导入
 from .models import (
     Customer, CustomerGrade, CustomerSource, CustomerIntent, SpiderTask, 
-    Contact, FollowRecord, CustomerField, CustomerCustomFieldValue,
+    Contact, FollowRecord, CallRecord, CustomerField, CustomerCustomFieldValue,
     CustomerOrder, CustomerContract, CustomerOrderCustomFieldValue, FollowField,
     OrderField
 )
@@ -51,7 +53,7 @@ class CustomerListView(LoginRequiredMixin, ListView):
     
     def get_queryset(self):
         # 只返回未删除的客户记录，并预加载关联外键以解决 N+1 查询问题
-        queryset = super().get_queryset().select_related('customer_source', 'grade', 'industry')
+        queryset = super().get_queryset().select_related('customer_source')
         queryset = queryset.filter(delete_time=0)
         
         # 添加数据权限过滤
@@ -1053,7 +1055,12 @@ class CustomerBatchImportView(LoginRequiredMixin, TemplateView):
         context['customer_sources'] = CustomerSource.objects.filter(status=1, delete_time=0).order_by('sort', 'id')
         context['customer_grades'] = CustomerGrade.objects.filter(status=1, delete_time=0).order_by('sort', 'id')
         context['customer_intents'] = CustomerIntent.objects.filter(status=1, delete_time=0).order_by('sort', 'id')
-        context['custom_fields'] = CustomerField.objects.filter(status=True, delete_time=0).order_by('sort', 'id')
+        custom_fields = CustomerField.objects.filter(status=True, delete_time=0).order_by('sort', 'id')
+        context['custom_fields'] = custom_fields
+        context['import_fields_json'] = json.dumps(
+            _get_customer_import_field_definitions(custom_fields),
+            ensure_ascii=False
+        )
         
         return context
 
@@ -1069,7 +1076,7 @@ class PublicCustomerListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         # 公海客户：没有归属人且未废弃的客户，并预加载关联外键以解决 N+1 查询问题
-        return Customer.objects.select_related('customer_source', 'grade', 'industry').filter(delete_time=0, belong_uid=0, discard_time=0)
+        return Customer.objects.select_related('customer_source').filter(delete_time=0, belong_uid=0, discard_time=0)
 
 class PublicCustomerListDataView(LoginRequiredMixin, View):
     """公海客户列表数据API"""
@@ -1208,7 +1215,11 @@ class SpiderTaskCreateView(LoginRequiredMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.create_user = self.request.user
-        return super().form_valid(form)
+        self.object = form.save()
+        return JsonResponse({'code': 0, 'msg': '任务创建成功', 'data': {'id': self.object.id}})
+
+    def form_invalid(self, form):
+        return JsonResponse({'code': 1, 'msg': '任务创建失败', 'errors': form.errors}, status=400)
 
 class SpiderTaskUpdateView(LoginRequiredMixin, UpdateView):
     """编辑爬虫任务视图"""
@@ -1218,6 +1229,13 @@ class SpiderTaskUpdateView(LoginRequiredMixin, UpdateView):
     template_name = 'customer/spider_task_form.html'
     fields = ['task_name', 'spider_keywords', 'data_region', 'industry_limit', 'province', 'insured_count', 'contact_phone']
     success_url = reverse_lazy('customer:spider_task_list')
+
+    def form_valid(self, form):
+        self.object = form.save()
+        return JsonResponse({'code': 0, 'msg': '任务设置已保存', 'data': {'id': self.object.id}})
+
+    def form_invalid(self, form):
+        return JsonResponse({'code': 1, 'msg': '任务设置保存失败', 'errors': form.errors}, status=400)
 
 class SpiderTaskDeleteView(LoginRequiredMixin, DeleteView):
     """删除爬虫任务视图"""
@@ -1237,12 +1255,17 @@ class SpiderTaskActionView(LoginRequiredMixin, View):
             action = request.POST.get('action')
             
             if action == 'start':
-                task.status = 1  # 运行中
-                task.save()
-                return JsonResponse({'code': 0, 'msg': '任务已启动'})
+                result = self._run_spider_task(task, request.user)
+                task.status = 2
+                task.save(update_fields=['status'])
+                return JsonResponse({
+                    'code': 0,
+                    'msg': f"任务执行完成，获取{result['fetched_count']}条，新增{result['saved_count']}条公海客户，跳过{result['skipped_count']}条",
+                    'data': result
+                })
             elif action == 'stop':
                 task.status = 2  # 已停止
-                task.save()
+                task.save(update_fields=['status'])
                 return JsonResponse({'code': 0, 'msg': '任务已停止'})
             else:
                 return JsonResponse({'code': 1, 'msg': '无效的操作'})
@@ -1250,7 +1273,143 @@ class SpiderTaskActionView(LoginRequiredMixin, View):
         except SpiderTask.DoesNotExist:
             return JsonResponse({'code': 1, 'msg': '任务不存在'})
         except Exception as e:
+            if 'task' in locals():
+                task.status = 2
+                task.save(update_fields=['status'])
+            logger.error(f'执行爬虫任务失败: {str(e)}')
             return JsonResponse({'code': 1, 'msg': f'操作失败: {str(e)}'})
+
+    def _run_spider_task(self, task, user):
+        from apps.spider.spiders.tianyancha_spider import TianyanchaSpider
+        from apps.spider.models import Company
+
+        task.status = 1
+        task.save(update_fields=['status'])
+
+        keywords = [item.strip() for item in task.spider_keywords.replace('，', ',').split(',') if item.strip()]
+        if not keywords:
+            raise ValueError('爬虫关键词不能为空')
+
+        spider = TianyanchaSpider()
+        saved_count = 0
+        skipped_count = 0
+        fetched_count = 0
+        source = CustomerSource.objects.filter(title='公开数据', delete_time=0).first()
+        if not source:
+            source = CustomerSource.objects.filter(title='爬虫获客', delete_time=0).first()
+
+        existing_names = set(Customer.objects.filter(delete_time=0).values_list('name', flat=True))
+        max_pages = self._get_task_max_pages(task)
+        region = task.data_region or task.province or ''
+        industry = task.industry_limit or ''
+
+        for keyword in keywords:
+            for page in range(1, max_pages + 1):
+                try:
+                    companies = spider.search_companies(keyword, page=page, region=region, industry=industry)
+                except Exception as e:
+                    raise ValueError(str(e))
+                if not companies:
+                    break
+
+                for company_data in companies:
+                    name = (company_data.get('name') or '').strip()
+                    if not name:
+                        continue
+                    fetched_count += 1
+
+                    company_url = company_data.get('tianyancha_url') or ''
+                    detail_data = spider.get_company_detail(company_url) if company_url else {}
+                    company_data.update({key: value for key, value in detail_data.items() if value})
+
+                    if not self._match_task_filters(task, company_data):
+                        skipped_count += 1
+                        continue
+
+                    Company.objects.update_or_create(
+                        name=name,
+                        defaults={key: value for key, value in spider._company_model_data(company_data).items() if key != 'name'}
+                    )
+
+                    if name in existing_names:
+                        skipped_count += 1
+                        continue
+
+                    with transaction.atomic():
+                        customer = Customer.objects.create(
+                            name=name,
+                            customer_source=source,
+                            province=region,
+                            address=company_data.get('address', '')[:255],
+                            admin_id=user.id,
+                            belong_uid=0,
+                            content=company_data.get('registration_status', ''),
+                            market=company_data.get('business_scope', ''),
+                            remark=self._build_spider_remark(task, keyword, company_data),
+                        )
+                        self._save_customer_contact(customer, company_data)
+                    existing_names.add(name)
+                    saved_count += 1
+
+                time.sleep(0.6)
+
+        if saved_count == 0 and skipped_count == 0:
+            raise ValueError('未获取到公开数据，请检查关键词、筛选条件或公开数据源访问状态')
+
+        return {'saved_count': saved_count, 'skipped_count': skipped_count, 'fetched_count': fetched_count}
+
+    def _get_task_max_pages(self, task):
+        insured_count = task.insured_count or '不限'
+        if insured_count in ['1000-4999', '5000以上']:
+            return 3
+        if insured_count in ['50-99', '100-999']:
+            return 2
+        return 1
+
+    def _match_task_filters(self, task, company_data):
+        contact_phone = task.contact_phone or '不限'
+        phone = company_data.get('phone', '')
+        if contact_phone == '有有效手机号' and not phone.startswith('1'):
+            return False
+        if contact_phone == '有固定电话' and phone.startswith('1'):
+            return False
+        if contact_phone == '有400/800电话' and not (phone.startswith('400') or phone.startswith('800')):
+            return False
+        return True
+
+    def _save_customer_contact(self, customer, company_data):
+        phone = company_data.get('phone', '')
+        email = company_data.get('email', '')
+        if not phone and not email:
+            return
+        Contact.objects.create(
+            customer=customer,
+            contact_person=company_data.get('legal_person') or customer.name,
+            phone=phone or '未公开',
+            email=email or None,
+            is_primary=True
+        )
+
+    def _build_spider_remark(self, task, keyword, company_data):
+        remark_items = [
+            f'来源任务: {task.task_name}',
+            f'关键词: {keyword}',
+        ]
+        if company_data.get('legal_person'):
+            remark_items.append(f"法定代表人: {company_data.get('legal_person')}")
+        if company_data.get('registered_capital'):
+            remark_items.append(f"注册资本: {company_data.get('registered_capital')}")
+        if company_data.get('establishment_date'):
+            remark_items.append(f"成立日期: {company_data.get('establishment_date')}")
+        if company_data.get('registration_status'):
+            remark_items.append(f"登记状态: {company_data.get('registration_status')}")
+        if company_data.get('business_scope'):
+            remark_items.append(f"经营范围: {company_data.get('business_scope')}")
+        if company_data.get('tianyancha_url'):
+            remark_items.append(f"公开数据链接: {company_data.get('tianyancha_url')}")
+        if company_data.get('address'):
+            remark_items.append(f"注册地址: {company_data.get('address')}")
+        return '\n'.join(remark_items)
 
 # 获取员工列表视图
 @login_required
@@ -2518,44 +2677,192 @@ class CallRecordListDataView(LoginRequiredMixin, View):
         })
 
 # 批量导入相关功能
-import os
-import pandas as pd
-from django.http import HttpResponse
 from django.core.cache import cache
 from django.conf import settings
+
+def _get_pandas():
+    try:
+        import pandas as pd
+        return pd
+    except ImportError as exc:
+        raise RuntimeError('客户导入功能需要安装 pandas，请先安装项目依赖后再上传 Excel 文件') from exc
+
+def _get_customer_import_field_definitions(custom_fields=None):
+    if custom_fields is None:
+        custom_fields = CustomerField.objects.filter(
+            status=True,
+            delete_time=0
+        ).order_by('sort', 'id')
+
+    fields = [
+        {'key': 'name', 'label': '客户名称', 'required': True, 'type': 'text'},
+        {'key': 'contact_person', 'label': '联系人', 'required': True, 'type': 'text'},
+        {'key': 'phone', 'label': '联系电话', 'required': True, 'type': 'text'},
+        {'key': 'email', 'label': '邮箱', 'required': False, 'type': 'text'},
+        {'key': 'customer_source', 'label': '客户来源', 'required': False, 'type': 'system'},
+        {'key': 'grade_id', 'label': '客户等级', 'required': False, 'type': 'system'},
+        {'key': 'services_id', 'label': '客户意向', 'required': False, 'type': 'system'},
+        {'key': 'province', 'label': '省份', 'required': False, 'type': 'text'},
+        {'key': 'city', 'label': '城市', 'required': False, 'type': 'text'},
+        {'key': 'district', 'label': '区县', 'required': False, 'type': 'text'},
+        {'key': 'town', 'label': '乡镇街道', 'required': False, 'type': 'text'},
+        {'key': 'address', 'label': '地址', 'required': False, 'type': 'text'},
+        {'key': 'content', 'label': '客户描述', 'required': False, 'type': 'textarea'},
+        {'key': 'market', 'label': '主要经营业务', 'required': False, 'type': 'textarea'},
+        {'key': 'remark', 'label': '备注信息', 'required': False, 'type': 'textarea'},
+        {'key': 'tax_bank', 'label': '开户银行', 'required': False, 'type': 'text'},
+        {'key': 'tax_banksn', 'label': '银行账号', 'required': False, 'type': 'text'},
+        {'key': 'tax_num', 'label': '纳税人识别号', 'required': False, 'type': 'text'},
+        {'key': 'tax_mobile', 'label': '税务联系电话', 'required': False, 'type': 'text'},
+        {'key': 'tax_address', 'label': '税务地址', 'required': False, 'type': 'text'},
+    ]
+
+    for field in custom_fields:
+        fields.append({
+            'key': f'custom_{field.id}',
+            'label': field.name,
+            'required': bool(field.is_required),
+            'type': field.field_type,
+            'field_id': field.id,
+            'field_name': field.field_name,
+            'options': field.options or '',
+            'is_unique': bool(field.is_unique),
+        })
+
+    return fields
+
+
+def _normalize_import_header(value):
+    text = '' if value is None else str(value).strip()
+    return text.replace('*', '').replace('（必填）', '').replace('(必填)', '').strip()
+
+
+def _normalize_import_value(value):
+    pd = _get_pandas()
+    if pd.isna(value):
+        return ''
+    if isinstance(value, datetime):
+        return value.strftime('%Y-%m-%d %H:%M:%S') if value.time() else value.strftime('%Y-%m-%d')
+    text = str(value).strip()
+    if text.lower() == 'nan':
+        return ''
+    if text.endswith('.0'):
+        try:
+            return str(int(float(text)))
+        except (TypeError, ValueError):
+            pass
+    return text
+
+
+def _parse_mapping_index(column_index):
+    if column_index in ('', None, 'undefined', 'null'):
+        return None
+    try:
+        column_index = int(column_index)
+    except (TypeError, ValueError):
+        return None
+    return column_index if column_index >= 0 else None
+
+
+def _get_custom_field_options(field):
+    if not field.options:
+        return []
+    return [option.strip() for option in field.options.replace(',', '\n').split('\n') if option.strip()]
+
+
+def _convert_customer_custom_field_value(field, value):
+    value = _normalize_import_value(value)
+    if not value:
+        return ''
+
+    if field.field_type == 'checkbox':
+        if value.lower() in ('1', 'true', 'yes', 'y', 'on', '是', '有', '选中'):
+            return '1'
+        if value.lower() in ('0', 'false', 'no', 'n', 'off', '否', '无', '未选中'):
+            return '0'
+        return value
+
+    if field.field_type == 'number':
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            raise ValueError(f'{field.name}必须是数字')
+        return str(int(number)) if number.is_integer() else str(number)
+
+    if field.field_type in ('select', 'radio'):
+        options = _get_custom_field_options(field)
+        if options and value not in options:
+            raise ValueError(f'{field.name}必须是以下选项之一: {"、".join(options)}')
+
+    return value
+
+
+def _find_customer_source(value):
+    value = _normalize_import_value(value)
+    if not value:
+        return None
+    queryset = CustomerSource.objects.filter(status=1, delete_time=0)
+    if value.isdigit():
+        source = queryset.filter(id=int(value)).first()
+        if source:
+            return source
+    return queryset.filter(title=value).first()
+
+
+def _find_customer_grade_id(value):
+    value = _normalize_import_value(value)
+    if not value:
+        return 0
+    queryset = CustomerGrade.objects.filter(status=1, delete_time=0)
+    if value.isdigit():
+        grade = queryset.filter(id=int(value)).first()
+        return grade.id if grade else 0
+    grade = queryset.filter(title=value).first()
+    return grade.id if grade else 0
+
+
+def _find_customer_intent_id(value):
+    value = _normalize_import_value(value)
+    if not value:
+        return 0
+    queryset = CustomerIntent.objects.filter(status=1, delete_time=0)
+    if value.isdigit():
+        intent = queryset.filter(id=int(value)).first()
+        return intent.id if intent else 0
+    intent = queryset.filter(name=value).first()
+    return intent.id if intent else 0
+
 
 @login_required
 def download_template(request):
     """下载客户导入模板"""
     try:
-        # 创建Excel模板
         import openpyxl
         from openpyxl.styles import Font, PatternFill, Alignment
+        from openpyxl.comments import Comment
         
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "客户导入模板"
+        fields = _get_customer_import_field_definitions()
+        headers = [f"{field['label']}*" if field['required'] else field['label'] for field in fields]
         
-        # 设置表头
-        headers = [
-            '客户名称*', '联系人*', '联系电话*', '邮箱', '地址', 
-            '省份', '城市', '区县', '客户描述', '主要经营业务', '备注信息'
-        ]
-        
-        # 写入表头
         for col, header in enumerate(headers, 1):
+            field = fields[col - 1]
             cell = ws.cell(row=1, column=col, value=header)
             cell.font = Font(bold=True, color="FFFFFF")
-            cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            cell.fill = PatternFill(
+                start_color="C00000" if field['required'] else "366092",
+                end_color="C00000" if field['required'] else "366092",
+                fill_type="solid"
+            )
             cell.alignment = Alignment(horizontal="center", vertical="center")
+            if field.get('options'):
+                cell.comment = Comment(f"可选值：{field['options']}", "dtcall")
         
-        # 添加表头数据，不包含示例数据
-        
-        # 调整列宽
         for col in range(1, len(headers) + 1):
-            ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 15
+            ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 18
         
-        # 创建响应
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
@@ -2593,17 +2900,21 @@ def upload_import_file(request):
         temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp', 'import')
         os.makedirs(temp_dir, exist_ok=True)
         
-        file_path = os.path.join(temp_dir, f'{file_id}.xlsx')
+        file_path = os.path.join(temp_dir, f'{file_id}{os.path.splitext(file.name)[1].lower()}')
         with open(file_path, 'wb') as f:
             for chunk in file.chunks():
                 f.write(chunk)
         
         # 读取Excel文件获取表头
         try:
-            df = pd.read_excel(file_path, nrows=0)  # 只读取表头
+            pd = _get_pandas()
+            df = pd.read_excel(file_path, nrows=0, dtype=object)  # 只读取表头
             headers = df.columns.tolist()
         except Exception as e:
-            os.remove(file_path)
+            try:
+                os.remove(file_path)
+            except OSError:
+                pass
             return JsonResponse({'code': 1, 'msg': f'文件格式错误: {str(e)}'})
         
         # 缓存文件信息
@@ -2664,9 +2975,8 @@ def process_import(request):
 
 def _process_import_data(file_path, field_mapping, user, task_id):
     """处理导入数据的核心逻辑"""
+    progress_key = f'import_progress_{task_id}'
     try:
-        # 设置初始进度
-        progress_key = f'import_progress_{task_id}'
         cache.set(progress_key, {
             'status': 'processing',
             'percent': 0,
@@ -2674,29 +2984,45 @@ def _process_import_data(file_path, field_mapping, user, task_id):
             'result': None
         }, timeout=3600)
         
-        # 读取Excel文件
-        df = pd.read_excel(file_path)
+        pd = _get_pandas()
+        df = pd.read_excel(file_path, dtype=object)
         total_rows = len(df)
-        
         success_count = 0
         error_count = 0
         errors = []
+        headers = list(df.columns)
+        header_map = {_normalize_import_header(header): index for index, header in enumerate(headers)}
+        import_fields = _get_customer_import_field_definitions()
+        custom_fields = {
+            field.id: field for field in CustomerField.objects.filter(status=True, delete_time=0)
+        }
+        default_source = CustomerSource.objects.filter(status=1, delete_time=0).order_by('sort', 'id').first()
+
+        if total_rows == 0:
+            cache.set(progress_key, {
+                'status': 'completed',
+                'percent': 100,
+                'message': '导入文件中没有可导入的数据',
+                'result': {'total': 0, 'success': 0, 'error': 0, 'errors': []}
+            }, timeout=3600)
+            try:
+                os.remove(file_path)
+            except OSError:
+                pass
+            return {'total': 0, 'success': 0, 'error': 0, 'errors': []}
+
+        normalized_mapping = {}
+        for field in import_fields:
+            mapped_index = _parse_mapping_index(field_mapping.get(field['key']))
+            if mapped_index is None:
+                mapped_index = header_map.get(field['label'])
+            if mapped_index is None and field.get('field_name'):
+                mapped_index = header_map.get(field['field_name'])
+            if mapped_index is not None and mapped_index < len(headers):
+                normalized_mapping[field['key']] = mapped_index
         
-        # 获取基础数据
-        try:
-            from apps.customer.models import CustomerSource, CustomerGrade, CustomerIntent
-            default_source = CustomerSource.objects.filter(delete_time=0).first()
-            default_grade = CustomerGrade.objects.filter(delete_time=0).first()
-            default_intent = CustomerIntent.objects.filter(delete_time=0).first()
-        except:
-            default_source = None
-            default_grade = None
-            default_intent = None
-        
-        # 逐行处理数据
         for index, row in df.iterrows():
             try:
-                # 更新进度
                 percent = int((index + 1) / total_rows * 100)
                 cache.set(progress_key, {
                     'status': 'processing',
@@ -2705,72 +3031,97 @@ def _process_import_data(file_path, field_mapping, user, task_id):
                     'result': None
                 }, timeout=3600)
                 
-                # 提取数据
                 customer_data = {}
-                for field_key, column_index in field_mapping.items():
-                    if column_index < len(row):
-                        value = row.iloc[column_index]
-                        if pd.notna(value):
-                            customer_data[field_key] = str(value).strip()
+                custom_field_values = {}
+                for field in import_fields:
+                    column_index = normalized_mapping.get(field['key'])
+                    if column_index is None:
+                        continue
+                    value = _normalize_import_value(row.iloc[column_index])
+                    if not value:
+                        continue
+                    if field['key'].startswith('custom_'):
+                        field_id = field.get('field_id')
+                        custom_field = custom_fields.get(field_id)
+                        if custom_field:
+                            custom_field_values[field_id] = _convert_customer_custom_field_value(custom_field, value)
+                    else:
+                        customer_data[field['key']] = value
                 
-                # 验证必填字段
-                required_fields = ['name', 'contact_person', 'phone']
-                missing_fields = [field for field in required_fields if not customer_data.get(field)]
+                missing_fields = [field['label'] for field in import_fields if field['required'] and not (custom_field_values.get(field.get('field_id')) if field['key'].startswith('custom_') else customer_data.get(field['key']))]
                 if missing_fields:
-                    errors.append({
-                        'row': index + 2,  # Excel行号从2开始
-                        'message': f'缺少必填字段: {", ".join(missing_fields)}'
-                    })
+                    errors.append({'row': index + 2, 'message': f'缺少必填字段: {", ".join(missing_fields)}'})
                     error_count += 1
                     continue
                 
-                # 检查客户是否已存在
-                existing_customer = Customer.objects.filter(
-                    name=customer_data['name'],
-                    delete_time=0
-                ).first()
-                
-                if existing_customer:
-                    errors.append({
-                        'row': index + 2,
-                        'message': f'客户 "{customer_data["name"]}" 已存在'
-                    })
+                if Customer.objects.filter(name=customer_data['name'], delete_time=0).exists():
+                    errors.append({'row': index + 2, 'message': f'客户 "{customer_data["name"]}" 已存在'})
                     error_count += 1
                     continue
                 
-                # 创建客户记录
+                duplicate_custom_fields = []
+                for field_id, value in custom_field_values.items():
+                    custom_field = custom_fields.get(field_id)
+                    if custom_field and custom_field.is_unique and value:
+                        exists = CustomerCustomFieldValue.objects.filter(
+                            field_id=field_id,
+                            value=value,
+                            customer__delete_time=0
+                        ).exists()
+                        if exists:
+                            duplicate_custom_fields.append(custom_field.name)
+                if duplicate_custom_fields:
+                    errors.append({'row': index + 2, 'message': f'自定义字段值重复: {", ".join(duplicate_custom_fields)}'})
+                    error_count += 1
+                    continue
+                
                 with transaction.atomic():
+                    now_timestamp = int(timezone.now().timestamp())
                     customer = Customer.objects.create(
                         name=customer_data.get('name', ''),
-                        contact_person=customer_data.get('contact_person', ''),
-                        phone=customer_data.get('phone', ''),
-                        email=customer_data.get('email', ''),
-                        address=customer_data.get('address', ''),
+                        customer_source=_find_customer_source(customer_data.get('customer_source')) or default_source,
+                        grade_id=_find_customer_grade_id(customer_data.get('grade_id')),
+                        services_id=_find_customer_intent_id(customer_data.get('services_id')),
                         province=customer_data.get('province', ''),
                         city=customer_data.get('city', ''),
                         district=customer_data.get('district', ''),
+                        town=customer_data.get('town', ''),
+                        address=customer_data.get('address', ''),
                         content=customer_data.get('content', ''),
                         market=customer_data.get('market', ''),
                         remark=customer_data.get('remark', ''),
-                        source=default_source,
-                        grade=default_grade,
-                        intent=default_intent,
-                        admin=user,
-                        create_time=timezone.now(),
-                        update_time=timezone.now()
+                        tax_bank=customer_data.get('tax_bank', ''),
+                        tax_banksn=customer_data.get('tax_banksn', ''),
+                        tax_num=customer_data.get('tax_num', ''),
+                        tax_mobile=customer_data.get('tax_mobile', ''),
+                        tax_address=customer_data.get('tax_address', ''),
+                        admin_id=user.id,
+                        belong_uid=user.id,
+                        belong_time=now_timestamp,
+                        intent_status=1,
+                        delete_time=0
                     )
+                    Contact.objects.create(
+                        customer=customer,
+                        contact_person=customer_data.get('contact_person', ''),
+                        phone=customer_data.get('phone', ''),
+                        email=customer_data.get('email', ''),
+                        is_primary=True
+                    )
+                    for field_id, value in custom_field_values.items():
+                        CustomerCustomFieldValue.objects.update_or_create(
+                            customer=customer,
+                            field_id=field_id,
+                            defaults={'value': value}
+                        )
                     
                     success_count += 1
                     
             except Exception as e:
-                errors.append({
-                    'row': index + 2,
-                    'message': f'导入失败: {str(e)}'
-                })
+                errors.append({'row': index + 2, 'message': f'导入失败: {str(e)}'})
                 error_count += 1
                 continue
         
-        # 设置完成状态
         result = {
             'total': total_rows,
             'success': success_count,
@@ -2785,10 +3136,9 @@ def _process_import_data(file_path, field_mapping, user, task_id):
             'result': result
         }, timeout=3600)
         
-        # 清理临时文件
         try:
             os.remove(file_path)
-        except:
+        except OSError:
             pass
         
         return result
@@ -2841,69 +3191,1000 @@ class AIRobotDataView(LoginRequiredMixin, View):
     
     def get(self, request):
         try:
-            # 统计数据
-            total_customers = Customer.objects.filter(delete_time=0).count()
-            public_customers = Customer.objects.filter(delete_time=0, belong_uid=0).count()
-            personal_customers = Customer.objects.filter(delete_time=0, belong_uid__gt=0).count()
-            abandoned_customers = Customer.objects.filter(delete_time=0, discard_time__gt=0).count()
-            
-            # AI机器人功能数据
-            ai_robot_data = [
-                {
-                    'id': 1,
-                    'name': '智能客户分类机器人',
-                    'status': 1,
-                    'description': '自动根据客户特征进行分类，帮助销售更好地识别优质客户',
-                    'active_customers': total_customers,
-                    'success_rate': 0.85,
-                    'last_run_time': timezone.now().strftime('%Y-%m-%d %H:%M:%S')
-                },
-                {
-                    'id': 2,
-                    'name': '智能客户画像生成机器人',
-                    'status': 1,
-                    'description': '基于客户数据自动生成详细的客户画像，包括客户需求、购买意向等',
-                    'active_customers': personal_customers,
-                    'success_rate': 0.82,
-                    'last_run_time': timezone.now().strftime('%Y-%m-%d %H:%M:%S')
-                },
-                {
-                    'id': 3,
-                    'name': '智能客户跟进建议机器人',
-                    'status': 1,
-                    'description': '根据客户互动历史和行为数据，提供个性化的跟进建议',
-                    'active_customers': personal_customers,
-                    'success_rate': 0.78,
-                    'last_run_time': timezone.now().strftime('%Y-%m-%d %H:%M:%S')
-                },
-                {
-                    'id': 4,
-                    'name': '智能客户分配机器人',
-                    'status': 0,
-                    'description': '根据销售的工作负载和专长，自动分配公海客户',
-                    'active_customers': public_customers,
-                    'success_rate': 0.80,
-                    'last_run_time': (timezone.now() - timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S')
-                }
-            ]
-            
-            # 准备响应数据
-            data = {
+            robot_data = AIRobotTaskService.get_robot_data()
+            return JsonResponse({
                 'code': 0,
                 'msg': '获取数据成功',
-                'count': len(ai_robot_data),
-                'data': ai_robot_data,
-                'statistics': {
-                    'total_customers': total_customers,
-                    'public_customers': public_customers,
-                    'personal_customers': personal_customers,
-                    'abandoned_customers': abandoned_customers
-                }
-            }
-            return JsonResponse(data)
+                'count': len(robot_data['robots']),
+                'data': robot_data['robots'],
+                'statistics': robot_data['statistics'],
+                'config': robot_data['config'],
+                'validation': robot_data['validation'],
+            }, json_dumps_params={'ensure_ascii': False})
         except Exception as e:
             logger.error(f'获取AI机器人数据失败: {str(e)}')
             return JsonResponse({'code': 1, 'msg': f'获取数据失败: {str(e)}'})
+
+class AIRobotTaskService:
+    """公海客户AI机器人任务服务"""
+    ROBOT_CONFIG_KEY = 'customer_public_ai_robot_config'
+
+    DEFAULT_CONFIG = {
+        'batch_size': 20,
+        'min_score_for_allocation': 60,
+        'auto_allocate': False,
+    }
+
+    ROBOTS = {
+        'classification': {
+            'name': '智能客户分类机器人',
+            'description': '识别公海客户质量、意向标签与优先级',
+        },
+        'profile': {
+            'name': '智能客户画像机器人',
+            'description': '沉淀客户画像、经营线索与维护策略',
+        },
+        'followup': {
+            'name': '智能跟进建议机器人',
+            'description': '生成下一步触达建议与跟进优先级',
+        },
+        'allocation': {
+            'name': '智能客户分配机器人',
+            'description': '按客户价值与员工负载分配公海客户',
+        },
+    }
+
+    @classmethod
+    def get_config(cls):
+        item = SystemConfiguration.objects.filter(
+            key=cls.ROBOT_CONFIG_KEY,
+            is_active=True
+        ).first()
+        if not item:
+            return cls.DEFAULT_CONFIG.copy()
+        try:
+            config = json.loads(item.value or '{}')
+        except json.JSONDecodeError:
+            config = {}
+        result = cls.DEFAULT_CONFIG.copy()
+        result.update({k: v for k, v in config.items() if k in result})
+        return result
+
+    @classmethod
+    def save_config(cls, config):
+        cleaned = cls.DEFAULT_CONFIG.copy()
+        cleaned['batch_size'] = max(1, min(int(config.get('batch_size', cleaned['batch_size'])), 200))
+        cleaned['min_score_for_allocation'] = max(0, min(int(config.get('min_score_for_allocation', cleaned['min_score_for_allocation'])), 100))
+        cleaned['auto_allocate'] = str(config.get('auto_allocate', '')).lower() in ['1', 'true', 'on', 'yes']
+        SystemConfiguration.objects.update_or_create(
+            key=cls.ROBOT_CONFIG_KEY,
+            defaults={
+                'value': json.dumps(cleaned, ensure_ascii=False),
+                'description': '客户公海AI机器人运行配置',
+                'is_active': True,
+            }
+        )
+        return cleaned
+
+    @classmethod
+    def get_public_queryset(cls, limit=None):
+        queryset = Customer.objects.filter(
+            delete_time=0,
+            discard_time=0,
+            belong_uid=0
+        ).prefetch_related('contacts', 'follow_records').order_by('-ai_score', '-create_time', 'id')
+        if limit:
+            queryset = queryset[:limit]
+        return queryset
+
+    @classmethod
+    def get_robot_data(cls):
+        total_customers = Customer.objects.filter(delete_time=0).count()
+        public_customers = Customer.objects.filter(delete_time=0, discard_time=0, belong_uid=0).count()
+        personal_customers = Customer.objects.filter(delete_time=0, belong_uid__gt=0).count()
+        abandoned_customers = Customer.objects.filter(delete_time=0, discard_time__gt=0).count()
+        analyzed_customers = Customer.objects.filter(delete_time=0, belong_uid=0, ai_score__gt=0).count()
+        suggested_customers = Customer.objects.filter(
+            delete_time=0,
+            belong_uid=0,
+            ai_next_followup_suggestion__isnull=False
+        ).exclude(ai_next_followup_suggestion='').count()
+        recent_logs = SystemLog.objects.filter(
+            module='客户公海AI机器人'
+        ).order_by('-created_at')[:20]
+        last_run_map = {}
+        for log in recent_logs:
+            for robot_type, meta in cls.ROBOTS.items():
+                if meta['name'] in log.action and robot_type not in last_run_map:
+                    last_run_map[robot_type] = log.created_at.strftime('%Y-%m-%d %H:%M:%S')
+
+        validation = cls.validate_runtime()
+        robots = []
+        for robot_type, meta in cls.ROBOTS.items():
+            robot_validation = cls.validate_runtime(robot_type)
+            robots.append({
+                'type': robot_type,
+                'name': meta['name'],
+                'status': 1 if robot_validation['ready'] else 0,
+                'description': meta['description'],
+                'active_customers': public_customers,
+                'processed_customers': {
+                    'classification': analyzed_customers,
+                    'profile': suggested_customers,
+                    'followup': suggested_customers,
+                    'allocation': personal_customers,
+                }[robot_type],
+                'success_rate': cls._ratio(
+                    {
+                        'classification': analyzed_customers,
+                        'profile': suggested_customers,
+                        'followup': suggested_customers,
+                        'allocation': personal_customers,
+                    }[robot_type],
+                    total_customers if robot_type == 'allocation' else public_customers
+                ),
+                'last_run_time': last_run_map.get(robot_type, '暂无运行'),
+                'validation': robot_validation,
+                'missing_count': robot_validation['missing_count'],
+                'config_summary': robot_validation['config_summary'],
+            })
+        return {
+            'robots': robots,
+            'statistics': {
+                'total_customers': total_customers,
+                'public_customers': public_customers,
+                'personal_customers': personal_customers,
+                'abandoned_customers': abandoned_customers,
+                'analyzed_customers': analyzed_customers,
+            },
+            'config': cls.get_config(),
+            'validation': validation,
+        }
+
+    @staticmethod
+    def _ratio(value, total):
+        if not total:
+            return 0
+        return round(value / total, 2)
+
+    @classmethod
+    def validate_runtime(cls, robot_type=None):
+        config = cls.get_config()
+        try:
+            batch_size = int(config.get('batch_size') or 0)
+        except (TypeError, ValueError):
+            batch_size = 0
+        try:
+            min_score = int(config.get('min_score_for_allocation') or 0)
+        except (TypeError, ValueError):
+            min_score = -1
+        public_customers = Customer.objects.filter(delete_time=0, discard_time=0, belong_uid=0).count()
+        employees = Admin.objects.filter(is_active=True, status=1).count()
+        checks = [
+            {
+                'name': '公海客户数据',
+                'status': public_customers > 0,
+                'message': f'当前可处理公海客户 {public_customers} 个' if public_customers else '暂无可处理公海客户',
+            },
+            {
+                'name': '单次处理数量',
+                'status': 1 <= batch_size <= 200,
+                'message': f'当前单次处理 {batch_size} 个客户' if batch_size else '单次处理数量未配置',
+            },
+            {
+                'name': '分配评分阈值',
+                'status': 0 <= min_score <= 100,
+                'message': f'当前最低分配评分 {min_score} 分' if min_score >= 0 else '分配评分阈值未配置',
+            },
+        ]
+        if robot_type in [None, 'allocation']:
+            checks.append({
+                'name': '分配员工池',
+                'status': employees > 0,
+                'message': f'当前可分配员工 {employees} 人' if employees else '暂无可分配员工，分配机器人不可执行',
+            })
+        failed_checks = [item for item in checks if not item['status']]
+        return {
+            'ready': not failed_checks,
+            'checks': checks,
+            'config': config,
+            'missing_count': len(failed_checks),
+            'config_summary': [
+                f'单次处理 {batch_size or "未配置"} 个',
+                f'分配阈值 {min_score if min_score >= 0 else "未配置"} 分',
+                '自动分配已开启' if config.get('auto_allocate') else '自动分配未开启',
+            ],
+        }
+
+    @classmethod
+    def execute(cls, robot_type, request):
+        if robot_type not in cls.ROBOTS:
+            return {'code': 1, 'msg': '未知机器人类型'}
+        validation = cls.validate_runtime(robot_type)
+        if not validation['ready']:
+            return {
+                'code': 1,
+                'msg': '运行前验证未通过，请先查看验证结果并完善配置',
+                'validation': validation,
+            }
+        config = cls.get_config()
+        batch_size = config['batch_size']
+        if robot_type == 'classification':
+            result = cls.run_classification(batch_size)
+        elif robot_type == 'profile':
+            result = cls.run_profile(batch_size)
+        elif robot_type == 'followup':
+            result = cls.run_followup(batch_size)
+        elif robot_type == 'allocation':
+            result = cls.run_allocation(batch_size, config['min_score_for_allocation'])
+
+        cls.write_log(request, cls.ROBOTS[robot_type]['name'], result['msg'])
+        return {
+            'code': 0,
+            'robot_type': robot_type,
+            'robot_name': cls.ROBOTS[robot_type]['name'],
+            'validation': cls.validate_runtime(robot_type),
+            **result,
+        }
+
+    @classmethod
+    def run_classification(cls, batch_size):
+        customers = list(cls.get_public_queryset(batch_size))
+        updated_count = 0
+        for customer in customers:
+            score, tags = cls.evaluate_customer(customer)
+            customer.ai_score = score
+            customer.ai_intent_tags = tags
+            customer.save(update_fields=['ai_score', 'ai_intent_tags', 'update_time'])
+            updated_count += 1
+        return {
+            'msg': f'已完成{updated_count}个公海客户分类评分',
+            'processed_count': updated_count,
+        }
+
+    @classmethod
+    def run_profile(cls, batch_size):
+        customers = list(cls.get_public_queryset(batch_size))
+        updated_count = 0
+        for customer in customers:
+            score, tags = cls.evaluate_customer(customer)
+            customer.ai_score = max(customer.ai_score or 0, score)
+            customer.ai_intent_tags = tags
+            customer.ai_next_followup_suggestion = cls.build_profile_suggestion(customer, tags)
+            customer.save(update_fields=[
+                'ai_score', 'ai_intent_tags', 'ai_next_followup_suggestion', 'update_time'
+            ])
+            updated_count += 1
+        return {
+            'msg': f'已生成{updated_count}个公海客户画像',
+            'processed_count': updated_count,
+        }
+
+    @classmethod
+    def run_followup(cls, batch_size):
+        customers = list(cls.get_public_queryset(batch_size))
+        updated_count = 0
+        for customer in customers:
+            score, tags = cls.evaluate_customer(customer)
+            customer.ai_score = max(customer.ai_score or 0, score)
+            customer.ai_intent_tags = tags
+            customer.ai_next_followup_suggestion = cls.build_followup_suggestion(customer, score, tags)
+            customer.next_time = int((timezone.now() + timedelta(days=1 if score >= 70 else 3)).timestamp())
+            customer.save(update_fields=[
+                'ai_score', 'ai_intent_tags', 'ai_next_followup_suggestion', 'next_time', 'update_time'
+            ])
+            updated_count += 1
+        return {
+            'msg': f'已生成{updated_count}个公海客户跟进建议',
+            'processed_count': updated_count,
+        }
+
+    @classmethod
+    def run_allocation(cls, batch_size, min_score):
+        employees = list(Admin.objects.filter(is_active=True, status=1).order_by('id'))
+        if not employees:
+            return {'msg': '暂无可分配员工', 'processed_count': 0}
+
+        workloads = {
+            employee.id: Customer.objects.filter(delete_time=0, belong_uid=employee.id).count()
+            for employee in employees
+        }
+        candidates = list(Customer.objects.filter(
+            delete_time=0,
+            discard_time=0,
+            belong_uid=0,
+            ai_score__gte=min_score
+        ).prefetch_related('contacts', 'follow_records').order_by('-ai_score', '-create_time', 'id')[:batch_size])
+        allocated_count = 0
+        now_ts = int(timezone.now().timestamp())
+        with transaction.atomic():
+            for customer in candidates:
+                target = min(employees, key=lambda employee: (workloads.get(employee.id, 0), employee.id))
+                customer.belong_uid = target.id
+                customer.belong_did = getattr(target, 'did', 0) or 0
+                customer.belong_time = now_ts
+                customer.distribute_time = now_ts
+                customer.share_ids = ''
+                customer.save(update_fields=[
+                    'belong_uid', 'belong_did', 'belong_time', 'distribute_time', 'share_ids', 'update_time'
+                ])
+                workloads[target.id] = workloads.get(target.id, 0) + 1
+                allocated_count += 1
+        return {
+            'msg': f'已分配{allocated_count}个高意向公海客户',
+            'processed_count': allocated_count,
+        }
+
+    @classmethod
+    def evaluate_customer(cls, customer):
+        score = 30
+        tags = []
+        contacts = list(customer.contacts.all())
+        if contacts:
+            score += 18
+            tags.append('有联系人')
+        if any(contact.phone for contact in contacts) or customer.tax_mobile:
+            score += 15
+            tags.append('可电话触达')
+        if any(contact.email for contact in contacts):
+            score += 8
+            tags.append('可邮件触达')
+        if customer.customer_source_id:
+            score += 8
+            tags.append('来源明确')
+        if customer.grade_id:
+            score += 8
+            tags.append('已定级')
+        if customer.industry_id:
+            score += 6
+            tags.append('行业明确')
+        if customer.intent_status:
+            score += 12
+            tags.append('有意向状态')
+        if customer.content or customer.market or customer.remark:
+            score += 10
+            tags.append('资料较完整')
+        if customer.province or customer.city:
+            score += 5
+            tags.append('地区明确')
+        if customer.follow_records.filter(delete_time=0).exists():
+            score += 10
+            tags.append('已有触达记录')
+        if score >= 80:
+            tags.insert(0, '高优先级')
+        elif score >= 60:
+            tags.insert(0, '中优先级')
+        else:
+            tags.insert(0, '待培育')
+        return min(score, 100), tags[:8]
+
+    @classmethod
+    def build_profile_suggestion(cls, customer, tags):
+        area = ''.join([customer.province or '', customer.city or '', customer.district or '']) or '未知地区'
+        business = customer.market or customer.content or customer.remark or '暂无业务描述'
+        return f'客户画像：{customer.name}，地区：{area}，特征：{"、".join(tags)}。业务线索：{business[:120]}。建议先补齐关键联系人与需求信息，再按优先级进入销售跟进。'
+
+    @classmethod
+    def build_followup_suggestion(cls, customer, score, tags):
+        contact = customer.primary_contact
+        contact_text = f'优先联系{contact.contact_person}' if contact else '先补充联系人信息'
+        if score >= 80:
+            action = '建议24小时内电话触达，确认预算、需求时间和决策人。'
+        elif score >= 60:
+            action = '建议3天内完成首次触达，补齐行业、规模和采购意向。'
+        else:
+            action = '建议先完善客户资料，再通过短信或邮件进行低频培育。'
+        return f'{contact_text}；客户标签：{"、".join(tags)}；{action}'
+
+    @classmethod
+    def write_log(cls, request, robot_name, content):
+        SystemLog.objects.create(
+            user=request.user,
+            log_type='other',
+            module='客户公海AI机器人',
+            action=f'{robot_name}运行',
+            content=content,
+            ip_address=request.META.get('REMOTE_ADDR', '0.0.0.0'),
+            user_agent=request.META.get('HTTP_USER_AGENT', '')
+        )
+
+
+class AIRobotExecuteView(LoginRequiredMixin, View):
+    """AI机器人执行API"""
+    login_url = '/user/login/'
+    redirect_field_name = 'next'
+
+    def post(self, request):
+        try:
+            data = json.loads(request.body or '{}')
+            robot_type = data.get('robot_type')
+            result = AIRobotTaskService.execute(robot_type, request)
+            return JsonResponse(result, json_dumps_params={'ensure_ascii': False})
+        except Exception as e:
+            logger.error(f'执行AI机器人失败: {str(e)}', exc_info=True)
+            return JsonResponse({'code': 1, 'msg': f'执行失败: {str(e)}'}, status=500)
+
+
+class AIRobotConfigView(LoginRequiredMixin, View):
+    """AI机器人配置API"""
+    login_url = '/user/login/'
+    redirect_field_name = 'next'
+
+    def get(self, request):
+        return JsonResponse({
+            'code': 0,
+            'msg': '获取配置成功',
+            'data': AIRobotTaskService.get_config()
+        }, json_dumps_params={'ensure_ascii': False})
+
+    def post(self, request):
+        try:
+            data = json.loads(request.body or '{}')
+            config = AIRobotTaskService.save_config(data)
+            SystemLog.objects.create(
+                user=request.user,
+                log_type='update',
+                module='客户公海AI机器人',
+                action='保存机器人配置',
+                content=f'配置已更新：{json.dumps(config, ensure_ascii=False)}',
+                ip_address=request.META.get('REMOTE_ADDR', '0.0.0.0'),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')
+            )
+            return JsonResponse({'code': 0, 'msg': '配置保存成功', 'data': config}, json_dumps_params={'ensure_ascii': False})
+        except Exception as e:
+            logger.error(f'保存AI机器人配置失败: {str(e)}', exc_info=True)
+            return JsonResponse({'code': 1, 'msg': f'保存失败: {str(e)}'}, status=500)
+
+
+class AIRobotValidateView(LoginRequiredMixin, View):
+    """AI机器人运行验证API"""
+    login_url = '/user/login/'
+    redirect_field_name = 'next'
+
+    def get(self, request):
+        robot_type = request.GET.get('robot_type')
+        validation = AIRobotTaskService.validate_runtime(robot_type)
+        return JsonResponse({
+            'code': 0,
+            'msg': '验证完成',
+            'data': validation,
+        }, json_dumps_params={'ensure_ascii': False})
+
+
+class AIRobotLogView(LoginRequiredMixin, View):
+    """AI机器人日志API"""
+    login_url = '/user/login/'
+    redirect_field_name = 'next'
+
+    def get(self, request):
+        robot_type = request.GET.get('robot_type')
+        queryset = SystemLog.objects.filter(module='客户公海AI机器人')
+        if robot_type in AIRobotTaskService.ROBOTS:
+            queryset = queryset.filter(action__contains=AIRobotTaskService.ROBOTS[robot_type]['name'])
+        logs = queryset.order_by('-created_at')[:50]
+        data = [{
+            'action': log.action,
+            'content': log.content,
+            'created_at': log.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'user': log.user.name or log.user.username if log.user else ''
+        } for log in logs]
+        return JsonResponse({'code': 0, 'msg': '获取日志成功', 'data': data}, json_dumps_params={'ensure_ascii': False})
+
+
+class MarketingRobotService:
+    """营销机器人服务"""
+    CONFIG_KEY = 'customer_marketing_robot_config'
+    MODULE_NAME = '客户营销机器人'
+
+    ROBOTS = {
+        'customer_service': {
+            'name': '智能客服机器人',
+            'description': '自动回复客户咨询，沉淀客服跟进记录',
+            'fields': {
+                'robot_name': '智能客服小助手',
+                'welcome_text': '您好！我是智能客服小助手，有什么可以帮助您的吗？',
+                'work_time': '00:00-23:59',
+                'batch_size': 20,
+            },
+        },
+        'telemarketing': {
+            'name': '电话营销机器人',
+            'description': '筛选可电话触达客户并发起SIP外呼任务',
+            'fields': {
+                'call_time': '09:00-18:00',
+                'script': '您好，我想了解一下您对我们产品的需求。',
+                'retry_interval': 24,
+                'batch_size': 20,
+            },
+        },
+        'email_marketing': {
+            'name': '邮件营销机器人',
+            'description': '筛选可邮件触达客户并记录邮件营销任务',
+            'fields': {
+                'sender_email': '',
+                'smtp_server': '',
+                'subject': '客户关怀提醒',
+                'template': '尊敬的客户，感谢您对我们的关注。',
+                'batch_size': 20,
+            },
+        },
+        'sms_marketing': {
+            'name': '短信营销机器人',
+            'description': '筛选可短信触达客户并记录短信营销任务',
+            'fields': {
+                'signature': '',
+                'template': '尊敬的客户，您有新的优惠信息待查看。',
+                'daily_limit': 1,
+                'batch_size': 20,
+            },
+        },
+        'wechat': {
+            'name': '微信机器人',
+            'description': '筛选客户微信触达任务并沉淀销售动作',
+            'fields': {
+                'robot_name': '微信销售助手',
+                'welcome_text': '您好！我是您的专属销售顾问，很高兴为您服务！',
+                'auto_reply': True,
+                'batch_size': 20,
+            },
+        },
+    }
+
+    @classmethod
+    def get_config(cls):
+        item = SystemConfiguration.objects.filter(key=cls.CONFIG_KEY, is_active=True).first()
+        saved_config = {}
+        if item:
+            try:
+                saved_config = json.loads(item.value or '{}')
+            except json.JSONDecodeError:
+                saved_config = {}
+        result = {}
+        for robot_type, meta in cls.ROBOTS.items():
+            result[robot_type] = meta['fields'].copy()
+            if isinstance(saved_config.get(robot_type), dict):
+                result[robot_type].update(saved_config[robot_type])
+        return result
+
+    @classmethod
+    def save_config(cls, robot_type, config):
+        if robot_type not in cls.ROBOTS:
+            return {'code': 1, 'msg': '未知营销机器人类型'}
+        current = cls.get_config()
+        cleaned = cls.clean_config(robot_type, config)
+        current[robot_type] = cleaned
+        SystemConfiguration.objects.update_or_create(
+            key=cls.CONFIG_KEY,
+            defaults={
+                'value': json.dumps(current, ensure_ascii=False),
+                'description': '客户营销机器人运行配置',
+                'is_active': True,
+            }
+        )
+        return {'code': 0, 'msg': '配置保存成功', 'data': cleaned}
+
+    @classmethod
+    def clean_config(cls, robot_type, config):
+        defaults = cls.ROBOTS[robot_type]['fields'].copy()
+        cleaned = defaults.copy()
+        for key in defaults:
+            if key in config:
+                cleaned[key] = config[key]
+        if 'batch_size' in cleaned:
+            cleaned['batch_size'] = max(1, min(int(cleaned.get('batch_size') or defaults['batch_size']), 100))
+        if robot_type == 'sms_marketing':
+            cleaned['daily_limit'] = max(1, min(int(cleaned.get('daily_limit') or 1), 20))
+        if robot_type == 'telemarketing':
+            cleaned['retry_interval'] = max(1, min(int(cleaned.get('retry_interval') or 24), 168))
+        if robot_type == 'wechat':
+            cleaned['auto_reply'] = str(cleaned.get('auto_reply', '')).lower() in ['1', 'true', 'on', 'yes']
+        return cleaned
+
+    @classmethod
+    def get_robot_data(cls):
+        configs = cls.get_config()
+        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        robots = []
+        for robot_type, meta in cls.ROBOTS.items():
+            stats = cls.get_robot_stats(robot_type, today_start)
+            validation = cls.validate_robot(robot_type, configs.get(robot_type, {}))
+            robots.append({
+                'type': robot_type,
+                'name': meta['name'],
+                'description': meta['description'],
+                'status': 1 if validation['ready'] else 0,
+                'validation': validation,
+                'missing_count': validation['missing_count'],
+                'config_summary': validation['config_summary'],
+                **stats,
+            })
+        return {'robots': robots, 'config': configs}
+
+    @classmethod
+    def get_robot_status(cls, robot_type, config):
+        validation = cls.validate_robot(robot_type, config)
+        return 1 if validation['ready'] else 0
+
+    @classmethod
+    def validate_robot(cls, robot_type, config=None):
+        if robot_type not in cls.ROBOTS:
+            return {
+                'ready': False,
+                'checks': [{
+                    'name': '机器人类型',
+                    'status': False,
+                    'message': '未知营销机器人类型',
+                }],
+                'config': {},
+                'missing_count': 1,
+                'config_summary': [],
+            }
+        config = config or cls.get_config().get(robot_type, cls.ROBOTS[robot_type]['fields'])
+        try:
+            batch_size = int(config.get('batch_size') or 0)
+        except (TypeError, ValueError):
+            batch_size = 0
+        checks = [
+            {
+                'name': '单次处理数量',
+                'status': 1 <= batch_size <= 100,
+                'message': f'当前单次处理 {batch_size} 个客户' if batch_size else '单次处理数量未配置',
+            }
+        ]
+        if robot_type == 'customer_service':
+            checks.append({
+                'name': '欢迎语配置',
+                'status': bool(config.get('welcome_text')),
+                'message': '已配置客服欢迎语' if config.get('welcome_text') else '请配置客服欢迎语',
+            })
+        elif robot_type == 'telemarketing':
+            phone_customers = Customer.objects.filter(delete_time=0).filter(Q(contacts__phone__gt='') | Q(tax_mobile__gt='')).distinct().count()
+            checks.extend([
+                {
+                    'name': '外呼客户数据',
+                    'status': phone_customers > 0,
+                    'message': f'当前可外呼客户 {phone_customers} 个' if phone_customers else '暂无可外呼客户',
+                },
+                {
+                    'name': '话术模板',
+                    'status': bool(config.get('script')),
+                    'message': '已配置电话话术' if config.get('script') else '请配置电话话术',
+                },
+            ])
+        elif robot_type == 'email_marketing':
+            email_customers = Customer.objects.filter(delete_time=0, contacts__email__gt='').distinct().count()
+            checks.extend([
+                {
+                    'name': '邮件客户数据',
+                    'status': email_customers > 0,
+                    'message': f'当前可邮件触达客户 {email_customers} 个' if email_customers else '暂无邮箱客户',
+                },
+                {
+                    'name': '邮件主题',
+                    'status': bool(config.get('subject')),
+                    'message': '已配置邮件主题' if config.get('subject') else '请配置邮件主题',
+                },
+                {
+                    'name': '邮件模板',
+                    'status': bool(config.get('template')),
+                    'message': '已配置邮件模板' if config.get('template') else '请配置邮件模板',
+                },
+            ])
+        elif robot_type == 'sms_marketing':
+            phone_customers = Customer.objects.filter(delete_time=0).filter(Q(contacts__phone__gt='') | Q(tax_mobile__gt='')).distinct().count()
+            checks.extend([
+                {
+                    'name': '短信客户数据',
+                    'status': phone_customers > 0,
+                    'message': f'当前可短信触达客户 {phone_customers} 个' if phone_customers else '暂无手机号客户',
+                },
+                {
+                    'name': '短信模板',
+                    'status': bool(config.get('template')),
+                    'message': '已配置短信模板' if config.get('template') else '请配置短信模板',
+                },
+            ])
+        elif robot_type == 'wechat':
+            phone_customers = Customer.objects.filter(delete_time=0).filter(Q(contacts__phone__gt='') | Q(tax_mobile__gt='')).distinct().count()
+            checks.extend([
+                {
+                    'name': '微信触达客户',
+                    'status': phone_customers > 0,
+                    'message': f'当前可触达客户 {phone_customers} 个' if phone_customers else '暂无可触达客户',
+                },
+                {
+                    'name': '欢迎语配置',
+                    'status': bool(config.get('welcome_text')),
+                    'message': '已配置微信欢迎语' if config.get('welcome_text') else '请配置微信欢迎语',
+                },
+            ])
+        failed_checks = [item for item in checks if not item['status']]
+        summary_map = {
+            'customer_service': [
+                f'机器人名称：{config.get("robot_name") or "未配置"}',
+                f'工作时间：{config.get("work_time") or "未配置"}',
+                f'单次处理：{batch_size or "未配置"} 个',
+            ],
+            'telemarketing': [
+                f'拨打时间：{config.get("call_time") or "未配置"}',
+                f'重拨间隔：{config.get("retry_interval") or "未配置"} 小时',
+                f'单次处理：{batch_size or "未配置"} 个',
+            ],
+            'email_marketing': [
+                f'发送邮箱：{config.get("sender_email") or "未配置"}',
+                f'SMTP服务器：{config.get("smtp_server") or "未配置"}',
+                f'单次处理：{batch_size or "未配置"} 个',
+            ],
+            'sms_marketing': [
+                f'短信签名：{config.get("signature") or "未配置"}',
+                f'每日次数：{config.get("daily_limit") or "未配置"}',
+                f'单次处理：{batch_size or "未配置"} 个',
+            ],
+            'wechat': [
+                f'机器人名称：{config.get("robot_name") or "未配置"}',
+                '自动回复已开启' if config.get('auto_reply') else '自动回复未开启',
+                f'单次处理：{batch_size or "未配置"} 个',
+            ],
+        }
+        return {
+            'ready': not failed_checks,
+            'checks': checks,
+            'config': config,
+            'missing_count': len(failed_checks),
+            'config_summary': summary_map.get(robot_type, []),
+        }
+
+    @classmethod
+    def get_robot_stats(cls, robot_type, today_start):
+        log_count = SystemLog.objects.filter(module=cls.MODULE_NAME, action__contains=cls.ROBOTS[robot_type]['name']).count()
+        today_log_count = SystemLog.objects.filter(
+            module=cls.MODULE_NAME,
+            action__contains=cls.ROBOTS[robot_type]['name'],
+            created_at__gte=today_start
+        ).count()
+        last_log = SystemLog.objects.filter(
+            module=cls.MODULE_NAME,
+            action__contains=cls.ROBOTS[robot_type]['name']
+        ).order_by('-created_at').first()
+        if robot_type == 'telemarketing':
+            today_calls = CallRecord.objects.filter(call_time__gte=today_start).count()
+            connected_calls = CallRecord.objects.filter(call_time__gte=today_start, status=1).count()
+            avg_duration = CallRecord.objects.filter(call_time__gte=today_start, status=1).aggregate(avg=models.Avg('duration'))['avg'] or 0
+            return {
+                'metric_one': today_calls,
+                'metric_one_label': '今日通话',
+                'metric_two': f'{AIRobotTaskService._ratio(connected_calls, today_calls) * 100:.0f}%',
+                'metric_two_label': '接通率',
+                'metric_three': f'{int(avg_duration // 60)}min',
+                'metric_three_label': '平均时长',
+                'last_run_time': last_log.created_at.strftime('%Y-%m-%d %H:%M:%S') if last_log else '暂无运行',
+            }
+        labels = {
+            'customer_service': ('活跃客户', '今日回复', '解决率'),
+            'email_marketing': ('今日发送', '任务批次', '完成率'),
+            'sms_marketing': ('今日发送', '任务批次', '完成率'),
+            'wechat': ('今日添加', '任务批次', '今日对话'),
+        }[robot_type]
+        return {
+            'metric_one': today_log_count,
+            'metric_one_label': labels[0],
+            'metric_two': log_count,
+            'metric_two_label': labels[1],
+            'metric_three': '100%' if log_count else '0%',
+            'metric_three_label': labels[2],
+            'last_run_time': last_log.created_at.strftime('%Y-%m-%d %H:%M:%S') if last_log else '暂无运行',
+        }
+
+    @classmethod
+    def execute(cls, robot_type, request):
+        if robot_type not in cls.ROBOTS:
+            return {'code': 1, 'msg': '未知营销机器人类型'}
+        config = cls.get_config().get(robot_type, cls.ROBOTS[robot_type]['fields'])
+        validation = cls.validate_robot(robot_type, config)
+        if not validation['ready']:
+            return {
+                'code': 1,
+                'msg': '运行前验证未通过，请先查看验证结果并完善配置',
+                'validation': validation,
+            }
+        handlers = {
+            'customer_service': cls.run_customer_service,
+            'telemarketing': cls.run_telemarketing,
+            'email_marketing': cls.run_email_marketing,
+            'sms_marketing': cls.run_sms_marketing,
+            'wechat': cls.run_wechat,
+        }
+        result = handlers[robot_type](request, config)
+        cls.write_log(request, cls.ROBOTS[robot_type]['name'], result['msg'])
+        return {
+            'code': 0,
+            'robot_type': robot_type,
+            'robot_name': cls.ROBOTS[robot_type]['name'],
+            'validation': cls.validate_robot(robot_type, config),
+            **result,
+        }
+
+    @classmethod
+    def get_target_customers(cls, batch_size, contact_type=None):
+        queryset = Customer.objects.filter(delete_time=0).prefetch_related('contacts').order_by('-ai_score', '-create_time', 'id')
+        if contact_type == 'phone':
+            queryset = queryset.filter(Q(contacts__phone__gt='') | Q(tax_mobile__gt='')).distinct()
+        elif contact_type == 'email':
+            queryset = queryset.filter(contacts__email__gt='').distinct()
+        return list(queryset[:batch_size])
+
+    @classmethod
+    def run_customer_service(cls, request, config):
+        customers = cls.get_target_customers(int(config.get('batch_size') or 20))
+        for customer in customers:
+            FollowRecord.objects.create(
+                customer=customer,
+                follow_type='other',
+                content=f'{config.get("robot_name", "智能客服机器人")}已生成客服接待话术：{config.get("welcome_text", "")}',
+                follow_user=request.user,
+            )
+        return {'msg': f'已为{len(customers)}个客户生成客服接待任务', 'processed_count': len(customers)}
+
+    @classmethod
+    def run_telemarketing(cls, request, config):
+        customers = cls.get_target_customers(int(config.get('batch_size') or 20), 'phone')
+        created_count = 0
+        for customer in customers:
+            contact = customer.primary_contact
+            phone = contact.phone if contact and contact.phone else customer.tax_mobile
+            if not phone:
+                continue
+            CallRecord.objects.create(
+                create_user=request.user,
+                customer=customer,
+                customer_name=customer.name,
+                phone=phone,
+                status=0,
+                remark=f'电话营销机器人待外呼；话术：{config.get("script", "")}',
+            )
+            created_count += 1
+        return {'msg': f'已创建{created_count}个电话营销外呼任务', 'processed_count': created_count}
+
+    @classmethod
+    def run_email_marketing(cls, request, config):
+        customers = cls.get_target_customers(int(config.get('batch_size') or 20), 'email')
+        for customer in customers:
+            FollowRecord.objects.create(
+                customer=customer,
+                follow_type='email',
+                content=f'邮件营销任务：{config.get("subject", "客户关怀提醒")}；模板：{config.get("template", "")}',
+                follow_user=request.user,
+            )
+        return {'msg': f'已创建{len(customers)}个邮件营销任务', 'processed_count': len(customers)}
+
+    @classmethod
+    def run_sms_marketing(cls, request, config):
+        customers = cls.get_target_customers(int(config.get('batch_size') or 20), 'phone')
+        for customer in customers:
+            FollowRecord.objects.create(
+                customer=customer,
+                follow_type='other',
+                content=f'短信营销任务：{config.get("signature", "")} {config.get("template", "")}',
+                follow_user=request.user,
+            )
+        return {'msg': f'已创建{len(customers)}个短信营销任务', 'processed_count': len(customers)}
+
+    @classmethod
+    def run_wechat(cls, request, config):
+        customers = cls.get_target_customers(int(config.get('batch_size') or 20), 'phone')
+        for customer in customers:
+            FollowRecord.objects.create(
+                customer=customer,
+                follow_type='other',
+                content=f'微信触达任务：{config.get("robot_name", "微信机器人")}；欢迎语：{config.get("welcome_text", "")}',
+                follow_user=request.user,
+            )
+        return {'msg': f'已创建{len(customers)}个微信触达任务', 'processed_count': len(customers)}
+
+    @classmethod
+    def write_log(cls, request, robot_name, content):
+        SystemLog.objects.create(
+            user=request.user,
+            log_type='other',
+            module=cls.MODULE_NAME,
+            action=f'{robot_name}运行',
+            content=content,
+            ip_address=request.META.get('REMOTE_ADDR', '0.0.0.0'),
+            user_agent=request.META.get('HTTP_USER_AGENT', '')
+        )
+
+
+class MarketingRobotDataView(LoginRequiredMixin, View):
+    """营销机器人数据API"""
+    login_url = '/user/login/'
+    redirect_field_name = 'next'
+
+    def get(self, request):
+        data = MarketingRobotService.get_robot_data()
+        return JsonResponse({
+            'code': 0,
+            'msg': '获取数据成功',
+            'data': data['robots'],
+            'count': len(data['robots']),
+            'config': data['config'],
+        }, json_dumps_params={'ensure_ascii': False})
+
+
+class MarketingRobotConfigView(LoginRequiredMixin, View):
+    """营销机器人配置API"""
+    login_url = '/user/login/'
+    redirect_field_name = 'next'
+
+    def post(self, request):
+        try:
+            data = json.loads(request.body or '{}')
+            robot_type = data.get('robot_type')
+            config = data.get('config') or {}
+            result = MarketingRobotService.save_config(robot_type, config)
+            if result.get('code') == 0:
+                SystemLog.objects.create(
+                    user=request.user,
+                    log_type='update',
+                    module=MarketingRobotService.MODULE_NAME,
+                    action=f'{MarketingRobotService.ROBOTS[robot_type]["name"]}配置',
+                    content=f'配置已更新：{json.dumps(result["data"], ensure_ascii=False)}',
+                    ip_address=request.META.get('REMOTE_ADDR', '0.0.0.0'),
+                    user_agent=request.META.get('HTTP_USER_AGENT', '')
+                )
+            return JsonResponse(result, json_dumps_params={'ensure_ascii': False})
+        except Exception as e:
+            logger.error(f'保存营销机器人配置失败: {str(e)}', exc_info=True)
+            return JsonResponse({'code': 1, 'msg': f'保存失败: {str(e)}'}, status=500)
+
+
+class MarketingRobotExecuteView(LoginRequiredMixin, View):
+    """营销机器人执行API"""
+    login_url = '/user/login/'
+    redirect_field_name = 'next'
+
+    def post(self, request):
+        try:
+            data = json.loads(request.body or '{}')
+            result = MarketingRobotService.execute(data.get('robot_type'), request)
+            return JsonResponse(result, json_dumps_params={'ensure_ascii': False})
+        except Exception as e:
+            logger.error(f'执行营销机器人失败: {str(e)}', exc_info=True)
+            return JsonResponse({'code': 1, 'msg': f'执行失败: {str(e)}'}, status=500)
+
+
+class MarketingRobotValidateView(LoginRequiredMixin, View):
+    """营销机器人运行验证API"""
+    login_url = '/user/login/'
+    redirect_field_name = 'next'
+
+    def get(self, request):
+        robot_type = request.GET.get('robot_type')
+        validation = MarketingRobotService.validate_robot(robot_type)
+        return JsonResponse({
+            'code': 0,
+            'msg': '验证完成',
+            'data': validation,
+        }, json_dumps_params={'ensure_ascii': False})
+
+
+class MarketingRobotLogView(LoginRequiredMixin, View):
+    """营销机器人日志API"""
+    login_url = '/user/login/'
+    redirect_field_name = 'next'
+
+    def get(self, request):
+        robot_type = request.GET.get('robot_type')
+        queryset = SystemLog.objects.filter(module=MarketingRobotService.MODULE_NAME)
+        if robot_type in MarketingRobotService.ROBOTS:
+            queryset = queryset.filter(action__contains=MarketingRobotService.ROBOTS[robot_type]['name'])
+        logs = queryset.order_by('-created_at')[:50]
+        data = [{
+            'action': log.action,
+            'content': log.content,
+            'created_at': log.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'user': log.user.name or log.user.username if log.user else ''
+        } for log in logs]
+        return JsonResponse({'code': 0, 'msg': '获取日志成功', 'data': data}, json_dumps_params={'ensure_ascii': False})
 
 # 爬虫任务批量删除
 class SpiderTaskBatchDeleteView(LoginRequiredMixin, View):

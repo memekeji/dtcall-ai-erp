@@ -115,7 +115,7 @@
             <div class="layui-form-item">
                 <div class="layui-input-block">
                     <button class="layui-btn" lay-submit>保存</button>
-                    <button type="button" class="layui-btn layui-btn-primary" onclick="history.back()">返回</button>
+                    <button type="button" class="layui-btn layui-btn-primary" onclick="closeWorkRecordForm()">返回</button>
                 </div>
             </div>
         </form>
@@ -123,14 +123,47 @@
 </div>
 
 <script>
-layui.use(['form', 'laydate'], function(){
+var isWorkRecordDrawer = {% if is_drawer %}true{% else %}false{% endif %};
+
+layui.use(['form', 'laydate', 'layer'], function(){
     var form = layui.form;
     var laydate = layui.laydate;
+    var layer = layui.layer;
     
     // 渲染日期选择器
     laydate.render({
         elem: '#id_work_date'
     });
+
+    {% if saved_success %}
+    layer.msg('工作记录保存成功！', { icon: 1, time: 800 }, function() {
+        closeWorkRecordForm(true);
+    });
+    {% endif %}
 });
+
+function closeWorkRecordForm(shouldReload) {
+    if (isWorkRecordDrawer && window.parent && window.parent !== window && window.parent.layer) {
+        var index = null;
+        try {
+            index = window.parent.layer.getFrameIndex(window.name);
+        } catch (e) {}
+
+        if (index !== undefined && index !== null && index !== '') {
+            window.parent.layer.close(index);
+        }
+        if (shouldReload && window.parent.location) {
+            window.parent.location.reload();
+        }
+        return;
+    }
+
+    if (shouldReload) {
+        window.location.href = '{% url "personal:work_calendar" %}';
+        return;
+    }
+
+    history.back();
+}
 </script>
 {% endblock %}

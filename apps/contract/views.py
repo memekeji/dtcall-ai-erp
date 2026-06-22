@@ -8,6 +8,7 @@ from .models import (
     ContractCate, ProductCate
 )
 from django.shortcuts import render, get_object_or_404
+from django.urls import reverse
 from django.http import Http404
 from django.views import View
 from rest_framework import serializers, viewsets
@@ -16,8 +17,6 @@ from .models import Contract, Product, Purchase
 from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
 from django.db.models import Q
-from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, PatternFill
 from urllib.parse import quote
 import json
 import logging
@@ -124,6 +123,18 @@ def _json_error(message):
     return JsonResponse({'success': False, 'code': 1, 'message': message, 'msg': message})
 
 
+def _get_contract_scan_file(request):
+    scan_file = request.FILES.get('scan_file') or request.FILES.get('contract_scan')
+    if not scan_file:
+        return None
+
+    filename = scan_file.name.lower()
+    allowed_extensions = ('.pdf', '.jpg', '.jpeg', '.png', '.tif', '.tiff')
+    if not filename.endswith(allowed_extensions):
+        raise ValueError('请上传PDF或图片格式的合同扫描件')
+    return scan_file
+
+
 def _get_basic_data_model(model_name):
     model_map = {
         'contract_category': ContractCategory,
@@ -136,6 +147,34 @@ def _get_basic_data_model(model_name):
         'purchase_item': PurchaseItem,
     }
     return model_map.get(model_name)
+
+
+def _build_list_context(
+        page_title,
+        add_button_label,
+        list_url_name='',
+        add_url_name='',
+        edit_url_name='',
+        delete_model_name=''):
+    edit_url = ''
+    if edit_url_name:
+        edit_url = reverse(edit_url_name, kwargs={'id': 0}).replace('/0/', '/{id}/')
+
+    delete_url = ''
+    if delete_model_name:
+        delete_url = reverse(
+            'contract:basic_data_delete',
+            kwargs={'model_name': delete_model_name, 'id': 0}
+        ).replace('/0/', '/{id}/')
+
+    return {
+        'page_title': page_title,
+        'add_button_label': add_button_label,
+        'list_url': reverse(list_url_name) if list_url_name else '',
+        'add_url': reverse(add_url_name) if add_url_name else '',
+        'edit_url': edit_url,
+        'delete_url': delete_url,
+    }
 
 
 class ContractBasicDataDeleteView(LoginRequiredMixin, View):
@@ -151,6 +190,96 @@ class ContractBasicDataDeleteView(LoginRequiredMixin, View):
         except Exception as e:
             logger.error(f'删除合同基础数据失败: {str(e)}', exc_info=True)
             return _json_error('删除失败，请确认数据状态后重试')
+
+
+class BasicDataListView(LoginRequiredMixin, View):
+    login_url = '/user/login/'
+    redirect_field_name = 'next'
+    model = None
+    template_name = ''
+    page_title = ''
+    list_url_name = ''
+    add_url_name = ''
+    edit_url_name = ''
+    delete_model_name = ''
+    add_button_label = '新增'
+    formatter = None
+    order_by = '-created_at'
+    search_fields = None
+    select_related = None
+
+    def get_queryset(self):
+        queryset = _filter_active(self.model.objects.all())
+        if self.select_related:
+            queryset = queryset.select_related(*self.select_related)
+        return queryset
+
+    def get(self, request):
+        if _is_data_request(request):
+            return self.get_data_list(request)
+        return render(request, self.template_name, self.get_context_data())
+
+    def get_context_data(self):
+        return _build_list_context(
+            self.page_title,
+            self.add_button_label,
+            self.list_url_name,
+            self.add_url_name,
+            self.edit_url_name,
+            self.delete_model_name
+        )
+
+    def get_data_list(self, request):
+        return _serialize_basic_data_response(
+            self.get_queryset(),
+            request,
+            self.formatter,
+            order_by=self.order_by,
+            search_fields=self.search_fields
+        )
+
+
+class BasicDataCreateView(LoginRequiredMixin, View):
+    login_url = '/user/login/'
+    form_class = None
+    template_name = ''
+    log_label = '基础数据'
+    save_error_message = '保存失败，请检查信息后重试'
+
+    def get(self, request):
+        form = self.form_class()
+        return render(request, self.template_name, {'form': form, 'object': None})
+
+    def post(self, request):
+        form = self.form_class(request.POST)
+        return self._save_form(form)
+
+    def _save_form(self, form):
+        if not form.is_valid():
+            return JsonResponse({'code': 1, 'msg': '表单验证失败', 'errors': form.errors})
+        try:
+            form.save()
+            return JsonResponse({'code': 0, 'msg': '保存成功'})
+        except Exception as e:
+            logger.error(f'保存{self.log_label}失败: {str(e)}', exc_info=True)
+            return JsonResponse({'code': 1, 'msg': self.save_error_message})
+
+
+class BasicDataUpdateView(BasicDataCreateView):
+    model = None
+
+    def get_object(self, object_id):
+        return _get_active_object(self.model, object_id)
+
+    def get(self, request, id):
+        obj = self.get_object(id)
+        form = self.form_class(instance=obj)
+        return render(request, self.template_name, {'form': form, 'object': obj})
+
+    def post(self, request, id):
+        obj = self.get_object(id)
+        form = self.form_class(request.POST, instance=obj)
+        return self._save_form(form)
 
 
 def _parse_json_request(request):
@@ -377,6 +506,12 @@ def _build_contract_payload(params, request_user=None, require_all=True):
 
 
 def _build_xlsx_response(title, headers, rows, filename_prefix):
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Font, PatternFill
+    except ImportError as exc:
+        raise RuntimeError('合同导出功能需要安装 openpyxl，请先安装项目依赖后再导出 Excel 文件') from exc
+
     wb = Workbook()
     ws = wb.active
     ws.title = title[:31]
@@ -724,16 +859,27 @@ class ProductView(LoginRequiredMixin, View):
     def get(self, request):
         if _is_data_request(request):
             return self.get_data_list(request)
-        return render(request, 'contract/product_list.html')
+        return render(request, 'contract/product_list.html', self.get_context_data())
+
+    def get_context_data(self):
+        return _build_list_context(
+            '产品管理',
+            '添加产品',
+            'contract:product_datalist',
+            'contract:product_add',
+            'contract:product_edit',
+            'product'
+        )
 
     def get_data_list(self, request):
         params = _get_request_params(request)
         queryset = Product.objects.select_related('cate').filter(delete_time__isnull=True)
 
-        if 'keywords' in params:
+        search = params.get('search') or params.get('keywords')
+        if search:
             queryset = queryset.filter(
-                Q(name__icontains=params['keywords']) |
-                Q(code__icontains=params['keywords'])
+                Q(name__icontains=search) |
+                Q(code__icontains=search)
             )
 
         if 'cate_id' in params:
@@ -769,16 +915,13 @@ class ProductView(LoginRequiredMixin, View):
         })
 
 
-class ProductAddView(LoginRequiredMixin, View):
-    login_url = '/user/login/'
-    redirect_field_name = 'next'
+class ProductAddView(BasicDataCreateView):
+    form_class = ProductForm
+    template_name = 'contract/product_form.html'
+    log_label = '产品'
+    save_error_message = '保存失败，请检查产品信息后重试'
 
-    def get(self, request):
-        form = ProductForm()
-        return render(request, 'contract/product_form.html', {'form': form, 'object': None})
-
-    def post(self, request):
-        form = ProductForm(request.POST)
+    def _save_form(self, form):
         if not form.is_valid():
             return JsonResponse({'code': 1, 'msg': '表单验证失败', 'errors': form.errors})
 
@@ -793,27 +936,12 @@ class ProductAddView(LoginRequiredMixin, View):
             return JsonResponse({'code': 1, 'msg': '保存失败，请检查产品信息后重试'})
 
 
-class ProductDetailView(LoginRequiredMixin, View):
-    login_url = '/user/login/'
-    redirect_field_name = 'next'
-
-    def get(self, request, id):
-        product = _get_active_object(Product, id)
-        form = ProductForm(instance=product)
-        return render(request, 'contract/product_form.html', {'form': form, 'object': product})
-
-    def post(self, request, id):
-        product = _get_active_object(Product, id)
-        form = ProductForm(request.POST, instance=product)
-        if not form.is_valid():
-            return JsonResponse({'code': 1, 'msg': '表单验证失败', 'errors': form.errors})
-
-        try:
-            form.save()
-            return JsonResponse({'code': 0, 'msg': '保存成功'})
-        except Exception as e:
-            logger.error(f'保存产品失败: {str(e)}', exc_info=True)
-            return JsonResponse({'code': 1, 'msg': '保存失败，请检查产品信息后重试'})
+class ProductDetailView(BasicDataUpdateView):
+    model = Product
+    form_class = ProductForm
+    template_name = 'contract/product_form.html'
+    log_label = '产品'
+    save_error_message = '保存失败，请检查产品信息后重试'
 
 
 class ServicesView(LoginRequiredMixin, View):
@@ -823,7 +951,17 @@ class ServicesView(LoginRequiredMixin, View):
     def get(self, request):
         if _is_data_request(request):
             return self.get_data_list(request)
-        return render(request, 'contract/service_list.html')
+        return render(request, 'contract/service_list.html', self.get_context_data())
+
+    def get_context_data(self):
+        return _build_list_context(
+            '服务管理',
+            '添加服务',
+            'contract:service_datalist',
+            'contract:service_add',
+            'contract:service_edit',
+            'service'
+        )
 
     def get_data_list(self, request):
         params = _get_request_params(request)
@@ -862,48 +1000,19 @@ class ServicesView(LoginRequiredMixin, View):
         })
 
 
-class ServicesAddView(LoginRequiredMixin, View):
-    login_url = '/user/login/'
-    redirect_field_name = 'next'
-
-    def get(self, request):
-        form = ServiceForm()
-        return render(request, 'contract/service_form.html', {'form': form, 'object': None})
-
-    def post(self, request):
-        form = ServiceForm(request.POST)
-        if not form.is_valid():
-            return JsonResponse({'code': 1, 'msg': '表单验证失败', 'errors': form.errors})
-
-        try:
-            form.save()
-            return JsonResponse({'code': 0, 'msg': '保存成功'})
-        except Exception as e:
-            logger.error(f'保存服务失败: {str(e)}', exc_info=True)
-            return JsonResponse({'code': 1, 'msg': '保存失败，请检查服务信息后重试'})
+class ServicesAddView(BasicDataCreateView):
+    form_class = ServiceForm
+    template_name = 'contract/service_form.html'
+    log_label = '服务'
+    save_error_message = '保存失败，请检查服务信息后重试'
 
 
-class ServicesDetailView(LoginRequiredMixin, View):
-    login_url = '/user/login/'
-    redirect_field_name = 'next'
-
-    def get(self, request, id):
-        service = _get_active_object(Service, id)
-        form = ServiceForm(instance=service)
-        return render(request, 'contract/service_form.html', {'form': form, 'object': service})
-
-    def post(self, request, id):
-        service = _get_active_object(Service, id)
-        form = ServiceForm(request.POST, instance=service)
-        if not form.is_valid():
-            return JsonResponse({'code': 1, 'msg': '表单验证失败', 'errors': form.errors})
-
-        try:
-            form.save()
-            return JsonResponse({'code': 0, 'msg': '保存成功'})
-        except Exception as e:
-            logger.error(f'保存服务失败: {str(e)}', exc_info=True)
-            return JsonResponse({'code': 1, 'msg': '保存失败，请检查服务信息后重试'})
+class ServicesDetailView(BasicDataUpdateView):
+    model = Service
+    form_class = ServiceForm
+    template_name = 'contract/service_form.html'
+    log_label = '服务'
+    save_error_message = '保存失败，请检查服务信息后重试'
 
 
 class PurchaseView(LoginRequiredMixin, View):
@@ -1248,7 +1357,10 @@ class ContractView(LoginRequiredMixin, View):
                 'create_time': _format_datetime_value(contract.create_time),
                 'sign_time': timestamp_to_date(contract.sign_time),
                 'start_time': timestamp_to_date(contract.start_time),
-                'end_time': timestamp_to_date(contract.end_time)
+                'end_time': timestamp_to_date(contract.end_time),
+                'has_scan_file': bool(contract.scan_file),
+                'scan_file_url': contract.scan_file.url if contract.scan_file else '',
+                'scan_file_name': contract.scan_file_name,
             })
 
         return JsonResponse({
@@ -1275,11 +1387,19 @@ class ContractAddView(LoginRequiredMixin, View):
     def post(self, request):
         try:
             payload = _build_contract_payload(request.POST.dict(), request.user)
+            scan_file = _get_contract_scan_file(request)
+            if scan_file:
+                payload['scan_file'] = scan_file
             Contract.objects.create(**payload)
             logger.info(f"用户 {request.user.id} 添加了合同")
             return JsonResponse({
                 'code': ApiResponseCode.CODE_SUCCESS,
                 'msg': '添加成功'
+            })
+        except ValueError as e:
+            return JsonResponse({
+                'code': ApiResponseCode.CODE_ERROR,
+                'msg': str(e)
             })
         except Exception as e:
             logger.error(f'添加合同失败: {str(e)}', exc_info=True)
@@ -1300,6 +1420,47 @@ class ContractDetailView(LoginRequiredMixin, View):
             delete_time=CommonConstant.DELETE_TIME_ZERO
         )
         return render(request, 'contract/view.html', {'contract': contract})
+
+
+class ContractScanUploadView(LoginRequiredMixin, View):
+    login_url = '/user/login/'
+    redirect_field_name = 'next'
+
+    def post(self, request, id):
+        try:
+            contract = get_object_or_404(
+                Contract,
+                id=id,
+                delete_time=CommonConstant.DELETE_TIME_ZERO
+            )
+            scan_file = _get_contract_scan_file(request)
+            if not scan_file:
+                return JsonResponse({
+                    'code': ApiResponseCode.CODE_ERROR,
+                    'msg': '请选择要上传的合同扫描件'
+                })
+
+            contract.scan_file = scan_file
+            contract.save(update_fields=['scan_file', 'update_time'])
+            logger.info(f"用户 {request.user.id} 上传了合同扫描件: {id}")
+
+            return JsonResponse({
+                'code': ApiResponseCode.CODE_SUCCESS,
+                'msg': '扫描件上传成功',
+                'scan_file_url': contract.scan_file.url,
+                'scan_file_name': contract.scan_file_name,
+            })
+        except ValueError as e:
+            return JsonResponse({
+                'code': ApiResponseCode.CODE_ERROR,
+                'msg': str(e)
+            })
+        except Exception as e:
+            logger.error(f'上传合同扫描件失败: {str(e)}', exc_info=True)
+            return JsonResponse({
+                'code': ApiResponseCode.CODE_ERROR,
+                'msg': '扫描件上传失败，请稍后重试'
+            })
 
 
 class ContractUpdateView(LoginRequiredMixin, View):
@@ -1611,409 +1772,231 @@ class ContractCategoryChildrenView(LoginRequiredMixin, View):
             return JsonResponse({'code': 1, 'msg': '获取分类失败，请刷新页面后重试'})
 
 
-class ContractCategoryView(LoginRequiredMixin, View):
-    login_url = '/user/login/'
-    redirect_field_name = 'next'
-
-    def get(self, request):
-        if _is_data_request(request):
-            return self.get_data_list(request)
-        return render(request, 'contract/contract_category_list.html')
-
-    def get_data_list(self, request):
-        return _serialize_basic_data_response(
-            _filter_active(ContractCategory.objects.all()),
-            request,
-            lambda category: {
-                'id': category.id,
-                'name': category.name,
-                'code': category.code,
-                'parent': category.parent.name if category.parent else '',
-                'description': category.description or '',
-                'template_path': category.template_path or '',
-                'sort_order': category.sort_order or 0,
-                'is_active': bool(category.is_active),
-                'created_at': category.created_at.strftime('%Y-%m-%d %H:%M:%S') if category.created_at else ''
-            }
-        )
-
-
-class ContractCategoryAddView(LoginRequiredMixin, View):
-    login_url = '/user/login/'
-
-    def get(self, request):
-        form = ContractCategoryForm()
-        return render(request, 'contract/contract_category_form.html', {'form': form, 'object': None})
-
-    def post(self, request):
-        form = ContractCategoryForm(request.POST)
-        if not form.is_valid():
-            return JsonResponse({'code': 1, 'msg': '表单验证失败', 'errors': form.errors})
-        try:
-            form.save()
-            return JsonResponse({'code': 0, 'msg': '保存成功'})
-        except Exception as e:
-            logger.error(f'保存合同分类失败: {str(e)}', exc_info=True)
-            return JsonResponse({'code': 1, 'msg': '保存失败，请检查合同分类信息后重试'})
-
-
-class ContractCategoryEditView(LoginRequiredMixin, View):
-    login_url = '/user/login/'
-
-    def get(self, request, id):
-        category = _get_active_object(ContractCategory, id)
-        form = ContractCategoryForm(instance=category)
-        return render(request, 'contract/contract_category_form.html', {'form': form, 'object': category})
-
-    def post(self, request, id):
-        category = _get_active_object(ContractCategory, id)
-        form = ContractCategoryForm(request.POST, instance=category)
-        if not form.is_valid():
-            return JsonResponse({'code': 1, 'msg': '表单验证失败', 'errors': form.errors})
-        try:
-            form.save()
-            return JsonResponse({'code': 0, 'msg': '保存成功'})
-        except Exception as e:
-            logger.error(f'保存合同分类失败: {str(e)}', exc_info=True)
-            return JsonResponse({'code': 1, 'msg': '保存失败，请检查合同分类信息后重试'})
-
-
-class ProductCategoryView(LoginRequiredMixin, View):
-    login_url = '/user/login/'
-    redirect_field_name = 'next'
-
-    def get(self, request):
-        if _is_data_request(request):
-            return self.get_data_list(request)
-        return render(request, 'contract/product_category_list.html')
-
-    def get_data_list(self, request):
-        return _serialize_basic_data_response(
-            _filter_active(ProductCategory.objects.all()),
-            request,
-            lambda cate: {
-                'id': cate.id,
-                'name': cate.name,
-                'code': cate.code,
-                'parent': cate.parent.name if cate.parent else '',
-                'description': cate.description or '',
-                'sort_order': cate.sort_order or 0,
-                'is_active': bool(cate.is_active),
-                'created_at': cate.created_at.strftime('%Y-%m-%d %H:%M:%S') if cate.created_at else ''
-            }
-        )
-
-
-class ProductCategoryAddView(LoginRequiredMixin, View):
-    login_url = '/user/login/'
-
-    def get(self, request):
-        form = ProductCategoryForm()
-        return render(request, 'contract/product_category_form.html', {'form': form, 'object': None})
-
-    def post(self, request):
-        form = ProductCategoryForm(request.POST)
-        if not form.is_valid():
-            return JsonResponse({'code': 1, 'msg': '表单验证失败', 'errors': form.errors})
-        try:
-            form.save()
-            return JsonResponse({'code': 0, 'msg': '保存成功'})
-        except Exception as e:
-            logger.error(f'保存产品分类失败: {str(e)}', exc_info=True)
-            return JsonResponse({'code': 1, 'msg': '保存失败，请检查产品分类信息后重试'})
-
-
-class ProductCategoryEditView(LoginRequiredMixin, View):
-    login_url = '/user/login/'
-
-    def get(self, request, id):
-        category = _get_active_object(ProductCategory, id)
-        form = ProductCategoryForm(instance=category)
-        return render(request, 'contract/product_category_form.html', {'form': form, 'object': category})
-
-    def post(self, request, id):
-        category = _get_active_object(ProductCategory, id)
-        form = ProductCategoryForm(request.POST, instance=category)
-        if not form.is_valid():
-            return JsonResponse({'code': 1, 'msg': '表单验证失败', 'errors': form.errors})
-        try:
-            form.save()
-            return JsonResponse({'code': 0, 'msg': '保存成功'})
-        except Exception as e:
-            logger.error(f'保存产品分类失败: {str(e)}', exc_info=True)
-            return JsonResponse({'code': 1, 'msg': '保存失败，请检查产品分类信息后重试'})
-
-
-class ServiceCategoryView(LoginRequiredMixin, View):
-    login_url = '/user/login/'
-    redirect_field_name = 'next'
-
-    def get(self, request):
-        if _is_data_request(request):
-            return self.get_data_list(request)
-        return render(request, 'contract/service_category_list.html')
-
-    def get_data_list(self, request):
-        return _serialize_basic_data_response(
-            _filter_active(ServiceCategory.objects.all()),
-            request,
-            lambda cate: {
-                'id': cate.id,
-                'name': cate.name,
-                'code': cate.code,
-                'parent': cate.parent.name if cate.parent else '',
-                'description': cate.description or '',
-                'sort_order': cate.sort_order or 0,
-                'is_active': bool(cate.is_active),
-                'created_at': cate.created_at.strftime('%Y-%m-%d %H:%M:%S') if cate.created_at else ''
-            }
-        )
-
-
-class ServiceCategoryAddView(LoginRequiredMixin, View):
-    login_url = '/user/login/'
-
-    def get(self, request):
-        form = ServiceCategoryForm()
-        return render(request, 'contract/service_category_form.html', {'form': form, 'object': None})
-
-    def post(self, request):
-        form = ServiceCategoryForm(request.POST)
-        if not form.is_valid():
-            return JsonResponse({'code': 1, 'msg': '表单验证失败', 'errors': form.errors})
-        try:
-            form.save()
-            return JsonResponse({'code': 0, 'msg': '保存成功'})
-        except Exception as e:
-            logger.error(f'保存服务分类失败: {str(e)}', exc_info=True)
-            return JsonResponse({'code': 1, 'msg': '保存失败，请检查服务分类信息后重试'})
-
-
-class ServiceCategoryEditView(LoginRequiredMixin, View):
-    login_url = '/user/login/'
-
-    def get(self, request, id):
-        category = _get_active_object(ServiceCategory, id)
-        form = ServiceCategoryForm(instance=category)
-        return render(request, 'contract/service_category_form.html', {'form': form, 'object': category})
-
-    def post(self, request, id):
-        category = _get_active_object(ServiceCategory, id)
-        form = ServiceCategoryForm(request.POST, instance=category)
-        if not form.is_valid():
-            return JsonResponse({'code': 1, 'msg': '表单验证失败', 'errors': form.errors})
-        try:
-            form.save()
-            return JsonResponse({'code': 0, 'msg': '保存成功'})
-        except Exception as e:
-            logger.error(f'保存服务分类失败: {str(e)}', exc_info=True)
-            return JsonResponse({'code': 1, 'msg': '保存失败，请检查服务分类信息后重试'})
-
-
-class SupplierView(LoginRequiredMixin, View):
-    login_url = '/user/login/'
-    redirect_field_name = 'next'
-
-    def get(self, request):
-        if _is_data_request(request):
-            return self.get_data_list(request)
-        return render(request, 'contract/supplier_list.html')
-
-    def get_data_list(self, request):
-        return _serialize_basic_data_response(
-            _filter_active(Supplier.objects.all()),
-            request,
-            lambda supplier: {
-                'id': supplier.id,
-                'name': supplier.name or '',
-                'code': supplier.code or '',
-                'contact': supplier.contact_person or '',
-                'contact_person': supplier.contact_person or '',
-                'phone': supplier.contact_phone or '',
-                'contact_phone': supplier.contact_phone or '',
-                'email': supplier.contact_email or '',
-                'address': supplier.address or '',
-                'sort_order': 0,
-                'is_active': bool(supplier.is_active),
-                'created_at': supplier.created_at.strftime('%Y-%m-%d %H:%M:%S') if supplier.created_at else ''
-            },
-            search_fields=['name', 'code', 'contact_person']
-        )
-
-
-class SupplierAddView(LoginRequiredMixin, View):
-    login_url = '/user/login/'
-
-    def get(self, request):
-        form = SupplierForm()
-        return render(request, 'contract/supplier_form.html', {'form': form, 'object': None})
-
-    def post(self, request):
-        form = SupplierForm(request.POST)
-        if not form.is_valid():
-            return JsonResponse({'code': 1, 'msg': '表单验证失败', 'errors': form.errors})
-        try:
-            form.save()
-            return JsonResponse({'code': 0, 'msg': '保存成功'})
-        except Exception as e:
-            logger.error(f'保存供应商失败: {str(e)}', exc_info=True)
-            return JsonResponse({'code': 1, 'msg': '保存失败，请检查供应商信息后重试'})
-
-
-class SupplierEditView(LoginRequiredMixin, View):
-    login_url = '/user/login/'
-
-    def get(self, request, id):
-        supplier = _get_active_object(Supplier, id)
-        form = SupplierForm(instance=supplier)
-        return render(request, 'contract/supplier_form.html', {'form': form, 'object': supplier})
-
-    def post(self, request, id):
-        supplier = _get_active_object(Supplier, id)
-        form = SupplierForm(request.POST, instance=supplier)
-        if not form.is_valid():
-            return JsonResponse({'code': 1, 'msg': '表单验证失败', 'errors': form.errors})
-        try:
-            form.save()
-            return JsonResponse({'code': 0, 'msg': '保存成功'})
-        except Exception as e:
-            logger.error(f'保存供应商失败: {str(e)}', exc_info=True)
-            return JsonResponse({'code': 1, 'msg': '保存失败，请检查供应商信息后重试'})
-
-
-class PurchaseCategoryView(LoginRequiredMixin, View):
-    login_url = '/user/login/'
-    redirect_field_name = 'next'
-
-    def get(self, request):
-        if _is_data_request(request):
-            return self.get_data_list(request)
-        return render(request, 'contract/purchase_category_list.html')
-
-    def get_data_list(self, request):
-        return _serialize_basic_data_response(
-            _filter_active(PurchaseCategory.objects.all()),
-            request,
-            lambda cate: {
-                'id': cate.id,
-                'name': cate.name or '',
-                'code': cate.code or '',
-                'parent': cate.parent.name if cate.parent else '',
-                'description': cate.description or '',
-                'sort_order': cate.sort_order or 0,
-                'is_active': bool(cate.is_active),
-                'created_at': cate.created_at.strftime('%Y-%m-%d %H:%M:%S') if cate.created_at else ''
-            }
-        )
-
-
-class PurchaseCategoryAddView(LoginRequiredMixin, View):
-    login_url = '/user/login/'
-
-    def get(self, request):
-        form = PurchaseCategoryForm()
-        return render(request, 'contract/purchase_category_form.html', {'form': form, 'object': None})
-
-    def post(self, request):
-        form = PurchaseCategoryForm(request.POST)
-        if not form.is_valid():
-            return JsonResponse({'code': 1, 'msg': '表单验证失败', 'errors': form.errors})
-        try:
-            form.save()
-            return JsonResponse({'code': 0, 'msg': '保存成功'})
-        except Exception as e:
-            logger.error(f'保存采购分类失败: {str(e)}', exc_info=True)
-            return JsonResponse({'code': 1, 'msg': '保存失败，请检查采购分类信息后重试'})
-
-
-class PurchaseCategoryEditView(LoginRequiredMixin, View):
-    login_url = '/user/login/'
-
-    def get(self, request, id):
-        category = _get_active_object(PurchaseCategory, id)
-        form = PurchaseCategoryForm(instance=category)
-        return render(request, 'contract/purchase_category_form.html', {'form': form, 'object': category})
-
-    def post(self, request, id):
-        category = _get_active_object(PurchaseCategory, id)
-        form = PurchaseCategoryForm(request.POST, instance=category)
-        if not form.is_valid():
-            return JsonResponse({'code': 1, 'msg': '表单验证失败', 'errors': form.errors})
-        try:
-            form.save()
-            return JsonResponse({'code': 0, 'msg': '保存成功'})
-        except Exception as e:
-            logger.error(f'保存采购分类失败: {str(e)}', exc_info=True)
-            return JsonResponse({'code': 1, 'msg': '保存失败，请检查采购分类信息后重试'})
-
-
-class PurchaseItemView(LoginRequiredMixin, View):
-    login_url = '/user/login/'
-
-    def get(self, request):
-        if _is_data_request(request):
-            return self.get_data_list(request)
-        return render(request, 'contract/purchase_item_list.html')
-
-    def get_data_list(self, request):
-        return _serialize_basic_data_response(
-            _filter_active(PurchaseItem.objects.select_related('category', 'supplier')),
-            request,
-            lambda item: {
-                'id': item.id,
-                'name': item.name or '',
-                'code': item.code or '',
-                'category': item.category.name if item.category else '',
-                'specification': item.specification or '',
-                'description': item.description or '',
-                'unit': item.unit or '',
-                'reference_price': str(item.reference_price) if item.reference_price else '0',
-                'supplier': item.supplier.name if item.supplier else '',
-                'sort_order': 0,
-                'is_active': bool(item.is_active),
-                'created_at': item.created_at.strftime('%Y-%m-%d %H:%M:%S') if item.created_at else ''
-            }
-        )
-
-
-class PurchaseItemAddView(LoginRequiredMixin, View):
-    login_url = '/user/login/'
-
-    def get(self, request):
-        form = PurchaseItemForm()
-        return render(request, 'contract/purchase_item_form.html', {'form': form, 'object': None})
-
-    def post(self, request):
-        form = PurchaseItemForm(request.POST)
-        if not form.is_valid():
-            return JsonResponse({'code': 1, 'msg': '表单验证失败', 'errors': form.errors})
-        try:
-            form.save()
-            return JsonResponse({'code': 0, 'msg': '保存成功'})
-        except Exception as e:
-            logger.error(f'保存采购项目失败: {str(e)}', exc_info=True)
-            return JsonResponse({'code': 1, 'msg': '保存失败，请检查采购项目信息后重试'})
-
-
-class PurchaseItemEditView(LoginRequiredMixin, View):
-    login_url = '/user/login/'
-
-    def get(self, request, id):
-        item = _get_active_object(PurchaseItem, id)
-        form = PurchaseItemForm(instance=item)
-        return render(request, 'contract/purchase_item_form.html', {'form': form, 'object': item})
-
-    def post(self, request, id):
-        item = _get_active_object(PurchaseItem, id)
-        form = PurchaseItemForm(request.POST, instance=item)
-        if not form.is_valid():
-            return JsonResponse({'code': 1, 'msg': '表单验证失败', 'errors': form.errors})
-        try:
-            form.save()
-            return JsonResponse({'code': 0, 'msg': '保存成功'})
-        except Exception as e:
-            logger.error(f'保存采购项目失败: {str(e)}', exc_info=True)
-            return JsonResponse({'code': 1, 'msg': '保存失败，请检查采购项目信息后重试'})
+class ContractCategoryView(BasicDataListView):
+    model = ContractCategory
+    template_name = 'contract/contract_category_list.html'
+    page_title = '合同分类管理'
+    add_button_label = '添加分类'
+    list_url_name = 'contract:contract_category_datalist'
+    add_url_name = 'contract:contract_category_add'
+    edit_url_name = 'contract:contract_category_edit'
+    delete_model_name = 'contract_category'
+    formatter = staticmethod(lambda category: {
+        'id': category.id,
+        'name': category.name,
+        'code': category.code,
+        'parent': category.parent.name if category.parent else '',
+        'description': category.description or '',
+        'template_path': category.template_path or '',
+        'sort_order': category.sort_order or 0,
+        'is_active': bool(category.is_active),
+        'created_at': category.created_at.strftime('%Y-%m-%d %H:%M:%S') if category.created_at else ''
+    })
+
+
+class ContractCategoryAddView(BasicDataCreateView):
+    form_class = ContractCategoryForm
+    template_name = 'contract/contract_category_form.html'
+    log_label = '合同分类'
+    save_error_message = '保存失败，请检查合同分类信息后重试'
+
+
+class ContractCategoryEditView(BasicDataUpdateView):
+    model = ContractCategory
+    form_class = ContractCategoryForm
+    template_name = 'contract/contract_category_form.html'
+    log_label = '合同分类'
+    save_error_message = '保存失败，请检查合同分类信息后重试'
+
+
+class ProductCategoryView(BasicDataListView):
+    model = ProductCategory
+    template_name = 'contract/product_category_list.html'
+    page_title = '产品分类管理'
+    add_button_label = '添加分类'
+    list_url_name = 'contract:product_category_datalist'
+    add_url_name = 'contract:product_category_add'
+    edit_url_name = 'contract:product_category_edit'
+    delete_model_name = 'product_category'
+    formatter = staticmethod(lambda cate: {
+        'id': cate.id,
+        'name': cate.name,
+        'code': cate.code,
+        'parent': cate.parent.name if cate.parent else '',
+        'description': cate.description or '',
+        'sort_order': cate.sort_order or 0,
+        'is_active': bool(cate.is_active),
+        'created_at': cate.created_at.strftime('%Y-%m-%d %H:%M:%S') if cate.created_at else ''
+    })
+
+
+class ProductCategoryAddView(BasicDataCreateView):
+    form_class = ProductCategoryForm
+    template_name = 'contract/product_category_form.html'
+    log_label = '产品分类'
+    save_error_message = '保存失败，请检查产品分类信息后重试'
+
+
+class ProductCategoryEditView(BasicDataUpdateView):
+    model = ProductCategory
+    form_class = ProductCategoryForm
+    template_name = 'contract/product_category_form.html'
+    log_label = '产品分类'
+    save_error_message = '保存失败，请检查产品分类信息后重试'
+
+
+class ServiceCategoryView(BasicDataListView):
+    model = ServiceCategory
+    template_name = 'contract/service_category_list.html'
+    page_title = '服务分类管理'
+    add_button_label = '添加分类'
+    list_url_name = 'contract:service_category_datalist'
+    add_url_name = 'contract:service_category_add'
+    edit_url_name = 'contract:service_category_edit'
+    delete_model_name = 'service_category'
+    formatter = staticmethod(lambda cate: {
+        'id': cate.id,
+        'name': cate.name,
+        'code': cate.code,
+        'parent': cate.parent.name if cate.parent else '',
+        'description': cate.description or '',
+        'sort_order': cate.sort_order or 0,
+        'is_active': bool(cate.is_active),
+        'created_at': cate.created_at.strftime('%Y-%m-%d %H:%M:%S') if cate.created_at else ''
+    })
+
+
+class ServiceCategoryAddView(BasicDataCreateView):
+    form_class = ServiceCategoryForm
+    template_name = 'contract/service_category_form.html'
+    log_label = '服务分类'
+    save_error_message = '保存失败，请检查服务分类信息后重试'
+
+
+class ServiceCategoryEditView(BasicDataUpdateView):
+    model = ServiceCategory
+    form_class = ServiceCategoryForm
+    template_name = 'contract/service_category_form.html'
+    log_label = '服务分类'
+    save_error_message = '保存失败，请检查服务分类信息后重试'
+
+
+class SupplierView(BasicDataListView):
+    model = Supplier
+    template_name = 'contract/supplier_list.html'
+    page_title = '供应商管理'
+    add_button_label = '添加供应商'
+    list_url_name = 'contract:supplier_datalist'
+    add_url_name = 'contract:supplier_add'
+    edit_url_name = 'contract:supplier_edit'
+    delete_model_name = 'supplier'
+    search_fields = ['name', 'code', 'contact_person']
+    formatter = staticmethod(lambda supplier: {
+        'id': supplier.id,
+        'name': supplier.name or '',
+        'code': supplier.code or '',
+        'contact': supplier.contact_person or '',
+        'contact_person': supplier.contact_person or '',
+        'phone': supplier.contact_phone or '',
+        'contact_phone': supplier.contact_phone or '',
+        'email': supplier.contact_email or '',
+        'address': supplier.address or '',
+        'sort_order': 0,
+        'is_active': bool(supplier.is_active),
+        'created_at': supplier.created_at.strftime('%Y-%m-%d %H:%M:%S') if supplier.created_at else ''
+    })
+
+
+class SupplierAddView(BasicDataCreateView):
+    form_class = SupplierForm
+    template_name = 'contract/supplier_form.html'
+    log_label = '供应商'
+    save_error_message = '保存失败，请检查供应商信息后重试'
+
+
+class SupplierEditView(BasicDataUpdateView):
+    model = Supplier
+    form_class = SupplierForm
+    template_name = 'contract/supplier_form.html'
+    log_label = '供应商'
+    save_error_message = '保存失败，请检查供应商信息后重试'
+
+
+class PurchaseCategoryView(BasicDataListView):
+    model = PurchaseCategory
+    template_name = 'contract/purchase_category_list.html'
+    page_title = '采购分类管理'
+    add_button_label = '添加分类'
+    list_url_name = 'contract:purchase_category_datalist'
+    add_url_name = 'contract:purchase_category_add'
+    edit_url_name = 'contract:purchase_category_edit'
+    delete_model_name = 'purchase_category'
+    formatter = staticmethod(lambda cate: {
+        'id': cate.id,
+        'name': cate.name or '',
+        'code': cate.code or '',
+        'parent': cate.parent.name if cate.parent else '',
+        'description': cate.description or '',
+        'sort_order': cate.sort_order or 0,
+        'is_active': bool(cate.is_active),
+        'created_at': cate.created_at.strftime('%Y-%m-%d %H:%M:%S') if cate.created_at else ''
+    })
+
+
+class PurchaseCategoryAddView(BasicDataCreateView):
+    form_class = PurchaseCategoryForm
+    template_name = 'contract/purchase_category_form.html'
+    log_label = '采购分类'
+    save_error_message = '保存失败，请检查采购分类信息后重试'
+
+
+class PurchaseCategoryEditView(BasicDataUpdateView):
+    model = PurchaseCategory
+    form_class = PurchaseCategoryForm
+    template_name = 'contract/purchase_category_form.html'
+    log_label = '采购分类'
+    save_error_message = '保存失败，请检查采购分类信息后重试'
+
+
+class PurchaseItemView(BasicDataListView):
+    model = PurchaseItem
+    template_name = 'contract/purchase_item_list.html'
+    page_title = '采购项目管理'
+    add_button_label = '添加采购项目'
+    list_url_name = 'contract:purchase_item_datalist'
+    add_url_name = 'contract:purchase_item_add'
+    edit_url_name = 'contract:purchase_item_edit'
+    delete_model_name = 'purchase_item'
+    select_related = ['category', 'supplier']
+    formatter = staticmethod(lambda item: {
+        'id': item.id,
+        'name': item.name or '',
+        'code': item.code or '',
+        'category': item.category.name if item.category else '',
+        'specification': item.specification or '',
+        'description': item.description or '',
+        'unit': item.unit or '',
+        'reference_price': str(item.reference_price) if item.reference_price else '0',
+        'supplier': item.supplier.name if item.supplier else '',
+        'sort_order': 0,
+        'is_active': bool(item.is_active),
+        'created_at': item.created_at.strftime('%Y-%m-%d %H:%M:%S') if item.created_at else ''
+    })
+
+
+class PurchaseItemAddView(BasicDataCreateView):
+    form_class = PurchaseItemForm
+    template_name = 'contract/purchase_item_form.html'
+    log_label = '采购项目'
+    save_error_message = '保存失败，请检查采购项目信息后重试'
+
+
+class PurchaseItemEditView(BasicDataUpdateView):
+    model = PurchaseItem
+    form_class = PurchaseItemForm
+    template_name = 'contract/purchase_item_form.html'
+    log_label = '采购项目'
+    save_error_message = '保存失败，请检查采购项目信息后重试'
 
 
 class ServiceListView(ServicesView):

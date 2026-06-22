@@ -1,7 +1,6 @@
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.views.decorators.csrf import csrf_exempt
 from apps.user.models.position import Position
 from .forms import PositionForm
 from django.utils.translation import gettext_lazy as _
@@ -169,7 +168,6 @@ def position_detail_api(request, pk):
         return JsonResponse({'code': 1, 'msg': '岗位不存在', 'data': None})
 
 
-@csrf_exempt
 def position_disable(request):
     """禁用岗位"""
     if request.method == 'POST':
@@ -184,7 +182,6 @@ def position_disable(request):
     return JsonResponse({'code': 1, 'msg': '请求方式错误'})
 
 
-@csrf_exempt
 def position_enable(request):
     """启用岗位"""
     if request.method == 'POST':

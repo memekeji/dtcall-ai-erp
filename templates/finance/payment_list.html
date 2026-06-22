@@ -15,9 +15,6 @@
                     <button class="layui-btn layui-btn-sm" onclick="addPayment()">
                         <i class="layui-icon layui-icon-add-1"></i> 新增付款
                     </button>
-                    <button class="layui-btn layui-btn-sm layui-btn-normal" onclick="exportData()">
-                        <i class="layui-icon layui-icon-export"></i> 导出数据
-                    </button>
                 </div>
             </div>
             <div class="layui-card-body">
@@ -26,7 +23,7 @@
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'js/jquery.min.js' %}"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
         layui.use(['table', 'layer'], function() {
@@ -39,19 +36,14 @@
                 url: '/adm/finance/payment/datalist/',
                 cols: [[
                     {field: 'id', title: 'ID', width: 80},
-                    {field: 'expense_code', title: '关联报销', width: 150},
-                    {field: 'amount', title: '付款金额', width: 120},
-                    {field: 'payment_date', title: '付款日期', width: 120},
-                    {field: 'contract_info', title: '关联合同', width: 200, templet: function(d) {
-                        if (d.contract_info && d.contract_info.contract_code) {
-                            return d.contract_info.contract_code + ' - ' + d.contract_info.contract_name;
-                        } else {
-                            return '无关联合同';
-                        }
+                    {field: 'expense_code', title: '关联报销', width: 180, templet: function(d) {
+                        return d.expense_code || ('报销ID：' + d.expense_id);
                     }},
+                    {field: 'amount', title: '付款金额', width: 120},
+                    {field: 'payment_date', title: '付款日期', width: 180},
                     {field: 'remark', title: '备注', width: 200},
                     {field: 'create_time', title: '创建时间', width: 180},
-                    {title: '操作', width: 200, toolbar: '#paymentToolBar'}
+                    {title: '操作', width: 100, toolbar: '#paymentToolBar'}
                 ]],
                 page: true,
                 limit: 20,
@@ -63,52 +55,7 @@
                 var data = obj.data;
                 var layEvent = obj.event;
 
-                if (layEvent === 'view') {
-                    layer.open({
-                        type: 2,
-                        title: '付款详情',
-                        shadeClose: false,
-                        shade: 0.3,
-                        maxmin: true,
-                        area: ['80%', '100%'],
-                        offset: 'r',
-                        anim: 2,
-                        content: '/adm/finance/payment/view/' + data.id + '/',
-                        success: function(layero, index) {
-                            if (layero && typeof layero.css === 'function') {
-                                layero.css({
-                                    'right': '0',
-                                    'top': '0',
-                                    'height': '100%'
-                                });
-                            }
-                        }
-                    });
-                } else if (layEvent === 'edit') {
-                    layer.open({
-                        type: 2,
-                        title: '编辑付款',
-                        shadeClose: false,
-                        shade: 0.3,
-                        maxmin: true,
-                        area: ['80%', '100%'],
-                        offset: 'r',
-                        anim: 2,
-                        content: '/adm/finance/payment/edit/' + data.id + '/',
-                        success: function(layero, index) {
-                            if (layero && typeof layero.css === 'function') {
-                                layero.css({
-                                    'right': '0',
-                                    'top': '0',
-                                    'height': '100%'
-                                });
-                            }
-                        },
-                        end: function() {
-                            table.reload('paymentTable');
-                        }
-                    });
-                } else if (layEvent === 'delete') {
+                if (layEvent === 'delete') {
                     layer.confirm('确定删除这条付款记录吗？', function(index) {
                         $.ajax({
                             url: '/adm/finance/payment/del/',
@@ -157,16 +104,10 @@
             });
         }
 
-        // 导出数据
-        function exportData() {
-            layer.msg('导出功能开发中...', {icon: 1});
-        }
     </script>
 
     <!-- 工具栏模板 -->
     <script type="text/html" id="paymentToolBar">
-        <a class="layui-btn layui-btn-xs" lay-event="view">查看</a>
-        <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
         <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
     </script>
 </body>

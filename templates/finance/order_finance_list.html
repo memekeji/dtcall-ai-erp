@@ -37,13 +37,11 @@
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'js/jquery.min.js' %}"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        layui.use(['form', 'table', 'layer'], function() {
-            var form = layui.form;
+        layui.use(['form', 'table'], function() {
             var table = layui.table;
-            var layer = layui.layer;
 
             // 初始化表格
             function initTable(status = '') {
@@ -57,10 +55,9 @@
                         {field: 'total_amount', title: '订单总金额', width: 120},
                         {field: 'paid_amount', title: '已付金额', width: 120},
                         {field: 'unpaid_amount', title: '待付金额', width: 120},
-                        {field: 'payment_status', title: '付款状态', width: 100},
+                        {field: 'payment_status_display', title: '付款状态', width: 100},
                         {field: 'due_date', title: '到期日期', width: 120},
-                        {field: 'create_time', title: '创建时间', width: 180},
-                        {title: '操作', width: 150, toolbar: '#financeToolBar'}
+                        {field: 'create_time', title: '创建时间', width: 180}
                     ]],
                     page: true,
                     limit: 20,
@@ -76,64 +73,7 @@
                 var status = $('#statusFilter').val();
                 initTable(status);
             });
-
-            // 监听工具条
-            table.on('tool(financeTable)', function(obj) {
-                var data = obj.data;
-                var layEvent = obj.event;
-
-                if (layEvent === 'view') {
-                    // 查看详情
-                    layer.open({
-                        type: 2,
-                        title: '财务记录详情',
-                        content: '/adm/finance/order-finance/detail/' + data.id + '/',
-                        area: ['80%', '100%'],
-                        offset: 'r',
-                        anim: 2,
-                        success: function(layero, index) {
-                            if (layero && typeof layero.css === 'function') {
-                                layero.css({
-                                    'right': '0',
-                                    'top': '0',
-                                    'height': '100%'
-                                });
-                            }
-                        }
-                    });
-                } else if (layEvent === 'payment') {
-                    // 记录付款
-                    layer.open({
-                        type: 2,
-                        title: '记录付款',
-                        content: '/adm/finance/order-finance/payment/' + data.id + '/',
-                        area: ['80%', '100%'],
-                        offset: 'r',
-                        anim: 2,
-                        success: function(layero, index) {
-                            if (layero && typeof layero.css === 'function') {
-                                layero.css({
-                                    'right': '0',
-                                    'top': '0',
-                                    'height': '100%'
-                                });
-                            }
-                        },
-                        end: function() {
-                            table.reload('financeTable');
-                        }
-                    });
-                }
-            });
         });
-    </script>
-
-    <!-- 工具栏模板 -->
-    <script type="text/html" id="financeToolBar">
-        <a class="layui-btn layui-btn-xs" lay-event="view">查看</a>
-        {{# if(d.payment_status !== '已付款') { }}
-        <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="payment">记录付款</a>
-        {{# } }}
     </script>
 </body>
 </html>

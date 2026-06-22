@@ -63,6 +63,12 @@
                 </div>
             </div>
         </div>
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md3"><div class="layui-card finance-card"><div class="layui-card-body" style="text-align: center;"><div class="stat-number" id="accountBalance">¥0.00</div><div class="stat-label">资金账户余额</div></div></div></div>
+            <div class="layui-col-md3"><div class="layui-card finance-card"><div class="layui-card-body" style="text-align: center;"><div class="stat-number" id="budgetUsed">¥0.00</div><div class="stat-label">预算已用金额</div></div></div></div>
+            <div class="layui-col-md3"><div class="layui-card finance-card"><div class="layui-card-body" style="text-align: center;"><div class="stat-number" id="receivableRemain">¥0.00</div><div class="stat-label">应收未收金额</div></div></div></div>
+            <div class="layui-col-md3"><div class="layui-card finance-card"><div class="layui-card-body" style="text-align: center;"><div class="stat-number" id="riskWarnings">0</div><div class="stat-label">风险预警</div></div></div></div>
+        </div>
 
         <!-- 功能菜单 -->
         <div class="layui-row layui-col-space15">
@@ -71,7 +77,7 @@
                     <div class="layui-card-header">订单财务管理</div>
                     <div class="layui-card-body">
                         <div class="layui-btn-group">
-                            <button class="layui-btn" onclick="openPage('/order-finance/list/')">
+                            <button class="layui-btn" onclick="openPage('/order-finance/')">
                                 <i class="layui-icon layui-icon-dollar"></i> 订单财务记录
                             </button>
                             <button class="layui-btn layui-btn-normal" onclick="openPage('/reimbursement/')">
@@ -90,7 +96,7 @@
                     <div class="layui-card-header">开票管理</div>
                     <div class="layui-card-body">
                         <div class="layui-btn-group">
-                            <button class="layui-btn layui-btn-warm" onclick="openPage('/invoice-request/list/')">
+                            <button class="layui-btn layui-btn-warm" onclick="openPage('/invoice-request/')">
                                 <i class="layui-icon layui-icon-survey"></i> 开票申请管理
                             </button>
                             <button class="layui-btn" onclick="openPage('/invoice/')">
@@ -104,12 +110,43 @@
                 </div>
             </div>
         </div>
+        <div class="layui-row layui-col-space15">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-header">专业财务管理</div>
+                    <div class="layui-card-body">
+                        <div class="layui-btn-container">
+                            <button class="layui-btn" onclick="openPage('/advanced/account/')">资金账户</button>
+                            <button class="layui-btn layui-btn-normal" onclick="openPage('/advanced/budget/')">预算管理</button>
+                            <button class="layui-btn layui-btn-warm" onclick="openPage('/advanced/receivable/')">应收账款</button>
+                            <button class="layui-btn layui-btn-danger" onclick="openPage('/advanced/payable/')">应付账款</button>
+                            <button class="layui-btn" onclick="openPage('/advanced/bank-transaction/')">银行流水</button>
+                            <button class="layui-btn layui-btn-normal" onclick="openPage('/advanced/bank-reconciliation/')">银行对账</button>
+                            <button class="layui-btn layui-btn-primary" onclick="openPage('/advanced/ledger-voucher/')">总账凭证</button>
+                            <button class="layui-btn" onclick="openPage('/advanced/chart-account/')">会计科目</button>
+                            <button class="layui-btn layui-btn-normal" onclick="openPage('/advanced/voucher-line/')">凭证明细</button>
+                            <button class="layui-btn layui-btn-warm" onclick="openPage('/advanced/tax/')">税务管理</button>
+                            <button class="layui-btn" onclick="openPage('/advanced/fixed-asset/')">固定资产</button>
+                            <button class="layui-btn layui-btn-normal" onclick="openPage('/advanced/cost-allocation/')">成本分摊</button>
+                            <button class="layui-btn" onclick="openPage('/advanced/cash-flow-plan/')">现金流计划</button>
+                            <button class="layui-btn layui-btn-normal" onclick="openPage('/advanced/financial-ratio/')">财务指标</button>
+                            <button class="layui-btn layui-btn-warm" onclick="openPage('/advanced/expense-accrual/')">费用计提</button>
+                            <button class="layui-btn layui-btn-danger" onclick="openPage('/advanced/period-close/')">期间结账</button>
+                            <button class="layui-btn layui-btn-primary" onclick="openPage('/advanced/financial-report/')">财务报表</button>
+                        </div>
+                        <p style="margin-top: 10px; color: #666; font-size: 14px;">
+                            覆盖资金、预算、往来、银行、对账和总账凭证等专业财务业务闭环。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- 最近开票申请 -->
         <div class="layui-card">
             <div class="layui-card-header">
                 最近开票申请
-                <span class="layui-btn layui-btn-xs layui-btn-primary" style="float: right;" onclick="openPage('/invoice-request/list/')">查看全部</span>
+                <span class="layui-btn layui-btn-xs layui-btn-primary" style="float: right;" onclick="openPage('/invoice-request/')">查看全部</span>
             </div>
             <div class="layui-card-body">
                 <table id="recentRequests" class="layui-table" lay-filter="recentRequests"></table>
@@ -117,7 +154,7 @@
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'js/jquery.min.js' %}"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
         layui.use(['table', 'layer'], function() {
@@ -131,11 +168,22 @@
                     type: 'GET',
                     success: function(response) {
                         if (response.code === 0) {
-                            var data = response.data;
-                            $('#totalOrders').text(data.total_orders);
-                            $('#totalAmount').text('¥' + data.total_amount.toFixed(2));
-                            $('#pendingPayment').text(data.pending_payment);
-                            $('#pendingInvoices').text(data.pending_invoices);
+                            var data = response.data || {};
+                            var orderStats = data.order_stats || {};
+                            var pendingStats = data.pending || {};
+                            var accountStats = data.account_stats || {};
+                            var budgetStats = data.budget_stats || {};
+                            var receivableStats = data.receivable_stats || {};
+                            var riskStats = data.risk_stats || {};
+                            var riskTotal = Number(riskStats.overdue_receivables || 0) + Number(riskStats.overdue_payables || 0) + Number(riskStats.bank_differences || 0) + Number(riskStats.unposted_vouchers || 0) + Number(riskStats.overdue_taxes || 0) + Number(riskStats.overdue_cash_plans || 0) + Number(riskStats.risk_ratios || 0);
+                            $('#totalOrders').text(orderStats.total_count || 0);
+                            $('#totalAmount').text('¥' + Number(orderStats.total_amount || 0).toFixed(2));
+                            $('#pendingPayment').text(orderStats.pending_count || 0);
+                            $('#pendingInvoices').text(pendingStats.requests || 0);
+                            $('#accountBalance').text('¥' + Number(accountStats.total_balance || 0).toFixed(2));
+                            $('#budgetUsed').text('¥' + Number(budgetStats.used_amount || 0).toFixed(2));
+                            $('#receivableRemain').text('¥' + Number(receivableStats.remaining_amount || 0).toFixed(2));
+                            $('#riskWarnings').text(riskTotal);
                         }
                     },
                     error: function(xhr) {
@@ -147,15 +195,13 @@
             // 初始化最近开票申请表格
             table.render({
                 elem: '#recentRequests',
-                url: '/adm/finance/invoice-request/list/?limit=5',
+                url: '/adm/finance/invoice-request/datalist/?limit=5',
                 cols: [[
-                    {field: 'order_number', title: '订单编号', width: 150},
-                    {field: 'customer_name', title: '客户名称', width: 200},
+                    {field: 'order_id', title: '订单ID', width: 120},
                     {field: 'amount', title: '开票金额', width: 120},
-                    {field: 'status', title: '申请状态', width: 100},
-                    {field: 'applicant', title: '申请人', width: 100},
-                    {field: 'create_time', title: '申请时间', width: 180},
-                    {title: '操作', width: 120, toolbar: '#requestToolBar'}
+                    {field: 'status_display', title: '申请状态', width: 120},
+                    {field: 'applicant_id', title: '申请人ID', width: 120},
+                    {field: 'create_time', title: '申请时间', width: 180}
                 ]],
                 limit: 5,
                 page: false,
@@ -164,31 +210,29 @@
 
             // 页面加载时获取统计数据
             loadStatistics();
-
-            // 监听工具条
-            table.on('tool(recentRequests)', function(obj) {
-                var data = obj.data;
-                var layEvent = obj.event;
-
-                if (layEvent === 'view') {
-                    openPage('/invoice-request/detail/' + data.id + '/');
-                }
-            });
         });
 
         // 打开页面
         function openPage(url) {
-            // 使用相对路径，因为财务模块现在在 /adm/finance/ 下
             if (!url.startsWith('/adm/finance/')) {
                 url = '/adm/finance' + url;
             }
-            window.open(url, '_blank');
+            layui.layer.open({
+                type: 2,
+                title: '财务功能',
+                shadeClose: false,
+                shade: 0.3,
+                maxmin: true,
+                area: ['80%', '100%'],
+                offset: 'r',
+                anim: 2,
+                content: url,
+                success: function(layero) {
+                    layero.css({'right': '0', 'top': '0', 'height': '100%'});
+                }
+            });
         }
     </script>
 
-    <!-- 工具栏模板 -->
-    <script type="text/html" id="requestToolBar">
-        <a class="layui-btn layui-btn-xs" lay-event="view">查看</a>
-    </script>
 </body>
 </html>

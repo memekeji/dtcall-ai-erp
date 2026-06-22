@@ -16,8 +16,8 @@
     <div class="form-container">
         <form class="layui-form" id="taskForm">
             {% csrf_token %}
-            <input type="hidden" name="id" value="{{ form.id.value|default:'' }}">
-            <input type="hidden" name="status" value="2">
+            <input type="hidden" name="id" value="{{ form.instance.id|default:'' }}">
+            <input type="hidden" name="status" value="{{ form.status.value|default:'2' }}">
 
             <div class="layui-form-item">
                 <label class="layui-form-label">任务名称</label>
@@ -40,9 +40,7 @@
                 </div>
             </div>
 
-
-
-            <div class="layui-form-item">
+<div class="layui-form-item">
                 <label class="layui-form-label">行业限制</label>
                 <div class="layui-input-block">
                     <!-- 树形选择器容器 -->
@@ -116,9 +114,10 @@
     </div>
 
     <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/common.js' %}"></script>
 <script>
         // 获取CSRF token
-        function getCookie(name) {
+        var getCookie = (window.DTCallCommon && window.DTCallCommon.getCookie) || function(name) {
             var cookieValue = null;
             if (document.cookie && document.cookie !== '') {
                 var cookies = document.cookie.split(';');
@@ -131,18 +130,9 @@
                 }
             }
             return cookieValue;
-        }
+        };
 
         var csrftoken = getCookie('csrftoken');
-
-        // 设置AJAX默认请求头
-        $.ajaxSetup({
-            beforeSend: function(xhr, settings) {
-                if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
-                    xhr.setRequestHeader("X-CSRFToken", csrftoken);
-                }
-            }
-        });
 
         // 检查layui是否加载
         if (typeof layui !== 'undefined') {
@@ -153,10 +143,17 @@
                 var $ = layui.jquery;
                 var tree = layui.tree;
 
+                $.ajaxSetup({
+                    beforeSend: function(xhr, settings) {
+                        if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                            xhr.setRequestHeader('X-CSRFToken', csrftoken);
+                        }
+                    }
+                });
+
                 // 初始化表单，添加安全检查
                 if (form && typeof form.render === 'function') {
                     form.render('select'); // 显式渲染select元素
-                    console.log('LayUI select渲染完成');
                 } else {
                     console.warn('form模块未加载或render方法不存在');
                 }
@@ -167,7 +164,6 @@
                     url: '{% static "json/industry_categories.json" %}',
                     dataType: 'json',
                     success: function(data) {
-                        console.log('行业数据加载成功', data);
 
                         // 转换数据格式为Layui Tree所需格式
                         function convertToTreeFormat(data) {
@@ -204,7 +200,6 @@
             // 加载地区数据
             function loadRegionData() {
                 var regionUrl = '{% static "json/全国省市区.json" %}';
-                console.log('地区数据请求URL:', regionUrl);
                 $.ajax({
                     url: regionUrl,
                     dataType: 'json',
@@ -321,8 +316,7 @@
                 // 设置隐藏字段值
                 var regionValue = selectedIds.join(',');
                 $('#regionValue').val(regionValue);
-                console.log('地区隐藏字段值已设置:', regionValue);
-                console.log('地区隐藏字段DOM值:', $('#regionValue').val());
+                $('#dataRegionValue').val(selectedNames.join(','));
                 
                 // 显示选择结果
                 var selectedItems = $('#selectedRegionItems');
@@ -378,8 +372,6 @@
                 // 设置隐藏字段值
                 var industryValue = selectedIds.join(',');
                 $('#industryValue').val(industryValue);
-                console.log('行业隐藏字段值已设置:', industryValue);
-                console.log('行业隐藏字段DOM值:', $('#industryValue').val());
                 
                 // 显示选择结果
                 var selectedItems = $('#selectedItems');
@@ -400,14 +392,8 @@
                 // 显式获取隐藏字段值
                 var industryValue = $('#industryValue').val();
                 var regionValue = $('#regionValue').val();
-                
-                // 添加调试信息
-                console.log('表单提交前调试信息:');
-                console.log('industryValue:', industryValue);
-                console.log('regionValue:', regionValue);
-                console.log('所有表单字段:', data.field);
-                
-                // 全面验证所有必填字段
+
+// 全面验证所有必填字段
                 // 仅验证模型中真正必填的字段
                 var requiredFields = [
                     {name: 'task_name', label: '任务名称', value: data.field.task_name},
@@ -415,12 +401,6 @@
                     {name: 'insured_count', label: '参保人数', value: data.field.insured_count},
                     {name: 'contact_phone', label: '联系电话', value: data.field.contact_phone}
                 ];
-                
-                // 添加详细日志输出以诊断必填项问题
-                console.log('开始验证必填字段:');
-                requiredFields.forEach(function(field) {
-                    console.log('字段: ' + field.label + ', 值: [' + field.value + '], 是否为空: ' + (!field.value || field.value.trim() === ''));
-                });
                 var missingFields = requiredFields.filter(function(field) {
                     return !field.value || field.value.trim() === '';
                 });
@@ -437,39 +417,24 @@
                 var postData = Object.assign({}, data.field, {
                     industry_limit: industryValue,
                     province: regionValue,
-                    data_region: regionValue
+                    data_region: $('#dataRegionValue').val()
                 });
-                
-                // 额外验证隐藏字段在DOM中的实际值
-                console.log('提交前DOM中的industryValue:', $('#industryValue').val());
-                console.log('提交前DOM中的regionValue:', $('#regionValue').val());
-                
-                // 验证postData中的值
-                console.log('postData.industry:', postData.industry);
-                console.log('postData.province:', postData.province);
-                console.log('完整提交数据:', JSON.stringify(postData, null, 2));
-                
-                // 确保隐藏字段在表单数据中
+
+// 确保隐藏字段在表单数据中
                 // 行业和地区字段为非必填，移除强制验证
-                console.log('行业/地区字段可选，跳过非空验证');
-                
-                // 打印提交数据详情
-                console.log('最终提交数据:', postData);
-                console.log('提交URL:', '{% url "customer:spider_task_create" %}');
-                
-                $.ajax({
-                    url: '{% url "customer:spider_task_create" %}',
+
+$.ajax({
+                    url: '{{ request.path }}',
                     type: 'post',
                     data: postData,
                     success: function(res) {
-                        console.log('服务器响应:', res);
-                        if (res.status === 'success') {
-                            parent.layer.msg('任务创建成功', {icon: 1});
+                        if (res.code === 0) {
+                            parent.layer.msg(res.msg || '任务创建成功', {icon: 1});
                             parent.layui.table.reload('spiderTaskTable');
                             parent.layer.closeAll();
                         } else {
                             // 显示后端返回的具体错误信息
-                            var errorMsg = res.msg || '创建失败';
+                            var errorMsg = res.msg || res.message || '创建失败';
                             if (res.errors) {
                                 // 如果有字段错误详情，拼接显示
                                 errorMsg += '\n';

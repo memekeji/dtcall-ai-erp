@@ -208,7 +208,6 @@
                 var formData = data.field;
                 formData.csrfmiddlewaretoken = $('[name=csrfmiddlewaretoken]').val();
                 
-                console.log('Submitting task data:', formData);
                 
                 $.ajax({
                     url: window.location.href,
@@ -216,7 +215,6 @@
                     data: formData,
                     dataType: 'json',
                     success: function (res) {
-                        console.log('Task response:', res);
                         layer.close(loadIndex);
                         if (res.code === 0) {
                             layer.msg(res.msg, { icon: 1 }, function () {
@@ -235,7 +233,6 @@
                         }
                     },
                     error: function (xhr, status, error) {
-                        console.log('Task error:', xhr.responseText);
                         layer.close(loadIndex);
                         isTaskSubmitting = false;
                         submitBtn.prop('disabled', false).removeClass('layui-btn-disabled');

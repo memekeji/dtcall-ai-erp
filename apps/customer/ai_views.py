@@ -2,9 +2,20 @@ import logging
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from .models import Customer, FollowRecord, Contact
+from apps.ai.services.business_result import build_business_ai_result
 from apps.ai.utils.analysis_tools import default_customer_analysis_tool
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_customer_ai_result(raw_result, scenario, customer, request=None, raw_input=None):
+    return build_business_ai_result(
+        raw_result,
+        scenario=scenario,
+        source_refs=[{'type': 'customer', 'id': customer.id}],
+        request=request,
+        raw_input=raw_input,
+    )
 
 
 @login_required
@@ -49,6 +60,13 @@ def ai_customer_classification(request, customer_id):
         # 调用AI分析工具进行客户分类
         result = default_customer_analysis_tool.classify_customer(
             customer_data)
+        normalized_result = _normalize_customer_ai_result(
+            result,
+            'customer_classification',
+            customer,
+            request=request,
+            raw_input=customer_data,
+        )
 
         # 记录分析日志
         logger.info(f"客户ID {customer_id} 分类分析完成")
@@ -56,7 +74,7 @@ def ai_customer_classification(request, customer_id):
         return JsonResponse({
             'code': 0,
             'msg': '分析成功',
-            'data': result
+            'data': normalized_result
         })
 
     except Customer.DoesNotExist:
@@ -127,6 +145,13 @@ def ai_customer_profile(request, customer_id):
         result = default_customer_analysis_tool.generate_customer_profile(
             customer_data, follow_record_list
         )
+        normalized_result = _normalize_customer_ai_result(
+            result,
+            'customer_profile',
+            customer,
+            request=request,
+            raw_input={'customer': customer_data, 'follow_record_count': len(follow_record_list)},
+        )
 
         # 记录分析日志
         logger.info(f"客户ID {customer_id} 画像分析完成")
@@ -134,7 +159,7 @@ def ai_customer_profile(request, customer_id):
         return JsonResponse({
             'code': 0,
             'msg': '分析成功',
-            'data': result
+            'data': normalized_result
         })
 
     except Customer.DoesNotExist:

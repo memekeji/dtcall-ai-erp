@@ -149,6 +149,7 @@
     </div>
 
     <script src="/static/layui/layui.js"></script>
+    <script src="/static/js/common.js"></script>
     <script>
         layui.use(['laypage', 'form', 'layer'], function(){
             var laypage = layui.laypage;
@@ -174,7 +175,7 @@
         });
 
         // 获取CSRF令牌
-        function getCookie(name) {
+        var getCookie = (window.DTCallCommon && window.DTCallCommon.getCookie) || function(name) {
             var cookieValue = null;
             if (document.cookie && document.cookie !== '') {
                 var cookies = document.cookie.split(';');
@@ -187,7 +188,7 @@
                 }
             }
             return cookieValue;
-        }
+        };
 
         function toggleTask(id, action) {
             layui.use('layer', function(){

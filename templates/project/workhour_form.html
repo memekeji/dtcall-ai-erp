@@ -104,7 +104,6 @@
                 var formData = data.field;
                 formData.csrfmiddlewaretoken = $('[name=csrfmiddlewaretoken]').val();
                 
-                console.log('Submitting workhour data:', formData);
                 
                 $.ajax({
                     url: window.location.href,
@@ -112,7 +111,6 @@
                     data: formData,
                     dataType: 'json',
                     success: function (res) {
-                        console.log('Workhour response:', res);
                         layer.close(loadIndex);
                         if (res.code === 0) {
                             layer.msg(res.msg, { icon: 1 }, function () {
@@ -128,7 +126,6 @@
                         }
                     },
                     error: function (xhr, status, error) {
-                        console.log('Workhour error:', xhr.responseText);
                         layer.close(loadIndex);
                         layer.msg('网络错误，请重试: ' + error, { icon: 2 });
                     }

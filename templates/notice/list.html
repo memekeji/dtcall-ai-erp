@@ -230,7 +230,7 @@ function publishNotice(id) {
     });
 }
 
-function getCookie(name) {
+var getCookie = (window.DTCallCommon && window.DTCallCommon.getCookie) || function(name) {
     var cookieValue = null;
     if (document.cookie && document.cookie !== '') {
         var cookies = document.cookie.split(';');
@@ -243,6 +243,6 @@ function getCookie(name) {
         }
     }
     return cookieValue;
-}
+};
 </script>
 {% endblock %}

@@ -29,9 +29,6 @@
                         <button class="layui-btn layui-btn-normal layui-btn-sm" onclick="addInvoice()">
                             <i class="layui-icon layui-icon-add-1"></i> 新增发票
                         </button>
-                        <button class="layui-btn layui-btn-primary layui-btn-sm" onclick="exportInvoice()" style="margin-left: 8px;">
-                            <i class="layui-icon layui-icon-export"></i> 导出
-                        </button>
                     </div>
                     <div class="layui-col-md6" style="text-align: right;">
                         <!-- 搜索区域 -->
@@ -63,7 +60,7 @@
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'js/jquery.min.js' %}"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
         layui.use(['element', 'table', 'layer', 'form'], function() {
@@ -159,9 +156,6 @@
                             table.reload('invoiceTable');
                         }
                     });
-                } else if (layEvent === 'download') {
-                    // 下载发票
-                    window.open('/adm/finance/invoice/download/' + data.id + '/', '_blank');
                 } else if (layEvent === 'delete') {
                     layer.confirm('确定删除这条发票记录吗？', function(index) {
                         $.ajax({
@@ -219,14 +213,6 @@
         // 确保函数在全局作用域可用
         window.addInvoice = addInvoice;
 
-        // 导出发票
-        function exportInvoice() {
-            layui.use(['layer'], function() {
-                var layer = layui.layer;
-                layer.msg('导出功能开发中...', {icon: 0});
-            });
-        }
-        window.exportInvoice = exportInvoice;
 
         // 搜索发票
         function searchInvoice() {
@@ -278,7 +264,6 @@
     <script type="text/html" id="invoiceToolBar">
         <a class="layui-btn layui-btn-xs" lay-event="view">查看</a>
         <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
-        <a class="layui-btn layui-btn-xs layui-btn-warm" lay-event="download">下载</a>
         <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
     </script>
 </body>

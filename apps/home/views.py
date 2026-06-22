@@ -4,9 +4,43 @@ from django.shortcuts import render
 from apps.user.models import Menu
 from dtcall.utils import get_system_config
 from django.contrib.auth.decorators import login_required
+from django.utils import timezone
 import logging
 
 logger = logging.getLogger('django')
+
+
+def _format_dashboard_amount(value):
+    amount = float(value or 0)
+    if amount >= 100000000:
+        return f'{amount / 100000000:.2f}亿'
+    if amount >= 10000:
+        return f'{amount / 10000:.2f}万'
+    return f'{amount:,.0f}'
+
+
+def _month_start(value=None, offset=0):
+    value = value or timezone.now()
+    month_index = value.year * 12 + value.month - 1 + offset
+    year = month_index // 12
+    month = month_index % 12 + 1
+    return value.replace(
+        year=year,
+        month=month,
+        day=1,
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0)
+
+
+COMPLETED_ORDER_STATUSES = [
+    'confirmed',
+    'processing',
+    'shipped',
+    'delivered',
+    'completed',
+]
 
 
 def _build_menu_tree(
@@ -182,15 +216,15 @@ def dashboard(request):
     from apps.user.models import SystemOperationLog, Admin as User
     from django.db.models import Count
     import datetime
-    import random
     from django.core.cache import cache
     from apps.project.models import Project
     from apps.customer.models import CustomerOrder
     from django.db.models import Sum
+    import json
 
     is_superuser = getattr(request.user, 'is_superuser', False)
 
-    cache_key = f'dashboard_data_{request.user.id}_{datetime.datetime.now().date()}'
+    cache_key = f'dashboard_data_v2_{request.user.id}_{timezone.now().date()}'
 
     cached_dashboard_data = cache.get(cache_key)
 
@@ -238,7 +272,7 @@ def dashboard(request):
                     create_time__date=datetime.datetime.now().date()
                 ).count()
 
-                current_month = datetime.datetime.now().replace(day=1)
+                current_month = _month_start()
                 new_customers_month = Customer.objects.filter(
                     create_time__gte=current_month,
                     delete_time=0
@@ -246,6 +280,39 @@ def dashboard(request):
                 new_contracts_month = Contract.objects.filter(
                     create_time__gte=current_month,
                     delete_time=0
+                ).count()
+                total_orders = CustomerOrder.objects.filter(
+                    delete_time=0
+                ).count()
+                new_orders_month = CustomerOrder.objects.filter(
+                    create_time__gte=current_month,
+                    delete_time=0
+                ).count()
+                pending_orders = CustomerOrder.objects.filter(
+                    delete_time=0,
+                    status__in=['pending', 'confirmed', 'processing']
+                ).count()
+                month_sales_amount = CustomerOrder.objects.filter(
+                    create_time__gte=current_month,
+                    delete_time=0,
+                    status__in=COMPLETED_ORDER_STATUSES
+                ).aggregate(total=Sum('amount'))['total'] or 0
+                total_contract_amount = Contract.objects.filter(
+                    delete_time=0
+                ).aggregate(total=Sum('cost'))['total'] or 0
+                active_users_today = SystemOperationLog.objects.filter(
+                    create_time__date=datetime.datetime.now().date()
+                ).values('user_id').distinct().count()
+                ongoing_projects_count = Project.objects.filter(
+                    delete_time__isnull=True,
+                    status=2
+                ).count()
+                pending_approvals_count = Approval.objects.filter(
+                    status__in=[0, 1]
+                ).count()
+                open_tasks_count = Task.objects.filter(status=0).count()
+                unread_messages_count = MessageUserRelation.objects.filter(
+                    is_read=False
                 ).count()
 
                 source_counts = Customer.objects.filter(
@@ -292,7 +359,7 @@ def dashboard(request):
                     user_id=request.user.id
                 ).count()
 
-                current_month = datetime.datetime.now().replace(day=1)
+                current_month = _month_start()
                 new_customers_month = Customer.objects.filter(
                     create_time__gte=current_month,
                     delete_time=0,
@@ -309,6 +376,46 @@ def dashboard(request):
                     Q(share_ids__startswith=f'{request.user.id},') |
                     Q(share_ids__endswith=f',{request.user.id}') |
                     Q(share_ids=request.user.id)
+                ).count()
+                visible_customers = Customer.objects.filter(customer_filter)
+                visible_contracts = Contract.objects.filter(contract_filter)
+                visible_orders = CustomerOrder.objects.filter(
+                    delete_time=0,
+                    customer__in=visible_customers
+                )
+                total_orders = visible_orders.count()
+                new_orders_month = visible_orders.filter(
+                    create_time__gte=current_month
+                ).count()
+                pending_orders = visible_orders.filter(
+                    status__in=['pending', 'confirmed', 'processing']
+                ).count()
+                month_sales_amount = visible_orders.filter(
+                    create_time__gte=current_month,
+                    status__in=COMPLETED_ORDER_STATUSES
+                ).aggregate(total=Sum('amount'))['total'] or 0
+                total_contract_amount = visible_contracts.aggregate(
+                    total=Sum('cost'))['total'] or 0
+                active_users_today = SystemOperationLog.objects.filter(
+                    create_time__date=datetime.datetime.now().date(),
+                    user_id=request.user.id
+                ).values('user_id').distinct().count()
+                ongoing_projects_count = Project.objects.filter(
+                    delete_time__isnull=True,
+                    status=2,
+                    manager=request.user
+                ).count()
+                pending_approvals_count = Approval.objects.filter(
+                    reviewer=request.user,
+                    status__in=[0, 1]
+                ).count()
+                open_tasks_count = Task.objects.filter(
+                    assignee=request.user,
+                    status=0
+                ).count()
+                unread_messages_count = MessageUserRelation.objects.filter(
+                    user=request.user,
+                    is_read=False
                 ).count()
 
                 source_counts = Customer.objects.filter(customer_filter).values(
@@ -332,6 +439,16 @@ def dashboard(request):
                 'today_operations': today_operations,
                 'new_customers_month': new_customers_month,
                 'new_contracts_month': new_contracts_month,
+                'total_orders': total_orders,
+                'new_orders_month': new_orders_month,
+                'pending_orders': pending_orders,
+                'month_sales_amount': float(month_sales_amount),
+                'total_contract_amount': float(total_contract_amount),
+                'active_users_today': active_users_today,
+                'ongoing_projects': ongoing_projects_count,
+                'pending_approvals': pending_approvals_count,
+                'open_tasks': open_tasks_count,
+                'unread_messages': unread_messages_count,
             }
 
         except Exception as e:
@@ -345,23 +462,44 @@ def dashboard(request):
                 'today_operations': 0,
                 'new_customers_month': 0,
                 'new_contracts_month': 0,
+                'total_orders': 0,
+                'new_orders_month': 0,
+                'pending_orders': 0,
+                'month_sales_amount': 0,
+                'total_contract_amount': 0,
+                'active_users_today': 0,
+                'ongoing_projects': 0,
+                'pending_approvals': 0,
+                'open_tasks': 0,
+                'unread_messages': 0,
             }
             pie_data = []
 
         try:
             months = []
-            for i in range(6):
-                month = (
-                    datetime.datetime.now() -
-                    datetime.timedelta(
-                        days=i *
-                        30)).strftime('%Y-%m')
-                months.append(month)
-            months.reverse()
+            sales = []
+
+            for i in range(5, -1, -1):
+                month_start = _month_start(offset=-i)
+                month_end = _month_start(offset=-i + 1)
+                month_orders = CustomerOrder.objects.filter(
+                    create_time__gte=month_start,
+                    create_time__lt=month_end,
+                    delete_time=0,
+                    status__in=COMPLETED_ORDER_STATUSES)
+
+                if not is_superuser:
+                    month_orders = month_orders.filter(
+                        customer__in=Customer.objects.filter(customer_filter))
+
+                month_sales = month_orders.aggregate(
+                    total=Sum('amount'))['total'] or 0
+                months.append(month_start.strftime('%Y-%m'))
+                sales.append(float(month_sales))
 
             trend_data = {
                 'months': months,
-                'sales': [random.randint(10000, 50000) for _ in months]
+                'sales': sales
             }
         except Exception as e:
             logger.error(f'获取图表数据失败: {str(e)}')
@@ -423,22 +561,12 @@ def dashboard(request):
         if is_superuser:
             total_sales = CustomerOrder.objects.filter(
                 delete_time=0,
-                status__in=[
-                    'confirmed',
-                    'processing',
-                    'shipped',
-                    'delivered',
-                    'completed']).aggregate(
+                status__in=COMPLETED_ORDER_STATUSES).aggregate(
                 total=Sum('amount'))['total'] or 0
         else:
             total_sales = CustomerOrder.objects.filter(
                 delete_time=0,
-                status__in=[
-                    'confirmed',
-                    'processing',
-                    'shipped',
-                    'delivered',
-                    'completed'],
+                status__in=COMPLETED_ORDER_STATUSES,
                 customer__in=Customer.objects.filter(customer_filter)).aggregate(
                 total=Sum('amount'))['total'] or 0
         total_sales = float(total_sales)
@@ -474,23 +602,14 @@ def dashboard(request):
                 delete_time=0).count()
             customers_with_orders = CustomerOrder.objects.filter(
                 delete_time=0,
-                status__in=[
-                    'confirmed',
-                    'processing',
-                    'shipped',
-                    'delivered',
-                    'completed']).values('customer_id').distinct().count()
+                status__in=COMPLETED_ORDER_STATUSES
+            ).values('customer_id').distinct().count()
         else:
             total_customers_count = Customer.objects.filter(
                 customer_filter).count()
             customers_with_orders = CustomerOrder.objects.filter(
                 delete_time=0,
-                status__in=[
-                    'confirmed',
-                    'processing',
-                    'shipped',
-                    'delivered',
-                    'completed'],
+                status__in=COMPLETED_ORDER_STATUSES,
                 customer__in=Customer.objects.filter(customer_filter)
             ).values('customer_id').distinct().count()
         conversion_rate = round((customers_with_orders /
@@ -501,50 +620,35 @@ def dashboard(request):
         conversion_rate = 0
 
     try:
-        last_month = (
-            datetime.datetime.now().replace(
-                day=1) -
-            datetime.timedelta(
-                days=1)).replace(
-            day=1)
+        current_month = _month_start()
+        last_month = _month_start(offset=-1)
 
         if is_superuser:
             current_month_sales = CustomerOrder.objects.filter(
-                create_time__gte=datetime.datetime.now().replace(
-                    day=1), delete_time=0, status__in=[
-                    'confirmed', 'processing', 'shipped', 'delivered', 'completed']).aggregate(
+                create_time__gte=current_month,
+                delete_time=0,
+                status__in=COMPLETED_ORDER_STATUSES).aggregate(
                 total=Sum('amount'))['total'] or 0
 
             last_month_sales = CustomerOrder.objects.filter(
-                create_time__gte=last_month, create_time__lt=datetime.datetime.now().replace(
-                    day=1), delete_time=0, status__in=[
-                    'confirmed', 'processing', 'shipped', 'delivered', 'completed']).aggregate(
+                create_time__gte=last_month,
+                create_time__lt=current_month,
+                delete_time=0,
+                status__in=COMPLETED_ORDER_STATUSES).aggregate(
                 total=Sum('amount'))['total'] or 0
         else:
             current_month_sales = CustomerOrder.objects.filter(
-                create_time__gte=datetime.datetime.now().replace(
-                    day=1),
+                create_time__gte=current_month,
                 delete_time=0,
-                status__in=[
-                    'confirmed',
-                    'processing',
-                    'shipped',
-                    'delivered',
-                    'completed'],
+                status__in=COMPLETED_ORDER_STATUSES,
                 customer__in=Customer.objects.filter(customer_filter)).aggregate(
                 total=Sum('amount'))['total'] or 0
 
             last_month_sales = CustomerOrder.objects.filter(
                 create_time__gte=last_month,
-                create_time__lt=datetime.datetime.now().replace(
-                    day=1),
+                create_time__lt=current_month,
                 delete_time=0,
-                status__in=[
-                    'confirmed',
-                    'processing',
-                    'shipped',
-                    'delivered',
-                    'completed'],
+                status__in=COMPLETED_ORDER_STATUSES,
                 customer__in=Customer.objects.filter(customer_filter)).aggregate(
                 total=Sum('amount'))['total'] or 0
 
@@ -555,22 +659,22 @@ def dashboard(request):
 
         if is_superuser:
             current_month_active_users = SystemOperationLog.objects.filter(
-                create_time__gte=datetime.datetime.now().replace(day=1)
+                create_time__gte=current_month
             ).values('user_id').distinct().count()
 
             last_month_active_users = SystemOperationLog.objects.filter(
                 create_time__gte=last_month,
-                create_time__lt=datetime.datetime.now().replace(day=1)
+                create_time__lt=current_month
             ).values('user_id').distinct().count()
 
             current_month_projects = Project.objects.filter(
-                create_time__gte=datetime.datetime.now().replace(day=1),
+                create_time__gte=current_month,
                 delete_time__isnull=True
             ).count()
 
             last_month_projects = Project.objects.filter(
                 create_time__gte=last_month,
-                create_time__lt=datetime.datetime.now().replace(day=1),
+                create_time__lt=current_month,
                 delete_time__isnull=True
             ).count()
         else:
@@ -579,14 +683,14 @@ def dashboard(request):
             last_month_active_users = 1
 
             current_month_projects = Project.objects.filter(
-                create_time__gte=datetime.datetime.now().replace(day=1),
+                create_time__gte=current_month,
                 delete_time__isnull=True,
                 manager=request.user
             ).count()
 
             last_month_projects = Project.objects.filter(
                 create_time__gte=last_month,
-                create_time__lt=datetime.datetime.now().replace(day=1),
+                create_time__lt=current_month,
                 delete_time__isnull=True,
                 manager=request.user
             ).count()
@@ -615,38 +719,22 @@ def dashboard(request):
     target_data = []
 
     for i in range(6):
-        month_start = (
-            datetime.datetime.now().replace(
-                day=1) -
-            datetime.timedelta(
-                days=i *
-                30))
-        month_end = (month_start + datetime.timedelta(days=32)
-                     ).replace(day=1) - datetime.timedelta(days=1)
+        month_start = _month_start(offset=-i)
+        month_end = _month_start(offset=-i + 1)
 
         if is_superuser:
             month_sales = CustomerOrder.objects.filter(
                 create_time__gte=month_start,
-                create_time__lte=month_end,
+                create_time__lt=month_end,
                 delete_time=0,
-                status__in=[
-                    'confirmed',
-                    'processing',
-                    'shipped',
-                    'delivered',
-                    'completed']).aggregate(
+                status__in=COMPLETED_ORDER_STATUSES).aggregate(
                 total=Sum('amount'))['total'] or 0
         else:
             month_sales = CustomerOrder.objects.filter(
                 create_time__gte=month_start,
-                create_time__lte=month_end,
+                create_time__lt=month_end,
                 delete_time=0,
-                status__in=[
-                    'confirmed',
-                    'processing',
-                    'shipped',
-                    'delivered',
-                    'completed'],
+                status__in=COMPLETED_ORDER_STATUSES,
                 customer__in=Customer.objects.filter(customer_filter)).aggregate(
                 total=Sum('amount'))['total'] or 0
 
@@ -659,15 +747,89 @@ def dashboard(request):
     target_data.reverse()
 
     sales_trend = {
-        'labels': months,
-        'data': sales_trend_data,
-        'target': target_data
+        'labels': json.dumps(months, ensure_ascii=False),
+        'data': json.dumps(sales_trend_data),
+        'target': json.dumps(target_data)
     }
 
     customer_source = {
-        'labels': [item['name'] for item in pie_data],
-        'data': [item['value'] for item in pie_data]
+        'labels': json.dumps([item['name'] for item in pie_data], ensure_ascii=False),
+        'data': json.dumps([item['value'] for item in pie_data])
     }
+
+    system_stat_cards = [
+        {
+            'label': '总用户数',
+            'value': system_stats.get('total_users', 0),
+            'note': f"今日活跃 {system_stats.get('active_users_today', 0)} 人",
+            'tone': 'blue',
+            'icon': 'users',
+        },
+        {
+            'label': '总客户数',
+            'value': system_stats.get('total_customers', 0),
+            'note': f"本月新增 {system_stats.get('new_customers_month', 0)} 个",
+            'tone': 'green',
+            'icon': 'customer',
+        },
+        {
+            'label': '总合同数',
+            'value': system_stats.get('total_contracts', 0),
+            'note': f"合同额 {_format_dashboard_amount(system_stats.get('total_contract_amount', 0))}",
+            'tone': 'indigo',
+            'icon': 'contract',
+        },
+        {
+            'label': '客户订单',
+            'value': system_stats.get('total_orders', 0),
+            'note': f"本月新增 {system_stats.get('new_orders_month', 0)} 单",
+            'tone': 'cyan',
+            'icon': 'order',
+        },
+        {
+            'label': '本月销售额',
+            'value': _format_dashboard_amount(
+                system_stats.get('month_sales_amount', 0)),
+            'note': f"待推进订单 {system_stats.get('pending_orders', 0)} 单",
+            'tone': 'teal',
+            'icon': 'sales',
+        },
+        {
+            'label': '今日操作',
+            'value': system_stats.get('today_operations', 0),
+            'note': f"活跃用户 {system_stats.get('active_users_today', 0)} 人",
+            'tone': 'orange',
+            'icon': 'activity',
+        },
+        {
+            'label': '待办任务',
+            'value': system_stats.get('open_tasks', 0),
+            'note': '未完成任务',
+            'tone': 'amber',
+            'icon': 'task',
+        },
+        {
+            'label': '审批待处理',
+            'value': system_stats.get('pending_approvals', 0),
+            'note': '待审批/审批中',
+            'tone': 'red',
+            'icon': 'approval',
+        },
+        {
+            'label': '未读消息',
+            'value': system_stats.get('unread_messages', 0),
+            'note': '通知触达情况',
+            'tone': 'purple',
+            'icon': 'message',
+        },
+        {
+            'label': '进行中项目',
+            'value': system_stats.get('ongoing_projects', 0),
+            'note': '当前推进项目',
+            'tone': 'slate',
+            'icon': 'project',
+        },
+    ]
 
     try:
         if is_superuser:
@@ -738,7 +900,8 @@ def dashboard(request):
                 'amount': f'{float(order.amount):,.0f}',
                 'status_class': status_class_map.get(order.status, 'bg-gray-100 text-gray-800'),
                 'status_text': order.get_status_display() if hasattr(order, 'get_status_display') else order.status,
-                'time': order.create_time.strftime('%Y-%m-%d %H:%M') if order.create_time else '-'
+                'time': order.create_time.strftime('%Y-%m-%d %H:%M') if order.create_time else '-',
+                'detail_url': f'/customer/orders/{order.id}/detail/'
             })
     except Exception as e:
         logger.error(f'获取最近交易记录失败: {str(e)}')
@@ -769,6 +932,7 @@ def dashboard(request):
         'recent_transactions': recent_transactions,
         'last_updated': last_updated,
         'system_stats': system_stats,
+        'system_stat_cards': system_stat_cards,
     }
     return render(request, 'home/dashboard.html', context)
 

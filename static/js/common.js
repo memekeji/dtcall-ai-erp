@@ -122,19 +122,102 @@ function ajaxRequest(url, options = {}) {
 }
 
 /**
+ * 获取指定Cookie值
+ * @param {string} name Cookie名称
+ * @returns {string} Cookie值
+ */
+function getCookie(name) {
+    const escapedName = String(name || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = document.cookie ? document.cookie.match(new RegExp('(?:^|;\\s*)' + escapedName + '=([^;]*)')) : null;
+    return match ? decodeURIComponent(match[1]) : '';
+}
+
+/**
  * 获取CSRF令牌
  * @returns {string} CSRF令牌
  */
 function getCsrfToken() {
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-    return csrfToken ? csrfToken.value : '';
+    if (csrfToken && csrfToken.value) {
+        return csrfToken.value;
+    }
+
+    return getCookie('csrftoken');
+}
+
+/**
+ * 转义HTML内容，避免动态表格/弹窗内容注入HTML。
+ * @param {*} value 待转义的值
+ * @returns {string} 安全HTML字符串
+ */
+function escapeHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, function(char) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[char];
+    });
+}
+
+/**
+ * 转义HTML属性值，补充处理反引号。
+ * @param {*} value 待转义的值
+ * @returns {string} 安全属性字符串
+ */
+function escapeAttr(value) {
+    return escapeHtml(value).replace(/`/g, '&#96;');
+}
+
+/**
+ * 打开右侧iframe弹窗，统一列表页新增/编辑体验。
+ * @param {object} layer Layui layer实例
+ * @param {string} title 弹窗标题
+ * @param {string} url iframe地址
+ * @param {object} options 弹窗配置
+ * @returns {*} layer.open返回值
+ */
+function openRightPopup(layer, title, url, options = {}) {
+    const width = options.width || '80%';
+    const height = options.height || '100%';
+    const onClose = options.onClose;
+
+    return layer.open({
+        type: 2,
+        title: title,
+        shadeClose: options.shadeClose === true,
+        shade: options.shade === undefined ? 0.3 : options.shade,
+        maxmin: options.maxmin !== false,
+        area: [width, height],
+        offset: options.offset || 'r',
+        anim: options.anim === undefined ? 2 : options.anim,
+        content: url,
+        success: function(layero) {
+            if (layero && typeof layero.css === 'function') {
+                layero.css({
+                    right: '0',
+                    top: '0',
+                    height: height
+                });
+            }
+            if (typeof options.success === 'function') {
+                options.success(layero);
+            }
+        },
+        end: function() {
+            if (typeof onClose === 'function') {
+                onClose();
+            }
+        }
+    });
 }
 
 /**
  * 页面加载完成后执行
  */
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DTCall Common JS loaded');
     
     if (typeof jQuery !== 'undefined') {
         jQuery(document).ajaxError(function(event, xhr, settings, error) {
@@ -164,6 +247,23 @@ if (typeof module !== 'undefined' && module.exports) {
         showMessage,
         formatDate,
         ajaxRequest,
-        getCsrfToken
+        getCookie,
+        getCsrfToken,
+        escapeHtml,
+        escapeAttr,
+        openRightPopup
+    };
+}
+
+if (typeof window !== 'undefined') {
+    window.DTCallCommon = {
+        showMessage,
+        formatDate,
+        ajaxRequest,
+        getCookie,
+        getCsrfToken,
+        escapeHtml,
+        escapeAttr,
+        openRightPopup
     };
 }

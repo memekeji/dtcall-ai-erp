@@ -294,6 +294,7 @@ class DiskShare(models.Model):
         default='download',
         verbose_name='权限类型')
     allow_download = models.BooleanField(default=True, verbose_name='允许下载')
+    allow_preview = models.BooleanField(default=True, verbose_name='允许预览')
 
     access_limit = models.IntegerField(default=0, verbose_name='访问次数限制(0为无限制)')
     access_count = models.IntegerField(default=0, verbose_name='访问次数')
@@ -320,35 +321,49 @@ class DiskShare(models.Model):
             return timezone.now() > self.expire_time
         return False
 
-    def can_access(self):
+    def has_visitor_ip(self, ip_address):
+        if not ip_address:
+            return False
+        ips = self.visitor_ips.split(',') if self.visitor_ips else []
+        return ip_address in ips
+
+    def can_access(self, ip_address=None):
         if not self.is_active or self.is_expired():
             return False
         if self.access_limit > 0 and self.access_count >= self.access_limit:
-            return False
+            return self.has_visitor_ip(ip_address)
         return True
 
-    def can_download(self):
-        if not self.can_access() or not self.allow_download:
+    def can_download(self, ip_address=None):
+        if not self.can_access(ip_address) or not self.allow_download:
             return False
         if self.download_limit > 0 and self.download_count >= self.download_limit:
             return False
         return True
 
-    def can_preview(self):
-        return self.can_download()
+    def can_preview(self, ip_address=None):
+        if not self.can_access(ip_address) or not self.allow_preview:
+            return False
+        return True
 
     def record_preview(self):
-        self.access_count += 1
-        self.save(update_fields=['access_count', 'update_time'])
+        if self.pk:
+            self.save(update_fields=['update_time'])
 
     def record_access(self, ip_address):
-        self.access_count += 1
+        update_fields = ['update_time']
         if ip_address:
             ips = self.visitor_ips.split(',') if self.visitor_ips else []
             if ip_address not in ips:
                 ips.append(ip_address)
                 self.visitor_ips = ','.join(ips[-100:])
-        self.save(update_fields=['access_count', 'visitor_ips', 'update_time'])
+                self.access_count += 1
+                update_fields.extend(['access_count', 'visitor_ips'])
+        elif self.access_limit == 0:
+            self.access_count += 1
+            update_fields.append('access_count')
+        if self.pk:
+            self.save(update_fields=update_fields)
 
     def record_download(self):
         self.download_count += 1

@@ -1,0 +1,174 @@
+{% extends "home/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="layui-fluid">
+    <div class="layui-row layui-col-space15">
+        <div class="layui-col-md12">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <div class="layui-row">
+                        <div class="layui-col-sm6 layui-col-md4">
+                            <h3>{{ page_title }}</h3>
+                        </div>
+                        <div class="layui-col-sm6 layui-col-md8" style="text-align: right;">
+                            {% block toolbar %}
+                            {% endblock %}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-card-body">
+                    <div class="layui-form-item" style="margin-bottom: 15px;">
+                        <form class="layui-form" id="searchForm" lay-filter="searchForm">
+                            {% csrf_token %}
+                            {% block search_form %}
+                            {% endblock %}
+                            <div class="layui-input-inline">
+                                <button type="submit" class="layui-btn layui-btn-sm" lay-submit lay-filter="doSearch">
+                                    <i class="layui-icon layui-icon-search"></i> 搜索
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <table id="dataTable" lay-filter="dataTable"></table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/html" id="operationBar">
+    <button class="layui-btn layui-btn-xs" lay-event="edit">编辑</button>
+    <button class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</button>
+</script>
+
+<script src="{% static 'js/common.js' %}"></script>
+<script>
+layui.use(['table', 'form', 'layer', 'jquery'], function() {
+    var table = layui.table;
+    var form = layui.form;
+    var layer = layui.layer;
+    var $ = layui.jquery;
+    var common = window.DTCallCommon || {};
+    var escapeHtml = common.escapeHtml || function(value) { return String(value || ''); };
+    var escapeAttr = common.escapeAttr || escapeHtml;
+    var getCsrfToken = common.getCsrfToken || function() {
+        var token = document.querySelector('[name=csrfmiddlewaretoken]');
+        return token ? token.value : '';
+    };
+    var openRightPopup = common.openRightPopup || function(layerInstance, title, url, options) {
+        options = options || {};
+        return layerInstance.open({
+            type: 2,
+            title: title,
+            area: [options.width || '80%', options.height || '100%'],
+            content: url,
+            end: options.onClose
+        });
+    };
+
+    var API_URLS = {
+        list: "{% if list_url %}{{ list_url }}{% else %}{% endif %}".trim() || '/',
+        add: "{% if add_url %}{{ add_url }}{% else %}{% endif %}".trim() || '',
+        edit: "{% if edit_url %}{{ edit_url }}{% else %}{% endif %}".trim() || '',
+        delete: "{% if delete_url %}{{ delete_url }}{% else %}{% endif %}".trim() || ''
+    };
+
+    {% block table_columns_config %}
+    var tableColumns = [
+        {field: 'id', title: 'ID', width: 80},
+        {field: 'name', title: '名称', width: 150},
+        {field: 'code', title: '代码', width: 120},
+        {field: 'right', title: '操作', width: 120, templet: '#operationBar'}
+    ];
+    {% endblock %}
+
+    table.render({
+        elem: '#dataTable',
+        url: API_URLS.list,
+        page: true,
+        limit: 10,
+        limits: [10, 20, 50, 100],
+        cols: [tableColumns]
+    });
+
+    form.on('submit(doSearch)', function(data) {
+        table.reload('dataTable', {
+            where: data.field,
+            page: { curr: 1 }
+        });
+        return false;
+    });
+
+    window.refreshTable = function() {
+        table.reload('dataTable');
+    };
+
+    window.addItem = function() {
+        if (!API_URLS.add) {
+            layer.msg('新增功能未配置');
+            return;
+        }
+        openRightPopup(layer, '新增', API_URLS.add, {
+            onClose: refreshTable
+        });
+    };
+
+    window.editItem = function(id) {
+        var editUrl = API_URLS.edit.replace('{id}', id);
+        if (!editUrl) {
+            layer.msg('编辑功能未配置');
+            return;
+        }
+        openRightPopup(layer, '编辑', editUrl, {
+            onClose: refreshTable
+        });
+    };
+
+    window.deleteItem = function(id) {
+        var deleteUrl = API_URLS.delete.replace('{id}', id);
+        if (!deleteUrl) {
+            layer.msg('删除功能未配置');
+            return;
+        }
+
+        layer.confirm('确认删除这条记录吗？', function(index) {
+            $.ajax({
+                url: deleteUrl,
+                type: 'POST',
+                data: {csrfmiddlewaretoken: getCsrfToken()},
+                success: function(res) {
+                    if (res.success || res.code === 0) {
+                        layer.msg('删除成功');
+                        refreshTable();
+                    } else {
+                        layer.msg(res.message || res.msg || '删除失败');
+                    }
+                },
+                error: function() {
+                    layer.msg('网络错误或服务器异常');
+                }
+            });
+            layer.close(index);
+        });
+    };
+
+    table.on('tool(dataTable)', function(obj) {
+        var data = obj.data;
+        var layEvent = obj.event;
+
+        if (layEvent === 'edit') {
+            editItem(data.id);
+        } else if (layEvent === 'delete') {
+            deleteItem(data.id);
+        }
+    });
+
+    {% block extra_js %}
+    {% endblock %}
+    {% block table_extra_js %}
+    {% endblock %}
+});
+</script>
+{% endblock %}

@@ -2,6 +2,7 @@ import logging
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from .models import ProductionPlan, ProductionTask
+from apps.ai.services.business_result import build_business_ai_result
 from apps.ai.utils.analysis_tools import AIAnalysisTool
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,15 @@ class ProductionAnalysisTool(AIAnalysisTool):
 
 default_production_analysis_tool = ProductionAnalysisTool()
 
+def _normalize_production_ai_result(raw_result, plan, request=None, raw_input=None):
+    return build_business_ai_result(
+        raw_result,
+        scenario='production_optimization',
+        source_refs=[{'type': 'production_plan', 'id': plan.id}],
+        request=request,
+        raw_input=raw_input,
+    )
+
 @login_required
 def ai_production_optimization(request, plan_id):
     try:
@@ -36,8 +46,14 @@ def ai_production_optimization(request, plan_id):
         tasks_data = [{"name": t.name, "status": t.status} for t in tasks]
         
         result = default_production_analysis_tool.optimize_plan(plan_data, tasks_data)
+        normalized_result = _normalize_production_ai_result(
+            result,
+            plan,
+            request=request,
+            raw_input={'plan': plan_data, 'task_count': len(tasks_data)},
+        )
         
-        return JsonResponse({'code': 0, 'msg': '优化建议生成成功', 'data': result})
+        return JsonResponse({'code': 0, 'msg': '优化建议生成成功', 'data': normalized_result})
     except ProductionPlan.DoesNotExist:
         return JsonResponse({'code': 404, 'msg': '生产计划不存在'}, status=404)
     except Exception as e:

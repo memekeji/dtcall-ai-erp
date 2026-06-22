@@ -94,6 +94,36 @@
         .file-grid-item {
             display: flex;
             flex-direction: column;
+            position: relative;
+        }
+        
+        .file-grid-item.selected {
+            border-color: #1E9FFF;
+            box-shadow: 0 0 0 2px rgba(30, 159, 255, 0.18), 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .item-select {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            z-index: 5;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.92);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.16);
+            cursor: pointer;
+        }
+        
+        .item-select-checkbox {
+            width: 16px;
+            height: 16px;
+            margin: 0;
+            cursor: pointer;
+            accent-color: #1E9FFF;
         }
         
         /* 文件内容预览区域 */
@@ -334,7 +364,10 @@
         <div class="grid-container">
             <!-- 文件 -->
             {% for file in starred_files %}
-            <div class="grid-item file-grid-item" data-type="file" data-id="{{ file.id }}" oncontextmenu="showContextMenu(event, 'file', '{{ file.id }}')" onclick="if (!event.target.closest('.file-actions')) { toggleItemSelection('file', '{{ file.id }}'); } (window.event || event).stopPropagation();" ondblclick="previewFile('{{ file.id }}', '{{ file.name }}', '{{ file.file_type }}'); (window.event || event).stopPropagation();">
+            <div class="grid-item file-grid-item" data-type="file" data-id="{{ file.id }}" oncontextmenu="showContextMenu(event, 'file', '{{ file.id }}')" onclick="if (!event.target.closest('.file-actions, .item-select')) { previewFile('{{ file.id }}', '{{ file.name }}', '{{ file.file_type }}'); } (window.event || event).stopPropagation();">
+                <label class="item-select" onclick="event.stopPropagation();">
+                    <input type="checkbox" class="item-select-checkbox" data-type="file" data-id="{{ file.id }}" onchange="setItemSelection(this)">
+                </label>
                 <div class="file-preview">
                     {% if file.file_type == 'image' %}
                     <img src="/disk/download/{{ file.id }}/" alt="{{ file.name }}" style="pointer-events: none;">
@@ -617,7 +650,6 @@
                 // 确保fileId是字符串类型
                 var strFileId = String(fileId);
                 // 调试：打印传递的参数
-                console.log('预览参数:', { fileId: strFileId, fileName: fileName, fileType: fileType });
                 // 修复：使用正确的URL格式，移除adm前缀
                 var previewUrl = '/disk/preview/?file_id=' + strFileId + '&file_name=' + encodeURIComponent(fileName) + '&file_type=' + fileType;
                 
@@ -756,15 +788,42 @@
             }
         }
         
+        function syncItemSelectionUI(type, id, selected) {
+            document.querySelectorAll(`.file-grid-item[data-type="${type}"][data-id="${id}"]`).forEach(function(item) {
+                item.classList.toggle('selected', selected);
+            });
+            document.querySelectorAll(`.item-select-checkbox[data-type="${type}"][data-id="${id}"]`).forEach(function(checkbox) {
+                checkbox.checked = selected;
+            });
+        }
+        
+        function setItemSelection(checkbox) {
+            const type = checkbox.dataset.type;
+            const id = checkbox.dataset.id;
+            const index = selectedItems.findIndex(item => item.type === type && item.id === id);
+            
+            if (checkbox.checked && index === -1) {
+                selectedItems.push({ type, id });
+            } else if (!checkbox.checked && index > -1) {
+                selectedItems.splice(index, 1);
+            }
+            
+            syncItemSelectionUI(type, id, checkbox.checked);
+            updateBatchActions();
+        }
+        
         function toggleItemSelection(type, id) {
             const index = selectedItems.findIndex(item => item.type === type && item.id === id);
+            let selected = false;
             
             if (index > -1) {
                 selectedItems.splice(index, 1);
             } else {
                 selectedItems.push({ type, id });
+                selected = true;
             }
             
+            syncItemSelectionUI(type, id, selected);
             updateBatchActions();
         }
         
@@ -805,6 +864,9 @@
         }
         
         function clearSelection() {
+            selectedItems.forEach(function(item) {
+                syncItemSelectionUI(item.type, item.id, false);
+            });
             selectedItems = [];
             updateBatchActions();
         }

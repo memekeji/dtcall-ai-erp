@@ -300,6 +300,11 @@ class Contract(models.Model):
         max_length=500,
         default='',
         verbose_name='相关附件ID')
+    scan_file = models.FileField(
+        upload_to='contract_scans/%Y/%m/',
+        null=True,
+        blank=True,
+        verbose_name='合同扫描件')
     sign_time = models.BigIntegerField(verbose_name='合同签订时间', default=0)
     did = models.IntegerField(default=0, verbose_name='合同所属部门')
     cost = models.DecimalField(
@@ -353,6 +358,12 @@ class Contract(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def scan_file_name(self):
+        if not self.scan_file:
+            return ''
+        return self.scan_file.name.rsplit('/', 1)[-1]
 
 
 class Product(models.Model):

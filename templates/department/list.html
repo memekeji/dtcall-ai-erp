@@ -306,6 +306,7 @@
 
     <script src="{% static 'js/jquery.min.js' %}"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/common.js' %}"></script>
     <script>
         function closeSlidePanel() {
             const panel = document.getElementById('slidePanelWrapper');
@@ -318,7 +319,7 @@
         }
 
         // 获取CSRF令牌的辅助函数
-        function getCookie(name) {
+        var getCookie = (window.DTCallCommon && window.DTCallCommon.getCookie) || function(name) {
             var cookieValue = null;
             if (document.cookie && document.cookie !== '') {
                 var cookies = document.cookie.split(';');
@@ -331,7 +332,7 @@
                 }
             }
             return cookieValue;
-        }
+        };
 
         // 设置全局AJAX请求头，包含CSRF令牌
         $.ajaxSetup({
@@ -348,7 +349,6 @@
 
             // 渲染部门树形结构
             var departmentData = JSON.parse('{{ department_tree_json|safe|default:"[]" }}');
-            console.log('部门树形数据:', departmentData);
             if (departmentData && departmentData.length > 0) {
                 layui.tree.render({
                     elem: '#departmentTree',

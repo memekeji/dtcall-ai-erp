@@ -38,6 +38,7 @@ from apps.personal.models import MeetingMinutes
 from apps.project.models import Project, Task
 from apps.user.models import Admin as User
 from apps.work.models import WorkCate
+from apps.ai.services.business_result import build_business_ai_result
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +106,7 @@ class ScheduleAddView(LoginRequiredMixin, View):
     def get(self, request):
         categories = WorkCate.objects.all().order_by('title')
         tasks = Task.objects.all().order_by('-id')[:200]
-        now = timezone.localtime()
+        now = timezone.localtime(timezone.now())
         context = {
             'categories': categories,
             'tasks': tasks,
@@ -335,7 +336,7 @@ class MeetingApplyView(LoginRequiredMixin, View):
     def get(self, request):
         rooms = MeetingRoom.objects.filter(status=StatusChoices.ACTIVE)
         users = User.objects.all().order_by('name', 'username')
-        now = timezone.localtime()
+        now = timezone.localtime(timezone.now())
         context = {
             'rooms': rooms,
             'users': users,
@@ -623,12 +624,20 @@ class MeetingMinutesView(LoginRequiredMixin, View):
                 minutes.content = str(ai_result)
 
             minutes.save()
+            minutes_result = build_business_ai_result(
+                {
+                    'content': minutes.content,
+                    'decisions': minutes.decisions,
+                    'action_items': minutes.action_items,
+                    'summary': minutes.content,
+                },
+                scenario='oa_meeting_minutes_generation',
+                source_refs=[{'type': 'meeting', 'id': meeting.id}],
+                request=request,
+                raw_input={'meeting_id': meeting.id, 'participant_count': meeting.participants.count()},
+            )
 
-            return success_response({
-                'content': minutes.content,
-                'decisions': minutes.decisions,
-                'action_items': minutes.action_items
-            }, 'AI生成会议纪要成功')
+            return success_response(minutes_result, 'AI生成会议纪要成功')
 
         except Exception as e:
             logger.error(f"AI生成会议纪要失败: {str(e)}")
@@ -965,13 +974,22 @@ def save_audio(request):
         transcript = _process_audio_and_generate_minutes(
             meeting, relative_path, request.user)
 
-        return ajax_success_response({
-            'content': transcript.get('content', ''),
-            'decisions': transcript.get('decisions', ''),
-            'action_items': transcript.get('action_items', ''),
-            'file_path': relative_path,
-            'meeting_id': meeting_id
-        }, '音频保存和会议纪要生成完成')
+        transcript_result = build_business_ai_result(
+            {
+                'content': transcript.get('content', ''),
+                'decisions': transcript.get('decisions', ''),
+                'action_items': transcript.get('action_items', ''),
+                'file_path': relative_path,
+                'meeting_id': meeting_id,
+                'summary': transcript.get('content', ''),
+            },
+            scenario='oa_meeting_audio_minutes',
+            source_refs=[{'type': 'meeting', 'id': meeting_id}],
+            request=request,
+            raw_input={'meeting_id': meeting_id, 'audio_file_ext': ext_with_dot},
+        )
+
+        return ajax_success_response(transcript_result, '音频保存和会议纪要生成完成')
 
     except Exception as e:
         logger.error(f"保存录音失败: {str(e)}", exc_info=True)

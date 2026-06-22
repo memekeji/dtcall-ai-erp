@@ -1,8 +1,9 @@
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta, datetime
 from decimal import Decimal
+import os
 import random
 from apps.production.models import (
     ProductionProcedure, ProcedureSet, ProcedureSetItem, BOM, BOMItem,
@@ -131,7 +132,10 @@ class Command(BaseCommand):
             }
         )
         if created:
-            admin_user.set_password('admin123')
+            password = os.environ.get('INIT_ADMIN_PASSWORD', '').strip()
+            if not password:
+                raise CommandError('INIT_ADMIN_PASSWORD must be set before creating admin user')
+            admin_user.set_password(password)
             admin_user.save()
             self.stdout.write(self.style.SUCCESS('创建管理员用户: admin'))
         return admin_user

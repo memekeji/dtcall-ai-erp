@@ -8,7 +8,6 @@ from django.core.serializers.json import DjangoJSONEncoder
 import json
 import logging
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import login_required
 from django.views import View
@@ -319,7 +318,6 @@ def department_employees_api(request, department_id):
 
 
 @method_decorator(login_required, name='dispatch')
-@method_decorator(csrf_exempt, name='dispatch')
 class DepartmentCodeGenerateView(PermissionRequiredMixin, View):
     """部门编号生成"""
     permission_required = 'department.change_department'
@@ -356,7 +354,6 @@ class DepartmentCodeGenerateView(PermissionRequiredMixin, View):
 
 
 @method_decorator(login_required, name='dispatch')
-@method_decorator(csrf_exempt, name='dispatch')
 class DepartmentManagersView(PermissionRequiredMixin, View):
     """获取部门负责人列表"""
     permission_required = 'department.view_department'
@@ -389,7 +386,6 @@ class DepartmentManagersView(PermissionRequiredMixin, View):
 # AJAX视图：获取负责人联系电话
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 @method_decorator(login_required, name='dispatch')
 class ManagerPhoneView(PermissionRequiredMixin, View):
     """获取负责人联系电话"""
@@ -477,7 +473,6 @@ class ManagerSelectView(PermissionRequiredMixin, View):
 """
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 @method_decorator(login_required, name='dispatch')
 class DepartmentChangeStatusView(PermissionRequiredMixin, View):
     """修改部门状态（启用/禁用）"""

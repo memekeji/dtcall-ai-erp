@@ -217,6 +217,42 @@ urlpatterns = [
         'public/ai-robot/data/',
         views.AIRobotDataView.as_view(),
         name='ai_robot_data'),
+    path(
+        'public/ai-robot/execute/',
+        views.AIRobotExecuteView.as_view(),
+        name='ai_robot_execute'),
+    path(
+        'public/ai-robot/config/',
+        views.AIRobotConfigView.as_view(),
+        name='ai_robot_config'),
+    path(
+        'public/ai-robot/validate/',
+        views.AIRobotValidateView.as_view(),
+        name='ai_robot_validate'),
+    path(
+        'public/ai-robot/logs/',
+        views.AIRobotLogView.as_view(),
+        name='ai_robot_logs'),
+    path(
+        'public/ai-robot/marketing/data/',
+        views.MarketingRobotDataView.as_view(),
+        name='marketing_robot_data'),
+    path(
+        'public/ai-robot/marketing/config/',
+        views.MarketingRobotConfigView.as_view(),
+        name='marketing_robot_config'),
+    path(
+        'public/ai-robot/marketing/execute/',
+        views.MarketingRobotExecuteView.as_view(),
+        name='marketing_robot_execute'),
+    path(
+        'public/ai-robot/marketing/validate/',
+        views.MarketingRobotValidateView.as_view(),
+        name='marketing_robot_validate'),
+    path(
+        'public/ai-robot/marketing/logs/',
+        views.MarketingRobotLogView.as_view(),
+        name='marketing_robot_logs'),
 
     # 爬虫任务管理
     path(

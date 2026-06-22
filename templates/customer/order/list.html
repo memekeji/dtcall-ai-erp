@@ -231,7 +231,6 @@
                             },
                             done: function(res, curr, count) {
                                 // 表格渲染完成后的回调
-                                console.log('订单数据加载完成，共' + count + '条数据');
                             }
                         });
                     } catch (e) {
@@ -616,7 +615,7 @@
                                             });
                                         }
                                     } catch (e) {
-                                        console.log('日期选择器未加载:', e);
+                                        console.warn('日期选择器未加载:', e);
                                     }
                                 
                                     // 表单提交

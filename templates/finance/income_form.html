@@ -6,7 +6,7 @@
 {% block head %}
     <style>
         body {
-            background: #f8f9fa;
+            background: #f5f7fb;
             font-family: 'Microsoft YaHei', sans-serif;
         }
         .form-container {
@@ -14,11 +14,12 @@
             margin: 20px auto;
             background: #fff;
             border-radius: 8px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            border: 1px solid #e5edf8;
+            box-shadow: 0 10px 28px rgba(15, 35, 80, 0.08);
             overflow: hidden;
         }
         .form-header {
-            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%);
             color: white;
             padding: 20px 30px;
             position: relative;
@@ -35,11 +36,11 @@
         }
         .form-header h2 {
             margin: 0;
-            font-size: 24px;
-            font-weight: 300;
+            font-size: 20px;
+            font-weight: 600;
             position: relative;
             z-index: 1;
-            color: #333;
+            color: #fff;
         }
         .form-header .subtitle {
             margin: 5px 0 0 0;
@@ -47,7 +48,7 @@
             font-size: 14px;
             position: relative;
             z-index: 1;
-            color: #555;
+            color: rgba(255, 255, 255, 0.9);
         }
         .form-body {
             padding: 30px;
@@ -71,8 +72,8 @@
             transition: all 0.3s ease;
         }
         .layui-input:focus, .layui-textarea:focus {
-            border-color: #a8edea;
-            box-shadow: 0 0 0 2px rgba(168, 237, 234, 0.2);
+            border-color: #1677ff;
+            box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.10);
         }
         .required-field::after {
             content: '*';
@@ -84,7 +85,7 @@
             padding: 20px;
             background: #f8f9fa;
             border-radius: 6px;
-            border-left: 4px solid #a8edea;
+            border-left: 4px solid #1677ff;
         }
         .section-title {
             font-size: 16px;
@@ -96,7 +97,7 @@
         }
         .section-title i {
             margin-right: 8px;
-            color: #a8edea;
+            color: #1677ff;
         }
         .form-actions {
             text-align: center;
@@ -107,18 +108,18 @@
         }
         .layui-btn {
             padding: 10px 30px;
-            border-radius: 25px;
+            border-radius: 6px;
             font-weight: 500;
             transition: all 0.3s ease;
         }
         .layui-btn-normal {
-            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%);
             border: none;
-            color: #333;
+            color: #fff;
         }
         .layui-btn-normal:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(168, 237, 234, 0.4);
+            box-shadow: 0 6px 16px rgba(22, 119, 255, 0.22);
         }
         .layui-btn-primary {
             background: #fff;
@@ -126,8 +127,8 @@
             color: #666;
         }
         .layui-btn-primary:hover {
-            border-color: #a8edea;
-            color: #a8edea;
+            border-color: #1677ff;
+            color: #1677ff;
         }
         .amount-input {
             position: relative;
@@ -179,8 +180,8 @@
             cursor: pointer;
         }
         .upload-area:hover {
-            border-color: #a8edea;
-            background: rgba(168, 237, 234, 0.05);
+            border-color: #1677ff;
+            background: rgba(22, 119, 255, 0.05);
         }
         .upload-icon {
             font-size: 48px;
@@ -195,7 +196,7 @@
             overflow: hidden;
         }
         .progress-fill {
-            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            background: linear-gradient(90deg, #1677ff 0%, #06b6d4 100%);
             height: 100%;
             border-radius: 10px;
             transition: width 0.3s ease;
@@ -227,7 +228,7 @@
                     <div class="layui-form-item">
                         <label class="layui-form-label required-field">关联发票</label>
                         <div class="layui-input-block">
-                            <select name="invoice" class="layui-select" required lay-filter="invoice">
+                            <select name="invoice_id" class="layui-select" required lay-filter="invoice">
                                 <option value="">请选择发票</option>
                                 {% for invoice in invoices %}
                                 <option value="{{ invoice.id }}" 
@@ -235,7 +236,7 @@
                                         data-amount="{{ invoice.amount }}"
                                         data-title="{{ invoice.invoice_title }}"
                                         data-entered="{{ invoice.enter_amount|default:0 }}"
-                                        {% if form.invoice.value == invoice.id %}selected{% endif %}>
+                                        {% if form.invoice_id.value == invoice.id %}selected{% endif %}>
                                     {{ invoice.code }} - ¥{{ invoice.amount }} ({{ invoice.invoice_title }})
                                 </option>
                                 {% endfor %}
@@ -442,24 +443,7 @@
             
             // 监听提交
             form.on('submit(submit)', function(data) {
-                var loadIndex = layer.load(2, {shade: [0.3, '#000']});
-                
-                setTimeout(function() {
-                    layer.close(loadIndex);
-                    layer.msg('收款成功', {icon: 1}, function() {
-                        if(parent && parent.layer) {
-                            var index = parent.layer.getFrameIndex(window.name);
-                            parent.layer.close(index);
-                        } else {
-                            closePopup();
-                        }
-                        if(parent.layui && parent.layui.table) {
-                            parent.layui.table.reload('incomeTable');
-                        }
-                    });
-                }, 1000);
-                
-                return false; // 阻止表单跳转
+                return true;
             });
             
             // 金额输入格式化
@@ -471,9 +455,15 @@
             });
             
             // 初始化显示已选择的发票信息
-            var selectedInvoice = $('select[name="invoice"]').val();
+            var selectedInvoice = $('select[name="invoice_id"]').val();
             if(selectedInvoice) {
-                form.trigger('select(invoice)', {value: selectedInvoice});
+                $('select[name="invoice_id"]').next().find('input').trigger('change');
+                var option = $('select[name="invoice_id"] option:selected');
+                $('#invoiceCode').text(option.data('code'));
+                $('#invoiceAmount').text('¥' + parseFloat(option.data('amount')).toFixed(2));
+                $('#invoiceTitle').text(option.data('title'));
+                $('#enteredAmount').text('¥' + (parseFloat(option.data('entered')) || 0).toFixed(2));
+                $('#invoiceInfo').show();
             }
         });
     </script>

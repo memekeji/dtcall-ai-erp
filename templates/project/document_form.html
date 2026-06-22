@@ -106,10 +106,8 @@
                 size: 51200, // 50MB
                 auto: true,
                 choose: function(obj) {
-                    console.log('File chosen');
                     // 预读本地文件
                     obj.preview(function(index, file, result) {
-                        console.log('File preview:', file.name);
                         $('#uploadPreview').html(
                             '<div class="layui-card" style="margin-top: 10px;">' +
                             '<div class="layui-card-body">' +
@@ -120,7 +118,6 @@
                     });
                 },
                 before: function(obj) {
-                    console.log('File upload started');
                     layer.load(); // 显示加载层
                 },
                 done: function(res) {
@@ -142,7 +139,6 @@
                     }
                 },
                 error: function(xhr, status, error) {
-                    console.log('Upload error:', xhr.responseText);
                     layer.closeAll('loading');
                     layer.msg('上传失败: ' + error, { icon: 2 });
                 }
@@ -164,7 +160,6 @@
                 
                 var url = '{% if document %}/adm/project/document/edit/{{ document.id }}/{% else %}/adm/project/document/add/{% endif %}';
                 
-                console.log('Submitting document data:', formData);
                 
                 $.ajax({
                     url: url,
@@ -172,7 +167,6 @@
                     data: formData,
                     dataType: 'json',
                     success: function (res) {
-                        console.log('Document response:', res);
                         if (res.code === 0) {
                             layer.msg(res.msg, { icon: 1 });
                             setTimeout(function () {
@@ -188,7 +182,6 @@
                         }
                     },
                     error: function (xhr, status, error) {
-                        console.log('Document error:', xhr.responseText);
                         layer.msg('提交失败: ' + error, { icon: 2 });
                     }
                 });
@@ -204,15 +197,7 @@
         
         // 引入统一预览组件
         $.getScript("{% static 'js/office_preview.js' %}", function() {
-            console.log('Office preview component loaded');
         });
-
-        // 获取文件扩展名
-        function getFileExtension(filename) {
-            var lastDotIndex = filename.lastIndexOf('.');
-            if (lastDotIndex === -1) return '';
-            return filename.substring(lastDotIndex).toLowerCase();
-        }
         
         // 预览附件文件
         function previewAttachment(filePath, extension) {
@@ -252,51 +237,22 @@
                 } else if (['.mp3', '.wav', '.ogg', '.flac'].includes(extension)) {
                     // 音频文件预览
                     layer.close(loadingIndex);
-                    showAudioPreview(fileName, filePath, getMimeType(extension));
+                    showAudioPreview(fileName, filePath, OfficePreviewUtils.getMimeType(extension));
                 } else if (['.mp4', '.webm', '.ogg', '.avi'].includes(extension)) {
                     // 视频文件预览
                     layer.close(loadingIndex);
-                    showVideoPreview(fileName, filePath, getMimeType(extension));
+                    showVideoPreview(fileName, filePath, OfficePreviewUtils.getMimeType(extension));
                 } else {
                     // 不支持的文件类型或已知文档类型
                     if (['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'].includes(extension)) {
                           layer.close(loadingIndex);
-                          // Office文档使用统一预览组件
-                          var previewData = {
-                              name: fileName,
-                              office_type: extension.substring(1).toUpperCase(),
-                              file_path: filePath,
-                              // 由于是直接文件路径，我们需要模拟preview_options数据
-                              preview_options: [{
-                                  name: '文档内容',
-                                  type: 'iframe',
-                                  content: filePath
-                              }]
-                          };
-                          
-                          // 调用统一预览组件
-                          standardOfficePreview(previewData);
+                          standardOfficePreview(OfficePreviewUtils.buildOfficePreviewData(fileName, filePath, extension));
                     } else {
                         layer.close(loadingIndex);
                         layer.msg('不支持此文件类型的预览', {icon: 0});
                     }
                 }
             });
-        }
-
-        // 获取文件MIME类型
-        function getMimeType(extension) {
-            const mimeTypes = {
-                '.mp3': 'audio/mpeg',
-                '.wav': 'audio/wav',
-                '.ogg': 'audio/ogg',
-                '.flac': 'audio/flac',
-                '.mp4': 'video/mp4',
-                '.webm': 'video/webm',
-                '.ogg': 'video/ogg',
-                '.avi': 'video/avi'
-            };
-            return mimeTypes[extension] || 'application/octet-stream';
         }
 
         // 显示文本预览
@@ -527,17 +483,6 @@
             });
         }
 
-        // HTML转义函数
-        function escapeHtml(text) {
-            var map = {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#039;'
-            };
-            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
-        }
     </script>
 </body>
 

@@ -6,7 +6,8 @@ from django.db.models import Sum
 from django.db import transaction
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
+from decimal import Decimal
 
 # 初始化日志器
 logger = logging.getLogger(__name__)
@@ -99,8 +100,10 @@ class DataSyncService:
                         orders = CustomerOrder.objects.filter(
                             customer=customer)
                         orders.count()
-                        completed_orders = orders.filter(
-                            status='completed').count()
+                        try:
+                            completed_orders = orders.filter(status__in=['completed', 'delivered']).count()
+                        except (ValueError, TypeError):
+                            completed_orders = 0
                         total_order_amount = orders.aggregate(
                             Sum('amount'))['amount__sum'] or 0
 
@@ -111,7 +114,7 @@ class DataSyncService:
                         total_invoice_amount = invoices.aggregate(
                             Sum('amount'))['amount__sum'] or 0
                         paid_invoice_amount = invoices.filter(
-                            status='paid').aggregate(
+                            enter_status=2).aggregate(
                             Sum('amount'))['amount__sum'] or 0
 
                     # 计算项目统计数据
@@ -120,7 +123,7 @@ class DataSyncService:
                             customer_id=customer.id)
                         projects.count()
                         completed_projects = projects.filter(
-                            status='completed').count()
+                            status=3).count()
 
                     logger.info(
                         f"客户 {customer.name} 同步完成: 合同总数={total_contracts}, 总金额={total_amount}")
@@ -156,14 +159,17 @@ class DataSyncService:
             existing_project = Project.objects.filter(
                 contract_id=contract_id).first()
 
-            # 根据合同状态映射项目状态
+            # 根据合同状态映射项目状态（Project使用整数状态码）
             status_map = {
-                'signed': 'not_started',      # 已签署 -> 未开始
-                'executing': 'in_progress',   # 执行中 -> 进行中
-                'completed': 'completed',     # 已完成 -> 已完成
-                'terminated': 'closed'        # 已终止 -> 已关闭
+                'signed': 1,      # 已签署 -> 未开始
+                'executing': 2,   # 执行中 -> 进行中
+                'completed': 3,     # 已完成 -> 已完成
+                'terminated': 4,    # 已终止 -> 已关闭
+                'draft': 0,         # 草稿 -> 未设置
+                'pending': 0,       # 待审核 -> 未设置
+                'approved': 1,      # 已审核 -> 未开始
             }
-            project_status = status_map.get(contract.status, 'not_started')
+            project_status = status_map.get(contract.status, 1)
 
             if not existing_project:
                 # 创建新项目
@@ -171,26 +177,25 @@ class DataSyncService:
                     'name': contract.name,
                     'customer_id': contract.customer.id,
                     'contract_id': contract_id,
-                    'contract_number': contract.contract_number,  # 保存合同编号
+                    'code': contract.contract_number,  # 合同编号作为项目编号
                     'budget': contract.amount,
                     'status': project_status,
-                    'create_user_id': contract.create_user.id if hasattr(contract, 'create_user') and contract.create_user else None,
-                    'delete_time': 0  # 确保不被标记为删除
+                    'creator_id': contract.create_user.id if hasattr(contract, 'create_user') and contract.create_user else None,
+                    'auto_generated': True,
                 }
 
                 # 设置时间字段（如果有）
                 if contract.sign_date:
-                    project_data['start_time'] = contract.sign_date
+                    project_data['start_date'] = contract.sign_date
                 if contract.end_date:
-                    project_data['end_time'] = contract.end_date
+                    project_data['end_date'] = contract.end_date
 
                 project = Project.objects.create(**project_data)
                 logger.info(f"为合同 {contract_id} 创建了新的项目 {project.id}")
 
                 # 添加项目描述信息
-                if hasattr(project, 'description'):
-                    project.description = f"由合同自动创建: {contract.name}"
-                    project.save()
+                project.description = f"由合同自动创建: {contract.name}"
+                project.save()
 
             else:
                 # 更新现有项目
@@ -198,18 +203,17 @@ class DataSyncService:
                 existing_project.customer_id = contract.customer.id
                 existing_project.budget = contract.amount
                 existing_project.status = project_status  # 同步状态更新
+                existing_project.auto_generated = True
 
                 # 更新时间字段（如果有）
                 if contract.sign_date:
-                    existing_project.start_time = contract.sign_date
+                    existing_project.start_date = contract.sign_date
                 if contract.end_date:
-                    existing_project.end_time = contract.end_date
+                    existing_project.end_date = contract.end_date
 
-                # 确保合同编号已设置
-                if hasattr(
-                        existing_project,
-                        'contract_number') and not existing_project.contract_number:
-                    existing_project.contract_number = contract.contract_number
+                # 确保合同编号已设置（使用code字段存储合同编号）
+                if not existing_project.code:
+                    existing_project.code = contract.contract_number
 
                 existing_project.save()
                 logger.info(
@@ -272,29 +276,25 @@ class DataSyncService:
 
             # 订单状态映射到支付状态
             status_map = {
-                'created': 'unpaid',         # 已创建 -> 未支付
-                'paid': 'paid',              # 已支付 -> 已支付
-                'partial_paid': 'partial',   # 部分支付 -> 部分
+                'created': 'pending',         # 已创建 -> 待付款
+                'paid': 'paid',              # 已支付 -> 已付款
+                'partial_paid': 'partial',   # 部分支付 -> 部分付款
                 'refunded': 'refunded',      # 已退款 -> 已退款
                 'cancelled': 'cancelled'     # 已取消 -> 已取消
             }
-            payment_status = status_map.get(order.status, 'unpaid')
+            payment_status = status_map.get(order.status, 'pending')
 
-            # 准备财务记录数据
+            # 准备财务记录数据（使用OrderFinanceRecord实际字段名）
             finance_data = {
                 'order_id': order_id,
-                'customer_id': order.customer.id,
-                'amount': order.amount,
-                'status': payment_status
+                'total_amount': order.amount,
+                'payment_status': payment_status,
+                'paid_amount': order.amount if payment_status == 'paid' else Decimal('0'),
             }
 
-            # 添加合同关联（如果有）
-            if hasattr(order, 'contract_id') and order.contract_id:
-                finance_data['contract_id'] = order.contract_id
-
-            # 添加负责人信息（如果有）
-            if hasattr(order, 'create_user_id') and order.create_user_id:
-                finance_data['create_user_id'] = order.create_user_id
+            # 添加到期日（如果有订单日期）
+            if hasattr(order, 'order_date') and order.order_date:
+                finance_data['due_date'] = order.order_date + timedelta(days=30)
 
             if not finance_record:
                 # 创建新的财务记录
@@ -302,25 +302,6 @@ class DataSyncService:
                     **finance_data)
                 logger.info(f"为订单 {order_id} 创建了新的财务记录 {finance_record.id}")
 
-                # 自动生成发票（根据订单状态）
-                if order.status in ['completed', 'paid']:
-                    # 检查是否已存在相关发票
-                    existing_invoice = Invoice.objects.filter(
-                        order_id=order_id).first()
-                    if not existing_invoice:
-                        invoice_data = {
-                            'customer_id': order.customer.id,
-                            'order_id': order_id,
-                            'amount': order.amount,
-                            'invoice_type': 2,  # 普通发票
-                            'enter_status': 0,  # 未回款
-                            'create_user_id': order.create_user.id if hasattr(order, 'create_user') and order.create_user else None
-                        }
-                        if hasattr(order, 'contract_id') and order.contract_id:
-                            invoice_data['contract_id'] = order.contract_id
-
-                        invoice = Invoice.objects.create(**invoice_data)
-                        logger.info(f"为订单 {order_id} 自动创建了发票 {invoice.id}")
             else:
                 # 更新现有财务记录
                 for key, value in finance_data.items():
@@ -330,17 +311,6 @@ class DataSyncService:
                 finance_record.save()
                 logger.info(
                     f"更新了订单 {order_id} 的关联财务记录 {finance_record.id}，状态更新为: {payment_status}")
-
-                # 如果订单状态变更，更新相关发票状态
-                try:
-                    invoices = Invoice.objects.filter(order_id=order_id)
-                    for invoice in invoices:
-                        if payment_status == 'paid' and invoice.enter_status == 0:  # 未回款
-                            invoice.enter_status = 2  # 全部回款
-                            invoice.save()
-                            logger.info(f"已将订单 {order_id} 的发票更新为已回款状态")
-                except Exception as e:
-                    logger.warning(f"更新发票状态时发生警告: {str(e)}")
 
             # 触发客户业务数据同步
             try:

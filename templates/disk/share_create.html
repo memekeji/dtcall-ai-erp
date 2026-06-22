@@ -8,276 +8,852 @@
     <title>创建分享链接</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
     <style>
+        :root {
+            --ink: #17212f;
+            --muted: #687589;
+            --line: #dfe6ee;
+            --soft-line: #edf1f6;
+            --panel: #ffffff;
+            --panel-muted: #f7f9fc;
+            --brand: #126b64;
+            --brand-strong: #0b554f;
+            --brand-soft: #e6f5f2;
+            --accent: #e0a23a;
+            --danger-soft: #fff6ed;
+            --shadow: 0 18px 42px rgba(23, 33, 47, 0.12);
+        }
+
         * {
             box-sizing: border-box;
         }
-        
-        html, body {
-            background-color: #f5f7fa;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            color: #333;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-        }
-        
+
+        html,
         body {
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .share-form {
-            padding: 20px;
             width: 100%;
-            height: 100%;
-            background-color: #fff;
-            border-radius: 0;
-            box-shadow: none;
+            min-height: 100%;
+            margin: 0;
+            color: var(--ink);
+            background:
+                linear-gradient(135deg, rgba(18, 107, 100, 0.10), transparent 36%),
+                linear-gradient(225deg, rgba(224, 162, 58, 0.13), transparent 34%),
+                #eef3f7;
+            font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
         }
-        
-        h2 {
-            margin: 0 0 20px 0;
-            font-size: 18px;
+
+        body {
+            overflow: auto;
+        }
+
+        button,
+        input,
+        select {
+            font: inherit;
+        }
+
+        .share-shell {
+            min-height: 100vh;
+            padding: 18px;
+        }
+
+        .share-panel {
+            min-height: calc(100vh - 36px);
+            overflow: hidden;
+            border: 1px solid rgba(223, 230, 238, 0.9);
+            background: rgba(255, 255, 255, 0.94);
+            box-shadow: var(--shadow);
+        }
+
+        .share-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            padding: 22px 24px;
+            border-bottom: 1px solid var(--soft-line);
+            background:
+                linear-gradient(90deg, rgba(18, 107, 100, 0.08), rgba(255, 255, 255, 0)),
+                #fff;
+        }
+
+        .title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            min-width: 0;
+        }
+
+        .title-icon {
+            display: grid;
+            width: 44px;
+            height: 44px;
+            flex: 0 0 auto;
+            place-items: center;
+            color: #fff;
+            background: var(--brand);
+            box-shadow: 0 10px 24px rgba(18, 107, 100, 0.26);
+        }
+
+        .title-icon .layui-icon {
+            font-size: 22px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+            line-height: 1.25;
+            letter-spacing: 0;
+        }
+
+        .subtitle {
+            margin-top: 5px;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .target-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            flex: 0 0 auto;
+            padding: 7px 12px;
+            border: 1px solid var(--line);
+            color: var(--brand-strong);
+            background: var(--brand-soft);
+            font-size: 13px;
             font-weight: 600;
-            color: #333;
-            border-bottom: 1px solid #e6e6e6;
-            padding-bottom: 12px;
         }
-        
+
+        .share-content {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 270px;
+            gap: 0;
+        }
+
+        .config-area {
+            padding: 24px;
+            border-right: 1px solid var(--soft-line);
+            background: #fff;
+        }
+
+        .insight-area {
+            padding: 24px 20px;
+            background: var(--panel-muted);
+        }
+
+        .section {
+            margin-bottom: 24px;
+        }
+
+        .section:last-child {
+            margin-bottom: 0;
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            margin-bottom: 14px;
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .section-title::before {
+            width: 4px;
+            height: 16px;
+            background: var(--brand);
+            content: "";
+        }
+
+        .field-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
         .form-group {
-            margin-bottom: 20px;
+            min-width: 0;
         }
-        
+
         .form-label {
             display: block;
             margin-bottom: 8px;
-            font-weight: 600;
-            color: #333;
-            font-size: 14px;
+            color: #2d3848;
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1.4;
         }
-        
-        .permission-group {
-            border: 1px solid #e6e6e6;
-            border-radius: 0;
-            padding: 15px;
-            background-color: #f8f9fa;
-        }
-        
-        .permission-item {
-            margin-bottom: 12px;
-        }
-        
-        .permission-item:last-child {
-            margin-bottom: 0;
-        }
-        
-        .share-result {
-            display: none;
-            margin-top: 20px;
-            padding: 20px;
-            background-color: #f0f9ff;
-            border: 1px solid #b3d8ff;
-            border-radius: 0;
-        }
-        
-        .share-result h3 {
-            margin: 0 0 20px 0;
-            font-size: 18px;
-            font-weight: 600;
-            color: #333;
-        }
-        
-        .share-link {
-            word-break: break-all;
-            background-color: #fff;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            margin: 12px 0;
-            font-size: 14px;
+
+        .hint {
+            margin-top: 7px;
+            color: var(--muted);
+            font-size: 12px;
             line-height: 1.5;
         }
-        
-        .copy-btn {
-            margin-left: 10px;
+
+        .layui-input,
+        .share-select {
+            height: 42px;
+            border-color: var(--line);
+            color: var(--ink);
+            background: #fff;
+            border-radius: 0;
+            transition: border-color 0.18s ease, box-shadow 0.18s ease;
         }
-        
-        /* 访问限制布局优化 */
-        .access-limit {
+
+        .layui-input:focus,
+        .share-select:focus {
+            border-color: var(--brand) !important;
+            box-shadow: 0 0 0 3px rgba(18, 107, 100, 0.12);
+        }
+
+        .permission-matrix {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+            padding: 16px;
+            border: 1px solid var(--line);
+            background: #fbfcfe;
+        }
+
+        .toggle-stack {
+            display: grid;
+            gap: 10px;
+        }
+
+        .toggle-row {
             display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            min-height: 42px;
+            padding: 0 12px;
+            border: 1px solid var(--soft-line);
+            background: #fff;
         }
-        
-        .access-limit-item {
-            flex: 1;
-            min-width: 150px;
+
+        .toggle-row .layui-form-checkbox[lay-skin=primary] {
+            margin-top: 0;
         }
-        
-        /* 按钮样式优化 */
+
+        .toggle-text {
+            min-width: 0;
+        }
+
+        .toggle-title {
+            display: block;
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1.35;
+        }
+
+        .toggle-desc {
+            display: block;
+            margin-top: 2px;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
+        .limit-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .policy-card {
+            margin-bottom: 14px;
+            padding: 16px;
+            border: 1px solid var(--line);
+            background: #fff;
+        }
+
+        .policy-card:last-child {
+            margin-bottom: 0;
+        }
+
+        .policy-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .policy-label .layui-icon {
+            color: var(--brand);
+            font-size: 16px;
+        }
+
+        .policy-value {
+            color: var(--ink);
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.35;
+        }
+
+        .policy-note {
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .secure-list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .secure-list li {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            color: #435064;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .secure-list li:first-child {
+            margin-top: 0;
+        }
+
+        .secure-list .layui-icon {
+            color: var(--accent);
+            font-size: 14px;
+        }
+
         .form-actions {
             display: flex;
+            align-items: center;
+            justify-content: flex-end;
             gap: 10px;
-            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid var(--soft-line);
         }
-        
-        /* 辅助文字样式 */
-        .layui-form-mid.layui-word-aux {
-            margin-top: 5px;
-            display: block;
+
+        .share-records {
+            display: grid;
+            gap: 10px;
+        }
+
+        .share-record {
+            padding: 12px;
+            border: 1px solid var(--line);
+            background: #fff;
+        }
+
+        .share-record.is-inactive {
+            opacity: 0.68;
+        }
+
+        .record-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .record-code {
+            color: var(--brand-strong);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .record-status {
+            flex: 0 0 auto;
+            padding: 2px 8px;
+            color: #fff;
+            background: var(--brand);
             font-size: 12px;
         }
-        
-        /* 分享结果样式 */
-        #shareResult .form-group {
+
+        .record-status.off {
+            background: #8a95a3;
+        }
+
+        .record-meta {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .record-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+        }
+
+        .record-actions .layui-btn {
+            height: 30px;
+            line-height: 30px;
+            padding: 0 10px;
+        }
+
+        .layui-btn {
+            height: 40px;
+            line-height: 40px;
+            border-radius: 0;
+            font-weight: 700;
+        }
+
+        .layui-btn-normal {
+            border-color: var(--brand);
+            background-color: var(--brand);
+        }
+
+        .layui-btn-normal:hover {
+            border-color: var(--brand-strong);
+            background-color: var(--brand-strong);
+        }
+
+        .layui-btn-primary:hover {
+            border-color: var(--brand);
+            color: var(--brand-strong);
+        }
+
+        .share-result {
+            display: none;
+            min-height: calc(100vh - 36px);
+            padding: 24px;
+            background:
+                linear-gradient(135deg, rgba(18, 107, 100, 0.08), transparent 38%),
+                #fff;
+        }
+
+        .result-card {
+            max-width: 760px;
+            margin: 0 auto;
+            border: 1px solid var(--line);
+            background: #fff;
+            box-shadow: var(--shadow);
+        }
+
+        .result-head {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 22px 24px;
+            border-bottom: 1px solid var(--soft-line);
+            background: var(--brand-soft);
+        }
+
+        .result-mark {
+            display: grid;
+            width: 42px;
+            height: 42px;
+            flex: 0 0 auto;
+            place-items: center;
+            color: #fff;
+            background: var(--brand);
+        }
+
+        .result-title {
+            margin: 0;
+            font-size: 19px;
+            font-weight: 700;
+            line-height: 1.35;
+        }
+
+        .result-subtitle {
+            margin-top: 4px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .result-body {
+            padding: 22px 24px 24px;
+        }
+
+        .result-row {
             margin-bottom: 18px;
         }
-        
-        #shareResult .form-label {
-            margin-bottom: 6px;
-            font-size: 13px;
-            color: #666;
+
+        .result-row:last-child {
+            margin-bottom: 0;
         }
-        
+
+        .share-link {
+            min-height: 44px;
+            padding: 12px;
+            border: 1px solid var(--line);
+            color: #1d2a39;
+            background: #fbfcfe;
+            word-break: break-all;
+            font-size: 13px;
+            line-height: 1.55;
+        }
+
+        .copy-line {
+            display: flex;
+            align-items: stretch;
+            gap: 8px;
+        }
+
+        .copy-line .share-link {
+            flex: 1 1 auto;
+        }
+
+        .copy-line .layui-btn {
+            flex: 0 0 auto;
+            height: auto;
+            min-height: 44px;
+            line-height: 1.4;
+            white-space: nowrap;
+        }
+
         #expireTime {
-            font-size: 14px;
-            color: #333;
+            display: inline-flex;
+            min-height: 36px;
+            align-items: center;
+            padding: 0 12px;
+            border: 1px solid var(--line);
+            color: var(--brand-strong);
+            background: var(--brand-soft);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .result-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding-top: 4px;
+        }
+
+        @media (max-width: 760px) {
+            .share-shell {
+                padding: 10px;
+            }
+
+            .share-panel,
+            .share-result {
+                min-height: calc(100vh - 20px);
+            }
+
+            .share-header {
+                align-items: flex-start;
+                flex-direction: column;
+                padding: 18px;
+            }
+
+            .share-content,
+            .field-grid,
+            .permission-matrix,
+            .limit-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .config-area {
+                padding: 18px;
+                border-right: 0;
+            }
+
+            .insight-area {
+                padding: 18px;
+                border-top: 1px solid var(--soft-line);
+            }
+
+            .form-actions,
+            .copy-line {
+                flex-direction: column;
+            }
+
+            .form-actions .layui-btn,
+            .copy-line .layui-btn,
+            .result-actions .layui-btn {
+                width: 100%;
+            }
+
+            .record-actions .layui-btn {
+                width: auto;
+            }
         }
     </style>
 </head>
 
 <body>
-    <div class="share-form">
-        <h2>创建分享链接</h2>
-        
-        <form id="shareForm">
-            {% csrf_token %}
-            <input type="hidden" name="type" value="{{ share_type }}">
-            <input type="hidden" name="id" value="{{ item_id }}">
-            
-            <!-- 基本设置 -->
-            <div class="form-group">
-                <label class="form-label">分享密码</label>
-                <input type="text" name="password" class="layui-input" placeholder="留空则无需密码" maxlength="20">
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">有效期</label>
-                <select name="expire_days" class="layui-input">
-                    <option value="1">1天</option>
-                    <option value="7" selected>7天</option>
-                    <option value="30">30天</option>
-                    <option value="0">永久有效</option>
-                </select>
-            </div>
-            
-            <!-- 权限设置 -->
-            <div class="form-group">
-                <label class="form-label">权限设置</label>
-                <div class="permission-group">
-                    <div class="permission-item">
-                        <label class="form-label">权限类型</label>
-                        <select name="permission_type" class="layui-input">
-                            <option value="view">仅查看</option>
-                            <option value="download" selected>可下载</option>
-                            <option value="edit">可编辑</option>
-                        </select>
+    <div class="share-shell">
+        <div class="share-panel" id="shareCreatePanel">
+            <header class="share-header">
+                <div class="title-wrap">
+                    <div class="title-icon" aria-hidden="true">
+                        <i class="layui-icon layui-icon-share"></i>
                     </div>
-                    
-                    <div class="permission-item">
-                        <input type="checkbox" name="allow_download" checked lay-skin="primary" title="允许下载">
+                    <div>
+                        <h1>创建企业网盘分享</h1>
+                        <div class="subtitle">当前项目：{{ item.name }}。配置访问权限、有效期与次数限制，生成可追踪的外部分享链接。</div>
                     </div>
                 </div>
-            </div>
-            
-            <!-- 访问限制 -->
-            <div class="form-group">
-                <label class="form-label">访问限制</label>
-                <div class="access-limit">
-                    <div class="access-limit-item">
-                        <label class="form-label">访问次数限制</label>
-                        <input type="number" name="access_limit" class="layui-input" value="0" min="0" placeholder="0表示无限制">
-                    </div>
-                    <div class="access-limit-item">
-                        <label class="form-label">下载次数限制</label>
-                        <input type="number" name="download_limit" class="layui-input" value="0" min="0" placeholder="0表示无限制">
-                    </div>
+                <div class="target-badge">
+                    <i class="layui-icon layui-icon-template-1"></i>
+                    {% if share_type == 'folder' %}文件夹{% else %}文件{% endif %}分享
                 </div>
+            </header>
+
+            <div class="share-content">
+                <main class="config-area">
+                    <form id="shareForm" class="layui-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="type" value="{{ share_type }}">
+                        <input type="hidden" name="id" value="{{ item_id }}">
+                        <input type="hidden" name="share_id" id="shareIdInput" value="">
+                        <input type="hidden" name="keep_password" id="keepPasswordInput" value="0">
+                        <input type="hidden" name="keep_expire_time" id="keepExpireTimeInput" value="0">
+                        <input type="hidden" name="is_active" id="isActiveInput" value="on">
+
+                        <section class="section">
+                            <div class="section-title">基础设置</div>
+                            <div class="field-grid">
+                                <div class="form-group">
+                                    <label class="form-label" for="sharePasswordInput">分享密码</label>
+                                    <input id="sharePasswordInput" type="text" name="password" class="layui-input" placeholder="留空则无需密码" maxlength="20" autocomplete="off">
+                                    <div class="hint">最多 20 个字符，适合发送给外部协作方。</div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="expireDaysSelect">有效期</label>
+                                    <select id="expireDaysSelect" name="expire_days" class="layui-input share-select" lay-ignore>
+                                        <option value="1">1天</option>
+                                        <option value="7" selected>7天</option>
+                                        <option value="30">30天</option>
+                                        <option value="0">永久有效</option>
+                                    </select>
+                                    <div class="hint">建议对外部分享设置明确过期时间。</div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="section">
+                            <div class="section-title">权限设置</div>
+                            <div class="permission-matrix">
+                                <input type="hidden" id="permissionTypeSelect" name="permission_type" value="download">
+
+                                <div class="toggle-stack">
+                                    <div class="toggle-row">
+                                        <span class="toggle-text">
+                                            <span class="toggle-title">允许下载</span>
+                                            <span class="toggle-desc">收件人可保存文件</span>
+                                        </span>
+                                        <input type="checkbox" name="allow_download" checked lay-skin="primary" title="">
+                                    </div>
+                                    <div class="toggle-row">
+                                        <span class="toggle-text">
+                                            <span class="toggle-title">在线预览</span>
+                                            <span class="toggle-desc">无需下载即可查看</span>
+                                        </span>
+                                        <input type="checkbox" name="allow_preview" checked lay-skin="primary" title="">
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="section">
+                            <div class="section-title">访问限制</div>
+                            <div class="limit-grid">
+                                <div class="form-group">
+                                    <label class="form-label" for="accessLimitInput">访问次数限制</label>
+                                    <input id="accessLimitInput" type="number" name="access_limit" class="layui-input" value="0" min="0" placeholder="0表示无限制">
+                                    <div class="hint">到达限制后，分享链接将不再允许访问。</div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="downloadLimitInput">下载次数限制</label>
+                                    <input id="downloadLimitInput" type="number" name="download_limit" class="layui-input" value="0" min="0" placeholder="0表示无限制">
+                                    <div class="hint">适合控制敏感资料的分发范围。</div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <div class="form-actions">
+                            <button type="button" class="layui-btn layui-btn-primary" onclick="closeDialog()">
+                                <i class="layui-icon layui-icon-close"></i> 取消
+                            </button>
+                            <button type="submit" class="layui-btn layui-btn-normal">
+                                <i class="layui-icon layui-icon-release"></i> 创建分享链接
+                            </button>
+                        </div>
+                    </form>
+                </main>
+
+                <aside class="insight-area" aria-label="分享策略摘要">
+                    <div class="policy-card">
+                        <div class="policy-label">
+                            <i class="layui-icon layui-icon-password"></i>
+                            密码策略
+                        </div>
+                        <div class="policy-value" id="passwordPolicy">无需密码</div>
+                        <div class="policy-note">输入密码后，访问方需要密码才能打开分享。</div>
+                    </div>
+
+                    <div class="policy-card">
+                        <div class="policy-label">
+                            <i class="layui-icon layui-icon-date"></i>
+                            链接有效期
+                        </div>
+                        <div class="policy-value" id="expirePolicy">7天</div>
+                        <div class="policy-note">短周期分享更便于控制外部流转。</div>
+                    </div>
+
+                    <div class="policy-card">
+                        <div class="policy-label">
+                            <i class="layui-icon layui-icon-auz"></i>
+                            安全提示
+                        </div>
+                        <ul class="secure-list">
+                            <li><i class="layui-icon layui-icon-ok"></i><span>保留默认预览权限，减少不必要下载。</span></li>
+                            <li><i class="layui-icon layui-icon-ok"></i><span>敏感文件建议设置密码和访问次数。</span></li>
+                            <li><i class="layui-icon layui-icon-ok"></i><span>永久有效链接请定期在分享列表中复核。</span></li>
+                        </ul>
+                    </div>
+
+                    <div class="policy-card">
+                        <div class="policy-label">
+                            <i class="layui-icon layui-icon-list"></i>
+                            已有外链
+                        </div>
+                        {% if existing_shares %}
+                        <div class="share-records">
+                            {% for share in existing_shares %}
+                            <div class="share-record {% if not share.is_active %}is-inactive{% endif %}"
+                                 data-share-id="{{ share.id }}"
+                                 data-share-code="{{ share.share_code }}"
+                                 data-share-url="{{ request.scheme }}://{{ request.get_host }}/disk/share/view/{{ share.share_code }}/"
+                                 data-expire-days="{% if share.expire_time %}custom{% else %}0{% endif %}"
+                                 data-expire-time="{% if share.expire_time %}{{ share.expire_time|date:'Y-m-d H:i' }}{% endif %}"
+                                 data-permission-type="{{ share.permission_type }}"
+                                 data-allow-download="{% if share.allow_download %}1{% else %}0{% endif %}"
+                                 data-allow-preview="{% if share.allow_preview %}1{% else %}0{% endif %}"
+                                 data-access-limit="{{ share.access_limit }}"
+                                 data-download-limit="{{ share.download_limit }}"
+                                 data-is-active="{% if share.is_active %}1{% else %}0{% endif %}"
+                                 data-has-password="{% if share.password %}1{% else %}0{% endif %}">
+                                <div class="record-top">
+                                    <span class="record-code">{{ share.share_code }}</span>
+                                    <span class="record-status {% if not share.is_active %}off{% endif %}">
+                                        {% if share.is_active %}有效{% else %}停用{% endif %}
+                                    </span>
+                                </div>
+                                <div class="record-meta">
+                                    权限：{{ share.get_permission_type_display }} ·
+                                    访问 {{ share.access_count }}{% if share.access_limit > 0 %}/{{ share.access_limit }}{% endif %} ·
+                                    下载 {{ share.download_count }}{% if share.download_limit > 0 %}/{{ share.download_limit }}{% endif %}
+                                </div>
+                                <div class="record-meta">
+                                    {% if share.expire_time %}有效期至：{{ share.expire_time|date:"Y-m-d H:i" }}{% else %}永久有效{% endif %}
+                                    {% if share.password %} · 已设密码{% endif %}
+                                </div>
+                                <div class="record-actions">
+                                    <button type="button" class="layui-btn layui-btn-primary" onclick="loadShareForEdit(this)">编辑</button>
+                                    <button type="button" class="layui-btn layui-btn-primary" onclick="copyExistingShare(this)">复制</button>
+                                    {% if share.is_active %}
+                                    <button type="button" class="layui-btn layui-btn-warm" onclick="manageExistingShare(this, 'disable')">停用</button>
+                                    {% else %}
+                                    <button type="button" class="layui-btn layui-btn-normal" onclick="manageExistingShare(this, 'enable')">启用</button>
+                                    {% endif %}
+                                    <button type="button" class="layui-btn layui-btn-danger" onclick="manageExistingShare(this, 'delete')">删除</button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="policy-note">当前文件暂无外链分享记录。</div>
+                        {% endif %}
+                    </div>
+                </aside>
             </div>
-            
-            <!-- 操作按钮 -->
-            <div class="form-actions">
-                <button type="submit" class="layui-btn layui-btn-normal">
-                    <i class="layui-icon layui-icon-share"></i> 创建分享链接
-                </button>
-                <button type="button" class="layui-btn layui-btn-primary" onclick="closeDialog()">
-                    <i class="layui-icon layui-icon-close"></i> 取消
-                </button>
-            </div>
-        </form>
-        
-        <!-- 分享结果 -->
+        </div>
+
         <div id="shareResult" class="share-result">
-            <h3>分享链接创建成功！</h3>
-            <div class="form-group">
-                <label class="form-label">分享链接</label>
-                <div class="share-link" id="shareUrl"></div>
-                <button type="button" class="layui-btn layui-btn-xs copy-btn" onclick="copyToClipboard('shareUrl')">
-                    <i class="layui-icon layui-icon-file"></i> 复制链接
-                </button>
-            </div>
-            
-            <div class="form-group" id="passwordGroup" style="display: none;">
-                <label class="form-label">提取密码</label>
-                <div class="share-link" id="sharePassword"></div>
-                <button type="button" class="layui-btn layui-btn-xs copy-btn" onclick="copyToClipboard('sharePassword')">
-                    <i class="layui-icon layui-icon-file"></i> 复制密码
-                </button>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">有效期至</label>
-                <div id="expireTime"></div>
-            </div>
-            
-            <div class="form-group">
-                <button type="button" class="layui-btn layui-btn-xs" onclick="copyShareText()">
-                    <i class="layui-icon layui-icon-file"></i> 复制分享文本
-                </button>
-                <button type="button" class="layui-btn layui-btn-xs layui-btn-primary" onclick="createAnother()">
-                    <i class="layui-icon layui-icon-add-1"></i> 再次分享
-                </button>
+            <div class="result-card">
+                <div class="result-head">
+                    <div class="result-mark" aria-hidden="true">
+                        <i class="layui-icon layui-icon-ok"></i>
+                    </div>
+                    <div>
+                        <h2 class="result-title">分享链接创建成功</h2>
+                        <div class="result-subtitle">可以复制链接或完整分享文本发送给协作方。</div>
+                    </div>
+                </div>
+
+                <div class="result-body">
+                    <div class="result-row">
+                        <label class="form-label">分享链接</label>
+                        <div class="copy-line">
+                            <div class="share-link" id="shareUrl"></div>
+                            <button type="button" class="layui-btn layui-btn-primary" onclick="copyToClipboard('shareUrl')">
+                                <i class="layui-icon layui-icon-file"></i> 复制链接
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="result-row" id="passwordGroup" style="display: none;">
+                        <label class="form-label">提取密码</label>
+                        <div class="copy-line">
+                            <div class="share-link" id="sharePassword"></div>
+                            <button type="button" class="layui-btn layui-btn-primary" onclick="copyToClipboard('sharePassword')">
+                                <i class="layui-icon layui-icon-file"></i> 复制密码
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="result-row">
+                        <label class="form-label">有效期至</label>
+                        <div id="expireTime"></div>
+                    </div>
+
+                    <div class="result-actions">
+                        <button type="button" class="layui-btn layui-btn-normal" onclick="copyShareText()">
+                            <i class="layui-icon layui-icon-file-b"></i> 复制分享文本
+                        </button>
+                        <button type="button" class="layui-btn layui-btn-primary" onclick="createAnother()">
+                            <i class="layui-icon layui-icon-add-1"></i> 再次分享
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'js/jquery.min.js' %}"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
         layui.use(['layer', 'form'], function () {
             var layer = layui.layer;
             var form = layui.form;
-            
-            // 表单提交
+
+            form.render();
+            updatePolicyPreview();
+
+            $('#sharePasswordInput').on('input change', updatePolicyPreview);
+            $('#expireDaysSelect').on('change', function() {
+                $('#keepExpireTimeInput').val('0');
+                updatePolicyPreview();
+            });
+
             $('#shareForm').on('submit', function(e) {
                 e.preventDefault();
-                
-                var formData = new FormData(this);
-                
-                // 处理复选框
+
+            var formData = new FormData(this);
+
                 formData.set('allow_download', $('input[name="allow_download"]').is(':checked') ? 'on' : 'off');
-                
+                formData.set('allow_preview', $('input[name="allow_preview"]').is(':checked') ? 'on' : 'off');
+                formData.set('permission_type', $('input[name="allow_download"]').is(':checked') ? 'download' : 'view');
+
                 $.ajax({
-                    url: '/adm/disk/share/create/',
+                    url: '/disk/share/create/',
                     type: 'POST',
                     data: formData,
                     processData: false,
                     contentType: false,
+                    headers: {'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()},
                     success: function(response) {
                         if (response.code === 0) {
                             showShareResult(response.data);
+                            layer.msg(response.msg || '操作成功', {icon: 1});
                         } else {
                             layer.msg(response.msg, {icon: 2});
                         }
@@ -288,24 +864,104 @@
                 });
             });
         });
-        
-        // 显示分享结果
+
+        function updatePolicyPreview() {
+            var hasPassword = $.trim($('#sharePasswordInput').val()).length > 0;
+            var expireText = $('#expireDaysSelect option:selected').text();
+
+            $('#passwordPolicy').text(hasPassword ? '已启用密码' : '无需密码');
+            $('#expirePolicy').text(expireText);
+        }
+
+        function loadShareForEdit(button) {
+            var $record = $(button).closest('.share-record');
+            var hasPassword = $record.data('has-password') === 1;
+
+            $('#shareIdInput').val($record.data('share-id'));
+            $('#keepPasswordInput').val('1');
+            $('#keepExpireTimeInput').val('1');
+            $('#isActiveInput').val($record.data('is-active') === 1 ? 'on' : 'off');
+            $('#sharePasswordInput')
+                .val('')
+                .attr('placeholder', hasPassword ? '留空则保留原密码' : '留空则无需密码');
+            $('input[name="allow_download"]').prop('checked', $record.data('allow-download') === 1);
+            $('input[name="allow_preview"]').prop('checked', $record.data('allow-preview') === 1);
+            $('#permissionTypeSelect').val($record.data('allow-download') === 1 ? 'download' : 'view');
+            $('#accessLimitInput').val($record.data('access-limit'));
+            $('#downloadLimitInput').val($record.data('download-limit'));
+
+            var expireDays = $record.data('expire-days');
+            if (expireDays === 0 || expireDays === '0') {
+                $('#expireDaysSelect').val('0');
+            } else {
+                $('#expireDaysSelect').val('7');
+            }
+
+            layui.use(['form', 'layer'], function() {
+                layui.form.render();
+                layui.layer.msg('已载入分享记录，修改后提交即可更新', {icon: 1});
+            });
+            updatePolicyPreview();
+        }
+
+        function copyExistingShare(button) {
+            var $record = $(button).closest('.share-record');
+            navigator.clipboard.writeText($record.data('share-url')).then(function() {
+                layui.use('layer', function() {
+                    layui.layer.msg('链接已复制', {icon: 1});
+                });
+            });
+        }
+
+        function manageExistingShare(button, action) {
+            var $record = $(button).closest('.share-record');
+            var shareId = $record.data('share-id');
+            var confirmText = action === 'delete' ? '确定删除这条分享记录？' : '确定执行该操作？';
+
+            layui.use('layer', function() {
+                var layer = layui.layer;
+                layer.confirm(confirmText, {icon: 3, title: '外链分享'}, function(index) {
+                    $.ajax({
+                        url: '/disk/share/manage/',
+                        type: 'POST',
+                        data: {
+                            share_id: shareId,
+                            action: action,
+                            csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()
+                        },
+                        success: function(response) {
+                            if (response.code === 0) {
+                                layer.msg(response.msg, {icon: 1});
+                                setTimeout(function() { window.location.reload(); }, 700);
+                            } else {
+                                layer.msg(response.msg, {icon: 2});
+                            }
+                        },
+                        error: function() {
+                            layer.msg('操作失败', {icon: 2});
+                        }
+                    });
+                    layer.close(index);
+                });
+            });
+        }
+
         function showShareResult(data) {
             $('#shareUrl').text(data.share_url);
-            $('#expireTime').text(data.expire_time);
-            
+            $('#expireTime').text(data.expire_time || '永久有效');
+
             if (data.password) {
                 $('#sharePassword').text(data.password);
                 $('#passwordGroup').show();
             } else {
+                $('#sharePassword').text('');
                 $('#passwordGroup').hide();
             }
-            
-            $('#shareForm').hide();
+
+            $('#shareCreatePanel').hide();
             $('#shareResult').show();
         }
-        
-        // 复制到剪贴板
+
         function copyToClipboard(elementId) {
             var text = document.getElementById(elementId).textContent;
             navigator.clipboard.writeText(text).then(function() {
@@ -315,19 +971,18 @@
                 });
             });
         }
-        
-        // 复制分享文本
+
         function copyShareText() {
             var shareUrl = $('#shareUrl').text();
             var password = $('#sharePassword').text();
             var expireTime = $('#expireTime').text();
-            
-            var shareText = `分享链接：${shareUrl}`;
+
+            var shareText = '分享链接：' + shareUrl;
             if (password) {
-                shareText += `\\n提取密码：${password}`;
+                shareText += '\n提取密码：' + password;
             }
-            shareText += `\\n有效期至：${expireTime}`;
-            
+            shareText += '\n有效期至：' + expireTime;
+
             navigator.clipboard.writeText(shareText).then(function() {
                 layui.use('layer', function() {
                     var layer = layui.layer;
@@ -335,17 +990,17 @@
                 });
             });
         }
-        
-        // 再次分享
+
         function createAnother() {
-            $('#shareForm').show();
+            $('#shareCreatePanel').show();
             $('#shareResult').hide();
         }
-        
-        // 关闭对话框
+
         function closeDialog() {
-            var index = parent.layer.getFrameIndex(window.name);
-            parent.layer.close(index);
+            if (parent && parent.layer) {
+                var index = parent.layer.getFrameIndex(window.name);
+                parent.layer.close(index);
+            }
         }
     </script>
 </body>
