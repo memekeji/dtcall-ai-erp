@@ -153,10 +153,10 @@ class EnhancedIntentService:
                 return self._create_error_response('无法识别您的意图，请重新描述您的需求')
 
             if intent_result.get('source') != 'ai' and intent_result.get('intent') != 'UI_ACTION':
-                return self._create_confirmation_response(intent_result, query)
+                return self._create_confirmation_response(intent_result, query, user)
 
             if self._is_mutating_intent(intent_result):
-                return self._create_confirmation_response(intent_result, query)
+                return self._create_confirmation_response(intent_result, query, user)
 
             permission_result = self._check_data_permission(
                 user, intent_result)
@@ -165,7 +165,7 @@ class EnhancedIntentService:
                     intent_result, permission_result)
 
             if intent_result['confidence'] < 0.65 or intent_result.get('requires_confirmation'):
-                return self._create_confirmation_response(intent_result, query)
+                return self._create_confirmation_response(intent_result, query, user)
 
             execution_result = self._execute_intent(user, intent_result, query)
 
@@ -327,7 +327,7 @@ class EnhancedIntentService:
 
         if intent_type in ['DATA_QUERY', 'DATA_CREATE', 'DATA_UPDATE', 'DATA_DELETE']:
             if self._is_mutating_intent(intent_result):
-                return self._create_confirmation_response(intent_result, query)
+                return self._create_confirmation_response(intent_result, query, user)
             return self._handle_data_query(user, intent_result, query)
 
         return self._handle_data_query(user, intent_result, query)
@@ -367,7 +367,7 @@ class EnhancedIntentService:
         Returns:
             Dict[str, Any]: 创建结果
         """
-        return self._create_confirmation_response(intent_result, query)
+        return self._create_confirmation_response(intent_result, query, user)
 
     def _handle_data_update(
             self, user: User, intent_result: Dict[str, Any], query: str) -> Dict[str, Any]:
@@ -382,7 +382,7 @@ class EnhancedIntentService:
         Returns:
             Dict[str, Any]: 修改结果
         """
-        return self._create_confirmation_response(intent_result, query)
+        return self._create_confirmation_response(intent_result, query, user)
 
     def _handle_knowledge_base(self, user: User, query: str) -> Dict[str, Any]:
         """
@@ -407,6 +407,7 @@ class EnhancedIntentService:
         try:
             from apps.ai.services.ai_intent_classifier import ai_intent_classifier
 
+            ai_intent_classifier._ensure_ai_client(force_refresh=True)
             ai_client = ai_intent_classifier.ai_client
             if ai_client is None:
                 return self._create_fallback_response(query)
@@ -470,14 +471,15 @@ class EnhancedIntentService:
             'suggestion': '请联系管理员获取相应权限'}
 
     def _create_confirmation_response(
-            self, intent_result: Dict[str, Any], query: str) -> Dict[str, Any]:
+            self, intent_result: Dict[str, Any], query: str, user: User = None) -> Dict[str, Any]:
         """创建确认响应"""
         intent_type = intent_result.get('intent')
         confidence = intent_result.get('confidence', 0)
         business_task = None
 
         if self._is_mutating_intent(intent_result):
-            business_task = self._build_business_handoff(intent_result, query)
+            business_task = self._build_business_handoff(
+                user, intent_result, query) if user else self._build_unknown_business_handoff(intent_result, query)
             if business_task:
                 options = business_task.get('options', [])
                 message = business_task.get('message')
@@ -526,9 +528,12 @@ class EnhancedIntentService:
         )
 
     def _build_business_handoff(
-            self, intent_result: Dict[str, Any], query: str) -> Dict[str, Any]:
+            self, user: User, intent_result: Dict[str, Any], query: str) -> Dict[str, Any]:
         data_type = intent_result.get('data_type')
         if not data_type:
+            return self._build_unknown_business_handoff(intent_result, query)
+
+        if data_type not in self.BUSINESS_HANDOFF_CONFIG:
             return self._build_unknown_business_handoff(intent_result, query)
 
         config = self.BUSINESS_HANDOFF_CONFIG.get(data_type)
@@ -540,10 +545,14 @@ class EnhancedIntentService:
         target_url, disabled_reason = self._resolve_business_target_url(config, action, intent_result)
         permission = self._build_business_permission(config.get('permission_base'), action)
         entities = intent_result.get('entities') or {}
-        permission_exists = self._has_business_permission(permission)
+        permission_exists = self._business_permission_exists(permission)
+        user_has_permission = self._user_has_business_permission(user, permission)
         disabled_reason = self._merge_disabled_reason(disabled_reason, None if permission_exists else '当前业务操作权限节点未配置，已阻止直接打开')
+        disabled_reason = self._merge_disabled_reason(disabled_reason, None if user_has_permission else '您当前没有该业务操作权限')
         enabled = bool(target_url and not disabled_reason and config.get('available', True))
         safety_notice = self._get_business_safety_notice(action)
+        if action in {'update', 'delete'} and target_url == config.get('list_url'):
+            safety_notice = f'{safety_notice} 请先在列表中定位具体记录后再继续操作。'
         message = f'已识别到{title}意图。{safety_notice}'
         if disabled_reason:
             message = f'已识别到{title}意图，但{disabled_reason}。'
@@ -563,7 +572,8 @@ class EnhancedIntentService:
             'message': message,
             'prefill': self._sanitize_prefill(entities),
             'permission_required': permission,
-            'has_business_permission': permission_exists,
+            'permission_exists': permission_exists,
+            'has_business_permission': user_has_permission,
             'enabled': enabled,
             'disabled_reason': disabled_reason,
             'confidence': intent_result.get('confidence', 0),
@@ -648,7 +658,9 @@ class EnhancedIntentService:
                 return template.format(id=record_id), None
             if action == 'delete' and record_id and template:
                 return template.format(id=record_id), None
-            return config.get('list_url'), '请先在列表中定位具体记录后再继续操作'
+            if config.get('list_url'):
+                return config.get('list_url'), None
+            return None, '未配置业务列表页面入口'
 
         return config.get('list_url'), None if config.get('list_url') else '未配置业务页面入口'
 
@@ -681,14 +693,32 @@ class EnhancedIntentService:
             'name': self._get_permission_display_name(codename),
         }
 
-    def _has_business_permission(self, permission: Dict[str, Any]) -> bool:
+    def _business_permission_exists(self, permission: Dict[str, Any]) -> bool:
         if not permission:
             return False
         codename = permission.get('codename')
         if not codename:
             return False
         try:
-            return permission_node_mapper.get_full_permission(codename) is not None
+            node_map = permission_node_mapper._build_node_permission_map()
+            return codename in node_map
+        except Exception:
+            return False
+
+    def _user_has_business_permission(self, user: User, permission: Dict[str, Any]) -> bool:
+        if not permission:
+            return False
+        if not self._business_permission_exists(permission):
+            return False
+        if getattr(user, 'is_superuser', False):
+            return True
+        full_code = permission.get('full_code')
+        codename = permission.get('codename')
+        try:
+            return bool(
+                (full_code and user.has_perm(full_code)) or
+                (codename and user.has_perm(codename))
+            )
         except Exception:
             return False
 
@@ -723,8 +753,11 @@ class EnhancedIntentService:
             self, task: Dict[str, Any], config: Dict[str, Any]) -> list:
         options = []
         if task.get('target_url'):
+            option_text = f"打开{task.get('title')}"
+            if task.get('action') in {'update', 'delete'} and task.get('target_url') == task.get('list_url'):
+                option_text = f"打开{config.get('name')}列表并定位记录"
             options.append({
-                'text': f"打开{task.get('title')}",
+                'text': option_text,
                 'intent': task.get('intent_type'),
                 'action': 'open_business_page',
                 'target_url': task.get('target_url'),

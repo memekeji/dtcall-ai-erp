@@ -318,6 +318,10 @@ urlpatterns = [
 
     # AI操作日志
     path('log/list/', views.AILogListView.as_view(), name='log_list'),
+    path(
+        'business-feedback/',
+        views.BusinessAIFeedbackAPIView.as_view(),
+        name='business_feedback'),
 
     # AI任务管理
     path(
@@ -337,6 +341,7 @@ urlpatterns = [
     # AI聊天流
     path('intent/recognize/', views.AIIntentRecognizeAPIView.as_view(), name='intent_recognize'),
     path('chat/stream/', views.AIChatStreamView.as_view(), name='chat_stream'),
+    path('voice/stt/', views.LocalSTTAPIView.as_view(), name='voice_stt'),
 
     # 节点配置Schema API
     path(

@@ -33,6 +33,11 @@
         
         <script type="text/html" id="actionTpl">
             <a class="layui-btn layui-btn-xs" lay-event="view">查看</a>
+            {% verbatim %}
+            {{#  if(d.can_withdraw){ }}
+            <a class="layui-btn layui-btn-xs layui-btn-warm" lay-event="withdraw">撤回</a>
+            {{#  } }}
+            {% endverbatim %}
         </script>
     </div>
 </div>
@@ -52,9 +57,11 @@ layui.use(['table', 'layer'], function(){
             {field: 'id', title: 'ID', width: 80, sort: true},
             {field: 'title', title: '审批标题', minWidth: 100},
             {field: 'flow_name', title: '流程名称', width: 150},
+            {field: 'current_steps', title: '当前节点', width: 140},
+            {field: 'pending_count', title: '待办数', width: 90},
             {field: 'status', title: '状态', width: 100, templet: '#statusTpl'},
             {field: 'create_time', title: '申请时间', width: 180},
-            {title: '操作', width: 100, templet: '#actionTpl'}
+            {title: '操作', width: 150, templet: '#actionTpl'}
         ]],
         parseData: function(res){
             return {
@@ -71,14 +78,50 @@ layui.use(['table', 'layer'], function(){
             layer.open({
                 type: 2,
                 title: '审批详情',
-                content: '/approval/' + obj.data.id + '/',
+                content: '{% url "approval:approval_detail" 0 %}'.replace('/0/', '/' + obj.data.id + '/'),
                 area: ['80%', '100%'],
                 offset: 'r',
-                anim: 'slideLeft',
-                maxmin: true
+                anim: 2,
+                maxmin: true,
+                end: function() {
+                    table.reload('approvalTable');
+                }
+            });
+        } else if(obj.event === 'withdraw'){
+            layer.confirm('确定撤回该审批吗？', {icon: 3, title: '确认操作'}, function(index){
+                layer.load(2);
+                $.ajax({
+                    url: '{% url "approval:approval_action" 0 %}'.replace('/0/', '/' + obj.data.id + '/'),
+                    type: 'POST',
+                    contentType: 'application/json',
+                    headers: {'X-CSRFToken': getCsrfToken()},
+                    data: JSON.stringify({action: 'withdraw', comment: '申请人撤回'}),
+                    success: function(res){
+                        layer.closeAll('loading');
+                        if(res.success){
+                            layer.msg(res.message, {icon: 1, time: 1200}, function(){
+                                table.reload('approvalTable');
+                            });
+                        } else {
+                            layer.msg(res.message, {icon: 2});
+                        }
+                    },
+                    error: function(){
+                        layer.closeAll('loading');
+                        layer.msg('网络错误', {icon: 2});
+                    }
+                });
+                layer.close(index);
             });
         }
     });
+
+    var getCsrfToken = (window.DTCallCommon && window.DTCallCommon.getCsrfToken) || function() {
+        var input = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (input) return input.value;
+        var match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+        return match ? decodeURIComponent(match[1]) : '';
+    };
 });
 </script>
 {% endblock %}

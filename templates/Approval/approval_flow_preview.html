@@ -38,13 +38,13 @@
                 <tr>
                     <th>步骤</th>
                     <th>步骤名称</th>
-                    <th>类型</th>
-                    <th>操作</th>
-                    <th>审批人</th>
-                    <th>时限</th>
-                    <th>通过后</th>
-                    <th>拒绝后</th>
-                    <th>状态</th>
+                    <th>节点类型</th>
+                    <th>处理动作</th>
+                    <th>审批方式</th>
+                    <th>处理人/范围</th>
+                    <th>处理时限</th>
+                    <th>超时策略</th>
+                    <th>节点说明</th>
                 </tr>
             </thead>
             <tbody>
@@ -52,12 +52,9 @@
                 <tr>
                     <td>{{ step.step_order }}</td>
                     <td>{{ step.step_name }}</td>
-                    <td>
-                        <span class="layui-badge layui-bg-blue">{{ step.get_step_type_display }}</span>
-                    </td>
-                    <td>
-                        <span class="layui-badge layui-bg-green">{{ step.get_action_type_display }}</span>
-                    </td>
+                    <td><span class="layui-badge layui-bg-blue">{{ step.get_step_type_display }}</span></td>
+                    <td><span class="layui-badge layui-bg-green">{{ step.get_action_type_display }}</span></td>
+                    <td><span class="layui-badge layui-bg-orange">{{ step.get_approval_mode_display }}</span></td>
                     <td>
                         {% if step.approver %}
                             {{ step.approver.get_full_name|default:step.approver.username }}
@@ -67,47 +64,34 @@
                             部门：{{ step.approver_department }}
                         {% elif step.approver_level %}
                             级别：{{ step.approver_level }}
+                        {% elif step.cc_users %}
+                            抄送：{{ step.cc_users }}
+                        {% elif step.notification_users %}
+                            通知：{{ step.notification_users }}
                         {% else %}
-                            未设置
+                            按节点规则自动匹配
                         {% endif %}
                     </td>
-                    <td>
-                        {% if step.time_limit_hours %}
-                            {{ step.time_limit_hours }}小时
-                            {% if step.auto_approve_on_timeout %}
-                                <span class="layui-badge layui-bg-gray">超时自动通过</span>
-                            {% endif %}
-                        {% else %}
-                            无限制
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if step.next_step_success %}
-                            {{ step.next_step_success.step_name }}
-                        {% else %}
-                            <span class="layui-badge layui-bg-green">流程结束</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if step.next_step_reject %}
-                            {{ step.next_step_reject.step_name }}
-                        {% else %}
-                            <span class="layui-badge layui-bg-red">流程结束</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if step.is_required %}
-                            <span class="layui-badge layui-bg-blue">必须</span>
-                        {% else %}
-                            <span class="layui-badge layui-bg-gray">可选</span>
-                        {% endif %}
-                        {% if step.is_parallel %}
-                            <span class="layui-badge layui-bg-orange">并行</span>
-                        {% endif %}
-                    </td>
+                    <td>{% if step.time_limit_hours %}{{ step.time_limit_hours }}小时{% else %}无限制{% endif %}</td>
+                    <td>{{ step.get_timeout_action_display }}</td>
+                    <td>{{ step.description|default:'-' }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
+        </table>
+
+        <table class="layui-table">
+            <thead>
+                <tr>
+                    <th>连线序号</th>
+                    <th>来源节点</th>
+                    <th>目标节点</th>
+                    <th>连线类型</th>
+                    <th>连线标签</th>
+                    <th>条件表达式</th>
+                </tr>
+            </thead>
+            <tbody id="edgeTableBody"></tbody>
         </table>
         {% else %}
         <div class="layui-empty">
@@ -128,6 +112,7 @@
     <!-- 引入流程图库 -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <script src="/static/layui/layui.js"></script>
+    <script src="/static/js/common.js"></script>
     <script>
         layui.use(['table'], function(){
             var table = layui.table;
@@ -138,7 +123,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             // 使用Mermaid绘制流程图
             // 将Django模板变量转换为JavaScript变量，避免语法错误
-            var flowData = {{ flow_data|safe }};
+            var flowData = JSON.parse('{{ flow_data_json|escapejs }}');
             var mermaidCode = generateMermaidCode(flowData);
             
             // 设置Mermaid配置
@@ -153,57 +138,79 @@
             
             // 渲染流程图
             document.getElementById('flowChart').innerHTML = '<div class="mermaid">' + mermaidCode + '</div>';
+            renderEdgeTable(flowData);
             mermaid.init();
         });
 
         function generateMermaidCode(flowData) {
             var code = 'graph TD\n';
-            code += '    Start([开始]) --> ';
-            
-            // 添加第一个步骤
-            if (flowData.nodes.length > 0) {
-                var firstNode = flowData.nodes[0];
-                code += firstNode.id + '\n';
-                
-                // 添加所有节点
-                flowData.nodes.forEach(function(node) {
-                    var label = node.label + '\\n[' + node.type + ']';
-                    if (node.approver) {
-                        label += '\\n' + node.approver;
-                    }
-                    if (node.time_limit) {
-                        label += '\\n(' + node.time_limit + 'h)';
-                    }
-                    code += '    ' + node.id + '[' + label + ']\n';
-                });
-                
-                // 添加连线
+            code += '    start([开始])\n';
+            code += '    end([结束])\n';
+            flowData.nodes.forEach(function(node) {
+                var label = node.label + '\\n[' + node.type + ']';
+                if (node.approval_mode) {
+                    label += '\\n' + node.approval_mode;
+                }
+                if (node.approver) {
+                    label += '\\n' + node.approver;
+                }
+                if (node.time_limit) {
+                    label += '\\n(' + node.time_limit + 'h)';
+                }
+                code += '    ' + node.id + '[' + label + ']\n';
+            });
+
+            if (flowData.edges && flowData.edges.length > 0) {
                 flowData.edges.forEach(function(edge) {
-                    var style = edge.type === 'success' ? '-->|通过|' : '-->|拒绝|';
-                    code += '    ' + edge.source + ' ' + style + ' ' + edge.target + '\n';
+                    var source = edge.source || edge.from_node;
+                    var target = edge.target || edge.to_node;
+                    var type = edge.edge_type || edge.type || 'success';
+                    var label = edge.label || (type === 'reject' ? '拒绝' : (type === 'return' ? '退回' : (type === 'condition' ? '条件' : '通过')));
+                    if (!source || !target) return;
+                    code += '    ' + source + ' -->|' + label + '| ' + target + '\n';
                 });
-                
-                // 添加结束节点
-                code += '    End([结束])\n';
-                
-                // 连接到结束节点
-                flowData.nodes.forEach(function(node) {
-                    var hasSuccessNext = flowData.edges.some(e => e.source === node.id && e.type === 'success');
-                    var hasRejectNext = flowData.edges.some(e => e.source === node.id && e.type === 'reject');
-                    
-                    if (!hasSuccessNext) {
-                        code += '    ' + node.id + ' -->|通过| End\n';
-                    }
-                    if (!hasRejectNext) {
-                        code += '    ' + node.id + ' -->|拒绝| End\n';
-                    }
-                });
+            } else if (flowData.nodes.length > 0) {
+                code += '    start --> ' + flowData.nodes[0].id + '\n';
+                for (var i = 0; i < flowData.nodes.length - 1; i++) {
+                    code += '    ' + flowData.nodes[i].id + ' --> ' + flowData.nodes[i + 1].id + '\n';
+                }
+                code += '    ' + flowData.nodes[flowData.nodes.length - 1].id + ' --> end\n';
             } else {
-                code += 'End([结束])\n';
+                code += '    start --> end\n';
             }
-            
             return code;
         }
+
+        function renderEdgeTable(flowData) {
+            var body = document.getElementById('edgeTableBody');
+            if (!body) return;
+            var nodeMap = {start: '开始', end: '结束'};
+            flowData.nodes.forEach(function(node) { nodeMap[node.id] = node.label; });
+            var typeMap = {success: '通过', condition: '条件', reject: '拒绝', return: '退回'};
+            var edges = flowData.edges || [];
+            if (!edges.length) {
+                body.innerHTML = '<tr><td colspan="6">暂无连线数据</td></tr>';
+                return;
+            }
+            body.innerHTML = edges.map(function(edge, index) {
+                var type = edge.edge_type || edge.type || 'success';
+                var condition = edge.condition_field ? [edge.condition_field, edge.condition_operator || '=', edge.condition_value || ''].join(' ') : '-';
+                return '<tr>' +
+                    '<td>' + (index + 1) + '</td>' +
+                    '<td>' + escapeHtml(nodeMap[edge.from_node || edge.source] || edge.from_node || edge.source || '-') + '</td>' +
+                    '<td>' + escapeHtml(nodeMap[edge.to_node || edge.target] || edge.to_node || edge.target || '-') + '</td>' +
+                    '<td><span class="layui-badge layui-bg-blue">' + escapeHtml(typeMap[type] || type) + '</span></td>' +
+                    '<td>' + escapeHtml(edge.label || '-') + '</td>' +
+                    '<td>' + escapeHtml(condition) + '</td>' +
+                    '</tr>';
+            }).join('');
+        }
+
+        var escapeHtml = (window.DTCallCommon && window.DTCallCommon.escapeHtml) || function(value) {
+            return String(value == null ? '' : value).replace(/[&<>"]/g, function(ch) {
+                return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[ch];
+            });
+        };
         {% endif %}
     </script>
 

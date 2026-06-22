@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="{% static 'css/workflow-designer.css' %}">
 <style>
     .designer-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%);
         padding: 16px 24px;
         display: flex;
         justify-content: space-between;
@@ -366,10 +366,10 @@
             document.getElementById('loading-overlay').style.display = show ? 'flex' : 'none';
         }
         
-        function getCsrfToken() {
+        var getCsrfToken = (window.DTCallCommon && window.DTCallCommon.getCsrfToken) || function() {
             const input = document.querySelector('[name="csrfmiddlewaretoken"]');
             return input ? input.value : '';
-        }
+        };
     });
 </script>
 {% endblock %}

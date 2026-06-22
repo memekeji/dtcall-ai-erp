@@ -47,14 +47,14 @@
 
 <script>
 function openCreateApproval(flowId, flowName) {
-    var content = '/approval/apply/' + flowId + '/?iframe=1';
+    var content = '{% url "approval:create_approval" 0 %}?iframe=1'.replace('/0/', '/' + flowId + '/');
     
     layer.open({
         type: 2,
         title: '<i class="layui-icon layui-icon-edit"></i> 发起审批 - ' + flowName,
         area: ['80%', '100%'],
         offset: 'r',
-        anim: 'slideLeft',
+        anim: 2,
         shadeClose: false,
         shade: 0.3,
         maxmin: true,
@@ -89,7 +89,7 @@ function openCreateApproval(flowId, flowName) {
 }
 
 .page-header h2 i {
-    color: #4f46e5;
+    color: #1677ff;
 }
 
 .page-desc {
@@ -108,15 +108,15 @@ function openCreateApproval(flowId, flowName) {
     flex-direction: column;
     padding: 16px;
     background: #fff;
-    border-radius: 12px;
-    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    border: 1px solid #e5edf8;
     cursor: pointer;
     transition: all 0.3s;
 }
 
 .flow-card:hover {
-    border-color: #4f46e5;
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
+    border-color: #1677ff;
+    box-shadow: 0 8px 20px rgba(22, 119, 255, 0.14);
     transform: translateY(-2px);
 }
 
@@ -124,7 +124,7 @@ function openCreateApproval(flowId, flowName) {
     width: 48px;
     height: 48px;
     border-radius: 10px;
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    background: linear-gradient(135deg, #1677ff, #06b6d4);
     display: flex;
     align-items: center;
     justify-content: center;

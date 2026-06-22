@@ -7,8 +7,6 @@ import json
 import logging
 from django.http import JsonResponse, HttpResponse
 from django.views.generic import View
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 
@@ -26,7 +24,6 @@ from apps.ai.services.workflow_interaction_service import (
 logger = logging.getLogger(__name__)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class WorkflowInteractionListView(LoginRequiredMixin, View):
     """工作流交互列表API"""
 
@@ -77,7 +74,6 @@ class WorkflowInteractionListView(LoginRequiredMixin, View):
             }, status=500)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class WorkflowInteractionDetailView(LoginRequiredMixin, View):
     """工作流交互详情API"""
 
@@ -106,7 +102,6 @@ class WorkflowInteractionDetailView(LoginRequiredMixin, View):
             }, status=500)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class WorkflowInteractionCompleteView(LoginRequiredMixin, View):
     """完成工作流交互API"""
 
@@ -153,7 +148,6 @@ class WorkflowInteractionCompleteView(LoginRequiredMixin, View):
             }, status=400)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class WorkflowInteractionCancelView(LoginRequiredMixin, View):
     """取消工作流交互API"""
 
@@ -186,7 +180,6 @@ class WorkflowInteractionCancelView(LoginRequiredMixin, View):
             }, status=400)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class PendingInteractionListView(LoginRequiredMixin, View):
     """待处理交互列表API"""
 
@@ -230,7 +223,6 @@ class PendingInteractionListView(LoginRequiredMixin, View):
             }, status=500)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class InteractionFormSchemaView(LoginRequiredMixin, View):
     """获取交互表单Schema"""
 
@@ -268,7 +260,6 @@ class InteractionFormSchemaView(LoginRequiredMixin, View):
             }, status=500)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class InteractionTemplateListView(LoginRequiredMixin, View):
     """交互模板列表API"""
 
@@ -303,7 +294,6 @@ class InteractionTemplateListView(LoginRequiredMixin, View):
             }, status=500)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class CreateInteractionFromTemplateView(LoginRequiredMixin, View):
     """从模板创建交互"""
 
@@ -361,7 +351,6 @@ class CreateInteractionFromTemplateView(LoginRequiredMixin, View):
             }, status=500)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class WorkflowCheckpointListView(LoginRequiredMixin, View):
     """工作流检查点列表API"""
 
@@ -434,7 +423,6 @@ class WorkflowCheckpointListView(LoginRequiredMixin, View):
             }, status=500)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class WorkflowCheckpointRestoreView(LoginRequiredMixin, View):
     """恢复工作流检查点API"""
 
@@ -463,7 +451,6 @@ class WorkflowCheckpointRestoreView(LoginRequiredMixin, View):
             }, status=500)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class InteractionNotificationsView(LoginRequiredMixin, View):
     """交互通知API - SSE实时推送"""
 
@@ -500,7 +487,6 @@ class InteractionNotificationsView(LoginRequiredMixin, View):
         return response
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class WorkflowExecutionInteractionsView(LoginRequiredMixin, View):
     """获取工作流执行的所有交互"""
 

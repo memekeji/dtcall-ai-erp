@@ -15,12 +15,12 @@ class EncryptedAPIKeyField(models.CharField):
     def get_prep_value(self, value):
         """保存时加密"""
         if value and not value.startswith('enc_'):
-            from django.conf import settings
-            from cryptography.fernet import Fernet
-            import base64
-            import hashlib
-
             try:
+                from django.conf import settings
+                from cryptography.fernet import Fernet
+                import base64
+                import hashlib
+
                 key = base64.urlsafe_b64encode(
                     hashlib.sha256(settings.SECRET_KEY.encode('utf-8')).digest()
                 )
@@ -34,12 +34,12 @@ class EncryptedAPIKeyField(models.CharField):
     def to_python(self, value):
         """读取时解密"""
         if value and value.startswith('enc_'):
-            from django.conf import settings
-            from cryptography.fernet import Fernet
-            import base64
-            import hashlib
-
             try:
+                from django.conf import settings
+                from cryptography.fernet import Fernet
+                import base64
+                import hashlib
+
                 key = base64.urlsafe_b64encode(
                     hashlib.sha256(settings.SECRET_KEY.encode('utf-8')).digest()
                 )
@@ -390,6 +390,10 @@ class AIChatMessage(models.Model):
         verbose_name='聊天会话')
     role = models.CharField(max_length=20, choices=ROLES, verbose_name='角色')
     content = models.TextField(verbose_name='消息内容')
+    runtime_payload = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name='运行时结构化数据')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
 
     class Meta:
@@ -1199,13 +1203,15 @@ class AITask(models.Model):
     def __str__(self):
         return f"{self.user} - {self.get_task_type_display()} - {self.get_status_display()}"
 
-try:
-    pass
-except ImportError:
-    pass
-
-try:
-    pass
-except ImportError:
-    pass
+# Import extension models so Django registers them under the ai app. These
+# models are referenced by existing migrations, so omitting the import makes
+# makemigrations think the tables were intentionally deleted.
+from .models_enhanced import (  # noqa: E402,F401
+    AIWorkflowAuditLog,
+    WorkflowPermission,
+    WorkflowSchedule,
+    WorkflowTemplate,
+    WorkflowVersion,
+    WorkflowWebhook,
+)
 

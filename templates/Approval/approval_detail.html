@@ -131,7 +131,13 @@
         }
         
         .card-title i {
-            color: #4f46e5;
+            color: #1677ff;
+        }
+
+        .monitor-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
         }
         
         .info-row {
@@ -185,13 +191,13 @@
         }
         
         .preview-node.end-node {
-            border-color: #6366f1;
-            background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+            border-color: #06b6d4;
+            background: linear-gradient(135deg, #eef9ff, #e6fbff);
         }
         
         .preview-node.approval-node {
-            border-color: #4f46e5;
-            background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+            border-color: #1677ff;
+            background: linear-gradient(135deg, #f3f8ff, #eef7ff);
         }
         
         .preview-node .node-icon {
@@ -209,11 +215,11 @@
         }
         
         .preview-node.end-node .node-icon {
-            background: linear-gradient(135deg, #6366f1, #818cf8);
+            background: linear-gradient(135deg, #06b6d4, #22d3ee);
         }
         
         .preview-node.approval-node .node-icon {
-            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            background: linear-gradient(135deg, #1677ff, #06b6d4);
         }
         
         .preview-node .node-icon i {
@@ -256,6 +262,50 @@
             padding: 20px;
             color: #999;
             font-size: 13px;
+        }
+
+        .monitor-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .monitor-table th,
+        .monitor-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #f0f0f0;
+            text-align: left;
+            color: #333;
+        }
+
+        .monitor-table th {
+            background: #fafafa;
+            color: #666;
+            font-weight: 600;
+        }
+
+        .task-status {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            background: #f5f5f5;
+            color: #666;
+        }
+
+        .task-status.pending {
+            background: #fff7e6;
+            color: #fa8c16;
+        }
+
+        .task-status.completed {
+            background: #f6ffed;
+            color: #52c41a;
+        }
+
+        .task-status.cancelled {
+            background: #f5f5f5;
+            color: #999;
         }
     </style>
 </head>
@@ -324,13 +374,13 @@
                             {% if step.step_type == 'department_head' %}
                             <i class="layui-icon layui-icon-user"></i>
                             {% elif step.step_type == 'specific_user' %}
-                            <i class="layui-icon layui-icon-user-circle"></i>
+                            <i class="layui-icon layui-icon-user"></i>
                             {% elif step.step_type == 'department' %}
-                            <i class="layui-icon layui-icon-organization"></i>
+                            <i class="layui-icon layui-icon-template"></i>
                             {% elif step.step_type == 'role' %}
                             <i class="layui-icon layui-icon-rank"></i>
                             {% elif step.step_type == 'level' %}
-                            <i class="layui-icon layui-icon-sitemap"></i>
+                            <i class="layui-icon layui-icon-rank"></i>
                             {% elif step.step_type == 'cc' %}
                             <i class="layui-icon layui-icon-notice"></i>
                             {% elif step.step_type == 'notification' %}
@@ -361,18 +411,141 @@
                 <div class="empty-flow">暂未配置审批流程步骤</div>
                 {% endif %}
             </div>
+            <div class="detail-card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <i class="layui-icon layui-icon-chart-screen"></i> 流程监控
+                    </div>
+                    <div class="monitor-actions">
+                        {% if has_pending_tasks %}
+                        <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="submitOpsAction('urge')">催办</button>
+                        {% endif %}
+                        {% if can_withdraw %}
+                        <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="submitOpsAction('withdraw')">撤回</button>
+                        {% endif %}
+                        {% if can_force_end %}
+                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="submitOpsAction('force_end')">强制结束</button>
+                        {% endif %}
+                        {% if can_force_end and has_pending_tasks %}
+                        <button class="layui-btn layui-btn-xs" onclick="submitOpsAction('timeout')">执行超时策略</button>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if tasks %}
+                <table class="monitor-table">
+                    <thead>
+                        <tr>
+                            <th>节点</th>
+                            <th>处理人</th>
+                            <th>状态</th>
+                            <th>结果</th>
+                            <th>创建时间</th>
+                            <th>停留时长(小时)</th>
+                            <th>完成时间/停留状态</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for task in tasks %}
+                        <tr>
+                            <td>{{ task.step.step_name }}</td>
+                            <td>{% if task.handler %}{{ task.handler.get_full_name|default:task.handler.username }}{% else %}-{% endif %}</td>
+                            <td><span class="task-status {{ task.status }}">{{ task.get_status_display }}</span></td>
+                            <td>{{ task.result|default:'-' }}</td>
+                            <td>{{ task.created_at|date:'Y-m-d H:i:s' }}</td>
+                            <td>{% if task.status == 'pending' and task.stay_hours is not None %}{{ task.stay_hours }}{% else %}-{% endif %}</td>
+                            <td>{% if task.status == 'pending' %}停留中{% elif task.completed_at %}{{ task.completed_at|date:'Y-m-d H:i:s' }}{% else %}-{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="empty-flow">暂无任务轨迹</div>
+                {% endif %}
+            </div>
         </div>
     </div>
     
     <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/common.js' %}"></script>
     <script>
         function closeLayer() {
-            var index = parent.layer.getFrameIndex(window.name);
-            if (index) {
-                parent.layer.close(index);
-            } else {
-                history.back();
+            if (window.parent && parent.layer && parent.layer.getFrameIndex) {
+                var index = parent.layer.getFrameIndex(window.name);
+                if (index) {
+                    parent.layer.close(index);
+                    return;
+                }
             }
+            history.back();
+        }
+
+        layui.use(['layer'], function(){
+            window.layer = layui.layer;
+        });
+
+        var getCsrfToken = (window.DTCallCommon && window.DTCallCommon.getCsrfToken) || function() {
+            var input = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (input) return input.value;
+            var match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+            return match ? decodeURIComponent(match[1]) : '';
+        };
+
+        function submitOpsAction(action) {
+            var textMap = {
+                urge: '催办',
+                withdraw: '撤回',
+                force_end: '强制结束',
+                timeout: '执行超时策略'
+            };
+            var defaultComment = {
+                urge: '流程催办',
+                withdraw: '申请人撤回',
+                force_end: '管理员强制结束',
+                timeout: '手动执行超时策略'
+            };
+            var actionText = textMap[action] || '操作';
+
+            layer.confirm('确定要' + actionText + '该审批吗？', {icon: 3, title: '确认操作'}, function(index) {
+                layer.close(index);
+                layer.load(2);
+
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', '{% url "approval:approval_action" approval.id %}', true);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.setRequestHeader('X-CSRFToken', getCsrfToken());
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState !== 4) return;
+                    layer.closeAll('loading');
+                    if (xhr.status !== 200) {
+                        layer.msg('网络错误', {icon: 2});
+                        return;
+                    }
+                    try {
+                        var res = JSON.parse(xhr.responseText);
+                        if (res.success) {
+                            layer.msg(res.message, {icon: 1, time: 1200}, function() {
+                                refreshParentTables();
+                                window.location.reload();
+                            });
+                        } else {
+                            layer.msg(res.message, {icon: 2});
+                        }
+                    } catch (e) {
+                        layer.msg('操作失败', {icon: 2});
+                    }
+                };
+                xhr.send(JSON.stringify({
+                    action: action,
+                    comment: defaultComment[action] || actionText
+                }));
+            });
+        }
+
+        function refreshParentTables() {
+            if (!window.parent || !parent.layui || !parent.layui.table) return;
+            parent.layui.table.reload('approvalTable');
+            parent.layui.table.reload('pendingTable');
         }
     </script>
 </body>

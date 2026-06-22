@@ -1,5 +1,8 @@
 import json
+import logging
 from apps.ai.utils.tool_registry import tool_registry
+
+logger = logging.getLogger(__name__)
 
 @tool_registry.register(
     name="get_current_time",

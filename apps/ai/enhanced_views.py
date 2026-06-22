@@ -9,8 +9,6 @@ from datetime import datetime, timedelta
 
 from django.views import View
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 
 from apps.ai.models import AIWorkflow
 from apps.ai.services.enhanced_workflow_engine import (
@@ -29,7 +27,6 @@ from apps.ai.services.enhanced_model_service import model_service
 logger = logging.getLogger(__name__)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class WorkflowEnhancedExecuteView(View):
     """增强型工作流执行API"""
 
@@ -116,7 +113,6 @@ class WorkflowEnhancedExecuteView(View):
         return request.META.get('REMOTE_ADDR')
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class WorkflowInputFieldsView(View):
     """获取工作流输入字段API"""
 
@@ -283,7 +279,6 @@ class WorkflowInputFieldsView(View):
         return widget_mapping.get(field_type, 'text')
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class WorkflowDebugView(View):
     """工作流调试API"""
 
@@ -340,7 +335,6 @@ class WorkflowDebugView(View):
         })
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class WorkflowMonitorView(View):
     """工作流监控API"""
 
@@ -401,7 +395,6 @@ class WorkflowMonitorView(View):
                 {'status': 'error', 'message': '设置告警阈值失败，请稍后重试'}, status=500)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class WorkflowPermissionView(View):
     """工作流权限管理API"""
 
@@ -487,7 +480,6 @@ class WorkflowPermissionView(View):
                 {'status': 'error', 'message': '撤销权限失败，请稍后重试'}, status=500)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class APIKeyManagementView(View):
     """API密钥管理API"""
 
@@ -547,7 +539,6 @@ class APIKeyManagementView(View):
                 {'status': 'error', 'message': '创建API密钥失败，请稍后重试'}, status=500)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class APIKeyRevokeView(View):
     """撤销API密钥"""
 
@@ -572,7 +563,6 @@ class APIKeyRevokeView(View):
                 {'status': 'error', 'message': '撤销API密钥失败，请稍后重试'}, status=500)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class ContentSecurityView(View):
     """内容安全检查API"""
 
@@ -595,7 +585,6 @@ class ContentSecurityView(View):
                 {'status': 'error', 'message': '内容安全检查失败，请稍后重试'}, status=500)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class AuditLogView(View):
     """审计日志API"""
 
@@ -634,7 +623,6 @@ class AuditLogView(View):
                 {'status': 'error', 'message': '查询审计日志失败，请稍后重试'}, status=500)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class ModelListView(View):
     """模型列表API"""
 
@@ -654,7 +642,6 @@ class ModelListView(View):
                 {'status': 'error', 'message': '获取模型列表失败，请稍后重试'}, status=500)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class PerformanceAnalysisView(View):
     """性能分析API"""
 
@@ -677,7 +664,6 @@ class PerformanceAnalysisView(View):
                 {'status': 'error', 'message': '性能分析失败，请稍后重试'}, status=500)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class WorkflowExecutionHistoryView(View):
     """工作流执行历史API"""
 

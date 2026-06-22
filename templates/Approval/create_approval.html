@@ -69,13 +69,13 @@
                             {% if step.step_type == 'department_head' %}
                             <i class="layui-icon layui-icon-user"></i>
                             {% elif step.step_type == 'specific_user' %}
-                            <i class="layui-icon layui-icon-user-circle"></i>
+                            <i class="layui-icon layui-icon-user"></i>
                             {% elif step.step_type == 'department' %}
-                            <i class="layui-icon layui-icon-organization"></i>
+                            <i class="layui-icon layui-icon-template"></i>
                             {% elif step.step_type == 'role' %}
                             <i class="layui-icon layui-icon-rank"></i>
                             {% elif step.step_type == 'level' %}
-                            <i class="layui-icon layui-icon-sitemap"></i>
+                            <i class="layui-icon layui-icon-rank"></i>
                             {% elif step.step_type == 'cc' %}
                             <i class="layui-icon layui-icon-notice"></i>
                             {% elif step.step_type == 'notification' %}
@@ -144,7 +144,7 @@
 }
 
 .back-link:hover {
-    color: #4f46e5;
+    color: #1677ff;
 }
 
 .page-header h2 {
@@ -157,12 +157,14 @@
 }
 
 .page-header h2 i {
-    color: #4f46e5;
+    color: #1677ff;
 }
 
 .approval-form {
     background: #fff;
-    border-radius: 12px;
+    border: 1px solid #e5edf8;
+    border-radius: 8px;
+    box-shadow: 0 10px 28px rgba(15, 35, 80, 0.08);
     padding: 24px;
 }
 
@@ -183,7 +185,7 @@
 }
 
 .section-title i {
-    color: #4f46e5;
+    color: #1677ff;
 }
 
 .required {
@@ -216,13 +218,13 @@
 }
 
 .preview-node.end-node {
-    border-color: #6366f1;
-    background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+    border-color: #06b6d4;
+    background: linear-gradient(135deg, #eef9ff, #e6fbff);
 }
 
 .preview-node.approval-node {
-    border-color: #4f46e5;
-    background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+    border-color: #1677ff;
+    background: linear-gradient(135deg, #f3f8ff, #eef7ff);
 }
 
 .node-icon {
@@ -239,11 +241,11 @@
 }
 
 .end-node .node-icon {
-    background: linear-gradient(135deg, #6366f1, #818cf8);
+    background: linear-gradient(135deg, #06b6d4, #22d3ee);
 }
 
 .approval-node .node-icon {
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    background: linear-gradient(135deg, #1677ff, #06b6d4);
 }
 
 .node-icon i {

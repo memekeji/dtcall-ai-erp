@@ -15,7 +15,7 @@
 [data-theme="dark"] {
     --ai-primary: #177ddc;
     --ai-secondary: #141414;
-    --ai-text-main: #rgba(255,255,255,0.85);
+    --ai-text-main: rgba(255,255,255,0.85);
     --ai-bg-main: #000000;
     --ai-border: #434343;
 }

@@ -1,4 +1,5 @@
 import logging
+import os
 from django.shortcuts import redirect, get_object_or_404
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView, TemplateView, View
 from django.urls import reverse_lazy
@@ -7,11 +8,10 @@ from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.paginator import Paginator
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 import json
 
 from .services.workflow_service import WorkflowService
+from .services.business_feedback import record_business_ai_feedback
 
 from .models import (
     AIModelConfig,
@@ -41,12 +41,22 @@ from .forms import (
     AIActionTriggerForm
 )
 from .utils.ai_client import AIClient, AIClientError
+from apps.common.cache_service import CacheManager
 from .services.complete_node_config import (
     get_node_config_schema,
     get_node_full_config,
     get_all_node_configs,
     get_nodes_by_category
 )
+
+
+def invalidate_ai_model_runtime_cache(model_id=None):
+    CacheManager.invalidate_ai_related(model_id=model_id)
+    try:
+        from apps.ai.utils.ai_config_manager import get_ai_config_manager
+        get_ai_config_manager().refresh_configs()
+    except Exception as exc:
+        logging.getLogger(__name__).warning(f"刷新AI配置缓存失败: {exc}")
 
 
 # AI模型配置视图
@@ -111,6 +121,7 @@ class AIModelConfigCreateView(
 
     def form_valid(self, form):
         response = super().form_valid(form)
+        invalidate_ai_model_runtime_cache(self.object.id)
         messages.success(self.request, 'AI模型配置创建成功')
         return response
 
@@ -127,6 +138,7 @@ class AIModelConfigUpdateView(
 
     def form_valid(self, form):
         response = super().form_valid(form)
+        invalidate_ai_model_runtime_cache(self.object.id)
         messages.success(self.request, 'AI模型配置更新成功')
         return response
 
@@ -141,7 +153,9 @@ class AIModelConfigDeleteView(
     success_url = reverse_lazy('ai:model_config_list')
 
     def delete(self, request, *args, **kwargs):
+        model_id = self.get_object().id
         response = super().delete(request, *args, **kwargs)
+        invalidate_ai_model_runtime_cache(model_id)
         messages.success(self.request, 'AI模型配置删除成功')
         return response
 
@@ -324,7 +338,6 @@ class AIWorkflowCreateView(
         return response
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class AIWorkflowUpdateView(
         LoginRequiredMixin,
         PermissionRequiredMixin,
@@ -375,7 +388,6 @@ class AIWorkflowUpdateView(
         return super().post(request, *args, **kwargs)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class AIWorkflowDeleteView(
         LoginRequiredMixin,
         PermissionRequiredMixin,
@@ -669,15 +681,27 @@ class AIChatDetailView(
                 'id': chat.id,
                 'title': chat.title,
                 'messages': [
-                    {
-                        'id': msg.id,
-                        'role': msg.role,
-                        'content': msg.content,
-                        'created_at': msg.created_at.strftime('%Y-%m-%d %H:%M:%S')
-                    } for msg in messages
+                    self._serialize_message(msg) for msg in messages
                 ]
             })
         return super().get(request, *args, **kwargs)
+
+    def _serialize_message(self, message):
+        payload = getattr(message, 'runtime_payload', None)
+        data = {
+            'id': message.id,
+            'role': message.role,
+            'content': message.content,
+            'created_at': message.created_at.strftime('%Y-%m-%d %H:%M:%S')
+        }
+        if isinstance(payload, dict):
+            task = payload.get('task')
+            options = payload.get('options')
+            if isinstance(task, dict):
+                data['task'] = task
+            if isinstance(options, list):
+                data['options'] = options
+        return data
 
 
 class AIChatDeleteView(
@@ -719,66 +743,15 @@ class AIChatMessageCreateView(
         chat = get_object_or_404(AIChat, id=chat_id, user=self.request.user)
         message_content = form.cleaned_data['content']
 
-        # 创建用户消息
-        user_message = AIChatMessage.objects.create(
-            chat=chat,
-            role='user',
-            content=message_content
-        )
-
-        # 生成AI回复
         try:
-            # 1. 调用意图识别服务
-            from apps.ai.services.intent_recognition_service import intent_recognition_service
-            referrer = self.request.session.get('ai_last_referrer')
-            intent_input = f"当前页面URL: {referrer}\n用户请求: {message_content}" if referrer else message_content
-            intent_result = intent_recognition_service.process_request(
-                self.request.user, intent_input)
-
-            # 2. 获取意图特定处理器
-            intent = intent_result.get('intent_type', 'ai_chat')
-
-            # 直接处理意图，避免handler绑定问题
-            if intent == 'data_query':
-                # 3. 执行数据查询服务
-                from apps.ai.services.query_service import query_service
-                intent_payload = intent_result.get('intent_result') or intent_result
-                result = query_service.process_query(
-                    self.request.user, message_content, intent_payload)
-
-                if result['success']:
-                    ai_response = result['result']
-                else:
-                    ai_response = result.get('message', '抱歉，我无法处理您的请求')
-            elif intent == 'knowledge_base':
-                from apps.ai.services.rag_service import rag_service
-                ai_response = rag_service.generate_response(
-                    self.request.user, message_content)
-            elif intent == 'ai_chat':
-                # 5. 处理纯AI对话意图
-                ai_response = intent_recognition_service._handle_ai_chat(
-                    self.request.user, intent_input)['result']
-            else:
-                # 6. 如果没有特定处理器，使用通用AI聊天
-                ai_response = intent_result.get(
-                    'fallback_options', [
-                        {}])[0].get(
-                    'text', '抱歉，我无法理解您的请求')
-
-            # 5. 创建AI回复消息
-            ai_message = AIChatMessage.objects.create(
-                chat=chat,
-                role='assistant',
-                content=ai_response
-            )
-
-            return JsonResponse({
-                'status': 'success',
-                'user_message': user_message.content,
-                'ai_message': ai_message.content,
-                'intent': intent,
-                'confidence': intent_result['confidence']
-            })
+            payload = AIChatStreamView()._build_intent_response_payload(
+                self.request.user, chat.id, message_content, self.request)
+            payload['status'] = 'success' if payload.get('success') else 'error'
+            payload.setdefault('ai_message', payload.get('message', '抱歉，我无法处理您的请求'))
+            payload.setdefault('user_message', message_content)
+            payload.setdefault('intent', payload.get('intent_type') or payload.get('intent'))
+            payload.setdefault('confidence', payload.get('confidence', 0))
+            return JsonResponse(payload)
         except Exception as e:
             logger.error(f'AI生成失败: {str(e)}')
             return JsonResponse(
@@ -1505,6 +1478,69 @@ class AILogListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         return context
 
 
+class BusinessAIFeedbackAPIView(LoginRequiredMixin, View):
+    """Record user feedback for normalized business AI results."""
+
+    def post(self, request, *args, **kwargs):
+        try:
+            payload = json.loads(request.body or '{}')
+        except ValueError:
+            return JsonResponse({'code': 400, 'msg': '无效的JSON格式'}, status=400)
+
+        try:
+            feedback = record_business_ai_feedback(request, payload)
+        except ValueError as exc:
+            return JsonResponse({'code': 400, 'msg': str(exc)}, status=400)
+        except Exception as exc:
+            logger.error(f"AI反馈记录失败: {str(exc)}", exc_info=True)
+            return JsonResponse({'code': 500, 'msg': '反馈记录失败，请稍后重试'}, status=500)
+
+        return JsonResponse({
+            'code': 0,
+            'msg': '反馈已记录',
+            'data': {
+                'feedback_id': feedback.id,
+                'task_type': feedback.task_type,
+            },
+        })
+
+
+class LocalSTTAPIView(LoginRequiredMixin, View):
+    """服务端语音识别接口，不直接调用浏览器/Google语音识别"""
+
+    def post(self, request, *args, **kwargs):
+        audio_file = request.FILES.get('audio')
+        if not audio_file:
+            return JsonResponse({'status': 'error', 'message': '未收到语音文件'}, status=400)
+
+        suffix = os.path.splitext(audio_file.name or '')[1] or '.webm'
+        try:
+            import tempfile
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+                temp_path = temp_file.name
+                for chunk in audio_file.chunks():
+                    temp_file.write(chunk)
+
+            from apps.ai.utils.stt_service import STTError, transcribe_audio_file
+
+            text = transcribe_audio_file(temp_path, service_type='auto')
+            if not text.strip():
+                return JsonResponse({'status': 'error', 'message': '未识别到语音内容'}, status=422)
+            return JsonResponse({'status': 'success', 'text': text.strip()})
+        except STTError as exc:
+            return JsonResponse({'status': 'error', 'message': str(exc)}, status=503)
+        except Exception as exc:
+            logger.error(f'服务端语音识别失败: {str(exc)}')
+            return JsonResponse({'status': 'error', 'message': '服务端语音识别失败，请检查语音转文字服务配置'}, status=500)
+        finally:
+            if 'temp_path' in locals():
+                try:
+                    os.remove(temp_path)
+                except OSError:
+                    pass
+
+
 # 文件解析视图
 class ParseFileContentView(
         LoginRequiredMixin,
@@ -1675,6 +1711,10 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
                 return JsonResponse({'status': 'error', 'message': '消息不能为空'})
 
             # 1. 调用意图识别服务（使用新的 AI 分类器）
+            if request.headers.get('Accept') == 'application/json' or data.get('response_format') == 'json':
+                return JsonResponse(self._build_intent_response_payload(
+                    request.user, data.get('chat_id'), message, request))
+
             from apps.ai.services.intent_recognition_service import intent_recognition_service
             referrer = request.session.get('ai_last_referrer')
             intent_input = f"当前页面URL: {referrer}\n用户请求: {message}" if referrer else message
@@ -1684,15 +1724,10 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
             # 2. 获取意图
             intent_result.get('intent_type', 'ai_chat')
 
-            if request.headers.get('Accept') == 'application/json' or data.get('response_format') == 'json':
-                self.save_chat_record(request.user, data.get('chat_id'), message, self.get_response_text(intent_result))
-                return JsonResponse(intent_result)
-
             # 3. 处理响应
             ai_response = self.get_response_text(intent_result)
 
             try:
-                # 5. 保存聊天记录
                 self.save_chat_record(request.user, data.get('chat_id'), message, ai_response)
             except Exception as e:
                 logger.error(f'保存聊天记录失败: {str(e)}')
@@ -1711,6 +1746,36 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
                 self.generate_streaming_response(error_message),
                 content_type='text/event-stream')
 
+    def _build_intent_response_payload(self, user, chat_id, message, request=None):
+        from apps.ai.services.intent_recognition_service import intent_recognition_service
+        request_obj = request or getattr(self, 'request', None)
+        referrer = request_obj.session.get('ai_last_referrer') if request_obj else None
+        intent_input = f"当前页面URL: {referrer}\n用户请求: {message}" if referrer else message
+        intent_result = intent_recognition_service.process_request(user, intent_input)
+        ai_response = self.get_response_text(intent_result)
+        chat, user_message, ai_message = self.save_chat_record(
+            user, chat_id, message, ai_response)
+        payload = dict(intent_result)
+        payload['ai_message'] = ai_response
+        payload['user_message'] = message
+        task = payload.get('task')
+        options = payload.get('options') or (task.get('options') if isinstance(task, dict) else [])
+        if chat:
+            payload['chat_id'] = chat.id
+        if user_message:
+            payload['user_message_id'] = user_message.id
+        if ai_message:
+            payload['ai_message_id'] = ai_message.id
+            ai_message.runtime_payload = {
+                'task': task,
+                'options': options,
+                'intent_type': payload.get('intent_type'),
+                'confidence': payload.get('confidence'),
+                'requires_confirmation': payload.get('requires_confirmation'),
+            }
+            ai_message.save(update_fields=['runtime_payload'])
+        return payload
+
     def save_chat_record(self, user, chat_id, message, ai_response):
         try:
             chat = None
@@ -1726,19 +1791,21 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
                     user=user, defaults={
                         'title': f'聊天 {timezone.now().strftime("%Y-%m-%d %H:%M:%S")}'})
 
-            AIChatMessage.objects.create(
+            user_message = AIChatMessage.objects.create(
                 chat=chat,
                 role='user',
                 content=message
             )
 
-            AIChatMessage.objects.create(
+            ai_message = AIChatMessage.objects.create(
                 chat=chat,
                 role='assistant',
                 content=ai_response
             )
+            return chat, user_message, ai_message
         except Exception as e:
             logger.error(f'保存聊天记录失败: {str(e)}')
+            return None, None, None
 
     def get_response_text(self, intent_result):
         if intent_result.get('success'):

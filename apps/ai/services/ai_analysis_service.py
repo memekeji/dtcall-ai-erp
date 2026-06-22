@@ -10,6 +10,69 @@ from apps.common.utils import timestamp_to_date
 logger = logging.getLogger(__name__)
 
 
+def _display_or_attr(obj, display_method, *attr_names, default=''):
+    method = getattr(obj, display_method, None)
+    if callable(method):
+        try:
+            return method()
+        except Exception:
+            pass
+
+    for attr_name in attr_names:
+        value = getattr(obj, attr_name, None)
+        if value not in (None, ''):
+            return value
+    return default
+
+
+def _format_date(value, fmt='%Y-%m-%d'):
+    if not value:
+        return ''
+    if hasattr(value, 'strftime'):
+        return value.strftime(fmt)
+    return str(value)
+
+
+def _customer_status_text(customer):
+    display = _display_or_attr(customer, 'get_status_display')
+    if display:
+        return display
+    if getattr(customer, 'discard_time', 0):
+        return '已废弃'
+    if getattr(customer, 'belong_uid', 0):
+        return '已分配'
+    return '公海客户'
+
+
+def _build_customer_follow_info(customer, limit=5):
+    follow_manager = getattr(customer, 'follow_records', None)
+    if not follow_manager:
+        return ''
+
+    try:
+        records = follow_manager.filter(delete_time=0).order_by('-follow_time')[:limit]
+    except Exception:
+        try:
+            records = follow_manager.all()[:limit]
+        except Exception:
+            return ''
+
+    lines = []
+    for record in records:
+        content = getattr(record, 'content', None) or getattr(record, 'follow_content', '')
+        if not content:
+            continue
+        follow_type = _display_or_attr(record, 'get_follow_type_display', 'follow_type', default='跟进')
+        follow_time = _format_date(getattr(record, 'follow_time', None), '%Y-%m-%d %H:%M')
+        follow_user = getattr(record, 'follow_user', None)
+        follow_user_name = getattr(follow_user, 'username', '') or getattr(follow_user, 'name', '')
+        lines.append(f"- {follow_time} {follow_type} {follow_user_name}：{content}")
+
+    if not lines:
+        return ''
+    return "最近跟进记录：\n" + "\n".join(lines) + "\n"
+
+
 class AIAnalysisService:
     """AI分析服务"""
 
@@ -22,24 +85,31 @@ class AIAnalysisService:
             contacts = Contact.objects.filter(customer=customer)
 
             # 构建客户信息文本
+            owner = getattr(customer, 'principal', None) or getattr(customer, 'owner', None)
+            owner_name = getattr(owner, 'username', '') if owner else '未分配'
+            description = (
+                getattr(customer, 'content', None) or
+                getattr(customer, 'description', None) or
+                getattr(customer, 'remark', '')
+            )
             customer_info = f"客户名称：{customer.name}\n"\
-                f"客户类型：{customer.get_customer_type_display()}\n"\
-                f"所在地区：{customer.province}{customer.city}{customer.district}\n"\
-                f"创建时间：{customer.created_at.strftime('%Y-%m-%d')}\n"\
-                f"客户状态：{customer.get_status_display()}\n"\
-                f"所属销售人员：{customer.owner.username if customer.owner else '未分配'}\n"\
-                f"客户描述：{customer.description}\n"
+                f"客户来源/类型：{_display_or_attr(customer, 'get_customer_type_display', 'customer_source_id', default='')}\n"\
+                f"所在地区：{getattr(customer, 'province', '')}{getattr(customer, 'city', '')}{getattr(customer, 'district', '')}\n"\
+                f"创建时间：{_format_date(getattr(customer, 'create_time', None) or getattr(customer, 'created_at', None))}\n"\
+                f"客户状态：{_customer_status_text(customer)}\n"\
+                f"所属销售人员：{owner_name}\n"\
+                f"客户描述：{description}\n"
 
             # 添加联系人信息
             contact_info = "联系人信息：\n"
             for contact in contacts:
-                contact_info += f"- {contact.name}（{contact.position}），电话：{contact.phone}，邮箱：{contact.email}\n"
+                contact_name = getattr(contact, 'contact_person', None) or getattr(contact, 'name', '')
+                contact_info += f"- {contact_name}（{getattr(contact, 'position', '')}），电话：{getattr(contact, 'phone', '')}，邮箱：{getattr(contact, 'email', '')}\n"
 
-            # 添加最近跟进记录
-            # 跟进记录数据获取逻辑待实现，需要根据实际业务模型设计
+            follow_info = _build_customer_follow_info(customer)
 
             # 构建分析请求
-            prompt = f"请分析以下客户信息，并提供客户画像、需求预测和跟进建议：\n\n{customer_info}{contact_info}"
+            prompt = f"请分析以下客户信息，并提供客户画像、需求预测和跟进建议：\n\n{customer_info}{contact_info}{follow_info}"
 
             # 调用AI客户端
             ai_client = AIClient()
@@ -150,18 +220,18 @@ class AIAnalysisService:
                 f"项目负责人：{project.manager.username if project.manager else '未分配'}\n"\
                 f"开始日期：{project.start_date.strftime('%Y-%m-%d') if project.start_date else '未设置'}\n"\
                 f"预计结束日期：{project.end_date.strftime('%Y-%m-%d') if project.end_date else '未设置'}\n"\
-                f"实际结束日期：{project.completed_date.strftime('%Y-%m-%d') if project.completed_date else '未完成'}\n"\
-                f"项目状态：{project.get_status_display()}\n"\
+                f"实际结束日期：{_format_date(getattr(project, 'completed_date', None), '%Y-%m-%d') or '未完成'}\n"\
+                f"项目状态：{_display_or_attr(project, 'get_status_display', 'status_display', default=getattr(project, 'status', ''))}\n"\
                 f"项目描述：{project.description}\n"\
                 f"预算金额：{project.budget}\n"\
-                f"已花费金额：{project.spent}\n"
+                f"实际成本：{getattr(project, 'actual_cost', getattr(project, 'spent', 0))}\n"
 
             # 添加任务信息
             task_info = "项目任务：\n"
             for task in tasks:
-                task_status = task.get_status_display()
-                task_due = task.due_date.strftime(
-                    '%Y-%m-%d') if task.due_date else '未设置'
+                task_status = _display_or_attr(task, 'get_status_display', 'status_display', default=getattr(task, 'status', ''))
+                task_due_value = getattr(task, 'due_date', None) or getattr(task, 'end_date', None)
+                task_due = task_due_value.strftime('%Y-%m-%d') if task_due_value else '未设置'
                 task_info += f"- {task.title}（状态：{task_status}，截止日期：{task_due}）\n"
 
             # 构建AI请求

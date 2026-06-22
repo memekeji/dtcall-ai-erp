@@ -12,11 +12,13 @@
 var tableColumns = [
     {field: 'name', title: '类型名称', width: 150},
     {field: 'code', title: '类型代码', width: 120},
-    {field: 'description', title: '描述', width: 200, templet: function(d){
-        return d.description ? (d.description.substring(0, 50) + (d.description.length > 50 ? '...' : '')) : '-';
+    {field: 'description', title: '描述', width: 200, templet: function(d) {
+        var text = escapeHtml(d.description || '');
+        var shortText = text.length > 50 ? text.substring(0, 50) + '...' : text;
+        return text ? '<span title="' + text + '">' + shortText + '</span>' : '-';
     }},
     {field: 'icon', title: '图标', width: 80, templet: function(d){
-        return d.icon ? '<i class="layui-icon ' + d.icon + '"></i>' : '-';
+        return d.icon ? '<i class="layui-icon ' + escapeAttr(d.icon) + '"></i>' : '-';
     }},
     {field: 'sort_order', title: '排序', width: 80},
     {field: 'is_active', title: '状态', width: 100, templet: function(d){
@@ -37,7 +39,7 @@ var tableColumns = [
 </div>
 {% endblock %}
 
-{% block extra_js %}
+{% block table_extra_js %}
 {% endblock %}
 
 {% block table_headers %}

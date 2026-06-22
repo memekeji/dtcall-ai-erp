@@ -3,6 +3,47 @@
 
 {% block title %}AI聊天{% endblock %}
 
+{% block extra_css %}
+<style>
+    .ai-chat-input-panel {
+        border-top: 1px solid #eee;
+        padding: 12px;
+    }
+
+    .ai-chat-form {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .ai-chat-form .layui-input {
+        flex: 1;
+    }
+
+    .ai-voice-btn {
+        min-width: 42px;
+        padding: 0 12px;
+    }
+
+    .ai-voice-btn.listening {
+        background: #ff5722;
+        border-color: #ff5722;
+    }
+
+    .ai-voice-status {
+        min-height: 18px;
+        margin-top: 6px;
+        color: #8c8c8c;
+        font-size: 12px;
+        line-height: 18px;
+    }
+
+    .ai-voice-status.listening {
+        color: #ff5722;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="layui-fluid">
     <div class="layui-row layui-col-space15" style="height: calc(100vh - 80px);">
@@ -21,12 +62,16 @@
             <div class="layui-card" style="height: 100%; display: flex; flex-direction: column;">
                 <div class="layui-card-header" id="chatHeader">请选择一个会话</div>
                 <div class="layui-card-body" id="chatMessages" style="flex: 1; overflow: auto; background: #fafafa;"></div>
-                <div style="border-top: 1px solid #eee; padding: 12px;">
-                    <form class="layui-form" id="chatForm" style="display:flex;gap:10px;">
+                <div class="ai-chat-input-panel">
+                    <form class="layui-form ai-chat-form" id="chatForm">
                         {% csrf_token %}
-                        <input type="text" id="chatInput" autocomplete="off" placeholder="输入消息，回车发送" class="layui-input" style="flex: 1;">
+                        <input type="text" id="chatInput" autocomplete="off" placeholder="输入消息，回车发送" class="layui-input">
+                        <button type="button" class="layui-btn layui-btn-primary ai-voice-btn" id="btnVoice" title="语音输入" aria-label="语音输入">
+                            <i class="layui-icon layui-icon-voice"></i>
+                        </button>
                         <button type="button" class="layui-btn" id="btnSend">发送</button>
                     </form>
+                    <div class="ai-voice-status" id="voiceStatus"></div>
                 </div>
             </div>
         </div>
@@ -34,75 +79,434 @@
 </div>
 {% endblock %}
 
-{% block js %}
+{% block extra_js %}
 <script src="{% static 'js/jquery.min.js' %}"></script>
 <script>
 layui.use(['layer', 'jquery'], function() {
     var layer = layui.layer;
     var $ = layui.jquery;
+    if (!$) return;
 
     var currentChatId = null;
     var csrfToken = $('#chatForm input[name="csrfmiddlewaretoken"]').val();
+    var pendingMessageConsumed = false;
+    var voiceRecognition = null;
+    var voiceListening = false;
+    var voiceBaseText = '';
+    var voiceFinalText = '';
+    var voiceInterimText = '';
+    var voiceEndingForSend = false;
+    var voiceMediaRecorder = null;
+    var voiceAudioChunks = [];
+    var voiceRecordingStream = null;
 
-    function escapeHtml(text) {
+    var escapeHtml = (window.DTCallCommon && window.DTCallCommon.escapeHtml) || function(text) {
         return String(text || '').replace(/[&<>"']/g, function(m) {
             return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]);
         });
+    };
+
+    function joinVoiceText() {
+        return [voiceBaseText, voiceFinalText, voiceInterimText]
+            .map(function(part) { return (part || '').trim(); })
+            .filter(Boolean)
+            .join(' ');
     }
 
-    function processAiActions(content) {
-        if (!content) return content;
-        
-        // 匹配 ```ui_action\n{...}\n```
-        var actionRegex = /```ui_action\s*([\s\S]*?)\s*```/g;
-        var match;
-        while ((match = actionRegex.exec(content)) !== null) {
-            try {
-                var payload = JSON.parse(match[1]);
-                if (window.parent && window.parent !== window) {
-                    // 通知父页面的 ai-agent-sdk 执行操作
-                    payload.type = 'ai_action';
-                    window.parent.postMessage(payload, '*');
-                }
-            } catch(e) {
-                console.error('解析AI Action失败', e);
+    function setVoiceStatus(text, listening) {
+        $('#voiceStatus')
+            .text(text || '')
+            .toggleClass('listening', !!listening);
+    }
+
+    function setVoiceButtonState(listening) {
+        var $button = $('#btnVoice');
+        voiceListening = !!listening;
+        $button.toggleClass('listening', voiceListening);
+        $button.attr('title', voiceListening ? '停止语音输入' : '语音输入');
+        $button.attr('aria-label', voiceListening ? '停止语音输入' : '语音输入');
+        $button.html(voiceListening
+            ? '<i class="layui-icon layui-icon-pause"></i>'
+            : '<i class="layui-icon layui-icon-voice"></i>');
+    }
+
+    function updateInputFromVoice() {
+        $('#chatInput').val(joinVoiceText());
+    }
+
+    function ensureVoiceRecognition() {
+        var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            if (!voiceRecognition || voiceRecognition.type !== 'browser-speech-recognition') {
+                var recognition = new SpeechRecognition();
+                recognition.lang = 'zh-CN';
+                recognition.continuous = false;
+                recognition.interimResults = true;
+                recognition.maxAlternatives = 1;
+                recognition.type = 'browser-speech-recognition';
+                recognition.onresult = function(event) {
+                    var finalText = '';
+                    var interimText = '';
+                    for (var i = event.resultIndex; i < event.results.length; i++) {
+                        var transcript = event.results[i][0] ? event.results[i][0].transcript : '';
+                        if (event.results[i].isFinal) {
+                            finalText += transcript;
+                        } else {
+                            interimText += transcript;
+                        }
+                    }
+                    if (finalText) voiceFinalText += finalText;
+                    voiceInterimText = interimText;
+                    updateInputFromVoice();
+                    var preview = joinVoiceText();
+                    setVoiceStatus(preview ? ('正在识别：' + preview) : '正在识别语音...', true);
+                };
+                recognition.onerror = function(event) {
+                    var message = event && event.error === 'not-allowed'
+                        ? '无法访问麦克风，请允许浏览器麦克风权限'
+                        : '语音识别失败，请重试或检查麦克风';
+                    setVoiceStatus(message);
+                    setVoiceButtonState(false);
+                    voiceEndingForSend = false;
+                };
+                recognition.onend = function() {
+                    var recognizedText = joinVoiceText();
+                    setVoiceButtonState(false);
+                    voiceInterimText = '';
+                    updateInputFromVoice();
+                    if (recognizedText) {
+                        setVoiceStatus(voiceEndingForSend ? '语音识别完成，正在发送...' : '语音识别完成，可继续编辑或发送');
+                        if (voiceEndingForSend) {
+                            voiceEndingForSend = false;
+                            sendMessage(recognizedText);
+                        }
+                    } else {
+                        setVoiceStatus('未识别到语音内容，请重新尝试');
+                        voiceEndingForSend = false;
+                    }
+                };
+                voiceRecognition = recognition;
             }
+            return voiceRecognition;
         }
-        
-        // 从展示内容中移除 ui_action 块，或者将其替换为友好的提示
-        return content.replace(actionRegex, '<div style="color:#16a34a;font-size:12px;margin:8px 0;">[已发送页面操作指令]</div>');
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder) {
+            if (!voiceRecognition) {
+                voiceRecognition = {type: 'server-media-recorder'};
+            }
+            return voiceRecognition;
+        }
+        $('#btnVoice').prop('disabled', true).attr('title', '当前浏览器不支持本地录音，请使用支持 MediaRecorder 的浏览器');
+        setVoiceStatus('当前浏览器不支持本地录音');
+        return null;
     }
 
-    function renderMessage(role, content, createdAt) {
+    function startVoiceInput() {
+        var recognition = ensureVoiceRecognition();
+        if (!recognition || voiceListening) return;
+
+        if (recognition.type === 'server-media-recorder') {
+            startServerVoiceInput();
+            return;
+        }
+
+        voiceBaseText = $('#chatInput').val().trim();
+        voiceFinalText = '';
+        voiceInterimText = '';
+        setVoiceButtonState(true);
+        setVoiceStatus('正在启动语音识别...', true);
+        try {
+            recognition.start();
+        } catch (e) {
+            setVoiceButtonState(false);
+            setVoiceStatus('语音输入启动失败，请稍后重试');
+        }
+    }
+
+    function stopVoiceInput() {
+        if (!voiceRecognition || !voiceListening) return;
+        if (voiceRecognition.type === 'server-media-recorder') {
+            stopServerVoiceInput();
+            return;
+        }
+        try {
+            voiceRecognition.stop();
+        } catch (e) {
+            setVoiceButtonState(false);
+        }
+    }
+
+    function getSupportedVoiceMimeType() {
+        var candidates = [
+            'audio/webm;codecs=opus',
+            'audio/webm',
+            'audio/ogg;codecs=opus',
+            'audio/ogg',
+            'audio/mp4'
+        ];
+        if (!window.MediaRecorder || typeof MediaRecorder.isTypeSupported !== 'function') return '';
+        for (var i = 0; i < candidates.length; i++) {
+            if (MediaRecorder.isTypeSupported(candidates[i])) return candidates[i];
+        }
+        return '';
+    }
+
+    function getServerVoiceFileName(mimeType) {
+        var type = String(mimeType || '').toLowerCase();
+        if (type.indexOf('ogg') >= 0) return 'voice.ogg';
+        if (type.indexOf('mp4') >= 0) return 'voice.m4a';
+        if (type.indexOf('wav') >= 0) return 'voice.wav';
+        return 'voice.webm';
+    }
+
+    function cleanupServerVoiceInput(clearChunks) {
+        if (voiceRecordingStream) {
+            voiceRecordingStream.getTracks().forEach(function(track) { track.stop(); });
+        }
+        voiceRecordingStream = null;
+        voiceMediaRecorder = null;
+        if (clearChunks !== false) {
+            voiceAudioChunks = [];
+        }
+    }
+
+    function startServerVoiceInput() {
+        voiceBaseText = $('#chatInput').val().trim();
+        voiceFinalText = '';
+        voiceInterimText = '';
+        voiceAudioChunks = [];
+        setVoiceButtonState(true);
+        setVoiceStatus('正在录音，再次点击麦克风结束识别', true);
+
+        navigator.mediaDevices.getUserMedia({audio: true}).then(function(stream) {
+            var mimeType = getSupportedVoiceMimeType();
+            var recorder = new MediaRecorder(stream, mimeType ? {mimeType: mimeType} : undefined);
+            voiceRecordingStream = stream;
+            voiceMediaRecorder = recorder;
+            recorder.ondataavailable = function(event) {
+                if (event.data && event.data.size > 0) {
+                    voiceAudioChunks.push(event.data);
+                }
+            };
+            recorder.onerror = function() {
+                setVoiceStatus('录音失败，请检查麦克风权限或设备状态');
+                cleanupServerVoiceInput();
+                setVoiceButtonState(false);
+            };
+            recorder.onstop = function() {
+                submitServerVoiceInput(mimeType || recorder.mimeType || 'audio/webm');
+            };
+            recorder.start();
+        }).catch(function() {
+            setVoiceStatus('无法访问麦克风，请允许浏览器麦克风权限');
+            cleanupServerVoiceInput();
+            setVoiceButtonState(false);
+        });
+    }
+
+    function stopServerVoiceInput() {
+        if (voiceMediaRecorder && voiceMediaRecorder.state !== 'inactive') {
+            setVoiceStatus('录音已结束，正在进行服务端语音识别...', true);
+            voiceMediaRecorder.stop();
+            return;
+        }
+        cleanupServerVoiceInput();
+        setVoiceButtonState(false);
+    }
+
+    function submitServerVoiceInput(mimeType) {
+        var chunks = voiceAudioChunks || [];
+        cleanupServerVoiceInput(false);
+        if (!chunks.length) {
+            setVoiceStatus('未录到语音内容，请重新尝试');
+            setVoiceButtonState(false);
+            return;
+        }
+
+        var formData = new FormData();
+        formData.append('audio', new Blob(chunks, {type: mimeType || 'audio/webm'}), getServerVoiceFileName(mimeType));
+        $.ajax({
+            url: '/ai/voice/stt/',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: {'X-CSRFToken': csrfToken},
+            success: function(res) {
+                var text = res && res.status === 'success' ? String(res.text || '').trim() : '';
+                if (text) {
+                    voiceFinalText = text;
+                    voiceInterimText = '';
+                    updateInputFromVoice();
+                    setVoiceStatus(voiceEndingForSend ? '语音识别完成，正在发送...' : '语音识别完成，可继续编辑或发送');
+                    if (voiceEndingForSend) {
+                        setVoiceButtonState(false);
+                        voiceEndingForSend = false;
+                        sendMessage(joinVoiceText());
+                    }
+                } else {
+                    setVoiceStatus(res && res.message ? res.message : '未识别到语音内容，请重新尝试');
+                }
+            },
+            error: function(xhr) {
+                var message = '服务端语音识别失败，请检查语音识别配置';
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    message = xhr.responseJSON.message;
+                }
+                setVoiceStatus(message);
+            },
+            complete: function() {
+                voiceAudioChunks = [];
+                voiceEndingForSend = false;
+                setVoiceButtonState(false);
+            }
+        });
+    }
+
+    function toggleVoiceInput() {
+        if (voiceListening) {
+            stopVoiceInput();
+        } else {
+            startVoiceInput();
+        }
+    }
+
+    function renderMessage(role, content, createdAt, task, options) {
         var isUser = role === 'user';
         var align = isUser ? 'right' : 'left';
         var bg = isUser ? '#e6f4ff' : '#fff';
         var title = isUser ? '我' : 'AI';
         var timeText = createdAt ? ('<div style="font-size:12px;color:#999;margin-top:6px;">' + escapeHtml(createdAt) + '</div>') : '';
 
-        var displayContent = isUser ? escapeHtml(content) : processAiActions(content);
-        if (!isUser) {
-            // 简单处理普通代码块
-            displayContent = displayContent.replace(/```([\s\S]*?)```/g, function(match, code) {
-                return '<pre style="background:#f4f4f4;padding:10px;border-radius:4px;overflow-x:auto;"><code>' + escapeHtml(code) + '</code></pre>';
-            });
-            // 简单处理换行
-            displayContent = displayContent.replace(/\n/g, '<br>');
-        }
+        var displayContent = isUser ? escapeHtml(content) : escapeHtml(content).replace(/\n/g, '<br>');
+        var taskHtml = !isUser && task && task.type === 'business_handoff' ? renderTaskCard(task, options || task.options || []) : '';
 
         return '' +
             '<div style="margin-bottom:12px;text-align:' + align + ';">' +
                 '<div style="display:inline-block;max-width:80%;text-align:left;background:' + bg + ';border:1px solid #eee;border-radius:8px;padding:10px 12px;">' +
                     '<div style="font-size:12px;color:#666;margin-bottom:6px;">' + title + '</div>' +
                     '<div style="word-break:break-word;">' + displayContent + '</div>' +
+                    taskHtml +
                     timeText +
                 '</div>' +
             '</div>';
     }
 
+    function renderTaskCard(task, options) {
+        var safeOptions = Array.isArray(options) ? options : [];
+        var taskPayload = escapeHtml(JSON.stringify(task || {}));
+        var optionsPayload = escapeHtml(JSON.stringify(safeOptions));
+        var html = '' +
+            '<div class="ai-task-card" data-task-payload="' + taskPayload + '" data-options-payload="' + optionsPayload + '" style="margin-top:10px;padding:12px;border:1px solid #d8e8ff;border-radius:8px;background:#f6fbff;">' +
+                '<div style="font-weight:600;margin-bottom:6px;">' + escapeHtml(task.title || '业务操作') + '</div>' +
+                '<div style="font-size:12px;color:#666;margin-top:4px;">' + escapeHtml((task.module || '业务模块') + ' · ' + (task.data_type || '未确定类型') + ' · ' + (task.action || '待处理')) + '</div>';
+        if (task.permission_required && task.permission_required.name) {
+            html += '<div style="font-size:12px;color:#666;margin-top:4px;">需要权限：' + escapeHtml(task.permission_required.name) + '</div>';
+        }
+        if (task.safety_notice) {
+            html += '<div style="font-size:12px;color:#666;margin-top:4px;">' + escapeHtml(task.safety_notice) + '</div>';
+        }
+        if (task.disabled_reason) {
+            html += '<div style="font-size:12px;color:#d46b08;margin-top:4px;">' + escapeHtml(task.disabled_reason) + '</div>';
+        }
+        html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">';
+        safeOptions.forEach(function(option, index) {
+            var disabled = option.enabled === false ? ' disabled' : '';
+            var cls = option.action === 'cancel' ? ' layui-btn-primary' : '';
+            html += '<button type="button" class="layui-btn layui-btn-sm ai-task-option' + cls + '" data-option-index="' + index + '"' + disabled + '>' + escapeHtml(option.text || '操作') + '</button>';
+        });
+        if (!safeOptions.length && task.target_url) {
+            html += '<button type="button" class="layui-btn layui-btn-sm ai-task-option" data-option-index="0">打开' + escapeHtml(task.title || '业务页面') + '</button>';
+        }
+        html += '</div></div>';
+        return html;
+    }
+
+    function handleTaskOption(option, task) {
+        if (!option || option.enabled === false) return;
+        if (option.action === 'cancel') {
+            layer.msg('已取消当前业务操作');
+            return;
+        }
+        if (option.action === 'clarify') {
+            $('#chatInput').val('请补充业务类型：').focus();
+            return;
+        }
+        if (option.action === 'open_business_page') {
+            openSafeBusinessPage(option, task);
+        }
+    }
+
+    function openSafeBusinessPage(option, task) {
+        var targetUrl = option.target_url || (task && task.target_url);
+        if (!isSafeBusinessUrl(targetUrl)) {
+            layer.msg('业务入口地址未通过安全校验，已阻止打开');
+            return;
+        }
+        var title = option.title || (task && task.title) || '业务页面';
+        if (window.parent && typeof window.parent.addTab === 'function') {
+            window.parent.addTab(targetUrl, title);
+        } else if (typeof window.addTab === 'function') {
+            window.addTab(targetUrl, title);
+        } else {
+            window.location.href = targetUrl;
+        }
+    }
+
+    function isSafeBusinessUrl(url) {
+        if (!url || typeof url !== 'string') return false;
+        if (url.indexOf('/') !== 0 || url.indexOf('//') === 0) return false;
+        var allowedPrefixes = [
+            '/customer/', '/contract/', '/project/', '/finance/',
+            '/user/employee/', '/system/department/', '/production/', '/inventory/'
+        ];
+        return allowedPrefixes.some(function(prefix) {
+            return url.indexOf(prefix) === 0;
+        });
+    }
+
+    function bindRenderedTaskCards() {
+        $('#chatMessages .ai-task-card').each(function() {
+            var taskPayload = $(this).attr('data-task-payload');
+            var optionsPayload = $(this).attr('data-options-payload');
+            if (taskPayload) {
+                try {
+                    $(this).data('task', JSON.parse(taskPayload));
+                } catch (e) {}
+            }
+            if (optionsPayload) {
+                try {
+                    $(this).data('options', JSON.parse(optionsPayload));
+                } catch (e) {}
+            }
+        });
+    }
+
     function scrollMessagesToBottom() {
         var el = document.getElementById('chatMessages');
         if (el) el.scrollTop = el.scrollHeight;
+    }
+
+    function getPendingMessage() {
+        if (pendingMessageConsumed) return '';
+        try {
+            return window.sessionStorage.getItem('dtcall_ai_pending_message') || '';
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function clearPendingMessage() {
+        pendingMessageConsumed = true;
+        try {
+            window.sessionStorage.removeItem('dtcall_ai_pending_message');
+        } catch (e) {}
+    }
+
+    function sendPendingMessageIfNeeded() {
+        var pending = getPendingMessage();
+        if (!pending || !currentChatId) return;
+        clearPendingMessage();
+        sendMessage(pending);
     }
 
     function setHeader(title) {
@@ -119,6 +523,9 @@ layui.use(['layer', 'jquery'], function() {
                 $list.empty();
                 if (!Array.isArray(chats) || chats.length === 0) {
                     $list.append('<li class="layui-menu-item"><div class="layui-menu-body-title" style="color:#999;">暂无会话</div></li>');
+                    if (getPendingMessage()) {
+                        createChatSilently('AI助手对话');
+                    }
                     return;
                 }
                 chats.forEach(function(chat) {
@@ -157,10 +564,12 @@ layui.use(['layer', 'jquery'], function() {
                 setHeader(res.title || ('会话 #' + res.id));
                 var html = '';
                 (res.messages || []).forEach(function(m) {
-                    html += renderMessage(m.role, m.content, m.created_at);
+                    html += renderMessage(m.role, m.content, m.created_at, m.task, m.options);
                 });
                 $('#chatMessages').html(html);
+                bindRenderedTaskCards();
                 scrollMessagesToBottom();
+                sendPendingMessageIfNeeded();
             },
             error: function() {
                 layer.msg('加载消息失败');
@@ -190,12 +599,37 @@ layui.use(['layer', 'jquery'], function() {
         });
     }
 
-    function sendMessage() {
+    function createChatSilently(title) {
+        $.ajax({
+            url: '/ai/chat/create/',
+            type: 'POST',
+            data: {title: title || '新对话', csrfmiddlewaretoken: csrfToken},
+            success: function(res) {
+                if (res && res.status === 'success') {
+                    currentChatId = res.chat_id;
+                    loadChats(res.chat_id);
+                } else {
+                    layer.msg(res && res.message ? res.message : '创建失败');
+                }
+            },
+            error: function() {
+                layer.msg('创建失败');
+            }
+        });
+    }
+
+    function sendMessage(forcedText) {
+        if (voiceListening) {
+            voiceEndingForSend = true;
+            stopVoiceInput();
+            layer.msg('正在结束录音并识别，请确认文本后再发送');
+            return;
+        }
         if (!currentChatId) {
             layer.msg('请先选择或新建会话');
             return;
         }
-        var text = $('#chatInput').val();
+        var text = forcedText || $('#chatInput').val();
         if (!text || !text.trim()) return;
         $('#chatInput').val('');
 
@@ -210,11 +644,21 @@ layui.use(['layer', 'jquery'], function() {
             data: {chat_id: currentChatId, content: text, csrfmiddlewaretoken: csrfToken},
             success: function(res) {
                 if (res && res.status === 'success') {
+                    var options = res.options || (res.task && res.task.options) || [];
+                    var assistantText = res.ai_message || res.message || '已完成处理';
                     var html2 = $('#chatMessages').html();
-                    html2 += renderMessage('assistant', res.ai_message);
+                    html2 += renderMessage('assistant', assistantText, null, res.task, options);
                     $('#chatMessages').html(html2);
+                    bindRenderedTaskCards();
                     scrollMessagesToBottom();
-                    loadChats();
+                    if (window.parent && window.parent !== window) {
+                        window.parent.postMessage({
+                            type: 'digital_human_speak',
+                            text: assistantText
+                        }, '*');
+                    }
+                    if (res.chat_id) currentChatId = res.chat_id;
+                    loadChats(currentChatId);
                 } else {
                     layer.msg(res && res.message ? res.message : 'AI生成失败');
                 }
@@ -230,7 +674,26 @@ layui.use(['layer', 'jquery'], function() {
         if (id) openChat(id);
     });
 
+    $('#chatMessages').on('click', '.ai-task-option', function() {
+        var $card = $(this).closest('.ai-task-card');
+        var options = $card.data('options') || [];
+        var task = $card.data('task') || null;
+        var index = Number($(this).data('option-index'));
+        var option = options[index] || null;
+        if (!option && task && task.target_url) {
+            option = {
+                action: 'open_business_page',
+                target_url: task.target_url,
+                title: task.title,
+                open_mode: task.open_mode,
+                enabled: task.enabled
+            };
+        }
+        handleTaskOption(option, task);
+    });
+
     $('#btnCreateChat').on('click', createChat);
+    $('#btnVoice').on('click', toggleVoiceInput);
     $('#btnSend').on('click', sendMessage);
     $('#chatInput').on('keydown', function(e) {
         if (e.key === 'Enter') {
@@ -238,9 +701,10 @@ layui.use(['layer', 'jquery'], function() {
             sendMessage();
         }
     });
+    window.addEventListener('beforeunload', stopVoiceInput);
 
+    ensureVoiceRecognition();
     loadChats();
 });
 </script>
 {% endblock %}
-

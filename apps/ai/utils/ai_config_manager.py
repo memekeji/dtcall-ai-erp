@@ -41,7 +41,9 @@ class AIConfigManager:
 
         # 从数据库加载配置
         try:
-            db_configs = AIModelConfig.objects.filter(is_active=True)
+            db_configs = AIModelConfig.objects.filter(
+                is_active=True
+            ).order_by('-is_default', '-updated_at', '-created_at')
             for config in db_configs:
                 self._configs[config.id] = {
                     'id': config.id,
@@ -250,6 +252,7 @@ class AIConfigManager:
 
     def refresh_configs(self):
         """刷新配置"""
+        AICache.invalidate_config()
         self._configs.clear()
         self._active_config = None
         self._loaded = False
@@ -258,23 +261,33 @@ class AIConfigManager:
     def get_recommended_config(
             self, use_case: str = 'general') -> Optional[Dict]:
         """根据使用场景获取推荐配置"""
-        # 根据使用场景推荐不同的提供商
+        if not self._loaded:
+            self._load_configs()
+
+        chat_configs = [
+            config for config in self._configs.values()
+            if config.get('is_active') and config.get('model_type') in ['chat', 'text']
+        ]
+        if not chat_configs:
+            return self.get_active_config()
+
+        defaults = [config for config in chat_configs if config.get('is_default')]
+        if defaults:
+            return defaults[0]
+
         recommendations = {
-            'general': ['openai', 'alibaba', 'deepseek'],
-            'chinese': ['alibaba', 'baidu', 'doubao'],
-            'creative': ['openai', 'deepseek', 'anthropic'],
+            'general': ['openai', 'alibaba', 'deepseek', 'doubao', 'tencent', 'azure', 'anthropic', 'google', 'baidu', 'ollama', 'local'],
+            'chinese': ['alibaba', 'baidu', 'doubao', 'tencent', 'deepseek', 'openai', 'azure', 'ollama', 'local'],
+            'creative': ['openai', 'deepseek', 'anthropic', 'google', 'alibaba', 'doubao'],
             'local': ['ollama', 'local']
         }
-
-        preferred_providers = recommendations.get(use_case, ['openai', 'alibaba'])
-
+        preferred_providers = recommendations.get(use_case, recommendations['general'])
         for provider in preferred_providers:
-            config = self.get_config_by_provider(provider)
-            if config:
-                return config
+            for config in chat_configs:
+                if config.get('provider') == provider:
+                    return config
 
-        # 如果没有找到推荐配置，返回第一个可用的
-        return self.get_active_config()
+        return chat_configs[0]
 
 
 # 全局配置管理器实例（延迟实例化）

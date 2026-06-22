@@ -56,12 +56,10 @@ class WorkflowInteractionManager {
             };
             
             this.notificationSource.onerror = () => {
-                console.log('SSE连接断开，切换到轮询模式');
                 this.isPolling = true;
                 this.startPolling();
             };
         } catch (error) {
-            console.log('SSE不可用，启用轮询模式');
             this.isPolling = true;
             this.startPolling();
         }

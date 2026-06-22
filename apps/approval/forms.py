@@ -57,7 +57,7 @@ class ApprovalTypeForm(forms.ModelForm):
 class ApprovalFlowForm(forms.ModelForm):
     class Meta:
         model = ApprovalFlow
-        fields = ['name', 'code', 'description', 'is_active']
+        fields = ['name', 'code', 'description', 'approval_type', 'is_active']
         widgets = {
             'name': forms.TextInput(
                 attrs={
@@ -72,6 +72,9 @@ class ApprovalFlowForm(forms.ModelForm):
                     'class': 'layui-textarea',
                     'placeholder': '请输入流程描述',
                     'rows': 3}),
+            'approval_type': forms.Select(
+                attrs={
+                    'class': 'layui-input'}),
             'is_active': forms.CheckboxInput(
                 attrs={
                     'class': 'layui-input'}),

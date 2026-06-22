@@ -116,7 +116,7 @@
         }
         
         .card-title i {
-            color: #4f46e5;
+            color: #1677ff;
         }
         
         .info-row {
@@ -158,17 +158,19 @@
         }
         
         .process-title i {
-            color: #4f46e5;
+            color: #1677ff;
         }
         
         .action-buttons {
             display: flex;
+            flex-wrap: wrap;
             gap: 12px;
             margin-bottom: 20px;
         }
         
         .action-btn {
-            flex: 1;
+            flex: 1 1 160px;
+            min-width: 120px;
             height: 48px;
             border-radius: 8px;
             font-size: 14px;
@@ -238,8 +240,8 @@
         }
         
         .current-step-info {
-            background: linear-gradient(135deg, #f5f3ff, #ede9fe);
-            border: 1px solid #4f46e5;
+            background: linear-gradient(135deg, #f3f8ff, #eef7ff);
+            border: 1px solid #1677ff;
             border-radius: 8px;
             padding: 12px 16px;
             margin-bottom: 16px;
@@ -250,7 +252,7 @@
         
         .current-step-info i {
             font-size: 24px;
-            color: #4f46e5;
+            color: #1677ff;
         }
         
         .current-step-info .info {
@@ -274,7 +276,7 @@
             height: 44px;
             font-size: 14px;
             margin-top: 16px;
-            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            background: linear-gradient(135deg, #1677ff, #06b6d4);
             border: none;
         }
     </style>
@@ -331,13 +333,29 @@
                 </div>
                 
                 <div class="action-buttons">
-                    <button type="button" class="action-btn approve" onclick="submitAction('approve')">
+                    <button type="button" class="action-btn approve" onclick="submitAction('{% if current_step and current_step.step_type == 'execute' %}execute{% elif current_step and current_step.step_type == 'external' %}external_approve{% else %}approve{% endif %}')">
                         <i class="layui-icon layui-icon-ok-circle"></i>
-                        通过
+                        {% if current_step and current_step.step_type == 'execute' %}办理完成{% elif current_step and current_step.step_type == 'external' %}外部通过{% else %}通过{% endif %}
                     </button>
                     <button type="button" class="action-btn reject" onclick="submitAction('reject')">
                         <i class="layui-icon layui-icon-close-fill"></i>
                         拒绝
+                    </button>
+                    <button type="button" class="action-btn cancel" onclick="openReturnDialog()">
+                        <i class="layui-icon layui-icon-return"></i>
+                        退回
+                    </button>
+                    <button type="button" class="action-btn cancel" onclick="openUserDialog('transfer')">
+                        <i class="layui-icon layui-icon-release"></i>
+                        转交
+                    </button>
+                    <button type="button" class="action-btn cancel" onclick="openUserDialog('add_before')">
+                        <i class="layui-icon layui-icon-add-circle"></i>
+                        前加签
+                    </button>
+                    <button type="button" class="action-btn cancel" onclick="openUserDialog('add_after')">
+                        <i class="layui-icon layui-icon-addition"></i>
+                        后加签
                     </button>
                     <button type="button" class="action-btn cancel" onclick="submitAction('cancel')">
                         <i class="layui-icon layui-icon-close"></i>
@@ -353,7 +371,7 @@
                     <textarea id="commentInput" class="layui-textarea" rows="4" placeholder="{% if current_step and current_step.require_comment %}{{ current_step.comment_hint|default:'请输入审批意见' }}{% else %}请输入审批意见（选填）{% endif %}"></textarea>
                 </div>
                 
-                <button type="button" class="layui-btn layui-btn-lg submit-btn" onclick="submitAction('approve')">
+                <button type="button" class="layui-btn layui-btn-lg submit-btn" onclick="submitAction('{% if current_step and current_step.step_type == 'execute' %}execute{% elif current_step and current_step.step_type == 'external' %}external_approve{% else %}approve{% endif %}')">
                     <i class="layui-icon layui-icon-ok"></i> 确认提交
                 </button>
             </div>
@@ -361,19 +379,23 @@
     </div>
     
     <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/common.js' %}"></script>
     <script>
         function closeLayer() {
-            var index = parent.layer.getFrameIndex(window.name);
-            if (index) {
-                parent.layer.close(index);
-            } else {
-                history.back();
+            if (parent && parent.layer) {
+                var index = parent.layer.getFrameIndex(window.name);
+                if (index) {
+                    parent.layer.close(index);
+                    return;
+                }
             }
+            history.back();
         }
         
-        function submitAction(action) {
+        function submitAction(action, extra) {
+            extra = extra || {};
             var comment = document.getElementById('commentInput').value.trim();
-            var requireComment = {{ current_step.require_comment|yesno:"true,false" }};
+            var requireComment = {% if current_step %}{{ current_step.require_comment|yesno:"true,false" }}{% else %}false{% endif %};
             
             if (requireComment && !comment) {
                 layer.msg('请输入审批意见', {icon: 2});
@@ -382,18 +404,24 @@
             
             var btnText = {
                 'approve': '通过',
+                'execute': '办理完成',
+                'external_approve': '外部通过',
                 'reject': '拒绝',
-                'cancel': '取消'
+                'cancel': '取消',
+                'return': '退回',
+                'transfer': '转交',
+                'add_before': '前加签',
+                'add_after': '后加签'
             };
             
             layer.confirm('确定要' + btnText[action] + '该审批吗？', {
-                icon: action === 'approve' ? 1 : (action === 'reject' ? 2 : 3),
+                icon: action === 'approve' || action === 'execute' || action === 'external_approve' ? 1 : (action === 'reject' ? 2 : 3),
                 title: '确认操作'
             }, function(index) {
                 layer.load(2);
                 
                 var xhr = new XMLHttpRequest();
-                xhr.open('POST', '/approval/api/{{ approval.id }}/action/', true);
+                xhr.open('POST', '{% url "approval:approval_action" approval.id %}', true);
                 xhr.setRequestHeader('Content-Type', 'application/json');
                 xhr.setRequestHeader('X-CSRFToken', getCsrfToken());
                 
@@ -405,12 +433,21 @@
                                 var res = JSON.parse(xhr.responseText);
                                 if (res.success) {
                                     layer.msg(res.message, {icon: 1, time: 1500}, function() {
-                                        var parentIndex = parent.layer.getFrameIndex(window.name);
-                                        if (parentIndex) {
-                                            parent.layer.close(parentIndex);
-                                        } else {
-                                            window.location.reload();
+                                        if (parent && parent.refreshTable) {
+                                            parent.refreshTable();
+                                        } else if (parent && parent.layui && parent.layui.table) {
+                                            parent.layui.table.reload('pendingTable');
+                                        } else if (parent && parent.location) {
+                                            parent.location.reload();
                                         }
+                                        if (parent && parent.layer) {
+                                            var parentIndex = parent.layer.getFrameIndex(window.name);
+                                            if (parentIndex) {
+                                                parent.layer.close(parentIndex);
+                                                return;
+                                            }
+                                        }
+                                        window.location.reload();
                                     });
                                 } else {
                                     layer.msg(res.message, {icon: 2});
@@ -424,16 +461,86 @@
                     }
                 };
                 
-                xhr.send(JSON.stringify({
+                var payload = {
                     action: action,
                     comment: comment
-                }));
+                };
+                for (var key in extra) {
+                    if (Object.prototype.hasOwnProperty.call(extra, key)) {
+                        payload[key] = extra[key];
+                    }
+                }
+                xhr.send(JSON.stringify(payload));
                 
                 layer.close(index);
             });
         }
+
+        function openUserDialog(action) {
+            var titleMap = {
+                'transfer': '输入转交人ID',
+                'add_before': '输入前加签人ID',
+                'add_after': '输入后加签人ID'
+            };
+            layer.prompt({
+                title: titleMap[action],
+                formType: 0
+            }, function(value, index) {
+                value = (value || '').trim();
+                if (!/^\d+$/.test(value)) {
+                    layer.msg('请输入有效用户ID', {icon: 2});
+                    return;
+                }
+                layer.close(index);
+                var extra = {};
+                if (action === 'transfer') {
+                    extra.transfer_to = value;
+                } else {
+                    extra.add_sign_user = value;
+                }
+                submitAction(action, extra);
+            });
+        }
+
+        function openReturnDialog() {
+            var html = '<div style="padding:16px 20px;">'
+                + '<select id="returnType" class="layui-select" style="width:100%;height:38px;margin-bottom:12px;">'
+                + '<option value="previous">退回上一节点</option>'
+                + '<option value="applicant">退回申请人修改</option>'
+                + '<option value="step_id">退回指定步骤ID</option>'
+                + '</select>'
+                + '<input id="returnStepId" class="layui-input" placeholder="请输入步骤ID" style="display:none;">'
+                + '</div>';
+            layer.open({
+                type: 1,
+                title: '选择退回目标',
+                area: ['360px', '220px'],
+                content: html,
+                btn: ['确定', '取消'],
+                success: function(layero) {
+                    var select = layero.find('#returnType');
+                    var input = layero.find('#returnStepId');
+                    select.on('change', function() {
+                        input.toggle(this.value === 'step_id');
+                    });
+                },
+                yes: function(index, layero) {
+                    var type = layero.find('#returnType').val();
+                    var target = type;
+                    if (type === 'step_id') {
+                        target = layero.find('#returnStepId').val().trim();
+                        if (!/^\d+$/.test(target)) {
+                            layer.msg('请输入有效步骤ID', {icon: 2});
+                            return;
+                        }
+                    }
+                    layer.close(index);
+                    submitAction('return', {return_target: target});
+                }
+            });
+        }
         
-        function getCsrfToken() {
+        var getCsrfToken = (window.DTCallCommon && window.DTCallCommon.getCsrfToken) || function() {
             var cookies = document.cookie.split(';');
             for (var i = 0; i < cookies.length; i++) {
                 var cookie = cookies[i].trim();
@@ -442,7 +549,7 @@
                 }
             }
             return '';
-        }
+        };
         
         layui.use(['layer'], function(){
             var layer = layui.layer;

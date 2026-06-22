@@ -42,7 +42,6 @@
             this.designer = workflowDesigner;
             this.virtualizer = new ViewportVirtualizer(this);
             this._bindEvents();
-            console.log('Virtualized renderer initialized');
             return this;
         },
 

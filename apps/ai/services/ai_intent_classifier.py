@@ -6,11 +6,12 @@ AI 意图分类器
 import logging
 import json
 import re
+import time
 from typing import Dict, Any, List
 from django.contrib.auth.models import User
 from django.core.cache import cache
 from apps.ai.utils.ai_client import AIClient
-from apps.ai.models import AIIntentRecognition
+from apps.ai.models import AIIntentRecognition, AIModelConfig
 
 logger = logging.getLogger(__name__)
 
@@ -170,25 +171,66 @@ class AIIntentClassifier:
         self.ai_client = None
         self.ai_config = None
         self._training_data_cache = None
+        self._client_loaded_at = 0
+        self._client_ttl_seconds = 60
 
-    def _ensure_ai_client(self):
+    def _get_latest_chat_config(self):
+        config = (
+            AIModelConfig.objects.filter(
+                is_active=True,
+                model_type__in=['chat', 'text']
+            )
+            .order_by('-is_default', '-updated_at', '-created_at')
+            .first()
+        )
+        if not config:
+            return None
+        return {
+            'id': config.id,
+            'name': config.name,
+            'provider': config.provider,
+            'model_type': config.model_type,
+            'api_key': config.api_key,
+            'base_url': config.api_base,
+            'api_base': config.api_base,
+            'model_name': config.model_name,
+            'chat': config.model_name,
+            'max_tokens': config.max_tokens,
+            'temperature': config.temperature,
+            'top_p': config.top_p,
+            'is_active': config.is_active,
+            'is_default': config.is_default,
+            'organization': config.organization,
+            'project': config.project,
+            'provider_specific_config': {},
+        }
+
+    def _ensure_ai_client(self, force_refresh=False):
         """确保 AI 客户端已初始化"""
-        if self.ai_client is None:
+        now = time.time()
+        if force_refresh or self.ai_client is None or now - self._client_loaded_at > self._client_ttl_seconds:
             try:
                 from apps.ai.utils.ai_config_manager import get_ai_config_manager
-                config_manager = get_ai_config_manager()
-                config = config_manager.get_recommended_config()
+                config = self._get_latest_chat_config()
+                if not config:
+                    config_manager = get_ai_config_manager()
+                    config_manager.refresh_configs()
+                    config = config_manager.get_recommended_config()
                 if config:
                     self.ai_config = config
                     self.ai_client = AIClient.from_config(config)
+                    self._client_loaded_at = now
                 else:
                     logger.warning("没有找到有效的 AI 配置，AI 意图识别将进入安全降级模式")
                     self.ai_config = None
                     self.ai_client = None
+                    self._client_loaded_at = now
             except Exception as e:
                 logger.error(f"初始化 AI 客户端失败：{str(e)}")
                 self.ai_config = None
                 self.ai_client = None
+                self._client_loaded_at = now
+        return self.ai_client is not None
 
     def _get_training_data(self) -> List[Dict[str, Any]]:
         """获取训练数据，包括数据库配置和内置示例"""

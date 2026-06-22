@@ -5,6 +5,7 @@
 
 import os
 import logging
+import json
 from typing import Optional, Dict, Any
 import requests
 from django.conf import settings
@@ -16,18 +17,70 @@ def get_stt_config_from_db():
     """从数据库获取语音转文字配置"""
     try:
         from apps.ai.models import AIModelConfig
-        # 获取激活的AI配置
-        active_configs = AIModelConfig.objects.filter(is_active=True)
-        if active_configs.exists():
-            config = active_configs.first()
-            return {
-                'api_key': config.api_key,
-                'base_url': config.api_base,
-                'provider': config.provider
-            }
+        active_configs = AIModelConfig.objects.filter(
+            is_active=True,
+            model_type__in=['audio', 'chat', 'text']
+        ).order_by('-is_default', '-updated_at', '-created_at')
+        for config in active_configs:
+            provider = config.provider
+            if provider in ['openai', 'alibaba', 'deepseek', 'doubao', 'tencent', 'azure']:
+                if provider in ['alibaba', 'deepseek', 'doubao', 'tencent']:
+                    provider = 'openai'
+                model_name = config.model_name or ''
+                if config.model_type != 'audio' and 'whisper' not in model_name.lower():
+                    model_name = 'whisper-1'
+                return {
+                    'service_type': provider,
+                    'api_key': config.api_key,
+                    'base_url': config.api_base,
+                    'model': model_name or 'whisper-1'
+                }
     except Exception as e:
         logger.warning(f"从数据库获取AI配置失败: {str(e)}")
 
+    return None
+
+
+def get_configured_stt_service():
+    """从系统服务配置中获取已启用的语音转文字服务"""
+    try:
+        from apps.system.models import ServiceCategory, ServiceConfiguration
+        config = (
+            ServiceConfiguration.objects.filter(
+                category=ServiceCategory.STT,
+                is_enabled=True,
+            )
+            .exclude(api_key='')
+            .order_by('-updated_at', '-created_at')
+            .first()
+        )
+        if not config:
+            return None
+
+        extra = {}
+        if config.extra_config:
+            try:
+                extra = json.loads(config.extra_config)
+            except json.JSONDecodeError:
+                extra = {}
+
+        provider = (config.provider or '').lower()
+        if provider in ['aliyun', 'tencent', 'azure', 'custom']:
+            provider = 'openai'
+        if provider not in ['openai', 'baidu']:
+            provider = 'openai'
+
+        service_config = {
+            'service_type': provider,
+            'api_key': config.api_key,
+            'base_url': config.base_url,
+            'model': extra.get('model') or extra.get('model_name') or 'whisper-1'
+        }
+        if config.api_secret:
+            service_config['secret_key'] = config.api_secret
+        return service_config
+    except Exception as e:
+        logger.warning(f"从系统服务配置获取STT配置失败: {str(e)}")
     return None
 
 
@@ -60,8 +113,10 @@ class OpenAISTTService(STTService):
     def __init__(
             self,
             api_key: Optional[str] = None,
-            base_url: Optional[str] = None):
+            base_url: Optional[str] = None,
+            model: Optional[str] = None):
         super().__init__()
+        self.model = model or 'whisper-1'
         # 优先使用传入的参数，其次从数据库获取，最后从settings获取
         if api_key:
             self.api_key = api_key
@@ -107,7 +162,7 @@ class OpenAISTTService(STTService):
             with open(audio_file_path, 'rb') as audio_file:
                 files = {
                     'file': audio_file,
-                    'model': (None, 'whisper-1'),
+                    'model': (None, kwargs.get('model', self.model)),
                     'language': (None, kwargs.get('language', 'zh')),
                     'response_format': (None, 'text'),
                 }
@@ -322,28 +377,10 @@ class LocalSTTService(STTService):
                     return text
                 except sr.UnknownValueError:
                     logger.warning("PocketSphinx无法识别音频内容")
-                    # 尝试使用Google语音识别（需要网络，但准确率更高）
-                    try:
-                        text = self._recognizer.recognize_google(
-                            audio_data, language='zh-CN')
-                        logger.info("使用Google语音识别成功")
-                        return text
-                    except sr.UnknownValueError:
-                        raise STTError("无法识别音频内容")
-                    except sr.RequestError as e:
-                        logger.warning(f"Google语音识别服务不可用: {str(e)}")
-                        raise STTError("语音识别服务不可用，请检查网络连接")
+                    raise STTError("本地离线语音识别未识别到内容，请检查音频质量或配置内网语音识别服务")
                 except Exception as e:
                     logger.warning(f"PocketSphinx识别失败: {str(e)}")
-                    # 如果离线识别失败，尝试Google识别
-                    try:
-                        text = self._recognizer.recognize_google(
-                            audio_data, language='zh-CN')
-                        logger.info("使用Google语音识别成功")
-                        return text
-                    except Exception as e2:
-                        logger.error(f"所有语音识别方法均失败: {str(e2)}")
-                        raise STTError("语音识别失败，请检查音频文件或语音识别服务配置")
+                    raise STTError("本地离线语音识别失败，请检查音频文件或配置内网语音识别服务")
 
         except ImportError as e:
             logger.error(f"语音识别库未安装: {str(e)}")
@@ -387,8 +424,6 @@ class FreeSTTService(STTService):
                 pass
                 # 优先使用本地离线识别
                 self._fallback_services.append('local_offline')
-                # 然后尝试Google在线识别
-                self._fallback_services.append('google_online')
             except ImportError:
                 logger.warning("SpeechRecognition库未安装，无法使用本地语音识别")
 
@@ -411,9 +446,6 @@ class FreeSTTService(STTService):
             try:
                 if service_name == 'local_offline':
                     return self._transcribe_local_offline(
-                        audio_file_path, **kwargs)
-                elif service_name == 'google_online':
-                    return self._transcribe_google_online(
                         audio_file_path, **kwargs)
                 elif service_name == 'speech_recognition':
                     return self._transcribe_with_speech_recognition(
@@ -453,32 +485,6 @@ class FreeSTTService(STTService):
             logger.warning(f"本地离线语音识别失败: {str(e)}")
             raise STTError("本地离线语音识别失败，请检查音频文件或本地识别环境")
 
-    def _transcribe_google_online(self, audio_file_path: str, **kwargs) -> str:
-        """使用Google在线语音识别"""
-        try:
-            import speech_recognition as sr
-
-            # 创建识别器
-            r = sr.Recognizer()
-
-            # 使用WAV文件
-            with sr.AudioFile(audio_file_path) as source:
-                audio = r.record(source)
-
-            # 使用Google语音识别
-            text = r.recognize_google(audio, language='zh-CN')
-            logger.info("Google在线语音识别成功")
-            return text
-
-        except sr.UnknownValueError:
-            raise STTError("Google语音识别无法识别音频内容")
-        except sr.RequestError as e:
-            logger.warning(f"Google语音识别服务不可用: {str(e)}")
-            raise STTError("Google语音识别服务不可用，请检查网络连接")
-        except Exception as e:
-            logger.warning(f"Google语音识别失败: {str(e)}")
-            raise STTError("Google语音识别失败，请检查音频文件或网络连接")
-
     def _transcribe_with_speech_recognition(
             self, audio_file_path: str, **kwargs) -> str:
         """使用SpeechRecognition库进行语音转文字（兼容旧版本）"""
@@ -486,10 +492,8 @@ class FreeSTTService(STTService):
             # 优先尝试本地离线识别
             return self._transcribe_local_offline(audio_file_path, **kwargs)
         except Exception as e:
-            logger.warning(f"本地离线识别失败，尝试Google在线识别: {str(e)}")
-
-            # 如果离线识别失败，尝试在线识别
-            return self._transcribe_google_online(audio_file_path, **kwargs)
+            logger.warning(f"本地离线识别失败: {str(e)}")
+            raise STTError("本地离线语音识别失败，请配置内网语音识别服务")
 
     def _transcribe_with_mock(self, audio_file_path: str, **kwargs) -> str:
         """语音转文字服务（已移除模拟实现）"""
@@ -512,11 +516,18 @@ class STTServiceFactory:
             STTService实例
         """
         if service_type == 'openai':
-            return OpenAISTTService(**kwargs)
+            return OpenAISTTService(
+                api_key=kwargs.get('api_key'),
+                base_url=kwargs.get('base_url'),
+                model=kwargs.get('model')
+            )
         elif service_type == 'baidu':
-            return BaiduSTTService(**kwargs)
+            return BaiduSTTService(
+                api_key=kwargs.get('api_key'),
+                secret_key=kwargs.get('secret_key')
+            )
         elif service_type == 'local':
-            return LocalSTTService(**kwargs)
+            return LocalSTTService(model_path=kwargs.get('model_path'))
         elif service_type == 'free':
             # FreeSTTService只接受service_type参数，过滤掉其他参数
             service_kwargs = {}
@@ -547,9 +558,19 @@ def transcribe_audio_file(
         str: 转写后的文本
     """
     if service_type == 'auto':
-        # 自动选择服务：优先使用配置的服务
-        default_service = getattr(settings, 'DEFAULT_STT_SERVICE', 'free')
-        service_type = default_service
+        configured_service = get_configured_stt_service() or get_stt_config_from_db()
+        if configured_service:
+            service_type = configured_service.pop('service_type', 'openai')
+            kwargs = {**configured_service, **kwargs}
+        else:
+            service_type = getattr(settings, 'DEFAULT_STT_SERVICE', 'free')
 
     service = STTServiceFactory.create_service(service_type, **kwargs)
-    return service.transcribe_audio(audio_file_path, **kwargs)
+    try:
+        return service.transcribe_audio(audio_file_path, **kwargs)
+    except STTError as exc:
+        if service_type == 'free':
+            raise STTError(
+                "当前未配置可用的语音转文字服务。请在系统服务配置中启用STT服务，或配置支持音频转写的AI模型。"
+            ) from exc
+        raise

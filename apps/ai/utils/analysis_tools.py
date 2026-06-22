@@ -148,6 +148,60 @@ class AIAnalysisTool:
                 "timestamp": datetime.now().isoformat()
             }
 
+    def _call_ai(self, prompt, max_tokens=1000, temperature=0.3):
+        """
+        调用AI客户端并尽量解析结构化结果。
+        :param prompt: 用户提示词
+        :return: AI返回的dict，或包含analysis/error的安全结果
+        """
+        try:
+            ai_response = self.ai_client.chat_completion(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
+
+            if isinstance(ai_response, dict):
+                return ai_response
+
+            content = str(ai_response) if ai_response is not None else ""
+            parsed_response = self._parse_json_response(content)
+            if isinstance(parsed_response, dict):
+                return parsed_response
+
+            return {
+                "analysis": content,
+                "confidence": 0.8 if content else 0,
+                "timestamp": datetime.now().isoformat(),
+                "provider": getattr(self.ai_client, "provider", None)
+            }
+        except Exception as e:
+            logger.error(f"AI调用失败: {str(e)}")
+            return {
+                "analysis": "分析处理过程中遇到问题，请稍后重试",
+                "confidence": 0,
+                "error": "AI分析失败，请稍后重试",
+                "timestamp": datetime.now().isoformat()
+            }
+
+    def _parse_json_response(self, content):
+        if not isinstance(content, str):
+            return None
+
+        text = content.strip()
+        if not text:
+            return None
+
+        if text.startswith("```"):
+            text = text.strip("`").strip()
+            if text.lower().startswith("json"):
+                text = text[4:].strip()
+
+        try:
+            return json.loads(text)
+        except (TypeError, ValueError):
+            return None
+
 
 class CustomerAnalysisTool(AIAnalysisTool):
     """客户分析工具"""

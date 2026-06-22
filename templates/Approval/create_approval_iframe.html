@@ -45,7 +45,7 @@
         }
         
         .iframe-header h2 i {
-            color: #4f46e5;
+            color: #1677ff;
         }
         
         .close-btn {
@@ -100,7 +100,7 @@
         }
         
         .section-title i {
-            color: #4f46e5;
+            color: #1677ff;
         }
         
         .layui-form-item {
@@ -157,8 +157,8 @@
         }
         
         .preview-node.approval-node {
-            border-color: #4f46e5;
-            background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+            border-color: #1677ff;
+            background: linear-gradient(135deg, #f3f8ff, #eef7ff);
         }
         
         .preview-node .node-icon {
@@ -179,7 +179,7 @@
         }
         
         .preview-node.approval-node .node-icon {
-            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            background: linear-gradient(135deg, #1677ff, #06b6d4);
         }
         
         .preview-node .node-icon i {
@@ -229,7 +229,7 @@
         }
         
         .layui-btn-normal {
-            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            background: linear-gradient(135deg, #1677ff, #06b6d4);
         }
     </style>
 </head>
@@ -298,13 +298,13 @@
                                     {% if step.step_type == 'department_head' %}
                                     <i class="layui-icon layui-icon-user"></i>
                                     {% elif step.step_type == 'specific_user' %}
-                                    <i class="layui-icon layui-icon-user-circle"></i>
+                                    <i class="layui-icon layui-icon-user"></i>
                                     {% elif step.step_type == 'department' %}
-                                    <i class="layui-icon layui-icon-organization"></i>
+                                    <i class="layui-icon layui-icon-template"></i>
                                     {% elif step.step_type == 'role' %}
                                     <i class="layui-icon layui-icon-rank"></i>
                                     {% elif step.step_type == 'level' %}
-                                    <i class="layui-icon layui-icon-sitemap"></i>
+                                    <i class="layui-icon layui-icon-rank"></i>
                                     {% elif step.step_type == 'cc' %}
                                     <i class="layui-icon layui-icon-notice"></i>
                                     {% elif step.step_type == 'notification' %}
@@ -349,12 +349,14 @@
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
         function closeLayer() {
-            var index = parent.layer.getFrameIndex(window.name);
-            if (index) {
-                parent.layer.close(index);
-            } else {
-                history.back();
+            if (window.parent && parent.layer && parent.layer.getFrameIndex) {
+                var index = parent.layer.getFrameIndex(window.name);
+                if (index) {
+                    parent.layer.close(index);
+                    return;
+                }
             }
+            history.back();
         }
         
         layui.use(['form', 'layer'], function(){

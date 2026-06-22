@@ -10,12 +10,19 @@ from dataclasses import dataclass, field
 from enum import Enum
 from abc import ABC, abstractmethod
 from datetime import datetime
-import httpx
 
 
 from apps.ai.models import AIModelConfig
 
 logger = logging.getLogger(__name__)
+
+
+def _get_httpx():
+    try:
+        import httpx
+        return httpx
+    except ImportError as exc:
+        raise RuntimeError('AI模型调用需要安装 httpx，请先安装项目依赖后再使用模型服务') from exc
 
 
 class ModelProvider(Enum):
@@ -120,7 +127,7 @@ class OpenAIAdapter(BaseModelAdapter):
         start_time = datetime.now()
 
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with _get_httpx().AsyncClient(timeout=60.0) as client:
                 headers = {
                     "Authorization": f"Bearer {self.config.api_key}",
                     "Content-Type": "application/json"
@@ -188,7 +195,7 @@ class OpenAIAdapter(BaseModelAdapter):
         start_time = datetime.now()
 
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with _get_httpx().AsyncClient(timeout=60.0) as client:
                 headers = {
                     "Authorization": f"Bearer {self.config.api_key}",
                     "Content-Type": "application/json"
@@ -244,7 +251,7 @@ class AnthropicAdapter(BaseModelAdapter):
         start_time = datetime.now()
 
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with _get_httpx().AsyncClient(timeout=60.0) as client:
                 headers = {
                     "x-api-key": self.config.api_key,
                     "Content-Type": "application/json",
@@ -334,7 +341,7 @@ class DeepSeekAdapter(BaseModelAdapter):
         start_time = datetime.now()
 
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with _get_httpx().AsyncClient(timeout=60.0) as client:
                 headers = {
                     "Authorization": f"Bearer {self.config.api_key}",
                     "Content-Type": "application/json"
@@ -398,7 +405,7 @@ class DeepSeekAdapter(BaseModelAdapter):
         start_time = datetime.now()
 
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with _get_httpx().AsyncClient(timeout=60.0) as client:
                 headers = {
                     "Authorization": f"Bearer {self.config.api_key}",
                     "Content-Type": "application/json"

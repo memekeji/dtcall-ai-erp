@@ -6,405 +6,1348 @@
     <div class="designer-header">
         <div class="header-left">
             <h2><i class="layui-icon layui-icon-flow"></i> 审批流程设计器</h2>
-            <span class="flow-tag">{{ flow.name }}</span>
+            <span class="flow-tag" title="{{ flow.name }}">{{ flow.name }}</span>
         </div>
         <div class="header-right">
-            <button class="layui-btn layui-btn-primary" onclick="FlowDesigner.preview()">
+            <button class="layui-btn layui-btn-primary" type="button" onclick="FlowDesigner.preview()">
                 <i class="layui-icon layui-icon-preview"></i> 预览
             </button>
-            <button class="layui-btn layui-btn-danger" onclick="FlowDesigner.clearAll()">
+            <button class="layui-btn layui-btn-danger" type="button" onclick="FlowDesigner.clearAll()">
                 <i class="layui-icon layui-icon-delete"></i> 清空
             </button>
-            <button class="layui-btn layui-btn-normal" onclick="FlowDesigner.save()">
+            <button class="layui-btn layui-btn-normal" type="button" onclick="FlowDesigner.save()">
                 <i class="layui-icon layui-icon-ok"></i> 保存
             </button>
         </div>
     </div>
-    
+
     <div class="designer-body">
-        <div class="panel-left">
-            <div class="panel-header">
-                <i class="layui-icon layui-icon-component"></i> 流程组件
-            </div>
+        <aside class="panel-left">
+            <div class="panel-header"><i class="layui-icon layui-icon-component"></i> 流程组件</div>
             <div class="panel-content">
+                <div class="designer-tip">拖拽组件到中间画布，也可以点击快速添加。</div>
                 <div class="group-title">审批节点</div>
-                <div class="component-item" onclick="FlowDesigner.addNode('department_head')">
-                    <div class="comp-icon" style="background: linear-gradient(135deg, #8b5cf6, #a78bfa);">
-                        <i class="layui-icon layui-icon-user"></i>
-                    </div>
-                    <div class="comp-info">
-                        <span class="comp-name">部门负责人</span>
-                        <span class="comp-desc">部门负责人审批</span>
-                    </div>
+                <div class="component-item" draggable="true" data-node-type="department_head" onclick="FlowDesigner.addNode('department_head', event)">
+                    <div class="comp-icon comp-purple"><i class="layui-icon layui-icon-user"></i></div>
+                    <div class="comp-info"><span class="comp-name">部门负责人</span><span class="comp-desc">申请人部门负责人审批</span></div>
                 </div>
-                <div class="component-item" onclick="FlowDesigner.addNode('specific_user')">
-                    <div class="comp-icon" style="background: linear-gradient(135deg, #ec4899, #f472b6);">
-                        <i class="layui-icon layui-icon-user-circle"></i>
-                    </div>
-                    <div class="comp-info">
-                        <span class="comp-name">指定人员</span>
-                        <span class="comp-desc">指定人员审批</span>
-                    </div>
+                <div class="component-item" draggable="true" data-node-type="specific_user" onclick="FlowDesigner.addNode('specific_user', event)">
+                    <div class="comp-icon comp-pink"><i class="layui-icon layui-icon-user"></i></div>
+                    <div class="comp-info"><span class="comp-name">指定人员</span><span class="comp-desc">指定用户审批</span></div>
                 </div>
-                <div class="component-item" onclick="FlowDesigner.addNode('department')">
-                    <div class="comp-icon" style="background: linear-gradient(135deg, #10b981, #34d399);">
-                        <i class="layui-icon layui-icon-organization"></i>
-                    </div>
-                    <div class="comp-info">
-                        <span class="comp-name">部门审批</span>
-                        <span class="comp-desc">按部门审批</span>
-                    </div>
+                <div class="component-item" draggable="true" data-node-type="department" onclick="FlowDesigner.addNode('department', event)">
+                    <div class="comp-icon comp-green"><i class="layui-icon layui-icon-template"></i></div>
+                    <div class="comp-info"><span class="comp-name">部门审批</span><span class="comp-desc">指定部门成员审批</span></div>
                 </div>
-                <div class="component-item" onclick="FlowDesigner.addNode('role')">
-                    <div class="comp-icon" style="background: linear-gradient(135deg, #f59e0b, #fbbf24);">
-                        <i class="layui-icon layui-icon-rank"></i>
-                    </div>
-                    <div class="comp-info">
-                        <span class="comp-name">角色审批</span>
-                        <span class="comp-desc">按角色审批</span>
-                    </div>
+                <div class="component-item" draggable="true" data-node-type="role" onclick="FlowDesigner.addNode('role', event)">
+                    <div class="comp-icon comp-orange"><i class="layui-icon layui-icon-rank"></i></div>
+                    <div class="comp-info"><span class="comp-name">角色审批</span><span class="comp-desc">指定角色审批</span></div>
                 </div>
-                <div class="component-item" onclick="FlowDesigner.addNode('level')">
-                    <div class="comp-icon" style="background: linear-gradient(135deg, #6366f1, #818cf8);">
-                        <i class="layui-icon layui-icon-sitemap"></i>
-                    </div>
-                    <div class="comp-info">
-                        <span class="comp-name">级别审批</span>
-                        <span class="comp-desc">按级别审批</span>
-                    </div>
+                <div class="component-item" draggable="true" data-node-type="level" onclick="FlowDesigner.addNode('level', event)">
+                    <div class="comp-icon comp-blue"><i class="layui-icon layui-icon-rank"></i></div>
+                    <div class="comp-info"><span class="comp-name">级别审批</span><span class="comp-desc">指定级别审批</span></div>
+                </div>
+                <div class="group-title">高级审批</div>
+                <div class="component-item" draggable="true" data-node-type="countersign" onclick="FlowDesigner.addNode('countersign', event)">
+                    <div class="comp-icon comp-indigo"><i class="layui-icon layui-icon-group"></i></div>
+                    <div class="comp-info"><span class="comp-name">多人会签</span><span class="comp-desc">全部审批人共同确认</span></div>
+                </div>
+                <div class="component-item" draggable="true" data-node-type="orsign" onclick="FlowDesigner.addNode('orsign', event)">
+                    <div class="comp-icon comp-cyan"><i class="layui-icon layui-icon-friends"></i></div>
+                    <div class="comp-info"><span class="comp-name">多人或签</span><span class="comp-desc">任一审批人确认即可</span></div>
+                </div>
+                <div class="component-item" draggable="true" data-node-type="execute" onclick="FlowDesigner.addNode('execute', event)">
+                    <div class="comp-icon comp-slate"><i class="layui-icon layui-icon-ok"></i></div>
+                    <div class="comp-info"><span class="comp-name">办理/执行</span><span class="comp-desc">记录执行办理结果</span></div>
+                </div>
+                <div class="component-item" draggable="true" data-node-type="external" onclick="FlowDesigner.addNode('external', event)">
+                    <div class="comp-icon comp-violet"><i class="layui-icon layui-icon-website"></i></div>
+                    <div class="comp-info"><span class="comp-name">外部审批</span><span class="comp-desc">对接外部审批结果</span></div>
+                </div>
+                <div class="group-title">分支与系统节点</div>
+                <div class="component-item" draggable="true" data-node-type="condition" onclick="FlowDesigner.addNode('condition', event)">
+                    <div class="comp-icon comp-yellow"><i class="layui-icon layui-icon-transfer"></i></div>
+                    <div class="comp-info"><span class="comp-name">条件分支</span><span class="comp-desc">按条件进入不同路径</span></div>
+                </div>
+                <div class="component-item" draggable="true" data-node-type="status_update" onclick="FlowDesigner.addNode('status_update', event)">
+                    <div class="comp-icon comp-lime"><i class="layui-icon layui-icon-refresh-3"></i></div>
+                    <div class="comp-info"><span class="comp-name">状态更新</span><span class="comp-desc">更新业务状态</span></div>
+                </div>
+                <div class="component-item" draggable="true" data-node-type="writeback" onclick="FlowDesigner.addNode('writeback', event)">
+                    <div class="comp-icon comp-rose"><i class="layui-icon layui-icon-template-1"></i></div>
+                    <div class="comp-info"><span class="comp-name">数据回写</span><span class="comp-desc">回写业务字段</span></div>
+                </div>
+                <div class="component-item" draggable="true" data-node-type="archive" onclick="FlowDesigner.addNode('archive', event)">
+                    <div class="comp-icon comp-gray"><i class="layui-icon layui-icon-file-b"></i></div>
+                    <div class="comp-info"><span class="comp-name">归档通知</span><span class="comp-desc">归档并发送通知</span></div>
+                </div>
+                <div class="component-item" draggable="true" data-node-type="intervention" onclick="FlowDesigner.addNode('intervention', event)">
+                    <div class="comp-icon comp-red"><i class="layui-icon layui-icon-about"></i></div>
+                    <div class="comp-info"><span class="comp-name">异常干预</span><span class="comp-desc">人工处理异常流程</span></div>
                 </div>
                 <div class="group-title">抄送通知</div>
-                <div class="component-item" onclick="FlowDesigner.addNode('cc')">
-                    <div class="comp-icon" style="background: linear-gradient(135deg, #14b8a6, #2dd4bf);">
-                        <i class="layui-icon layui-icon-notice"></i>
-                    </div>
-                    <div class="comp-info">
-                        <span class="comp-name">抄送</span>
-                        <span class="comp-desc">抄送知会</span>
-                    </div>
+                <div class="component-item" draggable="true" data-node-type="cc" onclick="FlowDesigner.addNode('cc', event)">
+                    <div class="comp-icon comp-teal"><i class="layui-icon layui-icon-notice"></i></div>
+                    <div class="comp-info"><span class="comp-name">抄送</span><span class="comp-desc">抄送知会相关人员</span></div>
                 </div>
-                <div class="component-item" onclick="FlowDesigner.addNode('notification')">
-                    <div class="comp-icon" style="background: linear-gradient(135deg, #f97316, #fb923c);">
-                        <i class="layui-icon layui-icon-email"></i>
+                <div class="component-item" draggable="true" data-node-type="notification" onclick="FlowDesigner.addNode('notification', event)">
+                    <div class="comp-icon comp-amber"><i class="layui-icon layui-icon-email"></i></div>
+                    <div class="comp-info"><span class="comp-name">系统通知</span><span class="comp-desc">流程节点消息通知</span></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="panel-center">
+            <div class="canvas-toolbar">
+                <div>
+                    <strong>自由流程画布</strong>
+                    <span>从节点右侧连接点拖到目标左侧连接点，可创建并行、分支和回流连线。</span>
+                </div>
+                <div class="canvas-actions">
+                    <div class="zoom-controls">
+                        <button class="zoom-btn" type="button" onclick="FlowDesigner.zoomOut()" title="缩小"><i class="layui-icon layui-icon-subtraction"></i></button>
+                        <span id="zoomLabel">100%</span>
+                        <button class="zoom-btn" type="button" onclick="FlowDesigner.zoomIn()" title="放大"><i class="layui-icon layui-icon-addition"></i></button>
+                        <button class="zoom-btn zoom-reset" type="button" onclick="FlowDesigner.resetZoom()">重置</button>
                     </div>
-                    <div class="comp-info">
-                        <span class="comp-name">系统通知</span>
-                        <span class="comp-desc">发送通知</span>
+                    <button class="layui-btn layui-btn-primary layui-btn-sm" type="button" onclick="FlowDesigner.selectStartNode()">
+                        配置开始节点
+                    </button>
+                </div>
+            </div>
+            <div class="canvas-viewport" id="canvasViewport">
+                <div class="canvas-scale-space" id="canvasScaleSpace">
+                    <div class="canvas-content" id="flowCanvas">
+                        <svg class="edge-layer" id="edgeLayer"></svg>
+                        <div class="canvas-grid"></div>
+                        <div class="fixed-node start-node" id="startNode" onclick="FlowDesigner.selectStartNode()">
+                            <span><i class="layui-icon layui-icon-start"></i></span>
+                            <strong>开始</strong>
+                            <button class="connection-point output-point port-1" type="button" title="开始出口 1" onmousedown="FlowDesigner.startConnectorDrag('start', 'output_1', event)" onclick="FlowDesigner.handleConnector('start', 'output_1', event)"></button>
+                            <button class="connection-point output-point port-2" type="button" title="开始出口 2" onmousedown="FlowDesigner.startConnectorDrag('start', 'output_2', event)" onclick="FlowDesigner.handleConnector('start', 'output_2', event)"></button>
+                            <button class="connection-point output-point port-3" type="button" title="开始出口 3" onmousedown="FlowDesigner.startConnectorDrag('start', 'output_3', event)" onclick="FlowDesigner.handleConnector('start', 'output_3', event)"></button>
+                        </div>
+                        <div class="nodes-layer" id="nodesLayer"></div>
+                        <div class="fixed-node end-node" id="endNode" onclick="FlowDesigner.selectEdgeFromPath(null, event)">
+                            <button class="connection-point input-point port-1" type="button" title="结束入口 1" onmouseup="FlowDesigner.finishConnectorDrag('end', 'input_1', event)" onclick="FlowDesigner.handleConnector('end', 'input_1', event)"></button>
+                            <button class="connection-point input-point port-2" type="button" title="结束入口 2" onmouseup="FlowDesigner.finishConnectorDrag('end', 'input_2', event)" onclick="FlowDesigner.handleConnector('end', 'input_2', event)"></button>
+                            <button class="connection-point input-point port-3" type="button" title="结束入口 3" onmouseup="FlowDesigner.finishConnectorDrag('end', 'input_3', event)" onclick="FlowDesigner.handleConnector('end', 'input_3', event)"></button>
+                            <span><i class="layui-icon layui-icon-ok-circle"></i></span>
+                            <strong>结束</strong>
+                        </div>
+                        <div class="drop-hint" id="dropHint">拖拽左侧组件到画布创建审批节点</div>
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <div class="panel-center">
-            <div class="canvas-area" id="flowCanvas">
-                <div class="node-start" id="startNode" onclick="FlowDesigner.selectStartNode()">
-                    <div class="start-circle">
-                        <i class="layui-icon layui-icon-start"></i>
-                    </div>
-                    <div class="start-text">开始</div>
-                </div>
-                
-                <div class="connector-v" id="connStart"></div>
-                
-                <div class="nodes-area" id="nodesArea"></div>
-                
-                <div class="add-node-btn" onclick="FlowDesigner.showMenu()">
-                    <i class="layui-icon layui-icon-add-1"></i> 添加节点
-                </div>
-                <div class="node-menu" id="nodeMenu" style="display:none;">
-                    <div onclick="FlowDesigner.addNode('department_head')"><i class="layui-icon layui-icon-user"></i> 部门负责人</div>
-                    <div onclick="FlowDesigner.addNode('specific_user')"><i class="layui-icon layui-icon-user-circle"></i> 指定人员</div>
-                    <div onclick="FlowDesigner.addNode('department')"><i class="layui-icon layui-icon-organization"></i> 部门审批</div>
-                    <div onclick="FlowDesigner.addNode('role')"><i class="layui-icon layui-icon-rank"></i> 角色审批</div>
-                    <div onclick="FlowDesigner.addNode('level')"><i class="layui-icon layui-icon-sitemap"></i> 级别审批</div>
-                    <div class="menu-div"></div>
-                    <div onclick="FlowDesigner.addNode('cc')"><i class="layui-icon layui-icon-notice"></i> 抄送</div>
-                    <div onclick="FlowDesigner.addNode('notification')"><i class="layui-icon layui-icon-email"></i> 系统通知</div>
-                </div>
-                
-                <div class="connector-v" id="connEnd"></div>
-                
-                <div class="node-end">
-                    <div class="end-circle">
-                        <i class="layui-icon layui-icon-end"></i>
-                    </div>
-                    <div class="end-text">结束</div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="panel-right">
-            <div class="panel-header">
-                <i class="layui-icon layui-icon-set"></i> 属性配置
-            </div>
+        </main>
+
+        <aside class="panel-right">
+            <div class="panel-header"><i class="layui-icon layui-icon-set"></i> 属性配置</div>
             <div class="panel-content" id="configPanel">
-                <div class="empty-tip">
-                    <i class="layui-icon layui-icon-util"></i>
-                    <p>请选择节点进行配置</p>
-                </div>
+                <div class="empty-tip"><i class="layui-icon layui-icon-util"></i><p>请选择节点进行配置</p></div>
             </div>
-        </div>
+        </aside>
     </div>
 </div>
+<form style="display:none;">{% csrf_token %}</form>
 
-<script src="/static/layui/layui.js"></script>
+<script src="{% static 'layui/layui.js' %}"></script>
 <script>
 var FlowDesigner = (function() {
     var layer, form;
     var nodesData = [];
     var nodeCounter = 0;
+    var selectedNodeId = null;
+    var edgesData = [];
+    var edgeCounter = 0;
+    var selectedEdgeId = null;
+    var connectingFrom = null;
+    var dragConnection = null;
+    var suppressConnectorClickUntil = 0;
+    var draggedType = '';
+    var lastDragAt = 0;
+    var zoom = 1;
+    var minZoom = 0.5;
+    var maxZoom = 1.6;
     var usersData = [];
     var deptsData = [];
-    var initiatorData = {
-        users: [],
-        departments: [],
-        roles: []
+    var urls = {
+        stepsJson: '{% url "approval:approval_flow_steps" flow.pk %}?format=json',
+        preview: '{% url "approval:approval_flow_preview" flow.pk %}',
+        batchCreateSteps: '{% url "approval:batch_create_steps" flow.pk %}',
+        getInitiatorConfig: '{% url "approval:get_initiator_config" flow.pk %}',
+        updateInitiatorConfig: '{% url "approval:update_initiator_config" flow.pk %}',
+        getStartConfig: '{% url "approval:get_start_config" flow.pk %}',
+        updateStartConfig: '{% url "approval:update_start_config" flow.pk %}'
     };
-    var startNodeConfig = {
-        form_fields: []
-    };
-    
+    var initiatorData = {users: [], departments: [], roles: []};
+    var startNodeConfig = {form_fields: []};
     var typeMap = {
-        'department_head': {title: '部门负责人审批', icon: 'layui-icon-user', color: 'purple'},
-        'specific_user': {title: '指定人员审批', icon: 'layui-icon-user-circle', color: 'pink'},
-        'department': {title: '部门审批', icon: 'layui-icon-organization', color: 'green'},
-        'role': {title: '角色审批', icon: 'layui-icon-rank', color: 'orange'},
-        'level': {title: '级别审批', icon: 'layui-icon-sitemap', color: 'blue'},
-        'cc': {title: '抄送', icon: 'layui-icon-notice', color: 'teal'},
-        'notification': {title: '系统通知', icon: 'layui-icon-email', color: 'orange'}
+        department_head: {title: '部门负责人审批', shortTitle: '部门负责人', icon: 'layui-icon-user', color: 'purple', actionType: 'approve', defaultApprovalMode: 'single'},
+        specific_user: {title: '指定人员审批', shortTitle: '指定人员', icon: 'layui-icon-user', color: 'pink', actionType: 'approve', defaultApprovalMode: 'single'},
+        department: {title: '部门审批', shortTitle: '部门审批', icon: 'layui-icon-template', color: 'green', actionType: 'approve', defaultApprovalMode: 'single'},
+        role: {title: '角色审批', shortTitle: '角色审批', icon: 'layui-icon-rank', color: 'orange', actionType: 'approve', defaultApprovalMode: 'single'},
+        level: {title: '级别审批', shortTitle: '级别审批', icon: 'layui-icon-rank', color: 'blue', actionType: 'approve', defaultApprovalMode: 'single'},
+        countersign: {title: '多人会签', shortTitle: '会签', icon: 'layui-icon-group', color: 'indigo', actionType: 'sign', defaultApprovalMode: 'all'},
+        orsign: {title: '多人或签', shortTitle: '或签', icon: 'layui-icon-friends', color: 'cyan', actionType: 'sign', defaultApprovalMode: 'any'},
+        execute: {title: '办理/执行', shortTitle: '办理', icon: 'layui-icon-ok', color: 'slate', actionType: 'execute', defaultApprovalMode: 'single'},
+        external: {title: '外部审批', shortTitle: '外部审批', icon: 'layui-icon-website', color: 'violet', actionType: 'external', defaultApprovalMode: 'single'},
+        condition: {title: '条件分支', shortTitle: '条件分支', icon: 'layui-icon-transfer', color: 'yellow', actionType: 'system', defaultApprovalMode: 'single'},
+        status_update: {title: '状态更新', shortTitle: '状态更新', icon: 'layui-icon-refresh-3', color: 'lime', actionType: 'system', defaultApprovalMode: 'single'},
+        writeback: {title: '数据回写', shortTitle: '数据回写', icon: 'layui-icon-template-1', color: 'rose', actionType: 'system', defaultApprovalMode: 'single'},
+        archive: {title: '归档通知', shortTitle: '归档', icon: 'layui-icon-file-b', color: 'gray', actionType: 'archive', defaultApprovalMode: 'single'},
+        intervention: {title: '异常干预', shortTitle: '异常干预', icon: 'layui-icon-about', color: 'red', actionType: 'execute', defaultApprovalMode: 'single'},
+        cc: {title: '抄送', shortTitle: '抄送', icon: 'layui-icon-notice', color: 'teal', actionType: 'notify', defaultApprovalMode: 'single'},
+        notification: {title: '系统通知', shortTitle: '系统通知', icon: 'layui-icon-email', color: 'amber', actionType: 'notify', defaultApprovalMode: 'single'}
     };
-    
+    var inputPorts = ['input_1', 'input_2', 'input_3'];
+    var outputPorts = ['output_1', 'output_2', 'output_3'];
+    var portLabels = {
+        input_1: '入口 1',
+        input_2: '入口 2',
+        input_3: '入口 3',
+        output_1: '出口 1',
+        output_2: '出口 2',
+        output_3: '出口 3'
+    };
+
+    var common = window.DTCallCommon || {};
+    var escapeHtml = common.escapeHtml || function(value) {
+        return String(value || '').replace(/[&<>"']/g, function(char) {
+            return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[char];
+        });
+    };
+
+    var escapeAttr = common.escapeAttr || function(value) {
+        return escapeHtml(value).replace(/`/g, '&#96;');
+    };
+
+    var getCsrfToken = common.getCsrfToken || function() {
+        var input = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (input) return input.value;
+        var match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+        return match ? decodeURIComponent(match[1]) : '';
+    };
+
     function init() {
         layer = layui.layer;
         form = layui.form;
-        
         try {
-            usersData = {{ users_json|safe }};
-            deptsData = {{ departments_json|safe }};
+            usersData = JSON.parse('{{ users_json|escapejs }}');
+            deptsData = JSON.parse('{{ departments_json|escapejs }}');
         } catch (e) {
             usersData = [];
             deptsData = [];
         }
-        
+        bindPaletteDrag();
+        bindCanvasDrop();
+        bindWheelZoom();
+        applyZoom(1, false);
+        centerCanvas();
         loadExisting();
         loadInitiatorConfig();
-        updateConnectors();
         showStartNodeConfig();
-        
-        document.addEventListener('click', function(e) {
-            var menu = document.getElementById('nodeMenu');
-            var btn = document.querySelector('.add-node-btn');
-            if (menu && menu.style.display === 'block' && 
-                (!btn || !btn.contains(e.target)) && 
-                !menu.contains(e.target)) {
-                menu.style.display = 'none';
-            }
+        window.addEventListener('resize', centerCanvas);
+    }
+
+    function bindPaletteDrag() {
+        document.querySelectorAll('.component-item[data-node-type]').forEach(function(item) {
+            item.addEventListener('dragstart', function(e) {
+                draggedType = item.getAttribute('data-node-type');
+                e.dataTransfer.effectAllowed = 'copy';
+                e.dataTransfer.setData('text/plain', draggedType);
+            });
+            item.addEventListener('dragend', function() {
+                draggedType = '';
+                document.getElementById('flowCanvas').classList.remove('drag-over');
+            });
         });
     }
-    
-    function loadStartNodeConfig() {
-        var flowId = {{ flow.pk }};
+
+    function bindCanvasDrop() {
+        var canvas = document.getElementById('flowCanvas');
+        canvas.addEventListener('dragover', function(e) {
+            if (!draggedType) return;
+            e.preventDefault();
+            canvas.classList.add('drag-over');
+        });
+        canvas.addEventListener('dragleave', function(e) {
+            if (!canvas.contains(e.relatedTarget)) {
+                canvas.classList.remove('drag-over');
+            }
+        });
+        canvas.addEventListener('drop', function(e) {
+            e.preventDefault();
+            canvas.classList.remove('drag-over');
+            var type = e.dataTransfer.getData('text/plain') || draggedType;
+            if (!type) return;
+            var point = getCanvasPoint(e.clientX, e.clientY);
+            addNodeToCanvas(type, (typeMap[type] || {}).title || '审批节点', null, point.x - 170, point.y - 42);
+            draggedType = '';
+            lastDragAt = Date.now();
+        });
+    }
+
+    function bindWheelZoom() {
+        var viewport = document.getElementById('canvasViewport');
+        if (!viewport) return;
+        viewport.addEventListener('wheel', function(e) {
+            if (!e.ctrlKey) return;
+            e.preventDefault();
+            var delta = e.deltaY > 0 ? -0.1 : 0.1;
+            applyZoom(zoom + delta, true);
+        }, {passive: false});
+    }
+
+    function centerCanvas() {
+        var viewport = document.getElementById('canvasViewport');
+        if (!viewport || viewport.dataset.centered === '1') return;
+        viewport.scrollLeft = Math.max(0, (2100 * zoom - viewport.clientWidth) / 2);
+        viewport.scrollTop = 0;
+        viewport.dataset.centered = '1';
+    }
+
+    function applyZoom(value, keepCenter) {
+        var viewport = document.getElementById('canvasViewport');
+        var canvas = document.getElementById('flowCanvas');
+        var scaleSpace = document.getElementById('canvasScaleSpace');
+        var label = document.getElementById('zoomLabel');
+        var oldZoom = zoom;
+        var centerX = 0;
+        var centerY = 0;
+        if (viewport && keepCenter) {
+            centerX = (viewport.scrollLeft + viewport.clientWidth / 2) / oldZoom;
+            centerY = (viewport.scrollTop + viewport.clientHeight / 2) / oldZoom;
+        }
+        zoom = Math.max(minZoom, Math.min(maxZoom, Math.round(value * 100) / 100));
+        if (canvas) {
+            canvas.style.transform = 'scale(' + zoom + ')';
+        }
+        if (scaleSpace) {
+            scaleSpace.style.width = (2100 * zoom) + 'px';
+            scaleSpace.style.height = (1500 * zoom) + 'px';
+        }
+        if (label) label.innerHTML = Math.round(zoom * 100) + '%';
+        if (viewport) {
+            viewport.style.setProperty('--canvas-scaled-width', (2100 * zoom) + 'px');
+            viewport.style.setProperty('--canvas-scaled-height', (1500 * zoom) + 'px');
+            if (keepCenter) {
+                viewport.scrollLeft = Math.max(0, centerX * zoom - viewport.clientWidth / 2);
+                viewport.scrollTop = Math.max(0, centerY * zoom - viewport.clientHeight / 2);
+            }
+        }
+    }
+
+    function zoomIn() {
+        applyZoom(zoom + 0.1, true);
+    }
+
+    function zoomOut() {
+        applyZoom(zoom - 0.1, true);
+    }
+
+    function resetZoom() {
+        applyZoom(1, true);
+    }
+
+    function getCanvasPoint(clientX, clientY) {
+        var canvas = document.getElementById('flowCanvas');
+        var rect = canvas.getBoundingClientRect();
+        return {
+            x: Math.max(40, Math.min(1980, (clientX - rect.left) / zoom)),
+            y: Math.max(40, Math.min(1320, (clientY - rect.top) / zoom))
+        };
+    }
+
+    function addNode(type, evt) {
+        if (evt && evt.detail === 0) return;
+        if (Date.now() - lastDragAt < 300) return;
+        var info = typeMap[type] || {title: '审批节点'};
+        var viewport = document.getElementById('canvasViewport');
+        var centerX = viewport ? (viewport.scrollLeft + viewport.clientWidth / 2) / zoom - 170 : 900;
+        var nextY = viewport ? (viewport.scrollTop + 170) / zoom + nodesData.length * 18 : 210 + nodesData.length * 110;
+        addNodeToCanvas(type, info.title, null, Math.max(80, Math.min(1840, centerX)), Math.max(120, Math.min(1180, nextY)));
+    }
+
+    function addNodeToCanvas(type, name, existingData, x, y) {
+        nodeCounter++;
+        var nodeId = 'node_' + nodeCounter;
+        var defaultName = ((typeMap[type] || {}).title || '审批节点') + nodeCounter;
+        var info = typeMap[type] || {title: '审批节点'};
+        var configJson = existingData ? (existingData.config_json || '{}') : '{}';
+        var parsedConfig = {};
+        try { parsedConfig = JSON.parse(configJson || '{}'); } catch (e) { parsedConfig = {}; }
+        var data = {
+            id: nodeId,
+            backend_id: existingData ? (existingData.id || '') : '',
+            type: type,
+            action_type: existingData ? (existingData.action_type || info.actionType || 'approve') : (info.actionType || 'approve'),
+            approval_mode: existingData ? (existingData.approval_mode || info.defaultApprovalMode || 'single') : (info.defaultApprovalMode || 'single'),
+            timeout_action: existingData ? (existingData.timeout_action || 'none') : 'none',
+            config_json: configJson,
+            name: name || defaultName,
+            x: existingData ? Number(existingData.node_x || 0) : Number(x || 900),
+            y: existingData ? Number(existingData.node_y || 0) : Number(y || 220),
+            time_limit: existingData ? (existingData.time_limit_hours || 24) : 24,
+            approver_user: existingData ? (existingData.approver_user || parsedConfig.handler_user || parsedConfig.intervention_user || '') : '',
+            approver_users: existingData ? normalizeIdList(parsedConfig.approver_users || parsedConfig.handlers || parsedConfig.users) : [],
+            approver_dept: existingData ? (existingData.approver_department || '') : '',
+            approver_role: existingData ? (existingData.approver_role || '') : '',
+            approver_level: existingData ? (existingData.approver_level || '') : '',
+            cc_users: existingData ? normalizeIdList(existingData.cc_users) : [],
+            notify_users: existingData ? normalizeIdList(existingData.notification_users) : [],
+            desc: existingData ? (existingData.description || '') : '',
+            require_comment: existingData ? !!existingData.require_comment : true,
+            comment_hint: existingData ? (existingData.comment_hint || '请输入审批意见') : '请输入审批意见',
+            condition_field: existingData ? (existingData.condition_field || '') : '',
+            condition_operator: existingData ? (existingData.condition_operator || '') : '',
+            condition_value: existingData ? (existingData.condition_value || '') : ''
+        };
+        if (!data.x || !data.y) {
+            data.x = 900;
+            data.y = 210 + nodesData.length * 110;
+        }
+        nodesData.push(data);
+        renderNode(data);
+        selectNode(nodeId);
+        updateCanvasState();
+        return nodeId;
+    }
+
+    function renderNode(data) {
+        var info = typeMap[data.type] || {title: '审批节点', icon: 'layui-icon-circle', color: 'blue'};
+        var portHtml = inputPorts.map(function(port, index) {
+            return '<button class="connection-point input-point port-' + (index + 1) + '" type="button" title="' + escapeAttr(portLabels[port]) + '" onmouseup="FlowDesigner.finishConnectorDrag(\'' + escapeAttr(data.id) + '\', \'' + port + '\', event)" onclick="FlowDesigner.handleConnector(\'' + escapeAttr(data.id) + '\', \'' + port + '\', event)"></button>';
+        }).join('') + outputPorts.map(function(port, index) {
+            return '<button class="connection-point output-point port-' + (index + 1) + '" type="button" title="' + escapeAttr(portLabels[port]) + '" onmousedown="FlowDesigner.startConnectorDrag(\'' + escapeAttr(data.id) + '\', \'' + port + '\', event)" onclick="FlowDesigner.handleConnector(\'' + escapeAttr(data.id) + '\', \'' + port + '\', event)"></button>';
+        }).join('');
+        var html = '<div class="canvas-node node-' + escapeAttr(info.color) + '" id="' + escapeAttr(data.id) + '" data-node-id="' + escapeAttr(data.id) + '" style="left:' + data.x + 'px;top:' + data.y + 'px;">' +
+            portHtml +
+            '<div class="canvas-node-header">' +
+            '<span class="node-icon"><i class="layui-icon ' + escapeAttr(info.icon) + '"></i></span>' +
+            '<span class="node-title">' + escapeHtml(info.shortTitle || info.title) + '</span>' +
+            '<button type="button" class="node-delete" title="删除" onclick="FlowDesigner.deleteNode(\'' + escapeAttr(data.id) + '\', event)"><i class="layui-icon layui-icon-delete"></i></button>' +
+            '</div>' +
+            '<input class="node-name-input" id="name_' + escapeAttr(data.id) + '" value="' + escapeAttr(data.name) + '" />' +
+            '</div>';
+        document.getElementById('nodesLayer').insertAdjacentHTML('beforeend', html);
+        var el = document.getElementById(data.id);
+        var input = document.getElementById('name_' + data.id);
+        input.addEventListener('change', function() {
+            updateNodeData(data.id, 'name', this.value);
+        });
+        el.addEventListener('mousedown', function(e) {
+            if (e.target.closest('button') || e.target.tagName === 'INPUT') return;
+            startNodeDrag(e, data.id);
+        });
+        el.addEventListener('click', function() {
+            selectNode(data.id);
+        });
+    }
+
+    function startNodeDrag(e, nodeId) {
+        e.preventDefault();
+        selectNode(nodeId);
+        var data = getNode(nodeId);
+        var startX = e.clientX;
+        var startY = e.clientY;
+        var originX = data.x;
+        var originY = data.y;
+        function move(evt) {
+            data.x = Math.max(20, Math.min(2000, originX + (evt.clientX - startX) / zoom));
+            data.y = Math.max(20, Math.min(1320, originY + (evt.clientY - startY) / zoom));
+            var el = document.getElementById(nodeId);
+            el.style.left = data.x + 'px';
+            el.style.top = data.y + 'px';
+            drawEdges();
+        }
+        function up() {
+            document.removeEventListener('mousemove', move);
+            document.removeEventListener('mouseup', up);
+        }
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
+    }
+
+    function getNode(nodeId) {
+        return nodesData.find(function(item) { return item.id === nodeId; });
+    }
+
+    function getNodeTitle(nodeId) {
+        if (nodeId === 'start') return '开始节点';
+        if (nodeId === 'end') return '结束节点';
+        var node = getNode(nodeId);
+        return node ? (node.name || (typeMap[node.type] || {}).title || '审批节点') : '未知节点';
+    }
+
+    function getNodeType(nodeId) {
+        if (nodeId === 'start' || nodeId === 'end') return nodeId;
+        var node = getNode(nodeId);
+        return node ? node.type : '';
+    }
+
+    function hasPath(fromNode, toNode) {
+        var adjacency = {};
+        edgesData.forEach(function(edge) {
+            if (!adjacency[edge.from_node]) adjacency[edge.from_node] = [];
+            adjacency[edge.from_node].push(edge.to_node);
+        });
+        var visited = {};
+        var stack = [fromNode];
+        while (stack.length) {
+            var current = stack.pop();
+            if (current === toNode) return true;
+            if (visited[current]) continue;
+            visited[current] = true;
+            (adjacency[current] || []).forEach(function(next) { stack.push(next); });
+        }
+        return false;
+    }
+
+    function normalizePort(port, direction) {
+        port = String(port || '').trim();
+        if (direction === 'input') {
+            if (port === 'input' || inputPorts.indexOf(port) === -1) return 'input_2';
+            return port;
+        }
+        if (port === 'output' || outputPorts.indexOf(port) === -1) return 'output_2';
+        return port;
+    }
+
+    function isInputPort(port) {
+        return inputPorts.indexOf(normalizePort(port, 'input')) !== -1;
+    }
+
+    function isOutputPort(port) {
+        return outputPorts.indexOf(normalizePort(port, 'output')) !== -1;
+    }
+
+    function getPortIndex(port) {
+        var match = String(port || '').match(/_(\d)$/);
+        return match ? Number(match[1]) : 2;
+    }
+
+    function getPortLabel(port) {
+        return portLabels[port] || portLabels[normalizePort(port, String(port || '').indexOf('input') === 0 ? 'input' : 'output')] || '连接点';
+    }
+
+    function validateEdgeCreation(fromNode, toNode, options) {
+        options = options || {};
+        var edgeType = options.edge_type || 'success';
+        if (!fromNode || !toNode) return '请选择完整的源节点和目标节点';
+        if (fromNode === toNode) return '同一个节点不能连接自己';
+        if (fromNode === 'end') return '结束节点不能再连接后续节点';
+        if (toNode === 'start') return '开始节点不能作为目标节点';
+        if (fromNode === 'start' && toNode === 'end') return '开始节点不能直接连接结束节点，请至少添加一个流程节点';
+        if (!getNodePoint(fromNode, options.source_port || 'output_2') || !getNodePoint(toNode, options.target_port || 'input_2')) return '节点不存在，无法创建连线';
+        if (edgesData.some(function(edge) {
+            return edge.id !== options.ignoreEdgeId &&
+                edge.from_node === fromNode &&
+                edge.to_node === toNode &&
+                normalizePort(edge.source_port, 'output') === normalizePort(options.source_port, 'output') &&
+                normalizePort(edge.target_port, 'input') === normalizePort(options.target_port, 'input');
+        })) return '该连接点之间的连线已存在';
+
+        var fromType = getNodeType(fromNode);
+        var toType = getNodeType(toNode);
+        if (fromType === 'archive' && toNode !== 'end') return '归档通知节点只能连接到结束节点';
+        if (toType === 'archive' && edgeType !== 'success') return '进入归档通知节点只能使用通过连线';
+        if (fromType === 'cc' && toType === 'cc') return '抄送节点不能连续连接抄送节点';
+        if (fromType === 'notification' && toType === 'notification') return '系统通知节点不能连续连接系统通知节点';
+        if (['cc', 'notification', 'status_update', 'writeback', 'archive'].indexOf(toType) !== -1 && fromNode === 'start') {
+            return '开始节点不能直接连接抄送、通知、状态更新、数据回写或归档节点';
+        }
+        if (edgeType === 'success' && toNode !== 'end' && hasPath(toNode, fromNode)) {
+            return '通过连线不能形成循环，请使用退回/拒绝等特殊连线表达回退场景';
+        }
+        return '';
+    }
+
+    function getOrderedNodes() {
+        return nodesData.slice().sort(function(a, b) {
+            if (a.y === b.y) return a.x - b.x;
+            return a.y - b.y;
+        });
+    }
+
+    function selectNode(nodeId) {
+        selectedNodeId = nodeId;
+        selectedEdgeId = null;
+        document.querySelectorAll('.canvas-node, .fixed-node').forEach(function(el) { el.classList.remove('selected'); });
+        document.querySelectorAll('.edge-path').forEach(function(el) { el.classList.remove('selected'); });
+        var el = document.getElementById(nodeId);
+        if (el) el.classList.add('selected');
+        var data = getNode(nodeId);
+        if (data) showConfig(nodeId, data);
+    }
+
+    function selectStartNode() {
+        selectedNodeId = null;
+        selectedEdgeId = null;
+        document.querySelectorAll('.canvas-node, .fixed-node').forEach(function(el) { el.classList.remove('selected'); });
+        document.querySelectorAll('.edge-path').forEach(function(el) { el.classList.remove('selected'); });
+        document.getElementById('startNode').classList.add('selected');
+        showStartNodeConfig();
+    }
+
+    function updateNodeData(nodeId, field, value) {
+        var data = getNode(nodeId);
+        if (data) data[field] = value;
+    }
+
+    function getNodeConfigObject(node) {
+        try {
+            var config = JSON.parse((node && node.config_json) || '{}');
+            return config && typeof config === 'object' && !Array.isArray(config) ? config : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function updateNodeConfigValue(nodeId, key, value) {
+        var node = getNode(nodeId);
+        if (!node) return;
+        var config = getNodeConfigObject(node);
+        if (value === '' || value === null || typeof value === 'undefined') {
+            delete config[key];
+        } else {
+            config[key] = value;
+        }
+        node.config_json = JSON.stringify(config);
+    }
+
+    function getNodePoint(nodeId, port) {
+        var isInput = String(port || '').indexOf('input') === 0 || port === 'input';
+        var normalizedPort = normalizePort(port, isInput ? 'input' : 'output');
+        var portIndex = getPortIndex(normalizedPort);
+        if (nodeId === 'start') return {x: 1000 + portIndex * 30, y: 140};
+        if (nodeId === 'end') {
+            var endTop = parseFloat(document.getElementById('endNode').style.top || '1180');
+            return {x: 1000 + portIndex * 30, y: endTop};
+        }
+        var node = getNode(nodeId);
+        if (!node) return null;
+        var yOffsets = {1: 24, 2: 52, 3: 80};
+        return {
+            x: isInput ? node.x : node.x + 340,
+            y: node.y + (yOffsets[portIndex] || 52)
+        };
+    }
+
+    function clearConnectingState() {
+        connectingFrom = null;
+        dragConnection = null;
+        document.querySelectorAll('.connection-point').forEach(function(el) { el.classList.remove('connecting'); });
+        removeTempEdge();
+    }
+
+    function getEdgePath(source, target) {
+        var delta = Math.max(80, Math.abs(target.x - source.x) / 2);
+        var c1x = source.x + delta;
+        var c2x = target.x - delta;
+        return 'M ' + source.x + ' ' + source.y + ' C ' + c1x + ' ' + source.y + ', ' + c2x + ' ' + target.y + ', ' + target.x + ' ' + target.y;
+    }
+
+    function removeTempEdge() {
+        var temp = document.getElementById('tempEdgePath');
+        if (temp) temp.remove();
+    }
+
+    function drawTempEdge(targetPoint) {
+        if (!dragConnection) return;
+        var svg = document.getElementById('edgeLayer');
+        var source = getNodePoint(dragConnection.fromNode, dragConnection.sourcePort);
+        if (!svg || !source || !targetPoint) return;
+        var temp = document.getElementById('tempEdgePath');
+        if (!temp) {
+            temp = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            temp.setAttribute('id', 'tempEdgePath');
+            temp.setAttribute('class', 'edge-path temp-edge-path');
+            svg.appendChild(temp);
+        }
+        temp.setAttribute('d', getEdgePath(source, targetPoint));
+    }
+
+    function startConnectorDrag(nodeId, port, evt) {
+        if (evt) {
+            evt.preventDefault();
+            evt.stopPropagation();
+        }
+        if (!isOutputPort(port) || nodeId === 'end') return;
+        connectingFrom = nodeId;
+        dragConnection = {fromNode: nodeId, sourcePort: normalizePort(port, 'output'), moved: false};
+        document.querySelectorAll('.connection-point').forEach(function(el) { el.classList.remove('connecting'); });
+        if (evt && evt.currentTarget) evt.currentTarget.classList.add('connecting');
+        drawTempEdge(getCanvasPoint(evt.clientX, evt.clientY));
+        document.addEventListener('mousemove', moveConnectorDrag);
+        document.addEventListener('mouseup', cancelConnectorDrag);
+    }
+
+    function moveConnectorDrag(evt) {
+        if (!dragConnection) return;
+        dragConnection.moved = true;
+        drawTempEdge(getCanvasPoint(evt.clientX, evt.clientY));
+    }
+
+    function finishConnectorDrag(nodeId, port, evt) {
+        if (evt) {
+            evt.preventDefault();
+            evt.stopPropagation();
+        }
+        if (!dragConnection || !isInputPort(port)) return;
+        document.removeEventListener('mousemove', moveConnectorDrag);
+        document.removeEventListener('mouseup', cancelConnectorDrag);
+        addEdge(dragConnection.fromNode, nodeId, {
+            source_port: dragConnection.sourcePort,
+            target_port: normalizePort(port, 'input')
+        });
+        suppressConnectorClickUntil = Date.now() + 250;
+        clearConnectingState();
+    }
+
+    function cancelConnectorDrag(evt) {
+        document.removeEventListener('mousemove', moveConnectorDrag);
+        document.removeEventListener('mouseup', cancelConnectorDrag);
+        var target = evt && evt.target ? evt.target.closest('.connection-point.input-point') : null;
+        if (!target) clearConnectingState();
+    }
+
+    function handleConnector(nodeId, port, evt) {
+        if (evt) {
+            evt.preventDefault();
+            evt.stopPropagation();
+        }
+        if (Date.now() < suppressConnectorClickUntil) return;
+        if (dragConnection && dragConnection.moved) return;
+        if (isOutputPort(port)) {
+            if (nodeId === 'end') return;
+            connectingFrom = nodeId;
+            dragConnection = {fromNode: nodeId, sourcePort: normalizePort(port, 'output'), moved: false};
+            document.querySelectorAll('.connection-point').forEach(function(el) { el.classList.remove('connecting'); });
+            if (evt && evt.currentTarget) evt.currentTarget.classList.add('connecting');
+            layer.msg('请拖拽到目标输入点，或点击目标输入点完成连线', {icon: 6, time: 1400});
+            return;
+        }
+        if (!connectingFrom) {
+            layer.msg('请先从源节点右侧连接点开始连线', {icon: 0});
+            return;
+        }
+        addEdge(connectingFrom, nodeId, {
+            source_port: dragConnection ? dragConnection.sourcePort : 'output_2',
+            target_port: normalizePort(port, 'input')
+        });
+        clearConnectingState();
+    }
+
+    function selectEdgeFromPath(edgeId, evt) {
+        if (evt) evt.stopPropagation();
+        selectEdge(edgeId);
+    }
+
+    function addEdge(fromNode, toNode, options) {
+        options = options || {};
+        var invalidMessage = validateEdgeCreation(fromNode, toNode, options);
+        if (invalidMessage) {
+            if (!options.silent) layer.msg(invalidMessage, {icon: 2, time: 1800});
+            return false;
+        }
+        edgeCounter++;
+        var sourcePort = normalizePort(options.source_port || options.from_port, 'output');
+        var targetPort = normalizePort(options.target_port || options.to_port, 'input');
+        edgesData.push({
+            id: options.id || ('edge_' + edgeCounter),
+            from_node: fromNode,
+            to_node: toNode,
+            source_port: sourcePort,
+            target_port: targetPort,
+            edge_type: options.edge_type || 'success',
+            label: options.label || '',
+            condition_field: options.condition_field || '',
+            condition_operator: options.condition_operator || '',
+            condition_value: options.condition_value || '',
+            sort_order: typeof options.sort_order === 'number' ? options.sort_order : edgesData.length
+        });
+        drawEdges();
+        return true;
+    }
+
+    function selectEdge(edgeId) {
+        selectedNodeId = null;
+        selectedEdgeId = edgeId;
+        document.querySelectorAll('.canvas-node, .fixed-node').forEach(function(el) { el.classList.remove('selected'); });
+        document.querySelectorAll('.edge-path').forEach(function(el) { el.classList.toggle('selected', el.getAttribute('data-edge-id') === edgeId); });
+        if (edgeId) showEdgeConfig(edgeId);
+    }
+
+    function deleteSelectedEdge() {
+        if (!selectedEdgeId) return;
+        edgesData = edgesData.filter(function(edge) { return edge.id !== selectedEdgeId; });
+        selectedEdgeId = null;
+        drawEdges();
+        showEmptyConfig();
+    }
+
+    function deleteNode(nodeId, evt) {
+        if (evt) evt.stopPropagation();
+        layer.confirm('确定删除此节点？', {icon: 3, title: '确认'}, function(index) {
+            var el = document.getElementById(nodeId);
+            if (el) el.remove();
+            nodesData = nodesData.filter(function(item) { return item.id !== nodeId; });
+            edgesData = edgesData.filter(function(edge) { return edge.from_node !== nodeId && edge.to_node !== nodeId; });
+            selectedEdgeId = null;
+            layer.close(index);
+            updateCanvasState();
+            showEmptyConfig();
+        });
+    }
+
+    function clearAll() {
+        layer.confirm('确定清空所有节点？', {icon: 3, title: '确认'}, function(index) {
+            nodesData = [];
+            edgesData = [];
+            selectedEdgeId = null;
+            nodeCounter = 0;
+            edgeCounter = 0;
+            document.getElementById('nodesLayer').innerHTML = '';
+            layer.close(index);
+            updateCanvasState();
+            showStartNodeConfig();
+        });
+    }
+
+    function updateCanvasState() {
+        document.getElementById('dropHint').style.display = nodesData.length ? 'none' : 'block';
+        drawEdges();
+    }
+
+    function drawEdges() {
+        var svg = document.getElementById('edgeLayer');
+        var nodes = getOrderedNodes();
+        var endY = Math.max(1180, nodes.length ? nodes[nodes.length - 1].y + 190 : 360);
+        document.getElementById('endNode').style.top = endY + 'px';
+        var html = '<defs><marker id="arrowMarker" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" class="edge-arrow"></path></marker></defs>';
+        edgesData.forEach(function(edge) {
+            var source = getNodePoint(edge.from_node, edge.source_port || 'output_2');
+            var target = getNodePoint(edge.to_node, edge.target_port || 'input_2');
+            if (!source || !target) return;
+            var d = getEdgePath(source, target);
+            html += '<path class="edge-path' + (selectedEdgeId === edge.id ? ' selected' : '') + '" data-edge-id="' + escapeAttr(edge.id) + '" d="' + d + '" marker-end="url(#arrowMarker)" onclick="FlowDesigner.selectEdgeFromPath(\'' + escapeAttr(edge.id) + '\', event)" />';
+        });
+        svg.innerHTML = html;
+    }
+
+    function showEmptyConfig() {
+        document.getElementById('configPanel').innerHTML = '<div class="empty-tip"><i class="layui-icon layui-icon-util"></i><p>请选择节点或连线进行配置</p></div>';
+    }
+
+    function showEdgeConfig(edgeId) {
+        var edge = edgesData.find(function(item) { return item.id === edgeId; });
+        if (!edge) {
+            showEmptyConfig();
+            return;
+        }
+        var edgeError = validateEdgeCreation(edge.from_node, edge.to_node, {
+            edge_type: edge.edge_type,
+            source_port: edge.source_port,
+            target_port: edge.target_port,
+            ignoreEdgeId: edge.id
+        });
+        var ruleTip = edgeError ? '<div class="config-tip config-error-tip"><i class="layui-icon layui-icon-about"></i> ' + escapeHtml(edgeError) + '</div>' : '<div class="config-tip"><i class="layui-icon layui-icon-ok-circle"></i> 当前连线规则有效：' + escapeHtml(getNodeTitle(edge.from_node)) + ' → ' + escapeHtml(getNodeTitle(edge.to_node)) + '</div>';
+        var html = '<div class="config-section">' +
+            '<div class="section-label">连线配置</div>' +
+            ruleTip +
+            '<div class="config-row"><label>源连接点</label><select class="layui-input" id="cfg_edge_source_port">' +
+            outputPorts.map(function(port) { return '<option value="' + port + '"' + (normalizePort(edge.source_port, 'output') === port ? ' selected' : '') + '>' + portLabels[port] + '</option>'; }).join('') +
+            '</select></div>' +
+            '<div class="config-row"><label>目标连接点</label><select class="layui-input" id="cfg_edge_target_port">' +
+            inputPorts.map(function(port) { return '<option value="' + port + '"' + (normalizePort(edge.target_port, 'input') === port ? ' selected' : '') + '>' + portLabels[port] + '</option>'; }).join('') +
+            '</select></div>' +
+            '<div class="config-row"><label>连线类型</label><select class="layui-input" id="cfg_edge_type">' +
+            '<option value="success" ' + (edge.edge_type === 'success' ? 'selected' : '') + '>通过</option>' +
+            '<option value="condition" ' + (edge.edge_type === 'condition' ? 'selected' : '') + '>条件</option>' +
+            '<option value="reject" ' + (edge.edge_type === 'reject' ? 'selected' : '') + '>拒绝</option>' +
+            '<option value="return" ' + (edge.edge_type === 'return' ? 'selected' : '') + '>退回</option></select></div>' +
+            '<div class="config-row"><label>连线标签</label><input type="text" class="layui-input" id="cfg_edge_label" value="' + escapeAttr(edge.label || '') + '" /></div>' +
+            '<div class="config-row"><label>条件字段</label><input type="text" class="layui-input" id="cfg_edge_field" value="' + escapeAttr(edge.condition_field || '') + '" /></div>' +
+            '<div class="config-row"><label>条件操作符</label><input type="text" class="layui-input" id="cfg_edge_operator" value="' + escapeAttr(edge.condition_operator || '') + '" /></div>' +
+            '<div class="config-row"><label>条件值</label><input type="text" class="layui-input" id="cfg_edge_value" value="' + escapeAttr(edge.condition_value || '') + '" /></div>' +
+            '</div><div class="config-section"><button class="layui-btn layui-btn-danger layui-btn-fluid" type="button" onclick="FlowDesigner.deleteSelectedEdge()"><i class="layui-icon layui-icon-delete"></i> 删除连线</button></div>';
+        document.getElementById('configPanel').innerHTML = html;
+        bindValue('cfg_edge_source_port', function(value) {
+            edge.source_port = normalizePort(value, 'output');
+            drawEdges();
+        });
+        bindValue('cfg_edge_target_port', function(value) {
+            edge.target_port = normalizePort(value, 'input');
+            drawEdges();
+        });
+        bindValue('cfg_edge_type', function(value) { edge.edge_type = value; drawEdges(); });
+        bindValue('cfg_edge_label', function(value) { edge.label = value; });
+        bindValue('cfg_edge_field', function(value) { edge.condition_field = value; });
+        bindValue('cfg_edge_operator', function(value) { edge.condition_operator = value; });
+        bindValue('cfg_edge_value', function(value) { edge.condition_value = value; });
+        form.render();
+    }
+
+    function showConfig(nodeId, data) {
+        var info = typeMap[data.type] || {title: '审批节点'};
+        var userOpts = getUserOptions(data.approver_user);
+        var deptOpts = getDeptOptions(data.approver_dept);
+        var roleOpts = getRoleOptions(data.approver_role);
+        var levelOpts = getLevelOptions(data.approver_level);
+        var nodeConfig = getNodeConfigObject(data);
+        var approverHtml = '';
+        if (data.type === 'specific_user' || data.type === 'execute' || data.type === 'external' || data.type === 'intervention') {
+            approverHtml = '<div class="config-row"><label>处理用户</label><select class="layui-input" id="cfg_user_' + nodeId + '">' + userOpts + '</select></div>';
+        } else if (data.type === 'countersign' || data.type === 'orsign') {
+            approverHtml = '<div class="config-row"><label>审批成员</label><select class="layui-input" multiple id="cfg_multi_user_' + nodeId + '">' + getAllUserOptions(data.approver_users || []) + '</select></div>';
+        } else if (data.type === 'department') {
+            approverHtml = '<div class="config-row"><label>审批部门</label><select class="layui-input" id="cfg_dept_' + nodeId + '">' + deptOpts + '</select></div>';
+        } else if (data.type === 'role') {
+            approverHtml = '<div class="config-row"><label>审批角色</label><select class="layui-input" id="cfg_role_' + nodeId + '">' + roleOpts + '</select></div>';
+        } else if (data.type === 'level') {
+            approverHtml = '<div class="config-row"><label>审批级别</label><select class="layui-input" id="cfg_level_' + nodeId + '">' + levelOpts + '</select></div>';
+        } else if (data.type === 'cc') {
+            approverHtml = '<div class="config-row"><label>抄送用户</label><select class="layui-input" multiple id="cfg_cc_' + nodeId + '">' + getAllUserOptions(data.cc_users) + '</select></div>';
+        } else if (data.type === 'notification') {
+            approverHtml = '<div class="config-row"><label>通知用户</label><select class="layui-input" multiple id="cfg_ntf_' + nodeId + '">' + getAllUserOptions(data.notify_users) + '</select></div>';
+        } else if (data.type === 'department_head') {
+            approverHtml = '<div class="config-tip"><i class="layui-icon layui-icon-tips"></i> 部门负责人按申请人所在部门自动匹配，无需指定部门。</div>';
+        }
+
+        var advancedHtml = '';
+        if (data.type === 'countersign' || data.type === 'orsign') {
+            advancedHtml += '<div class="config-row"><label>审批方式</label><select class="layui-input" id="cfg_mode_' + nodeId + '">' +
+                '<option value="single" ' + (data.approval_mode === 'single' ? 'selected' : '') + '>单人审批</option>' +
+                '<option value="all" ' + (data.approval_mode === 'all' ? 'selected' : '') + '>全部同意</option>' +
+                '<option value="any" ' + (data.approval_mode === 'any' ? 'selected' : '') + '>任一同意</option></select></div>';
+        }
+        if (data.type === 'condition') {
+            advancedHtml += '<div class="config-row"><label>条件字段</label><input type="text" class="layui-input" id="cfg_condition_field_' + nodeId + '" value="' + escapeAttr(data.condition_field || '') + '" /></div>' +
+                '<div class="config-row"><label>条件操作符</label><input type="text" class="layui-input" id="cfg_condition_operator_' + nodeId + '" value="' + escapeAttr(data.condition_operator || '') + '" /></div>' +
+                '<div class="config-row"><label>条件值</label><input type="text" class="layui-input" id="cfg_condition_value_' + nodeId + '" value="' + escapeAttr(data.condition_value || '') + '" /></div>';
+        } else if (data.type === 'status_update') {
+            advancedHtml += '<div class="config-row"><label>状态字段</label><input type="text" class="layui-input" id="cfg_status_field_' + nodeId + '" value="' + escapeAttr(nodeConfig.status_field || '') + '" placeholder="如 status" /></div>' +
+                '<div class="config-row"><label>目标状态</label><input type="text" class="layui-input" id="cfg_status_value_' + nodeId + '" value="' + escapeAttr(nodeConfig.status_value || '') + '" placeholder="如 approved" /></div>';
+        } else if (data.type === 'writeback') {
+            advancedHtml += '<div class="config-row"><label>回写字段</label><input type="text" class="layui-input" id="cfg_writeback_field_' + nodeId + '" value="' + escapeAttr(nodeConfig.target_field || '') + '" placeholder="如 contract.approval_status" /></div>' +
+                '<div class="config-row"><label>回写值</label><input type="text" class="layui-input" id="cfg_writeback_value_' + nodeId + '" value="' + escapeAttr(nodeConfig.value_expression || '') + '" placeholder="固定值或表单字段 KEY" /></div>';
+        } else if (data.type === 'archive') {
+            advancedHtml += '<div class="config-row"><label>归档分类</label><input type="text" class="layui-input" id="cfg_archive_category_' + nodeId + '" value="' + escapeAttr(nodeConfig.archive_category || '') + '" placeholder="如 approval" /></div>' +
+                '<div class="config-row"><label>归档备注</label><input type="text" class="layui-input" id="cfg_archive_note_' + nodeId + '" value="' + escapeAttr(nodeConfig.archive_note || '') + '" /></div>';
+        } else if (data.type === 'intervention') {
+            advancedHtml += '<div class="config-row"><label>触发原因</label><input type="text" class="layui-input" id="cfg_intervention_reason_' + nodeId + '" value="' + escapeAttr(nodeConfig.reason || '') + '" placeholder="如 条件不匹配、外部接口异常" /></div>';
+        }
+        advancedHtml += '<div class="config-row"><label>超时策略</label><select class="layui-input" id="cfg_timeout_' + nodeId + '">' +
+            '<option value="none" ' + (data.timeout_action === 'none' ? 'selected' : '') + '>无</option>' +
+            '<option value="auto_approve" ' + (data.timeout_action === 'auto_approve' ? 'selected' : '') + '>自动通过</option>' +
+            '<option value="auto_reject" ' + (data.timeout_action === 'auto_reject' ? 'selected' : '') + '>自动拒绝</option>' +
+            '<option value="escalate" ' + (data.timeout_action === 'escalate' ? 'selected' : '') + '>升级处理</option></select></div>';
+        if (['countersign','orsign','execute','external','intervention'].indexOf(data.type) !== -1) {
+            advancedHtml += '<div class="config-row"><label>扩展配置</label><textarea class="layui-textarea" id="cfg_json_' + nodeId + '" placeholder="请输入 JSON 或配置文本">' + escapeHtml(data.config_json || '{}') + '</textarea></div>';
+        }
+
+        var html = '<div class="config-section">' +
+            '<div class="section-label">基本信息</div>' +
+            '<div class="config-row"><label>节点名称</label><input type="text" class="layui-input" id="cfg_name_' + nodeId + '" value="' + escapeAttr(data.name) + '" /></div>' +
+            '<div class="config-row"><label>节点类型</label><input type="text" class="layui-input" value="' + escapeAttr(info.title) + '" disabled /></div>' +
+            '<div class="config-row"><label>描述说明</label><textarea class="layui-textarea" id="cfg_desc_' + nodeId + '" placeholder="请输入描述">' + escapeHtml(data.desc) + '</textarea></div>' +
+            '</div>' +
+            '<div class="config-section"><div class="section-label">审批人配置</div>' + approverHtml + '</div>' +
+            '<div class="config-section"><div class="section-label">审批意见配置</div>' +
+            '<div class="config-row"><label><input type="checkbox" id="cfg_require_comment_' + nodeId + '" lay-skin="primary" ' + (data.require_comment ? 'checked' : '') + '> 需要审批意见</label></div>' +
+            '<div class="config-row"><label>意见提示文字</label><input type="text" class="layui-input" id="cfg_comment_hint_' + nodeId + '" value="' + escapeAttr(data.comment_hint || '请输入审批意见') + '" /></div>' +
+            '<div class="config-row"><label>处理时限(小时)</label><input type="number" class="layui-input" id="cfg_time_' + nodeId + '" value="' + escapeAttr(data.time_limit || '') + '" /></div>' +
+            '</div>' +
+            '<div class="config-section"><div class="section-label">节点高级配置</div>' + advancedHtml + '</div>' +
+            '<div class="config-section"><button class="layui-btn layui-btn-danger layui-btn-fluid" type="button" onclick="FlowDesigner.deleteNode(\'' + escapeAttr(nodeId) + '\', event)"><i class="layui-icon layui-icon-delete"></i> 删除节点</button></div>';
+        document.getElementById('configPanel').innerHTML = html;
+        form.render();
+        bindConfigEvents(nodeId, data);
+    }
+
+    function bindConfigEvents(nodeId, data) {
+        bindValue('cfg_name_' + nodeId, function(value) {
+            updateNodeData(nodeId, 'name', value);
+            document.getElementById('name_' + nodeId).value = value;
+        });
+        bindValue('cfg_desc_' + nodeId, function(value) { updateNodeData(nodeId, 'desc', value); });
+        bindValue('cfg_user_' + nodeId, function(value) { updateNodeData(nodeId, 'approver_user', value); });
+        bindValue('cfg_dept_' + nodeId, function(value) { updateNodeData(nodeId, 'approver_dept', value); });
+        bindValue('cfg_role_' + nodeId, function(value) { updateNodeData(nodeId, 'approver_role', value); });
+        bindValue('cfg_level_' + nodeId, function(value) { updateNodeData(nodeId, 'approver_level', value); });
+        bindValue('cfg_time_' + nodeId, function(value) { updateNodeData(nodeId, 'time_limit', value); });
+        bindValue('cfg_comment_hint_' + nodeId, function(value) { updateNodeData(nodeId, 'comment_hint', value); });
+        bindValue('cfg_mode_' + nodeId, function(value) { updateNodeData(nodeId, 'approval_mode', value); });
+        bindValue('cfg_timeout_' + nodeId, function(value) { updateNodeData(nodeId, 'timeout_action', value); });
+        bindValue('cfg_json_' + nodeId, function(value) { updateNodeData(nodeId, 'config_json', value || '{}'); });
+        bindValue('cfg_condition_field_' + nodeId, function(value) { updateNodeData(nodeId, 'condition_field', value); });
+        bindValue('cfg_condition_operator_' + nodeId, function(value) { updateNodeData(nodeId, 'condition_operator', value); });
+        bindValue('cfg_condition_value_' + nodeId, function(value) { updateNodeData(nodeId, 'condition_value', value); });
+        bindValue('cfg_status_field_' + nodeId, function(value) { updateNodeConfigValue(nodeId, 'status_field', value); });
+        bindValue('cfg_status_value_' + nodeId, function(value) { updateNodeConfigValue(nodeId, 'status_value', value); });
+        bindValue('cfg_writeback_field_' + nodeId, function(value) { updateNodeConfigValue(nodeId, 'target_field', value); });
+        bindValue('cfg_writeback_value_' + nodeId, function(value) { updateNodeConfigValue(nodeId, 'value_expression', value); });
+        bindValue('cfg_archive_category_' + nodeId, function(value) { updateNodeConfigValue(nodeId, 'archive_category', value); });
+        bindValue('cfg_archive_note_' + nodeId, function(value) { updateNodeConfigValue(nodeId, 'archive_note', value); });
+        bindValue('cfg_intervention_reason_' + nodeId, function(value) { updateNodeConfigValue(nodeId, 'reason', value); });
+        var requireComment = document.getElementById('cfg_require_comment_' + nodeId);
+        if (requireComment) requireComment.addEventListener('change', function() { updateNodeData(nodeId, 'require_comment', this.checked); });
+        bindMulti('cfg_multi_user_' + nodeId, function(values) { updateNodeData(nodeId, 'approver_users', values); });
+        bindMulti('cfg_cc_' + nodeId, function(values) { updateNodeData(nodeId, 'cc_users', values); });
+        bindMulti('cfg_ntf_' + nodeId, function(values) { updateNodeData(nodeId, 'notify_users', values); });
+    }
+
+    function bindValue(id, handler) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('change', function() { handler(this.value); });
+    }
+
+    function bindMulti(id, handler) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('change', function() {
+            handler(Array.from(el.selectedOptions).map(function(opt) { return opt.value; }).filter(function(value) { return value !== ''; }));
+        });
+    }
+
+    function normalizeIdList(values) {
+        if (!values) return [];
+        if (Array.isArray(values)) return values.map(String).filter(function(value) { return value !== ''; });
+        return String(values).split(',').map(function(value) { return value.trim(); }).filter(function(value) { return value !== ''; });
+    }
+
+    function loadExisting() {
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', '/approval/approvalflow/' + flowId + '/start-config/', true);
+        xhr.open('GET', urls.stepsJson, true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    document.getElementById('nodesLayer').innerHTML = '';
+                    nodesData = [];
+                    nodeCounter = 0;
+                    edgesData = [];
+                    edgeCounter = 0;
+                    var serverNodeMap = {};
+                    (data.steps || []).forEach(function(step, index) {
+                        if (!step.node_x || !step.node_y) {
+                            step.node_x = 900;
+                            step.node_y = 210 + index * 110;
+                        }
+                        var localId = addNodeToCanvas(step.step_type, step.step_name, step, step.node_x, step.node_y);
+                        serverNodeMap['step_' + step.id] = localId;
+                    });
+                    (data.edges || []).forEach(function(edge) {
+                        var fromNode = edge.from_node || edge.source;
+                        var toNode = edge.to_node || edge.target;
+                        fromNode = serverNodeMap[fromNode] || fromNode;
+                        toNode = serverNodeMap[toNode] || toNode;
+                        addEdge(fromNode, toNode, {
+                            id: 'edge_' + (++edgeCounter),
+                            edge_type: edge.edge_type || edge.type || 'success',
+                            source_port: edge.source_port || edge.from_port || 'output_2',
+                            target_port: edge.target_port || edge.to_port || 'input_2',
+                            label: edge.label || '',
+                            condition_field: edge.condition_field || '',
+                            condition_operator: edge.condition_operator || '',
+                            condition_value: edge.condition_value || '',
+                            sort_order: Number(edge.sort_order || 0),
+                            silent: true
+                        });
+                    });
+                    if (!nodesData.length) showStartNodeConfig();
+                    updateCanvasState();
+                } catch (e) {
+                    layer.msg('流程数据加载失败', {icon: 2});
+                }
+            }
+        };
+        xhr.send();
+    }
+
+    function normalizeConfigJson(node) {
+        var config = {};
+        try {
+            config = JSON.parse(node.config_json || '{}');
+        } catch (e) {
+            return null;
+        }
+        if (node.approver_users && node.approver_users.length) {
+            config.approver_users = node.approver_users;
+        }
+        return JSON.stringify(config);
+    }
+
+    function validateNodeConfig(node) {
+        if (!String(node.name || '').trim()) return '请填写节点名称';
+        if (['specific_user', 'execute', 'external', 'intervention'].indexOf(node.type) !== -1 && !node.approver_user) {
+            return '请选择处理用户';
+        }
+        if ((node.type === 'countersign' || node.type === 'orsign') && (!node.approver_users || node.approver_users.length < 2)) {
+            return '多人会签或或签必须至少选择两个审批成员';
+        }
+        if (node.type === 'department' && !node.approver_dept) return '请选择审批部门';
+        if (node.type === 'role' && !node.approver_role) return '请选择审批角色';
+        if (node.type === 'level' && !node.approver_level) return '请选择审批级别';
+        if (node.type === 'cc' && (!node.cc_users || !node.cc_users.length)) return '请选择抄送用户';
+        if (node.type === 'notification' && (!node.notify_users || !node.notify_users.length)) return '请选择通知用户';
+        if (node.type === 'condition' && (!String(node.condition_field || '').trim() || !String(node.condition_operator || '').trim())) {
+            return '条件分支节点必须填写条件字段和条件操作符';
+        }
+        var timeLimit = Number(node.time_limit || 0);
+        if (node.time_limit !== '' && (Number.isNaN(timeLimit) || timeLimit < 0)) return '处理时限必须是大于等于 0 的数字';
+        if (node.timeout_action === 'escalate') {
+            var timeoutConfig = {};
+            try { timeoutConfig = JSON.parse(node.config_json || '{}'); } catch (e) { timeoutConfig = {}; }
+            if (!timeoutConfig.escalate_to) return '超时升级处理必须在扩展配置中填写 escalate_to 用户ID';
+        }
+        return '';
+    }
+
+    function validateFlow() {
+        var startEdges = edgesData.filter(function(edge) { return edge.from_node === 'start'; });
+        if (!startEdges.length) return '开始节点必须至少连接一个流程节点';
+
+        var endEdges = edgesData.filter(function(edge) { return edge.to_node === 'end'; });
+        if (!endEdges.length) return '流程必须至少有一条路径连接到结束节点';
+
+        var nodeIds = nodesData.map(function(node) { return node.id; });
+        var adjacency = {};
+        edgesData.forEach(function(edge) {
+            if (!adjacency[edge.from_node]) adjacency[edge.from_node] = [];
+            adjacency[edge.from_node].push(edge.to_node);
+        });
+
+        var reachable = {};
+        var stack = ['start'];
+        while (stack.length) {
+            var current = stack.pop();
+            if (reachable[current]) continue;
+            reachable[current] = true;
+            (adjacency[current] || []).forEach(function(next) { stack.push(next); });
+        }
+        if (!reachable.end) return '当前连线没有形成从开始到结束的完整路径';
+
+        for (var i = 0; i < nodeIds.length; i++) {
+            var nodeId = nodeIds[i];
+            if (!reachable[nodeId]) return '存在未接入主流程的孤立节点';
+            if (!edgesData.some(function(edge) { return edge.to_node === nodeId; })) return '每个流程节点都必须有入线';
+            if (!edgesData.some(function(edge) { return edge.from_node === nodeId; })) return '每个流程节点都必须有出线';
+        }
+
+        for (var j = 0; j < edgesData.length; j++) {
+            var edge = edgesData[j];
+            var edgeError = validateEdgeCreation(edge.from_node, edge.to_node, {
+                edge_type: edge.edge_type,
+                source_port: edge.source_port,
+                target_port: edge.target_port,
+                ignoreEdgeId: edge.id
+            });
+            if (edgeError) {
+                selectEdge(edge.id);
+                return getNodeTitle(edge.from_node) + ' → ' + getNodeTitle(edge.to_node) + '：' + edgeError;
+            }
+            if (edge.edge_type === 'condition' && (!edge.condition_field || !edge.condition_operator)) {
+                selectEdge(edge.id);
+                return '条件连线必须填写条件字段和操作符';
+            }
+        }
+
+        for (var k = 0; k < nodesData.length; k++) {
+            var node = nodesData[k];
+            var nodeError = validateNodeConfig(node);
+            if (nodeError) {
+                selectNode(node.id);
+                return node.name + '：' + nodeError;
+            }
+            var configJson = normalizeConfigJson(node);
+            if (configJson === null) {
+                selectNode(node.id);
+                return '节点扩展配置必须是合法 JSON';
+            }
+            node.config_json = configJson;
+        }
+        return '';
+    }
+
+    function save() {
+        if (!nodesData.length) {
+            layer.msg('请至少添加一个审批节点', {icon: 2});
+            return;
+        }
+        var invalidNode = nodesData.find(function(node) { return !String(node.name || '').trim(); });
+        if (invalidNode) {
+            selectNode(invalidNode.id);
+            layer.msg('请填写节点名称', {icon: 2});
+            return;
+        }
+        var flowError = validateFlow();
+        if (flowError) {
+            layer.msg(flowError, {icon: 2});
+            return;
+        }
+        var steps = getOrderedNodes().map(function(node, index) {
+            return {
+                client_id: node.id,
+                step_order: index + 1,
+                step_name: String(node.name || '').trim(),
+                step_type: node.type,
+                action_type: node.action_type,
+                approval_mode: node.approval_mode,
+                timeout_action: node.timeout_action,
+                config_json: node.config_json || '{}',
+                condition_field: node.condition_field || '',
+                condition_operator: node.condition_operator || '',
+                condition_value: node.condition_value || '',
+                time_limit_hours: node.time_limit,
+                approver_user: node.approver_user,
+                approver_users: node.approver_users || [],
+                approver_department: node.type === 'department' ? node.approver_dept : '',
+                approver_role: node.approver_role,
+                approver_level: node.approver_level,
+                cc_users: node.cc_users,
+                notification_users: node.notify_users,
+                description: node.desc,
+                require_comment: node.require_comment,
+                comment_hint: node.comment_hint,
+                node_x: Math.round(node.x),
+                node_y: Math.round(node.y)
+            };
+        });
+        var payloadEdges = edgesData.map(function(edge, index) {
+            return {
+                from_node: edge.from_node,
+                to_node: edge.to_node,
+                source_port: normalizePort(edge.source_port, 'output'),
+                target_port: normalizePort(edge.target_port, 'input'),
+                edge_type: edge.edge_type || 'success',
+                label: edge.label || '',
+                condition_field: edge.condition_field || '',
+                condition_operator: edge.condition_operator || '',
+                condition_value: edge.condition_value || '',
+                sort_order: index
+            };
+        });
+        layer.load(2);
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', urls.batchCreateSteps, true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('X-CSRFToken', getCsrfToken());
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState !== 4) return;
+            layer.closeAll('loading');
+            if (xhr.status === 200) {
+                try {
+                    var res = JSON.parse(xhr.responseText);
+                    layer.msg(res.message || (res.success ? '保存成功' : '保存失败'), {icon: res.success ? 1 : 2});
+                } catch (e) {
+                    layer.msg('保存失败', {icon: 2});
+                }
+            } else {
+                layer.msg('网络错误', {icon: 2});
+            }
+        };
+        xhr.send(JSON.stringify({steps: steps, edges: payloadEdges}));
+    }
+
+    function preview() {
+        layer.open({type: 2, title: '流程预览', content: urls.preview, area: ['80%', '100%'], offset: 'r', anim: 2, maxmin: true});
+    }
+
+    function loadStartNodeConfig() {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', urls.getStartConfig, true);
         xhr.onreadystatechange = function() {
             if (xhr.readyState === 4 && xhr.status === 200) {
                 try {
                     var data = JSON.parse(xhr.responseText);
                     startNodeConfig.form_fields = data.form_fields || [];
                     renderFormFields();
-                } catch (e) {
-                    console.error('加载开始节点配置失败', e);
-                }
+                } catch (e) {}
             }
         };
         xhr.send();
     }
-    
+
+    function showStartNodeConfig() {
+        loadStartNodeConfig();
+        var html = '<div class="config-section"><div class="section-label"><i class="layui-icon layui-icon-edit"></i> 开始节点配置</div><div class="section-desc">配置发起审批时需要填写的申请信息</div></div>' +
+            '<div class="config-section"><div class="section-label"><i class="layui-icon layui-icon-survey"></i> 自定义表单字段</div><div id="formFieldsContainer" class="form-fields-container"></div><button type="button" class="layui-btn layui-btn-fluid layui-btn-primary" onclick="FlowDesigner.addFormField()" style="margin-top: 12px;"><i class="layui-icon layui-icon-add-1"></i> 添加字段</button></div>' +
+            '<div class="config-section"><div class="section-label"><i class="layui-icon layui-icon-user"></i> 发起人配置</div><button class="layui-btn layui-btn-primary layui-btn-fluid" type="button" onclick="FlowDesigner.showInitiatorConfig()">配置发起人范围</button></div>' +
+            '<div class="config-section"><button class="layui-btn layui-btn-normal layui-btn-fluid" onclick="FlowDesigner.saveStartNodeConfig()"><i class="layui-icon layui-icon-ok"></i> 保存开始节点配置</button></div>';
+        document.getElementById('configPanel').innerHTML = html;
+        renderFormFields();
+    }
+
     function renderFormFields() {
         var container = document.getElementById('formFieldsContainer');
         if (!container) return;
-        
+        var labels = {text: '文本', textarea: '多行文本', number: '数字', date: '日期', select: '下拉选择', user: '用户选择', department: '部门选择'};
         var html = '';
         startNodeConfig.form_fields.forEach(function(field, index) {
-            var fieldTypeLabels = {
-                'text': '文本',
-                'textarea': '多行文本',
-                'number': '数字',
-                'date': '日期',
-                'select': '下拉选择',
-                'user': '用户选择',
-                'department': '部门选择'
-            };
-            
-            html += '<div class="field-item" data-index="' + index + '">' +
-                '<div class="field-header">' +
-                '<span class="field-name">' + field.label + '</span>' +
-                '<span class="field-type">' + (fieldTypeLabels[field.type] || field.type) + '</span>' +
-                '</div>' +
-                '<div class="field-actions">' +
-                '<button type="button" class="layui-btn layui-btn-xs layui-btn-danger" onclick="FlowDesigner.deleteFormField(' + index + ')"><i class="layui-icon layui-icon-delete"></i></button>' +
-                '</div>' +
-                '</div>';
+            html += '<div class="field-item"><div class="field-header"><span class="field-name">' + escapeHtml(field.label) + '</span><span class="field-type">' + escapeHtml(labels[field.type] || field.type) + '</span></div><button type="button" class="layui-btn layui-btn-xs layui-btn-danger" onclick="FlowDesigner.deleteFormField(' + index + ')"><i class="layui-icon layui-icon-delete"></i></button></div>';
         });
         container.innerHTML = html || '<div class="empty-field-tip">暂未添加字段</div>';
     }
-    
+
     function addFormField() {
         layer.open({
             type: 1,
             title: '添加表单字段',
-            area: ['80%', '100%'],
-            content: '<div class="add-field-form" style="padding: 20px;">' +
-                '<div class="layui-form-item">' +
-                '<label class="layui-form-label">字段标签</label>' +
-                '<div class="layui-input-block"><input type="text" id="fieldLabel" class="layui-input" placeholder="请输入字段显示名称"></div>' +
-                '</div>' +
-                '<div class="layui-form-item">' +
-                '<label class="layui-form-label">字段类型</label>' +
-                '<div class="layui-input-block"><select id="fieldType" class="layui-input">' +
-                '<option value="text">单行文本</option>' +
-                '<option value="textarea">多行文本</option>' +
-                '<option value="number">数字</option>' +
-                '<option value="date">日期</option>' +
-                '<option value="select">下拉选择</option>' +
-                '<option value="user">用户选择</option>' +
-                '<option value="department">部门选择</option>' +
-                '</select></div>' +
-                '</div>' +
-                '<div class="layui-form-item">' +
-                '<label class="layui-form-label">字段KEY</label>' +
-                '<div class="layui-input-block"><input type="text" id="fieldKey" class="layui-input" placeholder="如: amount, date"></div>' +
-                '</div>' +
-                '<div class="layui-form-item">' +
-                '<label class="layui-form-label">是否必填</label>' +
-                '<div class="layui-input-block"><input type="checkbox" id="fieldRequired" lay-skin="switch" lay-text="是|否"></div>' +
-                '</div>' +
-                '<div class="layui-form-item">' +
-                '<label class="layui-form-label">选项值</label>' +
-                '<div class="layui-input-block"><input type="text" id="fieldOptions" class="layui-input" placeholder="下拉选项用逗号分隔"></div>' +
-                '</div>' +
+            area: ['520px', '520px'],
+            content: '<div class="add-field-form layui-form" style="padding: 20px;">' +
+                '<div class="layui-form-item"><label class="layui-form-label">字段标签</label><div class="layui-input-block"><input type="text" id="fieldLabel" class="layui-input" placeholder="请输入字段显示名称"></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">字段类型</label><div class="layui-input-block"><select id="fieldType" class="layui-input"><option value="text">单行文本</option><option value="textarea">多行文本</option><option value="number">数字</option><option value="date">日期</option><option value="select">下拉选择</option><option value="user">用户选择</option><option value="department">部门选择</option></select></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">字段KEY</label><div class="layui-input-block"><input type="text" id="fieldKey" class="layui-input" placeholder="如 amount、date"></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">是否必填</label><div class="layui-input-block"><input type="checkbox" id="fieldRequired" lay-skin="switch" lay-text="是|否"></div></div>' +
+                '<div class="layui-form-item"><label class="layui-form-label">选项值</label><div class="layui-input-block"><input type="text" id="fieldOptions" class="layui-input" placeholder="下拉选项用逗号分隔"></div></div>' +
                 '</div>',
             btn: ['确定', '取消'],
+            success: function() { form.render(); },
             yes: function(index) {
                 var label = document.getElementById('fieldLabel').value.trim();
                 var type = document.getElementById('fieldType').value;
                 var key = document.getElementById('fieldKey').value.trim();
-                var required = document.getElementById('fieldRequired').checked;
-                var options = document.getElementById('fieldOptions').value.trim();
-                
                 if (!label || !key) {
                     layer.msg('请填写字段标签和KEY', {icon: 2});
                     return;
                 }
-                
                 startNodeConfig.form_fields.push({
                     label: label,
                     type: type,
                     key: key,
-                    required: required,
-                    options: options ? options.split(',').map(function(o) { return o.trim(); }) : []
+                    required: document.getElementById('fieldRequired').checked,
+                    options: document.getElementById('fieldOptions').value.trim().split(',').map(function(item) { return item.trim(); }).filter(function(item) { return item; })
                 });
-                
                 renderFormFields();
                 layer.close(index);
             }
         });
     }
-    
+
     function deleteFormField(index) {
-        layer.confirm('确定删除该字段？', {icon: 3, title: '确认'}, function(idx) {
-            startNodeConfig.form_fields.splice(index, 1);
-            renderFormFields();
-            layer.close(idx);
-        });
+        startNodeConfig.form_fields.splice(index, 1);
+        renderFormFields();
     }
-    
+
     function saveStartNodeConfig() {
         layer.load(2);
-        
-        var csrfToken = '';
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (csrfEl) csrfToken = csrfEl.value;
-        
-        var flowId = {{ flow.pk }};
         var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/approval/approvalflow/' + flowId + '/update-start-config/', true);
+        xhr.open('POST', urls.updateStartConfig, true);
         xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.setRequestHeader('X-CSRFToken', csrfToken);
+        xhr.setRequestHeader('X-CSRFToken', getCsrfToken());
         xhr.onreadystatechange = function() {
+            if (xhr.readyState !== 4) return;
             layer.closeAll('loading');
-            if (xhr.readyState === 4) {
-                if (xhr.status === 200) {
-                    try {
-                        var res = JSON.parse(xhr.responseText);
-                        if (res.success) {
-                            layer.msg('开始节点配置保存成功', {icon: 1});
-                        } else {
-                            layer.msg(res.message || '保存失败', {icon: 2});
-                        }
-                    } catch (e) {
-                        layer.msg('保存失败', {icon: 2});
-                    }
-                } else {
-                    layer.msg('网络错误', {icon: 2});
-                }
-            }
+            layer.msg(xhr.status === 200 ? '开始节点配置保存成功' : '保存失败', {icon: xhr.status === 200 ? 1 : 2});
         };
-        xhr.send(JSON.stringify({
-            form_fields: startNodeConfig.form_fields
-        }));
+        xhr.send(JSON.stringify({form_fields: startNodeConfig.form_fields}));
     }
-    
-    function showStartNodeConfig() {
-        loadStartNodeConfig();
-        
-        var userOpts = getAllUserOptions([]);
-        var deptOpts = getAllDeptOptions([]);
-        
-        var html = '<div class="config-section">' +
-            '<div class="section-label"><i class="layui-icon layui-icon-edit"></i> 开始节点配置</div>' +
-            '<div class="section-desc">配置发起审批时需要填写的申请信息</div>' +
-            '</div>' +
-            '<div class="config-section">' +
-            '<div class="section-label"><i class="layui-icon layui-icon-survey"></i> 自定义表单字段</div>' +
-            '<div id="formFieldsContainer" class="form-fields-container"></div>' +
-            '<button type="button" class="layui-btn layui-btn-fluid layui-btn-primary" onclick="FlowDesigner.addFormField()" style="margin-top: 12px;">' +
-            '<i class="layui-icon layui-icon-add-1"></i> 添加字段' +
-            '</button>' +
-            '</div>' +
-            '<div class="config-section">' +
-            '<div class="section-label">操作</div>' +
-            '<button class="layui-btn layui-btn-fluid layui-btn-normal" onclick="FlowDesigner.saveStartNodeConfig()">' +
-            '<i class="layui-icon layui-icon-ok"></i> 保存配置' +
-            '</button>' +
-            '</div>';
-        
-        document.getElementById('configPanel').innerHTML = html;
-        form.render();
-    }
-    
-    function getAllUserOptions(selectedIds) {
-        var html = '<option value="">请选择用户</option>';
-        usersData.forEach(function(u) {
-            var sel = selectedIds.indexOf(u.id) !== -1 ? 'selected' : '';
-            html += '<option value="' + u.id + '" ' + sel + '>' + (u.full_name || u.username) + '</option>';
-        });
-        return html;
-    }
-    
-    function getAllDeptOptions(selectedIds) {
-        var html = '<option value="">请选择部门</option>';
-        deptsData.forEach(function(d) {
-            var sel = selectedIds.indexOf(d.id) !== -1 ? 'selected' : '';
-            html += '<option value="' + d.id + '" ' + sel + '>' + d.name + '</option>';
-        });
-        return html;
-    }
-    
+
     function loadInitiatorConfig() {
-        var flowId = {{ flow.pk }};
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', '/approval/approvalflow/' + flowId + '/initiator/', true);
+        xhr.open('GET', urls.getInitiatorConfig, true);
         xhr.onreadystatechange = function() {
             if (xhr.readyState === 4 && xhr.status === 200) {
                 try {
@@ -412,577 +1355,119 @@ var FlowDesigner = (function() {
                     initiatorData.users = data.initiator_users || [];
                     initiatorData.departments = data.initiator_departments || [];
                     initiatorData.roles = data.initiator_roles || [];
-                    renderInitiatorSelects();
-                } catch (e) {
-                    console.error('加载发起人配置失败', e);
-                }
+                } catch (e) {}
             }
         };
         xhr.send();
     }
-    
-    function renderInitiatorSelects() {
-        var userSel = document.getElementById('initiator_users');
-        var deptSel = document.getElementById('initiator_depts');
-        if (userSel) {
-            Array.from(userSel.options).forEach(function(opt) {
-                opt.selected = initiatorData.users.indexOf(parseInt(opt.value)) !== -1;
-            });
-            form.render('select');
-        }
-        if (deptSel) {
-            Array.from(deptSel.options).forEach(function(opt) {
-                opt.selected = initiatorData.departments.indexOf(parseInt(opt.value)) !== -1;
-            });
-            form.render('select');
-        }
-    }
-    
-    function loadExisting() {
-        var flowId = {{ flow.pk }};
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', '/approval/approvalflow/' + flowId + '/steps/?format=json', true);
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4 && xhr.status === 200) {
-                try {
-                    var data = JSON.parse(xhr.responseText);
-                    if (data.steps && data.steps.length > 0) {
-                        document.getElementById('nodesArea').innerHTML = '';
-                        nodesData = [];
-                        nodeCounter = 0;
-                        
-                        data.steps.forEach(function(step) {
-                            addNodeToCanvas(step.step_type, step.step_name, step);
-                        });
-                    }
-                } catch (e) {
-                    console.error('加载失败', e);
-                }
-            }
-        };
-        xhr.send();
-    }
-    
+
     function showInitiatorConfig() {
-        var userOpts = getAllUserOptions(initiatorData.users);
-        var deptOpts = getAllDeptOptions(initiatorData.departments);
-        
-        var html = '<div class="config-section">' +
-            '<div class="section-label"><i class="layui-icon layui-icon-user"></i> 发起人配置</div>' +
-            '<div class="section-desc">配置哪些人员可以发起此审批流程</div>' +
-            '<div class="config-row"><label>可发起用户</label><select class="layui-input" multiple id="initiator_users">' + userOpts + '</select></div>' +
-            '<div class="config-row"><label>可发起部门</label><select class="layui-input" multiple id="initiator_depts">' + deptOpts + '</select></div>' +
-            '<div class="config-row"><label>可发起角色</label><input type="text" class="layui-input" id="initiator_roles" value="' + (initiatorData.roles.join(',') || '') + '" placeholder="多个角色用逗号分隔" /></div>' +
-            '<div class="config-tip"><i class="layui-icon layui-icon-tips"></i> 留空表示所有用户均可发起</div>' +
-            '</div>' +
-            '<div class="config-section">' +
-            '<div class="section-label">操作</div>' +
-            '<button class="layui-btn layui-btn-fluid layui-btn-normal" onclick="FlowDesigner.saveInitiator()"><i class="layui-icon layui-icon-ok"></i> 保存发起人配置</button>' +
-            '</div>';
-        
+        var html = '<div class="config-section"><div class="section-label"><i class="layui-icon layui-icon-user"></i> 发起人配置</div><div class="section-desc">留空表示所有用户均可发起</div>' +
+            '<div class="config-row"><label>可发起用户</label><select class="layui-input" multiple id="initiator_users">' + getAllUserOptions(initiatorData.users) + '</select></div>' +
+            '<div class="config-row"><label>可发起部门</label><select class="layui-input" multiple id="initiator_depts">' + getAllDeptOptions(initiatorData.departments) + '</select></div>' +
+            '<div class="config-row"><label>可发起角色</label><input type="text" class="layui-input" id="initiator_roles" value="' + escapeAttr(initiatorData.roles.join(',')) + '" placeholder="多个角色用逗号分隔" /></div></div>' +
+            '<div class="config-section"><button class="layui-btn layui-btn-normal layui-btn-fluid" onclick="FlowDesigner.saveInitiator()"><i class="layui-icon layui-icon-ok"></i> 保存发起人配置</button></div>';
         document.getElementById('configPanel').innerHTML = html;
         form.render('select');
-        
-        setTimeout(function() {
-            bindInitiatorEvents();
-        }, 50);
+        bindMulti('initiator_users', function(values) { initiatorData.users = values.map(Number).filter(Boolean); });
+        bindMulti('initiator_depts', function(values) { initiatorData.departments = values.map(Number).filter(Boolean); });
+        bindValue('initiator_roles', function(value) { initiatorData.roles = value.split(',').map(function(item) { return item.trim(); }).filter(function(item) { return item; }); });
     }
-    
-    function bindInitiatorEvents() {
-        var userSel = document.getElementById('initiator_users');
-        if (userSel) {
-            userSel.addEventListener('change', function() {
-                var arr = [];
-                Array.from(userSel.selectedOptions).forEach(function(opt) {
-                    arr.push(parseInt(opt.value));
-                });
-                initiatorData.users = arr;
-            });
-        }
-        
-        var deptSel = document.getElementById('initiator_depts');
-        if (deptSel) {
-            deptSel.addEventListener('change', function() {
-                var arr = [];
-                Array.from(deptSel.selectedOptions).forEach(function(opt) {
-                    arr.push(parseInt(opt.value));
-                });
-                initiatorData.departments = arr;
-            });
-        }
-        
-        var roleInput = document.getElementById('initiator_roles');
-        if (roleInput) {
-            roleInput.addEventListener('change', function() {
-                initiatorData.roles = this.value.split(',').map(function(r) { return r.trim(); }).filter(function(r) { return r; });
-            });
-        }
-    }
-    
+
     function saveInitiator() {
         layer.load(2);
-        
-        var csrfToken = '';
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (csrfEl) csrfToken = csrfEl.value;
-        
-        var flowId = {{ flow.pk }};
         var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/approval/approvalflow/' + flowId + '/update-initiator/', true);
+        xhr.open('POST', urls.updateInitiatorConfig, true);
         xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.setRequestHeader('X-CSRFToken', csrfToken);
+        xhr.setRequestHeader('X-CSRFToken', getCsrfToken());
         xhr.onreadystatechange = function() {
+            if (xhr.readyState !== 4) return;
             layer.closeAll('loading');
-            if (xhr.readyState === 4) {
-                if (xhr.status === 200) {
-                    try {
-                        var res = JSON.parse(xhr.responseText);
-                        if (res.success) {
-                            layer.msg('发起人配置保存成功', {icon: 1});
-                        } else {
-                            layer.msg(res.message || '保存失败', {icon: 2});
-                        }
-                    } catch (e) {
-                        layer.msg('保存失败', {icon: 2});
-                    }
-                } else {
-                    layer.msg('网络错误', {icon: 2});
-                }
-            }
+            layer.msg(xhr.status === 200 ? '发起人配置保存成功' : '保存失败', {icon: xhr.status === 200 ? 1 : 2});
         };
-        xhr.send(JSON.stringify({
-            initiator_users: initiatorData.users,
-            initiator_departments: initiatorData.departments,
-            initiator_roles: initiatorData.roles
-        }));
+        xhr.send(JSON.stringify({initiator_users: initiatorData.users, initiator_departments: initiatorData.departments, initiator_roles: initiatorData.roles}));
     }
-    
-    function getAllUserOptions(selectedIds) {
-        var html = '<option value="">请选择用户</option>';
-        usersData.forEach(function(u) {
-            var sel = selectedIds.indexOf(u.id) !== -1 ? 'selected' : '';
-            html += '<option value="' + u.id + '" ' + sel + '>' + (u.full_name || u.username) + '</option>';
-        });
-        return html;
-    }
-    
-    function getAllDeptOptions(selectedIds) {
-        var html = '<option value="">请选择部门</option>';
-        deptsData.forEach(function(d) {
-            var sel = selectedIds.indexOf(d.id) !== -1 ? 'selected' : '';
-            html += '<option value="' + d.id + '" ' + sel + '>' + d.name + '</option>';
-        });
-        return html;
-    }
-    
-    function addNode(type) {
-        hideMenu();
-        var info = typeMap[type] || {title: '节点', icon: 'layui-icon-circle', color: 'default'};
-        addNodeToCanvas(type, info.title, null);
-    }
-    
-    function addNodeToCanvas(type, name, existingData) {
-        nodeCounter++;
-        var nodeId = 'node_' + nodeCounter;
-        
-        var data = {
-            id: nodeId,
-            type: type,
-            name: name,
-            time_limit: existingData ? existingData.time_limit_hours : 24,
-            approver_user: existingData ? (existingData.approver_user || '') : '',
-            approver_dept: existingData ? (existingData.approver_department || '') : '',
-            approver_level: existingData ? (existingData.approver_level || '') : '',
-            cc_users: [],
-            notify_users: [],
-            desc: existingData ? (existingData.description || '') : '',
-            require_comment: existingData ? (existingData.require_comment || false) : true,
-            comment_hint: existingData ? (existingData.comment_hint || '请输入审批意见') : '请输入审批意见'
-        };
-        
-        if (existingData) {
-            data.cc_users = existingData.cc_users || [];
-            data.notify_users = existingData.notification_users || [];
-        }
-        
-        nodesData.push(data);
-        
-        var info = typeMap[type] || {title: '节点', icon: 'layui-icon-circle', color: 'default'};
-        var html = '<div class="node-card ' + info.color + '" id="' + nodeId + '" data-type="' + type + '">' +
-            '<div class="node-card-header ' + info.color + '">' +
-            '<i class="layui-icon ' + info.icon + '"></i>' +
-            '<span class="node-card-title">' + info.title + '</span>' +
-            '<span class="node-card-num">#' + nodeCounter + '</span>' +
-            '</div>' +
-            '<div class="node-card-body">' +
-            '<input type="text" class="node-name-input" id="name_' + nodeId + '" value="' + name + '" />' +
-            '</div>' +
-            '<div class="node-card-btns">' +
-            '<button class="btn-del" onclick="FlowDesigner.deleteNode(\'' + nodeId + '\', event)"><i class="layui-icon layui-icon-delete"></i></button>' +
-            '</div>' +
-            '</div>';
-        
-        document.getElementById('nodesArea').insertAdjacentHTML('beforeend', html);
-        
-        document.getElementById('name_' + nodeId).addEventListener('change', function() {
-            updateNodeData(nodeId, 'name', this.value);
-        });
-        
-        document.getElementById(nodeId).addEventListener('click', function() {
-            selectNode(nodeId);
-        });
-        
-        updateConnectors();
-        selectNode(nodeId);
-    }
-    
-    function selectStartNode() {
-        document.querySelectorAll('.node-card').forEach(function(el) {
-            el.classList.remove('selected');
-        });
-        
-        var el = document.getElementById('startNode');
-        if (el) {
-            el.classList.add('selected');
-        }
-        
-        showStartNodeConfig();
-    }
-    
-    function selectNode(nodeId) {
-        document.querySelectorAll('.node-card').forEach(function(el) {
-            el.classList.remove('selected');
-        });
-        
-        var el = document.getElementById(nodeId);
-        if (el) {
-            el.classList.add('selected');
-        }
-        
-        var data = null;
-        for (var i = 0; i < nodesData.length; i++) {
-            if (nodesData[i].id === nodeId) {
-                data = nodesData[i];
-                break;
-            }
-        }
-        
-        if (data) {
-            showConfig(nodeId, data);
-        }
-    }
-    
-    function showConfig(nodeId, data) {
-        var info = typeMap[data.type] || {title: '节点'};
-        var isCC = data.type === 'cc';
-        var isNotify = data.type === 'notification';
-        
-        var userOpts = getUserOptions(data.approver_user);
-        var deptOpts = getDeptOptions(data.approver_dept);
-        var levelOpts = getLevelOptions(data.approver_level);
-        
-        var approverHtml = '';
-        if (!isCC && !isNotify) {
-            approverHtml = '<div class="config-section">' +
-                '<div class="section-label">审批人配置</div>';
-            
-            if (data.type === 'specific_user') {
-                approverHtml += '<div class="config-row"><label>指定用户</label><select class="layui-input" id="cfg_user_' + nodeId + '">' + userOpts + '</select></div>';
-            }
-            if (data.type === 'department' || data.type === 'department_head') {
-                approverHtml += '<div class="config-row"><label>审批部门</label><select class="layui-input" id="cfg_dept_' + nodeId + '">' + deptOpts + '</select></div>';
-            }
-            if (data.type === 'level') {
-                approverHtml += '<div class="config-row"><label>审批级别</label><select class="layui-input" id="cfg_level_' + nodeId + '">' + levelOpts + '</select></div>';
-            }
-            approverHtml += '<div class="config-row"><label>处理时限(小时)</label><input type="number" class="layui-input" id="cfg_time_' + nodeId + '" value="' + (data.time_limit || '') + '" placeholder="不限制" /></div>' +
-                '</div>' +
-                '<div class="config-section">' +
-                '<div class="section-label">审批意见配置</div>' +
-                '<div class="config-row"><label><input type="checkbox" id="cfg_require_comment_' + nodeId + '" lay-skin="primary" ' + (data.require_comment ? 'checked' : '') + '> 需要审批意见</label></div>' +
-                '<div class="config-row"><label>意见提示文字</label><input type="text" class="layui-input" id="cfg_comment_hint_' + nodeId + '" value="' + (data.comment_hint || '请输入审批意见') + '" placeholder="如：请输入审批意见" /></div>' +
-                '</div>';
-        } else if (isCC) {
-            approverHtml = '<div class="config-section">' +
-                '<div class="section-label">抄送配置</div>' +
-                '<div class="config-row"><label>抄送用户</label><select class="layui-input" multiple id="cfg_cc_' + nodeId + '">' + userOpts + '</select></div></div>';
-        } else if (isNotify) {
-            approverHtml = '<div class="config-section">' +
-                '<div class="section-label">通知配置</div>' +
-                '<div class="config-row"><label>通知用户</label><select class="layui-input" multiple id="cfg_ntf_' + nodeId + '">' + userOpts + '</select></div></div>';
-        }
-        
-        var html = '<div class="config-section">' +
-            '<div class="section-label">基本信息</div>' +
-            '<div class="config-row"><label>节点名称</label><input type="text" class="layui-input" id="cfg_name_' + nodeId + '" value="' + data.name + '" /></div>' +
-            '<div class="config-row"><label>节点类型</label><input type="text" class="layui-input" value="' + info.title + '" disabled /></div>' +
-            '<div class="config-row"><label>描述说明</label><textarea class="layui-textarea" id="cfg_desc_' + nodeId + '" placeholder="请输入描述">' + (data.desc || '') + '</textarea></div></div>' +
-            approverHtml +
-            '<div class="config-section">' +
-            '<div class="section-label">操作</div>' +
-            '<button class="layui-btn layui-btn-danger layui-btn-fluid" onclick="FlowDesigner.deleteNode(\'' + nodeId + '\', event)"><i class="layui-icon layui-icon-delete"></i> 删除节点</button>' +
-            '</div>';
-        
-        document.getElementById('configPanel').innerHTML = html;
-        form.render('select');
-        
-        setTimeout(function() {
-            bindConfigEvents(nodeId, data);
-        }, 50);
-    }
-    
-    function bindConfigEvents(nodeId, data) {
-        var nameInput = document.getElementById('cfg_name_' + nodeId);
-        if (nameInput) {
-            nameInput.addEventListener('change', function() {
-                updateNodeData(nodeId, 'name', this.value);
-                document.getElementById('name_' + nodeId).value = this.value;
-            });
-        }
-        
-        var descInput = document.getElementById('cfg_desc_' + nodeId);
-        if (descInput) {
-            descInput.addEventListener('change', function() {
-                updateNodeData(nodeId, 'desc', this.value);
-            });
-        }
-        
-        var userSel = document.getElementById('cfg_user_' + nodeId);
-        if (userSel) {
-            userSel.addEventListener('change', function() {
-                updateNodeData(nodeId, 'approver_user', this.value);
-            });
-        }
-        
-        var deptSel = document.getElementById('cfg_dept_' + nodeId);
-        if (deptSel) {
-            deptSel.addEventListener('change', function() {
-                updateNodeData(nodeId, 'approver_dept', this.value);
-            });
-        }
-        
-        var levelSel = document.getElementById('cfg_level_' + nodeId);
-        if (levelSel) {
-            levelSel.addEventListener('change', function() {
-                updateNodeData(nodeId, 'approver_level', this.value);
-            });
-        }
-        
-        var timeInput = document.getElementById('cfg_time_' + nodeId);
-        if (timeInput) {
-            timeInput.addEventListener('change', function() {
-                updateNodeData(nodeId, 'time_limit', this.value);
-            });
-        }
-        
-        var requireComment = document.getElementById('cfg_require_comment_' + nodeId);
-        if (requireComment) {
-            requireComment.addEventListener('change', function() {
-                updateNodeData(nodeId, 'require_comment', this.checked);
-            });
-        }
-        
-        var commentHint = document.getElementById('cfg_comment_hint_' + nodeId);
-        if (commentHint) {
-            commentHint.addEventListener('change', function() {
-                updateNodeData(nodeId, 'comment_hint', this.value);
-            });
-        }
-        
-        var ccSel = document.getElementById('cfg_cc_' + nodeId);
-        if (ccSel) {
-            ccSel.addEventListener('change', function() {
-                var arr = [];
-                Array.from(ccSel.selectedOptions).forEach(function(opt) {
-                    arr.push(opt.value);
-                });
-                updateNodeData(nodeId, 'cc_users', arr);
-            });
-            if (data.cc_users && data.cc_users.length > 0) {
-                Array.from(ccSel.options).forEach(function(opt) {
-                    opt.selected = data.cc_users.indexOf(opt.value) !== -1;
-                });
-                form.render('select');
-            }
-        }
-        
-        var ntfSel = document.getElementById('cfg_ntf_' + nodeId);
-        if (ntfSel) {
-            ntfSel.addEventListener('change', function() {
-                var arr = [];
-                Array.from(ntfSel.selectedOptions).forEach(function(opt) {
-                    arr.push(opt.value);
-                });
-                updateNodeData(nodeId, 'notify_users', arr);
-            });
-            if (data.notify_users && data.notify_users.length > 0) {
-                Array.from(ntfSel.options).forEach(function(opt) {
-                    opt.selected = data.notify_users.indexOf(opt.value) !== -1;
-                });
-                form.render('select');
-            }
-        }
-    }
-    
-    function updateNodeData(nodeId, field, value) {
-        for (var i = 0; i < nodesData.length; i++) {
-            if (nodesData[i].id === nodeId) {
-                nodesData[i][field] = value;
-                break;
-            }
-        }
-    }
-    
-    function deleteNode(nodeId, evt) {
-        if (evt) evt.stopPropagation();
-        
-        layer.confirm('确定删除此节点？', {icon: 3, title: '确认'}, function(idx) {
-            var el = document.getElementById(nodeId);
-            if (el) el.remove();
-            
-            nodesData = nodesData.filter(function(n) {
-                return n.id !== nodeId;
-            });
-            
-            document.getElementById('configPanel').innerHTML = '<div class="empty-tip"><i class="layui-icon layui-icon-util"></i><p>请选择节点进行配置</p></div>';
-            updateConnectors();
-            layer.close(idx);
-        });
-    }
-    
-    function clearAll() {
-        layer.confirm('确定清空所有节点？', {icon: 3, title: '确认'}, function(idx) {
-            document.getElementById('nodesArea').innerHTML = '';
-            nodesData = [];
-            nodeCounter = 0;
-            document.getElementById('configPanel').innerHTML = '<div class="empty-tip"><i class="layui-icon layui-icon-util"></i><p>请选择节点进行配置</p></div>';
-            updateConnectors();
-            layer.close(idx);
-        });
-    }
-    
-    function save() {
-        if (nodesData.length === 0) {
-            layer.msg('请至少添加一个节点', {icon: 2});
-            return;
-        }
-        
-        layer.load(2);
-        
-        var steps = nodesData.map(function(n, i) {
-            return {
-                step_order: i + 1,
-                step_name: n.name,
-                step_type: n.type,
-                time_limit_hours: n.time_limit,
-                approver_user: n.approver_user,
-                approver_department: n.approver_dept,
-                approver_level: n.approver_level,
-                cc_users: n.cc_users,
-                notification_users: n.notify_users,
-                description: n.desc,
-                require_comment: n.require_comment,
-                comment_hint: n.comment_hint
-            };
-        });
-        
-        var csrfToken = '';
-        var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (csrfEl) csrfToken = csrfEl.value;
-        
-        var flowId = {{ flow.pk }};
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/approval/approvalflow/' + flowId + '/batch-create/', true);
-        xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.setRequestHeader('X-CSRFToken', csrfToken);
-        xhr.onreadystatechange = function() {
-            layer.closeAll('loading');
-            if (xhr.readyState === 4) {
-                if (xhr.status === 200) {
-                    try {
-                        var res = JSON.parse(xhr.responseText);
-                        if (res.success) {
-                            layer.msg('保存成功', {icon: 1});
-                        } else {
-                            layer.msg(res.message || '保存失败', {icon: 2});
-                        }
-                    } catch (e) {
-                        layer.msg('保存失败', {icon: 2});
-                    }
-                } else {
-                    layer.msg('网络错误', {icon: 2});
-                }
-            }
-        };
-        xhr.send(JSON.stringify({steps: steps}));
-    }
-    
-    function preview() {
-        layer.open({
-            type: 2,
-            title: '流程预览',
-            content: '/approval/approvalflow/{{ flow.pk }}/preview/',
-            area: ['80%', '100%'],
-            maxmin: true
-        });
-    }
-    
-    function showMenu() {
-        var menu = document.getElementById('nodeMenu');
-        menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
-    }
-    
-    function hideMenu() {
-        document.getElementById('nodeMenu').style.display = 'none';
-    }
-    
-    function updateConnectors() {
-        var count = document.getElementById('nodesArea').children.length;
-        var h = count > 0 ? '30px' : '40px';
-        document.getElementById('connStart').style.height = h;
-        document.getElementById('connEnd').style.height = h;
-    }
-    
+
     function getUserOptions(selectedId) {
         var html = '<option value="">请选择用户</option>';
-        usersData.forEach(function(u) {
-            var sel = u.id == selectedId ? 'selected' : '';
-            html += '<option value="' + u.id + '" ' + sel + '>' + (u.full_name || u.username) + '</option>';
+        usersData.forEach(function(user) {
+            var selected = user.id == selectedId ? 'selected' : '';
+            html += '<option value="' + escapeAttr(user.id) + '" ' + selected + '>' + escapeHtml(user.full_name || user.username) + '</option>';
         });
         return html;
     }
-    
+
+    function getAllUserOptions(selectedIds) {
+        selectedIds = normalizeIdList(selectedIds);
+        var values = selectedIds.map(String);
+        var html = '';
+        usersData.forEach(function(user) {
+            var selected = values.indexOf(String(user.id)) !== -1 ? 'selected' : '';
+            html += '<option value="' + escapeAttr(user.id) + '" ' + selected + '>' + escapeHtml(user.full_name || user.username) + '</option>';
+        });
+        return html;
+    }
+
     function getDeptOptions(selectedId) {
         var html = '<option value="">请选择部门</option>';
-        deptsData.forEach(function(d) {
-            var sel = d.id == selectedId ? 'selected' : '';
-            html += '<option value="' + d.id + '" ' + sel + '>' + d.name + '</option>';
+        deptsData.forEach(function(dept) {
+            var selected = dept.id == selectedId ? 'selected' : '';
+            html += '<option value="' + escapeAttr(dept.id) + '" ' + selected + '>' + escapeHtml(dept.name) + '</option>';
         });
         return html;
     }
-    
+
+    function getAllDeptOptions(selectedIds) {
+        selectedIds = selectedIds || [];
+        var values = selectedIds.map(String);
+        var html = '<option value="">请选择部门</option>';
+        deptsData.forEach(function(dept) {
+            var selected = values.indexOf(String(dept.id)) !== -1 ? 'selected' : '';
+            html += '<option value="' + escapeAttr(dept.id) + '" ' + selected + '>' + escapeHtml(dept.name) + '</option>';
+        });
+        return html;
+    }
+
+    function getRoleOptions(selectedId) {
+        var options = [{value: 'manager', label: '经理'}, {value: 'director', label: '总监'}, {value: 'admin', label: '管理员'}, {value: 'hr', label: '人事'}, {value: 'finance', label: '财务'}];
+        var html = '<option value="">请选择角色</option>';
+        options.forEach(function(item) {
+            var selected = item.value == selectedId ? 'selected' : '';
+            html += '<option value="' + escapeAttr(item.value) + '" ' + selected + '>' + escapeHtml(item.label) + '</option>';
+        });
+        return html;
+    }
+
     function getLevelOptions(selectedId) {
         var html = '<option value="">请选择级别</option>';
         for (var i = 1; i <= 10; i++) {
-            var sel = i == selectedId ? 'selected' : '';
-            html += '<option value="' + i + '" ' + sel + '>' + i + '级及以上</option>';
+            var selected = i == selectedId ? 'selected' : '';
+            html += '<option value="' + i + '" ' + selected + '>' + i + '级及以上</option>';
         }
         return html;
     }
-    
+
     return {
         init: init,
         addNode: addNode,
+        handleConnector: handleConnector,
+        startConnectorDrag: startConnectorDrag,
+        finishConnectorDrag: finishConnectorDrag,
+        selectEdge: selectEdge,
+        selectEdgeFromPath: selectEdgeFromPath,
+        deleteSelectedEdge: deleteSelectedEdge,
         deleteNode: deleteNode,
         clearAll: clearAll,
         save: save,
         preview: preview,
-        showMenu: showMenu,
+        selectStartNode: selectStartNode,
+        showInitiatorConfig: showInitiatorConfig,
         saveInitiator: saveInitiator,
         addFormField: addFormField,
-        deleteFormField: deleteFormField,
         saveStartNodeConfig: saveStartNodeConfig,
-        selectStartNode: selectStartNode
+        zoomIn: zoomIn,
+        zoomOut: zoomOut,
+        resetZoom: resetZoom
     };
 })();
 
@@ -992,520 +1477,154 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <style>
-.flow-designer {
-    display: flex;
-    flex-direction: column;
-    height: calc(100vh - 140px);
-    background: #f5f7fa;
-}
-
-.designer-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 20px;
-    background: #fff;
-    border-bottom: 1px solid #e8e8e8;
-    flex-shrink: 0;
-}
-
-.header-left {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-
-.header-left h2 {
-    margin: 0;
-    font-size: 17px;
-    color: #333;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.header-left h2 i {
-    color: #4f46e5;
-}
-
-.flow-tag {
-    padding: 4px 12px;
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
-    color: #fff;
-    border-radius: 20px;
-    font-size: 12px;
-}
-
-.header-right {
-    display: flex;
-    gap: 10px;
-}
-
-.designer-body {
-    display: flex;
-    flex: 1;
-    overflow: hidden;
-}
-
-.panel-left {
-    width: 240px;
-    background: #fff;
-    border-right: 1px solid #e8e8e8;
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-}
-
-.panel-header {
-    padding: 14px 18px;
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
-    color: #fff;
-    font-weight: 600;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-}
-
-.panel-content {
-    flex: 1;
-    padding: 12px;
-    overflow-y: auto;
-}
-
-.group-title {
-    font-size: 12px;
-    color: #999;
-    margin: 16px 0 8px 4px;
-}
-
-.group-title:first-child {
-    margin-top: 0;
-}
-
-.component-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    background: #fafafa;
-    border: 1px solid #e8e8e8;
-    border-radius: 8px;
-    margin-bottom: 6px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.component-item:hover {
-    background: #fff;
-    border-color: #4f46e5;
-    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.12);
-    transform: translateX(2px);
-}
-
-.comp-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.comp-icon i {
-    font-size: 18px;
-    color: #fff;
-}
-
-.comp-info {
-    flex: 1;
-}
-
-.comp-name {
-    display: block;
-    font-size: 13px;
-    font-weight: 600;
-    color: #333;
-}
-
-.comp-desc {
-    display: block;
-    font-size: 11px;
-    color: #999;
-}
-
-.panel-center {
-    flex: 1;
-    overflow: auto;
-    padding: 20px;
-    min-width: 0;
-}
-
-.canvas-area {
-    min-height: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 20px;
-    position: relative;
-}
-
-.node-start, .node-end {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.start-circle, .end-circle {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-.start-circle {
-    background: linear-gradient(135deg, #10b981, #34d399);
-}
-
-.end-circle {
-    background: linear-gradient(135deg, #6366f1, #818cf8);
-}
-
-.start-circle i, .end-circle i {
-    font-size: 20px;
-    color: #fff;
-}
-
-.start-text, .end-text {
-    margin-top: 8px;
-    font-weight: 600;
-    color: #333;
-    font-size: 14px;
-}
-
-.node-start.selected .start-circle,
-.node-end.selected .end-circle {
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.4);
-}
-
-.node-start.selected,
-.node-end.selected {
-    cursor: pointer;
-}
-
-.connector-v {
-    width: 2px;
-    height: 30px;
-    background: linear-gradient(to bottom, #d1d5db, #9ca3af);
-    border-radius: 1px;
-}
-
-.nodes-area {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 100%;
-    gap: 12px;
-}
-
-.node-card {
-    width: 320px;
-    background: #fff;
-    border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    overflow: hidden;
-    cursor: pointer;
-    transition: all 0.2s;
-    position: relative;
-}
-
-.node-card:hover {
-    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-    transform: translateY(-2px);
-}
-
-.node-card.selected {
-    box-shadow: 0 0 0 3px #4f46e5, 0 4px 16px rgba(79, 70, 229, 0.2);
-}
-
-.node-card-header {
-    padding: 10px 14px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #fff;
-}
-
-.node-card-header i {
-    font-size: 16px;
-}
-
-.node-card-header.purple { background: linear-gradient(135deg, #8b5cf6, #a78bfa); }
-.node-card-header.pink { background: linear-gradient(135deg, #ec4899, #f472b6); }
-.node-card-header.green { background: linear-gradient(135deg, #10b981, #34d399); }
-.node-card-header.orange { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
-.node-card-header.blue { background: linear-gradient(135deg, #6366f1, #818cf8); }
-.node-card-header.teal { background: linear-gradient(135deg, #14b8a6, #2dd4bf); }
-.node-card-header.orange { background: linear-gradient(135deg, #f97316, #fb923c); }
-
-.node-card-title {
-    flex: 1;
-    font-weight: 600;
-    font-size: 13px;
-}
-
-.node-card-num {
-    font-size: 11px;
-    opacity: 0.9;
-}
-
-.node-card-body {
-    padding: 12px;
-}
-
-.node-name-input {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid #e8e8e8;
-    border-radius: 6px;
-    text-align: center;
-    font-weight: 500;
-    font-size: 14px;
-}
-
-.node-name-input:focus {
-    border-color: #4f46e5;
-    outline: none;
-}
-
-.node-card-btns {
-    position: absolute;
-    top: 42px;
-    right: 6px;
-    display: none;
-}
-
-.node-card:hover .node-card-btns {
-    display: block;
-}
-
-.btn-del {
-    width: 24px;
-    height: 24px;
-    border: none;
-    border-radius: 4px;
-    background: #fee2e2;
-    color: #ef4444;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-}
-
-.btn-del:hover {
-    background: #ef4444;
-    color: #fff;
-}
-
-.form-fields-container {
-    border: 1px solid #e8e8e8;
-    border-radius: 8px;
-    padding: 12px;
-    background: #fafafa;
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.field-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 12px;
-    background: #fff;
-    border-radius: 6px;
-    margin-bottom: 8px;
-    border: 1px solid #e8e8e8;
-}
-
-.field-item:last-child {
-    margin-bottom: 0;
-}
-
-.field-header {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.field-name {
-    font-weight: 500;
-    color: #333;
-    font-size: 13px;
-}
-
-.field-type {
-    font-size: 11px;
-    color: #999;
-}
-
-.field-actions {
-    display: flex;
-    gap: 6px;
-}
-
-.empty-field-tip {
-    text-align: center;
-    padding: 20px;
-    color: #999;
-    font-size: 13px;
-}
-
-.add-node-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 10px 20px;
-    background: #fff;
-    border: 2px dashed #d1d5db;
-    border-radius: 8px;
-    color: #666;
-    cursor: pointer;
-    margin: 12px 0;
-    transition: all 0.2s;
-}
-
-.add-node-btn:hover {
-    border-color: #4f46e5;
-    color: #4f46e5;
-    background: #f5f3ff;
-}
-
-.node-menu {
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-    z-index: 100;
-    min-width: 150px;
-    overflow: hidden;
-}
-
-.node-menu div {
-    padding: 10px 16px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    transition: background 0.2s;
-    font-size: 13px;
-}
-
-.node-menu div:hover {
-    background: #f5f3ff;
-    color: #4f46e5;
-}
-
-.node-menu div i {
-    font-size: 14px;
-}
-
-.menu-div {
-    height: 1px;
-    background: #e8e8e8;
-    margin: 4px 0;
-    padding: 0;
-}
-
-.panel-right {
-    width: 300px;
-    background: #fff;
-    border-left: 1px solid #e8e8e8;
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-}
-
-.panel-right .panel-content {
-    flex: 1;
-    padding: 16px;
-}
-
-.empty-tip {
-    text-align: center;
-    padding: 60px 20px;
-    color: #999;
-}
-
-.empty-tip i {
-    font-size: 44px;
-    color: #d1d5db;
-    margin-bottom: 12px;
-    display: block;
-}
-
-.config-section {
-    margin-bottom: 20px;
-}
-
-.section-label {
-    font-weight: 600;
-    color: #333;
-    font-size: 13px;
-    margin-bottom: 10px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid #e8e8e8;
-}
-
-.config-row {
-    margin-bottom: 12px;
-}
-
-.config-row label {
-    display: block;
-    font-size: 12px;
-    color: #666;
-    margin-bottom: 4px;
-}
-
-.config-row select, .config-row input, .config-row textarea {
-    width: 100%;
-}
-
-.section-desc {
-    font-size: 12px;
-    color: #999;
-    margin-bottom: 12px;
-}
-
-.section-label i {
-    margin-right: 4px;
-}
-
-.config-tip {
-    margin-top: 12px;
-    padding: 8px 12px;
-    background: #f0f9ff;
-    border-radius: 6px;
-    font-size: 12px;
-    color: #0369a1;
-}
-
-.config-tip i {
-    margin-right: 4px;
-}
-
-@media (max-width: 1200px) {
-    .panel-left { width: 200px; }
-    .panel-right { width: 260px; }
-}
+:root {
+    --approval-primary: #2563eb;
+    --approval-primary-dark: #1d4ed8;
+    --approval-primary-soft: #eff6ff;
+    --approval-purple: #06b6d4;
+    --approval-border: #e5e7eb;
+    --approval-bg: #f6f8fb;
+    --approval-card: #ffffff;
+    --approval-text: #111827;
+    --approval-muted: #6b7280;
+    --approval-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+html, body { background: var(--approval-bg) !important; }
+.flow-designer { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; height: 100vh; background: var(--approval-bg); color: var(--approval-text); overflow: hidden; }
+.designer-header { height: 64px; padding: 0 24px; background: rgba(255,255,255,0.96); border-bottom: 1px solid var(--approval-border); box-shadow: 0 8px 24px rgba(15,23,42,0.05); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+.header-left, .header-right { display: flex; align-items: center; }
+.header-left { gap: 14px; min-width: 0; }
+.header-left h2 { margin: 0; font-size: 18px; font-weight: 700; color: var(--approval-text); display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.header-left h2 i { color: var(--approval-primary); }
+.flow-tag { max-width: 280px; padding: 5px 12px; border-radius: 999px; background: var(--approval-primary-soft); color: var(--approval-primary-dark); font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.header-right { gap: 10px; }
+.header-right .layui-btn { height: 34px; line-height: 34px; border-radius: 8px; padding: 0 14px; }
+.designer-body { display: grid; grid-template-columns: 260px minmax(520px, 1fr) 340px; gap: 16px; flex: 1; min-height: 0; padding: 16px; overflow: hidden; }
+.panel-left, .panel-right, .panel-center { min-height: 0; border-radius: 14px; }
+.panel-left, .panel-right { background: var(--approval-card); border: 1px solid var(--approval-border); box-shadow: var(--approval-shadow); display: flex; flex-direction: column; overflow: hidden; }
+.panel-header { height: 48px; padding: 0 16px; background: linear-gradient(135deg, var(--approval-primary), var(--approval-purple)); color: #fff; font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.panel-content { flex: 1; min-height: 0; padding: 14px; overflow-y: auto; }
+.designer-tip { padding: 10px 12px; margin-bottom: 14px; background: var(--approval-primary-soft); border: 1px solid #bfdbfe; border-radius: 10px; color: #1e40af; font-size: 12px; line-height: 1.5; }
+.group-title { margin: 16px 4px 10px; color: var(--approval-muted); font-size: 12px; font-weight: 700; }
+.group-title:first-child { margin-top: 0; }
+.component-item { display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 10px 12px; margin-bottom: 8px; background: #fff; border: 1px solid var(--approval-border); border-radius: 8px; cursor: grab; transition: border-color .2s, box-shadow .2s, transform .2s; }
+.component-item:active { cursor: grabbing; }
+.component-item:hover { border-color: rgba(37,99,235,.55); box-shadow: 0 10px 24px rgba(37,99,235,.12); transform: translateY(-1px); }
+.comp-icon { width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.comp-icon i { font-size: 18px; color: #fff; }
+.comp-purple { background: linear-gradient(135deg, #1677ff, #06b6d4); }
+.comp-pink { background: linear-gradient(135deg, #db2777, #ec4899); }
+.comp-green { background: linear-gradient(135deg, #059669, #10b981); }
+.comp-orange { background: linear-gradient(135deg, #f97316, #fb923c); }
+.comp-blue { background: linear-gradient(135deg, #2563eb, #6366f1); }
+.comp-indigo { background: linear-gradient(135deg, #1677ff, #38bdf8); }
+.comp-cyan { background: linear-gradient(135deg, #0891b2, #22d3ee); }
+.comp-slate { background: linear-gradient(135deg, #475569, #64748b); }
+.comp-violet { background: linear-gradient(135deg, #0f5bd8, #06b6d4); }
+.comp-yellow { background: linear-gradient(135deg, #ca8a04, #eab308); }
+.comp-lime { background: linear-gradient(135deg, #65a30d, #84cc16); }
+.comp-rose { background: linear-gradient(135deg, #e11d48, #fb7185); }
+.comp-gray { background: linear-gradient(135deg, #4b5563, #9ca3af); }
+.comp-red { background: linear-gradient(135deg, #dc2626, #f87171); }
+.comp-teal { background: linear-gradient(135deg, #0d9488, #14b8a6); }
+.comp-amber { background: linear-gradient(135deg, #d97706, #f59e0b); }
+.comp-info { flex: 1; min-width: 0; }
+.comp-name { display: block; color: var(--approval-text); font-size: 13px; font-weight: 700; line-height: 1.35; }
+.comp-desc { display: block; margin-top: 3px; color: var(--approval-muted); font-size: 12px; line-height: 1.35; }
+.panel-center { background: linear-gradient(180deg, #fff 0%, #f8fbff 100%); border: 1px solid var(--approval-border); box-shadow: var(--approval-shadow); display: flex; flex-direction: column; overflow: hidden; }
+.canvas-toolbar { min-height: 52px; padding: 8px 16px; border-bottom: 1px solid var(--approval-border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; background: rgba(255,255,255,.92); }
+.canvas-toolbar strong { display: block; font-size: 14px; color: var(--approval-text); }
+.canvas-toolbar span { display: block; margin-top: 3px; font-size: 12px; color: var(--approval-muted); }
+.canvas-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.zoom-controls { display: flex; align-items: center; height: 34px; padding: 0 4px; background: #f8fafc; border: 1px solid var(--approval-border); border-radius: 9px; }
+.zoom-btn { height: 26px; min-width: 28px; padding: 0 8px; border: none; border-radius: 7px; background: transparent; color: #334155; cursor: pointer; font-size: 12px; }
+.zoom-btn:hover { background: #eaf1ff; color: var(--approval-primary-dark); }
+.zoom-reset { min-width: 42px; }
+#zoomLabel { min-width: 46px; margin: 0 4px; color: var(--approval-text); font-size: 12px; font-weight: 700; text-align: center; }
+.canvas-viewport { flex: 1; min-height: 0; overflow: auto; position: relative; }
+.canvas-scale-space { width: 2100px; height: 1500px; position: relative; }
+.canvas-content { width: 2100px; height: 1500px; position: absolute; left: 0; top: 0; transform-origin: 0 0; background: #f8fafc; }
+.canvas-grid { position: absolute; inset: 0; background-image: linear-gradient(#e2e8f0 1px, transparent 1px), linear-gradient(90deg, #e2e8f0 1px, transparent 1px); background-size: 28px 28px; opacity: .65; pointer-events: none; }
+.canvas-content.drag-over { outline: 3px solid rgba(37,99,235,.35); outline-offset: -8px; }
+.edge-layer { position: absolute; inset: 0; width: 2100px; height: 1500px; pointer-events: none; z-index: 3; }
+.edge-layer path.edge-path { fill: none; stroke: #64748b; stroke-width: 2.8; stroke-dasharray: none; pointer-events: stroke; cursor: pointer; }
+.edge-layer path.temp-edge-path { stroke: #16a34a; stroke-width: 3.2; stroke-dasharray: 8 6; pointer-events: none; }
+.edge-layer path.edge-path:hover, .edge-layer path.edge-path.selected { stroke: #2563eb; stroke-width: 4; }
+.edge-arrow { fill: #64748b; stroke: none; }
+.connection-point { position: absolute; z-index: 12; width: 14px; height: 14px; padding: 0; border: 2px solid #fff; border-radius: 50%; background: #2563eb; box-shadow: 0 2px 8px rgba(37,99,235,.35); cursor: crosshair; }
+.connection-point::after { content: attr(title); position: absolute; top: 50%; transform: translateY(-50%); padding: 2px 6px; border-radius: 6px; background: rgba(15,23,42,.84); color: #fff; font-size: 11px; line-height: 16px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .15s; }
+.connection-point:hover::after { opacity: 1; }
+.input-point::after { left: 18px; }
+.output-point::after { right: 18px; }
+.canvas-node .input-point { left: -8px; }
+.canvas-node .output-point { right: -8px; }
+.canvas-node .port-1 { top: 17px; }
+.canvas-node .port-2 { top: 45px; }
+.canvas-node .port-3 { top: 73px; }
+.fixed-node .output-point.port-1 { left: 28px; top: 46px; }
+.fixed-node .output-point.port-2 { left: 52px; top: 50px; }
+.fixed-node .output-point.port-3 { left: 76px; top: 46px; }
+.fixed-node .input-point.port-1 { left: 28px; top: -8px; }
+.fixed-node .input-point.port-2 { left: 52px; top: -12px; }
+.fixed-node .input-point.port-3 { left: 76px; top: -8px; }
+.connection-point:hover, .connection-point.connecting { transform: scale(1.25); background: #16a34a; }
+.nodes-layer { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+.fixed-node { position: absolute; left: 970px; z-index: 5; width: 120px; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+.start-node { top: 78px; }
+.end-node { top: 1180px; }
+.fixed-node span { width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; box-shadow: 0 10px 24px rgba(15,23,42,.16); }
+.start-node span { background: linear-gradient(135deg, #10b981, #22c55e); }
+.end-node span { background: linear-gradient(135deg, #64748b, #334155); }
+.fixed-node strong { margin-top: 8px; font-size: 13px; }
+.fixed-node.selected span { box-shadow: 0 0 0 4px rgba(37,99,235,.22), 0 10px 24px rgba(15,23,42,.16); }
+.canvas-node { position: absolute; z-index: 4; width: 340px; background: #fff; border: 1px solid var(--approval-border); border-radius: 14px; box-shadow: 0 10px 24px rgba(15,23,42,.10); overflow: visible; cursor: move; transition: border-color .2s, box-shadow .2s; pointer-events: auto; }
+.canvas-node:hover { box-shadow: 0 16px 34px rgba(15,23,42,.14); }
+.canvas-node.selected { border-color: var(--approval-primary); box-shadow: 0 0 0 3px rgba(37,99,235,.18), 0 16px 34px rgba(15,23,42,.14); }
+.canvas-node-header { height: 42px; padding: 0 12px; color: #fff; display: flex; align-items: center; gap: 8px; }
+.node-purple .canvas-node-header { background: linear-gradient(135deg, #1677ff, #06b6d4); }
+.node-pink .canvas-node-header { background: linear-gradient(135deg, #db2777, #ec4899); }
+.node-green .canvas-node-header { background: linear-gradient(135deg, #059669, #10b981); }
+.node-orange .canvas-node-header { background: linear-gradient(135deg, #f97316, #fb923c); }
+.node-blue .canvas-node-header { background: linear-gradient(135deg, #2563eb, #6366f1); }
+.node-indigo .canvas-node-header { background: linear-gradient(135deg, #1677ff, #38bdf8); }
+.node-cyan .canvas-node-header { background: linear-gradient(135deg, #0891b2, #22d3ee); }
+.node-slate .canvas-node-header { background: linear-gradient(135deg, #475569, #64748b); }
+.node-violet .canvas-node-header { background: linear-gradient(135deg, #0f5bd8, #06b6d4); }
+.node-yellow .canvas-node-header { background: linear-gradient(135deg, #ca8a04, #eab308); }
+.node-lime .canvas-node-header { background: linear-gradient(135deg, #65a30d, #84cc16); }
+.node-rose .canvas-node-header { background: linear-gradient(135deg, #e11d48, #fb7185); }
+.node-gray .canvas-node-header { background: linear-gradient(135deg, #4b5563, #9ca3af); }
+.node-red .canvas-node-header { background: linear-gradient(135deg, #dc2626, #f87171); }
+.node-teal .canvas-node-header { background: linear-gradient(135deg, #0d9488, #14b8a6); }
+.node-amber .canvas-node-header { background: linear-gradient(135deg, #d97706, #f59e0b); }
+.node-icon { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
+.node-title { flex: 1; font-size: 13px; font-weight: 700; }
+.node-delete { width: 28px; height: 28px; border: none; background: rgba(255,255,255,.18); color: #fff; border-radius: 8px; cursor: pointer; }
+.node-delete:hover { background: rgba(255,255,255,.3); }
+.node-name-input { width: calc(100% - 28px); height: 38px; margin: 14px; padding: 0 12px; border: 1px solid var(--approval-border); border-radius: 9px; box-sizing: border-box; color: var(--approval-text); font-size: 14px; font-weight: 600; text-align: center; cursor: text; }
+.node-name-input:focus { border-color: var(--approval-primary); outline: none; box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+.drop-hint { position: absolute; left: 50%; top: 280px; transform: translateX(-50%); z-index: 2; padding: 16px 22px; border: 1px dashed #94a3b8; border-radius: 14px; background: rgba(255,255,255,.86); color: var(--approval-muted); font-size: 14px; }
+.empty-tip { text-align: center; padding: 64px 20px; color: var(--approval-muted); }
+.empty-tip i { display: block; margin-bottom: 12px; color: #cbd5e1; font-size: 44px; }
+.config-section { margin-bottom: 18px; padding: 14px; background: #fff; border: 1px solid var(--approval-border); border-radius: 12px; }
+.section-label { margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--approval-border); color: var(--approval-text); font-size: 13px; font-weight: 800; }
+.section-label i { margin-right: 5px; color: var(--approval-primary); }
+.section-desc, .field-type, .empty-field-tip { color: var(--approval-muted); font-size: 12px; }
+.config-row { margin-bottom: 12px; }
+.config-row:last-child { margin-bottom: 0; }
+.config-row label { display: block; margin-bottom: 6px; color: #374151; font-size: 12px; font-weight: 700; }
+.config-row select, .config-row input, .config-row textarea { width: 100%; box-sizing: border-box; border-radius: 8px; }
+.config-tip { padding: 10px 12px; background: var(--approval-primary-soft); border: 1px solid #bfdbfe; border-radius: 10px; color: #1e40af; font-size: 12px; line-height: 1.5; }
+.config-error-tip { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+.form-fields-container { border: 1px solid var(--approval-border); border-radius: 10px; padding: 10px; background: #f8fafc; max-height: 260px; overflow-y: auto; }
+.field-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #fff; border: 1px solid var(--approval-border); border-radius: 9px; margin-bottom: 8px; }
+.field-item:last-child { margin-bottom: 0; }
+.field-header { display: flex; flex-direction: column; gap: 4px; }
+.field-name { color: var(--approval-text); font-size: 13px; font-weight: 700; }
+.empty-field-tip { text-align: center; padding: 20px 10px; }
+.add-field-form .layui-form-label { width: 88px; }
+.add-field-form .layui-input-block { margin-left: 118px; }
+@media (max-width: 1280px) { .designer-body { grid-template-columns: 230px minmax(460px,1fr) 310px; gap: 12px; padding: 12px; } }
+@media (max-width: 1024px) { .designer-body { grid-template-columns: 220px minmax(420px,1fr); } .panel-right { display: none; } }
 </style>
 {% endblock %}

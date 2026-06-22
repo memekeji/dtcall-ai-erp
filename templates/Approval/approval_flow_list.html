@@ -14,8 +14,10 @@ var tableColumns = [
     {field: 'approval_type_name', title: '审批类型', width: 120, templet: function(d){
         return d.approval_type_name || '-';
     }},
-    {field: 'description', title: '描述', width: 200, templet: function(d){
-        return d.description ? (d.description.substring(0, 50) + (d.description.length > 50 ? '...' : '')) : '-';
+    {field: 'description', title: '描述', width: 200, templet: function(d) {
+        var text = escapeHtml(d.description || '');
+        var shortText = text.length > 50 ? text.substring(0, 50) + '...' : text;
+        return text ? '<span title="' + text + '">' + shortText + '</span>' : '-';
     }},
     {field: 'is_active', title: '状态', width: 100, templet: function(d){
         if(d.is_active){
@@ -43,7 +45,38 @@ var tableColumns = [
 </div>
 {% endblock %}
 
-{% block extra_js %}
+{% block table_extra_js %}
+    table.on('tool(dataTable)', function(obj) {
+        var data = obj.data;
+        if (obj.event === 'steps') {
+            layer.open({
+                type: 2,
+                title: '审批步骤',
+                shadeClose: false,
+                shade: 0.3,
+                maxmin: true,
+                area: ['80%', '100%'],
+                offset: 'r',
+                anim: 2,
+                content: '{% url "approval:approval_flow_steps" 0 %}'.replace('/0/', '/' + data.id + '/'),
+                end: function() {
+                    refreshTable();
+                }
+            });
+        } else if (obj.event === 'preview') {
+            layer.open({
+                type: 2,
+                title: '流程预览',
+                shadeClose: true,
+                shade: 0.3,
+                maxmin: true,
+                area: ['80%', '100%'],
+                offset: 'r',
+                anim: 2,
+                content: '{% url "approval:approval_flow_preview" 0 %}'.replace('/0/', '/' + data.id + '/')
+            });
+        }
+    });
 {% endblock %}
 
 {% block table_headers %}

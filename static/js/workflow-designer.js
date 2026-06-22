@@ -118,7 +118,6 @@
             this._initToolbar();
             this._loadDefaultWorkflow();
             
-            console.log('Workflow Designer initialized successfully');
             return this;
         },
         
