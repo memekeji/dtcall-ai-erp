@@ -7,6 +7,139 @@
 例如: user.view_notice, user.add_department
 """
 
+PERMISSION_ACTIONS = {
+    'view': {
+        'label': '页面查看',
+        'category': '页面权限',
+        'weight': 10,
+        'description': '控制用户是否可以进入并查看对应页面',
+    },
+    'menu': {
+        'label': '菜单查看',
+        'category': '页面权限',
+        'weight': 10,
+        'description': '控制左侧菜单和页面入口是否可见',
+    },
+    'add': {
+        'label': '新增',
+        'category': '按钮权限',
+        'weight': 20,
+        'description': '控制新增按钮、创建弹窗和新增提交接口',
+    },
+    'change': {
+        'label': '编辑',
+        'category': '按钮权限',
+        'weight': 30,
+        'description': '控制编辑按钮、保存修改和状态调整',
+    },
+    'delete': {
+        'label': '删除',
+        'category': '按钮权限',
+        'weight': 40,
+        'description': '控制删除按钮、批量删除和删除接口',
+    },
+    'export': {
+        'label': '导出',
+        'category': '按钮权限',
+        'weight': 50,
+        'description': '控制导出、下载列表和文件生成操作',
+    },
+    'import': {
+        'label': '导入',
+        'category': '按钮权限',
+        'weight': 60,
+        'description': '控制导入、批量导入和文件上传操作',
+    },
+    'approve': {
+        'label': '审批',
+        'category': '流程权限',
+        'weight': 70,
+        'description': '控制审核、审批、驳回等流程动作',
+    },
+    'download': {
+        'label': '下载',
+        'category': '按钮权限',
+        'weight': 80,
+        'description': '控制附件、备份、票据等下载操作',
+    },
+    'manage': {
+        'label': '管理',
+        'category': '管理权限',
+        'weight': 90,
+        'description': '控制关联配置、授权维护等管理操作',
+    },
+    'batch': {
+        'label': '批量操作',
+        'category': '批量权限',
+        'weight': 100,
+        'description': '控制批量审批、批量删除、批量处理等操作',
+    },
+    'toggle': {
+        'label': '启停',
+        'category': '按钮权限',
+        'weight': 110,
+        'description': '控制启用、禁用、状态切换等操作',
+    },
+    'config': {
+        'label': '权限配置',
+        'category': '授权权限',
+        'weight': 120,
+        'description': '控制角色授权、权限分配等高风险操作',
+    },
+    'restore': {
+        'label': '还原',
+        'category': '数据权限',
+        'weight': 130,
+        'description': '控制备份还原等影响数据状态的操作',
+    },
+    'order': {
+        'label': '排序',
+        'category': '按钮权限',
+        'weight': 140,
+        'description': '控制拖拽排序、顺序保存等操作',
+    },
+    'apply': {
+        'label': '申请',
+        'category': '流程权限',
+        'weight': 150,
+        'description': '控制发起申请、提交流程等操作',
+    },
+}
+
+PERMISSION_CATEGORY_ORDER = {
+    '页面权限': 1,
+    '按钮权限': 2,
+    '流程权限': 3,
+    '授权权限': 4,
+    '管理权限': 5,
+    '批量权限': 6,
+    '数据权限': 7,
+    '其他权限': 99,
+}
+
+
+def get_permission_action(codename):
+    if codename.startswith('batch_'):
+        return 'batch'
+    if codename.startswith('config_'):
+        return 'config'
+    return codename.split('_', 1)[0]
+
+
+def get_permission_metadata(codename, name=''):
+    action = get_permission_action(codename)
+    metadata = PERMISSION_ACTIONS.get(action, {})
+    category = metadata.get('category', '其他权限')
+    return {
+        'action': action,
+        'action_label': metadata.get('label') or name or codename,
+        'category': category,
+        'category_order': PERMISSION_CATEGORY_ORDER.get(category, 99),
+        'weight': metadata.get('weight', 999),
+        'description': metadata.get('description', '控制对应页面或业务动作的访问权限'),
+    }
+
+
 PERMISSION_NODES = {
     # 1. 工作台
     'workbench': {
@@ -419,15 +552,6 @@ PERMISSION_NODES = {
         'name': '个人办公',
         'icon': 'layui-icon-user',
         'children': {
-            'schedule': {
-                'name': '日程安排',
-                'permissions': [
-                    {'codename': 'view_schedule', 'name': '菜单查看'},
-                    {'codename': 'add_schedule', 'name': '新增日程'},
-                    {'codename': 'change_schedule', 'name': '编辑日程'},
-                    {'codename': 'delete_schedule', 'name': '删除日程'},
-                ]
-            },
             'work_calendar': {
                 'name': '工作日历',
                 'permissions': [
@@ -558,13 +682,25 @@ PERMISSION_NODES = {
         }
     },
 
-    # 6.5 消息管理
+    # 6.5 统一消息与在线沟通
     'message': {
-        'name': '消息管理',
+        'name': '在线沟通',
         'icon': 'layui-icon-notice',
         'children': {
+            'conversation_center': {
+                'name': '沟通中心',
+                'permissions': [
+                    {'codename': 'view_conversation_center', 'name': '菜单查看'},
+                    {'codename': 'start_direct_conversation', 'name': '发起单聊'},
+                    {'codename': 'create_group_conversation', 'name': '创建群聊'},
+                    {'codename': 'manage_group_conversation', 'name': '管理群聊'},
+                    {'codename': 'send_conversation_message', 'name': '发送沟通消息'},
+                    {'codename': 'convert_message_to_task', 'name': '消息转任务'},
+                    {'codename': 'view_message_read_receipts', 'name': '查看已读回执'},
+                ]
+            },
             'message_center': {
-                'name': '消息中心',
+                'name': '通知中心',
                 'permissions': [
                     {'codename': 'view_message_center', 'name': '菜单查看'},
                     {'codename': 'view_message', 'name': '查看消息'},

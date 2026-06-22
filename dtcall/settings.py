@@ -10,32 +10,87 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
-from pathlib import Path
 import os
+from pathlib import Path
+from urllib.parse import parse_qsl, unquote, urlparse
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+from django.core.exceptions import ImproperlyConfigured
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _load_env_file():
+    env_path = BASE_DIR / '.env'
+    if not env_path.exists():
+        return
+    for line in env_path.read_text(encoding='utf-8').splitlines():
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, value = line.split('=', 1)
+        _set_env_from_file(key, value)
+
+
+def _set_env_from_file(key, value):
+    key = key.strip()
+    value = value.strip().strip('"').strip("'")
+    current = os.environ.get(key)
+    if current is None or current.strip() == '':
+        os.environ[key] = value
+
+
+_load_env_file()
+
+
+def _env_bool(name, default=False):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+def _env_int(name, default=0):
+    value = os.environ.get(name)
+    if value is None or value.strip() == '':
+        return default
+    try:
+        return int(value)
+    except ValueError as exc:
+        raise ImproperlyConfigured(f'{name} must be an integer') from exc
+
+
+def _env_list(name, default=None):
+    value = os.environ.get(name, '').strip()
+    if not value:
+        return list(default or [])
+    return [item.strip() for item in value.split(',') if item.strip()]
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = _env_bool('DEBUG', True)
+
 # SECURITY WARNING: keep the secret key used in production secret!
 # 使用环境变量存储 SECRET_KEY，生产环境必须设置此环境变量
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-fallback-key-for-development-only')
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True').lower() in ('1', 'true', 'yes', 'on')
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '').strip()
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = 'django-insecure-fallback-key-for-development-only'
+    else:
+        raise ImproperlyConfigured('DJANGO_SECRET_KEY must be set when DEBUG=False')
 
 # 域名和网络配置
 # 允许访问的主机名/IP列表
 _allowed_hosts_env = os.environ.get('DJANGO_ALLOWED_HOSTS', '').strip()
 if _allowed_hosts_env:
-    ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts_env.split(',') if h.strip()]
+    ALLOWED_HOSTS = _env_list('DJANGO_ALLOWED_HOSTS')
 else:
     ALLOWED_HOSTS = [
         'www.dtcall.cn',
         'dtcall.cn',
+        'erp.dtcall.cn',
         '192.168.1.152',
         'testserver',
     ]
@@ -51,15 +106,25 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')  # HTTPS代理头
 # URL设置
 APPEND_SLASH = False               # 禁用自动添加尾随斜杠，解决附件下载路径问题
 
-# HTTPS设置
-# SECURE_SSL_REDIRECT = True  # 强制HTTPS重定向，生产环境应启用
+# HTTPS和浏览器安全设置。开发环境保持宽松，生产环境(DEBUG=False)默认启用安全策略。
+SECURE_SSL_REDIRECT = _env_bool('SECURE_SSL_REDIRECT', not DEBUG)
+SESSION_COOKIE_SECURE = _env_bool('SESSION_COOKIE_SECURE', not DEBUG)
+CSRF_COOKIE_SECURE = _env_bool('CSRF_COOKIE_SECURE', not DEBUG)
+SECURE_HSTS_SECONDS = _env_int('SECURE_HSTS_SECONDS', 0 if DEBUG else 31536000)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = _env_bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', not DEBUG)
+SECURE_HSTS_PRELOAD = _env_bool('SECURE_HSTS_PRELOAD', not DEBUG)
 
-# CSRF信任的源列表
-CSRF_TRUSTED_ORIGINS = [
+# CSRF信任的源列表，可通过 CSRF_TRUSTED_ORIGINS 追加或覆盖生产域名。
+_default_csrf_trusted_origins = [
     'https://www.dtcall.cn',  # 主域名
     'https://dtcall.cn',      # 裸域名
+    'https://erp.dtcall.cn',  # ERP生产域名
     'http://192.168.1.152',   # 内网IP（开发环境）
 ]
+CSRF_TRUSTED_ORIGINS = _env_list(
+    'CSRF_TRUSTED_ORIGINS',
+    _default_csrf_trusted_origins,
+)
 
 # 认证后端配置
 AUTHENTICATION_BACKENDS = [
@@ -67,7 +132,7 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',  # Django默认认证后端
 ]
 
-X_FRAME_OPTIONS = 'SAMEORIGIN'
+X_FRAME_OPTIONS = os.environ.get('X_FRAME_OPTIONS', 'SAMEORIGIN' if DEBUG else 'DENY')
 
 # Application definition
 AUTH_USER_MODEL = 'user.Admin'
@@ -78,11 +143,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'channels',
     'captcha',
     'rest_framework',
     'rest_framework_simplejwt',
     'django_filters',
-    'apps.user',
+    'apps.user.apps.UserConfig',
     'apps.customer',
     'apps.finance',
     'apps.common',
@@ -128,12 +194,15 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'apps.system.middleware.database_setup_middleware.DatabaseSetupMiddleware',
     'apps.system.middleware.data_permission_middleware.DataPermissionMiddleware',
     'apps.system.middleware.permission_middleware.PermissionMiddleware',
+    'apps.system.middleware.operation_log_middleware.OperationLogMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
 ROOT_URLCONF = 'dtcall.urls'
+ASGI_APPLICATION = 'dtcall.asgi.application'
 
 TEMPLATES = [
     {
@@ -158,6 +227,31 @@ TEMPLATES = [
 REDIS_HOST = os.environ.get('REDIS_HOST', '').strip()
 REDIS_PORT = os.environ.get('REDIS_PORT', '6379').strip()
 REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', '').strip()
+if REDIS_HOST:
+    try:
+        import channels_redis  # noqa: F401
+        _redis_auth = f":{REDIS_PASSWORD}@" if REDIS_PASSWORD else ""
+        CHANNEL_LAYERS = {
+            "default": {
+                "BACKEND": "channels_redis.core.RedisChannelLayer",
+                "CONFIG": {
+                    "hosts": [f"redis://{_redis_auth}{REDIS_HOST}:{REDIS_PORT}/2"],
+                },
+            },
+        }
+    except ImportError:
+        CHANNEL_LAYERS = {
+            "default": {
+                "BACKEND": "channels.layers.InMemoryChannelLayer",
+            },
+        }
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        },
+    }
+
 if REDIS_HOST:
     _redis_auth = f":{REDIS_PASSWORD}@" if REDIS_PASSWORD else ""
     CACHES = {
@@ -193,44 +287,128 @@ WSGI_APPLICATION = 'dtcall.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASE_ENGINE = os.environ.get('DATABASE_ENGINE', '').strip()
-DATABASE_HOST = os.environ.get('DATABASE_HOST', '').strip()
-DATABASE_PORT = os.environ.get('DATABASE_PORT', '').strip()
-DATABASE_NAME = os.environ.get('DATABASE_NAME', '').strip()
-DATABASE_USER = os.environ.get('DATABASE_USER', '').strip()
-DATABASE_PASSWORD = os.environ.get('DATABASE_PASSWORD', '').strip()
+DATABASE_ENGINE_ALIASES = {
+    'sqlite': 'django.db.backends.sqlite3',
+    'sqlite3': 'django.db.backends.sqlite3',
+    'postgres': 'django.db.backends.postgresql',
+    'postgresql': 'django.db.backends.postgresql',
+    'pgsql': 'django.db.backends.postgresql',
+    'psql': 'django.db.backends.postgresql',
+    'mysql': 'django.db.backends.mysql',
+    'mariadb': 'django.db.backends.mysql',
+}
 
-if DATABASE_ENGINE:
-    DATABASES = {
-        'default': {
-            'ENGINE': DATABASE_ENGINE,
-            'NAME': DATABASE_NAME,
-            'USER': DATABASE_USER,
-            'PASSWORD': DATABASE_PASSWORD,
-            'HOST': DATABASE_HOST,
-            'PORT': DATABASE_PORT,
-            'CONN_MAX_AGE': 1800,
+
+def _resolve_database_engine(value):
+    engine = (value or '').strip()
+    if not engine:
+        return ''
+    normalized = engine.lower()
+    if normalized in DATABASE_ENGINE_ALIASES:
+        return DATABASE_ENGINE_ALIASES[normalized]
+    if engine.startswith('django.db.backends.'):
+        return engine
+    raise ImproperlyConfigured(
+        f'Unsupported DATABASE_ENGINE "{engine}". '
+        'Use sqlite, postgresql, mysql, mariadb, or a django.db.backends.* path.'
+    )
+
+
+def _database_options(engine):
+    options = {}
+    connect_timeout = _env_int('DATABASE_CONNECT_TIMEOUT', 0)
+    if connect_timeout:
+        options['connect_timeout'] = connect_timeout
+    if engine == 'django.db.backends.mysql':
+        options.update({
+            'charset': os.environ.get('MYSQL_CHARSET', 'utf8mb4'),
+            'init_command': os.environ.get(
+                'MYSQL_INIT_COMMAND',
+                "SET sql_mode='STRICT_TRANS_TABLES'",
+            ),
+        })
+    return options
+
+
+def _sqlite_name(name):
+    if not name:
+        return BASE_DIR / 'db.sqlite3'
+    if name == ':memory:':
+        return name
+    path = Path(name)
+    return path if path.is_absolute() else BASE_DIR / path
+
+
+def _database_from_url(database_url):
+    parsed = urlparse(database_url)
+    engine = _resolve_database_engine(parsed.scheme.split('+', 1)[0])
+    if engine == 'django.db.backends.sqlite3':
+        return {
+            'ENGINE': engine,
+            'NAME': _sqlite_name(unquote(parsed.path.lstrip('/'))),
         }
+
+    query_options = dict(parse_qsl(parsed.query))
+    config = {
+        'ENGINE': engine,
+        'NAME': unquote(parsed.path.lstrip('/')),
+        'USER': unquote(parsed.username or ''),
+        'PASSWORD': unquote(parsed.password or ''),
+        'HOST': parsed.hostname or '',
+        'PORT': str(parsed.port or ''),
+        'CONN_MAX_AGE': _env_int('DATABASE_CONN_MAX_AGE', 1800),
+        'CONN_HEALTH_CHECKS': _env_bool('DATABASE_CONN_HEALTH_CHECKS', True),
     }
-elif DATABASE_HOST:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': DATABASE_NAME or 'dtcall',
-            'USER': DATABASE_USER or 'dtcall_user',
-            'PASSWORD': DATABASE_PASSWORD,
-            'HOST': DATABASE_HOST,
-            'PORT': DATABASE_PORT or '5432',
-            'CONN_MAX_AGE': 1800,
+    options = _database_options(engine)
+    options.update(query_options)
+    if options:
+        config['OPTIONS'] = options
+    return config
+
+
+def _database_from_env():
+    raw_engine = (
+        os.environ.get('DATABASE_ENGINE', '').strip()
+        or os.environ.get('DATABASE_TYPE', '').strip()
+        or os.environ.get('DB_ENGINE', '').strip()
+    )
+    engine = _resolve_database_engine(raw_engine) if raw_engine else ''
+    database_url = os.environ.get('DATABASE_URL', '').strip()
+    if database_url and engine != 'django.db.backends.sqlite3':
+        return _database_from_url(database_url)
+
+    host = os.environ.get('DATABASE_HOST', '').strip()
+    if not engine:
+        engine = 'django.db.backends.postgresql' if host else 'django.db.backends.sqlite3'
+
+    name = os.environ.get('DATABASE_NAME', '').strip()
+    if engine == 'django.db.backends.sqlite3':
+        sqlite_name = name if raw_engine else ''
+        return {
+            'ENGINE': engine,
+            'NAME': _sqlite_name(sqlite_name),
         }
+
+    default_port = '3306' if engine == 'django.db.backends.mysql' else '5432'
+    config = {
+        'ENGINE': engine,
+        'NAME': name or 'dtcall',
+        'USER': os.environ.get('DATABASE_USER', '').strip() or 'dtcall_user',
+        'PASSWORD': os.environ.get('DATABASE_PASSWORD', '').strip(),
+        'HOST': host or '127.0.0.1',
+        'PORT': os.environ.get('DATABASE_PORT', '').strip() or default_port,
+        'CONN_MAX_AGE': _env_int('DATABASE_CONN_MAX_AGE', 1800),
+        'CONN_HEALTH_CHECKS': _env_bool('DATABASE_CONN_HEALTH_CHECKS', True),
     }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
+    options = _database_options(engine)
+    if options:
+        config['OPTIONS'] = options
+    return config
+
+
+DATABASES = {
+    'default': _database_from_env(),
+}
 
 
 # 登录相关配置

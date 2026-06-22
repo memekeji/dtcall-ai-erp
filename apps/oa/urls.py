@@ -1,4 +1,5 @@
 from django.urls import path
+from django.views.generic import RedirectView
 from . import views, ai_views
 
 urlpatterns = [
@@ -53,10 +54,13 @@ urlpatterns = [
         'schedule/delete/<int:id>/',
         views.ScheduleView.as_view(),
         name='oa_schedule_delete'),
-    path('message/list/', views.MessageView.as_view(), name='message_list'),
+    path(
+        'message/list/',
+        RedirectView.as_view(url='/message/page/', permanent=True),
+        name='message_list'),
     path(
         'message/view/<int:id>/',
-        views.MessageDetailView.as_view(),
+        RedirectView.as_view(url='/message/page/', permanent=True),
         name='message_view'),
     path('approval/list/', views.ApprovalView.as_view(), name='approval_list'),
     path(

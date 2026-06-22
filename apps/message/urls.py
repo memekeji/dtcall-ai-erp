@@ -15,6 +15,10 @@ router.register(
     r'preferences',
     views.NotificationPreferenceViewSet,
     basename='notification-preference')
+router.register(
+    r'conversations',
+    views.ConversationViewSet,
+    basename='conversation')
 
 urlpatterns = [
     path(
@@ -33,6 +37,14 @@ urlpatterns = [
         'unread-count/',
         views.UnreadCountView.as_view(),
         name='unread-count'),
+    path(
+        'contacts/',
+        views.ConversationContactView.as_view(),
+        name='conversation-contacts'),
+    path(
+        'conversations/page/',
+        views.conversation_center_page,
+        name='conversation-center-page'),
     path(
         'page/',
         views.message_center_page,

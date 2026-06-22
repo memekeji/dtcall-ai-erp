@@ -1,0 +1,618 @@
+{% extends 'home/iframe_base.html' %}
+{% load static %}
+
+{% block title %}在线沟通 - DTCALL管理后台{% endblock %}
+
+{% block css %}
+<style>
+    .conversation-shell {
+        height: calc(100vh - 36px);
+        min-height: 620px;
+        display: grid;
+        grid-template-columns: 300px minmax(0, 1fr) 280px;
+        background: #f4f6f8;
+        border: 1px solid #e6e9ef;
+    }
+    .conversation-sidebar,
+    .conversation-main,
+    .conversation-panel {
+        min-height: 0;
+        background: #fff;
+    }
+    .conversation-sidebar {
+        border-right: 1px solid #e6e9ef;
+        display: flex;
+        flex-direction: column;
+    }
+    .conversation-title {
+        height: 58px;
+        padding: 12px 14px;
+        border-bottom: 1px solid #edf0f5;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-sizing: border-box;
+    }
+    .conversation-title h2 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #1f2937;
+    }
+    .conversation-actions {
+        display: flex;
+        gap: 8px;
+    }
+    .icon-button {
+        width: 34px;
+        height: 34px;
+        border: 1px solid #d8dde8;
+        background: #fff;
+        color: #42526e;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+    .icon-button:hover {
+        background: #f2f6ff;
+        color: #1e60d5;
+    }
+    .conversation-search {
+        padding: 10px 12px;
+        border-bottom: 1px solid #edf0f5;
+    }
+    .conversation-list {
+        overflow: auto;
+        flex: 1;
+    }
+    .conversation-item {
+        padding: 12px 14px;
+        border-bottom: 1px solid #f0f2f5;
+        cursor: pointer;
+        display: grid;
+        grid-template-columns: 40px minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+    }
+    .conversation-item:hover,
+    .conversation-item.active {
+        background: #eef5ff;
+    }
+    .avatar {
+        width: 40px;
+        height: 40px;
+        background: #2f80ed;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+    }
+    .conversation-name,
+    .message-author,
+    .contact-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .conversation-name {
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 4px;
+    }
+    .conversation-preview,
+    .conversation-time,
+    .message-time,
+    .empty-text {
+        color: #8a94a6;
+        font-size: 12px;
+    }
+    .unread-badge {
+        min-width: 20px;
+        height: 20px;
+        line-height: 20px;
+        text-align: center;
+        background: #f04438;
+        color: #fff;
+        border-radius: 10px;
+        font-size: 12px;
+        padding: 0 6px;
+        box-sizing: border-box;
+    }
+    .conversation-main {
+        display: flex;
+        flex-direction: column;
+    }
+    .chat-header {
+        height: 58px;
+        border-bottom: 1px solid #edf0f5;
+        padding: 10px 16px;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .chat-header h3 {
+        margin: 0;
+        font-size: 17px;
+        color: #1f2937;
+    }
+    .chat-messages {
+        flex: 1;
+        overflow: auto;
+        padding: 18px 20px;
+        background: #f8fafc;
+    }
+    .message-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+    .message-row.mine {
+        flex-direction: row-reverse;
+    }
+    .message-body {
+        max-width: min(620px, 76%);
+    }
+    .message-meta {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 4px;
+    }
+    .message-row.mine .message-meta {
+        justify-content: flex-end;
+    }
+    .message-bubble {
+        background: #fff;
+        border: 1px solid #e6e9ef;
+        padding: 10px 12px;
+        line-height: 1.6;
+        color: #1f2937;
+        word-break: break-word;
+    }
+    .message-row.mine .message-bubble {
+        background: #dbeafe;
+        border-color: #bfd7ff;
+    }
+    .message-tools {
+        margin-top: 5px;
+        display: flex;
+        gap: 8px;
+    }
+    .message-tools button {
+        border: 0;
+        background: transparent;
+        color: #4d6b9b;
+        cursor: pointer;
+        font-size: 12px;
+        padding: 0;
+    }
+    .chat-composer {
+        border-top: 1px solid #edf0f5;
+        padding: 12px;
+        background: #fff;
+    }
+    .chat-composer textarea {
+        resize: none;
+        min-height: 76px;
+    }
+    .composer-actions {
+        margin-top: 8px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+    .conversation-panel {
+        border-left: 1px solid #e6e9ef;
+        display: flex;
+        flex-direction: column;
+    }
+    .panel-section {
+        padding: 14px;
+        border-bottom: 1px solid #edf0f5;
+    }
+    .panel-section h4 {
+        margin: 0 0 10px;
+        font-size: 14px;
+        color: #1f2937;
+    }
+    .contact-list,
+    .member-list {
+        max-height: 260px;
+        overflow: auto;
+    }
+    .contact-item,
+    .member-item {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 8px 0;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    .contact-item button {
+        margin-left: auto;
+    }
+    .empty-state {
+        height: 100%;
+        min-height: 260px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #8a94a6;
+    }
+    @media (max-width: 1100px) {
+        .conversation-shell {
+            grid-template-columns: 280px minmax(0, 1fr);
+        }
+        .conversation-panel {
+            display: none;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="conversation-shell">
+    <aside class="conversation-sidebar">
+        <div class="conversation-title">
+            <h2>在线沟通</h2>
+            <div class="conversation-actions">
+                <button class="icon-button" id="refreshBtn" title="刷新会话"><i class="layui-icon layui-icon-refresh"></i></button>
+                <button class="icon-button" id="createGroupBtn" title="创建群聊"><i class="layui-icon layui-icon-addition"></i></button>
+            </div>
+        </div>
+        <div class="conversation-search">
+            <input type="text" id="conversationSearch" class="layui-input" placeholder="搜索会话">
+        </div>
+        <div class="conversation-list" id="conversationList"></div>
+    </aside>
+
+    <main class="conversation-main">
+        <div class="chat-header">
+            <div>
+                <h3 id="chatTitle">请选择会话</h3>
+                <div class="empty-text" id="chatSubtitle">支持单聊、群聊、已读状态和消息转任务</div>
+            </div>
+            <button class="layui-btn layui-btn-primary layui-btn-sm" id="markReadBtn">全部已读</button>
+        </div>
+        <div class="chat-messages" id="messageList">
+            <div class="empty-state">从左侧选择会话，或在右侧联系人中发起沟通</div>
+        </div>
+        <div class="chat-composer">
+            <textarea id="messageInput" class="layui-textarea" placeholder="输入消息，Ctrl + Enter 发送"></textarea>
+            <div class="composer-actions">
+                <button class="layui-btn layui-btn-primary" id="reloadMessagesBtn">刷新消息</button>
+                <button class="layui-btn" id="sendBtn">发送</button>
+            </div>
+        </div>
+    </main>
+
+    <aside class="conversation-panel">
+        <div class="panel-section">
+            <h4>组织联系人</h4>
+            <input type="text" id="contactSearch" class="layui-input" placeholder="搜索姓名、账号、手机">
+            <div class="contact-list" id="contactList"></div>
+        </div>
+        <div class="panel-section">
+            <h4>会话成员</h4>
+            <div class="member-list" id="memberList">
+                <div class="empty-text">选择会话后查看成员</div>
+            </div>
+        </div>
+    </aside>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+layui.use(['layer'], function () {
+    var layer = layui.layer;
+    var state = {
+        conversations: [],
+        contacts: [],
+        activeConversation: null,
+        socket: null
+    };
+    var currentUserId = {{ request.user.id }};
+    var csrfToken = '{{ csrf_token }}';
+
+    function requestJSON(url, options) {
+        options = options || {};
+        var headers = options.headers || {};
+        headers['X-CSRFToken'] = csrfToken;
+        if (options.body && !headers['Content-Type']) {
+            headers['Content-Type'] = 'application/json';
+        }
+        return fetch(url, Object.assign({credentials: 'same-origin', headers: headers}, options))
+            .then(function (response) {
+                return response.json().then(function (data) {
+                    if (!response.ok) {
+                        throw new Error(data.detail || data.message || data.msg || '请求失败');
+                    }
+                    return data;
+                });
+            });
+    }
+
+    function userName(user) {
+        return (user && (user.name || user.username)) || '未知用户';
+    }
+
+    function initials(name) {
+        return (name || '?').trim().slice(0, 1).toUpperCase();
+    }
+
+    function conversationName(item) {
+        return item.display_name || item.name || '未命名会话';
+    }
+
+    function renderConversations() {
+        var keyword = document.getElementById('conversationSearch').value.trim().toLowerCase();
+        var list = document.getElementById('conversationList');
+        var html = state.conversations.filter(function (item) {
+            return !keyword || conversationName(item).toLowerCase().indexOf(keyword) >= 0;
+        }).map(function (item) {
+            var last = item.last_message ? item.last_message.content : '暂无消息';
+            var active = state.activeConversation && state.activeConversation.id === item.id ? ' active' : '';
+            var badge = item.unread_count ? '<span class="unread-badge">' + item.unread_count + '</span>' : '';
+            return '<div class="conversation-item' + active + '" data-id="' + item.id + '">' +
+                '<div class="avatar">' + initials(conversationName(item)) + '</div>' +
+                '<div><div class="conversation-name">' + escapeHtml(conversationName(item)) + '</div>' +
+                '<div class="conversation-preview">' + escapeHtml(last) + '</div></div>' +
+                '<div>' + badge + '</div></div>';
+        }).join('');
+        list.innerHTML = html || '<div class="empty-state">暂无会话</div>';
+    }
+
+    function renderMembers() {
+        var box = document.getElementById('memberList');
+        if (!state.activeConversation) {
+            box.innerHTML = '<div class="empty-text">选择会话后查看成员</div>';
+            return;
+        }
+        box.innerHTML = state.activeConversation.members.map(function (member) {
+            var name = userName(member.user);
+            return '<div class="member-item"><div class="avatar">' + initials(name) + '</div>' +
+                '<div><div class="contact-name">' + escapeHtml(name) + '</div>' +
+                '<div class="empty-text">' + member.role + '</div></div></div>';
+        }).join('');
+    }
+
+    function renderContacts() {
+        var box = document.getElementById('contactList');
+        box.innerHTML = state.contacts.map(function (user) {
+            var name = userName(user);
+            return '<div class="contact-item"><div class="avatar">' + initials(name) + '</div>' +
+                '<div><div class="contact-name">' + escapeHtml(name) + '</div>' +
+                '<div class="empty-text">' + escapeHtml(user.mobile || user.username) + '</div></div>' +
+                '<button class="layui-btn layui-btn-xs" data-user-id="' + user.id + '">沟通</button></div>';
+        }).join('') || '<div class="empty-text">暂无联系人</div>';
+    }
+
+    function renderMessages(messages) {
+        var box = document.getElementById('messageList');
+        box.innerHTML = messages.map(function (message) {
+            var mine = message.sender && message.sender.id === currentUserId;
+            var name = userName(message.sender);
+            return '<div class="message-row' + (mine ? ' mine' : '') + '" data-message-id="' + message.id + '">' +
+                '<div class="avatar">' + initials(name) + '</div>' +
+                '<div class="message-body"><div class="message-meta">' +
+                '<span class="message-author">' + escapeHtml(name) + '</span>' +
+                '<span class="message-time">' + formatTime(message.created_at) + '</span></div>' +
+                '<div class="message-bubble">' + escapeHtml(message.content) + '</div>' +
+                '<div class="message-tools"><button data-action="receipt">已读状态</button>' +
+                '<button data-action="task">转任务</button></div></div></div>';
+        }).join('') || '<div class="empty-state">暂无消息</div>';
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function loadConversations() {
+        return requestJSON('/message/conversations/')
+            .then(function (data) {
+                state.conversations = data.results || data;
+                if (state.activeConversation) {
+                    var current = state.conversations.find(function (item) {
+                        return item.id === state.activeConversation.id;
+                    });
+                    if (current) {
+                        state.activeConversation = current;
+                    }
+                }
+                renderConversations();
+                renderMembers();
+            })
+            .catch(function (error) { layer.msg(error.message); });
+    }
+
+    function loadContacts() {
+        var keyword = document.getElementById('contactSearch').value.trim();
+        return requestJSON('/message/contacts/?q=' + encodeURIComponent(keyword))
+            .then(function (data) {
+                state.contacts = data.results || [];
+                renderContacts();
+            })
+            .catch(function (error) { layer.msg(error.message); });
+    }
+
+    function openConversation(id) {
+        var item = state.conversations.find(function (conversation) {
+            return conversation.id === id;
+        });
+        if (!item) {
+            return;
+        }
+        state.activeConversation = item;
+        document.getElementById('chatTitle').innerText = conversationName(item);
+        document.getElementById('chatSubtitle').innerText = item.conversation_type === 'group' ? '群聊' : '单聊';
+        renderConversations();
+        renderMembers();
+        connectSocket(item.id);
+        loadMessages();
+    }
+
+    function loadMessages() {
+        if (!state.activeConversation) {
+            return;
+        }
+        requestJSON('/message/conversations/' + state.activeConversation.id + '/messages/?page_size=100')
+            .then(function (data) {
+                renderMessages(data.results || data);
+            })
+            .catch(function (error) { layer.msg(error.message); });
+    }
+
+    function sendMessage() {
+        if (!state.activeConversation) {
+            layer.msg('请选择会话');
+            return;
+        }
+        var input = document.getElementById('messageInput');
+        var content = input.value.trim();
+        if (!content) {
+            layer.msg('请输入消息内容');
+            return;
+        }
+        requestJSON('/message/conversations/' + state.activeConversation.id + '/messages/', {
+            method: 'POST',
+            body: JSON.stringify({content: content})
+        }).then(function () {
+            input.value = '';
+            loadConversations();
+            loadMessages();
+        }).catch(function (error) { layer.msg(error.message); });
+    }
+
+    function markRead() {
+        if (!state.activeConversation) {
+            return;
+        }
+        requestJSON('/message/conversations/' + state.activeConversation.id + '/read/', {
+            method: 'POST',
+            body: JSON.stringify({})
+        }).then(function () {
+            loadConversations();
+        }).catch(function (error) { layer.msg(error.message); });
+    }
+
+    function startDirect(userId) {
+        requestJSON('/message/conversations/direct/', {
+            method: 'POST',
+            body: JSON.stringify({user_id: userId})
+        }).then(function (conversation) {
+            return loadConversations().then(function () {
+                openConversation(conversation.id);
+            });
+        }).catch(function (error) { layer.msg(error.message); });
+    }
+
+    function createGroup() {
+        layer.prompt({title: '群聊名称'}, function (name, index) {
+            layer.close(index);
+            var ids = state.contacts.slice(0, 8).map(function (user) { return user.id; });
+            requestJSON('/message/conversations/groups/', {
+                method: 'POST',
+                body: JSON.stringify({name: name, member_ids: ids})
+            }).then(function (conversation) {
+                return loadConversations().then(function () {
+                    openConversation(conversation.id);
+                });
+            }).catch(function (error) { layer.msg(error.message); });
+        });
+    }
+
+    function showReceipts(messageId) {
+        requestJSON('/message/conversations/' + state.activeConversation.id + '/messages/' + messageId + '/receipts/')
+            .then(function (data) {
+                layer.alert('已读：' + data.read_count + '<br>未读：' + data.unread_count, {title: '已读状态'});
+            })
+            .catch(function (error) { layer.msg(error.message); });
+    }
+
+    function convertToTask(messageId) {
+        layer.prompt({title: '任务标题'}, function (title, index) {
+            layer.close(index);
+            requestJSON('/message/conversations/' + state.activeConversation.id + '/messages/' + messageId + '/to-task/', {
+                method: 'POST',
+                body: JSON.stringify({title: title})
+            }).then(function () {
+                layer.msg('任务已创建');
+            }).catch(function (error) { layer.msg(error.message); });
+        });
+    }
+
+    function connectSocket(conversationId) {
+        if (state.socket) {
+            state.socket.close();
+        }
+        var protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        state.socket = new WebSocket(protocol + window.location.host + '/ws/message/conversations/' + conversationId + '/');
+        state.socket.onmessage = function (event) {
+            var data = JSON.parse(event.data);
+            if (data.type === 'message' || data.type === 'read') {
+                loadConversations();
+                loadMessages();
+            }
+        };
+    }
+
+    function escapeHtml(text) {
+        return String(text || '').replace(/[&<>"']/g, function (char) {
+            return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'}[char];
+        });
+    }
+
+    function formatTime(value) {
+        if (!value) {
+            return '';
+        }
+        return String(value).replace('T', ' ').slice(0, 16);
+    }
+
+    document.getElementById('conversationList').addEventListener('click', function (event) {
+        var item = event.target.closest('.conversation-item');
+        if (item) {
+            openConversation(Number(item.getAttribute('data-id')));
+        }
+    });
+    document.getElementById('contactList').addEventListener('click', function (event) {
+        var button = event.target.closest('button[data-user-id]');
+        if (button) {
+            startDirect(Number(button.getAttribute('data-user-id')));
+        }
+    });
+    document.getElementById('messageList').addEventListener('click', function (event) {
+        var button = event.target.closest('button[data-action]');
+        var row = event.target.closest('.message-row');
+        if (!button || !row) {
+            return;
+        }
+        var messageId = Number(row.getAttribute('data-message-id'));
+        if (button.getAttribute('data-action') === 'receipt') {
+            showReceipts(messageId);
+        } else {
+            convertToTask(messageId);
+        }
+    });
+    document.getElementById('sendBtn').addEventListener('click', sendMessage);
+    document.getElementById('markReadBtn').addEventListener('click', markRead);
+    document.getElementById('refreshBtn').addEventListener('click', loadConversations);
+    document.getElementById('reloadMessagesBtn').addEventListener('click', loadMessages);
+    document.getElementById('createGroupBtn').addEventListener('click', createGroup);
+    document.getElementById('conversationSearch').addEventListener('input', renderConversations);
+    document.getElementById('contactSearch').addEventListener('input', function () {
+        clearTimeout(window.__contactTimer);
+        window.__contactTimer = setTimeout(loadContacts, 250);
+    });
+    document.getElementById('messageInput').addEventListener('keydown', function (event) {
+        if (event.ctrlKey && event.key === 'Enter') {
+            sendMessage();
+        }
+    });
+
+    loadConversations();
+    loadContacts();
+});
+</script>
+{% endblock %}

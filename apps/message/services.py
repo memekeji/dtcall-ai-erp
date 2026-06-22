@@ -1,19 +1,449 @@
 import json
 import logging
 from typing import List, Dict, Any
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.db import transaction, models
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 
-from .models import MessageCategory, Message, MessageUserRelation
+from .models import (
+    Conversation,
+    ConversationMember,
+    ConversationMessage,
+    ConversationMessageReceipt,
+    ConversationTaskLink,
+    MessageCategory,
+    Message,
+    MessageUserRelation,
+    NotificationPreference,
+)
 from apps.common.cache_service import MessageCache
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
+class ConversationService:
+    """统一沟通会话服务"""
+
+    @staticmethod
+    def build_direct_key(user_a, user_b) -> str:
+        user_ids = sorted([int(user_a.id), int(user_b.id)])
+        return f'{user_ids[0]}:{user_ids[1]}'
+
+    @staticmethod
+    def _ensure_member(conversation, user, role=ConversationMember.ROLE_MEMBER):
+        member, created = ConversationMember.objects.get_or_create(
+            conversation=conversation,
+            user=user,
+            defaults={'role': role},
+        )
+        update_fields = []
+        if member.left_at is not None:
+            member.left_at = None
+            update_fields.append('left_at')
+        if role == ConversationMember.ROLE_OWNER and member.role != role:
+            member.role = role
+            update_fields.append('role')
+        if update_fields:
+            member.save(update_fields=update_fields)
+        return member
+
+    @staticmethod
+    def get_or_create_direct(user_a, user_b):
+        """获取或创建两个用户之间唯一单聊会话"""
+        if not user_a or not user_b:
+            raise ValueError('单聊双方不能为空')
+        if user_a.id == user_b.id:
+            raise ValueError('不能与自己创建单聊会话')
+
+        direct_key = ConversationService.build_direct_key(user_a, user_b)
+        with transaction.atomic():
+            conversation, _ = Conversation.objects.get_or_create(
+                conversation_type=Conversation.TYPE_DIRECT,
+                direct_key=direct_key,
+                defaults={
+                    'created_by': user_a,
+                    'metadata': {
+                        'member_ids': [
+                            int(user_a.id),
+                            int(user_b.id),
+                        ]
+                    },
+                },
+            )
+            ConversationService._ensure_member(conversation, user_a)
+            ConversationService._ensure_member(conversation, user_b)
+        return conversation
+
+    @staticmethod
+    def create_group(owner, name: str, member_ids=None):
+        """创建自由群聊，并将创建人设为群主"""
+        if not owner:
+            raise ValueError('群主不能为空')
+        name = (name or '').strip()
+        if not name:
+            raise ValueError('群名称不能为空')
+
+        member_ids = {int(user_id) for user_id in (member_ids or []) if user_id}
+        member_ids.add(int(owner.id))
+        users = list(User.objects.filter(id__in=member_ids, status=1))
+        user_map = {user.id: user for user in users}
+        if owner.id not in user_map:
+            user_map[owner.id] = owner
+
+        with transaction.atomic():
+            conversation = Conversation.objects.create(
+                conversation_type=Conversation.TYPE_GROUP,
+                name=name,
+                owner=owner,
+                created_by=owner,
+            )
+            for user in user_map.values():
+                role = (
+                    ConversationMember.ROLE_OWNER
+                    if user.id == owner.id else
+                    ConversationMember.ROLE_MEMBER
+                )
+                ConversationMember.objects.create(
+                    conversation=conversation,
+                    user=user,
+                    role=role,
+                )
+        return conversation
+
+    @staticmethod
+    def _can_manage(conversation, actor) -> bool:
+        if not actor or not actor.is_authenticated:
+            return False
+        if actor.is_superuser:
+            return True
+        return ConversationMember.objects.filter(
+            conversation=conversation,
+            user=actor,
+            left_at__isnull=True,
+            role__in=[
+                ConversationMember.ROLE_OWNER,
+                ConversationMember.ROLE_ADMIN,
+            ],
+        ).exists()
+
+    @staticmethod
+    def add_members(conversation, actor, user_ids):
+        """群管理员添加成员"""
+        if conversation.conversation_type == Conversation.TYPE_DIRECT:
+            raise ValueError('单聊不支持添加成员')
+        if not ConversationService._can_manage(conversation, actor):
+            raise PermissionError('没有权限管理该会话')
+
+        users = User.objects.filter(id__in=set(user_ids or []), status=1)
+        members = []
+        with transaction.atomic():
+            for user in users:
+                members.append(
+                    ConversationService._ensure_member(conversation, user)
+                )
+        return members
+
+    @staticmethod
+    def remove_member(conversation, actor, user_id):
+        """群管理员移除成员"""
+        if conversation.conversation_type == Conversation.TYPE_DIRECT:
+            raise ValueError('单聊不支持移除成员')
+        if not ConversationService._can_manage(conversation, actor):
+            raise PermissionError('没有权限管理该会话')
+
+        relation = ConversationMember.objects.filter(
+            conversation=conversation,
+            user_id=user_id,
+            left_at__isnull=True,
+        ).first()
+        if not relation:
+            return False
+        if relation.role == ConversationMember.ROLE_OWNER:
+            raise ValueError('不能移除群主')
+        relation.left_at = timezone.now()
+        relation.save(update_fields=['left_at'])
+        return True
+
+    @staticmethod
+    def list_user_conversations(user):
+        """列出当前用户可见会话"""
+        return Conversation.objects.filter(
+            member_relations__user=user,
+            member_relations__left_at__isnull=True,
+            is_active=True,
+        ).distinct().select_related('last_message', 'owner', 'created_by')
+
+
+class ConversationMessageService:
+    """会话消息发送与已读状态服务"""
+
+    @staticmethod
+    def group_name(conversation_id) -> str:
+        return f'message_conversation_{conversation_id}'
+
+    @staticmethod
+    def _user_payload(user):
+        if not user:
+            return None
+        return {
+            'id': user.id,
+            'username': user.username,
+            'name': getattr(user, 'name', None) or user.username,
+            'avatar': getattr(user, 'thumb', None),
+        }
+
+    @staticmethod
+    def _message_payload(message):
+        return {
+            'id': message.id,
+            'conversation': message.conversation_id,
+            'sender': ConversationMessageService._user_payload(message.sender),
+            'message_type': message.message_type,
+            'content': message.content,
+            'metadata': message.metadata,
+            'reply_to': message.reply_to_id,
+            'is_deleted': message.is_deleted,
+            'created_at': message.created_at.isoformat() if message.created_at else None,
+            'updated_at': message.updated_at.isoformat() if message.updated_at else None,
+        }
+
+    @staticmethod
+    def _publish(conversation_id, event):
+        channel_layer = get_channel_layer()
+        if not channel_layer:
+            return
+        async_to_sync(channel_layer.group_send)(
+            ConversationMessageService.group_name(conversation_id),
+            event,
+        )
+
+    @staticmethod
+    def ensure_member(conversation, user) -> ConversationMember:
+        relation = ConversationMember.objects.filter(
+            conversation=conversation,
+            user=user,
+            left_at__isnull=True,
+        ).first()
+        if not relation:
+            raise PermissionError('用户不是该会话成员')
+        return relation
+
+    @staticmethod
+    def send_text(conversation, sender, content: str, metadata=None, reply_to=None):
+        """发送文本消息并为其他成员创建未读回执"""
+        ConversationMessageService.ensure_member(conversation, sender)
+        content = (content or '').strip()
+        if not content:
+            raise ValueError('消息内容不能为空')
+
+        with transaction.atomic():
+            message = ConversationMessage.objects.create(
+                conversation=conversation,
+                sender=sender,
+                message_type=ConversationMessage.TYPE_TEXT,
+                content=content,
+                metadata=metadata or {},
+                reply_to=reply_to,
+            )
+            active_members = ConversationMember.objects.filter(
+                conversation=conversation,
+                left_at__isnull=True,
+            ).select_related('user')
+            receipts = [
+                ConversationMessageReceipt(message=message, user=member.user)
+                for member in active_members
+                if member.user_id != sender.id
+            ]
+            ConversationMessageReceipt.objects.bulk_create(
+                receipts,
+                ignore_conflicts=True,
+            )
+            conversation.last_message = message
+            conversation.last_message_at = message.created_at
+            conversation.save(update_fields=['last_message', 'last_message_at', 'updated_at'])
+            ConversationMember.objects.filter(
+                conversation=conversation,
+                user=sender,
+            ).update(last_read_message=message, last_read_at=message.created_at)
+        ConversationMessageService._publish(
+            conversation.id,
+            {
+                'type': 'conversation.message',
+                'conversation_id': conversation.id,
+                'message': ConversationMessageService._message_payload(message),
+            },
+        )
+        return message
+
+    @staticmethod
+    def get_unread_count(user) -> int:
+        """获取用户所有会话未读消息数"""
+        return ConversationMessageReceipt.objects.filter(
+            user=user,
+            status=ConversationMessageReceipt.STATUS_DELIVERED,
+            message__is_deleted=False,
+            message__conversation__member_relations__user=user,
+            message__conversation__member_relations__left_at__isnull=True,
+        ).distinct().count()
+
+    @staticmethod
+    def get_conversation_unread_count(conversation, user) -> int:
+        """获取单个会话未读消息数"""
+        ConversationMessageService.ensure_member(conversation, user)
+        return ConversationMessageReceipt.objects.filter(
+            user=user,
+            message__conversation=conversation,
+            status=ConversationMessageReceipt.STATUS_DELIVERED,
+            message__is_deleted=False,
+        ).count()
+
+    @staticmethod
+    def mark_conversation_read(conversation, user, through_message=None) -> int:
+        """将会话消息标记为已读，并更新成员已读游标"""
+        ConversationMessageService.ensure_member(conversation, user)
+        queryset = ConversationMessageReceipt.objects.filter(
+            user=user,
+            message__conversation=conversation,
+            status=ConversationMessageReceipt.STATUS_DELIVERED,
+        )
+        if through_message:
+            queryset = queryset.filter(message_id__lte=through_message.id)
+
+        now = timezone.now()
+        message_ids = list(queryset.values_list('message_id', flat=True))
+        count = queryset.update(
+            status=ConversationMessageReceipt.STATUS_READ,
+            read_at=now,
+        )
+        last_message = None
+        if count:
+            last_message = ConversationMessage.objects.filter(
+                id__in=message_ids
+            ).order_by('-created_at', '-id').first()
+            ConversationMember.objects.filter(
+                conversation=conversation,
+                user=user,
+            ).update(last_read_message=last_message, last_read_at=now)
+            ConversationMessageService._publish(
+                conversation.id,
+                {
+                    'type': 'conversation.read',
+                    'conversation_id': conversation.id,
+                    'user_id': user.id,
+                    'read_count': count,
+                    'last_read_message_id': last_message.id if last_message else None,
+                    'read_at': now.isoformat(),
+                },
+            )
+        return count
+
+
+class MessageTaskService:
+    """会话消息转项目任务服务"""
+
+    @staticmethod
+    def convert_to_task(
+        message,
+        creator,
+        title: str = '',
+        description: str = '',
+        assignee_id=None,
+        project_id=None,
+        priority: int = 2,
+        end_date=None,
+    ):
+        """将会话消息转换为项目任务并保留来源关联"""
+        ConversationMessageService.ensure_member(message.conversation, creator)
+        title = (title or '').strip() or message.content[:80] or '沟通消息任务'
+        description = (description or '').strip()
+        if not description:
+            description = message.content
+
+        from apps.project.models import Project, Task
+
+        assignee = None
+        if assignee_id:
+            assignee = User.objects.filter(id=assignee_id, status=1).first()
+            if assignee is None:
+                raise ValueError('负责人不存在或已停用')
+
+        project = None
+        if project_id:
+            project = Project.objects.filter(id=project_id, delete_time__isnull=True).first()
+            if project is None:
+                raise ValueError('项目不存在或已删除')
+
+        with transaction.atomic():
+            task = Task.objects.create(
+                title=title,
+                description=description,
+                assignee=assignee,
+                project=project,
+                priority=priority or 2,
+                end_date=end_date,
+                creator=creator,
+            )
+            if assignee:
+                task.participants.add(assignee)
+            ConversationTaskLink.objects.get_or_create(
+                message=message,
+                task=task,
+                defaults={'created_by': creator},
+            )
+            message.metadata = {
+                **(message.metadata or {}),
+                'converted_task_id': task.id,
+            }
+            message.save(update_fields=['metadata', 'updated_at'])
+        return task
+
+
 class MessageService:
     """消息服务类 - 提供消息创建和推送的统一接口"""
+
+    CATEGORY_PREFERENCE_FIELDS = {
+        'announcement': 'notify_announcement',
+        'approval': 'notify_approval',
+        'task': 'notify_task',
+        'comment': 'notify_comment',
+        'system': 'notify_system',
+    }
+
+    @staticmethod
+    def invalidate_user_unread_counts(user_ids) -> None:
+        """失效一组用户的未读数缓存"""
+        for user_id in set(user_ids or []):
+            if user_id:
+                MessageCache.invalidate_unread_count(user_id)
+
+    @staticmethod
+    def _preference_field_for_category(category_code: str) -> str:
+        return MessageService.CATEGORY_PREFERENCE_FIELDS.get(
+            category_code,
+            'notify_system'
+        )
+
+    @staticmethod
+    def filter_user_ids_by_preferences(user_ids, category_code: str) -> set:
+        """根据用户通知偏好过滤消息接收人"""
+        user_ids = {user_id for user_id in (user_ids or []) if user_id}
+        if not user_ids:
+            return set()
+
+        preference_field = MessageService._preference_field_for_category(
+            category_code
+        )
+        disabled_ids = set(
+            NotificationPreference.objects.filter(
+                user_id__in=user_ids
+            ).filter(
+                models.Q(**{preference_field: False})
+            ).values_list('user_id', flat=True)
+        )
+        return user_ids - disabled_ids
 
     @staticmethod
     def get_or_create_category(
@@ -65,11 +495,17 @@ class MessageService:
                 )
 
                 all_users = User.objects.filter(status=1)
+                allowed_user_ids = MessageService.filter_user_ids_by_preferences(
+                    all_users.values_list('id', flat=True),
+                    category_code
+                )
+                all_users = all_users.filter(id__in=allowed_user_ids)
                 relations = [
                     MessageUserRelation(message=message, user=user)
                     for user in all_users
                 ]
-                MessageUserRelation.objects.bulk_create(relations)
+                MessageUserRelation.objects.bulk_create(relations, ignore_conflicts=True)
+                MessageService.invalidate_user_unread_counts(allowed_user_ids)
 
             logger.info(f'广播消息创建成功: {message.id}')
             return message
@@ -111,6 +547,15 @@ class MessageService:
                 logger.warning('没有指定目标用户，消息未发送')
                 return None
 
+            all_user_ids = MessageService.filter_user_ids_by_preferences(
+                all_user_ids,
+                category_code
+            )
+
+            if not all_user_ids:
+                logger.info('目标用户均关闭了当前类型通知，消息未发送')
+                return None
+
             target_users_json = json.dumps(list(all_user_ids))
 
             with transaction.atomic():
@@ -133,7 +578,8 @@ class MessageService:
                     MessageUserRelation(message=message, user_id=user_id)
                     for user_id in all_user_ids
                 ]
-                MessageUserRelation.objects.bulk_create(relations)
+                MessageUserRelation.objects.bulk_create(relations, ignore_conflicts=True)
+                MessageService.invalidate_user_unread_counts(all_user_ids)
 
             logger.info(f'消息创建成功: {message.id}, 发送给 {len(all_user_ids)} 个用户')
             return message
@@ -145,17 +591,36 @@ class MessageService:
     @staticmethod
     def mark_as_read(message_id: int, user: User) -> bool:
         """标记消息为已读"""
-        relation = MessageUserRelation.objects.filter(
+        updated = MessageUserRelation.objects.filter(
             message_id=message_id,
-            user=user
-        ).first()
-        if relation:
-            relation.is_read = True
-            relation.read_time = timezone.now()
-            relation.save()
+            user=user,
+            is_read=False
+        ).update(is_read=True, read_time=timezone.now())
+        if updated:
             MessageCache.invalidate_unread_count(user.id)
             return True
-        return False
+        return MessageUserRelation.objects.filter(
+            message_id=message_id,
+            user=user,
+            is_read=True
+        ).exists()
+
+    @staticmethod
+    def mark_as_unread(message_id: int, user: User) -> bool:
+        """标记消息为未读"""
+        updated = MessageUserRelation.objects.filter(
+            message_id=message_id,
+            user=user,
+            is_read=True
+        ).update(is_read=False, read_time=None)
+        if updated:
+            MessageCache.invalidate_unread_count(user.id)
+            return True
+        return MessageUserRelation.objects.filter(
+            message_id=message_id,
+            user=user,
+            is_read=False
+        ).exists()
 
     @staticmethod
     def mark_all_as_read(user: User) -> int:
@@ -305,7 +770,7 @@ class ApprovalNotificationService:
             priority=3,
             related_object_type='approval',
             related_object_id=approval.id,
-            action_url=f'/approval/process/{approval.id}/'
+            action_url=f'/approval/{approval.id}/process/'
         )
 
     @staticmethod
@@ -331,7 +796,7 @@ class ApprovalNotificationService:
             priority=3 if status == 'rejected' else 2,
             related_object_type='approval',
             related_object_id=approval.id,
-            action_url=f'/approval/detail/{approval.id}/'
+            action_url=f'/approval/{approval.id}/'
         )
 
     @staticmethod
@@ -346,7 +811,7 @@ class ApprovalNotificationService:
             priority=2,
             related_object_type='approval',
             related_object_id=approval.id,
-            action_url=f'/approval/detail/{approval.id}/'
+            action_url=f'/approval/{approval.id}/'
         )
 
     @staticmethod
@@ -365,7 +830,8 @@ class ApprovalNotificationService:
             sender=sender,
             priority=2,
             related_object_type='approval_comment',
-            related_object_id=approval.id
+            related_object_id=approval.id,
+            action_url=f'/approval/{approval.id}/'
         )
 
 

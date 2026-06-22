@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.utils import timezone
 from django.core.paginator import Paginator
+from django.db import models
 from rest_framework import viewsets, status, views
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -11,14 +12,34 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from django.contrib.auth.decorators import login_required
 import logging
 
-from .models import MessageCategory, Message, MessageUserRelation, NotificationPreference
+from .models import (
+    Conversation,
+    ConversationMember,
+    ConversationMessage,
+    MessageCategory,
+    Message,
+    MessageUserRelation,
+    NotificationPreference,
+)
+from .services import (
+    ConversationMessageService,
+    ConversationService,
+    MessageService,
+    MessageTaskService,
+)
 from .serializers import (
+    ConversationCreateGroupSerializer,
+    ConversationDirectSerializer,
+    ConversationMessageSerializer,
+    ConversationSendMessageSerializer,
+    ConversationSerializer,
     MessageCategorySerializer,
     MessageSerializer, MessageListSerializer, MessageCreateSerializer,
     MessageMarkReadSerializer, MessageBatchOperationSerializer,
     NotificationPreferenceSerializer, MessageStatsSerializer
 )
 from apps.common.services import CommonService
+from apps.user.models import Admin
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +162,7 @@ class MessageViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("您没有权限发送消息")
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        message = serializer.save()
+        message = serializer.save(sender=request.user)
 
         output_serializer = MessageSerializer(message)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
@@ -150,29 +171,14 @@ class MessageViewSet(viewsets.ModelViewSet):
     def read(self, request, pk=None):
         """标记消息为已读"""
         message = self.get_object()
-        relation, created = MessageUserRelation.objects.get_or_create(
-            message=message,
-            user=request.user,
-            defaults={'is_read': True, 'read_time': timezone.now()}
-        )
-        if not created:
-            relation.is_read = True
-            relation.read_time = timezone.now()
-            relation.save()
+        MessageService.mark_as_read(message.id, request.user)
         return Response({'status': 'success'})
 
     @action(detail=True, methods=['post'])
     def unread(self, request, pk=None):
         """标记消息为未读"""
         message = self.get_object()
-        relation = MessageUserRelation.objects.filter(
-            message=message,
-            user=request.user
-        ).first()
-        if relation:
-            relation.is_read = False
-            relation.read_time = None
-            relation.save()
+        MessageService.mark_as_unread(message.id, request.user)
         return Response({'status': 'success'})
 
     @action(detail=True, methods=['post'])
@@ -234,18 +240,34 @@ class MessageViewSet(viewsets.ModelViewSet):
             if not request.user.has_perm('message.mark_message_read'):
                 from rest_framework.exceptions import PermissionDenied
                 raise PermissionDenied("您没有权限标记已读")
-            relations.update(is_read=True, read_time=timezone.now())
+            updated_count = relations.filter(is_read=False).update(
+                is_read=True,
+                read_time=timezone.now()
+            )
         elif operation == 'unread':
-            relations.update(is_read=False, read_time=None)
+            updated_count = relations.filter(is_read=True).update(
+                is_read=False,
+                read_time=None
+            )
         elif operation == 'star':
-            relations.update(is_starred=True)
+            updated_count = relations.filter(is_starred=False).update(
+                is_starred=True
+            )
         elif operation == 'unstar':
-            relations.update(is_starred=False)
+            updated_count = relations.filter(is_starred=True).update(
+                is_starred=False
+            )
         elif operation == 'delete':
+            updated_count = relations.count()
             relations.delete()
+        else:
+            updated_count = 0
+
+        if operation in {'read', 'unread', 'delete'}:
+            MessageService.invalidate_user_unread_counts([request.user.id])
 
         return Response({'status': 'success',
-                         'affected_count': len(message_ids)})
+                         'affected_count': updated_count})
 
 
 class MessageMarkReadView(views.APIView):
@@ -265,13 +287,16 @@ class MessageMarkReadView(views.APIView):
         if message_ids:
             MessageUserRelation.objects.filter(
                 message_id__in=message_ids,
-                user=request.user
+                user=request.user,
+                is_read=False
             ).update(is_read=True, read_time=timezone.now())
         else:
             MessageUserRelation.objects.filter(
                 user=request.user,
                 is_read=False
             ).update(is_read=True, read_time=timezone.now())
+
+        MessageService.invalidate_user_unread_counts([request.user.id])
 
         return Response({'status': 'success'})
 
@@ -381,6 +406,329 @@ class NotificationPreferenceViewSet(viewsets.ModelViewSet):
         return JsonResponse({'code': 400, 'msg': serializer.errors})
 
 
+class ConversationViewSet(viewsets.ReadOnlyModelViewSet):
+    """统一在线沟通会话 API"""
+    serializer_class = ConversationSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ['name', 'messages__content']
+    ordering_fields = ['last_message_at', 'created_at', 'updated_at']
+    ordering = ['-last_message_at', '-created_at']
+
+    def get_queryset(self):
+        queryset = ConversationService.list_user_conversations(
+            self.request.user
+        ).prefetch_related('member_relations__user')
+        conversation_type = self.request.query_params.get('conversation_type')
+        if conversation_type:
+            queryset = queryset.filter(conversation_type=conversation_type)
+        return queryset
+
+    def get_serializer_class(self):
+        if self.action == 'direct':
+            return ConversationDirectSerializer
+        if self.action == 'groups':
+            return ConversationCreateGroupSerializer
+        if self.action == 'messages' and self.request.method.lower() == 'post':
+            return ConversationSendMessageSerializer
+        return ConversationSerializer
+
+    def _get_member_conversation(self):
+        conversation = self.get_object()
+        try:
+            ConversationMessageService.ensure_member(
+                conversation,
+                self.request.user,
+            )
+        except PermissionError:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('您不是该会话成员')
+        return conversation
+
+    def _serialize_conversation(self, conversation):
+        return ConversationSerializer(
+            conversation,
+            context={'request': self.request},
+        )
+
+    @action(detail=False, methods=['post'], url_path='direct')
+    def direct(self, request):
+        """创建或返回当前用户与目标用户的单聊"""
+        if not request.user.has_perm('message.start_direct_conversation'):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('您没有权限发起单聊')
+        serializer = self.get_serializer(
+            data=request.data,
+            context={'request': request},
+        )
+        serializer.is_valid(raise_exception=True)
+        target = Admin.objects.get(id=serializer.validated_data['user_id'])
+        conversation = ConversationService.get_or_create_direct(
+            request.user,
+            target,
+        )
+        output = self._serialize_conversation(conversation)
+        return Response(output.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'], url_path='groups')
+    def groups(self, request):
+        """创建自由群聊"""
+        if not request.user.has_perm('message.create_group_conversation'):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('您没有权限创建群聊')
+        serializer = self.get_serializer(
+            data=request.data,
+            context={'request': request},
+        )
+        serializer.is_valid(raise_exception=True)
+        conversation = ConversationService.create_group(
+            owner=request.user,
+            name=serializer.validated_data['name'],
+            member_ids=serializer.validated_data.get('member_ids', []),
+        )
+        output = self._serialize_conversation(conversation)
+        return Response(output.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='members')
+    def members(self, request, pk=None):
+        """群管理员添加成员"""
+        if not request.user.has_perm('message.manage_group_conversation'):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('您没有权限管理群聊')
+        conversation = self._get_member_conversation()
+        user_ids = request.data.get('user_ids') or []
+        if not isinstance(user_ids, list):
+            return Response(
+                {'detail': 'user_ids 必须是数组'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            ConversationService.add_members(
+                conversation,
+                request.user,
+                user_ids,
+            )
+        except PermissionError:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('没有权限管理该会话')
+        except ValueError as exc:
+            return Response(
+                {'detail': str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        conversation.refresh_from_db()
+        output = self._serialize_conversation(conversation)
+        return Response(output.data)
+
+    @action(
+        detail=True,
+        methods=['delete'],
+        url_path=r'members/(?P<user_id>\d+)',
+    )
+    def remove_member(self, request, pk=None, user_id=None):
+        """群管理员移除成员"""
+        if not request.user.has_perm('message.manage_group_conversation'):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('您没有权限管理群聊')
+        conversation = self._get_member_conversation()
+        try:
+            removed = ConversationService.remove_member(
+                conversation,
+                request.user,
+                user_id,
+            )
+        except PermissionError:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('没有权限管理该会话')
+        except ValueError as exc:
+            return Response(
+                {'detail': str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response({'status': 'success', 'removed': removed})
+
+    @action(detail=True, methods=['get', 'post'], url_path='messages')
+    def messages(self, request, pk=None):
+        """获取或发送会话消息"""
+        conversation = self._get_member_conversation()
+        if request.method.lower() == 'get':
+            queryset = ConversationMessage.objects.filter(
+                conversation=conversation,
+                is_deleted=False,
+            ).select_related('sender', 'reply_to').prefetch_related(
+                'receipts__user',
+                'task_links__task',
+            )
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = ConversationMessageSerializer(
+                    page,
+                    many=True,
+                    context={'request': request},
+                )
+                return self.get_paginated_response(serializer.data)
+            serializer = ConversationMessageSerializer(
+                queryset,
+                many=True,
+                context={'request': request},
+            )
+            return Response(serializer.data)
+
+        serializer = ConversationSendMessageSerializer(
+            data=request.data,
+            context={'request': request, 'conversation': conversation},
+        )
+        if not request.user.has_perm('message.send_conversation_message'):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('您没有权限发送沟通消息')
+        serializer.is_valid(raise_exception=True)
+        reply_to = None
+        reply_to_id = serializer.validated_data.get('reply_to')
+        if reply_to_id:
+            reply_to = ConversationMessage.objects.get(id=reply_to_id)
+        message = ConversationMessageService.send_text(
+            conversation=conversation,
+            sender=request.user,
+            content=serializer.validated_data['content'],
+            metadata=serializer.validated_data.get('metadata') or {},
+            reply_to=reply_to,
+        )
+        output = ConversationMessageSerializer(
+            message,
+            context={'request': request},
+        )
+        return Response(output.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='read')
+    def read(self, request, pk=None):
+        """标记当前会话为已读"""
+        conversation = self._get_member_conversation()
+        through_message_id = request.data.get('through_message_id')
+        through_message = None
+        if through_message_id:
+            through_message = ConversationMessage.objects.filter(
+                id=through_message_id,
+                conversation=conversation,
+            ).first()
+            if through_message is None:
+                return Response(
+                    {'detail': '指定消息不存在'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        count = ConversationMessageService.mark_conversation_read(
+            conversation,
+            request.user,
+            through_message=through_message,
+        )
+        return Response({'status': 'success', 'read_count': count})
+
+    @action(
+        detail=True,
+        methods=['get'],
+        url_path=r'messages/(?P<message_id>\d+)/receipts',
+    )
+    def receipts(self, request, pk=None, message_id=None):
+        """查看消息已读/未读回执"""
+        if not request.user.has_perm('message.view_message_read_receipts'):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('您没有权限查看消息回执')
+        conversation = self._get_member_conversation()
+        message = ConversationMessage.objects.filter(
+            id=message_id,
+            conversation=conversation,
+            is_deleted=False,
+        ).first()
+        if message is None:
+            return Response(
+                {'detail': '消息不存在'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        active_member_ids = set(
+            ConversationMember.objects.filter(
+                conversation=conversation,
+                left_at__isnull=True,
+            ).exclude(user_id=message.sender_id).values_list('user_id', flat=True)
+        )
+        receipts = list(
+            message.receipts.select_related('user').filter(
+                user_id__in=active_member_ids,
+            )
+        )
+        read_user_ids = {
+            receipt.user_id for receipt in receipts
+            if receipt.status == receipt.STATUS_READ
+        }
+        users = {
+            user.id: user
+            for user in Admin.objects.filter(id__in=active_member_ids)
+        }
+        read_users = [
+            users[user_id] for user_id in read_user_ids if user_id in users
+        ]
+        unread_users = [
+            user for user_id, user in users.items()
+            if user_id not in read_user_ids
+        ]
+        from .serializers import ConversationUserSerializer
+        return Response({
+            'message_id': message.id,
+            'read_count': len(read_users),
+            'unread_count': len(unread_users),
+            'read_users': ConversationUserSerializer(read_users, many=True).data,
+            'unread_users': ConversationUserSerializer(unread_users, many=True).data,
+        })
+
+    @action(
+        detail=True,
+        methods=['post'],
+        url_path=r'messages/(?P<message_id>\d+)/to-task',
+    )
+    def to_task(self, request, pk=None, message_id=None):
+        """将会话消息转换为项目任务"""
+        if not request.user.has_perm('message.convert_message_to_task'):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('您没有权限将消息转为任务')
+        conversation = self._get_member_conversation()
+        message = ConversationMessage.objects.filter(
+            id=message_id,
+            conversation=conversation,
+            is_deleted=False,
+        ).first()
+        if message is None:
+            return Response(
+                {'detail': '消息不存在'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        try:
+            task = MessageTaskService.convert_to_task(
+                message=message,
+                creator=request.user,
+                title=request.data.get('title', ''),
+                description=request.data.get('description', ''),
+                assignee_id=request.data.get('assignee_id'),
+                project_id=request.data.get('project_id'),
+                priority=request.data.get('priority') or 2,
+                end_date=request.data.get('end_date') or None,
+            )
+        except ValueError as exc:
+            return Response(
+                {'detail': str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response({
+            'status': 'success',
+            'task': {
+                'id': task.id,
+                'title': task.title,
+                'description': task.description,
+                'assignee_id': task.assignee_id,
+                'project_id': task.project_id,
+                'priority': task.priority,
+                'status': task.status,
+            },
+        }, status=status.HTTP_201_CREATED)
+
+
 class UnreadCountView(views.APIView):
     """未读消息数量视图"""
     permission_classes = [IsAuthenticated]
@@ -390,9 +738,37 @@ class UnreadCountView(views.APIView):
         if not request.user.has_perm('message.view_message'):
             return Response({'unread_count': 0})
         user = request.user
-        unread_count = MessageUserRelation.objects.filter(
-            user=user, is_read=False).count()
+        unread_count = MessageService.get_unread_count(user)
         return Response({'unread_count': unread_count})
+
+
+class ConversationContactView(views.APIView):
+    """组织通讯录轻量搜索"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        keyword = (request.query_params.get('q') or '').strip()
+        queryset = Admin.objects.filter(status=1).exclude(id=request.user.id)
+        if keyword:
+            queryset = queryset.filter(
+                models.Q(username__icontains=keyword) |
+                models.Q(name__icontains=keyword) |
+                models.Q(mobile__icontains=keyword) |
+                models.Q(job_number__icontains=keyword)
+            )
+        queryset = queryset.order_by('name', 'username', 'id')[:50]
+        results = [
+            {
+                'id': user.id,
+                'username': user.username,
+                'name': getattr(user, 'name', None) or user.username,
+                'avatar': getattr(user, 'thumb', None),
+                'mobile': getattr(user, 'mobile', '') or '',
+                'department_id': getattr(user, 'did_id', None),
+            }
+            for user in queryset
+        ]
+        return Response({'results': results})
 
 
 @login_required
@@ -401,6 +777,14 @@ def message_center_page(request):
     if not request.user.has_perm('message.view_message_center'):
         return render(request, '403.html', {'message': '您没有权限访问消息中心'})
     return render(request, 'message/message_center.html')
+
+
+@login_required
+def conversation_center_page(request):
+    """统一在线沟通页面"""
+    if not request.user.has_perm('message.view_conversation_center'):
+        return render(request, '403.html', {'message': '您没有权限访问在线沟通'})
+    return render(request, 'message/conversation_center.html')
 
 
 @login_required

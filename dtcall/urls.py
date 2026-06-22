@@ -9,12 +9,14 @@ from django.views.generic import RedirectView
 import apps.user.views.captcha_views
 from apps.user.views import admin_views
 from apps.project import views as project_views
+from apps.system.views.database_setup_views import database_setup_view
 from django.conf import settings
 from django.conf.urls.static import static
 # JWT认证视图
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView, TokenVerifyView
 
 urlpatterns = [
+    path('setup/database/', database_setup_view, name='database_setup'),
     path('favicon.ico', RedirectView.as_view(url='/static/img/favicon.ico')),
     # 根路径重定向到登录页面
     path('', RedirectView.as_view(url='/user/login/', permanent=False), name='home'),
@@ -75,6 +77,10 @@ urlpatterns = [
     
     # AI智能服务
     path('ai/', include('apps.ai.urls', namespace='ai')),
+    # 库存模块
+    path('inventory/', include('apps.inventory.urls', namespace='inventory')),
+    # 公共接口
+    path('common/', include('apps.common.urls', namespace='web_common')),
     
     # 修复dashboard路径重定向
     path('dashboard/', RedirectView.as_view(url='/home/dashboard/', permanent=True)),
@@ -156,9 +162,7 @@ urlpatterns = [
     path('system/assetcategory/', RedirectView.as_view(url='/system/admin_office/asset/', permanent=True)),
     path('system/assetbrand/', RedirectView.as_view(url='/system/admin_office/asset/', permanent=True)),
     
-    # 任务管理重定向规则
-    path('adm/task/datalist/', RedirectView.as_view(url='/task/', permanent=True)),
-    
+
     # 兼容旧路径 - 合同模块基础数据
     path('basedata/contract/category/', RedirectView.as_view(url='/contract/category/', permanent=True)),
     path('basedata/contract/productcategory/', RedirectView.as_view(url='/contract/productcategory/', permanent=True)),
@@ -178,14 +182,13 @@ urlpatterns = [
     
     # 兼容旧路径 - 任务管理
     path('adm/task/datalist/', RedirectView.as_view(url='/task/datalist/', permanent=True)),
-    path('adm/task/', RedirectView.as_view(url='/task/', permanent=True, query_string=True)),
     
     # 个人办公重定向
     path('personal/log/', RedirectView.as_view(url='/system/log/', permanent=True)),
-    path('personal/info/', RedirectView.as_view(url='/personal/schedule/', permanent=True)),
-    path('personal/setting/', RedirectView.as_view(url='/personal/schedule/', permanent=True)),
-    path('personal/message/', RedirectView.as_view(url='/message/list/', permanent=True)),
-    path('personal/contacts/', RedirectView.as_view(url='/personal/schedule/', permanent=True)),
+    path('personal/info/', RedirectView.as_view(url='/personal/workcalendar/', permanent=True)),
+    path('personal/setting/', RedirectView.as_view(url='/personal/workcalendar/', permanent=True)),
+    path('personal/message/', RedirectView.as_view(url='/message/conversations/page/', permanent=True)),
+    path('personal/contacts/', RedirectView.as_view(url='/personal/contact/', permanent=True)),
     
     # 财务模块重定向规则 - 修复报销管理菜单跳转问题
     # 保留原有的重定向
@@ -222,7 +225,6 @@ urlpatterns = [
     # 修复基础数据模块404错误 - 移除循环重定向
     
     # 修复财务发票数据列表404错误
-    path('adm/finance/invoice/datalist/', RedirectView.as_view(url='/finance/invoice/datalist/', permanent=True)),
     
     # 修复404错误的专项规则 - 整合所有规则
     # 基础数据模块
@@ -236,16 +238,11 @@ urlpatterns = [
     path('finance/invoice/datalist/', RedirectView.as_view(url='/finance/invoice/', permanent=True)),
     path('finance/receiveinvoice/datalist/', RedirectView.as_view(url='/finance/receiveinvoice/', permanent=True)),
     path('finance/reimbursement/datalist/', RedirectView.as_view(url='/finance/reimbursement/', permanent=True)),
-    path('finance/payment/datalist/', RedirectView.as_view(url='/finance/payment/datalist/', permanent=True)),
-    path('finance/paymentreceive/datalist/', RedirectView.as_view(url='/finance/paymentreceive/datalist/', permanent=True)),
     
     # 合同模块
 
     
     # 项目模块
-    path('project/category/datalist/', RedirectView.as_view(url='/project/category/', permanent=True)),
-    path('project/datalist/', RedirectView.as_view(url='/project/datalist/', permanent=True)),
-    path('adm/project/document/datalist/', RedirectView.as_view(url='/project/document/datalist/', permanent=True)),
     
     # 生产模块
     path('production/baseinfo/datalist/', RedirectView.as_view(url='/production/baseinfo/', permanent=True)),
@@ -287,7 +284,7 @@ urlpatterns = [
     
     # 修复其他可能的404错误
     path('project/task/datalist/', RedirectView.as_view(url='/project/task/', permanent=True)),
-    path('oa/meeting/datalist/', RedirectView.as_view(url='/oa/meeting/datalist/', permanent=True)),
+    path('oa/meeting/datalist/', RedirectView.as_view(url='/oa/meeting/list/', permanent=True)),
     path('adm/basedata/contract/productcategory/', RedirectView.as_view(url='/contract/productcategory/', permanent=True)),
     path('adm/basedata/contract/product/', RedirectView.as_view(url='/contract/product/', permanent=True)),
     path('adm/basedata/contract/service/', RedirectView.as_view(url='/contract/service/', permanent=True)),
@@ -296,18 +293,13 @@ urlpatterns = [
     path('adm/basedata/contract/purchasecategory/', RedirectView.as_view(url='/contract/purchasecategory/', permanent=True)),
     
     # 修复项目列表404错误
-    path('project/list/', RedirectView.as_view(url='/project/', permanent=True)),
     
     # 额外的重定向规则以解决404错误
-    # 项目分类数据列表重定向
-    path('project/category/datalist/', RedirectView.as_view(url='/project/category/', permanent=True)),
-
     # 项目相关重定向 - 修正为正确的目标路径
     path('project/task/', RedirectView.as_view(url='/task/', permanent=True)),
     path('project/time/', RedirectView.as_view(url='/task/workhour/', permanent=True)),
     path('project/ai_risk_prediction/', RedirectView.as_view(url='/project/ai/risk-prediction/', permanent=True)),
     path('project/ai_progress_analysis/', RedirectView.as_view(url='/project/ai/progress-analysis/', permanent=True)),
-    path('adm/project/document/datalist/', RedirectView.as_view(url='/project/document/', permanent=True)),
     # 生产模块重定向 - 修正为正确的路径格式，避免与production应用路由冲突
     path('adm/production/procedure/', RedirectView.as_view(url='/production/procedure/', permanent=False)),
     path('adm/production/bom/', RedirectView.as_view(url='/production/bom/', permanent=False)),
@@ -343,8 +335,6 @@ urlpatterns = [
     path('adm/project/category/datalist/', RedirectView.as_view(url='/project/category/', permanent=True)),
     path('adm/project/task/', RedirectView.as_view(url='/project/task/', permanent=True)),
     path('adm/project/task/datalist/', RedirectView.as_view(url='/project/task/', permanent=True)),
-    path('adm/project/document/', RedirectView.as_view(url='/project/document/', permanent=True)),
-    path('adm/project/document/datalist/', RedirectView.as_view(url='/project/document/', permanent=True)),
     path('adm/project/detail/<int:project_id>/', RedirectView.as_view(url='/project/detail/%(project_id)s/', permanent=True)),
     path('adm/project/edit/<int:project_id>/', RedirectView.as_view(url='/project/edit/%(project_id)s/', permanent=True)),
     path('adm/project/add/', RedirectView.as_view(url='/project/add/', permanent=True, query_string=True)),
@@ -359,8 +349,8 @@ urlpatterns = [
     # 修复任务相关404错误
     # 新增任务URL重定向，使用path替代re_path以正确保留query_string
     path('adm/task/add/', RedirectView.as_view(url='/task/add/', permanent=True, query_string=True)),
-    path('adm/task/', RedirectView.as_view(url='/task/', permanent=True, query_string=True)),
     path('adm/task/edit/<int:task_id>/', RedirectView.as_view(url='/task/edit/%(task_id)s/', permanent=True, query_string=True)),
+    path('adm/task/detail/<int:task_id>/', RedirectView.as_view(url='/task/detail/%(task_id)s/', permanent=True, query_string=True)),
     
     # 修复生产模块404错误
     path('adm/production/', RedirectView.as_view(url='/production/', permanent=True)),
@@ -391,7 +381,7 @@ urlpatterns = [
     path('adm/meeting/reservation/delete/<int:id>/', RedirectView.as_view(url='/system/admin_office/meeting_reservation/delete/%(id)s/', permanent=True)),
     # 仍保留OA相关旧路径的兼容重定向
     path('adm/meeting/', RedirectView.as_view(url='/oa/meeting/', permanent=True)),
-    path('adm/meeting/datalist/', RedirectView.as_view(url='/oa/meeting/datalist/', permanent=True)),
+    path('adm/meeting/datalist/', RedirectView.as_view(url='/oa/meeting/list/', permanent=True)),
     # 人事管理旧路径映射
     path('adm/employee_management/', RedirectView.as_view(url='/user/employee/', permanent=True)),
     path('adm/department/', RedirectView.as_view(url='/user/department/', permanent=True)),
@@ -418,9 +408,9 @@ urlpatterns = [
     path('adm/customer/spider_task/', RedirectView.as_view(url='/customer/spider_task/', permanent=True)),
     path('adm/customer/spider_task/data/', RedirectView.as_view(url='/customer/spider_task/data/', permanent=True)),
     path('adm/customer/spider_task/create/', RedirectView.as_view(url='/customer/spider_task/create/', permanent=True)),
-    path('adm/customer/spider_task/<int:pk>/edit/', RedirectView.as_view(url='/customer/spider_task/<int:pk>/edit/', permanent=True)),
-    path('adm/customer/spider_task/<int:pk>/delete/', RedirectView.as_view(url='/customer/spider_task/<int:pk>/delete/', permanent=True)),
-    path('adm/customer/spider_task/<int:pk>/action/', RedirectView.as_view(url='/customer/spider_task/<int:pk>/action/', permanent=True)),
+    path('adm/customer/spider_task/<int:pk>/edit/', RedirectView.as_view(url='/customer/spider_task/%(pk)s/edit/', permanent=True)),
+    path('adm/customer/spider_task/<int:pk>/delete/', RedirectView.as_view(url='/customer/spider_task/%(pk)s/delete/', permanent=True)),
+    path('adm/customer/spider_task/<int:pk>/action/', RedirectView.as_view(url='/customer/spider_task/%(pk)s/action/', permanent=True)),
     path('adm/customer/list/', RedirectView.as_view(url='/customer/public/list/', permanent=True)),
     path('adm/customer/contact/datalist/', RedirectView.as_view(url='/customer/contact/', permanent=True)),
     path('adm/customer/address/datalist/', RedirectView.as_view(url='/customer/address/', permanent=True)),
@@ -436,7 +426,6 @@ urlpatterns = [
     path('adm/finance/reimbursement/', RedirectView.as_view(url='/finance/reimbursement/', permanent=True)),
     path('adm/finance/payment/', RedirectView.as_view(url='/finance/payment/', permanent=True)),
     path('adm/finance/paymentreceive/', RedirectView.as_view(url='/finance/paymentreceive/', permanent=True)),
-    path('adm/finance/invoice/datalist/', RedirectView.as_view(url='/finance/invoice/datalist/', permanent=True)),
     path('adm/finance/reimbursement/datalist/', RedirectView.as_view(url='/finance/reimbursement/datalist/', permanent=True)),
     path('adm/finance/payment/datalist/', RedirectView.as_view(url='/finance/payment/datalist/', permanent=True)),
     path('adm/finance/paymentreceive/datalist/', RedirectView.as_view(url='/finance/paymentreceive/datalist/', permanent=True)),
@@ -453,12 +442,8 @@ urlpatterns = [
     path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
     
     # 修复项目基础数据相关404错误
-    path('adm/basedata/project/worktype/', RedirectView.as_view(url='/project/stage/', permanent=True)),
-    path('adm/basedata/project/stage/', RedirectView.as_view(url='/project/stage/', permanent=True)),
     
     # 修复生产模块数据和分析相关404错误
-    path('adm/production/data/', RedirectView.as_view(url='/production/data/', permanent=False)),
-    path('adm/production/analysis/', RedirectView.as_view(url='/production/analysis/', permanent=False)),
     path('adm/production/process/', RedirectView.as_view(url='/production/process/', permanent=False)),
     path('adm/production/task/plan/', RedirectView.as_view(url='/production/task/plan/', permanent=False)),
     
@@ -474,21 +459,13 @@ urlpatterns = [
     # path('project/ai_progress_analysis/', RedirectView.as_view(url='/project/', permanent=True)),
     # path('project/ai_risk_prediction/', RedirectView.as_view(url='/project/', permanent=True)),
     
-    # 修复项目阶段和工作类型 - 由 project 应用直接处理
-    path('adm/basedata/project/stage/', RedirectView.as_view(url='/project/stage/', permanent=True)),
-    path('adm/basedata/project/worktype/', RedirectView.as_view(url='/project/worktype/', permanent=True)),
-    
     # 生产模块更多重定向规则
-    path('adm/production/plan/', RedirectView.as_view(url='/production/task/plan/', permanent=True)),
     path('adm/production/quality/', RedirectView.as_view(url='/production/quality/', permanent=True)),
     path('adm/production/equipment/', RedirectView.as_view(url='/production/equipment/', permanent=True)),
     # 修复生产管理模块无法打开的页面
-    path('adm/production/data/', RedirectView.as_view(url='/production/data/', permanent=False)),
-    path('adm/production/analysis/', RedirectView.as_view(url='/production/analysis/', permanent=False)),
     path('adm/production/sop/', RedirectView.as_view(url='/production/sop/', permanent=True)),
     path('adm/production/product/', RedirectView.as_view(url='/basedata/contract/product/', permanent=True)),
     path('adm/production/technology/', RedirectView.as_view(url='/production/technology/', permanent=True)),
-    path('adm/production/plan/', RedirectView.as_view(url='/production/task/plan/', permanent=True)),
     
     # OA系统更多重定向规则
     path('adm/oa/', RedirectView.as_view(url='/oa/', permanent=True)),
@@ -513,14 +490,13 @@ urlpatterns = [
     
     # 删除指向自身的冗余重定向，避免循环与错误跳转
     
-    # 数据列表和详情页面通用重定向规则
+    # 明确的数据列表和详情页面重定向规则
     # 基础数据
     path('basedata/datalist/', RedirectView.as_view(url='/basedata/', permanent=True)),
     path('basedata/detail/', RedirectView.as_view(url='/basedata/', permanent=True)),
     
     # 项目管理
     path('project/detail/', RedirectView.as_view(url='/project/', permanent=True)),
-    path('project/list/', RedirectView.as_view(url='/project/', permanent=True)),
     path('project/task/list/', RedirectView.as_view(url='/project/task/', permanent=True)),
     path('project/task/detail/', RedirectView.as_view(url='/project/task/', permanent=True)),
     path('project/document/list/', RedirectView.as_view(url='/project/document/', permanent=True)),

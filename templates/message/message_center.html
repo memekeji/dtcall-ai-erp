@@ -258,6 +258,19 @@
         align-items: center;
         gap: 15px;
     }
+
+    .batch-selected-count {
+        color: #666;
+        font-size: 12px;
+    }
+
+    .message-actions span.is-disabled,
+    .batch-actions .layui-btn[disabled],
+    .message-toolbar .layui-btn[disabled] {
+        opacity: 0.55;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
     
     .priority-tag {
         display: inline-block;
@@ -411,9 +424,12 @@
         <div class="batch-actions" id="batchActions">
             <input type="checkbox" id="selectAll" lay-skin="primary">
             <label for="selectAll">全选</label>
+            <span class="batch-selected-count" id="selectedCount">已选 0 条</span>
             <span>|</span>
             <button class="layui-btn layui-btn-sm" id="batchRead">标记已读</button>
+            <button class="layui-btn layui-btn-sm layui-btn-primary" id="batchUnread">标记未读</button>
             <button class="layui-btn layui-btn-sm layui-btn-primary" id="batchStar">标星</button>
+            <button class="layui-btn layui-btn-sm layui-btn-primary" id="batchUnstar">取消标星</button>
             <button class="layui-btn layui-btn-sm layui-btn-primary" id="batchDelete">删除</button>
         </div>
         
@@ -473,6 +489,7 @@
         var pageSize = 15;
         var messages = [];
         var stats = {};
+        var isOperating = false;
         
         function init() {
             loadStats();
@@ -486,10 +503,20 @@
                 .then(data => {
                     stats = data;
                     updateCategoryCounts();
+                    notifyParentMessageStateChange();
                 })
                 .catch(error => {
                     console.error('加载统计信息失败:', error);
                 });
+        }
+
+        function notifyParentMessageStateChange() {
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'message_state_changed',
+                    unread_count: stats.unread_count || 0
+                }, '*');
+            }
         }
         
         function updateCategoryCounts() {
@@ -507,6 +534,7 @@
         }
         
         function loadMessages() {
+            clearSelection();
             var params = {
                 page: currentPage,
                 page_size: pageSize
@@ -540,8 +568,24 @@
                 });
         }
         
+        var escapeHtml = (window.DTCallCommon && window.DTCallCommon.escapeHtml) || function(value) {
+            return String(value || '').replace(/[&<>"']/g, function(char) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                }[char];
+            });
+        };
+
         function renderMessages(data) {
             var list = document.getElementById('messageList');
+            messages = (data.results || []).map(function(msg) {
+                msg.user_relation = msg.user_relation || {};
+                return msg;
+            });
             var results = data.results || [];
             
             if (results.length === 0) {
@@ -582,21 +626,21 @@
                             <div class="message-header">
                                 <span class="message-title">
                                     <span class="priority-tag ${priorityClass}"></span>
-                                    ${msg.title}
+                                    ${escapeHtml(msg.title)}
                                 </span>
-                                <span class="message-time">${formatTime(msg.created_at)}</span>
+                                <span class="message-time">${escapeHtml(formatTime(msg.created_at))}</span>
                             </div>
-                            <div class="message-body">${msg.content}</div>
+                            <div class="message-body">${escapeHtml(msg.content)}</div>
                             <div class="message-footer">
-                                <span class="message-category-tag">${category.name || '系统通知'}</span>
+                                <span class="message-category-tag">${escapeHtml(category.name || '系统通知')}</span>
                                 <div class="message-actions">
-                                    <span class="${relation.is_starred ? 'starred' : ''}" onclick="toggleStar(${msg.id}, this)">
+                                    <span class="${relation.is_starred ? 'starred' : ''}" data-action="toggle-star" data-id="${msg.id}">
                                         <i class="layui-icon ${relation.is_starred ? 'layui-icon-rate-solid' : 'layui-icon-rate'}"></i>
                                         ${relation.is_starred ? '已标星' : '标星'}
                                     </span>
-                                    <span onclick="markAsRead(${msg.id}, this)">
+                                    <span data-action="${relation.is_read ? 'mark-unread' : 'mark-read'}" data-id="${msg.id}">
                                         <i class="layui-icon layui-icon-ok"></i>
-                                        ${relation.is_read ? '已读' : '标记已读'}
+                                        ${relation.is_read ? '标记未读' : '标记已读'}
                                     </span>
                                 </div>
                             </div>
@@ -640,23 +684,23 @@
             
             if (!message) return;
             
-            document.getElementById('detailTitle').textContent = message.title;
+            document.getElementById('detailTitle').textContent = message.title || '';
             
             var meta = [];
             if (message.sender_name) {
                 meta.push('发送者: ' + message.sender_name);
             }
             meta.push('时间: ' + formatTime(message.created_at));
-            document.getElementById('detailMeta').innerHTML = meta.join(' | ');
+            document.getElementById('detailMeta').textContent = meta.join(' | ');
             
-            document.getElementById('detailBody').innerHTML = message.content;
+            document.getElementById('detailBody').textContent = message.content || '';
             
             var actionBtn = document.getElementById('detailAction');
             if (message.action_url) {
                 actionBtn.style.display = 'inline-block';
                 actionBtn.onclick = function() {
                     if (window.parent && window.parent.addTab) {
-                        window.parent.addTab(message.action_url, message.title);
+                        window.parent.addTab(message.action_url, message.title || '消息详情');
                     } else {
                         window.location.href = message.action_url;
                     }
@@ -668,7 +712,7 @@
             document.getElementById('detailModal').classList.add('show');
             
             if (!message.is_read) {
-                markAsRead(messageId);
+                markAsRead(messageId, null, true);
             }
         }
         
@@ -691,10 +735,44 @@
             }
         }
         
+        function setOperatingState(operating) {
+            isOperating = operating;
+            document.querySelectorAll('#batchActions .layui-btn, #markAllRead').forEach(function(btn) {
+                btn.disabled = operating;
+            });
+            document.querySelectorAll('.message-actions span').forEach(function(action) {
+                action.classList.toggle('is-disabled', operating);
+            });
+        }
+
+        function syncMessageState(messageId, patch) {
+            var message = messages.find(function(item) {
+                return item.id === messageId;
+            });
+            if (!message) return;
+            message.user_relation = message.user_relation || {};
+            Object.assign(message.user_relation, patch);
+            if (Object.prototype.hasOwnProperty.call(patch, 'is_read')) {
+                message.is_read = patch.is_read;
+            }
+            if (Object.prototype.hasOwnProperty.call(patch, 'is_starred')) {
+                message.is_starred = patch.is_starred;
+            }
+        }
+
+        function refreshAfterOperation(options) {
+            options = options || {};
+            loadStats();
+            if (options.reload !== false) {
+                loadMessages();
+            }
+        }
+
         function toggleStar(messageId, element) {
+            if (isOperating) return;
             var isStarred = element.classList.contains('starred');
             var url = isStarred ? '/message/messages/' + messageId + '/unstar/' : '/message/messages/' + messageId + '/star/';
-            
+            setOperatingState(true);
             fetch(url, {
                 method: 'POST',
                 headers: {
@@ -705,23 +783,38 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
+                    syncMessageState(messageId, {is_starred: !isStarred});
                     element.classList.toggle('starred');
                     if (element.classList.contains('starred')) {
                         element.innerHTML = '<i class="layui-icon layui-icon-rate-solid"></i> 已标星';
                     } else {
                         element.innerHTML = '<i class="layui-icon layui-icon-rate"></i> 标星';
                     }
-                    loadStats();
+                    refreshAfterOperation({reload: currentCategory === 'starred'});
                 }
             })
             .catch(error => {
                 console.error('操作失败:', error);
                 layer.msg('操作失败', {icon: 2});
+            })
+            .finally(function() {
+                setOperatingState(false);
             });
         }
         
-        function markAsRead(messageId, element) {
-            fetch('/message/messages/' + messageId + '/read/', {
+        function markAsRead(messageId, element, silent) {
+            updateReadState(messageId, true, element, silent);
+        }
+
+        function markAsUnread(messageId, element) {
+            updateReadState(messageId, false, element, false);
+        }
+
+        function updateReadState(messageId, isRead, element, silent) {
+            if (isOperating) return;
+            setOperatingState(true);
+            var url = '/message/messages/' + messageId + (isRead ? '/read/' : '/unread/');
+            fetch(url, {
                 method: 'POST',
                 headers: {
                     'X-CSRFToken': getCookie('csrftoken'),
@@ -731,15 +824,28 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    loadStats();
-                    if (element && element.closest('.message-item')) {
-                        element.closest('.message-item').classList.remove('unread');
-                        element.innerHTML = '<i class="layui-icon layui-icon-ok"></i> 已读';
+                    syncMessageState(messageId, {is_read: isRead});
+                    var actionElement = element || document.querySelector('.message-actions span[data-id="' + messageId + '"][data-action]');
+                    var messageItem = document.querySelector('.message-item[data-id="' + messageId + '"]');
+                    if (actionElement && actionElement.closest('.message-actions')) {
+                        actionElement.dataset.action = isRead ? 'mark-unread' : 'mark-read';
+                        actionElement.innerHTML = '<i class="layui-icon layui-icon-ok"></i> ' + (isRead ? '标记未读' : '标记已读');
                     }
+                    if (messageItem) {
+                        messageItem.classList.toggle('unread', !isRead);
+                    }
+                    if (!silent) {
+                        layer.msg(isRead ? '已标记为已读' : '已标记为未读', {icon: 1});
+                    }
+                    refreshAfterOperation({reload: currentCategory === 'unread'});
                 }
             })
             .catch(error => {
-                console.error('标记已读失败:', error);
+                console.error('标记读状态失败:', error);
+                if (!silent) layer.msg('操作失败', {icon: 2});
+            })
+            .finally(function() {
+                setOperatingState(false);
             });
         }
         
@@ -817,13 +923,36 @@
                     updateBatchActionsVisibility();
                 }
             });
+
+            document.getElementById('messageList').addEventListener('click', function(e) {
+                var action = e.target.closest('.message-actions span');
+                if (!action) return;
+                e.preventDefault();
+                e.stopPropagation();
+                var messageId = parseInt(action.dataset.id);
+                if (action.dataset.action === 'toggle-star') {
+                    toggleStar(messageId, action);
+                } else if (action.dataset.action === 'mark-read') {
+                    markAsRead(messageId, action);
+                } else if (action.dataset.action === 'mark-unread') {
+                    markAsUnread(messageId, action);
+                }
+            });
             
             document.getElementById('batchRead').addEventListener('click', function() {
                 batchOperation('read');
             });
+
+            document.getElementById('batchUnread').addEventListener('click', function() {
+                batchOperation('unread');
+            });
             
             document.getElementById('batchStar').addEventListener('click', function() {
                 batchOperation('star');
+            });
+
+            document.getElementById('batchUnstar').addEventListener('click', function() {
+                batchOperation('unstar');
             });
             
             document.getElementById('batchDelete').addEventListener('click', function() {
@@ -837,11 +966,24 @@
         function updateBatchActionsVisibility() {
             var checkedCount = document.querySelectorAll('#messageList input[type="checkbox"]:checked').length;
             var batchActions = document.getElementById('batchActions');
+            var selectedCount = document.getElementById('selectedCount');
+            if (selectedCount) {
+                selectedCount.textContent = '已选 ' + checkedCount + ' 条';
+            }
             if (checkedCount > 0) {
                 batchActions.classList.add('show');
             } else {
                 batchActions.classList.remove('show');
             }
+        }
+
+        function clearSelection() {
+            var selectAll = document.getElementById('selectAll');
+            if (selectAll) selectAll.checked = false;
+            document.querySelectorAll('#messageList input[type="checkbox"]').forEach(function(cb) {
+                cb.checked = false;
+            });
+            updateBatchActionsVisibility();
         }
         
         function batchOperation(operation) {
@@ -854,7 +996,9 @@
                 layer.msg('请先选择消息', {icon: 2});
                 return;
             }
-            
+
+            if (isOperating) return;
+            setOperatingState(true);
             fetch('/message/messages/batch_operation/', {
                 method: 'POST',
                 headers: {
@@ -869,19 +1013,22 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    layer.msg('操作成功', {icon: 1});
-                    loadStats();
-                    loadMessages();
+                    var affectedCount = data.affected_count || 0;
+                    layer.msg('操作成功，影响 ' + affectedCount + ' 条', {icon: 1});
+                    refreshAfterOperation();
                     document.getElementById('batchActions').classList.remove('show');
                 }
             })
             .catch(error => {
                 console.error('批量操作失败:', error);
                 layer.msg('操作失败', {icon: 2});
+            })
+            .finally(function() {
+                setOperatingState(false);
             });
         }
         
-        function getCookie(name) {
+        var getCookie = (window.DTCallCommon && window.DTCallCommon.getCookie) || function(name) {
             var cookieValue = null;
             if (document.cookie && document.cookie !== '') {
                 var cookies = document.cookie.split(';');
@@ -894,7 +1041,7 @@
                 }
             }
             return cookieValue;
-        }
+        };
         
         init();
     });

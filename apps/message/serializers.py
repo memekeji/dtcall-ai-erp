@@ -1,6 +1,16 @@
 from rest_framework import serializers
-from .models import MessageCategory, Message, MessageUserRelation, NotificationPreference
+from .models import (
+    Conversation,
+    ConversationMember,
+    ConversationMessage,
+    ConversationMessageReceipt,
+    MessageCategory,
+    Message,
+    MessageUserRelation,
+    NotificationPreference,
+)
 from apps.user.models import Admin
+from apps.message.services import MessageService
 import json
 from django.db import models
 
@@ -104,6 +114,7 @@ class MessageListSerializer(serializers.ModelSerializer):
     sender_name = serializers.CharField(
         source='sender.username', read_only=True)
     sender_avatar = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
     sender = serializers.SerializerMethodField()
     user_relation = serializers.SerializerMethodField()
     is_read = serializers.SerializerMethodField()
@@ -113,12 +124,24 @@ class MessageListSerializer(serializers.ModelSerializer):
         model = Message
         fields = [
             'id', 'title', 'content', 'priority',
-            'category_name', 'category_icon',
+            'category', 'category_name', 'category_icon',
             'sender', 'sender_name', 'sender_avatar',
             'user_relation', 'is_read', 'is_starred',
             'related_object_type', 'related_object_id', 'action_url',
             'created_at'
         ]
+
+    def get_category(self, obj):
+        """获取分类对象（兼容消息中心模板）"""
+        if obj.category:
+            return {
+                'id': obj.category.id,
+                'name': obj.category.name,
+                'code': obj.category.code,
+                'type': obj.category.type,
+                'icon': obj.category.icon,
+            }
+        return None
 
     def get_sender_avatar(self, obj):
         """获取发送者头像"""
@@ -194,7 +217,7 @@ class MessageCreateSerializer(serializers.ModelSerializer):
         department_ids = attrs.get('department_ids', [])
 
         if not is_broadcast and not user_ids and not department_ids:
-            raise serializers.ValidationError('广播消息必须指定目标用户或目标部门')
+            raise serializers.ValidationError('非广播消息必须指定目标用户或目标部门')
 
         if user_ids:
             existing_users = Admin.objects.filter(
@@ -209,27 +232,42 @@ class MessageCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         """创建消息"""
-
         user_ids = validated_data.pop('user_ids', [])
         department_ids = validated_data.pop('department_ids', [])
+        sender = validated_data.pop('sender', self.context['request'].user)
+        is_broadcast = validated_data.get('is_broadcast', False)
 
-        message = Message.objects.create(**validated_data)
+        if is_broadcast:
+            all_user_ids = set(Admin.objects.filter(status=1).values_list('id', flat=True))
+        else:
+            all_user_ids = set(user_ids)
+            if department_ids:
+                department_users = Admin.objects.filter(
+                    models.Q(did__in=department_ids) |
+                    models.Q(secondary_departments__id__in=department_ids)
+                ).values_list('id', flat=True).distinct()
+                all_user_ids.update(department_users)
 
-        all_user_ids = set(user_ids)
+        category_code = validated_data['category'].code if validated_data.get('category') else 'system'
+        all_user_ids = MessageService.filter_user_ids_by_preferences(
+            all_user_ids,
+            category_code
+        )
 
-        if department_ids:
-            department_users = Admin.objects.filter(
-                models.Q(did__in=department_ids) |
-                models.Q(secondary_departments__id__in=department_ids)
-            ).values_list('id', flat=True).distinct()
-            all_user_ids.update(department_users)
+        message = Message.objects.create(
+            sender=sender,
+            target_users=json.dumps(list(all_user_ids)),
+            target_departments=json.dumps(department_ids),
+            **validated_data
+        )
 
         if all_user_ids:
             relations = [
                 MessageUserRelation(message=message, user_id=user_id)
                 for user_id in all_user_ids
             ]
-            MessageUserRelation.objects.bulk_create(relations)
+            MessageUserRelation.objects.bulk_create(relations, ignore_conflicts=True)
+            MessageService.invalidate_user_unread_counts(all_user_ids)
 
         return message
 
@@ -308,3 +346,199 @@ class MessageStatsSerializer(serializers.Serializer):
     unread_count = serializers.IntegerField(help_text='未读消息数')
     starred_count = serializers.IntegerField(help_text='标星消息数')
     category_stats = serializers.DictField(help_text='各分类消息统计')
+
+
+class ConversationUserSerializer(serializers.ModelSerializer):
+    """会话用户摘要"""
+    name = serializers.SerializerMethodField()
+    avatar = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Admin
+        fields = ['id', 'username', 'name', 'avatar']
+
+    def get_name(self, obj):
+        return getattr(obj, 'name', None) or obj.username
+
+    def get_avatar(self, obj):
+        return getattr(obj, 'thumb', None)
+
+
+class ConversationMemberSerializer(serializers.ModelSerializer):
+    """会话成员序列化器"""
+    user = ConversationUserSerializer(read_only=True)
+
+    class Meta:
+        model = ConversationMember
+        fields = [
+            'id', 'user', 'role', 'is_muted', 'is_pinned',
+            'is_archived', 'last_read_message', 'last_read_at',
+            'joined_at', 'left_at',
+        ]
+        read_only_fields = fields
+
+
+class ConversationMessageReceiptSerializer(serializers.ModelSerializer):
+    """消息回执序列化器"""
+    user = ConversationUserSerializer(read_only=True)
+    is_read = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = ConversationMessageReceipt
+        fields = [
+            'id', 'user', 'status', 'is_read', 'delivered_at', 'read_at',
+        ]
+        read_only_fields = fields
+
+
+class ConversationMessageSerializer(serializers.ModelSerializer):
+    """会话消息序列化器"""
+    sender = ConversationUserSerializer(read_only=True)
+    receipts = ConversationMessageReceiptSerializer(many=True, read_only=True)
+    task_links = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ConversationMessage
+        fields = [
+            'id', 'conversation', 'sender', 'message_type', 'content',
+            'metadata', 'reply_to', 'is_deleted', 'receipts', 'task_links',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = fields
+
+    def get_task_links(self, obj):
+        return [
+            {
+                'id': link.id,
+                'task_id': link.task_id,
+                'task_title': link.task.title,
+                'created_at': link.created_at,
+            }
+            for link in obj.task_links.select_related('task')
+        ]
+
+
+class ConversationSerializer(serializers.ModelSerializer):
+    """沟通会话序列化器"""
+    members = serializers.SerializerMethodField()
+    member_ids = serializers.SerializerMethodField()
+    last_message = ConversationMessageSerializer(read_only=True)
+    unread_count = serializers.SerializerMethodField()
+    display_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Conversation
+        fields = [
+            'id', 'conversation_type', 'name', 'display_name', 'direct_key',
+            'owner', 'created_by', 'member_ids', 'members', 'last_message',
+            'last_message_at', 'unread_count', 'metadata', 'is_active',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = fields
+
+    def _active_members(self, obj):
+        prefetched = getattr(obj, '_prefetched_objects_cache', {})
+        if 'member_relations' in prefetched:
+            return [
+                member for member in prefetched['member_relations']
+                if member.left_at is None
+            ]
+        return obj.member_relations.filter(
+            left_at__isnull=True
+        ).select_related('user')
+
+    def get_members(self, obj):
+        return ConversationMemberSerializer(
+            self._active_members(obj),
+            many=True,
+            context=self.context,
+        ).data
+
+    def get_member_ids(self, obj):
+        return [member.user_id for member in self._active_members(obj)]
+
+    def get_unread_count(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return 0
+        return ConversationMessageReceipt.objects.filter(
+            user=request.user,
+            message__conversation=obj,
+            status=ConversationMessageReceipt.STATUS_DELIVERED,
+            message__is_deleted=False,
+        ).count()
+
+    def get_display_name(self, obj):
+        if obj.name:
+            return obj.name
+        request = self.context.get('request')
+        members = self._active_members(obj)
+        if obj.conversation_type == Conversation.TYPE_DIRECT and request:
+            for member in members:
+                if member.user_id != request.user.id:
+                    return getattr(member.user, 'name', None) or member.user.username
+        return obj.get_conversation_type_display()
+
+
+class ConversationDirectSerializer(serializers.Serializer):
+    """单聊创建参数"""
+    user_id = serializers.IntegerField()
+
+    def validate_user_id(self, value):
+        request = self.context.get('request')
+        if request and request.user.id == value:
+            raise serializers.ValidationError('不能与自己创建单聊会话')
+        if not Admin.objects.filter(id=value, status=1).exists():
+            raise serializers.ValidationError('用户不存在或已停用')
+        return value
+
+
+class ConversationCreateGroupSerializer(serializers.Serializer):
+    """群聊创建参数"""
+    name = serializers.CharField(max_length=120, trim_whitespace=True)
+    member_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        allow_empty=True,
+    )
+
+    def validate_name(self, value):
+        if not value.strip():
+            raise serializers.ValidationError('群名称不能为空')
+        return value.strip()
+
+    def validate_member_ids(self, value):
+        ids = {int(user_id) for user_id in value or []}
+        if not ids:
+            return []
+        existing_ids = set(
+            Admin.objects.filter(id__in=ids, status=1).values_list('id', flat=True)
+        )
+        missing = ids - existing_ids
+        if missing:
+            raise serializers.ValidationError(f'用户不存在或已停用: {sorted(missing)}')
+        return sorted(ids)
+
+
+class ConversationSendMessageSerializer(serializers.Serializer):
+    """发送会话消息参数"""
+    content = serializers.CharField(trim_whitespace=True)
+    metadata = serializers.JSONField(required=False)
+    reply_to = serializers.IntegerField(required=False, allow_null=True)
+
+    def validate_content(self, value):
+        if not value.strip():
+            raise serializers.ValidationError('消息内容不能为空')
+        return value.strip()
+
+    def validate_reply_to(self, value):
+        if not value:
+            return value
+        conversation = self.context.get('conversation')
+        if not ConversationMessage.objects.filter(
+            id=value,
+            conversation=conversation,
+            is_deleted=False,
+        ).exists():
+            raise serializers.ValidationError('引用消息不存在')
+        return value

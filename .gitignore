@@ -105,11 +105,14 @@ frontend/.nuxt/
 # Zip files
 dtcall.zip
 
-# Trae AI
-trae-ai-
-
-# Trae
+# IDE and local workspace metadata
 .trae/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
 
 # Docs (exclude from repo)
 docs/
+
+# Local git worktrees
+.worktrees/

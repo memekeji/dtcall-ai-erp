@@ -4,9 +4,19 @@ from django.http import JsonResponse
 from django.views import View
 from django.contrib.auth.mixins import LoginRequiredMixin
 from apps.message.models import Message
+from apps.ai.services.business_result import build_business_ai_result
 from apps.ai.utils.ai_client import AIClient
 
 logger = logging.getLogger(__name__)
+
+def _normalize_message_ai_result(raw_result, message, request=None, raw_input=None):
+    return build_business_ai_result(
+        raw_result,
+        scenario='message_assistant',
+        source_refs=[{'type': 'message', 'id': message.id}],
+        request=request,
+        raw_input=raw_input,
+    )
 
 class MessageAIAssistantView(LoginRequiredMixin, View):
     """消息AI智能助手"""
@@ -15,9 +25,9 @@ class MessageAIAssistantView(LoginRequiredMixin, View):
         try:
             message = Message.objects.get(id=message_id)
             
-            # 检查是否有权限查看该消息 (发送者或接收者)
+            # 检查是否有权限查看该消息（发送者或接收者）
             is_sender = message.sender == request.user
-            is_receiver = message.receivers.filter(id=request.user.id).exists()
+            is_receiver = message.user_relations.filter(user=request.user).exists()
             
             if not (is_sender or is_receiver):
                 return JsonResponse({'code': 1, 'msg': '无权限访问该消息'})
@@ -25,13 +35,14 @@ class MessageAIAssistantView(LoginRequiredMixin, View):
             # 如果已经有处理结果且未要求强制刷新
             force_refresh = request.POST.get('force_refresh', 'false') == 'true'
             if not force_refresh and (message.ai_summary or message.ai_suggested_replies):
+                cached_result = {
+                    'summary': message.ai_summary,
+                    'suggested_replies': message.ai_suggested_replies
+                }
                 return JsonResponse({
                     'code': 0,
                     'msg': 'success',
-                    'data': {
-                        'summary': message.ai_summary,
-                        'suggested_replies': message.ai_suggested_replies
-                    }
+                'data': _normalize_message_ai_result(cached_result, message)
                 })
                 
             # 如果消息太短，不需要摘要
@@ -74,14 +85,20 @@ class MessageAIAssistantView(LoginRequiredMixin, View):
             if suggested_replies:
                 message.ai_suggested_replies = suggested_replies
             message.save()
+            result = {
+                'summary': message.ai_summary,
+                'suggested_replies': message.ai_suggested_replies
+            }
             
             return JsonResponse({
                 'code': 0,
                 'msg': '分析完成',
-                'data': {
-                    'summary': message.ai_summary,
-                    'suggested_replies': message.ai_suggested_replies
-                }
+                'data': _normalize_message_ai_result(
+                    result,
+                    message,
+                    request=request,
+                    raw_input={'message_length': len(message.content), 'force_refresh': force_refresh},
+                )
             })
             
         except Message.DoesNotExist:

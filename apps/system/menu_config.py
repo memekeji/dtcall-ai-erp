@@ -119,6 +119,14 @@ system_menus = {
         "sort": 12,
         "status": 1
     },
+    1411: {
+        "id": 1411,
+        "title": "权限列表",
+        "src": "/user/group/",
+        "pid_id": 1107,
+        "sort": 13,
+        "status": 1
+    },
     1114: {
         "id": 1114,
         "title": "奖罚管理",
@@ -392,20 +400,12 @@ system_menus = {
         "sort": 51,
         "status": 1
     },
-    1167: {
-        "id": 1167,
-        "title": "日程安排",
-        "src": "/personal/schedule/",
-        "pid_id": 1162,
-        "sort": 52,
-        "status": 1
-    },
     1169: {
         "id": 1169,
         "title": "工作日历",
-        "src": "/personal/calendar/",
+        "src": "/personal/workcalendar/",
         "pid_id": 1162,
-        "sort": 53,
+        "sort": 52,
         "status": 1
     },
     1170: {
@@ -426,107 +426,339 @@ system_menus = {
     },
     1173: {
         "id": 1173,
-        "title": "报销管理",
-        "src": "/finance/reimbursement/",
+        "title": "财务工作台",
+        "src": "/finance/",
         "pid_id": 1172,
-        "sort": 56,
+        "sort": 1,
+        "status": 1
+    },
+    1174: {
+        "id": 1174,
+        "title": "费用与付款",
+        "src": "javascript:;",
+        "pid_id": 1172,
+        "sort": 2,
         "status": 1
     },
     1175: {
         "id": 1175,
-        "title": "开票管理",
-        "src": "/finance/invoice/",
-        "pid_id": 1172,
-        "sort": 57,
+        "title": "报销管理",
+        "src": "/finance/reimbursement/",
+        "pid_id": 1174,
+        "sort": 1,
         "status": 1
     },
     1176: {
         "id": 1176,
-        "title": "收票管理",
-        "src": "/finance/receive_invoice/",
-        "pid_id": 1172,
-        "sort": 58,
+        "title": "付款管理",
+        "src": "/finance/payment/",
+        "pid_id": 1174,
+        "sort": 2,
         "status": 1
     },
     1177: {
         "id": 1177,
-        "title": "回款管理",
-        "src": "/finance/receivable/",
-        "pid_id": 1172,
-        "sort": 59,
+        "title": "费用计提",
+        "src": "/finance/advanced/expense-accrual/",
+        "pid_id": 1174,
+        "sort": 3,
         "status": 1
     },
     1178: {
         "id": 1178,
-        "title": "付款管理",
-        "src": "/finance/payable/",
+        "title": "发票与回款",
+        "src": "javascript:;",
         "pid_id": 1172,
-        "sort": 60,
+        "sort": 3,
         "status": 1
     },
     1179: {
         "id": 1179,
-        "title": "报销类型",
-        "src": "/finance/expense/",
-        "pid_id": 1172,
-        "sort": 61,
+        "title": "开票管理",
+        "src": "/finance/invoice/",
+        "pid_id": 1178,
+        "sort": 1,
         "status": 1
     },
     1180: {
         "id": 1180,
-        "title": "费用类型旧入口",
-        "src": "/finance/expense/",
-        "pid_id": 1172,
-        "sort": 62,
-        "status": 0
+        "title": "收票管理",
+        "src": "/finance/receiveinvoice/",
+        "pid_id": 1178,
+        "sort": 2,
+        "status": 1
     },
     1181: {
         "id": 1181,
-        "title": "财务统计",
-        "src": "javascript:;",
-        "pid_id": 1172,
-        "sort": 63,
+        "title": "开票申请",
+        "src": "/finance/invoice-request/",
+        "pid_id": 1178,
+        "sort": 3,
         "status": 1
     },
     1182: {
         "id": 1182,
-        "title": "报销记录",
-        "src": "/finance/statistics/reimbursement/",
-        "pid_id": 1181,
-        "sort": 64,
+        "title": "回款管理",
+        "src": "/finance/income/",
+        "pid_id": 1178,
+        "sort": 4,
         "status": 1
     },
     1183: {
         "id": 1183,
-        "title": "开票记录",
-        "src": "/finance/statistics/invoice/",
-        "pid_id": 1181,
-        "sort": 65,
+        "title": "资金与往来",
+        "src": "javascript:;",
+        "pid_id": 1172,
+        "sort": 4,
         "status": 1
     },
     1184: {
         "id": 1184,
-        "title": "收票记录",
-        "src": "/finance/statistics/receiveinvoice/",
-        "pid_id": 1181,
-        "sort": 66,
+        "title": "资金账户",
+        "src": "/finance/advanced/account/",
+        "pid_id": 1183,
+        "sort": 1,
         "status": 1
     },
     1185: {
         "id": 1185,
-        "title": "回款记录",
-        "src": "/finance/statistics/paymentreceive/",
-        "pid_id": 1181,
-        "sort": 67,
+        "title": "应收账款",
+        "src": "/finance/advanced/receivable/",
+        "pid_id": 1183,
+        "sort": 2,
         "status": 1
     },
     1186: {
         "id": 1186,
-        "title": "付款记录",
-        "src": "/finance/statistics/payment/",
-        "pid_id": 1181,
-        "sort": 68,
+        "title": "应付账款",
+        "src": "/finance/advanced/payable/",
+        "pid_id": 1183,
+        "sort": 3,
         "status": 1
+    },
+    1500: {
+        "id": 1500,
+        "title": "现金流计划",
+        "src": "/finance/advanced/cash-flow-plan/",
+        "pid_id": 1183,
+        "sort": 4,
+        "status": 1
+    },
+    1501: {
+        "id": 1501,
+        "title": "银行流水",
+        "src": "/finance/advanced/bank-transaction/",
+        "pid_id": 1183,
+        "sort": 5,
+        "status": 1
+    },
+    1502: {
+        "id": 1502,
+        "title": "银行对账",
+        "src": "/finance/advanced/bank-reconciliation/",
+        "pid_id": 1183,
+        "sort": 6,
+        "status": 1
+    },
+    1503: {
+        "id": 1503,
+        "title": "总账核算",
+        "src": "javascript:;",
+        "pid_id": 1172,
+        "sort": 5,
+        "status": 1
+    },
+    1504: {
+        "id": 1504,
+        "title": "会计科目",
+        "src": "/finance/advanced/chart-account/",
+        "pid_id": 1503,
+        "sort": 1,
+        "status": 1
+    },
+    1505: {
+        "id": 1505,
+        "title": "总账凭证",
+        "src": "/finance/advanced/ledger-voucher/",
+        "pid_id": 1503,
+        "sort": 2,
+        "status": 1
+    },
+    1506: {
+        "id": 1506,
+        "title": "凭证明细",
+        "src": "/finance/advanced/voucher-line/",
+        "pid_id": 1503,
+        "sort": 3,
+        "status": 1
+    },
+    1507: {
+        "id": 1507,
+        "title": "期间结账",
+        "src": "/finance/advanced/period-close/",
+        "pid_id": 1503,
+        "sort": 4,
+        "status": 1
+    },
+    1508: {
+        "id": 1508,
+        "title": "预算与成本",
+        "src": "javascript:;",
+        "pid_id": 1172,
+        "sort": 6,
+        "status": 1
+    },
+    1509: {
+        "id": 1509,
+        "title": "预算管理",
+        "src": "/finance/advanced/budget/",
+        "pid_id": 1508,
+        "sort": 1,
+        "status": 1
+    },
+    1510: {
+        "id": 1510,
+        "title": "成本分摊",
+        "src": "/finance/advanced/cost-allocation/",
+        "pid_id": 1508,
+        "sort": 2,
+        "status": 1
+    },
+    1511: {
+        "id": 1511,
+        "title": "订单财务",
+        "src": "/finance/order-finance/",
+        "pid_id": 1508,
+        "sort": 3,
+        "status": 1
+    },
+    1512: {
+        "id": 1512,
+        "title": "资产与税务",
+        "src": "javascript:;",
+        "pid_id": 1172,
+        "sort": 7,
+        "status": 1
+    },
+    1513: {
+        "id": 1513,
+        "title": "固定资产财务档案",
+        "src": "/finance/advanced/fixed-asset/",
+        "pid_id": 1512,
+        "sort": 1,
+        "status": 1
+    },
+    1514: {
+        "id": 1514,
+        "title": "行政资产台账",
+        "src": "/system/admin_office/asset/",
+        "pid_id": 1512,
+        "sort": 2,
+        "status": 1
+    },
+    1515: {
+        "id": 1515,
+        "title": "税务管理",
+        "src": "/finance/advanced/tax/",
+        "pid_id": 1512,
+        "sort": 3,
+        "status": 1
+    },
+    1516: {
+        "id": 1516,
+        "title": "报表分析",
+        "src": "javascript:;",
+        "pid_id": 1172,
+        "sort": 8,
+        "status": 1
+    },
+    1517: {
+        "id": 1517,
+        "title": "财务报表",
+        "src": "/finance/advanced/financial-report/",
+        "pid_id": 1516,
+        "sort": 1,
+        "status": 1
+    },
+    1518: {
+        "id": 1518,
+        "title": "财务指标",
+        "src": "/finance/advanced/financial-ratio/",
+        "pid_id": 1516,
+        "sort": 2,
+        "status": 1
+    },
+    1519: {
+        "id": 1519,
+        "title": "报销统计",
+        "src": "/finance/statistics/reimbursement/",
+        "pid_id": 1516,
+        "sort": 3,
+        "status": 1
+    },
+    1520: {
+        "id": 1520,
+        "title": "开票统计",
+        "src": "/finance/statistics/invoice/",
+        "pid_id": 1516,
+        "sort": 4,
+        "status": 1
+    },
+    1521: {
+        "id": 1521,
+        "title": "收票统计",
+        "src": "/finance/statistics/receiveinvoice/",
+        "pid_id": 1516,
+        "sort": 5,
+        "status": 1
+    },
+    1522: {
+        "id": 1522,
+        "title": "回款统计",
+        "src": "/finance/statistics/paymentreceive/",
+        "pid_id": 1516,
+        "sort": 6,
+        "status": 1
+    },
+    1523: {
+        "id": 1523,
+        "title": "付款统计",
+        "src": "/finance/statistics/payment/",
+        "pid_id": 1516,
+        "sort": 7,
+        "status": 1
+    },
+    1524: {
+        "id": 1524,
+        "title": "业务关联",
+        "src": "javascript:;",
+        "pid_id": 1172,
+        "sort": 9,
+        "status": 0
+    },
+    1525: {
+        "id": 1525,
+        "title": "客户列表",
+        "src": "/customer/",
+        "pid_id": 1524,
+        "sort": 1,
+        "status": 0
+    },
+    1526: {
+        "id": 1526,
+        "title": "客户订单",
+        "src": "/customer/orders/",
+        "pid_id": 1524,
+        "sort": 2,
+        "status": 0
+    },
+    1527: {
+        "id": 1527,
+        "title": "项目列表",
+        "src": "/project/",
+        "pid_id": 1524,
+        "sort": 3,
+        "status": 0
     },
     1187: {
         "id": 1187,
@@ -1241,10 +1473,10 @@ system_menus = {
         "sort": 5,
         "status": 1
     },
-    # 消息管理菜单 - 个人办公
+    # 在线沟通菜单 - 个人办公
     1400: {
         "id": 1400,
-        "title": "消息管理",
+        "title": "在线沟通",
         "src": "javascript:;",
         "pid_id": 1162,
         "sort": 56,
@@ -1252,8 +1484,8 @@ system_menus = {
     },
     1401: {
         "id": 1401,
-        "title": "消息中心",
-        "src": "/message/page/",
+        "title": "沟通中心",
+        "src": "/message/conversations/page/",
         "pid_id": 1400,
         "sort": 1,
         "status": 1
