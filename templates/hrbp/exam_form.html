@@ -1,0 +1,47 @@
+{% extends "home/iframe_base.html" %}{% load static %}
+{% block title %}{% if is_create %}创建考核{% else %}编辑考核{% endif %} - AI-HRBP{% endblock %}
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <a href="{% url 'hrbp:exam_list' %}" class="layui-btn layui-btn-primary layui-btn-sm"><i class="layui-icon layui-icon-left"></i> 返回列表</a>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form" style="max-width:600px;" id="examForm">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="layui-form-item">
+                <label class="layui-form-label">{{ field.label }}</label>
+                <div class="layui-input-block">{{ field }}</div>
+            </div>
+            {% endfor %}
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button type="submit" class="layui-btn" lay-submit lay-filter="submit">
+                        {% if is_create %}创建考核{% else %}保存修改{% endif %}
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+(function checkLayui() {
+    if (typeof layui !== 'undefined') {
+layui.use('form', function() {
+    var form = layui.form, $ = layui.$;
+    form.on('submit(submit)', function(data) {
+        $.post('{% if is_create %}{% url "hrbp:exam_create" %}{% else %}{% url "hrbp:exam_edit" exam.id %}{% endif %}', data.field, function(res) {
+            if (res.success) { layer.msg(res.message, {icon:1}); setTimeout(function(){ window.location.href='{% url "hrbp:exam_list" %}'; }, 1000); }
+            else { layer.msg(res.message, {icon:2}); }
+        });
+        return false;
+    });
+});
+    } else {
+        setTimeout(checkLayui, 50);
+    }
+})();
+</script>
+{% endblock %}

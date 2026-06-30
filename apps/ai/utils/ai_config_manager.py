@@ -43,7 +43,7 @@ class AIConfigManager:
         try:
             db_configs = AIModelConfig.objects.filter(
                 is_active=True
-            ).order_by('-is_default', '-updated_at', '-created_at')
+            ).order_by('-is_active', '-updated_at', '-created_at')
             for config in db_configs:
                 self._configs[config.id] = {
                     'id': config.id,
@@ -58,7 +58,7 @@ class AIConfigManager:
                     'temperature': config.temperature,
                     'top_p': config.top_p,
                     'is_active': config.is_active,
-                    'is_default': config.is_default,
+                    'is_active': config.is_active,
                     'created_at': config.created_at,
                     'updated_at': config.updated_at
                 }
@@ -123,7 +123,7 @@ class AIConfigManager:
             'temperature': float(os.environ.get('AI_TEMPERATURE', '0.7')),
             'top_p': float(os.environ.get('AI_TOP_P', '1.0')),
             'is_active': True,
-            'is_default': True,
+            'is_active': True,
         }
 
     def get_all_configs(self) -> Dict:
@@ -271,7 +271,7 @@ class AIConfigManager:
         if not chat_configs:
             return self.get_active_config()
 
-        defaults = [config for config in chat_configs if config.get('is_default')]
+        defaults = [config for config in chat_configs if config.get('is_active')]
         if defaults:
             return defaults[0]
 
@@ -365,21 +365,16 @@ def validate_model_config(model_config):
 
     # 检查必要字段
     if not model_config.name:
-        errors.append('模型名称不能为空')
+        errors.append('配置名称不能为空')
 
-    if not model_config.provider:
-        errors.append('提供商不能为空')
-
-    if model_config.provider not in ['local', 'ollama'] and not model_config.api_key:
+    if not model_config.api_key:
         errors.append('API密钥不能为空')
 
-    # 检查基础URL（某些提供商可能需要）
-    provider = model_config.provider
-    if provider not in ['local', 'ollama'] and not model_config.api_base:
-        errors.append('基础URL不能为空')
+    if not model_config.api_base:
+        errors.append('API接口地址不能为空')
 
-    if not model_config.model_type:
-        errors.append('模型类型不能为空')
+    if not model_config.image_model:
+        errors.append('图片模型名称不能为空')
 
     if len(errors) > 0:
         return {

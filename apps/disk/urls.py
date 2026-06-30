@@ -81,6 +81,10 @@ urlpatterns = [
         views.ShareDownloadView.as_view(),
         name='share_download'),
     path(
+        'share/action/',
+        views.ShareActionView.as_view(),
+        name='share_action'),
+    path(
         'share/folder/',
         views.ShareFolderView.as_view(),
         name='share_folder'),
@@ -96,6 +100,10 @@ urlpatterns = [
         'permission/',
         views.PermissionManageView.as_view(),
         name='permission_manage'),
+    path(
+        'permission/manage/',
+        views.PermissionManageLegacyView.as_view(),
+        name='permission_manage_legacy'),
     path(
         'permission/user/',
         views.UserPermissionView.as_view(),

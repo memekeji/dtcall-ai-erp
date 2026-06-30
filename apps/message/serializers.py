@@ -394,17 +394,42 @@ class ConversationMessageReceiptSerializer(serializers.ModelSerializer):
 class ConversationMessageSerializer(serializers.ModelSerializer):
     """会话消息序列化器"""
     sender = ConversationUserSerializer(read_only=True)
+    metadata = serializers.SerializerMethodField()
     receipts = ConversationMessageReceiptSerializer(many=True, read_only=True)
+    reply_to_message = serializers.SerializerMethodField()
     task_links = serializers.SerializerMethodField()
 
     class Meta:
         model = ConversationMessage
         fields = [
             'id', 'conversation', 'sender', 'message_type', 'content',
-            'metadata', 'reply_to', 'is_deleted', 'receipts', 'task_links',
-            'created_at', 'updated_at',
+            'metadata', 'reply_to', 'reply_to_message', 'is_deleted',
+            'receipts', 'task_links', 'created_at', 'updated_at',
         ]
         read_only_fields = fields
+
+    def get_metadata(self, obj):
+        metadata = dict(obj.metadata or {})
+        mention_ids = metadata.get('mentions') or []
+        if mention_ids:
+            mention_users = Admin.objects.filter(id__in=mention_ids, status=1)
+            metadata['mention_users'] = ConversationUserSerializer(
+                mention_users,
+                many=True,
+            ).data
+        return metadata
+
+    def get_reply_to_message(self, obj):
+        if not obj.reply_to:
+            return None
+        sender = obj.reply_to.sender
+        return {
+            'id': obj.reply_to.id,
+            'content': obj.reply_to.content,
+            'message_type': obj.reply_to.message_type,
+            'sender': ConversationUserSerializer(sender).data if sender else None,
+            'created_at': obj.reply_to.created_at,
+        }
 
     def get_task_links(self, obj):
         return [
@@ -425,13 +450,14 @@ class ConversationSerializer(serializers.ModelSerializer):
     last_message = ConversationMessageSerializer(read_only=True)
     unread_count = serializers.SerializerMethodField()
     display_name = serializers.SerializerMethodField()
+    is_pinned = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
         fields = [
             'id', 'conversation_type', 'name', 'display_name', 'direct_key',
             'owner', 'created_by', 'member_ids', 'members', 'last_message',
-            'last_message_at', 'unread_count', 'metadata', 'is_active',
+            'last_message_at', 'unread_count', 'is_pinned', 'metadata', 'is_active',
             'created_at', 'updated_at',
         ]
         read_only_fields = fields
@@ -467,6 +493,20 @@ class ConversationSerializer(serializers.ModelSerializer):
             status=ConversationMessageReceipt.STATUS_DELIVERED,
             message__is_deleted=False,
         ).count()
+
+    def get_is_pinned(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        annotated = getattr(obj, 'current_user_pinned', None)
+        if annotated is not None:
+            return bool(annotated)
+        return ConversationMember.objects.filter(
+            conversation=obj,
+            user=request.user,
+            left_at__isnull=True,
+            is_pinned=True,
+        ).exists()
 
     def get_display_name(self, obj):
         if obj.name:
@@ -522,14 +562,32 @@ class ConversationCreateGroupSerializer(serializers.Serializer):
 
 class ConversationSendMessageSerializer(serializers.Serializer):
     """发送会话消息参数"""
-    content = serializers.CharField(trim_whitespace=True)
+    content = serializers.CharField(trim_whitespace=True, required=False, allow_blank=True)
+    message_type = serializers.CharField(required=False, allow_blank=True)
     metadata = serializers.JSONField(required=False)
     reply_to = serializers.IntegerField(required=False, allow_null=True)
 
     def validate_content(self, value):
-        if not value.strip():
-            raise serializers.ValidationError('消息内容不能为空')
         return value.strip()
+
+    def validate(self, attrs):
+        metadata = attrs.get('metadata') or {}
+        content = (attrs.get('content') or '').strip()
+        message_type = (attrs.get('message_type') or '').strip()
+        if not content:
+            if metadata.get('type') == 'collaboration_card':
+                module_name = metadata.get('module_name') or metadata.get('module') or '协同'
+                title = metadata.get('title') or metadata.get('name') or f'#{metadata.get("item_id", "")}'
+                attrs['content'] = f'[{module_name}] {title}'.strip()
+                return attrs
+            if message_type == 'card' and metadata.get('module'):
+                module_name = metadata.get('module_name') or metadata.get('module') or '协同'
+                title = metadata.get('title') or metadata.get('name') or f'#{metadata.get("item_id", "")}'
+                attrs['content'] = f'[{module_name}] {title}'.strip()
+                return attrs
+            raise serializers.ValidationError({'content': '消息内容不能为空'})
+        attrs['content'] = content
+        return attrs
 
     def validate_reply_to(self, value):
         if not value:

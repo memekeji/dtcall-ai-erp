@@ -20,7 +20,7 @@ def get_stt_config_from_db():
         active_configs = AIModelConfig.objects.filter(
             is_active=True,
             model_type__in=['audio', 'chat', 'text']
-        ).order_by('-is_default', '-updated_at', '-created_at')
+        ).order_by('-is_active', '-updated_at', '-created_at')
         for config in active_configs:
             provider = config.provider
             if provider in ['openai', 'alibaba', 'deepseek', 'doubao', 'tencent', 'azure']:

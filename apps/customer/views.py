@@ -207,6 +207,7 @@ class CustomerListDataView(LoginRequiredMixin, View):
             customer_source = request.GET.get('customer_source', '')
             customer_grade = request.GET.get('customer_grade', '')
             customer_intent = request.GET.get('customer_intent', '')
+            customer_intent_id = request.GET.get('customer_intent_id', '')
             province = request.GET.get('province', '')
             city = request.GET.get('city', '')
             
@@ -214,6 +215,18 @@ class CustomerListDataView(LoginRequiredMixin, View):
                 queryset = queryset.filter(customer_source__title=customer_source)
             if customer_grade:
                 queryset = queryset.filter(grade_id__in=CustomerGrade.objects.filter(title=customer_grade).values_list('id', flat=True))
+            if customer_intent_id:
+                if customer_intent_id == '__uncategorized__':
+                    active_intent_ids = CustomerIntent.objects.filter(
+                        status=1,
+                        delete_time=0
+                    ).values_list('id', flat=True)
+                    queryset = queryset.exclude(services_id__in=active_intent_ids)
+                else:
+                    try:
+                        queryset = queryset.filter(services_id=int(customer_intent_id))
+                    except (TypeError, ValueError):
+                        queryset = queryset.none()
             if customer_intent:
                 queryset = queryset.filter(services_id__in=CustomerIntent.objects.filter(name=customer_intent).values_list('id', flat=True))
             if province:
@@ -227,6 +240,8 @@ class CustomerListDataView(LoginRequiredMixin, View):
                 filter_value = request.GET.get(filter_key, '')
                 if filter_value:
                     queryset = queryset.filter(custom_fields__field_id=field.id, custom_fields__value=filter_value)
+
+            queryset = queryset.distinct()
             
             # 添加预取操作
             queryset = queryset.prefetch_related(
@@ -284,9 +299,11 @@ class CustomerListDataView(LoginRequiredMixin, View):
                 
                 # 获取最近跟进时间
                 latest_followup_time = ''
+                latest_followup = ''
                 if hasattr(item, 'latest_follow_records') and item.latest_follow_records:
                     latest_follow_record = item.latest_follow_records[0]  # 按时间降序排列，第一个就是最新的
                     latest_followup_time = latest_follow_record.follow_time.strftime('%Y-%m-%d %H:%M:%S') if latest_follow_record.follow_time else ''
+                    latest_followup = latest_follow_record.content or latest_followup_time
                 
                 # 获取客户归属信息
                 customer_owner = ''
@@ -305,8 +322,10 @@ class CustomerListDataView(LoginRequiredMixin, View):
                 'create_time': item.create_time.strftime('%Y-%m-%d %H:%M:%S') if item.create_time else '',
                 'customer_source': sources_map.get(item.customer_source_id, ''),
                 'customer_grade': grades_map.get(item.grade_id, ''),
-                'customer_intent': intents_map.get(item.services_id, ''),
+                'customer_intent_id': item.services_id,
+                'customer_intent': intents_map.get(item.services_id, '未分类'),
                 'customer_owner': customer_owner,  # 添加客户归属字段
+                'latest_followup': latest_followup,
                 'latest_followup_time': latest_followup_time,
                 'intent_sort': getattr(item, 'intent_sort', 999),  # 添加意向排序值
                 # 添加实体关联计数

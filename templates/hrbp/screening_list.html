@@ -1,0 +1,238 @@
+{% extends "home/iframe_base.html" %}
+{% load static %}
+
+{% block title %}候选人筛选审批 - AI-HRBP{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-inline">
+            <a href="{% url 'hrbp:dashboard' %}" class="layui-btn layui-btn-primary layui-btn-sm">
+                <i class="layui-icon layui-icon-left"></i> 返回仪表盘
+            </a>
+        </div>
+        <div class="layui-inline" style="float:right;">
+            <button class="layui-btn layui-btn-warm layui-btn-sm" id="batchApproveBtn" disabled>
+                <i class="layui-icon layui-icon-ok"></i> 批量通过
+            </button>
+        </div>
+    </div>
+
+    <div class="layui-card-body">
+        <!-- 过滤栏 -->
+        <form method="get" class="layui-form" style="margin-bottom:16px;">
+            <div class="layui-form-item" style="margin-bottom:0;">
+                <div class="layui-input-inline" style="width:140px;">
+                    <select name="stage" lay-search>
+                        <option value="">全部阶段</option>
+                        {% for code, name in stage_choices %}
+                        <option value="{{ code }}" {% if request.GET.stage == code %}selected{% endif %}>{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="layui-input-inline" style="width:140px;">
+                    <select name="position_id" lay-search>
+                        <option value="">全部岗位</option>
+                        {% for p in positions %}
+                        <option value="{{ p.id }}" {% if request.GET.position_id == p.id|stringformat:"s" %}selected{% endif %}>{{ p.title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="layui-input-inline" style="width:200px;">
+                    <input type="text" name="search" placeholder="搜索候选人/岗位" class="layui-input" value="{{ request.GET.search }}">
+                </div>
+                <button type="submit" class="layui-btn layui-btn-primary layui-btn-sm">
+                    <i class="layui-icon layui-icon-search"></i> 筛选
+                </button>
+            </div>
+        </form>
+
+        <table class="layui-table" lay-skin="line">
+            <thead>
+                <tr>
+                    <th width="40"><input type="checkbox" lay-skin="primary" id="checkAll"></th>
+                    <th width="80">ID</th>
+                    <th width="120">候选人</th>
+                    <th width="160">岗位</th>
+                    <th width="80">匹配分</th>
+                    <th width="90">当前阶段</th>
+                    <th width="80">状态</th>
+                    <th width="130">提交时间</th>
+                    <th width="260">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pipeline in pipelines %}
+                <tr>
+                    <td><input type="checkbox" lay-skin="primary" class="pipeline-check" value="{{ pipeline.id }}"></td>
+                    <td>{{ pipeline.id }}</td>
+                    <td>
+                        <a href="{% url 'hrbp:pipeline_detail' pipeline.id %}" style="color:#1E9FFF;">
+                            {{ pipeline.resume_submission.candidate_name|default:"未知" }}
+                        </a>
+                        {% if pipeline.resume_submission.candidate_phone %}
+                        <br><small style="color:#999;">{{ pipeline.resume_submission.candidate_phone }}</small>
+                        {% endif %}
+                    </td>
+                    <td>{{ pipeline.position.title }}</td>
+                    <td>
+                        {% with report=pipeline.resume_submission.analysis_report %}
+                        {% if report %}
+                            {% if report.match_score >= 80 %}
+                            <span class="layui-badge layui-bg-green">{{ report.match_score }}</span>
+                            {% elif report.match_score >= 60 %}
+                            <span class="layui-badge layui-bg-blue">{{ report.match_score }}</span>
+                            {% else %}
+                            <span class="layui-badge layui-bg-orange">{{ report.match_score }}</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="layui-badge">--</span>
+                        {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td><span class="layui-badge layui-bg-gray">{{ pipeline.get_current_stage_display }}</span></td>
+                    <td>
+                        {% if pipeline.stage_result == 'passed' %}
+                        <span class="layui-badge layui-bg-green">通过</span>
+                        {% elif pipeline.stage_result == 'rejected' %}
+                        <span class="layui-badge">淘汰</span>
+                        {% else %}
+                        <span class="layui-badge layui-bg-orange">待处理</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ pipeline.created_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        <button class="layui-btn layui-btn-xs" onclick="viewDetail({{ pipeline.id }})">详情</button>
+                        {% if pipeline.current_stage == 'hr_review' or pipeline.current_stage == 'exam_review' %}
+                        <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="approveCandidate({{ pipeline.id }})">通过</button>
+                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="rejectCandidate({{ pipeline.id }})">淘汰</button>
+                        {% endif %}
+                        <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="sendNotify({{ pipeline.id }})">通知</button>
+                        <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="advanceStage({{ pipeline.id }})">推进</button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" style="text-align:center;padding:50px;color:#999;">
+                        <i class="layui-icon layui-icon-template" style="font-size:40px;"></i>
+                        <p>暂无候选人数据</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% include "home/pagination.html" %}
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+(function checkLayui() {
+    if (typeof layui !== 'undefined') {
+layui.use(['form', 'layer'], function() {
+    var form = layui.form, layer = layui.layer, $ = layui.$;
+
+    form.render();
+
+    // 全选
+    $('#checkAll').on('click', function() {
+        var checked = this.checked;
+        $('.pipeline-check').each(function() { this.checked = checked; });
+        updateBatchBtn();
+    });
+
+    $('.pipeline-check').on('click', updateBatchBtn);
+
+    function updateBatchBtn() {
+        var count = $('.pipeline-check:checked').length;
+        $('#batchApproveBtn').prop('disabled', count === 0).text(count > 0 ? '批量通过('+count+')' : '批量通过');
+    }
+
+    // 查看详情
+    window.viewDetail = function(id) {
+        window.location.href = '/hrbp/pipeline/' + id + '/';
+    };
+
+    // 审批通过
+    window.approveCandidate = function(id) {
+        layer.prompt({title:'审批意见', formType:2, area:['400px','200px']}, function(comment, idx) {
+            layer.close(idx);
+            $.post('/hrbp/screening/' + id + '/approve/', {
+                comment: comment,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            }, function(res) {
+                layer.msg(res.message, {icon: res.success ? 1 : 2});
+                if (res.success) setTimeout(function(){ location.reload(); }, 1200);
+            });
+        });
+    };
+
+    // 淘汰
+    window.rejectCandidate = function(id) {
+        layer.prompt({title:'淘汰原因', formType:2, area:['400px','200px']}, function(comment, idx) {
+            layer.close(idx);
+            $.post('/hrbp/screening/' + id + '/reject/', {
+                comment: comment,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            }, function(res) {
+                layer.msg(res.message, {icon: res.success ? 1 : 2});
+                if (res.success) setTimeout(function(){ location.reload(); }, 1200);
+            });
+        });
+    };
+
+    // 手动推进阶段
+    window.advanceStage = function(id) {
+        $.post('/hrbp/pipeline/' + id + '/advance/', {
+            csrfmiddlewaretoken: '{{ csrf_token }}'
+        }, function(res) {
+            layer.msg(res.message, {icon: res.success ? 1 : 2});
+            if (res.success) setTimeout(function(){ location.reload(); }, 1200);
+        });
+    };
+
+    // 发送通知
+    window.sendNotify = function(id) {
+        layer.open({
+            type:1, title:'发送通知', area:['450px','400px'],
+            content: '<div class="layui-form" style="padding:20px;">'+
+                '<div class="layui-form-item"><label class="layui-form-label">场景</label><div class="layui-input-block">'+
+                '<select id="notifyScene"><option value="interview_invite">面试邀请</option><option value="exam_invite">考核邀请</option><option value="offer_notice">Offer通知</option><option value="onboarding_notice">入职通知</option></select></div></div>'+
+                '<div class="layui-form-item" style="text-align:center;"><button class="layui-btn" onclick="doSendNotify('+id+')">确认发送</button></div></div>',
+            success: function() { layui.form.render('select'); }
+        });
+    };
+    window.doSendNotify = function(id) {
+        var scene = $('#notifyScene').val();
+        $.post('/hrbp/pipeline/' + id + '/send-notification/', {
+            scene: scene, csrfmiddlewaretoken: '{{ csrf_token }}'
+        }, function(res) {
+            layer.msg(res.message, {icon: res.success ? 1 : 2});
+            if (res.success) setTimeout(function(){ location.reload(); }, 1200);
+        });
+    };
+
+    // 批量通过
+    $('#batchApproveBtn').on('click', function() {
+        var ids = [];
+        $('.pipeline-check:checked').each(function() { ids.push(this.value); });
+        if (ids.length === 0) return layer.msg('请选择候选人', {icon: 2});
+        layer.confirm('确认批量通过 ' + ids.length + ' 名候选人？', function(idx) {
+            layer.close(idx);
+            $.post('/hrbp/screening/batch-approve/', {
+                pipeline_ids: ids,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            }, function(res) {
+                layer.msg(res.message, {icon: res.success ? 1 : 2});
+                if (res.success) setTimeout(function(){ location.reload(); }, 1500);
+            });
+        });
+    });
+});
+    } else {
+        setTimeout(checkLayui, 50);
+    }
+})();
+</script>
+{% endblock %}

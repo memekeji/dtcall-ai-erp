@@ -1,0 +1,111 @@
+﻿{% extends "home/iframe_base.html" %}
+{% load static %}
+
+{% block title %}招聘仪表盘 - AI-HRBP{% endblock %}
+
+{% block content %}
+<style>
+.dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+.stat-card { background: #fff; border-radius: 6px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); text-align: center; }
+.stat-card .stat-num { font-size: 32px; font-weight: 700; color: #1E9FFF; line-height: 1.2; }
+.stat-card .stat-label { font-size: 13px; color: #666; margin-top: 8px; }
+.stat-card.warn .stat-num { color: #FFB800; }
+.stat-card.danger .stat-num { color: #FF5722; }
+.stat-card.success .stat-num { color: #16baaa; }
+
+.pipeline-flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 20px; overflow-x: auto; }
+.pipeline-stage { padding: 8px 14px; border-radius: 20px; font-size: 12px; white-space: nowrap; background: #f2f2f2; color: #666; cursor: pointer; transition: all 0.2s; }
+.pipeline-stage:hover { background: #e6e6e6; }
+.pipeline-stage .stage-count { display: inline-block; background: #1E9FFF; color: #fff; border-radius: 10px; padding: 1px 6px; font-size: 11px; margin-left: 4px; }
+.pipeline-stage.active { background: #1E9FFF; color: #fff; }
+.pipeline-stage.active .stage-count { background: rgba(255,255,255,0.3); }
+.pipeline-stage.ai-mode { border: 1px dashed #16baaa; }
+.pipeline-stage.auto-mode { border: 1px dashed #FFB800; }
+.pipeline-stage.manual-mode { border: 1px dashed #999; }
+</style>
+
+<div class="layui-card">
+    <div class="layui-card-header">
+        <span class="layui-breadcrumb">
+            <a href="/">首页</a>
+            <a><cite>招聘仪表盘</cite></a>
+        </span>
+        <div class="layui-inline" style="float: right;">
+            <a href="{% url 'hrbp:position_list' %}" class="layui-btn layui-btn-normal layui-btn-sm">
+                <i class="layui-icon layui-icon-list"></i> 岗位管理
+            </a>
+            <a href="{% url 'hrbp:config' %}" class="layui-btn layui-btn-primary layui-btn-sm">
+                <i class="layui-icon layui-icon-set"></i> 流程配置
+            </a>
+        </div>
+    </div>
+
+    <div class="layui-card-body">
+        <!-- 统计卡片 -->
+        <div class="dashboard-grid">
+            <div class="stat-card">
+                <div class="stat-num">{{ total_candidates }}</div>
+                <div class="stat-label">总候选人数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-num">{{ total_positions }}</div>
+                <div class="stat-label">在招岗位</div>
+            </div>
+            <div class="stat-card warn">
+                <div class="stat-num">{{ pending_review }}</div>
+                <div class="stat-label">待审批</div>
+            </div>
+            <div class="stat-card success">
+                <div class="stat-num">{{ total_completed }}</div>
+                <div class="stat-label">已完成</div>
+            </div>
+            <div class="stat-card danger">
+                <div class="stat-num">{{ total_rejected }}</div>
+                <div class="stat-label">已淘汰</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-num">{{ today_new }}</div>
+                <div class="stat-label">今日新增</div>
+            </div>
+        </div>
+
+        <!-- 流程阶段统计 -->
+        <fieldset class="layui-elem-field layui-field-title">
+            <legend>招聘流程阶段</legend>
+        </fieldset>
+
+        <div class="pipeline-flow">
+            {% for code, info in stage_stats.items %}
+            <a href="{% url 'hrbp:screening_list' %}?stage={{ code }}" class="pipeline-stage
+                {% if code == 'hr_review' or code == 'exam_review' %}active{% endif %}
+                manual-mode
+            ">
+                {{ info.name }}
+                <span class="stage-count">{{ info.count }}</span>
+            </a>
+            {% if not forloop.last %}
+            <i class="layui-icon layui-icon-right" style="color:#ccc;"></i>
+            {% endif %}
+            {% endfor %}
+        </div>
+
+        <fieldset class="layui-elem-field">
+            <legend>快捷入口</legend>
+            <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                <a href="{% url 'hrbp:screening_list' %}" class="layui-btn layui-btn-warm">
+                    <i class="layui-icon layui-icon-auz"></i> 待审批候选 ({{ pending_review }})
+                </a>
+                <a href="{% url 'hrbp:interview_list' %}" class="layui-btn">
+                    <i class="layui-icon layui-icon-dialogue"></i> 面试管理
+                </a>
+                <a href="{% url 'hrbp:exam_list' %}" class="layui-btn layui-btn-normal">
+                    <i class="layui-icon layui-icon-read"></i> 在线考核
+                </a>
+                <a href="{% url 'hrbp:onboarding_list' %}" class="layui-btn layui-btn-normal">
+                    <i class="layui-icon layui-icon-user"></i> 入职管理
+                </a>
+            </div>
+        </fieldset>
+    </div>
+</div>
+{% endblock %}

@@ -298,6 +298,12 @@
             var fileType = null;
             var fileUrl = null;
             var shareCode = null;
+            var allowCopy = {% if allow_copy %}true{% else %}false{% endif %};
+            var allowScreenshot = {% if allow_screenshot %}true{% else %}false{% endif %};
+            var shareActionState = {
+                copy: false,
+                screenshot: false
+            };
 
             // 统一的URL参数解析函数
             function parseUrlParams() {
@@ -354,6 +360,8 @@
                 fileType = params.fileType;
                 shareCode = params.shareCode;
 
+                applyShareInteractionPolicy();
+
                 // 确保fileId有效
                 if (!fileId || fileId === 'None' || fileId === 'null' || fileId === '' || typeof fileId !== 'string') {
                     var numericId = window.location.href.match(/\d+/);
@@ -371,6 +379,97 @@
                     : '/disk/download/' + fileId + '/';
 
                 getPreviewData(fileId, fileName, fileType, extension, fileUrl);
+            }
+
+            function reportShareAction(action) {
+                if (!shareCode || !action) {
+                    return;
+                }
+                $.post('/disk/share/action/', {
+                    share_code: shareCode,
+                    action: action
+                });
+            }
+
+            function applyShareInteractionPolicy() {
+                if (!shareCode) {
+                    return;
+                }
+
+                if (!allowCopy) {
+                    document.body.style.userSelect = 'none';
+                    document.body.style.webkitUserSelect = 'none';
+                    document.body.style.webkitTouchCallout = 'none';
+                }
+
+                document.addEventListener('copy', function(e) {
+                    if (shareActionState.copy) {
+                        return;
+                    }
+                    shareActionState.copy = true;
+                    reportShareAction('copy');
+                    setTimeout(function() {
+                        shareActionState.copy = false;
+                    }, 600);
+
+                    if (!allowCopy) {
+                        e.preventDefault();
+                        layui.use('layer', function() {
+                            layui.layer.msg('当前分享禁止复制', {icon: 2});
+                        });
+                    }
+                });
+
+                document.addEventListener('cut', function(e) {
+                    if (!allowCopy) {
+                        e.preventDefault();
+                    }
+                });
+
+                document.addEventListener('contextmenu', function(e) {
+                    if (!allowCopy) {
+                        e.preventDefault();
+                    }
+                });
+
+                document.addEventListener('keydown', function(e) {
+                    var key = (e.key || '').toLowerCase();
+                    var isCopyShortcut = (e.ctrlKey || e.metaKey) && key === 'c';
+                    var isScreenshotShortcut = key === 'printscreen'
+                        || (e.metaKey && e.shiftKey && ['3', '4', '5'].includes(key));
+
+                    if (isCopyShortcut) {
+                        if (!shareActionState.copy) {
+                            shareActionState.copy = true;
+                            reportShareAction('copy');
+                            setTimeout(function() {
+                                shareActionState.copy = false;
+                            }, 600);
+                        }
+                        if (!allowCopy) {
+                            e.preventDefault();
+                            layui.use('layer', function() {
+                                layui.layer.msg('当前分享禁止复制', {icon: 2});
+                            });
+                        }
+                    }
+
+                    if (isScreenshotShortcut) {
+                        if (!shareActionState.screenshot) {
+                            shareActionState.screenshot = true;
+                            reportShareAction('screenshot');
+                            setTimeout(function() {
+                                shareActionState.screenshot = false;
+                            }, 600);
+                        }
+                        if (!allowScreenshot) {
+                            e.preventDefault();
+                            layui.use('layer', function() {
+                                layui.layer.msg('当前分享禁止截图，已记录本次操作', {icon: 2});
+                            });
+                        }
+                    }
+                });
             }
 
             // 文件类型常量定义

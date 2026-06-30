@@ -4,9 +4,12 @@
 """
 
 import logging
+from datetime import timedelta
 from typing import Dict, Any
 from django.db import models
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +93,28 @@ class QueryService:
             'inventory_list': self.handle_inventory_list,
             'followup_count': self.handle_followup_count,
             'followup_list': self.handle_followup_list,
+            'approval_count': self.handle_approval_count,
+            'approval_list': self.handle_approval_list,
+            'approval_flow_count': self.handle_approval_flow_count,
+            'approval_flow_list': self.handle_approval_flow_list,
+            'approval_task_count': self.handle_approval_task_count,
+            'approval_task_list': self.handle_approval_task_list,
+            'task_count': self.handle_task_count,
+            'task_list': self.handle_task_list,
+            'message_count': self.handle_message_count,
+            'message_list': self.handle_message_list,
+            'notice_count': self.handle_notice_count,
+            'notice_list': self.handle_notice_list,
+            'meeting_count': self.handle_meeting_count,
+            'meeting_list': self.handle_meeting_list,
+            'schedule_count': self.handle_schedule_count,
+            'schedule_list': self.handle_schedule_list,
+            'disk_count': self.handle_disk_count,
+            'disk_list': self.handle_disk_list,
+            'disk_folder_count': self.handle_disk_folder_count,
+            'disk_folder_list': self.handle_disk_folder_list,
+            'disk_share_count': self.handle_disk_share_count,
+            'disk_share_list': self.handle_disk_share_list,
         }
 
         # 权限映射
@@ -107,6 +132,19 @@ class QueryService:
             'product': 'contract.view_product',
             'inventory': 'inventory.view_inventory',
             'followup': 'customer.view_followrecord',
+            'disk': 'disk.view_disk_file',
+            'disk_folder': 'disk.view_disk_folder',
+            'disk_share': 'disk.view_share',
+            'approval': 'approval.view_approval',
+            'approval_flow': 'approval.view_approvalflow',
+            'approval_task': 'approval.view_approvaltask',
+            'task': 'task.view_task',
+            'workhour': 'task.view_workhour',
+            'message': 'message.view_message',
+            'notice': 'user.view_notice',
+            'document': 'oa.view_document',
+            'meeting': 'oa.view_meetingrecord',
+            'schedule': '__authenticated__',
         }
         self.specific_intent_permissions = {
             'customer_count': 'customer.view_customer',
@@ -147,6 +185,28 @@ class QueryService:
             'inventory_list': 'inventory.view_inventory',
             'followup_count': 'customer.view_followrecord',
             'followup_list': 'customer.view_followrecord',
+            'disk_count': 'disk.view_disk_file',
+            'disk_list': 'disk.view_disk_file',
+            'disk_folder_count': 'disk.view_disk_folder',
+            'disk_folder_list': 'disk.view_disk_folder',
+            'disk_share_count': 'disk.view_share',
+            'disk_share_list': 'disk.view_share',
+            'approval_count': 'approval.view_approval',
+            'approval_list': 'approval.view_approval',
+            'approval_flow_count': 'approval.view_approvalflow',
+            'approval_flow_list': 'approval.view_approvalflow',
+            'approval_task_count': 'approval.view_approvaltask',
+            'approval_task_list': 'approval.view_approvaltask',
+            'task_count': 'task.view_task',
+            'task_list': 'task.view_task',
+            'message_count': 'message.view_message',
+            'message_list': 'message.view_message',
+            'notice_count': 'user.view_notice',
+            'notice_list': 'user.view_notice',
+            'meeting_count': 'oa.view_meetingrecord',
+            'meeting_list': 'oa.view_meetingrecord',
+            'schedule_count': '__authenticated__',
+            'schedule_list': '__authenticated__',
         }
 
     def process_query(
@@ -273,6 +333,19 @@ class QueryService:
             'product': {'count': 'product_count', 'list': 'product_list'},
             'inventory': {'count': 'inventory_count', 'list': 'inventory_list'},
             'followup': {'count': 'followup_count', 'list': 'followup_list'},
+            'disk': {'count': 'disk_count', 'list': 'disk_list'},
+            'disk_folder': {'count': 'disk_folder_count', 'list': 'disk_folder_list'},
+            'disk_share': {'count': 'disk_share_count', 'list': 'disk_share_list'},
+            'approval': {'count': 'approval_count', 'list': 'approval_list'},
+            'approval_flow': {'count': 'approval_flow_count', 'list': 'approval_flow_list'},
+            'approval_task': {'count': 'approval_task_count', 'list': 'approval_task_list'},
+            'task': {'count': 'task_count', 'list': 'task_list'},
+            'workhour': {'count': None, 'list': None},
+            'message': {'count': 'message_count', 'list': 'message_list'},
+            'notice': {'count': 'notice_count', 'list': 'notice_list'},
+            'document': {'count': None, 'list': None},
+            'meeting': {'count': 'meeting_count', 'list': 'meeting_list'},
+            'schedule': {'count': 'schedule_count', 'list': 'schedule_list'},
         }
         return mapping.get(data_type, {}).get(action_type)
 
@@ -294,6 +367,78 @@ class QueryService:
         # 通用问候意图
         if any(keyword in query_lower for keyword in ['你好', '您好', 'hi', 'hello', '早上好', '下午好', '晚上好']):
             intent = 'greeting'
+        elif any(keyword in query_lower for keyword in ['网盘分享', '文件分享', '分享链接', '共享链接', '分享码', '提取码']):
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'disk_share_count'
+            else:
+                intent = 'disk_share_list'
+        elif any(keyword in query_lower for keyword in ['网盘文件夹', '共享文件夹', '文件夹']):
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'disk_folder_count'
+            else:
+                intent = 'disk_folder_list'
+        elif any(keyword in query_lower for keyword in ['网盘', '共享文件', '共享资料', '文件', '资料', '附件']):
+            if '收藏' in query_lower or '星标' in query_lower:
+                entities['status'] = 'starred'
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'disk_count'
+            else:
+                intent = 'disk_list'
+        elif any(keyword in query_lower for keyword in ['待审批', '待办审批', '审批任务', '待办流程']):
+            entities['status'] = 'pending'
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'approval_task_count'
+            else:
+                intent = 'approval_task_list'
+        elif any(keyword in query_lower for keyword in ['审批流', '审批流程', '流程配置', '流程模板']):
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'approval_flow_count'
+            else:
+                intent = 'approval_flow_list'
+        elif '审批' in query_lower or '流程' in query_lower:
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'approval_count'
+            else:
+                intent = 'approval_list'
+        elif '消息' in query_lower or '站内信' in query_lower or '通知消息' in query_lower:
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'message_count'
+            else:
+                intent = 'message_list'
+        elif '公告' in query_lower or '通知公告' in query_lower:
+            if '已发布' in query_lower:
+                entities['status'] = 'published'
+            elif '未发布' in query_lower or '草稿' in query_lower:
+                entities['status'] = 'draft'
+            elif '置顶' in query_lower:
+                entities['status'] = 'top'
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'notice_count'
+            else:
+                intent = 'notice_list'
+        elif '会议' in query_lower or '会议纪要' in query_lower:
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'meeting_count'
+            else:
+                intent = 'meeting_list'
+        elif (
+                '日程' in query_lower or
+                '排期' in query_lower or
+                ('安排' in query_lower and not any(keyword in query_lower for keyword in ['会议', '审批', '流程', '通知公告']))
+        ):
+            if '外勤' in query_lower:
+                entities['labor_type'] = 2
+            elif '案头' in query_lower or '办公室' in query_lower:
+                entities['labor_type'] = 1
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'schedule_count'
+            else:
+                intent = 'schedule_list'
+        elif ('任务' in query_lower or '待办' in query_lower) and '生产' not in query_lower:
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'task_count'
+            else:
+                intent = 'task_list'
         # 订单相关意图（优先于客户相关意图，因为订单查询可能包含客户名称）
         elif '订单' in query_lower:
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower):
@@ -547,7 +692,7 @@ class QueryService:
                     intent = 'finance_order_record_list'
 
         # 生产相关意图
-        elif '生产' in query_lower or '计划' in query_lower or '任务' in query_lower or '设备' in query_lower or '工序' in query_lower:
+        elif '生产' in query_lower or '生产计划' in query_lower or '生产任务' in query_lower or '设备' in query_lower or '工序' in query_lower:
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower):
                 if '计划' in query_lower:
                     intent = 'production_plan_count'
@@ -557,7 +702,7 @@ class QueryService:
                     intent = 'production_equipment_count'
                 elif '工序' in query_lower:
                     intent = 'production_procedure_count'
-            elif '列表' in query_lower or '有哪些' in query_lower:
+            elif '列表' in query_lower or '有哪些' in query_lower or '查询' in query_lower or '查看' in query_lower or '查' in query_lower or '看' in query_lower:
                 if '计划' in query_lower:
                     intent = 'production_plan_list'
                 elif '任务' in query_lower:
@@ -593,6 +738,9 @@ class QueryService:
             logger.info(f"用户 {user.username} 访问 data_query 高层意图，允许访问")
             return True
 
+        if intent in {'greeting', 'ai_chat'}:
+            return True
+
         # 1. 基于具体意图的权限检查
         permission = self.specific_intent_permissions.get(intent)
         if not permission:
@@ -600,6 +748,10 @@ class QueryService:
             permission = self.permission_mapping.get(data_type)
 
         if permission:
+            if permission == '__authenticated__':
+                has_access = bool(getattr(user, 'is_authenticated', False))
+                logger.info(f"用户 {user.username} 访问 {intent} 登录态检查结果: {has_access}")
+                return has_access
             # 2. 使用Django内置权限系统检查
             has_perm = user.has_perm(permission)
             logger.info(f"用户 {user.username} 访问 {intent} 权限检查结果: {has_perm}")
@@ -2243,6 +2395,387 @@ class QueryService:
             'data_type': 'followup'
         }
 
+    def handle_approval_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.approval.models import Approval
+        queryset = self._filter_approval_queryset(Approval.objects.all(), user)
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'approval',
+        }
+
+    def handle_approval_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.approval.models import Approval
+        queryset = self._filter_approval_queryset(
+            Approval.objects.select_related('flow', 'reviewer'),
+            user,
+        )
+        items = []
+        for item in queryset.order_by('-create_time')[:5]:
+            items.append({
+                'id': item.id,
+                'title': item.title,
+                'status': item.get_status_display() if hasattr(item, 'get_status_display') else item.status,
+                'applicant': item.applicant_id,
+                'reviewer': item.reviewer.username if item.reviewer else '',
+            })
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'approval',
+        }
+
+    def handle_approval_flow_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.approval.models import ApprovalFlow
+        queryset = ApprovalFlow.objects.all()
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'approval_flow',
+        }
+
+    def handle_approval_flow_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.approval.models import ApprovalFlow
+        queryset = ApprovalFlow.objects.select_related('approval_type').all()
+        items = [{
+            'id': item.id,
+            'name': item.name,
+            'code': item.code,
+            'status': '启用' if item.is_active else '停用',
+        } for item in queryset.order_by('-created_at')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'approval_flow',
+        }
+
+    def handle_approval_task_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.approval.models import ApprovalTask
+        queryset = self._filter_approval_task_queryset(ApprovalTask.objects.all(), user)
+        if entities.get('status') in {'pending', '待处理', '待审批'}:
+            queryset = queryset.filter(status='pending')
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'approval_task',
+            'status': entities.get('status'),
+        }
+
+    def handle_approval_task_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.approval.models import ApprovalTask
+        queryset = self._filter_approval_task_queryset(
+            ApprovalTask.objects.select_related('approval', 'handler', 'step'),
+            user,
+        )
+        if entities.get('status') in {'pending', '待处理', '待审批'}:
+            queryset = queryset.filter(status='pending')
+        items = []
+        for item in queryset.order_by('-created_at')[:5]:
+            items.append({
+                'id': item.id,
+                'title': item.approval.title if item.approval else '未知审批',
+                'status': item.get_status_display() if hasattr(item, 'get_status_display') else item.status,
+                'handler': item.handler.username if item.handler else '',
+            })
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'approval_task',
+            'status': entities.get('status'),
+        }
+
+    def handle_task_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.task.models import Task
+        queryset = self._filter_task_queryset(Task.objects.all(), user)
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'task',
+        }
+
+    def handle_task_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.task.models import Task
+        queryset = self._filter_task_queryset(Task.objects.select_related('assignee'), user)
+        items = [{
+            'id': item.id,
+            'title': item.title,
+            'status': item.get_status_display() if hasattr(item, 'get_status_display') else item.status,
+            'assignee': item.assignee.username if item.assignee else '',
+        } for item in queryset.order_by('-created_at')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'task',
+        }
+
+    def handle_message_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.message.models import Message
+        queryset = self._filter_message_queryset(Message.objects.filter(is_active=True), user)
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'message',
+        }
+
+    def handle_message_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.message.models import Message
+        queryset = self._filter_message_queryset(
+            Message.objects.select_related('sender').filter(is_active=True),
+            user,
+        )
+        items = [{
+            'id': item.id,
+            'title': item.title,
+            'sender': item.sender.username if item.sender else '',
+            'is_read': False,
+        } for item in queryset.order_by('-created_at')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'message',
+        }
+
+    def handle_notice_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import Notice
+
+        queryset = self._filter_notice_queryset(Notice.objects.all(), user)
+        queryset = self._apply_notice_filters(queryset, entities)
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'notice',
+            'status': entities.get('status'),
+        }
+
+    def handle_notice_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import Notice
+
+        queryset = self._filter_notice_queryset(
+            Notice.objects.select_related('author').prefetch_related('target_users', 'target_departments'),
+            user,
+        )
+        queryset = self._apply_notice_filters(queryset, entities)
+        items = [{
+            'id': item.id,
+            'title': item.title,
+            'notice_type': item.get_notice_type_display() if hasattr(item, 'get_notice_type_display') else item.notice_type,
+            'author': item.author.username if item.author else '',
+            'is_published': item.is_published,
+            'is_top': item.is_top,
+            'publish_time': item.publish_time.strftime('%Y-%m-%d %H:%M') if item.publish_time else '',
+        } for item in queryset.order_by('-is_top', '-publish_time', '-created_at')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'notice',
+            'status': entities.get('status'),
+        }
+
+    def handle_meeting_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.oa.models import MeetingRecord
+        queryset = self._filter_meeting_queryset(MeetingRecord.objects.all(), user)
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'meeting',
+        }
+
+    def handle_meeting_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.oa.models import MeetingRecord
+        queryset = self._filter_meeting_queryset(
+            MeetingRecord.objects.select_related('host', 'recorder', 'room'),
+            user,
+        )
+        items = [{
+            'id': item.id,
+            'title': item.title,
+            'status': item.get_status_display() if hasattr(item, 'get_status_display') else item.status,
+            'host': item.host.username if item.host else '',
+        } for item in queryset.order_by('-meeting_date')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'meeting',
+        }
+
+    def handle_schedule_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.oa.models import Schedule
+
+        queryset = self._filter_schedule_queryset(
+            Schedule.objects.filter(delete_time=0),
+            user,
+        )
+        queryset = self._apply_schedule_filters(queryset, entities)
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'schedule',
+        }
+
+    def handle_schedule_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.oa.models import Schedule
+
+        queryset = self._filter_schedule_queryset(
+            Schedule.objects.filter(delete_time=0),
+            user,
+        )
+        queryset = self._apply_schedule_filters(queryset, entities)
+        ordered_items = list(queryset.order_by('-start_time')[:5])
+
+        admin_ids = {item.admin_id for item in ordered_items}
+        user_model = get_user_model()
+        admin_map = {
+            admin.id: admin for admin in user_model.objects.filter(id__in=admin_ids)
+        } if admin_ids else {}
+        items = []
+        for item in ordered_items:
+            admin = admin_map.get(item.admin_id)
+            items.append({
+                'id': item.id,
+                'title': item.title,
+                'start_time': item.start_time.strftime('%Y-%m-%d %H:%M') if item.start_time else '',
+                'end_time': item.end_time.strftime('%Y-%m-%d %H:%M') if item.end_time else '',
+                'labor_time': item.labor_time,
+                'labor_type': '案头工作' if item.labor_type == 1 else '外勤工作',
+                'admin_name': getattr(admin, 'username', '') if admin else '',
+            })
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'schedule',
+        }
+
+    def handle_disk_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.disk.models import DiskFile
+        queryset = self._filter_disk_file_queryset(DiskFile.objects.filter(delete_time__isnull=True), user)
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'disk',
+        }
+
+    def handle_disk_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.disk.models import DiskFile
+        queryset = self._filter_disk_file_queryset(
+            DiskFile.objects.select_related('folder', 'owner', 'department').filter(delete_time__isnull=True),
+            user,
+        )
+        status = entities.get('status')
+        if status == 'starred':
+            queryset = queryset.filter(is_starred=True)
+        items = list(queryset.order_by('-update_time')[:5])
+        disk_items = [{
+            'id': item.id,
+            'name': item.name,
+            'folder': item.folder.name if item.folder else '',
+            'owner': item.owner.username if item.owner else '',
+            'is_public': item.is_public,
+            'size': item.get_size_display() if hasattr(item, 'get_size_display') else '',
+        } for item in items]
+        return {
+            'type': 'list',
+            'items': disk_items,
+            'total': queryset.count(),
+            'data_type': 'disk',
+            'status': status,
+        }
+
+    def handle_disk_folder_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.disk.models import DiskFolder
+        queryset = self._filter_disk_folder_queryset(
+            DiskFolder.objects.filter(delete_time__isnull=True),
+            user,
+        )
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'disk_folder',
+        }
+
+    def handle_disk_folder_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.disk.models import DiskFolder
+        queryset = self._filter_disk_folder_queryset(
+            DiskFolder.objects.select_related('parent', 'owner', 'department').filter(delete_time__isnull=True),
+            user,
+        )
+        items = [{
+            'id': item.id,
+            'name': item.name,
+            'folder': item.parent.name if item.parent else '',
+            'owner': item.owner.username if item.owner else '',
+            'is_public': item.is_public,
+        } for item in queryset.order_by('-update_time')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'disk_folder',
+        }
+
+    def handle_disk_share_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.disk.models import DiskShare
+        queryset = self._filter_disk_share_queryset(DiskShare.objects.all(), user)
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'disk_share',
+        }
+
+    def handle_disk_share_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.disk.models import DiskShare
+        queryset = self._filter_disk_share_queryset(
+            DiskShare.objects.select_related('file', 'folder', 'creator'),
+            user,
+        )
+        items = list(queryset.order_by('-create_time')[:5])
+        share_items = []
+        for item in items:
+            source = item.file.name if item.file else (item.folder.name if item.folder else '')
+            share_items.append({
+                'id': item.id,
+                'name': source or '未知',
+                'permission_type': item.permission_type,
+                'share_type': item.share_type,
+                'is_active': item.is_active,
+                'creator': item.creator.username if item.creator else '',
+            })
+        return {
+            'type': 'list',
+            'items': share_items,
+            'total': queryset.count(),
+            'data_type': 'disk_share',
+        }
+
     def format_result(self, result: Dict[str, Any]) -> str:
         """格式化查询结果为自然语言
 
@@ -2290,6 +2823,13 @@ class QueryService:
             'production_task': '生产任务',
             'production_equipment': '生产设备',
             'production_procedure': '生产工序',
+            'approval_flow': '审批流程',
+            'approval_task': '待办审批',
+            'meeting': '会议',
+            'schedule': '工作日程',
+            'disk': '网盘文件',
+            'disk_folder': '网盘文件夹',
+            'disk_share': '网盘分享',
             'supplier': '供应商',
             'product': '产品',
             'inventory': '库存',
@@ -2441,6 +2981,23 @@ class QueryService:
                 if assignee:
                     return f"{title}（{assignee}，{status}）"
                 return f"{title}（{status}）"
+            elif data_type == 'notice':
+                title = item.get('title', '未知')
+                notice_type = item.get('notice_type', '')
+                if item.get('is_top'):
+                    notice_type = f"置顶{notice_type}" if notice_type else '置顶'
+                if notice_type:
+                    return f"{title}（{notice_type}）"
+                return title
+            elif data_type == 'schedule':
+                title = item.get('title', '未知')
+                start_time = item.get('start_time', '')
+                labor_type = item.get('labor_type', '')
+                if start_time and labor_type:
+                    return f"{title}（{start_time}，{labor_type}）"
+                if start_time:
+                    return f"{title}（{start_time}）"
+                return title
             elif data_type == 'workhour':
                 task = item.get('task', '未知')
                 hours = item.get('hours', 0)
@@ -2507,6 +3064,20 @@ class QueryService:
                 if applicant:
                     return f"{title}（{applicant}，{status}）"
                 return f"{title}（{status}）"
+            elif data_type == 'approval_flow':
+                name = item.get('name', '未知')
+                code = item.get('code', '')
+                status = item.get('status', '')
+                if code:
+                    return f"{name}（{code}，{status}）"
+                return f"{name}（{status}）"
+            elif data_type == 'approval_task':
+                title = item.get('title', '未知')
+                status = item.get('status', '')
+                handler = item.get('handler', '')
+                if handler:
+                    return f"{title}（{handler}，{status}）"
+                return f"{title}（{status}）"
             elif data_type == 'notice':
                 title = item.get('title', '未知')
                 publisher = item.get('publisher', '')
@@ -2534,6 +3105,13 @@ class QueryService:
                 status = '已读' if is_read else '未读'
                 if sender:
                     return f"{title}（{sender}，{status}）"
+                return f"{title}（{status}）"
+            elif data_type == 'meeting':
+                title = item.get('title', '未知')
+                status = item.get('status', '')
+                host = item.get('host', '')
+                if host:
+                    return f"{title}（{host}，{status}）"
                 return f"{title}（{status}）"
             elif data_type == 'employee':
                 name = item.get('name', '未知')
@@ -2573,6 +3151,31 @@ class QueryService:
                 if code:
                     return f"{name}（{code}，标准工时{time}小时）"
                 return f"{name}（标准工时{time}小时）"
+            elif data_type == 'disk':
+                name = item.get('name', '未知')
+                folder = item.get('folder', '')
+                owner = item.get('owner', '')
+                if folder and owner:
+                    return f"{name}（{folder}，{owner}）"
+                if folder:
+                    return f"{name}（{folder}）"
+                return name
+            elif data_type == 'disk_folder':
+                name = item.get('name', '未知')
+                owner = item.get('owner', '')
+                folder = item.get('folder', '')
+                if folder and owner:
+                    return f"{name}（上级：{folder}，{owner}）"
+                if owner:
+                    return f"{name}（{owner}）"
+                return name
+            elif data_type == 'disk_share':
+                name = item.get('name', '未知')
+                permission_type = item.get('permission_type', '')
+                share_type = item.get('share_type', '')
+                if permission_type:
+                    return f"{name}（{share_type}，{permission_type}）"
+                return f"{name}（{share_type}）"
             else:
                 return item.get(
                     'name', item.get(
@@ -2581,6 +3184,211 @@ class QueryService:
         except Exception as e:
             logger.warning(f"格式化列表项失败: {e}")
             return item.get('name', item.get('id', '未知'))
+
+    def _filter_approval_queryset(self, queryset, user):
+        from django.db.models import Q
+
+        if getattr(user, 'is_superuser', False):
+            return queryset
+        return queryset.filter(
+            Q(applicant_id=getattr(user, 'id', None)) |
+            Q(reviewer=user) |
+            Q(tasks__handler=user)
+        ).distinct()
+
+    def _filter_approval_task_queryset(self, queryset, user):
+        if getattr(user, 'is_superuser', False):
+            return queryset
+        return queryset.filter(handler=user)
+
+    def _filter_task_queryset(self, queryset, user):
+        if getattr(user, 'is_superuser', False):
+            return queryset
+        return queryset.filter(assignee_id=getattr(user, 'id', None))
+
+    def _filter_message_queryset(self, queryset, user):
+        from django.db.models import Q
+
+        if getattr(user, 'is_superuser', False):
+            return queryset
+        return queryset.filter(
+            Q(user=user) |
+            Q(is_broadcast=True) |
+            Q(user_relations__user=user)
+        ).distinct()
+
+    def _filter_meeting_queryset(self, queryset, user):
+        from django.db.models import Q
+
+        if getattr(user, 'is_superuser', False):
+            return queryset
+        return queryset.filter(
+            Q(host=user) |
+            Q(recorder=user) |
+            Q(participants=user) |
+            Q(attendees=user) |
+            Q(shared_users=user)
+        ).distinct()
+
+    def _filter_notice_queryset(self, queryset, user):
+        from django.db.models import Q
+
+        if getattr(user, 'is_superuser', False):
+            return queryset
+
+        user_dept_id = self._get_user_department_id(user)
+        now = timezone.now()
+        published_scope = (
+            Q(is_published=True) &
+            (Q(expire_time__isnull=True) | Q(expire_time__gte=now)) &
+            (
+                Q(target_users__id=user.id) |
+                (Q(target_departments__id=user_dept_id) if user_dept_id else Q(pk__in=[])) |
+                (Q(target_users__isnull=True) & Q(target_departments__isnull=True))
+            )
+        )
+        return queryset.filter(
+            Q(author=user) |
+            published_scope
+        ).distinct()
+
+    def _filter_schedule_queryset(self, queryset, user):
+        if getattr(user, 'is_superuser', False):
+            return queryset
+        return queryset.filter(admin_id=getattr(user, 'id', None))
+
+    def _filter_disk_folder_queryset(self, queryset, user):
+        from django.db.models import Q
+
+        if getattr(user, 'is_superuser', False):
+            return queryset
+
+        user_dept_id = self._get_user_department_id(user)
+        return queryset.filter(
+            Q(owner=user) |
+            Q(shared_users__id=user.id) |
+            (Q(shared_departments__id=user_dept_id) if user_dept_id else Q()) |
+            Q(parent__shared_users__id=user.id) |
+            (Q(parent__shared_departments__id=user_dept_id) if user_dept_id else Q())
+        ).distinct()
+
+    def _filter_disk_file_queryset(self, queryset, user):
+        from django.db.models import Q
+        from apps.disk.models import DiskFolder
+
+        if getattr(user, 'is_superuser', False):
+            return queryset
+
+        user_dept_id = self._get_user_department_id(user)
+        shared_folder_ids = list(
+            DiskFolder.objects.filter(
+                Q(shared_users__id=user.id) |
+                Q(shared_departments__id=user_dept_id) if user_dept_id else Q(shared_users__id=user.id)
+            ).values_list('id', flat=True).distinct()
+        )
+        return queryset.filter(
+            Q(owner=user) |
+            Q(shared_users__id=user.id) |
+            (Q(shared_departments__id=user_dept_id) if user_dept_id else Q()) |
+            Q(folder__shared_users__id=user.id) |
+            (Q(folder__shared_departments__id=user_dept_id) if user_dept_id else Q()) |
+            Q(folder__id__in=shared_folder_ids)
+        ).distinct()
+
+    def _filter_disk_share_queryset(self, queryset, user):
+        from django.db.models import Q
+
+        if getattr(user, 'is_superuser', False):
+            return queryset
+        user_dept_id = self._get_user_department_id(user)
+        return queryset.filter(
+            Q(creator=user) |
+            Q(file__owner=user) |
+            Q(folder__owner=user) |
+            Q(file__shared_users__id=user.id) |
+            Q(folder__shared_users__id=user.id) |
+            (Q(file__shared_departments__id=user_dept_id) if user_dept_id else Q()) |
+            (Q(folder__shared_departments__id=user_dept_id) if user_dept_id else Q())
+        ).distinct()
+
+    def _get_user_department_id(self, user):
+        dept_id = getattr(user, 'did', None)
+        if dept_id:
+            return dept_id
+        employee = getattr(user, 'employee', None)
+        return getattr(employee, 'department_id', None)
+
+    def _apply_notice_filters(self, queryset, entities):
+        status = entities.get('status')
+        if status == 'published':
+            queryset = queryset.filter(is_published=True)
+        elif status == 'draft':
+            queryset = queryset.filter(is_published=False)
+        elif status == 'top':
+            queryset = queryset.filter(is_top=True)
+
+        keyword = entities.get('keyword') or entities.get('keywords')
+        if keyword:
+            queryset = queryset.filter(
+                models.Q(title__icontains=keyword) |
+                models.Q(content__icontains=keyword)
+            )
+
+        time_range = entities.get('time_range')
+        if time_range:
+            start_at, end_at = self._resolve_time_range(time_range)
+            if start_at and end_at:
+                queryset = queryset.filter(created_at__range=(start_at, end_at))
+        return queryset
+
+    def _apply_schedule_filters(self, queryset, entities):
+        labor_type = entities.get('labor_type')
+        if labor_type:
+            queryset = queryset.filter(labor_type=labor_type)
+
+        keyword = entities.get('keyword') or entities.get('keywords')
+        if keyword:
+            queryset = queryset.filter(
+                models.Q(title__icontains=keyword) |
+                models.Q(content__icontains=keyword)
+            )
+
+        time_range = entities.get('time_range')
+        if time_range:
+            start_at, end_at = self._resolve_time_range(time_range)
+            if start_at and end_at:
+                queryset = queryset.filter(start_time__range=(start_at, end_at))
+        return queryset
+
+    def _resolve_time_range(self, time_range):
+        now = timezone.now()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        if time_range == 'today':
+            return today_start, today_start + timedelta(days=1)
+        if time_range == 'yesterday':
+            return today_start - timedelta(days=1), today_start
+        if time_range == 'this_week':
+            start = today_start - timedelta(days=today_start.weekday())
+            return start, start + timedelta(days=7)
+        if time_range == 'last_week':
+            end = today_start - timedelta(days=today_start.weekday())
+            return end - timedelta(days=7), end
+        if time_range == 'this_month':
+            start = today_start.replace(day=1)
+            if start.month == 12:
+                end = start.replace(year=start.year + 1, month=1)
+            else:
+                end = start.replace(month=start.month + 1)
+            return start, end
+        if time_range == 'last_month':
+            current_month_start = today_start.replace(day=1)
+            last_month_end = current_month_start
+            last_month_start = (current_month_start - timedelta(days=1)).replace(day=1)
+            return last_month_start, last_month_end
+        if time_range == 'recent':
+            return now - timedelta(days=30), now
+        return None, None
 
 
 # 全局查询服务实例

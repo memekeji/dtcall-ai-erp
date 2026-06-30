@@ -127,6 +127,120 @@ class EnhancedIntentService:
             'available': False,
             'unavailable_reason': '库存模块当前未接入系统根路由，请先完成模块接入后再进入业务页面操作',
         },
+        'approval': {
+            'name': '审批',
+            'module': '审批管理',
+            'list_url': '/approval/my/',
+            'create_url': '/approval/apply/',
+            'edit_url_template': '/approval/{id}/process/',
+            'permission_base': 'approval',
+            'available': False,
+            'unavailable_reason': '审批模块当前未配置统一权限节点，已阻止从 AI 直接进入写操作',
+        },
+        'approval_flow': {
+            'name': '审批流程',
+            'module': '审批管理',
+            'list_url': '/approval/approvalflow/',
+            'create_url': '/approval/approvalflow/add/',
+            'edit_url_template': '/approval/approvalflow/{id}/edit/',
+            'permission_base': 'approval_flow',
+            'available': False,
+            'unavailable_reason': '审批流程模块当前未配置统一权限节点，已阻止从 AI 直接进入写操作',
+        },
+        'approval_task': {
+            'name': '待办审批',
+            'module': '审批管理',
+            'list_url': '/approval/pending/',
+            'create_url': None,
+            'edit_url_template': '/approval/{id}/process/',
+            'permission_base': 'approval',
+            'available': False,
+            'unavailable_reason': '审批任务模块当前未配置统一权限节点，已阻止从 AI 直接进入写操作',
+        },
+        'task': {
+            'name': '任务',
+            'module': '任务管理',
+            'list_url': '/task/',
+            'create_url': '/task/add/',
+            'edit_url_template': '/task/edit/{id}/',
+            'permission_base': 'task',
+        },
+        'workhour': {
+            'name': '工时',
+            'module': '任务管理',
+            'list_url': '/task/workhour/',
+            'create_url': '/task/workhour/add/',
+            'edit_url_template': '/task/workhour/edit/{id}/',
+            'permission_base': 'workhour',
+        },
+        'message': {
+            'name': '站内消息',
+            'module': '消息中心',
+            'list_url': '/message/page/',
+            'create_url': None,
+            'edit_url_template': None,
+            'permission_base': 'message',
+        },
+        'notice': {
+            'name': '通知公告',
+            'module': '办公管理',
+            'list_url': '/system/admin_office/notice/',
+            'create_url': '/system/admin_office/notice/create/',
+            'edit_url_template': '/system/admin_office/notice/{id}/update/',
+            'permission_base': 'notice',
+        },
+        'meeting': {
+            'name': '会议',
+            'module': '办公管理',
+            'list_url': '/oa/meeting/list/',
+            'create_url': '/oa/meeting/apply/',
+            'edit_url_template': '/oa/meeting/view/{id}/',
+            'permission_base': 'meeting_record',
+        },
+        'schedule': {
+            'name': '工作日程',
+            'module': '个人办公',
+            'list_url': '/oa/schedule/',
+            'create_url': '/oa/schedule/add/',
+            'edit_url_template': '/oa/schedule/view/{id}/',
+            'permission_base': 'work_calendar',
+        },
+        'document': {
+            'name': '文档',
+            'module': '公文管理',
+            'list_url': '/oa/document/view/',
+            'create_url': '/oa/document/draft/add/',
+            'edit_url_template': None,
+            'permission_base': 'document',
+            'available': False,
+            'unavailable_reason': '文档模块存在多个业务入口，请先在业务页面选择具体文档类型',
+        },
+        'disk': {
+            'name': '网盘文件',
+            'module': '企业网盘',
+            'list_url': '/disk/',
+            'create_url': '/disk/upload/',
+            'edit_url_template': '/disk/preview/{id}/',
+            'permission_base': 'disk_file',
+        },
+        'disk_folder': {
+            'name': '网盘文件夹',
+            'module': '企业网盘',
+            'list_url': '/disk/',
+            'create_url': None,
+            'edit_url_template': None,
+            'permission_base': 'disk_folder',
+        },
+        'disk_share': {
+            'name': '网盘分享',
+            'module': '企业网盘',
+            'list_url': '/disk/share/',
+            'create_url': None,
+            'edit_url_template': None,
+            'permission_base': 'share',
+            'available': False,
+            'unavailable_reason': '网盘分享需要先定位具体文件或文件夹，已阻止直接写操作',
+        },
     }
 
     def __init__(self):
@@ -243,6 +357,19 @@ class EnhancedIntentService:
             'product': 'contract.view_product',
             'inventory': 'inventory.view_inventory',
             'followup': 'customer.view_followrecord',
+            'approval': 'approval.view_approval',
+            'approval_flow': 'approval.view_approvalflow',
+            'approval_task': 'approval.view_approval',
+            'task': 'task.view_task',
+            'workhour': 'task.view_workhour',
+            'message': 'message.view_message',
+            'notice': 'user.view_notice',
+            'document': 'oa.view_document',
+            'meeting': 'oa.view_meetingrecord',
+            'schedule': '__authenticated__',
+            'disk': 'disk.view_disk_file',
+            'disk_folder': 'disk.view_disk_folder',
+            'disk_share': 'disk.view_share',
         }
 
         required_permission = permission_map.get(data_type)
@@ -255,7 +382,10 @@ class EnhancedIntentService:
                 'data_scope': 'forbidden'
             }
 
-        has_permission = user.has_perm(required_permission)
+        if required_permission == '__authenticated__':
+            has_permission = bool(getattr(user, 'is_authenticated', False))
+        else:
+            has_permission = user.has_perm(required_permission)
 
         if not has_permission:
             return {

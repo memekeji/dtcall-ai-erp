@@ -2,6 +2,14 @@ from django.urls import path
 from django.views.generic import RedirectView
 from . import views
 from .ai_views import ai_contract_risk_analysis, ai_contract_term_extraction
+from .ai_review_views import (
+    ai_review_list_page,
+    ai_contract_review_api, ai_contract_review_history_api,
+    ai_contract_review_detail_api, ai_contract_file_parse_api,
+    ai_contract_diff_api, ai_legal_consultation_api,
+    ai_legal_knowledge_api, ai_legal_consultation_history_api, ai_contract_quick_review_api,
+    ai_review_page,
+)
 
 from .views import (
     ContractView,
@@ -58,6 +66,19 @@ urlpatterns = [
     # AI 路由
     path('api/ai/risk-analysis/<int:contract_id>/', ai_contract_risk_analysis, name='ai_contract_risk_analysis'),
     path('api/ai/term-extraction/<int:contract_id>/', ai_contract_term_extraction, name='ai_contract_term_extraction'),
+
+    # ── AI 合同审查路由 (新增) ──
+    path('ai/review/<int:contract_id>/', ai_contract_review_api, name='ai_contract_review'),
+    path('ai/review/history/<int:contract_id>/', ai_contract_review_history_api, name='ai_contract_review_history'),
+    path('ai/review/detail/<int:review_id>/', ai_contract_review_detail_api, name='ai_contract_review_detail'),
+    path('ai/file-parse/', ai_contract_file_parse_api, name='ai_contract_file_parse'),
+    path('ai/diff/<int:contract_id>/', ai_contract_diff_api, name='ai_contract_diff'),
+    path('ai/legal-consultation/', ai_legal_consultation_api, name='ai_legal_consultation'),
+    path('ai/legal-knowledge/', ai_legal_knowledge_api, name='ai_legal_knowledge'),
+    path('ai/legal-history/', ai_legal_consultation_history_api, name='ai_legal_consultation_history'),
+    path('ai/quick-review/', ai_contract_quick_review_api, name='ai_contract_quick_review'),
+    path('ai/review/list/', ai_review_list_page, name='ai_review_list_page'),
+    path('ai/review/page/<int:contract_id>/', ai_review_page, name='ai_review_page'),
 
     # 原有路由保持兼容 - 移除会导致循环的重定向
     # 产品相关路由
@@ -342,6 +363,7 @@ urlpatterns = [
         ContractCancelView.as_view(),
         name='contract_cancel_action'),
 
+
     # 原有路由保持兼容
     path(
         'datalist/',
@@ -363,3 +385,7 @@ urlpatterns = [
         name='contract_update'),
     path('del/', ContractDeleteView.as_view(), name='contract_delete'),
 ]
+
+
+
+

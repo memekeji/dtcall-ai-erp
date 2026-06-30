@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <title>AI 合同审查</title>
+    <style>
+        body { margin:0; padding:15px; background:#f2f2f2; }
+        .main-container { background:#fff; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.1); }
+        .toolbar { padding:15px; border-bottom:1px solid #f6f6f6; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
+        .toolbar-left, .toolbar-right { display:flex; align-items:center; gap:10px; }
+        .table-container { padding:0 15px 15px; }
+        .amount-cell { font-weight:bold; color:#e74c3c; }
+        .risk-badge { display:inline-block; padding:2px 8px; border-radius:3px; font-size:11px; font-weight:500; }
+        .risk-badge.high { background:#fef0f0; color:#e74c3c; border:1px solid #f5c6cb; }
+        .risk-badge.medium { background:#fef9e7; color:#f39c12; border:1px solid #fde3a7; }
+        .risk-badge.low { background:#f0faf4; color:#27ae60; border:1px solid #c3e6cb; }
+        .risk-badge.unknown { background:#f5f5f5; color:#999; }
+        .status-tag { padding:2px 8px; border-radius:3px; font-size:12px; }
+        .status-tag.approved { color:#27ae60; }
+        .status-tag.pending { color:#f39c12; }
+        .status-tag.reviewing { color:#3498db; }
+        #pagination { padding:15px; text-align:center; border-top:1px solid #f6f6f6; }
+        .diff-upload-area { border:2px dashed #d2d2d2; border-radius:6px; padding:40px; text-align:center; cursor:pointer; transition:.2s; }
+        .diff-upload-area:hover { border-color:#5fb878; background:#f8fdf9; }
+        .qa-layout { display:grid; grid-template-columns:minmax(0, 1.8fr) 320px; gap:16px; align-items:start; }
+        .qa-panel, .qa-history { border:1px solid #eef1f6; border-radius:6px; background:#fff; }
+        .qa-panel { padding:16px; }
+        .qa-history { padding:0; overflow:hidden; }
+        .qa-history-head { display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:1px solid #eef1f6; background:#fafbfc; }
+        .qa-history-title { font-size:13px; font-weight:600; color:#333; }
+        .qa-history-list { max-height:486px; overflow-y:auto; }
+        .qa-history-empty { padding:32px 18px; text-align:center; font-size:12px; color:#999; }
+        .qa-history-item { padding:12px 14px; border-bottom:1px solid #f3f5f8; cursor:pointer; transition:.2s; }
+        .qa-history-item:hover { background:#f8fbff; }
+        .qa-history-item.active { background:#eef6ff; }
+        .qa-history-type { display:inline-block; margin-bottom:6px; padding:2px 8px; border-radius:10px; font-size:11px; }
+        .qa-history-type.consultation { background:#e6f2ff; color:#1e549f; }
+        .qa-history-type.knowledge { background:#f4f7ea; color:#5f7d1b; }
+        .qa-history-question { font-size:13px; color:#333; line-height:1.5; word-break:break-all; }
+        .qa-history-meta { margin-top:6px; font-size:11px; color:#999; display:flex; justify-content:space-between; gap:8px; }
+        .qa-chat-box { height:420px; overflow-y:auto; padding:10px 0; }
+        .qa-msg { margin-bottom:14px; padding:10px 14px; border-radius:6px; font-size:13px; line-height:1.7; max-width:85%; word-break:break-word; }
+        .qa-msg.q { background:#e6f2ff; color:#1e549f; margin-left:auto; }
+        .qa-msg.a { background:#f5f5f5; color:#333; }
+        @media (max-width:1100px) { .qa-layout { grid-template-columns:1fr; } .qa-history-list { max-height:260px; } }
+        @media (max-width:768px) { .toolbar { flex-direction:column; align-items:stretch; } }
+    </style>
+</head>
+<body>
+<div class="main-container">
+    {% csrf_token %}
+    <div class="layui-tab layui-tab-brief" lay-filter="ai-tab" style="margin:0;">
+        <ul class="layui-tab-title" style="border-bottom:2px solid #eef1f6;">
+            <li class="layui-this">智能审查</li>
+            <li>差异比对</li>
+            <li>法律咨询</li>
+        </ul>
+        <div class="layui-tab-content" style="padding:0;">
+
+            <div class="layui-tab-item layui-show">
+                <div class="toolbar">
+                    <div class="toolbar-left">
+                        <div class="layui-input-inline" style="width:220px;">
+                            <input type="text" id="searchInput" placeholder="合同编号/名称/客户" class="layui-input" onkeydown="if(event.key==='Enter')doSearch()">
+                        </div>
+                        <button class="layui-btn layui-btn-sm" onclick="doSearch()"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+                    </div>
+                    <div class="toolbar-right"><span id="resultCount" style="font-size:13px;color:#999;"></span></div>
+                </div>
+                <div class="table-container">
+                    <table class="layui-table" lay-size="sm" lay-skin="line">
+                        <thead><tr><th width="140">合同编号</th><th>合同名称</th><th width="120">客户</th><th width="110">合同金额</th><th width="90">风险评级</th><th width="80">状态</th><th width="90">操作</th></tr></thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                    <div id="emptyTip" style="text-align:center;padding:60px 0;color:#999;display:none;">没有找到合同记录</div>
+                </div>
+                <div id="pagination"></div>
+            </div>
+
+            <div class="layui-tab-item">
+                <div style="padding:20px;">
+                    <div class="diff-upload-area" onclick="document.getElementById('diffFileInput').click()">
+                        <div style="font-size:36px;margin-bottom:8px;">📎</div>
+                        <div style="color:#666;">上传对比文件（检测篡改风险）</div>
+                        <div style="color:#aaa;font-size:12px;margin-top:4px;">支持 .docx / .pdf / .txt</div>
+                    </div>
+                    <input type="file" id="diffFileInput" accept=".docx,.doc,.pdf,.txt" style="display:none" onchange="onDiffFileSelect(this)">
+                    <div id="diffFileInfo" style="margin-top:12px;"></div>
+                    <div style="margin-top:14px;">
+                        <label style="display:inline-block;padding:9px 0;font-size:13px;">选择基准合同：</label>
+                        <select id="diffContractSelect" style="width:280px;display:inline-block;height:36px;border:1px solid #d2d2d2;border-radius:4px;padding:0 8px;vertical-align:middle;"></select>
+                        <button class="layui-btn layui-btn-sm layui-btn-normal" id="btnDiff" onclick="startDiff()" style="margin-left:10px;">开始比对</button>
+                    </div>
+                    <div id="diffResult" style="margin-top:16px;"></div>
+                </div>
+            </div>
+
+            <div class="layui-tab-item">
+                <div style="padding:20px;">
+                    <div class="qa-layout">
+                        <div class="qa-panel">
+                            <div class="qa-chat-box" id="qaChat">
+                                <div class="qa-msg a">你好！我是AI法律助手，基于中国现行法律法规提供7x24小时智能法律咨询。你可以提问合同审查、劳动法、公司法等相关问题。</div>
+                            </div>
+                            <div style="display:flex;gap:8px;margin-top:12px;">
+                                <input type="text" id="qaInput" class="layui-input" placeholder="输入法律问题..." onkeydown="if(event.key==='Enter')doAskLegal()">
+                                <button class="layui-btn layui-btn-sm" onclick="doAskLegal()">发送</button>
+                                <button class="layui-btn layui-btn-sm layui-btn-primary" onclick="doSearchLegal()">知识查询</button>
+                            </div>
+                        </div>
+                        <div class="qa-history">
+                            <div class="qa-history-head">
+                                <span class="qa-history-title">历史咨询记录</span>
+                                <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="loadLegalHistory()">刷新</button>
+                            </div>
+                            <div class="qa-history-list" id="qaHistoryList">
+                                <div class="qa-history-empty">暂无历史咨询记录</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/layui/layui.js"></script>
+<script>
+var currentPage = 1, currentSearch = "";
+var diffFile = null;
+var legalHistoryLoaded = false;
+var legalHistoryRecords = [];
+layui.use(["element","layer"],function(){
+    var element = layui.element, $ = layui.$;
+    element.on("tab(ai-tab)", function(data){
+        if(data.index === 1) loadDiffContracts();
+        if(data.index === 2 && !legalHistoryLoaded) loadLegalHistory();
+    });
+    window.doSearch = function(){ currentSearch = $("#searchInput").val(); currentPage=1; loadContracts(); };
+    window.goPage = function(page){ currentPage=page; loadContracts(); };
+
+    function loadContracts(){
+        $.get("/contract/sales/datalist/?"+$.param({page:currentPage,limit:20,search:currentSearch}),function(res){
+            if(res.code===0 && res.data.length>0){
+                var h="", rlbl={high:"高风险",medium:"中风险",low:"低风险",unknown:"未审查"};
+                $.each(res.data,function(i,r){
+                    var rl=r.ai_risk_level||"unknown",amt=r.cost?parseFloat(r.cost).toLocaleString():"-";
+                    var st=r.check_status===2?"已审核":(r.check_status===0?"待审核":"审核中");
+                    var sc=r.check_status===2?"approved":(r.check_status===0?"pending":"reviewing");
+                    h+="<tr><td>"+(r.code||"-")+"</td><td><b>"+(r.name||"-")+"</b></td><td>"+(r.customer||"-")+"</td><td class='amount-cell'>&yen;"+amt+"</td><td><span class='risk-badge "+rl+"'>"+(rlbl[rl]||"")+"</span></td><td><span class='status-tag "+sc+"'>"+st+"</span></td><td><button class='layui-btn layui-btn-xs layui-btn-normal' onclick='openReview("+r.id+")'>审查</button></td></tr>";
+                });
+                $("#tableBody").html(h); $("#emptyTip").hide(); $("#resultCount").text("共 "+res.count+" 条");
+                var tp=Math.ceil(res.count/20);
+                if(tp>1){
+                    var pg="";
+                    for(var p=1;p<=Math.min(tp,8);p++) pg+="<button class='layui-btn layui-btn-xs "+(p===currentPage?"":"layui-btn-primary")+"' onclick='goPage("+p+")'>"+p+"</button>";
+                    if(tp>8) pg+="...<button class='layui-btn layui-btn-xs layui-btn-primary' onclick='goPage("+tp+")'>"+tp+"</button>";
+                    $("#pagination").html(pg);
+                }else{$("#pagination").html("");}
+            }else{$("#tableBody").html("");$("#pagination").html("");$("#emptyTip").show();$("#resultCount").text("共 0 条");}
+        });
+    }
+    function loadDiffContracts(){
+        $.get("/contract/sales/datalist/?limit=200",function(r){
+            var o="<option value=''>请选择合同</option>";
+            if(r.code===0) $.each(r.data,function(i,d){o+="<option value='"+d.id+"'>"+(d.name||d.code||"")+" - "+(d.customer||"")+"</option>";});
+            $("#diffContractSelect").html(o);
+        });
+    }
+    window.onDiffFileSelect = function(inp){ diffFile=inp.files[0]; $("#diffFileInfo").html(diffFile?"<span style='color:#5fb878;'>已选择: "+diffFile.name+"</span>":""); };
+    window.startDiff = function(){
+        var cid=$("#diffContractSelect").val(); if(!cid){layer.msg("请选择基准合同");return;}
+        if(!diffFile){layer.msg("请上传对比文件");return;}
+        $("#btnDiff").addClass("layui-btn-disabled").prop("disabled",true).text("比对中...");
+        var fd=new FormData();fd.append("file",diffFile);
+        $.ajax({url:"/contract/ai/diff/"+cid+"/",type:"POST",data:fd,processData:false,contentType:false,headers:{"X-CSRFToken":getCsrf()},
+            success:function(res){$("#btnDiff").removeClass("layui-btn-disabled").prop("disabled",false).text("开始比对");if(res.code===0)renderDiff(res.data);else layer.msg(res.msg||"");},
+            error:function(){$("#btnDiff").removeClass("layui-btn-disabled").prop("disabled",false).text("开始比对");layer.msg("比对失败");}
+        });
+    };
+    function renderDiff(data){
+        var h="<div style='font-size:13px;color:#555;margin-bottom:12px;'>"+data.summary+"</div>";
+        $.each(data.risk_flags||[],function(i,f){h+="<div style='background:#fff3e0;border:1px solid #ffcc80;border-radius:4px;padding:8px 12px;margin-bottom:6px;font-size:13px;color:#e65100;'>"+f.type+" ("+f.severity+")</div>";});
+        $.each(data.diff_blocks||[],function(i,b){
+            var cls=b.type==="delete"?"color:#c0392b;text-decoration:line-through;background:#ffeef0":(b.type==="insert"?"color:#2e7d32;background:#e6ffed":"background:#fff8e1");
+            h+="<div style='padding:6px 10px;margin-bottom:4px;border-radius:4px;font-size:13px;"+cls+"'>";
+            if(b.original_text) h+="<div style='font-size:11px;color:#999;'>- "+b.original_text+"</div>";
+            if(b.compare_text) h+="<div>+ "+b.compare_text+"</div>";
+            h+="</div>";
+        });
+        $("#diffResult").html(h);
+    }
+    function escapeHtml(str){
+        return String(str || "").replace(/[&<>"']/g, function(m){
+            return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m];
+        });
+    }
+    function appendQaMessage(type, content){
+        $("#qaChat").append("<div class='qa-msg "+type+"'>"+String(content || "").replace(/\n/g,"<br>")+"</div>");
+        $("#qaChat").scrollTop($("#qaChat")[0].scrollHeight);
+    }
+    function renderLegalHistory(){
+        var box = $("#qaHistoryList");
+        if(!legalHistoryRecords.length){
+            box.html("<div class='qa-history-empty'>暂无历史咨询记录</div>");
+            return;
+        }
+        var h = "";
+        $.each(legalHistoryRecords, function(i, item){
+            h += "<div class='qa-history-item' data-id='"+item.id+"'>"
+                + "<div class='qa-history-type "+item.query_type+"'>"+escapeHtml(item.query_type_label)+"</div>"
+                + "<div class='qa-history-question'>"+escapeHtml(item.question)+"</div>"
+                + "<div class='qa-history-meta'><span>"+escapeHtml(item.created_at)+"</span><span>"+(item.success ? "成功" : "失败")+"</span></div>"
+                + "</div>";
+        });
+        box.html(h);
+        box.find(".qa-history-item").on("click", function(){
+            var id = $(this).data("id");
+            var record = legalHistoryRecords.find(function(item){ return item.id === id; });
+            if(!record) return;
+            box.find(".qa-history-item").removeClass("active");
+            $(this).addClass("active");
+            $("#qaChat").html(
+                "<div class='qa-msg q'>"+escapeHtml(record.question).replace(/\n/g,"<br>")+"</div>"
+                + "<div class='qa-msg a'>"+String(record.answer || "").replace(/\n/g,"<br>")+"</div>"
+            );
+            $("#qaChat").scrollTop($("#qaChat")[0].scrollHeight);
+            $("#qaInput").val(record.question || "");
+        });
+    }
+    window.loadLegalHistory = function(){
+        $.get("/contract/ai/legal-history/?limit=30", function(res){
+            legalHistoryLoaded = true;
+            legalHistoryRecords = res.code === 0 ? (res.data || []) : [];
+            renderLegalHistory();
+        }).fail(function(){
+            legalHistoryLoaded = true;
+            legalHistoryRecords = [];
+            $("#qaHistoryList").html("<div class='qa-history-empty'>历史记录加载失败</div>");
+        });
+    };
+    window.doAskLegal = function(){
+        var q=$("#qaInput").val().trim(); if(!q) return;
+        appendQaMessage("q", escapeHtml(q));
+        $("#qaInput").val("");
+        var ld=$("<div class='qa-msg a'>思考中...</div>").appendTo("#qaChat");
+        $("#qaChat").scrollTop($("#qaChat")[0].scrollHeight);
+        $.ajax({
+            url: "/contract/ai/legal-consultation/",
+            type: "POST",
+            data: JSON.stringify({question:q}),
+            contentType: "application/json",
+            dataType: "json",
+            headers: {"X-CSRFToken": getCsrf()},
+            success: function(res){
+                ld.remove();
+                if(res.code===0&&res.data.success) appendQaMessage("a", res.data.answer||"");
+                else appendQaMessage("a", "<span style='color:#c0392b;'>咨询不可用</span>");
+                loadLegalHistory();
+            },
+            error: function(){
+                ld.remove();
+                appendQaMessage("a", "<span style='color:#c0392b;'>网络错误</span>");
+            }
+        });
+    };
+    window.doSearchLegal = function(){
+        var q=$("#qaInput").val().trim()||"劳动合同法";
+        $.ajax({
+            url: "/contract/ai/legal-knowledge/",
+            type: "POST",
+            data: JSON.stringify({query:q}),
+            contentType: "application/json",
+            dataType: "json",
+            headers: {"X-CSRFToken": getCsrf()},
+            success: function(res){
+                appendQaMessage("q", escapeHtml(q));
+                if(res.code===0&&res.data.success) appendQaMessage("a", res.data.results||"");
+                else appendQaMessage("a", "<span style='color:#c0392b;'>查询不可用</span>");
+                loadLegalHistory();
+            },
+            error: function(){
+                appendQaMessage("q", escapeHtml(q));
+                appendQaMessage("a", "<span style='color:#c0392b;'>网络错误</span>");
+            }
+        });
+    };
+    window.getCsrf = function(){
+        var v = $("input[name='csrfmiddlewaretoken']").val() || "";
+        if(!v && document.cookie && document.cookie!==""){ var cs=document.cookie.split(";"); for(var i=0;i<cs.length;i++){ var c=$.trim(cs[i]); if(c.substring(0,10)==="csrftoken="){ v=c.substring(10); break; } } }
+        return v||"";
+    };
+    window.openReview = function(id){ window.location.href="/contract/ai/review/page/"+id+"/"; };
+    loadContracts();
+});
+</script>
+</body>
+</html>

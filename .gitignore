@@ -116,3 +116,13 @@ docs/
 
 # Local git worktrees
 .worktrees/
+
+# Codex / local temp artifacts
+.agents/
+.codex-*.png
+output/
+_fix*.py
+_patch*.py
+_improve.py
+_write_exam_list.py
+project_knowledge.db

@@ -1,0 +1,71 @@
+{% extends "home/iframe_base.html" %}{% load static %}
+{% block title %}考核审批 - AI-HRBP{% endblock %}
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <a href="{% url 'hrbp:exam_results' candidate_exam.exam.id %}" class="layui-btn layui-btn-primary layui-btn-sm"><i class="layui-icon layui-icon-left"></i> 返回</a>
+    </div>
+    <div class="layui-card-body">
+        <fieldset class="layui-elem-field">
+            <legend>考核信息</legend>
+            <div class="layui-row">
+                <div class="layui-col-md4"><b>候选人：</b>{{ candidate_exam.pipeline.resume_submission.candidate_name|default:"未知" }}</div>
+                <div class="layui-col-md4"><b>考核：</b>{{ candidate_exam.exam.title }}</div>
+                <div class="layui-col-md4"><b>状态：</b>{{ candidate_exam.get_status_display }}</div>
+                <div class="layui-col-md4"><b>AI评分：</b>{{ candidate_exam.ai_score|default:"--" }}</div>
+                <div class="layui-col-md4"><b>正确率：</b>{% if candidate_exam.total_correct %}{{ candidate_exam.total_correct }}/{{ candidate_exam.total_questions }}{% else %}--{% endif %}</div>
+                <div class="layui-col-md4"><b>提交时间：</b>{{ candidate_exam.submitted_at|date:"Y-m-d H:i"|default:"--" }}</div>
+            </div>
+        </fieldset>
+
+        <fieldset class="layui-elem-field">
+            <legend>答题详情</legend>
+            <table class="layui-table" lay-skin="line">
+                <thead><tr><th width="50">#</th><th width="70">类型</th><th>题目</th><th width="150">考生答案</th><th width="100">正确答案</th><th width="50">自动判对</th><th width="70">AI分</th></tr></thead>
+                <tbody>
+                {% for a in answers %}
+                <tr>
+                    <td>{{ a.question.sort_order }}</td>
+                    <td>{{ a.question.get_question_type_display }}</td>
+                    <td>{{ a.question.content|truncatechars:100 }}</td>
+                    <td>{{ a.answer|truncatechars:50 }}</td>
+                    <td>{{ a.question.correct_answer|truncatechars:50 }}</td>
+                    <td>{% if a.is_correct is None %}主观{% elif a.is_correct %}<span class="layui-badge layui-bg-green">对</span>{% else %}<span class="layui-badge">错</span>{% endif %}</td>
+                    <td>{{ a.ai_score|default:"--" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" style="text-align:center;">暂无答题记录</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </fieldset>
+
+        <form class="layui-form" style="max-width:500px;margin:20px auto;" id="reviewForm">
+            {% csrf_token %}
+            <div class="layui-form-item"><label class="layui-form-label">HR调整分</label><div class="layui-input-block"><input type="number" name="hr_score" class="layui-input" step="0.01" value="{{ candidate_exam.hr_score|default:'' }}" placeholder="手动调整总分"></div></div>
+            <div class="layui-form-item"><label class="layui-form-label">HR评语</label><div class="layui-input-block"><textarea name="hr_feedback" class="layui-textarea" rows="3" placeholder="评语">{{ candidate_exam.hr_feedback }}</textarea></div></div>
+            <div class="layui-form-item" style="text-align:center;">
+                <button type="button" class="layui-btn layui-btn-normal" onclick="submitReview('pass')">考核通过</button>
+                <button type="button" class="layui-btn layui-btn-danger" onclick="submitReview('fail')">考核不通过</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+(function checkLayui() {
+    if (typeof layui !== 'undefined') {
+function submitReview(action) {
+    var data = $('#reviewForm').serialize() + '&action=' + action;
+    $.post('{% url "hrbp:exam_review" candidate_exam.id %}', data, function(res) {
+        layer.msg(res.message, {icon: res.success ? 1 : 2});
+        if (res.success) setTimeout(function() { window.location.href = '{% url "hrbp:exam_results" candidate_exam.exam.id %}'; }, 1200);
+    });
+}
+    } else {
+        setTimeout(checkLayui, 50);
+    }
+})();
+</script>
+{% endblock %}

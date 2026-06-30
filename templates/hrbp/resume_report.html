@@ -1,0 +1,309 @@
+{% extends "home/iframe_base.html" %}
+{% load static %}
+
+{% block title %}简历分析报告 - {{ resume.candidate_name }}{% endblock %}
+
+{% block content %}
+<style>
+.report-section {
+    background: #fff;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.report-header {
+    border-bottom: 2px solid #1E9FFF;
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+}
+.score-circle {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    font-weight: bold;
+    color: #fff;
+    margin: 0 auto;
+}
+.score-excellent { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.score-good { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+.score-fair { background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); color: #333; }
+.score-poor { background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #333; }
+.info-item {
+    margin-bottom: 10px;
+    padding: 10px;
+    background: #f8f8f8;
+    border-radius: 4px;
+}
+.info-label {
+    display: inline-block;
+    width: 100px;
+    color: #666;
+    font-weight: bold;
+}
+.analysis-content {
+    line-height: 2;
+    color: #333;
+}
+</style>
+
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h2>简历分析报告</h2>
+    </div>
+    <div class="layui-card-body">
+        {% if report %}
+        <!-- 匹配得分 -->
+        <div class="report-section">
+            <div class="report-header">
+                <h3>匹配评分</h3>
+            </div>
+            <div class="layui-row">
+                <div class="layui-col-md6">
+                    <div class="score-circle score-{{ report.match_level }}">
+                        {{ report.match_score }}
+                    </div>
+                    <p style="text-align: center; margin-top: 10px; font-size: 16px;">
+                        <span class="layui-badge 
+                            {% if report.match_level == 'excellent' %}layui-bg-purple
+                            {% elif report.match_level == 'good' %}layui-bg-orange
+                            {% elif report.match_level == 'fair' %}layui-bg-cyan
+                            {% else %}layui-bg-gray{% endif %}">
+                            {{ report.get_match_level_display }}
+                        </span>
+                    </p>
+                </div>
+                <div class="layui-col-md6">
+                    <h4>候选人基本信息</h4>
+                    <div class="info-item">
+                        <span class="info-label">姓名：</span>
+                        <span>{{ report.extracted_name|default:"未提取" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">联系电话：</span>
+                        <span>{{ report.extracted_phone|default:"未提取" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">电子邮箱：</span>
+                        <span>{{ report.extracted_email|default:"未提取" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">学历：</span>
+                        <span>{{ report.extracted_education|default:"未提取" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">工作年限：</span>
+                        <span>{{ report.extracted_experience_years|default:0 }}年</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 技能信息 -->
+        {% if report.extracted_skills %}
+        <div class="report-section">
+            <div class="report-header">
+                <h3>技能清单</h3>
+            </div>
+            <div class="analysis-content">
+                {{ report.extracted_skills|linebreaks }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 工作经历 -->
+        {% if report.extracted_work_experience %}
+        <div class="report-section">
+            <div class="report-header">
+                <h3>工作经历</h3>
+            </div>
+            <div class="analysis-content">
+                {{ report.extracted_work_experience|linebreaks }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 优势分析 -->
+        <div class="report-section">
+            <div class="report-header">
+                <h3><i class="layui-icon layui-icon-ok-circle" style="color: #5FB878;"></i> 优势分析</h3>
+            </div>
+            <div class="analysis-content">
+                {{ report.strength_analysis|linebreaks }}
+            </div>
+        </div>
+
+        <!-- 不足分析 -->
+        <div class="report-section">
+            <div class="report-header">
+                <h3><i class="layui-icon layui-icon-close-fill" style="color: #FF5722;"></i> 不足分析</h3>
+            </div>
+            <div class="analysis-content">
+                {{ report.weakness_analysis|linebreaks }}
+            </div>
+        </div>
+
+        <!-- 详细匹配分析 -->
+        <div class="report-section">
+            <div class="report-header">
+                <h3>详细匹配分析</h3>
+            </div>
+            <div class="layui-collapse" lay-accordion="">
+                <div class="layui-colla-item">
+                    <h2 class="layui-colla-title">技能匹配详情</h2>
+                    <div class="layui-colla-content layui-show">
+                        <div class="analysis-content">{{ report.skill_match_detail|linebreaks }}</div>
+                    </div>
+                </div>
+                <div class="layui-colla-item">
+                    <h2 class="layui-colla-title">经验匹配详情</h2>
+                    <div class="layui-colla-content">
+                        <div class="analysis-content">{{ report.experience_match_detail|linebreaks }}</div>
+                    </div>
+                </div>
+                <div class="layui-colla-item">
+                    <h2 class="layui-colla-title">学历匹配详情</h2>
+                    <div class="layui-colla-content">
+                        <div class="analysis-content">{{ report.education_match_detail|linebreaks }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 综合评价 -->
+        <div class="report-section">
+            <div class="report-header">
+                <h3>综合评价</h3>
+            </div>
+            <div class="analysis-content">
+                {{ report.comprehensive_evaluation|linebreaks }}
+            </div>
+        </div>
+
+        <!-- 推荐意见 -->
+        <div class="report-section" style="background: #f0f9ff; border-left: 4px solid #1E9FFF;">
+            <div class="report-header" style="border-color: #1E9FFF;">
+                <h3><i class="layui-icon layui-icon-survey"></i> 推荐意见</h3>
+            </div>
+            <div class="analysis-content">
+                {{ report.recommendation|linebreaks }}
+            </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="report-section">
+            <div style="text-align: center;">
+                <button class="layui-btn layui-btn-lg layui-btn-normal" id="inviteBtn">
+                    <i class="layui-icon layui-icon-email"></i> 发送面试邀请
+                </button>
+                <button class="layui-btn layui-btn-lg layui-btn-primary" onclick="window.print()">
+                    <i class="layui-icon layui-icon-print"></i> 打印报告
+                </button>
+            </div>
+        </div>
+
+        {% else %}
+        <div style="text-align: center; padding: 50px;">
+            <i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop" style="font-size: 50px; color: #999;"></i>
+            <p style="color: #999; margin-top: 20px;">简历分析中，请稍候...</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+
+
+<div id="inviteForm" style="display: none;">
+    <form class="layui-form" style="padding: 20px;">
+        <div class="layui-form-item">
+            <label class="layui-form-label">通知方式</label>
+            <div class="layui-input-block">
+                <input type="radio" name="notification_type" value="email" title="邮件" checked>
+                <input type="radio" name="notification_type" value="sms" title="短信">
+                <input type="radio" name="notification_type" value="sip" title="电话">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">面试方式</label>
+            <div class="layui-input-block">
+                <input type="radio" name="interview_type" value="offline" title="到公司面试" checked>
+                <input type="radio" name="interview_type" value="online" title="线上面试" disabled>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">面试时间</label>
+            <div class="layui-input-block">
+                <input type="datetime-local" id="interview_time" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">面试地点</label>
+            <div class="layui-input-block">
+                <input type="text" id="interview_location" placeholder="请输入面试地点" class="layui-input">
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+(function checkLayui() {
+    if (typeof layui !== 'undefined') {
+layui.use(['layer', 'form', 'element'], function(){
+    var layer = layui.layer;
+    var form = layui.form;
+    var element = layui.element;
+    var $ = layui.jquery;
+
+    // 发送面试邀请
+    $('#inviteBtn').on('click', function(){
+        layer.open({
+            type: 1,
+            title: '发送面试邀请',
+            area: ['600px', '500px'],
+            content: $('#inviteForm').html(),
+            btn: ['发送', '取消'],
+            yes: function(index, layero){
+                var formData = {
+                    notification_type: $('input[name="notification_type"]:checked').val(),
+                    interview_type: $('input[name="interview_type"]:checked').val(),
+                    interview_time: $('#interview_time').val(),
+                    interview_location: $('#interview_location').val()
+                };
+
+                if(!formData.notification_type || !formData.interview_type){
+                    layer.msg('请完整填写表单', {icon: 2});
+                    return;
+                }
+
+                $.ajax({
+                    url: '/hrbp/report/{{ report.id }}/invite/',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(formData),
+                    success: function(res){
+                        if(res.success){
+                            layer.msg(res.message, {icon: 1});
+                            layer.close(index);
+                        } else {
+                            layer.msg(res.message, {icon: 2});
+                        }
+                    },
+                    error: function(){
+                        layer.msg('发送失败，请重试', {icon: 2});
+                    }
+                });
+            }
+        });
+    });
+});
+    } else {
+        setTimeout(checkLayui, 50);
+    }
+})();
+</script>
+{% endblock %}

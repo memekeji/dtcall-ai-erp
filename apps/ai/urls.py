@@ -169,6 +169,9 @@ urlpatterns = [
     # 模型管理
     path('models/list/', ModelListView.as_view(), name='model_list'),
 
+    # 智能体中心
+    path('agent-center/', views.AgentCenterView.as_view(), name='agent_center'),
+
     # AI聊天
     path('chat/', views.AIChatView.as_view(), name='chat'),
     path(
@@ -341,6 +344,7 @@ urlpatterns = [
     # AI聊天流
     path('intent/recognize/', views.AIIntentRecognizeAPIView.as_view(), name='intent_recognize'),
     path('chat/stream/', views.AIChatStreamView.as_view(), name='chat_stream'),
+    path('operation/confirm/', views.AIConfirmOperationView.as_view(), name='operation_confirm'),
     path('voice/stt/', views.LocalSTTAPIView.as_view(), name='voice_stt'),
 
     # 节点配置Schema API

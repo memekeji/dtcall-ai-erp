@@ -5,328 +5,232 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>内部共享文件 - 知识网盘</title>
+    <title>共享文件 - 知识网盘</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
     <style>
-        * {
-            box-sizing: border-box;
+        :root {
+            --ink: #17212f;
+            --muted: #687589;
+            --line: #dfe6ee;
+            --soft: #f4f7fb;
+            --brand: #126b64;
+            --brand-soft: #e6f5f2;
         }
 
-        html,
-        body {
-            min-height: 100%;
-            margin: 0;
-            color: #17212f;
-            background: #f3f6fa;
-            font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
-        }
+        * { box-sizing: border-box; }
+        html, body { min-height: 100%; margin: 0; background: #f3f6f9; color: var(--ink); font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif; }
+        .page { min-height: 100vh; padding: 0; }
+        .shell { min-height: 100vh; background: #fff; overflow: hidden; }
 
-        .page {
-            padding: 20px;
-        }
-
-        .header {
+        .head {
             display: flex;
-            align-items: center;
             justify-content: space-between;
             gap: 16px;
-            margin-bottom: 18px;
-            padding: 18px 20px;
-            border: 1px solid #dfe6ee;
+            align-items: center;
+            padding: 10px 14px;
+            border-bottom: 1px solid #edf1f6;
             background: #fff;
         }
 
-        .title {
-            margin: 0;
-            font-size: 20px;
+        .head h1 { margin: 0; font-size: 16px; font-weight: 700; }
+        .head .meta { margin-top: 4px; color: var(--muted); font-size: 12px; }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 9px;
+            border: 1px solid var(--line);
+            background: var(--brand-soft);
+            color: #0b554f;
+            font-size: 12px;
             font-weight: 700;
-            letter-spacing: 0;
         }
 
-        .desc {
-            margin-top: 6px;
-            color: #687589;
-            font-size: 13px;
-            line-height: 1.6;
-        }
-
+        .body { padding: 12px 14px 14px; }
         .breadcrumb {
             display: flex;
             flex-wrap: wrap;
-            align-items: center;
             gap: 8px;
-            margin-bottom: 16px;
-            padding: 12px 14px;
-            border: 1px solid #dfe6ee;
-            background: #fff;
-            color: #687589;
-            font-size: 13px;
-        }
-
-        .breadcrumb a {
-            color: #126b64;
-            cursor: pointer;
-        }
-
-        .section {
-            margin-bottom: 18px;
-            border: 1px solid #dfe6ee;
-            background: #fff;
-        }
-
-        .section-head {
-            display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            min-height: 50px;
-            padding: 0 16px;
-            border-bottom: 1px solid #edf1f6;
-        }
-
-        .section-title {
-            margin: 0;
-            font-size: 15px;
-            font-weight: 700;
-        }
-
-        .count {
-            color: #687589;
+            margin-bottom: 10px;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            background: #fff;
+            color: var(--muted);
             font-size: 13px;
         }
+        .breadcrumb a { color: var(--brand); cursor: pointer; }
 
-        .item-list {
-            display: grid;
+        .section { margin-bottom: 10px; }
+        .section-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 9px 10px; border: 1px solid var(--line); border-bottom: 0; background: #f8fafc; }
+        .section-title { margin: 0; font-size: 14px; font-weight: 700; }
+        .count { color: var(--muted); font-size: 12px; }
+
+        .list-card {
+            border: 1px solid var(--line);
+            background: #fff;
         }
 
-        .shared-item {
+        .row {
             display: grid;
             grid-template-columns: 44px minmax(0, 1fr) auto;
             gap: 12px;
             align-items: center;
-            padding: 14px 16px;
+            min-height: 68px;
+            padding: 10px 12px;
             border-bottom: 1px solid #edf1f6;
         }
+        .row:last-child { border-bottom: 0; }
 
-        .shared-item:last-child {
-            border-bottom: 0;
-        }
-
-        .item-icon {
+        .avatar {
             display: grid;
             width: 44px;
             height: 44px;
             place-items: center;
-            background: #f7f9fc;
-        }
-
-        .item-icon .layui-icon {
-            font-size: 24px;
-        }
-
-        .folder-icon {
-            color: #d89116;
-        }
-
-        .document-icon {
-            color: #1e77d3;
-        }
-
-        .image-icon {
-            color: #209c68;
-        }
-
-        .video-icon {
-            color: #d3542f;
-        }
-
-        .audio-icon {
-            color: #b68511;
-        }
-
-        .archive-icon {
-            color: #7a4cc2;
-        }
-
-        .other-icon {
-            color: #8a95a3;
-        }
-
-        .item-name {
-            overflow: hidden;
-            color: #17212f;
-            font-size: 14px;
+            color: #fff;
+            background: var(--brand);
             font-weight: 700;
-            text-overflow: ellipsis;
-            white-space: nowrap;
         }
-
-        .item-meta {
-            margin-top: 5px;
-            color: #687589;
+        .name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; font-weight: 700; }
+        .meta-line { margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+        .meta-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border: 1px solid var(--line);
+            background: var(--soft);
+            color: #334155;
             font-size: 12px;
-            line-height: 1.5;
         }
+        .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+        .layui-btn { border-radius: 0; font-weight: 700; }
 
-        .item-actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-        }
-
-        .layui-btn {
-            border-radius: 0;
-            font-weight: 700;
-        }
-
-        .empty-state {
-            padding: 46px 20px;
+        .empty {
+            padding: 32px 18px;
             text-align: center;
-            color: #8a95a3;
+            color: var(--muted);
         }
+        .empty .layui-icon { display: block; margin-bottom: 10px; font-size: 46px; color: #c5d0db; }
 
-        .empty-state .layui-icon {
-            display: block;
-            margin-bottom: 12px;
-            color: #c4ccd6;
-            font-size: 54px;
-        }
-
-        @media (max-width: 720px) {
-            .page {
-                padding: 12px;
-            }
-
-            .header,
-            .section-head {
-                align-items: flex-start;
-                flex-direction: column;
-                justify-content: flex-start;
-                padding: 14px;
-            }
-
-            .shared-item {
-                grid-template-columns: 38px minmax(0, 1fr);
-            }
-
-            .item-actions {
-                grid-column: 1 / -1;
-                justify-content: flex-start;
-            }
+        @media (max-width: 900px) {
+            .head { align-items: flex-start; }
+            .badge { white-space: nowrap; }
+            .body { padding: 10px; }
+            .row { grid-template-columns: 44px minmax(0, 1fr); }
+            .actions { grid-column: 1 / -1; justify-content: flex-start; }
         }
     </style>
 </head>
 
 <body>
     <div class="page">
-        <header class="header">
-            <div>
-                <h1 class="title">内部共享文件</h1>
-                <div class="desc">这里展示同事或部门在企业网盘内直接共享给您的文件和文件夹；外链分享记录请在文件的“外链分享”面板中管理。</div>
-            </div>
-            <button type="button" class="layui-btn layui-btn-primary" onclick="location.href='/disk/personal/'">
-                <i class="layui-icon layui-icon-return"></i> 返回个人网盘
-            </button>
-        </header>
-
-        <nav class="breadcrumb">
-            <a onclick="location.href='/disk/share/'">共享根目录</a>
-            {% for folder in breadcrumbs %}
-            <span>/</span>
-            <a onclick="enterFolder('{{ folder.id }}')">{{ folder.name }}</a>
-            {% endfor %}
-        </nav>
-
-        <section class="section">
-            <div class="section-head">
-                <h2 class="section-title">共享文件夹</h2>
-                <span class="count">{{ shared_folders.count }} 个</span>
+        <div class="shell">
+            <div class="head">
+                <div>
+                    <h1>共享文件</h1>
+                </div>
+                <div class="badge"><i class="layui-icon layui-icon-share"></i> 共享来源</div>
             </div>
 
-            {% if shared_folders %}
-            <div class="item-list">
-                {% for folder in shared_folders %}
-                <div class="shared-item" ondblclick="enterFolder('{{ folder.id }}')">
-                    <div class="item-icon">
-                        <i class="layui-icon layui-icon-folder folder-icon"></i>
-                    </div>
-                    <div>
-                        <div class="item-name">{{ folder.name }}</div>
-                        <div class="item-meta">
-                            所有者：{{ folder.owner.username }} · 更新时间：{{ folder.update_time|date:"Y-m-d H:i" }}
-                        </div>
-                    </div>
-                    <div class="item-actions">
-                        <button class="layui-btn layui-btn-xs" onclick="enterFolder('{{ folder.id }}')">打开</button>
-                        {% if folder.owner_id == request.user.id %}
-                        <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="shareFolder('{{ folder.id }}')">外链</button>
-                        {% endif %}
+            <div class="body">
+                <nav class="breadcrumb">
+                    <a onclick="location.href='/disk/share/'">共享根目录</a>
+                    {% for folder in breadcrumbs %}
+                    <span>/</span>
+                    <a onclick="enterFolder('{{ folder.id }}')">{{ folder.name }}</a>
+                    {% endfor %}
+                </nav>
+                {% if current_folder %}
+                <div class="section" style="margin-bottom: 16px;">
+                    <div class="list-card" style="padding: 12px 16px;">
+                        <div class="name">{{ current_folder.name }}</div>
+                        <div class="meta-line">当前文件夹 · 所有者：{{ current_folder.owner.username }} · 更新时间：{{ current_folder.update_time|date:"Y-m-d H:i" }}</div>
                     </div>
                 </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <div class="empty-state">
-                <i class="layui-icon layui-icon-folder"></i>
-                <p>暂无共享文件夹</p>
-            </div>
-            {% endif %}
-        </section>
+                {% endif %}
 
-        <section class="section">
-            <div class="section-head">
-                <h2 class="section-title">共享文件</h2>
-                <span class="count">{{ shared_files.count }} 个</span>
-            </div>
-
-            {% if shared_files %}
-            <div class="item-list">
-                {% for file in shared_files %}
-                <div class="shared-item">
-                    <div class="item-icon">
-                        {% if file.file_type == 'document' %}
-                        <i class="layui-icon layui-icon-file document-icon"></i>
-                        {% elif file.file_type == 'image' %}
-                        <i class="layui-icon layui-icon-picture image-icon"></i>
-                        {% elif file.file_type == 'video' %}
-                        <i class="layui-icon layui-icon-video video-icon"></i>
-                        {% elif file.file_type == 'audio' %}
-                        <i class="layui-icon layui-icon-voice audio-icon"></i>
-                        {% elif file.file_type == 'archive' %}
-                        <i class="layui-icon layui-icon-file archive-icon"></i>
-                        {% else %}
-                        <i class="layui-icon layui-icon-file other-icon"></i>
-                        {% endif %}
+                <section class="section">
+                    <div class="section-head">
+                        <h2 class="section-title">共享文件夹</h2>
+                        <span class="count">{{ shared_folders|length }} 个</span>
                     </div>
-                    <div>
-                        <div class="item-name">{{ file.name }}</div>
-                        <div class="item-meta">
-                            所有者：{{ file.owner.username }} · {{ file.get_size_display }} · 更新时间：{{ file.update_time|date:"Y-m-d H:i" }}
+                    <div class="list-card">
+                        {% for folder in shared_folders %}
+                        <div class="row">
+                            <div class="avatar" style="background:#0ea5e9;"><i class="layui-icon layui-icon-folder"></i></div>
+                            <div>
+                                <div class="name">{{ folder.name }}</div>
+                                <div class="meta-line">
+                                    所有者：{{ folder.owner.username }}{% if folder.owner_department %} · 部门：{{ folder.owner_department }}{% endif %}
+                                    · 更新时间：{{ folder.update_time|date:"Y-m-d H:i" }}
+                                </div>
+                                <div class="meta-tags">
+                                    <span class="tag"><i class="layui-icon layui-icon-location"></i> {{ folder.share_source_label }}</span>
+                                    <span class="tag"><i class="layui-icon layui-icon-note"></i> {{ folder.share_source_detail }}</span>
+                                </div>
+                            </div>
+                            <div class="actions">
+                                <button class="layui-btn layui-btn-xs" onclick="enterFolder('{{ folder.id }}')"><i class="layui-icon layui-icon-search"></i> 打开</button>
+                            </div>
                         </div>
+                        {% empty %}
+                        <div class="empty">
+                            <i class="layui-icon layui-icon-folder"></i>
+                            暂无共享文件夹
+                        </div>
+                        {% endfor %}
                     </div>
-                    <div class="item-actions">
-                        <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="previewFile('{{ file.id }}', '{{ file.name|escapejs }}', '{{ file.file_type }}')">
-                            <i class="layui-icon layui-icon-read"></i> 预览
-                        </button>
-                        <button class="layui-btn layui-btn-xs" onclick="downloadFile('{{ file.id }}')">
-                            <i class="layui-icon layui-icon-download-circle"></i> 下载
-                        </button>
-                        {% if file.owner_id == request.user.id %}
-                        <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="shareFile('{{ file.id }}')">外链</button>
-                        {% endif %}
+                </section>
+
+                <section class="section">
+                    <div class="section-head">
+                        <h2 class="section-title">共享文件</h2>
+                        <span class="count">{{ shared_files|length }} 个</span>
                     </div>
-                </div>
-                {% endfor %}
+                    <div class="list-card">
+                        {% for file in shared_files %}
+                        <div class="row">
+                            <div class="avatar" style="background:#126b64;">
+                                {% if file.file_type == 'document' %}
+                                <i class="layui-icon layui-icon-file"></i>
+                                {% elif file.file_type == 'image' %}
+                                <i class="layui-icon layui-icon-picture"></i>
+                                {% elif file.file_type == 'video' %}
+                                <i class="layui-icon layui-icon-video"></i>
+                                {% elif file.file_type == 'audio' %}
+                                <i class="layui-icon layui-icon-voice"></i>
+                                {% else %}
+                                <i class="layui-icon layui-icon-file"></i>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <div class="name">{{ file.name }}</div>
+                                <div class="meta-line">
+                                    所有者：{{ file.owner.username }}{% if file.owner_department %} · 部门：{{ file.owner_department }}{% endif %}
+                                    · {{ file.get_size_display }} · 更新时间：{{ file.update_time|date:"Y-m-d H:i" }}
+                                </div>
+                                <div class="meta-tags">
+                                    <span class="tag"><i class="layui-icon layui-icon-location"></i> {{ file.share_source_label }}</span>
+                                    <span class="tag"><i class="layui-icon layui-icon-note"></i> {{ file.share_source_detail }}</span>
+                                </div>
+                            </div>
+                            <div class="actions">
+                                <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="previewFile('{{ file.id }}', '{{ file.name|escapejs }}', '{{ file.file_type }}')"><i class="layui-icon layui-icon-read"></i> 预览</button>
+                                <button class="layui-btn layui-btn-xs" onclick="downloadFile('{{ file.id }}')"><i class="layui-icon layui-icon-download-circle"></i> 下载</button>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="empty">
+                            <i class="layui-icon layui-icon-file"></i>
+                            暂无共享文件
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
             </div>
-            {% else %}
-            <div class="empty-state">
-                <i class="layui-icon layui-icon-share"></i>
-                <p>暂无共享文件</p>
-                <p>其他用户或部门共享给您的文件会显示在这里。</p>
-            </div>
-            {% endif %}
-        </section>
+        </div>
     </div>
 
     <script src="{% static 'layui/layui.js' %}"></script>
@@ -358,31 +262,6 @@
                 });
             });
         }
-
-        function shareFile(fileId) {
-            openSharePanel('file', fileId);
-        }
-
-        function shareFolder(folderId) {
-            openSharePanel('folder', folderId);
-        }
-
-        function openSharePanel(type, id) {
-            layui.use('layer', function () {
-                layui.layer.open({
-                    type: 2,
-                    title: '外链分享',
-                    shadeClose: false,
-                    shade: 0.3,
-                    maxmin: true,
-                    area: ['80%', '100%'],
-                    offset: 'r',
-                    anim: 2,
-                    content: '/disk/share/create/?type=' + encodeURIComponent(type) + '&id=' + encodeURIComponent(id)
-                });
-            });
-        }
     </script>
 </body>
-
 </html>

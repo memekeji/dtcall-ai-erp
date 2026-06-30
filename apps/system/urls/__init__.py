@@ -65,4 +65,11 @@ urlpatterns = [
     
     # 服务配置
     path('config/service/', include('apps.system.urls.service_config_urls')),
+
+    # 在线更新 & 版本管理
+    path('version/info/', views.version_info_api, name='version_info_api'),
+    path('version/backup/', views.update_backup_api, name='update_backup_api'),
+    path('version/update/', views.update_execute_api, name='update_execute_api'),
+    path('version/rollback/', views.update_rollback_api, name='update_rollback_api'),
+    path('version/health/', views.update_health_api, name='update_health_api'),
 ]

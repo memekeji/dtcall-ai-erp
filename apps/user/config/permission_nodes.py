@@ -570,6 +570,43 @@ PERMISSION_NODES = {
                     {'codename': 'delete_report', 'name': '删除汇报'},
                 ]
             },
+            'conversation_center': {
+                'name': '沟通中心',
+                'permissions': [
+                    {'codename': 'view_conversation_center', 'name': '菜单查看'},
+                    {'codename': 'start_direct_conversation', 'name': '发起单聊'},
+                    {'codename': 'create_group_conversation', 'name': '创建群聊'},
+                    {'codename': 'manage_group_conversation', 'name': '管理群聊'},
+                    {'codename': 'send_conversation_message', 'name': '发送沟通消息'},
+                    {'codename': 'convert_message_to_task', 'name': '消息转任务'},
+                    {'codename': 'view_message_read_receipts', 'name': '查看已读回执'},
+                ]
+            },
+            'message_center': {
+                'name': '通知中心',
+                'permissions': [
+                    {'codename': 'view_message_center', 'name': '菜单查看'},
+                    {'codename': 'view_message', 'name': '查看消息'},
+                    {'codename': 'create_message', 'name': '发送消息'},
+                    {'codename': 'delete_message', 'name': '删除消息'},
+                    {'codename': 'mark_message_read', 'name': '标记已读'},
+                    {'codename': 'star_message', 'name': '标星消息'},
+                    {'codename': 'batch_message_operation', 'name': '批量操作'},
+                ]
+            },
+            'message_preference': {
+                'name': '通知偏好',
+                'permissions': [
+                    {'codename': 'view_message_preference', 'name': '菜单查看'},
+                    {'codename': 'change_message_preference', 'name': '编辑偏好'},
+                ]
+            },
+            'message_stats': {
+                'name': '消息统计',
+                'permissions': [
+                    {'codename': 'view_message_stats', 'name': '菜单查看'},
+                ]
+            },
         }
     },
 
@@ -678,51 +715,6 @@ PERMISSION_NODES = {
                         ]
                     },
                 }
-            },
-        }
-    },
-
-    # 6.5 统一消息与在线沟通
-    'message': {
-        'name': '在线沟通',
-        'icon': 'layui-icon-notice',
-        'children': {
-            'conversation_center': {
-                'name': '沟通中心',
-                'permissions': [
-                    {'codename': 'view_conversation_center', 'name': '菜单查看'},
-                    {'codename': 'start_direct_conversation', 'name': '发起单聊'},
-                    {'codename': 'create_group_conversation', 'name': '创建群聊'},
-                    {'codename': 'manage_group_conversation', 'name': '管理群聊'},
-                    {'codename': 'send_conversation_message', 'name': '发送沟通消息'},
-                    {'codename': 'convert_message_to_task', 'name': '消息转任务'},
-                    {'codename': 'view_message_read_receipts', 'name': '查看已读回执'},
-                ]
-            },
-            'message_center': {
-                'name': '通知中心',
-                'permissions': [
-                    {'codename': 'view_message_center', 'name': '菜单查看'},
-                    {'codename': 'view_message', 'name': '查看消息'},
-                    {'codename': 'create_message', 'name': '发送消息'},
-                    {'codename': 'delete_message', 'name': '删除消息'},
-                    {'codename': 'mark_message_read', 'name': '标记已读'},
-                    {'codename': 'star_message', 'name': '标星消息'},
-                    {'codename': 'batch_message_operation', 'name': '批量操作'},
-                ]
-            },
-            'message_preference': {
-                'name': '通知偏好',
-                'permissions': [
-                    {'codename': 'view_message_preference', 'name': '菜单查看'},
-                    {'codename': 'change_message_preference', 'name': '编辑偏好'},
-                ]
-            },
-            'message_stats': {
-                'name': '消息统计',
-                'permissions': [
-                    {'codename': 'view_message_stats', 'name': '菜单查看'},
-                ]
             },
         }
     },
@@ -1252,9 +1244,13 @@ PERMISSION_NODES = {
                 'permissions': [
                     {'codename': 'view_disk', 'name': '菜单查看'},
                     {'codename': 'view_disk_file', 'name': '查看文件'},
+                    {'codename': 'view_disk_folder', 'name': '查看文件夹'},
                     {'codename': 'add_disk_file', 'name': '新增文件'},
+                    {'codename': 'add_disk_folder', 'name': '新增文件夹'},
                     {'codename': 'change_disk_file', 'name': '编辑文件'},
+                    {'codename': 'change_disk_folder', 'name': '编辑文件夹'},
                     {'codename': 'delete_disk_file', 'name': '删除文件'},
+                    {'codename': 'delete_disk_folder', 'name': '删除文件夹'},
                 ]
             },
             'personal_file': {

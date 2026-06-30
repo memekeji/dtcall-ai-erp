@@ -1,0 +1,51 @@
+{% extends "home/iframe_base.html" %}
+{% load static %}
+{% block title %}面试管理 - AI-HRBP{% endblock %}
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <a href="{% url 'hrbp:dashboard' %}" class="layui-btn layui-btn-primary layui-btn-sm"><i class="layui-icon layui-icon-left"></i> 返回</a>
+    </div>
+    <div class="layui-card-body">
+        <table class="layui-table" lay-skin="line">
+            <thead><tr><th>候选人</th><th>岗位</th><th>阶段</th><th>联系方式</th><th>更新时间</th><th>操作</th></tr></thead>
+            <tbody>
+            {% for pipeline in pipelines %}
+            <tr>
+                <td><a href="{% url 'hrbp:pipeline_detail' pipeline.id %}">{{ pipeline.resume_submission.candidate_name|default:"未知" }}</a></td>
+                <td>{{ pipeline.position.title }}</td>
+                <td>{{ pipeline.get_current_stage_display }}</td>
+                <td>{{ pipeline.resume_submission.candidate_phone|default:"--" }} / {{ pipeline.resume_submission.candidate_email|default:"--" }}</td>
+                <td>{{ pipeline.updated_at|date:"Y-m-d H:i" }}</td>
+                <td>
+                    <button class="layui-btn layui-btn-xs" onclick="sendNotify({{ pipeline.id }})">发送邀请</button>
+                    <a href="{% url 'hrbp:pipeline_detail' pipeline.id %}" class="layui-btn layui-btn-xs layui-btn-normal">详情</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" style="text-align:center;padding:40px;color:#999;">暂无面试安排</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% include "home/pagination.html" %}
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+(function checkLayui() {
+    if (typeof layui !== 'undefined') {
+function sendNotify(id) {
+    layer.open({
+        type:1, title:'发送通知', area:['450px','280px'],
+        content: '<div style="padding:20px;"><select id="ns"><option value="interview_invite">面试邀请</option><option value="exam_invite">考核邀请</option></select><button class="layui-btn" style="margin-top:16px;" onclick="dSN('+id+')">发送</button></div>',
+        success:function(){ layui.form.render('select'); }
+    });
+}
+function dSN(id){ var s=$('#ns').val(); $.post('/hrbp/pipeline/'+id+'/send-notification/',{scene:s,csrfmiddlewaretoken:'{{ csrf_token }}'}, function(r){ layer.msg(r.message,{icon:r.success?1:2}); }); }
+    } else {
+        setTimeout(checkLayui, 50);
+    }
+})();
+</script>
+{% endblock %}

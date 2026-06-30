@@ -1,0 +1,62 @@
+{% extends "home/iframe_base.html" %}{% load static %}
+{% block title %}题库分组管理 - AI-HRBP{% endblock %}
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <a href="{% url 'hrbp:dashboard' %}" class="layui-btn layui-btn-primary layui-btn-sm"><i class="layui-icon layui-icon-left"></i> 返回</a>
+        <button class="layui-btn layui-btn-normal layui-btn-sm" id="addGroupBtn"><i class="layui-icon layui-icon-add-1"></i> 新建分组</button>
+        <div class="layui-inline" style="float:right;">
+            <form method="get">
+                <select name="position_id" style="width:150px;display:inline-block;" class="layui-input"><option value="">全部岗位</option>{% for p in positions %}<option value="{{ p.id }}" {% if request.GET.position_id == p.id|stringformat:'s' %}selected{% endif %}>{{ p.title }}</option>{% endfor %}</select>
+                <select name="difficulty" style="width:120px;display:inline-block;" class="layui-input"><option value="">全部难度</option><option value="easy" {% if request.GET.difficulty == 'easy' %}selected{% endif %}>简单</option><option value="medium" {% if request.GET.difficulty == 'medium' %}selected{% endif %}>中等</option><option value="hard" {% if request.GET.difficulty == 'hard' %}selected{% endif %}>困难</option></select>
+                <input type="text" name="search" placeholder="搜索" class="layui-input" style="width:180px;display:inline-block;" value="{{ request.GET.search }}">
+                <button type="submit" class="layui-btn layui-btn-primary layui-btn-sm">搜索</button>
+            </form>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <table class="layui-table" lay-skin="line">
+            <thead><tr><th>分组名称</th><th>关联岗位</th><th>职能标签</th><th>难度</th><th>题目数</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody>
+            {% for g in groups %}
+            <tr>
+                <td><a href="{% url 'hrbp:question_bank_detail' g.id %}">{{ g.name }}</a></td>
+                <td>{{ g.position.title|default:'不限' }}</td>
+                <td>{{ g.function_tags|join:', ' }}</td>
+                <td>{{ g.get_difficulty_display }}</td>
+                <td>{{ g.question_count }}</td>
+                <td>{% if g.is_active %}<span class="layui-badge layui-bg-green">启用</span>{% else %}<span class="layui-badge">停用</span>{% endif %}</td>
+                <td>
+                    <a href="{% url 'hrbp:question_bank_detail' g.id %}" class="layui-btn layui-btn-xs">题目</a>
+                    <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="editGroup({{ g.id }})">编辑</button>
+                    <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteGroup({{ g.id }})">删除</button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" style="text-align:center;padding:40px;color:#999;">暂无题库分组，请创建</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% include "home/pagination.html" %}
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+(function checkLayui() {
+    if (typeof layui !== 'undefined') {
+layui.use(['layer'], function() {
+    var layer = layui.layer, $ = layui.$;
+    function openRight(title, url) {
+        parent.layer.open({type:2, title:title, shadeClose:false, shade:0.3, maxmin:true, area:['80%','100%'], offset:'r', anim:2, content:url, success:function(layero){$(layero).css({right:'0',top:'0',height:'100%'});}, end:function(){location.reload();}});
+    }
+    $('#addGroupBtn').click(function(){ openRight('新建题库分组', '{% url "hrbp:question_bank_create" %}'); });
+    window.editGroup = function(id){ openRight('编辑题库分组', '/hrbp/question-bank/'+id+'/edit/'); };
+    window.deleteGroup = function(id){ layer.confirm('确定删除该分组？分组下的题目不会被删除。', function(idx){ layer.close(idx); $.post('/hrbp/question-bank/'+id+'/delete/', {csrfmiddlewaretoken:'{{ csrf_token }}'}, function(r){ layer.msg(r.message,{icon:r.success?1:2}); if(r.success) setTimeout(function(){location.reload();},800); }); }); };
+});
+    } else {
+        setTimeout(checkLayui, 50);
+    }
+})();
+</script>
+{% endblock %}

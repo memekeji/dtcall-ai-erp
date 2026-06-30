@@ -1,0 +1,152 @@
+{% extends "home/iframe_base.html" %}{% load static %}
+{% block title %}创建考核 - AI-HRBP{% endblock %}
+{% block content %}
+<div class="layui-tab layui-tab-brief" lay-filter="examTab" style="margin:0;">
+    <ul class="layui-tab-title">
+        <li class="layui-this">基本信息</li>
+        <li>自动组卷</li>
+        <li>手动选题</li>
+    </ul>
+    <div class="layui-tab-content" style="padding:15px;">
+        <!-- Tab 1: 基本信息 -->
+        <div class="layui-tab-item layui-show">
+            <form class="layui-form" style="max-width:650px;" id="examInfoForm">
+                {% csrf_token %}
+                <div class="layui-form-item"><label class="layui-form-label">考核名称</label><div class="layui-input-block"><input type="text" name="title" class="layui-input" placeholder="请输入考核名称" required></div></div>
+                <div class="layui-form-item"><label class="layui-form-label">考核类型</label><div class="layui-input-block"><select name="exam_type"><option value="technical">技术考核</option><option value="personality">性格测试</option><option value="comprehensive">综合能力</option><option value="professional">专业知识</option><option value="custom" selected>自定义</option></select></div></div>
+                <div class="layui-form-item"><label class="layui-form-label">难度</label><div class="layui-input-block"><select name="difficulty"><option value="easy">简单</option><option value="medium" selected>中等</option><option value="hard">困难</option></select></div></div>
+                <div class="layui-form-item"><label class="layui-form-label">考试时长</label><div class="layui-input-block"><input type="number" name="duration_minutes" class="layui-input" value="60" placeholder="分钟"></div></div>
+                <div class="layui-form-item"><div class="layui-inline"><label class="layui-form-label">总分</label><div class="layui-input-inline"><input type="number" name="total_score" class="layui-input" value="100" style="width:120px;"></div></div><div class="layui-inline"><label class="layui-form-label">及格分</label><div class="layui-input-inline"><input type="number" name="passing_score" class="layui-input" value="60" style="width:120px;"></div></div></div>
+                <div class="layui-form-item"><label class="layui-form-label">考核说明</label><div class="layui-input-block"><textarea name="description" class="layui-textarea" rows="3" placeholder="考核说明"></textarea></div></div>
+                <div class="layui-form-item"><div class="layui-input-block"><button type="submit" class="layui-btn" lay-submit lay-filter="saveExam">创建考核</button></div></div>
+            </form>
+        </div>
+
+        <!-- Tab 2: 自动组卷 -->
+        <div class="layui-tab-item">
+            <div style="margin-bottom:10px;color:#666;">选择已有的组卷规则，一键自动生成考核试卷。</div>
+            <table class="layui-table" lay-skin="line" id="ruleTable">
+                <thead><tr><th>规则名称</th><th>题目数</th><th>总分</th><th>状态</th><th>操作</th></tr></thead>
+                <tbody id="ruleTableBody">
+                <tr id="ruleLoading"><td colspan="5" style="text-align:center;">加载中...</td></tr>
+                </tbody>
+            </table>
+            <div style="margin-top:10px;">
+                <a href="{% url 'hrbp:auto_rule_list' %}" class="layui-btn layui-btn-primary layui-btn-sm" target="_blank">管理组卷规则</a>
+            </div>
+        </div>
+
+        <!-- Tab 3: 手动选题 -->
+        <div class="layui-tab-item">
+            <div style="margin-bottom:10px;color:#666;">从题库分组中手动选择题目组建考核（需先创建考核基本信息，然后在考核详情中添加题目）。</div>
+            <div style="margin-bottom:10px;">
+                <select id="bankGroupFilter" style="width:200px;display:inline-block;" class="layui-input"><option value="">选择题库分组</option></select>
+                <button class="layui-btn layui-btn-sm" type="button" id="loadBankQuestions">加载题目</button>
+            </div>
+            <table class="layui-table" lay-skin="line" id="bankQuestionTable">
+                <thead><tr><th width="50"><input type="checkbox" lay-filter="checkAll"></th><th width="60">类型</th><th>题目</th><th width="60">分值</th><th width="80">分组</th></tr></thead>
+                <tbody id="bankQuestionBody">
+                <tr><td colspan="5" style="text-align:center;color:#999;">请选择题库分组后加载题目</td></tr>
+                </tbody>
+            </table>
+            <div style="margin-top:10px;">
+                <a href="{% url 'hrbp:question_bank_list' %}" class="layui-btn layui-btn-primary layui-btn-sm" target="_blank">管理题库</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+(function checkLayui() {
+    if (typeof layui !== 'undefined') {
+layui.use(['form','layer','element'], function() {
+    var form = layui.form, layer = layui.layer, $ = layui.$, element = layui.element;
+
+    // Tab 1: Save basic exam
+    form.on('submit(saveExam)', function(data) {
+        $.post('{% url "hrbp:exam_create" %}', data.field, function(res) {
+            if (res.success) {
+                layer.msg(res.message, {icon:1});
+                setTimeout(function(){ parent.layer.closeAll(); parent.location.reload(); }, 800);
+            } else { layer.msg(res.message, {icon:2}); }
+        });
+        return false;
+    });
+
+    // Tab 2: Load auto-generation rules
+    $.get('{% url "hrbp:auto_rule_list" %}?format=json', function(html) {
+        // We'll use the API to get rules
+    });
+
+    // Load rules for auto-generation tab
+    function loadRules() {
+        $.get('/hrbp/auto-rules/api/', function(r) {
+            var html = '';
+            if (r.rules && r.rules.length > 0) {
+                r.rules.forEach(function(rule) {
+                    html += '<tr><td>'+rule.name+'</td><td>'+rule.total_questions+'</td><td>'+rule.total_score+'</td><td>'+rule.status+'</td><td><button class="layui-btn layui-btn-xs layui-btn-warm" onclick="previewGen('+rule.id+')">预览</button> <button class="layui-btn layui-btn-xs" onclick="doGenerate('+rule.id+')">组卷</button></td></tr>';
+                });
+            } else {
+                html = '<tr><td colspan="5" style="text-align:center;color:#999;">暂无组卷规则，请先创建</td></tr>';
+            }
+            $('#ruleTableBody').html(html);
+        });
+    }
+    loadRules();
+
+    // Preview generation
+    window.previewGen = function(ruleId) {
+        layer.load();
+        $.get('/hrbp/auto-generate/'+ruleId+'/preview/', function(r) {
+            layer.closeAll('loading');
+            if (r.success) {
+                var p = r.preview, html = '<div style="padding:15px;">可用题目: <b>'+p.total_available+'</b> 道</div>';
+                layer.open({type:1, title:'预览', area:['500px','400px'], content:html});
+            } else { layer.msg(r.message, {icon:2}); }
+        });
+    };
+
+    // Execute generation
+    window.doGenerate = function(ruleId) {
+        layer.prompt({title:'输入考核名称'}, function(name, idx){
+            layer.close(idx); layer.load();
+            $.post('/hrbp/auto-generate/'+ruleId+'/execute/', {title:name, csrfmiddlewaretoken:'{{ csrf_token }}'}, function(r){
+                layer.closeAll('loading');
+                if (r.success) { layer.msg(r.message, {icon:1}); setTimeout(function(){ parent.layer.closeAll(); parent.location.reload(); }, 1000); }
+                else { layer.msg(r.message, {icon:2}); }
+            });
+        });
+    };
+
+    // Tab 3: Load bank groups
+    $.get('/hrbp/question-banks/api/', function(r) {
+        var opts = '<option value="">选择题库分组</option>';
+        if (r.groups) r.groups.forEach(function(g) { opts += '<option value="'+g.id+'">'+g.name+' ('+g.question_count+'题)</option>'; });
+        $('#bankGroupFilter').html(opts);
+        form.render('select');
+    });
+
+    $('#loadBankQuestions').click(function() {
+        var gid = $('#bankGroupFilter').val();
+        if (!gid) { layer.msg('请先选择题库分组'); return; }
+        layer.load();
+        $.get('/hrbp/question-bank/'+gid+'/questions/api/', function(r) {
+            layer.closeAll('loading');
+            var html = '';
+            if (r.questions && r.questions.length > 0) {
+                r.questions.forEach(function(q) {
+                    html += '<tr><td><input type="checkbox" value="'+q.id+'" class="qCheck"></td><td>'+q.question_type+'</td><td>'+q.content+'</td><td>'+q.score+'</td><td>'+q.bank_group_name+'</td></tr>';
+                });
+            } else { html = '<tr><td colspan="5" style="text-align:center;color:#999;">该分组暂无题目</td></tr>'; }
+            $('#bankQuestionBody').html(html);
+            form.render('checkbox');
+        });
+    });
+});
+    } else {
+        setTimeout(checkLayui, 50);
+    }
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,49 @@
+from dataclasses import dataclass
+
+from apps.system.middleware.data_permission_middleware import PermissionChecker
+
+
+@dataclass(slots=True)
+class PermissionCheckResult:
+    allowed: bool
+    reason: str
+
+
+class AIPermissionGuard:
+    OPERATION_TO_CHECKER = {
+        'query': 'can_view',
+        'list': 'can_view',
+        'detail': 'can_view',
+        'create': 'can_add',
+        'update': 'can_change',
+        'delete': 'can_delete',
+        'approve': 'can_approve',
+    }
+
+    RESOURCE_PERMISSION_ALIASES = {
+        'finance': 'reimbursement',
+        'invoice_request': 'invoice',
+    }
+
+    def check_action_permission(self, user, action, permission_code: str, queryset=None):
+        if not getattr(user, 'is_authenticated', False):
+            return PermissionCheckResult(allowed=False, reason='unauthenticated')
+
+        checker_name = self.OPERATION_TO_CHECKER.get(action.operation, 'can_operate')
+        checker = getattr(PermissionChecker, checker_name)
+        permission_name = permission_code.split('.', 1)[-1] if '.' in permission_code else permission_code
+        resource_type = permission_name.split('_', 1)[-1] if '_' in permission_name else permission_name
+        resource_type = self.RESOURCE_PERMISSION_ALIASES.get(resource_type, resource_type)
+
+        if checker_name == 'can_operate':
+            allowed = checker(user, permission_code)
+        else:
+            allowed = checker(user, resource_type)
+
+        if not allowed:
+            return PermissionCheckResult(allowed=False, reason='missing_permission')
+
+        if queryset is not None and hasattr(queryset, 'exists') and not queryset.exists():
+            return PermissionCheckResult(allowed=False, reason='out_of_scope')
+
+        return PermissionCheckResult(allowed=True, reason='allowed')

@@ -226,6 +226,12 @@ class EmployeeDeleteView(CustomLoginRequiredMixin, View):
 
                 deleted_count = cursor.rowcount
 
+            try:
+                from apps.message.services import ConversationService
+                ConversationService.sync_system_conversations()
+            except Exception:
+                pass
+
             return JsonResponse({
                 'code': 0,
                 'msg': f'成功删除 {deleted_count} 名员工',

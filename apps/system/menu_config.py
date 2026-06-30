@@ -143,6 +143,65 @@ system_menus = {
         "sort": 15,
         "status": 1
     },
+    1116: {
+        "id": 1116,
+        "title": "AI-HRBP",
+        "src": "/hrbp/positions/",
+        "pid_id": 1107,
+        "sort": 16,
+        "status": 1
+    },
+
+
+    1416: {
+        "id": 1416,
+        "title": "招聘仪表盘",
+        "src": "/hrbp/dashboard/",
+        "pid_id": 1107,
+        "sort": 17,
+        "status": 1
+    },
+    1417: {
+        "id": 1417,
+        "title": "候选人筛选",
+        "src": "/hrbp/screening/",
+        "pid_id": 1107,
+        "sort": 18,
+        "status": 1
+    },
+    1418: {
+        "id": 1418,
+        "title": "面试管理",
+        "src": "/hrbp/interviews/",
+        "pid_id": 1107,
+        "sort": 19,
+        "status": 1
+    },
+    1419: {
+        "id": 1419,
+        "title": "在线考核",
+        "src": "/hrbp/exams/",
+        "pid_id": 1107,
+        "sort": 20,
+        "status": 1
+    },
+    1420: {
+        "id": 1420,
+        "title": "入职管理",
+        "src": "/hrbp/onboarding/",
+        "pid_id": 1107,
+        "sort": 21,
+        "status": 1
+    },
+    1421: {
+        "id": 1421,
+        "title": "流程配置",
+        "src": "/hrbp/config/",
+        "pid_id": 1107,
+        "sort": 22,
+        "status": 1
+    },
+
 
     1122: {
         "id": 1122,
@@ -1016,6 +1075,16 @@ system_menus = {
         "sort": 100,
         "status": 1
     },
+    # ── AI 合同审查 ──
+    1600: {
+        "id": 1600,
+        "title": "AI 合同审查",
+        "src": "/contract/ai/review/list/",
+        "pid_id": 1207,
+        "sort": 101,
+        "status": 1
+    },
+
     1224: {
         "id": 1224,
         "title": "项目管理",
@@ -1424,6 +1493,14 @@ system_menus = {
         "sort": 133,
         "status": 1
     },
+    1282: {
+        "id": 1282,
+        "title": "智能体中心",
+        "src": "/ai/agent-center/",
+        "pid_id": 1271,
+        "sort": 134,
+        "status": 1
+    },
     # 审批流程菜单 - 个人办公
     1300: {
         "id": 1300,
@@ -1490,12 +1567,20 @@ system_menus = {
         "sort": 1,
         "status": 1
     },
+    1402: {
+        "id": 1402,
+        "title": "通知中心",
+        "src": "/message/page/",
+        "pid_id": 1400,
+        "sort": 2,
+        "status": 1
+    },
     1403: {
         "id": 1403,
         "title": "通知偏好",
         "src": "/message/preference/",
         "pid_id": 1400,
-        "sort": 2,
+        "sort": 3,
         "status": 1
     },
     1404: {
@@ -1503,7 +1588,7 @@ system_menus = {
         "title": "消息统计",
         "src": "/message/stats/page/",
         "pid_id": 1400,
-        "sort": 3,
+        "sort": 4,
         "status": 1
     }
 }

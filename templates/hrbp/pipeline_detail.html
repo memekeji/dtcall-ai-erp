@@ -1,0 +1,168 @@
+{% extends "home/iframe_base.html" %}
+{% load static %}
+
+{% block title %}候选人流程详情 - AI-HRBP{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <a href="{% url 'hrbp:screening_list' %}" class="layui-btn layui-btn-primary layui-btn-sm">
+            <i class="layui-icon layui-icon-left"></i> 返回
+        </a>
+    </div>
+    <div class="layui-card-body">
+        <!-- 候选人基本信息 -->
+        <fieldset class="layui-elem-field">
+            <legend>候选人信息</legend>
+            <div class="layui-row" style="padding:10px 0;">
+                <div class="layui-col-md4"><b>姓名：</b>{{ resume.candidate_name|default:"待提取" }}</div>
+                <div class="layui-col-md4"><b>电话：</b>{{ resume.candidate_phone|default:"未提供" }}</div>
+                <div class="layui-col-md4"><b>邮箱：</b>{{ resume.candidate_email|default:"未提供" }}</div>
+                <div class="layui-col-md4" style="margin-top:10px;"><b>岗位：</b>{{ pipeline.position.title }} - {{ pipeline.position.department.title }}</div>
+                <div class="layui-col-md4" style="margin-top:10px;"><b>当前阶段：</b><span class="layui-badge layui-bg-blue">{{ pipeline.get_current_stage_display }}</span></div>
+                <div class="layui-col-md4" style="margin-top:10px;"><b>阶段结果：</b>
+                    {% if pipeline.stage_result == 'passed' %}<span class="layui-badge layui-bg-green">通过</span>
+                    {% elif pipeline.stage_result == 'rejected' %}<span class="layui-badge">淘汰</span>
+                    {% else %}<span class="layui-badge layui-bg-orange">待处理</span>{% endif %}
+                </div>
+            </div>
+        </fieldset>
+
+        <!-- AI匹配报告 -->
+        {% if report %}
+        <fieldset class="layui-elem-field">
+            <legend>AI匹配分析报告</legend>
+            <div class="layui-row" style="padding:10px 0;">
+                <div class="layui-col-md3"><b>匹配得分：</b><span style="font-size:20px;color:#1E9FFF;">{{ report.match_score }}</span></div>
+                <div class="layui-col-md3"><b>等级：</b>{{ report.get_match_level_display }}</div>
+                <div class="layui-col-md3"><b>学历：</b>{{ report.extracted_education }}</div>
+                <div class="layui-col-md3"><b>经验：</b>{{ report.extracted_experience_years }}年</div>
+            </div>
+            <div style="margin-top:12px;">
+                <div class="layui-collapse">
+                    <div class="layui-colla-item"><h2 class="layui-colla-title">优势分析</h2><div class="layui-colla-content">{{ report.strength_analysis|linebreaks }}</div></div>
+                    <div class="layui-colla-item"><h2 class="layui-colla-title">不足分析</h2><div class="layui-colla-content">{{ report.weakness_analysis|linebreaks }}</div></div>
+                    <div class="layui-colla-item"><h2 class="layui-colla-title">技能匹配</h2><div class="layui-colla-content">{{ report.skill_match_detail|linebreaks }}</div></div>
+                    <div class="layui-colla-item"><h2 class="layui-colla-title">综合评价</h2><div class="layui-colla-content">{{ report.comprehensive_evaluation|linebreaks }}</div></div>
+                    <div class="layui-colla-item"><h2 class="layui-colla-title">推荐意见</h2><div class="layui-colla-content">{{ report.recommendation|linebreaks }}</div></div>
+                </div>
+            </div>
+        </fieldset>
+        {% endif %}
+
+        <!-- 考核记录 -->
+        {% if exams %}
+        <fieldset class="layui-elem-field">
+            <legend>考核记录</legend>
+            <table class="layui-table">
+                <thead><tr><th>考核名称</th><th>状态</th><th>AI评分</th><th>HR评分</th><th>提交时间</th><th>操作</th></tr></thead>
+                <tbody>
+                {% for exam in exams %}
+                <tr>
+                    <td>{{ exam.exam.title }}</td>
+                    <td><span class="layui-badge layui-bg-gray">{{ exam.get_status_display }}</span></td>
+                    <td>{{ exam.ai_score|default:"--" }}</td>
+                    <td>{{ exam.hr_score|default:"--" }}</td>
+                    <td>{{ exam.submitted_at|date:"Y-m-d H:i"|default:"--" }}</td>
+                    <td>
+                        {% if exam.status == 'submitted' or exam.status == 'ai_graded' %}
+                        <a href="{% url 'hrbp:exam_review' exam.id %}" class="layui-btn layui-btn-xs layui-btn-warm">审批</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </fieldset>
+        {% endif %}
+
+        <!-- 通知记录 -->
+        {% if notifications %}
+        <fieldset class="layui-elem-field">
+            <legend>通知记录</legend>
+            <table class="layui-table" lay-skin="line">
+                <thead><tr><th>场景</th><th>方式</th><th>接收人</th><th>状态</th><th>时间</th></tr></thead>
+                <tbody>
+                {% for n in notifications %}
+                <tr>
+                    <td>{{ n.get_scene_display }}</td>
+                    <td>{{ n.get_notify_type_display }}</td>
+                    <td>{{ n.recipient }} ({{ n.contact_info }})</td>
+                    <td>{% if n.status == 'sent' %}<span class="layui-badge layui-bg-green">已发送</span>{% elif n.status == 'failed' %}<span class="layui-badge">失败</span>{% else %}<span class="layui-badge layui-bg-orange">待发送</span>{% endif %}</td>
+                    <td>{{ n.sent_at|date:"Y-m-d H:i"|default:"--" }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </fieldset>
+        {% endif %}
+
+        <!-- 操作日志 -->
+        <fieldset class="layui-elem-field">
+            <legend>流程操作日志</legend>
+            <table class="layui-table" lay-skin="line">
+                <thead><tr><th width="140">时间</th><th width="100">阶段</th><th width="100">操作</th><th width="80">操作人</th><th>详情</th></tr></thead>
+                <tbody>
+                {% for log in stage_logs %}
+                <tr>
+                    <td>{{ log.created_at|date:"Y-m-d H:i:s" }}</td>
+                    <td>{{ log.get_stage_display|default:log.stage }}</td>
+                    <td>{{ log.get_action_display }}</td>
+                    <td>{{ log.operator.username|default:"系统" }}</td>
+                    <td>{{ log.detail }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" style="text-align:center;">暂无日志</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </fieldset>
+
+        <!-- 操作按钮 -->
+        <div style="margin-top:20px; text-align:center;">
+            {% if pipeline.is_active %}
+            <button class="layui-btn layui-btn-normal" onclick="advanceStage({{ pipeline.id }})">推进到下一阶段</button>
+            <button class="layui-btn layui-btn-primary" onclick="sendNotify({{ pipeline.id }})">发送通知</button>
+            <button class="layui-btn layui-btn-danger" onclick="rejectCandidate({{ pipeline.id }})">淘汰候选人</button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+(function checkLayui() {
+    if (typeof layui !== 'undefined') {
+layui.use('element', function() { layui.element.render('collapse'); });
+
+function advanceStage(id) {
+    $.post('/hrbp/pipeline/' + id + '/advance/', {csrfmiddlewaretoken:'{{ csrf_token }}'}, function(res) {
+        layer.msg(res.message, {icon:res.success?1:2});
+        if (res.success) setTimeout(function(){ location.reload(); }, 1200);
+    });
+}
+function rejectCandidate(id) {
+    layer.prompt({title:'淘汰原因',formType:2,area:['400px','200px']}, function(comment, idx){
+        layer.close(idx);
+        $.post('/hrbp/screening/' + id + '/reject/', {comment:comment, csrfmiddlewaretoken:'{{ csrf_token }}'}, function(res) {
+            layer.msg(res.message, {icon:res.success?1:2});
+            if (res.success) setTimeout(function(){ location.reload(); }, 1200);
+        });
+    });
+}
+function sendNotify(id) {
+    layer.open({
+        type:1, title:'发送通知', area:['450px','280px'],
+        content: '<div class="layui-form" style="padding:20px;">'+
+            '<select id="ns"><option value="interview_invite">面试邀请</option><option value="exam_invite">考核邀请</option><option value="offer_notice">Offer通知</option><option value="onboarding_notice">入职通知</option></select>'+
+            '<button class="layui-btn" style="margin-top:16px;" onclick="dSN('+id+')">确认发送</button></div>',
+        success:function(){ layui.form.render('select'); }
+    });
+}
+function dSN(id) { var s=$('#ns').val(); $.post('/hrbp/pipeline/'+id+'/send-notification/',{scene:s,csrfmiddlewaretoken:'{{ csrf_token }}'}, function(r){ layer.msg(r.message,{icon:r.success?1:2}); }); }
+    } else {
+        setTimeout(checkLayui, 50);
+    }
+})();
+</script>
+{% endblock %}

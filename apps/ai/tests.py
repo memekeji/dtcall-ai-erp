@@ -1,10 +1,14 @@
 import json
+from datetime import timedelta
+from dataclasses import asdict
+from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from django.apps import apps
-from django.test import RequestFactory, SimpleTestCase
+from django.utils import timezone
+from django.test import RequestFactory, SimpleTestCase, TestCase
 
 
 class AIModelRegistryTests(SimpleTestCase):
@@ -24,6 +28,1756 @@ class AIModelRegistryTests(SimpleTestCase):
             expected_models.issubset(registered_models),
             f"Missing AI enhanced models: {sorted(expected_models - registered_models)}",
         )
+
+    def test_ai_operation_models_are_registered(self):
+        expected_models = {
+            'AIOperation',
+            'AIOperationChangeSet',
+            'AIOperationConfirmation',
+            'AIOperationRollback',
+        }
+
+        registered_models = {model.__name__ for model in apps.get_app_config('ai').get_models()}
+
+        self.assertTrue(
+            expected_models.issubset(registered_models),
+            f"Missing AI operation models: {sorted(expected_models - registered_models)}",
+        )
+
+
+class AIExecutionContractTests(SimpleTestCase):
+    def test_action_request_normalizes_defaults(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+        except ModuleNotFoundError:
+            self.fail('apps.ai.services.action_contracts.AIActionRequest is missing')
+
+        request = AIActionRequest(
+            resource='customer',
+            operation='update',
+            changes={'name': '新客户名称'},
+        )
+
+        self.assertEqual(request.resource, 'customer')
+        self.assertEqual(request.operation, 'update')
+        self.assertEqual(request.object_ids, [])
+        self.assertEqual(request.filters, {})
+        self.assertEqual(request.context, {})
+        self.assertEqual(request.changes, {'name': '新客户名称'})
+
+    def test_module_registry_rejects_unknown_resource(self):
+        try:
+            from apps.ai.services.action_gateway import AIActionGateway
+        except ModuleNotFoundError:
+            self.fail('apps.ai.services.action_gateway.AIActionGateway is missing')
+
+        gateway = AIActionGateway()
+
+        with self.assertRaisesMessage(KeyError, 'No AI module adapter registered for resource: unknown'):
+            gateway.get_adapter('unknown')
+
+
+class AIPermissionGuardTests(SimpleTestCase):
+    def test_guard_denies_when_permission_checker_fails(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.permission_guard import AIPermissionGuard
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing AI permission guard dependency: {exc}')
+
+        user = SimpleNamespace(is_authenticated=True)
+        action = AIActionRequest(resource='customer', operation='update', object_ids=[1])
+
+        with patch('apps.ai.services.permission_guard.PermissionChecker.can_change', return_value=False):
+            result = AIPermissionGuard().check_action_permission(
+                user,
+                action,
+                permission_code='customer.change_customer',
+            )
+
+        self.assertFalse(result.allowed)
+        self.assertEqual(result.reason, 'missing_permission')
+
+    def test_guard_allows_when_checker_passes_without_queryset(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.permission_guard import AIPermissionGuard
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing AI permission guard dependency: {exc}')
+
+        user = SimpleNamespace(is_authenticated=True)
+        action = AIActionRequest(resource='customer', operation='query')
+
+        with patch('apps.ai.services.permission_guard.PermissionChecker.can_view', return_value=True):
+            result = AIPermissionGuard().check_action_permission(
+                user,
+                action,
+                permission_code='customer.view_customer',
+            )
+
+        self.assertTrue(result.allowed)
+        self.assertEqual(result.reason, 'allowed')
+
+
+class AIRollbackServiceTests(SimpleTestCase):
+    def test_rollback_plan_reverses_change_set_order(self):
+        try:
+            from apps.ai.services.rollback_service import build_rollback_plan
+        except ModuleNotFoundError:
+            self.fail('apps.ai.services.rollback_service.build_rollback_plan is missing')
+
+        change_set = [
+            SimpleNamespace(sequence=1, change_type='create', object_pk='1'),
+            SimpleNamespace(sequence=2, change_type='update', object_pk='2'),
+            SimpleNamespace(sequence=3, change_type='delete', object_pk='3'),
+        ]
+
+        rollback_plan = build_rollback_plan(change_set)
+
+        self.assertEqual([item.object_pk for item in rollback_plan], ['3', '2', '1'])
+
+    def test_rollback_step_uses_inverse_change_type(self):
+        try:
+            from apps.ai.services.rollback_service import RollbackStep, inverse_change_type
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing rollback dependency: {exc}')
+
+        self.assertEqual(inverse_change_type('create'), 'delete')
+        self.assertEqual(inverse_change_type('update'), 'restore')
+        self.assertEqual(inverse_change_type('delete'), 'recreate')
+
+        step = RollbackStep(
+            sequence=3,
+            app_label='customer',
+            model_name='Customer',
+            object_pk='8',
+            forward_change_type='delete',
+            rollback_change_type=inverse_change_type('delete'),
+            before_snapshot={'id': 8, 'name': 'A'},
+            after_snapshot=None,
+        )
+
+        self.assertEqual(asdict(step)['rollback_change_type'], 'recreate')
+
+    def test_apply_customer_update_rollback_restores_before_snapshot(self):
+        try:
+            from apps.ai.services.rollback_service import rollback_service
+        except ModuleNotFoundError:
+            self.fail('apps.ai.services.rollback_service.rollback_service is missing')
+
+        customer = SimpleNamespace(
+            id=12,
+            name='新名称',
+            address='新地址',
+            save=MagicMock(),
+        )
+        change_set = SimpleNamespace(
+            sequence=1,
+            app_label='customer',
+            model_name='Customer',
+            object_pk='12',
+            change_type='update',
+            before_snapshot={'name': '旧名称', 'address': '旧地址'},
+            after_snapshot={'name': '新名称', 'address': '新地址'},
+            changed_fields=['name', 'address'],
+            is_rollback_supported=True,
+        )
+        operation = SimpleNamespace(
+            id=77,
+            status='executed',
+            change_sets=SimpleNamespace(all=lambda: [change_set]),
+            save=MagicMock(),
+        )
+
+        with patch('apps.ai.services.rollback_service.AIOperation.objects.get', return_value=operation), \
+                patch('apps.ai.services.rollback_service.AIOperationRollback.objects.create'), \
+                patch('apps.ai.services.rollback_service.build_rollback_plan', return_value=[change_set]), \
+                patch('apps.ai.services.rollback_service.apps.get_model') as get_model, \
+                patch('apps.ai.services.rollback_service.transaction.atomic'):
+            get_model.return_value = MagicMock(objects=MagicMock(get=MagicMock(return_value=customer)))
+
+            result = rollback_service.rollback_operation(operation_id=77, user=SimpleNamespace(id=7))
+
+        self.assertTrue(result['success'])
+        self.assertEqual(customer.name, '旧名称')
+        self.assertEqual(customer.address, '旧地址')
+        self.assertEqual(operation.status, 'rolled_back')
+        customer.save.assert_called_once()
+        operation.save.assert_called_once()
+
+    def test_apply_customer_create_rollback_deletes_created_record(self):
+        try:
+            from apps.ai.services.rollback_service import rollback_service
+        except ModuleNotFoundError:
+            self.fail('apps.ai.services.rollback_service.rollback_service is missing')
+
+        customer = SimpleNamespace(
+            id=15,
+            delete=MagicMock(),
+        )
+        change_set = SimpleNamespace(
+            sequence=1,
+            app_label='customer',
+            model_name='Customer',
+            object_pk='15',
+            change_type='create',
+            before_snapshot=None,
+            after_snapshot={'id': 15, 'name': '新客户'},
+            changed_fields=['name'],
+            is_rollback_supported=True,
+        )
+        operation = SimpleNamespace(
+            id=78,
+            status='executed',
+            change_sets=SimpleNamespace(all=lambda: [change_set]),
+            save=MagicMock(),
+        )
+
+        with patch('apps.ai.services.rollback_service.AIOperation.objects.get', return_value=operation), \
+                patch('apps.ai.services.rollback_service.AIOperationRollback.objects.create'), \
+                patch('apps.ai.services.rollback_service.build_rollback_plan', return_value=[change_set]), \
+                patch('apps.ai.services.rollback_service.apps.get_model') as get_model, \
+                patch('apps.ai.services.rollback_service.transaction.atomic'):
+            get_model.return_value = MagicMock(objects=MagicMock(get=MagicMock(return_value=customer)))
+
+            result = rollback_service.rollback_operation(operation_id=78, user=SimpleNamespace(id=7))
+
+        self.assertTrue(result['success'])
+        customer.delete.assert_called_once()
+        self.assertEqual(operation.status, 'rolled_back')
+
+    def test_apply_customer_delete_rollback_restores_soft_deleted_record(self):
+        try:
+            from apps.ai.services.rollback_service import rollback_service
+        except ModuleNotFoundError:
+            self.fail('apps.ai.services.rollback_service.rollback_service is missing')
+
+        customer = SimpleNamespace(
+            id=16,
+            delete_time=123456,
+            belong_uid=0,
+            belong_did=0,
+            share_ids='',
+            save=MagicMock(),
+        )
+        change_set = SimpleNamespace(
+            sequence=1,
+            app_label='customer',
+            model_name='Customer',
+            object_pk='16',
+            change_type='delete',
+            before_snapshot={'delete_time': 0, 'belong_uid': 7, 'belong_did': 3, 'share_ids': '7,8'},
+            after_snapshot={'delete_time': 123456, 'belong_uid': 0, 'belong_did': 0, 'share_ids': ''},
+            changed_fields=['delete_time', 'belong_uid', 'belong_did', 'share_ids'],
+            is_rollback_supported=True,
+        )
+        operation = SimpleNamespace(
+            id=79,
+            status='executed',
+            change_sets=SimpleNamespace(all=lambda: [change_set]),
+            save=MagicMock(),
+        )
+
+        with patch('apps.ai.services.rollback_service.AIOperation.objects.get', return_value=operation), \
+                patch('apps.ai.services.rollback_service.AIOperationRollback.objects.create'), \
+                patch('apps.ai.services.rollback_service.build_rollback_plan', return_value=[change_set]), \
+                patch('apps.ai.services.rollback_service.apps.get_model') as get_model, \
+                patch('apps.ai.services.rollback_service.transaction.atomic'):
+            get_model.return_value = MagicMock(objects=MagicMock(get=MagicMock(return_value=customer)))
+
+            result = rollback_service.rollback_operation(operation_id=79, user=SimpleNamespace(id=7))
+
+        self.assertTrue(result['success'])
+        self.assertEqual(customer.delete_time, 0)
+        self.assertEqual(customer.belong_uid, 7)
+        self.assertEqual(customer.belong_did, 3)
+        self.assertEqual(customer.share_ids, '7,8')
+
+
+class AIChatExecutionPayloadTests(SimpleTestCase):
+    def test_chat_payload_includes_action_plan_for_confirmable_write(self):
+        from apps.ai.views import AIChatStreamView
+
+        user = SimpleNamespace(is_authenticated=True, id=9)
+        request = SimpleNamespace(session={})
+
+        intent_result = {
+            'success': True,
+            'intent_type': 'data_update',
+            'message': '准备更新客户名称，请确认后执行。',
+            'result': '',
+            'confidence': 0.92,
+            'requires_confirmation': True,
+            'action': 'update',
+            'data_type': 'customer',
+            'entities': {'object_ids': [12], 'changes': {'name': '上海壹号客户'}},
+        }
+
+        with patch('apps.ai.services.intent_recognition_service.intent_recognition_service.process_request', return_value=intent_result), \
+                patch('apps.ai.services.operation_service.AIOperation.objects.create', return_value=SimpleNamespace(id=55, confirmation_token='token-55')), \
+                patch('apps.ai.services.operation_service.AIOperationConfirmation.objects.create'), \
+                patch.object(
+                    AIChatStreamView,
+                    'save_chat_record',
+                    return_value=(SimpleNamespace(id=1), SimpleNamespace(id=2), SimpleNamespace(id=3, runtime_payload={}, save=lambda **kwargs: None)),
+                ):
+            payload = AIChatStreamView()._build_intent_response_payload(
+                user,
+                chat_id=None,
+                message='把客户12改成上海壹号客户',
+                request=request,
+            )
+
+        self.assertEqual(payload['ai_message'], '准备更新客户名称，请确认后执行。')
+        self.assertTrue(payload['requires_confirmation'])
+        self.assertEqual(payload['action_plan']['resource'], 'customer')
+        self.assertEqual(payload['action_plan']['operation'], 'update')
+        self.assertEqual(payload['action_plan']['object_ids'], [12])
+        self.assertEqual(payload['action_plan']['changes'], {'name': '上海壹号客户'})
+        self.assertTrue(payload['confirmation']['required'])
+        self.assertEqual(payload['confirmation']['message'], '准备更新客户名称，请确认后执行。')
+
+    def test_chat_payload_persists_preview_operation_for_confirmable_write(self):
+        from apps.ai.views import AIChatStreamView
+
+        user = SimpleNamespace(is_authenticated=True, id=9)
+        request = SimpleNamespace(session={})
+
+        intent_result = {
+            'success': True,
+            'intent_type': 'data_update',
+            'message': '准备更新客户名称，请确认后执行。',
+            'result': '',
+            'confidence': 0.92,
+            'requires_confirmation': True,
+            'action': 'update',
+            'data_type': 'customer',
+            'entities': {'object_ids': [12], 'changes': {'name': '上海壹号客户'}},
+        }
+
+        operation_record = SimpleNamespace(id=88, confirmation_token='token-88')
+
+        with patch('apps.ai.services.intent_recognition_service.intent_recognition_service.process_request', return_value=intent_result), \
+                patch.object(
+                    AIChatStreamView,
+                    'save_chat_record',
+                    return_value=(SimpleNamespace(id=1), SimpleNamespace(id=2), SimpleNamespace(id=3, runtime_payload={}, save=lambda **kwargs: None)),
+                ), \
+                patch(
+                    'apps.ai.views.AIChatStreamView._create_operation_preview',
+                    return_value=operation_record,
+                ) as create_preview:
+            payload = AIChatStreamView()._build_intent_response_payload(
+                user,
+                chat_id=None,
+                message='把客户12改成上海壹号客户',
+                request=request,
+            )
+
+        create_preview.assert_called_once()
+        self.assertEqual(payload['operation_id'], 88)
+        self.assertEqual(payload['confirmation']['token'], 'token-88')
+
+
+class AIOperationPreviewServiceTests(SimpleTestCase):
+    def test_create_preview_operation_persists_operation_and_confirmation(self):
+        try:
+            from apps.ai.services.operation_service import operation_service
+        except ModuleNotFoundError:
+            self.fail('apps.ai.services.operation_service.operation_service is missing')
+
+        user = SimpleNamespace(id=7, is_authenticated=True)
+        payload = {
+            'action_plan': {
+                'resource': 'customer',
+                'operation': 'update',
+                'object_ids': [12],
+                'changes': {'name': '上海壹号客户'},
+                'filters': {},
+                'context': {},
+            },
+            'confirmation': {
+                'required': True,
+                'message': '准备更新客户名称，请确认后执行。',
+            },
+        }
+
+        operation = SimpleNamespace(id=101, confirmation_token='token-101')
+
+        with patch('apps.ai.services.operation_service.AIOperation.objects.create', return_value=operation) as create_operation, \
+                patch('apps.ai.services.operation_service.AIOperationConfirmation.objects.create') as create_confirmation:
+            created = operation_service.create_preview_operation(
+                user=user,
+                chat=None,
+                user_message=None,
+                ai_message=None,
+                payload=payload,
+            )
+
+        self.assertEqual(created.id, 101)
+        create_operation.assert_called_once()
+        create_confirmation.assert_called_once()
+        self.assertEqual(create_confirmation.call_args.kwargs['operation'], operation)
+        self.assertEqual(create_confirmation.call_args.kwargs['token'], create_operation.call_args.kwargs['confirmation_token'])
+
+
+class AIOperationConfirmServiceTests(SimpleTestCase):
+    def test_confirm_operation_validates_token_and_updates_status(self):
+        try:
+            from apps.ai.services.operation_service import operation_service
+        except ModuleNotFoundError:
+            self.fail('apps.ai.services.operation_service.operation_service is missing')
+
+        user = SimpleNamespace(id=7, is_authenticated=True)
+        operation = SimpleNamespace(
+            id=9,
+            status='preview',
+            requires_confirmation=True,
+            preview_payload={'resource': 'customer', 'operation': 'update'},
+            confirmed_payload={},
+            save=MagicMock(),
+        )
+        confirmation = SimpleNamespace(
+            token='token-9',
+            is_used=False,
+            confirmed_by=None,
+            confirmed_at=None,
+            save=MagicMock(),
+        )
+
+        with patch('apps.ai.services.operation_service.AIOperation.objects.select_related') as select_related, \
+                patch('apps.ai.services.operation_service.timezone.now', return_value='NOW'), \
+                patch('apps.ai.services.operation_service.AIActionGateway') as gateway_cls:
+            select_related.return_value.get.return_value = operation
+            gateway = gateway_cls.return_value
+            gateway.execute_confirmed_action.return_value = {'success': True, 'message': 'done'}
+            operation.confirmation = confirmation
+
+            result = operation_service.confirm_operation(
+                operation_id=9,
+                token='token-9',
+                user=user,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['operation_id'], 9)
+        self.assertEqual(operation.status, 'executed')
+        self.assertEqual(operation.confirmed_payload, {'resource': 'customer', 'operation': 'update'})
+        self.assertTrue(confirmation.is_used)
+        self.assertEqual(confirmation.confirmed_by, user)
+        gateway.execute_confirmed_action.assert_called_once_with(operation, user)
+
+    def test_confirm_operation_rejects_invalid_token(self):
+        try:
+            from apps.ai.services.operation_service import operation_service
+        except ModuleNotFoundError:
+            self.fail('apps.ai.services.operation_service.operation_service is missing')
+
+        user = SimpleNamespace(id=7, is_authenticated=True)
+        operation = SimpleNamespace(
+            id=9,
+            status='preview',
+            requires_confirmation=True,
+            preview_payload={'resource': 'customer', 'operation': 'update'},
+            confirmed_payload={},
+        )
+        confirmation = SimpleNamespace(
+            token='token-9',
+            is_used=False,
+        )
+
+        with patch('apps.ai.services.operation_service.AIOperation.objects.select_related') as select_related:
+            select_related.return_value.get.return_value = operation
+            operation.confirmation = confirmation
+
+            result = operation_service.confirm_operation(
+                operation_id=9,
+                token='wrong-token',
+                user=user,
+            )
+
+        self.assertFalse(result['success'])
+        self.assertEqual(result['message'], '确认令牌无效')
+
+    def test_confirm_operation_persists_change_sets_and_marks_executed(self):
+        try:
+            from apps.ai.services.operation_service import operation_service
+        except ModuleNotFoundError:
+            self.fail('apps.ai.services.operation_service.operation_service is missing')
+
+        user = SimpleNamespace(id=7, is_authenticated=True)
+        operation = SimpleNamespace(
+            id=9,
+            status='preview',
+            requires_confirmation=True,
+            preview_payload={'resource': 'customer', 'operation': 'update', 'object_ids': [12], 'changes': {'name': '新名称'}},
+            confirmed_payload={},
+            save=MagicMock(),
+        )
+        confirmation = SimpleNamespace(
+            token='token-9',
+            is_used=False,
+            confirmed_by=None,
+            confirmed_at=None,
+            save=MagicMock(),
+        )
+        gateway_result = {
+            'success': True,
+            'message': 'updated',
+            'change_set': [
+                {
+                    'app_label': 'customer',
+                    'model_name': 'Customer',
+                    'object_pk': '12',
+                    'change_type': 'update',
+                    'before_snapshot': {'name': '旧名称'},
+                    'after_snapshot': {'name': '新名称'},
+                    'changed_fields': ['name'],
+                }
+            ],
+        }
+
+        with patch('apps.ai.services.operation_service.AIOperation.objects.select_related') as select_related, \
+                patch('apps.ai.services.operation_service.AIOperationChangeSet.objects.create') as create_change_set, \
+                patch('apps.ai.services.operation_service.timezone.now', return_value='NOW'), \
+                patch('apps.ai.services.operation_service.AIActionGateway') as gateway_cls:
+            select_related.return_value.get.return_value = operation
+            operation.confirmation = confirmation
+            gateway = gateway_cls.return_value
+            gateway.execute_confirmed_action.return_value = gateway_result
+
+            result = operation_service.confirm_operation(
+                operation_id=9,
+                token='token-9',
+                user=user,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(operation.status, 'executed')
+        self.assertEqual(operation.confirmed_payload, operation.preview_payload)
+        create_change_set.assert_called_once()
+        self.assertEqual(create_change_set.call_args.kwargs['operation'], operation)
+        self.assertEqual(create_change_set.call_args.kwargs['object_pk'], '12')
+        self.assertEqual(create_change_set.call_args.kwargs['change_type'], 'update')
+
+
+class AIConfirmOperationViewTests(SimpleTestCase):
+    def test_confirm_operation_view_returns_service_result(self):
+        from apps.ai.views import AIConfirmOperationView
+
+        factory = RequestFactory()
+        request = factory.post(
+            '/ai/operation/confirm/',
+            data=json.dumps({'operation_id': 9, 'token': 'token-9'}),
+            content_type='application/json',
+        )
+        request.user = SimpleNamespace(id=7, is_authenticated=True)
+
+        with patch('apps.ai.views.operation_service.confirm_operation', return_value={'success': True, 'operation_id': 9, 'message': 'done'}):
+            response = AIConfirmOperationView.as_view()(request)
+
+        payload = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(payload['success'])
+        self.assertEqual(payload['operation_id'], 9)
+
+
+class AIIntentCoverageTests(SimpleTestCase):
+    def test_rule_fallback_recognizes_disk_share_query(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._safe_fallback_result('帮我查一下网盘分享链接', '未配置模型')
+
+        self.assertEqual(result['intent'], 'DATA_QUERY')
+        self.assertEqual(result['action'], 'list')
+        self.assertEqual(result['data_type'], 'disk_share')
+
+    def test_rule_fallback_recognizes_approval_create_as_confirmable(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._safe_fallback_result('我要发起一个报销审批流程', '未配置模型')
+
+        self.assertEqual(result['intent'], 'DATA_CREATE')
+        self.assertEqual(result['action'], 'create')
+        self.assertEqual(result['data_type'], 'approval_flow')
+        self.assertTrue(result['requires_confirmation'])
+
+    def test_enhance_corrects_ai_chat_when_business_query_is_clear(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._enhance_result({
+            'intent': 'AI_CHAT',
+            'confidence': 0.2,
+            'entities': {},
+            'action': 'chat',
+            'data_type': None,
+        }, '看一下我的待审批流程')
+
+        self.assertEqual(result['intent'], 'DATA_QUERY')
+        self.assertEqual(result['action'], 'list')
+        self.assertEqual(result['data_type'], 'approval_task')
+
+
+class AIQueryServiceIntentCoverageTests(SimpleTestCase):
+    def test_recognize_disk_share_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看一下共享链接')
+
+        self.assertEqual(intent, 'disk_share_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_approval_task_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('我有哪些待审批流程')
+
+        self.assertEqual(intent, 'approval_task_list')
+        self.assertEqual(entities['status'], 'pending')
+
+    def test_recognize_production_task_keeps_production_context(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('查询生产任务')
+
+        self.assertEqual(intent, 'production_task_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_notice_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看一下最新公告')
+
+        self.assertEqual(intent, 'notice_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_schedule_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('查一下我今天的日程安排')
+
+        self.assertEqual(intent, 'schedule_list')
+        self.assertEqual(entities, {})
+
+
+class AIQueryServiceDiskVisibilityTests(TestCase):
+    def test_disk_list_only_returns_owned_or_shared_files(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.disk.models import DiskFile
+
+        User = get_user_model()
+        owner = User.objects.create_user(username='owner')
+        recipient = User.objects.create_user(username='recipient')
+        other = User.objects.create_user(username='other')
+        shared = DiskFile.objects.create(
+            name='共享方案.pdf',
+            original_name='共享方案.pdf',
+            file_path='disk/shared.pdf',
+            owner=owner,
+        )
+        shared.shared_users.add(recipient)
+        DiskFile.objects.create(
+            name='私有方案.pdf',
+            original_name='私有方案.pdf',
+            file_path='disk/private.pdf',
+            owner=other,
+        )
+
+        result = QueryService().handle_disk_list({}, recipient)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(names, {'共享方案.pdf'})
+
+    def test_disk_folder_list_only_returns_owned_or_shared_folders(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.disk.models import DiskFolder
+
+        User = get_user_model()
+        owner = User.objects.create_user(username='folder-owner')
+        recipient = User.objects.create_user(username='folder-recipient')
+        other = User.objects.create_user(username='folder-other')
+        shared = DiskFolder.objects.create(name='共享资料夹', owner=owner)
+        shared.shared_users.add(recipient)
+        DiskFolder.objects.create(name='私有资料夹', owner=other)
+
+        result = QueryService().handle_disk_folder_list({}, recipient)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(names, {'共享资料夹'})
+
+
+class AIQueryServiceOfficeVisibilityTests(TestCase):
+    def test_notice_list_only_returns_authored_or_targeted_published_notices(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.department.models import Department
+        from apps.system.models import Notice
+
+        User = get_user_model()
+        author = User.objects.create_user(username='notice-author')
+        recipient = User.objects.create_user(username='notice-recipient')
+        other = User.objects.create_user(username='notice-other')
+        department = Department.objects.create(name='研发部')
+
+        targeted_notice = Notice.objects.create(
+            title='研发部通知',
+            content='仅研发部可见',
+            is_published=True,
+            publish_time=timezone.now(),
+            author=author,
+        )
+        targeted_notice.target_departments.add(department)
+
+        Notice.objects.create(
+            title='其他人的草稿',
+            content='不可见',
+            is_published=False,
+            author=other,
+        )
+
+        own_draft = Notice.objects.create(
+            title='我自己的草稿',
+            content='自己可见',
+            is_published=False,
+            author=recipient,
+        )
+
+        recipient.did = department.id
+        result = QueryService().handle_notice_list({}, recipient)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(result['total'], 2)
+        self.assertEqual(titles, {'研发部通知', '我自己的草稿'})
+        self.assertIn(own_draft.title, titles)
+
+    def test_schedule_list_only_returns_own_schedules(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.oa.models import Schedule
+
+        User = get_user_model()
+        recipient = User.objects.create_user(username='schedule-recipient')
+        other = User.objects.create_user(username='schedule-other')
+
+        Schedule.objects.create(
+            title='我的日程',
+            start_time=timezone.now(),
+            end_time=timezone.now() + timedelta(hours=1),
+            labor_time=1,
+            admin_id=recipient.id,
+            did=1,
+            labor_type=1,
+            delete_time=0,
+            create_time=1,
+            update_time=1,
+        )
+        Schedule.objects.create(
+            title='别人的日程',
+            start_time=timezone.now(),
+            end_time=timezone.now() + timedelta(hours=2),
+            labor_time=2,
+            admin_id=other.id,
+            did=2,
+            labor_type=2,
+            delete_time=0,
+            create_time=1,
+            update_time=1,
+        )
+
+        result = QueryService().handle_schedule_list({}, recipient)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(titles, {'我的日程'})
+
+
+class AICustomerAdapterTests(SimpleTestCase):
+    def test_customer_adapter_rejects_fields_outside_allowlist(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.customer import CustomerModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing customer adapter dependency: {exc}')
+
+        adapter = CustomerModuleAdapter()
+        action = AIActionRequest(
+            resource='customer',
+            operation='update',
+            object_ids=[12],
+            changes={'delete_time': 123456},
+        )
+
+        result = adapter.validate(action)
+
+        self.assertFalse(result['success'])
+        self.assertIn('delete_time', result['message'])
+
+    def test_customer_adapter_builds_change_set_for_name_update(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.customer import CustomerModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing customer adapter dependency: {exc}')
+
+        adapter = CustomerModuleAdapter()
+        customer = SimpleNamespace(id=12, name='旧名称', address='旧地址')
+        action = AIActionRequest(
+            resource='customer',
+            operation='update',
+            object_ids=[12],
+            changes={'name': '新名称'},
+        )
+
+        with patch.object(adapter, '_get_customer_for_update', return_value=customer):
+            result = adapter.preview(action, user=SimpleNamespace(id=7))
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['before_snapshot']['name'], '旧名称')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['name'], '新名称')
+
+
+class AIActionGatewayCustomerDispatchTests(SimpleTestCase):
+    def test_gateway_dispatches_customer_update_to_registered_adapter(self):
+        from apps.ai.services.action_gateway import AIActionGateway
+
+        adapter = MagicMock()
+        adapter.resource = 'customer'
+        adapter.execute.return_value = {'success': True, 'message': 'updated'}
+        operation = SimpleNamespace(
+            id=20,
+            resource_type='customer',
+            operation_type='update',
+            confirmed_payload={'resource': 'customer', 'operation': 'update', 'object_ids': [12], 'changes': {'name': '新名称'}},
+        )
+        user = SimpleNamespace(id=7, is_authenticated=True)
+
+        gateway = AIActionGateway()
+        gateway.register(adapter)
+
+        result = gateway.execute_confirmed_action(operation, user)
+
+        adapter.execute.assert_called_once()
+        self.assertTrue(result['success'])
+        self.assertEqual(result['message'], 'updated')
+
+
+class AIApprovalAdapterTests(SimpleTestCase):
+    def test_approval_adapter_handles_withdraw_preview(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.approval import ApprovalModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing approval adapter dependency: {exc}')
+
+        adapter = ApprovalModuleAdapter()
+        approval = SimpleNamespace(
+            id=21,
+            status=1,
+            current_step_order=3,
+            title='测试审批',
+        )
+        action = AIActionRequest(
+            resource='approval',
+            operation='withdraw',
+            object_ids=[21],
+            changes={},
+        )
+
+        with patch.object(adapter, '_get_approval_for_action', return_value=approval):
+            result = adapter.preview(action, user=SimpleNamespace(id=7))
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['before_snapshot']['status'], 1)
+        self.assertEqual(result['change_set'][0]['after_snapshot']['status'], 0)
+
+    def test_approval_adapter_execute_withdraw_returns_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.approval import ApprovalModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing approval adapter dependency: {exc}')
+
+        adapter = ApprovalModuleAdapter()
+        approval = SimpleNamespace(
+            id=21,
+            status=1,
+            current_step_order=3,
+            title='测试审批',
+        )
+        action = AIActionRequest(
+            resource='approval',
+            operation='withdraw',
+            object_ids=[21],
+            changes={},
+        )
+
+        with patch.object(adapter, '_get_approval_for_action', return_value=approval):
+            result = adapter.execute(action, user=SimpleNamespace(id=7), operation=None)
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['change_type'], 'update')
+
+
+class AIProjectAdapterTests(SimpleTestCase):
+    def test_project_adapter_builds_update_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.project import ProjectModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing project adapter dependency: {exc}')
+
+        adapter = ProjectModuleAdapter()
+        project = SimpleNamespace(
+            id=31,
+            name='旧项目',
+            status=1,
+            progress=20,
+            delete_time=None,
+        )
+        action = AIActionRequest(
+            resource='project',
+            operation='update',
+            object_ids=[31],
+            changes={'name': '新项目', 'progress': 45},
+        )
+
+        with patch.object(adapter, '_get_project_for_action', return_value=project):
+            result = adapter.preview(action, user=SimpleNamespace(id=7))
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['before_snapshot']['name'], '旧项目')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['name'], '新项目')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['progress'], 45)
+
+    def test_project_adapter_soft_delete_execute_sets_delete_time(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.project import ProjectModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing project adapter dependency: {exc}')
+
+        adapter = ProjectModuleAdapter()
+        project = SimpleNamespace(
+            id=31,
+            name='旧项目',
+            status=1,
+            progress=20,
+            delete_time=None,
+            save=MagicMock(),
+        )
+        action = AIActionRequest(
+            resource='project',
+            operation='delete',
+            object_ids=[31],
+            changes={},
+        )
+
+        with patch.object(adapter, '_get_project_for_action', return_value=project), \
+                patch('apps.ai.services.module_adapters.project.timezone.now', return_value='NOW'):
+            result = adapter.execute(action, user=SimpleNamespace(id=7), operation=None)
+
+        self.assertTrue(result['success'])
+        self.assertEqual(project.delete_time, 'NOW')
+        project.save.assert_called_once()
+
+
+class AIActionGatewayProjectDispatchTests(SimpleTestCase):
+    def test_gateway_dispatches_project_update_to_registered_adapter(self):
+        from apps.ai.services.action_gateway import AIActionGateway
+
+        adapter = MagicMock()
+        adapter.resource = 'project'
+        adapter.execute.return_value = {'success': True, 'message': 'project updated'}
+        operation = SimpleNamespace(
+            id=22,
+            resource_type='project',
+            operation_type='update',
+            confirmed_payload={'resource': 'project', 'operation': 'update', 'object_ids': [31], 'changes': {'name': '新项目'}},
+        )
+        user = SimpleNamespace(id=7, is_authenticated=True)
+
+        gateway = AIActionGateway()
+        gateway.register(adapter)
+
+        result = gateway.execute_confirmed_action(operation, user)
+
+        adapter.execute.assert_called_once()
+        self.assertTrue(result['success'])
+        self.assertEqual(result['message'], 'project updated')
+
+
+class AIFinanceAdapterTests(SimpleTestCase):
+    def test_finance_expense_update_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.finance import FinanceModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing finance adapter dependency: {exc}')
+
+        adapter = FinanceModuleAdapter()
+        expense = SimpleNamespace(
+            id=41,
+            cost=Decimal('120.00'),
+            remark='旧备注',
+            check_status=0,
+            pay_status=0,
+            file_ids='1,2',
+            create_time=123,
+        )
+        action = AIActionRequest(
+            resource='finance',
+            operation='update',
+            object_ids=[41],
+            context={'model': 'expense'},
+            changes={'remark': '新备注', 'cost': Decimal('150.00')},
+        )
+
+        with patch.object(adapter, '_get_expense_for_action', return_value=expense):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'Expense')
+        self.assertEqual(result['change_set'][0]['before_snapshot']['remark'], '旧备注')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['remark'], '新备注')
+
+    def test_finance_expense_delete_execute_marks_soft_delete(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.finance import FinanceModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing finance adapter dependency: {exc}')
+
+        adapter = FinanceModuleAdapter()
+        expense = SimpleNamespace(
+            id=41,
+            delete_time=None,
+            delete=MagicMock(),
+            save=MagicMock(),
+        )
+        action = AIActionRequest(
+            resource='finance',
+            operation='delete',
+            object_ids=[41],
+            context={'model': 'expense'},
+            changes={},
+        )
+
+        with patch.object(adapter, '_get_expense_for_action', return_value=expense), \
+                patch('apps.ai.services.module_adapters.finance.timezone.now', return_value='NOW'):
+            result = adapter.execute(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+                operation=None,
+            )
+
+        self.assertTrue(result['success'])
+        expense.delete.assert_called_once()
+
+    def test_finance_invoice_request_approve_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.finance import FinanceModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing finance adapter dependency: {exc}')
+
+        adapter = FinanceModuleAdapter()
+        request = SimpleNamespace(
+            id=52,
+            status='pending',
+            reviewer_id=0,
+            review_time=0,
+            invoice_id=0,
+            invoice_time=0,
+            save=MagicMock(),
+        )
+        action = AIActionRequest(
+            resource='finance',
+            operation='approve',
+            object_ids=[52],
+            context={'model': 'invoice_request'},
+            changes={'status': 'approved'},
+        )
+
+        with patch.object(adapter, '_get_invoice_request_for_action', return_value=request):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'InvoiceRequest')
+        self.assertEqual(result['change_set'][0]['before_snapshot']['status'], 'pending')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['status'], 'approved')
+
+    def test_finance_adapter_denies_without_permission(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.finance import FinanceModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing finance adapter dependency: {exc}')
+
+        adapter = FinanceModuleAdapter()
+        expense = SimpleNamespace(id=41, cost=Decimal('120.00'))
+        action = AIActionRequest(
+            resource='finance',
+            operation='update',
+            object_ids=[41],
+            context={'model': 'expense'},
+            changes={'remark': '新备注'},
+        )
+
+        with patch.object(adapter, '_get_expense_for_action', return_value=expense), \
+                patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=False, reason='missing_permission')):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: False),
+            )
+
+        self.assertFalse(result['success'])
+        self.assertIn('权限', result['message'])
+
+
+class AIActionGatewayFinanceDispatchTests(SimpleTestCase):
+    def test_gateway_dispatches_finance_update_to_registered_adapter(self):
+        from apps.ai.services.action_gateway import AIActionGateway
+
+        adapter = MagicMock()
+        adapter.resource = 'finance'
+        adapter.execute.return_value = {'success': True, 'message': 'finance updated'}
+        operation = SimpleNamespace(
+            id=23,
+            resource_type='finance',
+            operation_type='update',
+            confirmed_payload={
+                'resource': 'finance',
+                'operation': 'update',
+                'object_ids': [41],
+                'context': {'model': 'expense'},
+                'changes': {'remark': '新备注'},
+            },
+        )
+        user = SimpleNamespace(id=7, is_authenticated=True)
+
+        gateway = AIActionGateway()
+        gateway.register(adapter)
+
+        result = gateway.execute_confirmed_action(operation, user)
+
+        adapter.execute.assert_called_once()
+        self.assertTrue(result['success'])
+        self.assertEqual(result['message'], 'finance updated')
+
+
+class AIFinanceRollbackTests(SimpleTestCase):
+    def test_rollback_recreates_deleted_expense_from_snapshot(self):
+        try:
+            from apps.ai.services.rollback_service import rollback_service
+        except ModuleNotFoundError:
+            self.fail('apps.ai.services.rollback_service.rollback_service is missing')
+
+        change_set = SimpleNamespace(
+            sequence=1,
+            app_label='finance',
+            model_name='Expense',
+            object_pk='41',
+            change_type='delete',
+            before_snapshot={
+                'id': 41,
+                'code': 'BX-41',
+                'cost': '120.00',
+                'remark': '旧备注',
+            },
+            after_snapshot={
+                'id': 41,
+                'code': 'BX-41',
+                'cost': '120.00',
+                'remark': '旧备注',
+            },
+            changed_fields=['code', 'cost', 'remark'],
+            is_rollback_supported=True,
+        )
+        operation = SimpleNamespace(
+            id=91,
+            status='executed',
+            change_sets=SimpleNamespace(all=lambda: [change_set]),
+            save=MagicMock(),
+        )
+        recreated = SimpleNamespace()
+
+        with patch('apps.ai.services.rollback_service.AIOperation.objects.get', return_value=operation), \
+                patch('apps.ai.services.rollback_service.AIOperationRollback.objects.create'), \
+                patch('apps.ai.services.rollback_service.build_rollback_plan', return_value=[change_set]), \
+                patch('apps.ai.services.rollback_service.apps.get_model') as get_model, \
+                patch('apps.ai.services.rollback_service.transaction.atomic'):
+            get_model.return_value = MagicMock(
+                objects=MagicMock(
+                    get=MagicMock(side_effect=Exception('missing')),
+                    create=MagicMock(return_value=recreated),
+                )
+            )
+
+            result = rollback_service.rollback_operation(operation_id=91, user=SimpleNamespace(id=7))
+
+        self.assertTrue(result['success'])
+        get_model.return_value.objects.create.assert_called_once()
+
+
+class AIDiskRollbackTests(SimpleTestCase):
+    def test_rollback_restores_permanently_deleted_disk_file_from_backup(self):
+        try:
+            from apps.ai.services.rollback_service import rollback_service
+        except ModuleNotFoundError:
+            self.fail('apps.ai.services.rollback_service.rollback_service is missing')
+
+        import os
+        import shutil
+        import tempfile
+
+        media_root = tempfile.mkdtemp(prefix='disk-rollback-tests-')
+        self.addCleanup(shutil.rmtree, media_root, ignore_errors=True)
+
+        backup_path = os.path.join(media_root, 'ai_backups', 'disk', 'file', '501', '61', '旧文件.txt')
+        os.makedirs(os.path.dirname(backup_path), exist_ok=True)
+        with open(backup_path, 'w', encoding='utf-8') as handle:
+            handle.write('backup content')
+
+        change_set = SimpleNamespace(
+            sequence=1,
+            app_label='disk',
+            model_name='DiskFile',
+            object_pk='61',
+            change_type='delete',
+            before_snapshot={
+                'id': 61,
+                'name': '旧文件.txt',
+                'original_name': '旧文件.txt',
+                'file_path': 'disk/61/旧文件.txt',
+                'file_size': 14,
+                'file_ext': '.txt',
+                'file_type': 'document',
+                'mime_type': 'text/plain',
+                'folder_id': None,
+                'owner_id': 7,
+                'department_id': 3,
+                'is_public': False,
+                'is_starred': False,
+                'version': '1.0',
+                'parent_file_id': None,
+            },
+            after_snapshot=None,
+            changed_fields=['delete_time'],
+            rollback_metadata={
+                'permanent': True,
+                'backup_file_path': backup_path,
+            },
+            is_rollback_supported=True,
+        )
+        operation = SimpleNamespace(
+            id=501,
+            status='executed',
+            change_sets=SimpleNamespace(all=lambda: [change_set]),
+            save=MagicMock(),
+        )
+        recreated = SimpleNamespace(save=MagicMock())
+
+        with patch('apps.ai.services.rollback_service.settings.MEDIA_ROOT', media_root), \
+                patch('apps.ai.services.rollback_service.AIOperation.objects.get', return_value=operation), \
+                patch('apps.ai.services.rollback_service.AIOperationRollback.objects.create'), \
+                patch('apps.ai.services.rollback_service.build_rollback_plan', return_value=[change_set]), \
+                patch('apps.ai.services.rollback_service.apps.get_model') as get_model, \
+                patch('apps.ai.services.rollback_service.transaction.atomic'):
+            get_model.return_value = MagicMock(
+                objects=MagicMock(
+                    get=MagicMock(side_effect=Exception('missing')),
+                    create=MagicMock(return_value=recreated),
+                )
+            )
+
+            result = rollback_service.rollback_operation(operation_id=501, user=SimpleNamespace(id=7))
+
+        self.assertTrue(result['success'])
+        self.assertTrue(os.path.exists(os.path.join(media_root, 'disk', '61', '旧文件.txt')))
+        get_model.return_value.objects.create.assert_called_once()
+
+    def test_rollback_restores_permanently_deleted_disk_folder_tree_from_snapshot(self):
+        try:
+            from apps.ai.services.rollback_service import rollback_service
+        except ModuleNotFoundError:
+            self.fail('apps.ai.services.rollback_service.rollback_service is missing')
+
+        import os
+        import shutil
+        import tempfile
+
+        media_root = tempfile.mkdtemp(prefix='disk-folder-rollback-tests-')
+        self.addCleanup(shutil.rmtree, media_root, ignore_errors=True)
+
+        backup_file_path = os.path.join(media_root, 'ai_backups', 'disk', 'folder', '701', '801', '子文件.txt')
+        os.makedirs(os.path.dirname(backup_file_path), exist_ok=True)
+        with open(backup_file_path, 'w', encoding='utf-8') as handle:
+            handle.write('folder backup content')
+
+        tree_snapshot = {
+            'folder': {
+                'model_name': 'DiskFolder',
+                'id': 701,
+                'name': '项目资料',
+                'parent_id': None,
+                'owner_id': 7,
+                'department_id': 3,
+                'is_public': False,
+                'permission_level': 2,
+                'delete_time': 123,
+            },
+            'files': [
+                {
+                    'model_name': 'DiskFile',
+                    'id': 801,
+                    'name': '子文件.txt',
+                    'original_name': '子文件.txt',
+                    'file_path': 'disk/701/子文件.txt',
+                    'file_size': 20,
+                    'file_ext': '.txt',
+                    'file_type': 'document',
+                    'mime_type': 'text/plain',
+                    'folder_id': 701,
+                    'owner_id': 7,
+                    'department_id': 3,
+                    'is_public': False,
+                    'is_starred': False,
+                    'version': '1.0',
+                    'parent_file_id': None,
+                    'backup_file_path': backup_file_path,
+                }
+            ],
+            'children': [],
+        }
+
+        change_set = SimpleNamespace(
+            sequence=1,
+            app_label='disk',
+            model_name='DiskFolder',
+            object_pk='701',
+            change_type='delete',
+            before_snapshot=tree_snapshot['folder'],
+            after_snapshot=None,
+            changed_fields=['delete_time'],
+            rollback_metadata={
+                'permanent': True,
+                'tree_snapshot': tree_snapshot,
+            },
+            is_rollback_supported=True,
+        )
+        operation = SimpleNamespace(
+            id=702,
+            status='executed',
+            change_sets=SimpleNamespace(all=lambda: [change_set]),
+            save=MagicMock(),
+        )
+        restored_folder = SimpleNamespace(save=MagicMock())
+        restored_file = SimpleNamespace(save=MagicMock())
+
+        def get_model(app_label, model_name):
+            if model_name == 'DiskFolder':
+                return MagicMock(objects=MagicMock(get=MagicMock(side_effect=Exception('missing')), create=MagicMock(return_value=restored_folder)))
+            if model_name == 'DiskFile':
+                return MagicMock(objects=MagicMock(get=MagicMock(side_effect=Exception('missing')), create=MagicMock(return_value=restored_file)))
+            raise LookupError(model_name)
+
+        with patch('apps.ai.services.rollback_service.settings.MEDIA_ROOT', media_root), \
+                patch('apps.ai.services.rollback_service.AIOperation.objects.get', return_value=operation), \
+                patch('apps.ai.services.rollback_service.AIOperationRollback.objects.create'), \
+                patch('apps.ai.services.rollback_service.build_rollback_plan', return_value=[change_set]), \
+                patch('apps.ai.services.rollback_service.apps.get_model', side_effect=get_model), \
+                patch('apps.ai.services.rollback_service.transaction.atomic'):
+            result = rollback_service.rollback_operation(operation_id=702, user=SimpleNamespace(id=7))
+
+        self.assertTrue(result['success'])
+        self.assertTrue(os.path.exists(os.path.join(media_root, 'disk', '701', '子文件.txt')))
+
+
+class AIDiskAdapterTests(SimpleTestCase):
+    def test_disk_permission_nodes_include_folder_permissions(self):
+        from apps.user.config.permission_nodes import get_all_permission_codenames
+
+        codenames = set(get_all_permission_codenames())
+
+        self.assertIn('view_disk_folder', codenames)
+        self.assertIn('change_disk_folder', codenames)
+        self.assertIn('delete_disk_folder', codenames)
+
+    def test_disk_file_rename_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.disk import DiskModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing disk adapter dependency: {exc}')
+
+        adapter = DiskModuleAdapter()
+        disk_file = SimpleNamespace(
+            id=61,
+            name='旧文件.txt',
+            file_path='disk/61/旧文件.txt',
+            delete_time=None,
+        )
+        action = AIActionRequest(
+            resource='disk',
+            operation='update',
+            object_ids=[61],
+            context={'model': 'file'},
+            changes={'name': '新文件'},
+        )
+
+        with patch.object(adapter, '_get_file_for_action', return_value=disk_file):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, is_superuser=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'DiskFile')
+        self.assertEqual(result['change_set'][0]['before_snapshot']['name'], '旧文件.txt')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['name'], '新文件')
+
+    def test_disk_file_preview_uses_owner_scoped_lookup(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.disk import DiskModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing disk adapter dependency: {exc}')
+
+        adapter = DiskModuleAdapter()
+        disk_file = SimpleNamespace(
+            id=61,
+            name='旧文件.txt',
+            file_path='disk/61/旧文件.txt',
+            delete_time=None,
+        )
+        action = AIActionRequest(
+            resource='disk',
+            operation='update',
+            object_ids=[61],
+            context={'model': 'file'},
+            changes={'name': '新文件'},
+        )
+        user = SimpleNamespace(id=7, is_authenticated=True, is_superuser=False, has_perm=lambda code: True)
+
+        with patch('apps.disk.models.DiskFile.objects.get', return_value=disk_file) as get_file:
+            result = adapter.preview(action, user=user)
+
+        self.assertTrue(result['success'])
+        get_file.assert_called_once_with(id=61, owner=user, delete_time__isnull=True)
+
+    def test_disk_folder_preview_uses_owner_scoped_lookup(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.disk import DiskModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing disk adapter dependency: {exc}')
+
+        adapter = DiskModuleAdapter()
+        disk_folder = SimpleNamespace(
+            id=71,
+            name='项目资料',
+            delete_time=None,
+        )
+        action = AIActionRequest(
+            resource='disk',
+            operation='update',
+            object_ids=[71],
+            context={'model': 'folder'},
+            changes={'name': '新资料'},
+        )
+        user = SimpleNamespace(id=7, is_authenticated=True, is_superuser=False, has_perm=lambda code: True)
+
+        with patch('apps.disk.models.DiskFolder.objects.get', return_value=disk_folder) as get_folder:
+            result = adapter.preview(action, user=user)
+
+        self.assertTrue(result['success'])
+        get_folder.assert_called_once_with(id=71, owner=user, delete_time__isnull=True)
+
+    def test_disk_folder_delete_execute_soft_deletes_folder(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.disk import DiskModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing disk adapter dependency: {exc}')
+
+        adapter = DiskModuleAdapter()
+        disk_folder = SimpleNamespace(
+            id=71,
+            name='项目资料',
+            delete_time=None,
+            save=MagicMock(),
+        )
+        action = AIActionRequest(
+            resource='disk',
+            operation='delete',
+            object_ids=[71],
+            context={'model': 'folder'},
+            changes={},
+        )
+
+        with patch.object(adapter, '_get_folder_for_action', return_value=disk_folder), \
+                patch('apps.ai.services.module_adapters.disk.timezone.now', return_value='NOW'):
+            result = adapter.execute(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, is_superuser=True, has_perm=lambda code: True),
+                operation=None,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(disk_folder.delete_time, 'NOW')
+        disk_folder.save.assert_called_once()
+
+    def test_disk_file_permanent_delete_execute_backs_up_file(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.disk import DiskModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing disk adapter dependency: {exc}')
+
+        import os
+        import shutil
+        import tempfile
+
+        media_root = tempfile.mkdtemp(prefix='disk-ai-tests-')
+        self.addCleanup(shutil.rmtree, media_root, ignore_errors=True)
+
+        relative_path = os.path.join('disk', '61', '旧文件.txt')
+        absolute_path = os.path.join(media_root, relative_path)
+        os.makedirs(os.path.dirname(absolute_path), exist_ok=True)
+        with open(absolute_path, 'w', encoding='utf-8') as handle:
+            handle.write('original content')
+
+        adapter = DiskModuleAdapter()
+        disk_file = SimpleNamespace(
+            id=61,
+            name='旧文件.txt',
+            original_name='旧文件.txt',
+            file_path=relative_path,
+            file_size=16,
+            file_ext='.txt',
+            file_type='document',
+            mime_type='text/plain',
+            folder_id=None,
+            owner_id=7,
+            department_id=3,
+            delete_time=None,
+            save=MagicMock(),
+            delete=MagicMock(),
+        )
+        action = AIActionRequest(
+            resource='disk',
+            operation='delete',
+            object_ids=[61],
+            context={'model': 'file'},
+            changes={'permanent': True},
+        )
+        operation = SimpleNamespace(id=501)
+
+        with patch('apps.ai.services.module_adapters.disk.settings.MEDIA_ROOT', media_root), \
+                patch.object(adapter, '_get_file_for_action', return_value=disk_file), \
+                patch('apps.ai.services.module_adapters.disk.timezone.now', return_value='NOW'):
+            result = adapter.execute(action, user=SimpleNamespace(id=7, is_authenticated=True, is_superuser=True, has_perm=lambda code: True), operation=operation)
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['message'], 'deleted')
+        self.assertTrue(result['change_set'][0]['rollback_metadata']['permanent'])
+        self.assertIn('backup_file_path', result['change_set'][0]['rollback_metadata'])
+        self.assertTrue(os.path.exists(result['change_set'][0]['rollback_metadata']['backup_file_path']))
+        self.assertFalse(os.path.exists(absolute_path))
+        disk_file.delete.assert_called_once()
+
+    def test_disk_adapter_denies_when_permission_missing(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.disk import DiskModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing disk adapter dependency: {exc}')
+
+        adapter = DiskModuleAdapter()
+        disk_file = SimpleNamespace(id=81, name='文件.txt', delete_time=None)
+        action = AIActionRequest(
+            resource='disk',
+            operation='update',
+            object_ids=[81],
+            context={'model': 'file'},
+            changes={'name': '新文件'},
+        )
+
+        with patch.object(adapter, '_get_file_for_action', return_value=disk_file), \
+                patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=False, reason='missing_permission')):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, is_superuser=False, has_perm=lambda code: False),
+            )
+
+        self.assertFalse(result['success'])
+        self.assertIn('权限', result['message'])
+
+    def test_disk_share_create_preview_builds_share_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.disk import DiskModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing disk adapter dependency: {exc}')
+
+        adapter = DiskModuleAdapter()
+        disk_file = SimpleNamespace(id=91, name='方案说明.pdf', delete_time=None)
+        share = SimpleNamespace(
+            id=1001,
+            share_code='ABCD1234',
+            share_type='file',
+            file=disk_file,
+            folder=None,
+            creator_id=7,
+            password='',
+            expire_time=None,
+            permission_type='download',
+            allow_download=True,
+            allow_preview=True,
+            allow_copy=True,
+            allow_screenshot=True,
+            access_limit=0,
+            download_limit=0,
+            is_active=True,
+            save=MagicMock(),
+            get_item=lambda: disk_file,
+        )
+        action = AIActionRequest(
+            resource='disk',
+            operation='create',
+            object_ids=[91],
+            context={'model': 'share', 'share_type': 'file'},
+            changes={
+                'permission_type': 'view',
+                'allow_download': False,
+                'allow_preview': True,
+                'allow_copy': False,
+                'allow_screenshot': False,
+                'access_limit': 10,
+            },
+        )
+
+        with patch('apps.ai.services.module_adapters.disk.DiskShare', SimpleNamespace()), \
+                patch.object(adapter, '_get_share_item_for_action', return_value=disk_file), \
+                patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            preview = adapter.preview(action, user=SimpleNamespace(id=7, is_authenticated=True, is_superuser=True, has_perm=lambda code: True))
+
+        self.assertTrue(preview['success'])
+        self.assertEqual(preview['change_set'][0]['model_name'], 'DiskShare')
+        self.assertEqual(preview['change_set'][0]['after_snapshot']['permission_type'], 'view')
+
+    def test_disk_permission_save_preview_tracks_public_flag(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.disk import DiskModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing disk adapter dependency: {exc}')
+
+        adapter = DiskModuleAdapter()
+        disk_folder = SimpleNamespace(id=92, name='制度', is_public=False, shared_users=SimpleNamespace(all=lambda: []), shared_departments=SimpleNamespace(all=lambda: []))
+        action = AIActionRequest(
+            resource='disk',
+            operation='update',
+            object_ids=[92],
+            context={'model': 'permission'},
+            changes={'is_public': True},
+        )
+
+        with patch.object(adapter, '_get_permission_target_for_action', return_value=disk_folder):
+            preview = adapter.preview(action, user=SimpleNamespace(id=7, is_authenticated=True, is_superuser=True, has_perm=lambda code: True))
+
+        self.assertTrue(preview['success'])
+        self.assertEqual(preview['change_set'][0]['model_name'], 'DiskPermission')
+        self.assertTrue(preview['change_set'][0]['after_snapshot']['is_public'])
+
+
+class AIActionGatewayDiskDispatchTests(SimpleTestCase):
+    def test_gateway_dispatches_disk_delete_to_registered_adapter(self):
+        from apps.ai.services.action_gateway import AIActionGateway
+
+        adapter = MagicMock()
+        adapter.resource = 'disk'
+        adapter.execute.return_value = {'success': True, 'message': 'disk updated'}
+        operation = SimpleNamespace(
+            id=24,
+            resource_type='disk',
+            operation_type='delete',
+            confirmed_payload={
+                'resource': 'disk',
+                'operation': 'delete',
+                'object_ids': [71],
+                'context': {'model': 'folder'},
+                'changes': {},
+            },
+        )
+        user = SimpleNamespace(id=7, is_authenticated=True, is_superuser=True)
+
+        gateway = AIActionGateway()
+        gateway.register(adapter)
+
+        result = gateway.execute_confirmed_action(operation, user)
+
+        adapter.execute.assert_called_once()
+        self.assertTrue(result['success'])
+        self.assertEqual(result['message'], 'disk updated')
+
+
+class AIModelConfigCompatibilityTests(SimpleTestCase):
+    def test_simplified_model_exposes_legacy_ai_fields(self):
+        from apps.ai.models import AIModelConfig
+
+        config = AIModelConfig(
+            name='gpt-4o-mini',
+            api_base='https://api.openai.com/v1',
+            api_key='test-key',
+            image_model='gpt-image-1',
+            video_model='sora-1',
+            is_active=True,
+        )
+
+        self.assertEqual(config.provider, 'openai')
+        self.assertEqual(config.model_type, 'chat')
+        self.assertEqual(config.model_name, 'gpt-4o-mini')
+        self.assertEqual(config.max_tokens, 2000)
+        self.assertEqual(config.temperature, 0.7)
+        self.assertEqual(config.top_p, 1.0)
+        self.assertEqual(config.provider_specific_config, {})
+        self.assertEqual(config.get_provider_display(), 'OpenAI')
+        self.assertEqual(config.get_model_type_display(), '对话模型')
+
+    def test_ai_client_can_read_simplified_model_config(self):
+        from apps.ai.models import AIModelConfig
+        from apps.ai.utils.ai_client import AIClient
+
+        config = AIModelConfig(
+            id=1,
+            name='gpt-4o-mini',
+            api_base='https://api.openai.com/v1',
+            api_key='test-key',
+            image_model='gpt-image-1',
+            video_model='sora-1',
+            is_active=True,
+        )
+
+        with patch('apps.ai.utils.ai_client.AIModelConfig.objects.get', return_value=config), \
+                patch.object(AIClient, '_create_client', return_value=MagicMock()) as create_client:
+            client = AIClient(model_config_id=1)
+
+        self.assertEqual(client.provider, 'openai')
+        create_client.assert_called_once()
 
 
 class STTServiceSelectionTests(SimpleTestCase):

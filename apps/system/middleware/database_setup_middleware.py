@@ -1,6 +1,11 @@
 from django.http import HttpResponseRedirect, JsonResponse
 
-from apps.system.database_setup import get_database_state, is_setup_path, SETUP_PATH
+from apps.system.database_setup import (
+    SETUP_PATH,
+    get_database_state,
+    has_initial_admin,
+    is_setup_path,
+)
 
 
 class DatabaseSetupMiddleware:
@@ -22,11 +27,11 @@ class DatabaseSetupMiddleware:
             return self.get_response(request)
 
         state = get_database_state()
-        if state.needs_setup:
+        if state.needs_setup or not has_initial_admin():
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({
                     'code': 503,
-                    'msg': '数据库未配置或不可用，请先完成数据库配置',
+                    'msg': '系统尚未完成初始化，请先完成数据库和管理员配置',
                     'data': {'redirect_url': SETUP_PATH},
                 }, status=503)
             return HttpResponseRedirect(SETUP_PATH)

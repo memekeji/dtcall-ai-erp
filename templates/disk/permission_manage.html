@@ -8,301 +8,389 @@
     <title>权限管理 - {{ item_name }}</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
     <style>
-        .permission-container {
-            padding: 20px;
-            max-width: 800px;
-            margin: 0 auto;
+        :root {
+            --ink: #17212f;
+            --muted: #687589;
+            --line: #dfe6ee;
+            --soft: #f4f7fb;
+            --brand: #126b64;
+            --brand-strong: #0b554f;
+            --brand-soft: #e6f5f2;
         }
-        .item-info {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
+
+        * { box-sizing: border-box; }
+        html, body { min-height: 100%; margin: 0; background: #f3f6f9; color: var(--ink); font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif; }
+        button, input, select { font: inherit; }
+
+        .page {
+            min-height: 100vh;
+            padding: 0;
+        }
+
+        .shell {
+            min-height: 100vh;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .head {
             display: flex;
+            justify-content: space-between;
+            gap: 16px;
             align-items: center;
+            padding: 10px 14px;
+            border-bottom: 1px solid #edf1f6;
+            background: #fff;
         }
-        .item-icon {
-            font-size: 32px;
-            margin-right: 15px;
-        }
-        .item-details h3 {
-            margin: 0 0 5px 0;
-            font-size: 18px;
-        }
-        .item-details p {
+
+        .head h1 {
             margin: 0;
-            color: #666;
-            font-size: 14px;
-        }
-        .permission-section {
-            margin-bottom: 30px;
-        }
-        .section-title {
             font-size: 16px;
-            font-weight: bold;
-            margin-bottom: 15px;
-            color: #333;
-            border-bottom: 2px solid #1E9FFF;
-            padding-bottom: 5px;
+            font-weight: 700;
         }
-        .permission-item {
+
+        .head .meta {
+            margin-top: 4px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .head-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 9px;
+            border: 1px solid var(--line);
+            background: var(--brand-soft);
+            color: var(--brand-strong);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .content {
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            min-height: calc(100vh - 54px);
+        }
+
+        .item-card, .panel, .row {
+            border: 1px solid var(--line);
+            background: #fff;
+        }
+
+        .item-card {
+            display: grid;
+            grid-template-columns: 44px minmax(0, 1fr) auto;
+            gap: 12px;
+            align-items: center;
+            padding: 12px 14px;
+            border-width: 0 0 1px;
+            background: #fbfcfe;
+        }
+
+        .item-icon {
+            display: grid;
+            width: 44px;
+            height: 44px;
+            flex: 0 0 auto;
+            place-items: center;
+            background: var(--soft);
+        }
+
+        .item-icon .layui-icon { font-size: 24px; }
+
+        .item-title { overflow: hidden; margin: 0; font-size: 16px; font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
+        .item-desc { margin-top: 4px; color: var(--muted); font-size: 12px; }
+
+        .content-body {
+            padding: 12px 14px 14px;
+        }
+
+        .quick-settings {
+            display: grid;
+            grid-template-columns: minmax(260px, 1fr) repeat(3, minmax(120px, 160px));
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .setting-tile {
+            min-height: 72px;
+            padding: 11px 12px;
+            border: 1px solid var(--line);
+            background: #fff;
+        }
+
+        .setting-tile h4 {
+            margin: 0 0 6px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .setting-tile p, .setting-tile span {
+            margin: 0;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .stat-value {
+            display: block;
+            color: var(--ink);
+            font-size: 22px;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .permission-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .section { min-width: 0; margin-bottom: 0; }
+        .section-head {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 15px;
-            border: 1px solid #e6e6e6;
-            border-radius: 6px;
-            margin-bottom: 10px;
+            gap: 12px;
+            padding: 10px 12px;
+            border: 1px solid var(--line);
+            border-bottom: 0;
+            background: #f8fafc;
+        }
+
+        .section-title { margin: 0; font-size: 14px; font-weight: 700; }
+        .count { color: var(--muted); font-size: 12px; }
+
+        .empty {
+            padding: 34px 16px;
+            text-align: center;
+            color: var(--muted);
+            background: #fff;
+            border: 1px dashed var(--line);
+        }
+
+        .empty .layui-icon { display: block; margin-bottom: 10px; color: #c5d0db; font-size: 44px; }
+
+        .row {
+            display: grid;
+            grid-template-columns: 44px minmax(0, 1fr) auto;
+            gap: 12px;
+            align-items: center;
+            min-height: 66px;
+            padding: 10px 12px;
+            border-width: 0 0 1px;
+            margin-bottom: 0;
+        }
+        .row:last-child { border-bottom: 0; }
+
+        .avatar {
+            display: grid;
+            width: 44px;
+            height: 44px;
+            place-items: center;
+            color: #fff;
+            background: var(--brand);
+            font-weight: 700;
+        }
+
+        .name {
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .meta-line {
+            margin-top: 4px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+        .layui-btn { border-radius: 0; font-weight: 700; }
+
+        .list-card {
+            border: 1px solid var(--line);
             background: #fff;
         }
-        .permission-info {
+
+        .footer {
             display: flex;
-            align-items: center;
-        }
-        .permission-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: #1E9FFF;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 15px;
-            font-weight: bold;
-        }
-        .permission-details h4 {
-            margin: 0 0 5px 0;
-            font-size: 14px;
-        }
-        .permission-details p {
-            margin: 0;
-            color: #666;
-            font-size: 12px;
-        }
-        .permission-actions {
-            display: flex;
-            align-items: center;
+            justify-content: flex-end;
             gap: 10px;
+            padding: 10px 14px;
+            border-top: 1px solid #edf1f6;
+            background: #fff;
         }
-        .permission-level {
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: bold;
+
+        .footer .layui-btn {
+            min-width: 96px;
         }
-        .level-read {
-            background: #e6f7ff;
-            color: #1890ff;
-        }
-        .level-write {
-            background: #f6ffed;
-            color: #52c41a;
-        }
-        .level-admin {
-            background: #fff2e8;
-            color: #fa8c16;
-        }
-        .add-permission {
-            border: 2px dashed #d9d9d9;
-            background: #fafafa;
-            text-align: center;
-            padding: 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        .add-permission:hover {
-            border-color: #1E9FFF;
-            background: #f0f9ff;
-        }
-        .add-permission i {
-            font-size: 24px;
-            color: #999;
-            margin-bottom: 10px;
-            display: block;
-        }
-        .public-setting {
-            background: #fff7e6;
-            border: 1px solid #ffd591;
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-        }
-        .public-setting h4 {
-            margin: 0 0 10px 0;
-            color: #d46b08;
-        }
-        .inherit-setting {
-            background: #f0f9ff;
-            border: 1px solid #91d5ff;
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-        }
-        .inherit-setting h4 {
-            margin: 0 0 10px 0;
-            color: #0050b3;
+
+        @media (max-width: 980px) {
+            .quick-settings, .permission-grid { grid-template-columns: 1fr; }
+            .item-card { grid-template-columns: 44px minmax(0, 1fr); }
+            .item-card .actions { grid-column: 1 / -1; justify-content: flex-start; }
         }
     </style>
 </head>
 
 <body>
-    <div class="permission-container">
-        <!-- 项目信息 -->
-        <div class="item-info">
-            <div class="item-icon">
-                {% if item_type == 'file' %}
-                    {% if item.file_type == 'document' %}
-                    <i class="layui-icon layui-icon-file" style="color: #1E9FFF;"></i>
-                    {% elif item.file_type == 'image' %}
-                    <i class="layui-icon layui-icon-picture" style="color: #5FB878;"></i>
-                    {% elif item.file_type == 'video' %}
-                    <i class="layui-icon layui-icon-video" style="color: #FF5722;"></i>
-                    {% elif item.file_type == 'audio' %}
-                    <i class="layui-icon layui-icon-voice" style="color: #FFB800;"></i>
-                    {% else %}
-                    <i class="layui-icon layui-icon-file" style="color: #999;"></i>
-                    {% endif %}
-                {% else %}
-                <i class="layui-icon layui-icon-file" style="color: #FFB800;"></i>
-                {% endif %}
+    <div class="page">
+        <div class="shell">
+            <div class="head">
+                <div>
+                    <h1>权限管理</h1>
+                    <div class="meta">{{ item_name }} · {{ item_type_name }} · {{ shared_user_count }} 人 / {{ shared_dept_count }} 个部门</div>
+                </div>
+                <div class="head-badge">
+                    <i class="layui-icon layui-icon-file"></i>
+                    {{ item_type_name }}
+                </div>
             </div>
-            <div class="item-details">
-                <h3>{{ item_name }}</h3>
-                <p>
-                    {% if item_type == 'file' %}
-                        文件 · {{ item.get_size_display }} · 创建于 {{ item.create_time|date:"Y-m-d H:i" }}
-                    {% else %}
-                        文件夹 · 创建于 {{ item.create_time|date:"Y-m-d H:i" }}
-                    {% endif %}
-                </p>
-            </div>
-        </div>
 
-        <!-- 公开设置 -->
-        <div class="permission-section">
-            <div class="section-title">公开设置</div>
-            <div class="public-setting">
-                <h4>
-                    <input type="checkbox" id="isPublic" {% if item.is_public %}checked{% endif %} lay-skin="switch" lay-text="公开|私有">
-                    公开访问
-                </h4>
-                <p>开启后，组织内所有成员都可以访问此{{ item_type_name }}。</p>
-            </div>
-        </div>
-
-        <!-- 继承权限设置 -->
-        {% if item_type == 'file' and item.folder %}
-        <div class="permission-section">
-            <div class="section-title">继承权限</div>
-            <div class="inherit-setting">
-                <h4>
-                    <input type="checkbox" id="inheritPermission" checked lay-skin="switch" lay-text="继承|独立">
-                    继承父文件夹权限
-                </h4>
-                <p>开启后，此文件将继承父文件夹"{{ item.folder.name }}"的权限设置。</p>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- 用户权限 -->
-        <div class="permission-section">
-            <div class="section-title">用户权限</div>
-            
-            <!-- 现有用户权限 -->
-            <div id="userPermissions">
-                {% for user in shared_users %}
-                <div class="permission-item" data-user-id="{{ user.id }}">
-                    <div class="permission-info">
-                        <div class="permission-avatar">{{ user.username|first|upper }}</div>
-                        <div class="permission-details">
-                            <h4>{{ user.username }}</h4>
-                            <p>{{ user.name|default:user.username }} · {{ user.department.title|default:"无部门" }}</p>
+            <div class="content">
+                    <div class="item-card">
+                        <div class="item-icon">
+                            {% if item_type == 'file' %}
+                                <i class="layui-icon layui-icon-file"></i>
+                            {% else %}
+                                <i class="layui-icon layui-icon-folder"></i>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <h2 class="item-title">{{ item_name }}</h2>
+                            <div class="item-desc">
+                                {% if item_type == 'file' %}
+                                    文件 · {{ item.get_size_display }} · 创建于 {{ item.create_time|date:"Y-m-d H:i" }}
+                                {% else %}
+                                    文件夹 · 创建于 {{ item.create_time|date:"Y-m-d H:i" }}
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <button class="layui-btn layui-btn-sm" onclick="showAddUserDialog()"><i class="layui-icon layui-icon-add-1"></i> 添加用户</button>
+                            <button class="layui-btn layui-btn-sm layui-btn-primary" onclick="showAddDeptDialog()"><i class="layui-icon layui-icon-group"></i> 添加部门</button>
                         </div>
                     </div>
-                    <div class="permission-actions">
-                        <select class="layui-input" style="width: 100px;" onchange="updateUserPermission('{{ user.id }}', this.value)">
-                            <option value="1" {% if user.permission_level == 1 %}selected{% endif %}>只读</option>
-                            <option value="2" {% if user.permission_level == 2 %}selected{% endif %}>读写</option>
-                            <option value="3" {% if user.permission_level == 3 %}selected{% endif %}>管理</option>
-                        </select>
-                        <button class="layui-btn layui-btn-danger layui-btn-xs" onclick="removeUserPermission('{{ user.id }}')">
-                            <i class="layui-icon layui-icon-delete"></i>
-                        </button>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-            
-            <!-- 添加用户权限 -->
-            <div class="add-permission" onclick="showAddUserDialog()">
-                <i class="layui-icon layui-icon-add-1"></i>
-                <div>添加用户权限</div>
-            </div>
-        </div>
 
-        <!-- 部门权限 -->
-        <div class="permission-section">
-            <div class="section-title">部门权限</div>
-            
-            <!-- 现有部门权限 -->
-            <div id="departmentPermissions">
-                {% for dept in shared_departments %}
-                <div class="permission-item" data-dept-id="{{ dept.id }}">
-                    <div class="permission-info">
-                        <div class="permission-avatar" style="background: #52c41a;">{{ dept.title|first|upper }}</div>
-                        <div class="permission-details">
-                            <h4>{{ dept.title }}</h4>
-                            <p>部门 · {{ dept.users.count }}名成员</p>
+                    <div class="content-body">
+                        <div class="quick-settings">
+                            <div class="setting-tile">
+                                <h4>公开访问</h4>
+                                <p>开启后，组织内成员可访问该{{ item_type_name }}。</p>
+                                <input type="checkbox" id="isPublic" {% if item.is_public %}checked{% endif %} lay-skin="switch" lay-text="公开|私有">
+                            </div>
+                            <div class="setting-tile">
+                                <span class="stat-value">{{ shared_user_count }}</span>
+                                <span>共享用户</span>
+                            </div>
+                            <div class="setting-tile">
+                                <span class="stat-value">{{ shared_dept_count }}</span>
+                                <span>共享部门</span>
+                            </div>
+                            <div class="setting-tile">
+                                <span class="stat-value">{% if item.is_public %}开{% else %}关{% endif %}</span>
+                                <span>公开状态</span>
+                            </div>
                         </div>
-                    </div>
-                    <div class="permission-actions">
-                        <select class="layui-input" style="width: 100px;" onchange="updateDeptPermission('{{ dept.id }}', this.value)">
-                            <option value="1" {% if dept.permission_level == 1 %}selected{% endif %}>只读</option>
-                            <option value="2" {% if dept.permission_level == 2 %}selected{% endif %}>读写</option>
-                            <option value="3" {% if dept.permission_level == 3 %}selected{% endif %}>管理</option>
-                        </select>
-                        <button class="layui-btn layui-btn-danger layui-btn-xs" onclick="removeDeptPermission('{{ dept.id }}')">
-                            <i class="layui-icon layui-icon-delete"></i>
-                        </button>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-            
-            <!-- 添加部门权限 -->
-            <div class="add-permission" onclick="showAddDeptDialog()">
-                <i class="layui-icon layui-icon-add-1"></i>
-                <div>添加部门权限</div>
-            </div>
-        </div>
 
-        <!-- 操作按钮 -->
-        <div style="text-align: center; margin-top: 30px;">
-            <button class="layui-btn" onclick="savePermissions()">
-                <i class="layui-icon layui-icon-ok"></i> 保存设置
-            </button>
-            <button class="layui-btn layui-btn-primary" onclick="closeDialog()">
-                <i class="layui-icon layui-icon-close"></i> 取消
-            </button>
+                        {% if item_type == 'file' and item.folder %}
+                        <div class="quick-settings" style="grid-template-columns: 1fr; margin-top:-2px;">
+                            <div class="setting-tile">
+                                <h4>继承父文件夹</h4>
+                                <p>当前文件来自“{{ item.folder.name }}”，共享关系会跟随父文件夹。</p>
+                                <input type="checkbox" checked lay-skin="switch" lay-text="继承|独立" disabled>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <div class="permission-grid">
+                    <section class="section">
+                        <div class="section-head">
+                            <h3 class="section-title">用户权限</h3>
+                            <button class="layui-btn layui-btn-xs" onclick="showAddUserDialog()"><i class="layui-icon layui-icon-add-1"></i> 添加用户</button>
+                        </div>
+                        <div class="list-card" id="userPermissions">
+                            {% for user in shared_users %}
+                            <div class="row" data-user-id="{{ user.id }}">
+                                <div class="avatar">{{ user.username|first|upper }}</div>
+                                <div>
+                                    <div class="name">{{ user.username }}</div>
+                                    <div class="meta-line">{{ user.name|default:user.username }} · {{ user.department_name|default:"无部门" }}</div>
+                                </div>
+                                <div class="actions">
+                                    <select class="layui-input" style="width: 100px;" onchange="updateUserPermission('{{ user.id }}', this.value)">
+                                        <option value="1" {% if user.permission_level == 1 %}selected{% endif %}>只读</option>
+                                        <option value="2" {% if user.permission_level == 2 %}selected{% endif %}>读写</option>
+                                        <option value="3" {% if user.permission_level == 3 %}selected{% endif %}>管理</option>
+                                    </select>
+                                    <button class="layui-btn layui-btn-danger layui-btn-xs" onclick="removeUserPermission('{{ user.id }}')">
+                                        <i class="layui-icon layui-icon-delete"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="empty">
+                                <i class="layui-icon layui-icon-user"></i>
+                                暂无共享用户
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </section>
+
+                    <section class="section">
+                        <div class="section-head">
+                            <h3 class="section-title">部门权限</h3>
+                            <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="showAddDeptDialog()"><i class="layui-icon layui-icon-group"></i> 添加部门</button>
+                        </div>
+                        <div class="list-card" id="departmentPermissions">
+                            {% for dept in shared_departments %}
+                            <div class="row" data-dept-id="{{ dept.id }}">
+                                <div class="avatar" style="background:#0ea5e9;">{{ dept.title|first|upper }}</div>
+                                <div>
+                                    <div class="name">{{ dept.title }}</div>
+                                    <div class="meta-line">部门 · {{ dept.users_count }} 名成员</div>
+                                </div>
+                                <div class="actions">
+                                    <select class="layui-input" style="width: 100px;" onchange="updateDeptPermission('{{ dept.id }}', this.value)">
+                                        <option value="1" {% if dept.permission_level == 1 %}selected{% endif %}>只读</option>
+                                        <option value="2" {% if dept.permission_level == 2 %}selected{% endif %}>读写</option>
+                                        <option value="3" {% if dept.permission_level == 3 %}selected{% endif %}>管理</option>
+                                    </select>
+                                    <button class="layui-btn layui-btn-danger layui-btn-xs" onclick="removeDeptPermission('{{ dept.id }}')">
+                                        <i class="layui-icon layui-icon-delete"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="empty">
+                                <i class="layui-icon layui-icon-group"></i>
+                                暂无共享部门
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </section>
+                        </div>
+                </div>
+
+                <div class="footer">
+                    <button class="layui-btn" onclick="savePermissions()"><i class="layui-icon layui-icon-ok"></i> 保存</button>
+                    <button class="layui-btn layui-btn-primary" onclick="closeDialog()"><i class="layui-icon layui-icon-close"></i> 关闭</button>
+                </div>
+            </div>
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <script src="{% static 'js/jquery.min.js' %}"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        layui.use(['layer', 'form', 'transfer'], function () {
-            var layer = layui.layer;
-            var form = layui.form;
-            var transfer = layui.transfer;
-            
-            // 监听开关
-            form.on('switch()', function(data){
-            });
+        layui.use(['layer', 'form'], function () {
+            layui.form.render();
         });
 
-        // 更新用户权限
         function updateUserPermission(userId, level) {
             $.post('/disk/permission/user/', {
                 item_type: '{{ item_type }}',
@@ -311,28 +399,18 @@
                 permission_level: level,
                 csrfmiddlewaretoken: '{{ csrf_token }}'
             }, function(response) {
-                if (response.code === 0) {
-                    layui.use('layer', function() {
-                        var layer = layui.layer;
-                        layer.msg('权限更新成功', {icon: 1});
-                    });
-                } else {
-                    layui.use('layer', function() {
-                        var layer = layui.layer;
-                        layer.msg(response.msg, {icon: 2});
-                    });
-                }
+                layui.use('layer', function() {
+                    layui.layer.msg(response.msg || '操作完成', {icon: response.code === 0 ? 1 : 2});
+                    if (response.code === 0) {
+                        setTimeout(function() { window.location.reload(); }, 500);
+                    }
+                });
             });
         }
 
-        // 移除用户权限
         function removeUserPermission(userId) {
             layui.use('layer', function() {
-                var layer = layui.layer;
-                layer.confirm('确定要移除此用户的权限吗？', {
-                    icon: 3,
-                    title: '确认移除'
-                }, function(index) {
+                layui.layer.confirm('确定移除此用户的权限？', {icon: 3, title: '确认'}, function(index) {
                     $.post('/disk/permission/user/remove/', {
                         item_type: '{{ item_type }}',
                         item_id: '{{ item.id }}',
@@ -341,17 +419,14 @@
                     }, function(response) {
                         if (response.code === 0) {
                             $('[data-user-id="' + userId + '"]').remove();
-                            layer.msg('权限移除成功', {icon: 1});
-                        } else {
-                            layer.msg(response.msg, {icon: 2});
                         }
+                        layui.layer.msg(response.msg || '操作完成', {icon: response.code === 0 ? 1 : 2});
                     });
-                    layer.close(index);
+                    layui.layer.close(index);
                 });
             });
         }
 
-        // 更新部门权限
         function updateDeptPermission(deptId, level) {
             $.post('/disk/permission/dept/', {
                 item_type: '{{ item_type }}',
@@ -360,28 +435,18 @@
                 permission_level: level,
                 csrfmiddlewaretoken: '{{ csrf_token }}'
             }, function(response) {
-                if (response.code === 0) {
-                    layui.use('layer', function() {
-                        var layer = layui.layer;
-                        layer.msg('权限更新成功', {icon: 1});
-                    });
-                } else {
-                    layui.use('layer', function() {
-                        var layer = layui.layer;
-                        layer.msg(response.msg, {icon: 2});
-                    });
-                }
+                layui.use('layer', function() {
+                    layui.layer.msg(response.msg || '操作完成', {icon: response.code === 0 ? 1 : 2});
+                    if (response.code === 0) {
+                        setTimeout(function() { window.location.reload(); }, 500);
+                    }
+                });
             });
         }
 
-        // 移除部门权限
         function removeDeptPermission(deptId) {
             layui.use('layer', function() {
-                var layer = layui.layer;
-                layer.confirm('确定要移除此部门的权限吗？', {
-                    icon: 3,
-                    title: '确认移除'
-                }, function(index) {
+                layui.layer.confirm('确定移除此部门的权限？', {icon: 3, title: '确认'}, function(index) {
                     $.post('/disk/permission/dept/remove/', {
                         item_type: '{{ item_type }}',
                         item_id: '{{ item.id }}',
@@ -390,81 +455,66 @@
                     }, function(response) {
                         if (response.code === 0) {
                             $('[data-dept-id="' + deptId + '"]').remove();
-                            layer.msg('权限移除成功', {icon: 1});
-                        } else {
-                            layer.msg(response.msg, {icon: 2});
                         }
+                        layui.layer.msg(response.msg || '操作完成', {icon: response.code === 0 ? 1 : 2});
                     });
-                    layer.close(index);
+                    layui.layer.close(index);
                 });
             });
         }
 
-        // 显示添加用户对话框
         function showAddUserDialog() {
             layui.use('layer', function() {
-                var layer = layui.layer;
-                layer.open({
+                layui.layer.open({
                     type: 2,
                     title: '添加用户权限',
                     shadeClose: true,
-                    shade: 0.8,
-                    area: ['80%', '100%'],
-                    content: '/disk/permission/user/add/?item_type={{ item_type }}&item_id={{ item.id }}'
+                    shade: 0.3,
+                    area: ['980px', '86%'],
+                    content: '/disk/permission/user/add/?item_type={{ item_type }}&item_id={{ item.id }}',
+                    end: function() { window.location.reload(); }
                 });
             });
         }
 
-        // 显示添加部门对话框
         function showAddDeptDialog() {
             layui.use('layer', function() {
-                var layer = layui.layer;
-                layer.open({
+                layui.layer.open({
                     type: 2,
                     title: '添加部门权限',
                     shadeClose: true,
-                    shade: 0.8,
-                    area: ['80%', '100%'],
-                    content: '/disk/permission/dept/add/?item_type={{ item_type }}&item_id={{ item.id }}'
+                    shade: 0.3,
+                    area: ['820px', '78%'],
+                    content: '/disk/permission/dept/add/?item_type={{ item_type }}&item_id={{ item.id }}',
+                    end: function() { window.location.reload(); }
                 });
             });
         }
 
-        // 保存权限设置
         function savePermissions() {
-            var isPublic = $('#isPublic').is(':checked');
-            var inheritPermission = $('#inheritPermission').is(':checked');
-            
             $.post('/disk/permission/save/', {
                 item_type: '{{ item_type }}',
                 item_id: '{{ item.id }}',
-                is_public: isPublic,
-                inherit_permission: inheritPermission,
+                is_public: $('#isPublic').is(':checked'),
                 csrfmiddlewaretoken: '{{ csrf_token }}'
             }, function(response) {
-                if (response.code === 0) {
-                    layui.use('layer', function() {
-                        var layer = layui.layer;
-                        layer.msg('权限设置保存成功', {icon: 1});
-                        setTimeout(function() {
-                            closeDialog();
-                        }, 1500);
-                    });
-                } else {
-                    layui.use('layer', function() {
-                        var layer = layui.layer;
-                        layer.msg(response.msg, {icon: 2});
-                    });
-                }
+                layui.use('layer', function() {
+                    layui.layer.msg(response.msg || '操作完成', {icon: response.code === 0 ? 1 : 2});
+                    if (response.code === 0) {
+                        setTimeout(closeDialog, 700);
+                    }
+                });
             });
         }
 
-        // 关闭对话框
         function closeDialog() {
-            var index = parent.layer.getFrameIndex(window.name);
-            parent.layer.close(index);
+            if (parent && parent.layer) {
+                var index = parent.layer.getFrameIndex(window.name);
+                parent.layer.close(index);
+            } else {
+                window.history.back();
+            }
         }
     </script>
 </body>
-
 </html>

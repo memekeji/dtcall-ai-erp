@@ -74,6 +74,7 @@ class PermissionMiddleware:
             '/get-new-captcha/', '/api/common/', '/setup/database/',
             '/disk/share/view/', '/disk/share/download/',
             '/disk/share/folder/', '/disk/share/preview/',
+            '/disk/share/action/',
             '/disk/preview/',
         ]
         return any(path.startswith(url) for url in skip_urls)

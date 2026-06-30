@@ -1,0 +1,78 @@
+{% extends "home/iframe_base.html" %}{% load static %}
+{% block title %}{{ group.name }} - 题库详情 - AI-HRBP{% endblock %}
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <a href="{% url 'hrbp:question_bank_list' %}" class="layui-btn layui-btn-primary layui-btn-sm"><i class="layui-icon layui-icon-left"></i> 返回</a>
+        <span style="margin-left:10px;font-size:16px;">{{ group.name }} — {{ group.get_difficulty_display }} | 岗位: {{ group.position.title|default:'不限' }} | 标签: {{ group.tags|join:', ' }}</span>
+        <button class="layui-btn layui-btn-normal layui-btn-sm" style="float:right;" id="addQBtn"><i class="layui-icon layui-icon-add-1"></i> 添加题目</button>
+    </div>
+    <div class="layui-card-body">
+        <div style="margin-bottom:10px;color:#666;">
+            职能标签：{% if group.function_tags %}{{ group.function_tags|join:', ' }}{% else %}未设置{% endif %}
+            &nbsp;|&nbsp; 通用标签：{% if group.tags %}{{ group.tags|join:', ' }}{% else %}未设置{% endif %}
+            &nbsp;|&nbsp; 题目数：{{ questions.count }} 道
+        </div>
+        <table class="layui-table" lay-skin="line">
+            <thead><tr><th width="60">序号</th><th width="80">类型</th><th>题目内容</th><th width="80">分值</th><th width="80">标签</th><th width="120">操作</th></tr></thead>
+            <tbody>
+            {% for q in questions %}
+            <tr id="qrow-{{ q.id }}">
+                <td>{{ q.sort_order }}</td>
+                <td>{{ q.get_question_type_display }}</td>
+                <td>{{ q.content|truncatechars:80 }}</td>
+                <td>{{ q.score }}</td>
+                <td>{{ q.tags|join:', '|default:'-' }}</td>
+                <td>
+                    <button class="layui-btn layui-btn-xs" onclick="editQ({{ q.id }})">编辑</button>
+                    <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteQ({{ q.id }})">移除</button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" style="text-align:center;padding:40px;color:#999;">暂无题目，请添加</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="qDialog" style="display:none;padding:20px;">
+    <form class="layui-form" id="qForm">
+        <input type="hidden" id="qId" value="">
+        <input type="hidden" id="qGroupId" value="{{ group.id }}">
+        <div class="layui-form-item"><label class="layui-form-label">类型</label><div class="layui-input-block"><select id="qType"><option value="single">单选题</option><option value="multiple">多选题</option><option value="true_false">判断题</option><option value="essay">问答题</option><option value="code">编程题</option></select></div></div>
+        <div class="layui-form-item"><label class="layui-form-label">内容</label><div class="layui-input-block"><textarea id="qContent" class="layui-textarea" rows="3"></textarea></div></div>
+        <div class="layui-form-item"><label class="layui-form-label">答案</label><div class="layui-input-block"><input id="qAnswer" class="layui-input" placeholder="单选填key，多选逗号分隔，判断true/false"></div></div>
+        <div class="layui-form-item"><label class="layui-form-label">标签</label><div class="layui-input-block"><input id="qTags" class="layui-input" placeholder="逗号分隔"></div></div>
+        <div class="layui-form-item"><div class="layui-inline"><label class="layui-form-label">分值</label><div class="layui-input-inline"><input id="qScore" class="layui-input" value="5" style="width:100px;"></div></div><div class="layui-inline"><label class="layui-form-label">排序</label><div class="layui-input-inline"><input id="qSort" class="layui-input" value="1" style="width:100px;"></div></div></div>
+        <div class="layui-form-item" style="text-align:center;"><button class="layui-btn" type="button" onclick="saveQ()">保存</button></div>
+    </form>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+(function checkLayui() {
+    if (typeof layui !== 'undefined') {
+layui.use(['form','layer'], function() {
+    var $ = layui.$, layer = layui.layer, form = layui.form, groupId = {{ group.id }};
+    form.render();
+    $('#addQBtn').click(function(){ $('#qId').val(''); $('#qType').val('single'); $('#qContent').val(''); $('#qAnswer').val(''); $('#qTags').val(''); $('#qScore').val(5); $('#qSort').val(1); form.render('select'); layer.open({type:1, title:'添加题目', area:['600px','500px'], content:$('#qDialog'), shadeClose:false}); });
+    window.editQ = function(id){
+        $.get('/hrbp/question-bank/question/'+id+'/get/', function(r){
+            $('#qId').val(r.id); $('#qType').val(r.question_type); $('#qContent').val(r.content); $('#qAnswer').val(r.correct_answer); $('#qTags').val(r.tags ? r.tags.join(', ') : ''); $('#qScore').val(r.score); $('#qSort').val(r.sort_order);
+            form.render('select'); layer.open({type:1, title:'编辑题目', area:['600px','500px'], content:$('#qDialog'), shadeClose:false});
+        });
+    };
+    window.saveQ = function(){
+        var id = $('#qId').val(), data = { question_type: $('#qType').val(), content: $('#qContent').val(), correct_answer: $('#qAnswer').val(), tags: $('#qTags').val(), score: $('#qScore').val(), sort_order: $('#qSort').val(), bank_group: groupId, csrfmiddlewaretoken: '{{ csrf_token }}' };
+        var url = id ? '/hrbp/question-bank/question/'+id+'/update/' : '/hrbp/question-bank/'+groupId+'/add-question/';
+        $.post(url, data, function(res) { if(res.success){ layer.closeAll(); layer.msg(res.message,{icon:1}); setTimeout(function(){location.reload();},800); } else { layer.msg(res.message,{icon:2}); } });
+    };
+    window.deleteQ = function(id){ layer.confirm('确定移除该题目？', function(idx){ layer.close(idx); $.post('/hrbp/question-bank/question/'+id+'/delete/', {csrfmiddlewaretoken:'{{ csrf_token }}'}, function(r){ layer.msg(r.message,{icon:r.success?1:2}); if(r.success) $('#qrow-'+id).remove(); }); }); };
+});
+    } else {
+        setTimeout(checkLayui, 50);
+    }
+})();
+</script>
+{% endblock %}

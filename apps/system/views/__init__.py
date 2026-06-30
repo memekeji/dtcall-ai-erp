@@ -9,6 +9,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+from django.contrib.auth.decorators import user_passes_test
+superuser_required = user_passes_test(lambda u: u.is_superuser)
 from apps.system.decorators.module_check import module_active_required
 from django.core.paginator import Paginator
 from django.db.models import Q
@@ -1725,6 +1727,119 @@ def department_page(request):
         'department_tree_json': json.dumps(department_tree)
     }
     return render(request, 'department/list.html', context)
+
+
+
+# ============================================================================
+# Online Update API Views
+# ============================================================================
+
+@login_required
+@require_http_methods(['GET'])
+def version_info_api(request):
+    """Return current version, commit, and latest available update info."""
+    from apps.system.version_service import (
+        get_current_version, get_current_commit, get_current_branch,
+        get_latest_tag, check_for_updates, get_rollback_info,
+    )
+    try:
+        update_info = check_for_updates()
+    except Exception as e:
+        logger.warning('check_for_updates failed: %s', e)
+        update_info = {
+            'current_version': get_current_version(),
+            'current_commit': get_current_commit(),
+            'latest_version': None,
+            'update_available': False,
+            'changelog': [],
+            'checked_at': datetime.now().isoformat(),
+        }
+
+    rollback_info = get_rollback_info()
+
+    return JsonResponse({
+        'success': True,
+        'data': {
+            'current_version': get_current_version(),
+            'current_commit': get_current_commit(),
+            'current_branch': get_current_branch(),
+            'latest_version': get_latest_tag(),
+            'update_available': update_info.get('update_available', False),
+            'changelog': update_info.get('changelog', []),
+            'checked_at': update_info.get('checked_at'),
+            'can_rollback': rollback_info is not None,
+            'rollback_info': rollback_info,
+        }
+    }, json_dumps_params={'ensure_ascii': False})
+
+
+@login_required
+@superuser_required
+@require_http_methods(['POST'])
+def update_backup_api(request):
+    """Create a pre-update database backup."""
+    from apps.system.version_service import backup_database
+    try:
+        result = backup_database()
+        return JsonResponse(result, json_dumps_params={'ensure_ascii': False})
+    except Exception as e:
+        logger.error('backup_database failed: %s', e)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@superuser_required
+@require_http_methods(['POST'])
+def update_execute_api(request):
+    """Execute the update to the latest (or specified) version.
+    
+    Body (optional JSON):
+        target_version: str or null (null = latest)
+    """
+    import json as _json
+    from apps.system.version_service import perform_update
+
+    target = None
+    try:
+        body = _json.loads(request.body.decode('utf-8'))
+        target = body.get('target_version')
+    except Exception:
+        pass
+
+    try:
+        result = perform_update(target_version=target)
+        status_code = 200 if result.get('success') else 500
+        return JsonResponse(result, status=status_code, json_dumps_params={'ensure_ascii': False})
+    except Exception as e:
+        logger.error('perform_update failed: %s', e)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@superuser_required
+@require_http_methods(['POST'])
+def update_rollback_api(request):
+    """Rollback to the version saved before the last update."""
+    from apps.system.version_service import perform_rollback
+    try:
+        result = perform_rollback()
+        status_code = 200 if result.get('success') else 500
+        return JsonResponse(result, status=status_code, json_dumps_params={'ensure_ascii': False})
+    except Exception as e:
+        logger.error('perform_rollback failed: %s', e)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(['GET'])
+def update_health_api(request):
+    """Health check endpoint."""
+    from apps.system.version_service import get_system_health
+    try:
+        health = get_system_health()
+        return JsonResponse(health, json_dumps_params={'ensure_ascii': False})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'error': str(e)}, status=500)
 
 # 导入行政办公相关视图
 from apps.system.views.admin_office_views import *

@@ -632,10 +632,7 @@ def login_submit(request):
             cache.delete(login_attempts_key)
             cache.delete(login_lock_key)
             
-            # 安全会话管理：登录前重置会话，防止会话固定攻击
-            request.session.cycle_key()
-            
-            # 使用 Django 认证系统登录，确保安全会话管理
+            # 使用 Django 认证系统登录；login() 内部会负责安全地轮换会话。
             login(request, user)
             
             # 继承用户所属部门的默认角色

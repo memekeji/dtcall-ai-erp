@@ -1,0 +1,76 @@
+{% extends "home/iframe_base.html" %}{% load static %}
+{% block title %}自动组卷规则 - AI-HRBP{% endblock %}
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <a href="{% url 'hrbp:dashboard' %}" class="layui-btn layui-btn-primary layui-btn-sm"><i class="layui-icon layui-icon-left"></i> 返回</a>
+        <a href="{% url 'hrbp:auto_rule_create' %}" class="layui-btn layui-btn-normal layui-btn-sm"><i class="layui-icon layui-icon-add-1"></i> 新建规则</a>
+    </div>
+    <div class="layui-card-body">
+        <table class="layui-table" lay-skin="line">
+            <thead><tr><th>规则名称</th><th>岗位筛选</th><th>题目总数</th><th>总分</th><th>题库分组</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody>
+            {% for r in rules %}
+            <tr>
+                <td>{{ r.name }}</td>
+                <td>{{ r.position_filter.title|default:'不限' }}</td>
+                <td>{{ r.total_questions }}</td>
+                <td>{{ r.total_score }}</td>
+                <td>{{ r.bank_groups.count }} 个分组</td>
+                <td>{% if r.status == 'active' %}<span class="layui-badge layui-bg-green">启用</span>{% elif r.status == 'draft' %}<span class="layui-badge layui-bg-orange">草稿</span>{% else %}<span class="layui-badge">归档</span>{% endif %}</td>
+                <td>
+                    <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="previewRule({{ r.id }})">预览</button>
+                    <button class="layui-btn layui-btn-xs" onclick="generateExam({{ r.id }})">组卷</button>
+                    <a href="{% url 'hrbp:auto_rule_edit' r.id %}" class="layui-btn layui-btn-xs layui-btn-normal">编辑</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" style="text-align:center;padding:40px;color:#999;">暂无组卷规则，请创建</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% include "home/pagination.html" %}
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+(function checkLayui() {
+    if (typeof layui !== 'undefined') {
+layui.use(['layer'], function() {
+    var layer = layui.layer, $ = layui.$;
+    window.previewRule = function(id){
+        layer.load();
+        $.get('/hrbp/auto-generate/'+id+'/preview/', function(r){
+            layer.closeAll('loading');
+            if(r.success){
+                var p = r.preview, html = '<div style="padding:15px;"><p>可用题目总数: <b>'+p.total_available+'</b></p>';
+                html += '<h4>按难度分布</h4><table class="layui-table"><thead><tr><th>难度</th><th>数量</th></tr></thead><tbody>';
+                for(var k in p.by_difficulty) html += '<tr><td>'+k+'</td><td>'+p.by_difficulty[k]+'</td></tr>';
+                html += '</tbody></table><h4>按题型分布</h4><table class="layui-table"><thead><tr><th>题型</th><th>数量</th></tr></thead><tbody>';
+                for(var k in p.by_type) html += '<tr><td>'+k+'</td><td>'+p.by_type[k]+'</td></tr>';
+                html += '</tbody></table><h4>按分组分布</h4><table class="layui-table"><thead><tr><th>分组</th><th>数量</th></tr></thead><tbody>';
+                for(var k in p.by_group) html += '<tr><td>'+k+'</td><td>'+p.by_group[k]+'</td></tr>';
+                html += '</tbody></table></div>';
+                layer.open({type:1, title:'组卷预览', area:['600px','500px'], content:html});
+            } else { layer.msg(r.message,{icon:2}); }
+        });
+    };
+    window.generateExam = function(id){
+        layer.prompt({title:'输入考核名称', formType:0}, function(name, idx){
+            layer.close(idx);
+            layer.load();
+            $.post('/hrbp/auto-generate/'+id+'/execute/', {title:name, csrfmiddlewaretoken:'{{ csrf_token }}'}, function(r){
+                layer.closeAll('loading');
+                if(r.success){ layer.msg(r.message,{icon:1}); setTimeout(function(){location.reload();},1000); }
+                else { layer.msg(r.message,{icon:2}); }
+            });
+        });
+    };
+});
+    } else {
+        setTimeout(checkLayui, 50);
+    }
+})();
+</script>
+{% endblock %}

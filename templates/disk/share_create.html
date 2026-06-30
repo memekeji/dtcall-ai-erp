@@ -648,6 +648,20 @@
                                         </span>
                                         <input type="checkbox" name="allow_preview" checked lay-skin="primary" title="">
                                     </div>
+                                    <div class="toggle-row">
+                                        <span class="toggle-text">
+                                            <span class="toggle-title">允许复制</span>
+                                            <span class="toggle-desc">控制外部预览页中的文本复制行为</span>
+                                        </span>
+                                        <input type="checkbox" name="allow_copy" checked lay-skin="primary" title="">
+                                    </div>
+                                    <div class="toggle-row">
+                                        <span class="toggle-text">
+                                            <span class="toggle-title">允许截图</span>
+                                            <span class="toggle-desc">控制可检测截图快捷键的访问行为并记录尝试</span>
+                                        </span>
+                                        <input type="checkbox" name="allow_screenshot" checked lay-skin="primary" title="">
+                                    </div>
                                 </div>
                             </div>
                         </section>
@@ -727,6 +741,8 @@
                                  data-permission-type="{{ share.permission_type }}"
                                  data-allow-download="{% if share.allow_download %}1{% else %}0{% endif %}"
                                  data-allow-preview="{% if share.allow_preview %}1{% else %}0{% endif %}"
+                                 data-allow-copy="{% if share.allow_copy %}1{% else %}0{% endif %}"
+                                 data-allow-screenshot="{% if share.allow_screenshot %}1{% else %}0{% endif %}"
                                  data-access-limit="{{ share.access_limit }}"
                                  data-download-limit="{{ share.download_limit }}"
                                  data-is-active="{% if share.is_active %}1{% else %}0{% endif %}"
@@ -743,8 +759,14 @@
                                     下载 {{ share.download_count }}{% if share.download_limit > 0 %}/{{ share.download_limit }}{% endif %}
                                 </div>
                                 <div class="record-meta">
+                                    复制 {{ share.copy_count }} / 拦截 {{ share.copy_blocked_count }} ·
+                                    截图 {{ share.screenshot_count }} / 拦截 {{ share.screenshot_blocked_count }}
+                                </div>
+                                <div class="record-meta">
                                     {% if share.expire_time %}有效期至：{{ share.expire_time|date:"Y-m-d H:i" }}{% else %}永久有效{% endif %}
                                     {% if share.password %} · 已设密码{% endif %}
+                                    · 复制{% if share.allow_copy %}已允许{% else %}已禁用{% endif %}
+                                    · 截图{% if share.allow_screenshot %}已允许{% else %}已禁用{% endif %}
                                 </div>
                                 <div class="record-actions">
                                     <button type="button" class="layui-btn layui-btn-primary" onclick="loadShareForEdit(this)">编辑</button>
@@ -841,6 +863,8 @@
 
                 formData.set('allow_download', $('input[name="allow_download"]').is(':checked') ? 'on' : 'off');
                 formData.set('allow_preview', $('input[name="allow_preview"]').is(':checked') ? 'on' : 'off');
+                formData.set('allow_copy', $('input[name="allow_copy"]').is(':checked') ? 'on' : 'off');
+                formData.set('allow_screenshot', $('input[name="allow_screenshot"]').is(':checked') ? 'on' : 'off');
                 formData.set('permission_type', $('input[name="allow_download"]').is(':checked') ? 'download' : 'view');
 
                 $.ajax({
@@ -886,6 +910,8 @@
                 .attr('placeholder', hasPassword ? '留空则保留原密码' : '留空则无需密码');
             $('input[name="allow_download"]').prop('checked', $record.data('allow-download') === 1);
             $('input[name="allow_preview"]').prop('checked', $record.data('allow-preview') === 1);
+            $('input[name="allow_copy"]').prop('checked', $record.data('allow-copy') === 1);
+            $('input[name="allow_screenshot"]').prop('checked', $record.data('allow-screenshot') === 1);
             $('#permissionTypeSelect').val($record.data('allow-download') === 1 ? 'download' : 'view');
             $('#accessLimitInput').val($record.data('access-limit'));
             $('#downloadLimitInput').val($record.data('download-limit'));

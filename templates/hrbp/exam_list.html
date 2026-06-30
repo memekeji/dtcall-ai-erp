@@ -1,0 +1,72 @@
+{% extends "home/iframe_base.html" %}{% load static %}
+{% block title %}在线考核 - AI-HRBP{% endblock %}
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <a href="{% url 'hrbp:dashboard' %}" class="layui-btn layui-btn-primary layui-btn-sm"><i class="layui-icon layui-icon-left"></i> 返回</a>
+        <a href="{% url 'hrbp:question_bank_list' %}" class="layui-btn layui-btn-warm layui-btn-sm"><i class="layui-icon layui-icon-list"></i> 题库管理</a>
+        <a href="{% url 'hrbp:auto_rule_list' %}" class="layui-btn layui-btn-primary layui-btn-sm"><i class="layui-icon layui-icon-set"></i> 组卷规则</a>
+        <button class="layui-btn layui-btn-normal layui-btn-sm" id="createExamBtn"><i class="layui-icon layui-icon-add-1"></i> 创建考核</button>
+        <div class="layui-inline" style="float:right;">
+            <form method="get"><input type="text" name="search" placeholder="搜索" class="layui-input" style="width:200px;display:inline-block;" value="{{ request.GET.search }}"><button type="submit" class="layui-btn layui-btn-primary layui-btn-sm">搜索</button></form>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <table class="layui-table" lay-skin="line">
+            <thead><tr><th>名称</th><th>类型</th><th>难度</th><th>时长(分)</th><th>及格分</th><th>题目数</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody>
+            {% for exam in exams %}
+            <tr>
+                <td><a href="{% url 'hrbp:exam_detail' exam.id %}">{{ exam.title }}</a></td>
+                <td>{{ exam.get_exam_type_display }}</td>
+                <td>{{ exam.get_difficulty_display }}</td>
+                <td>{{ exam.duration_minutes }}</td>
+                <td>{{ exam.passing_score }}</td>
+                <td>{{ exam.questions.count }}</td>
+                <td>{% if exam.is_active %}<span class="layui-badge layui-bg-green">启用</span>{% else %}<span class="layui-badge">停用</span>{% endif %}</td>
+                <td>
+                    <a href="{% url 'hrbp:exam_detail' exam.id %}" class="layui-btn layui-btn-xs">题目</a>
+                    <a href="{% url 'hrbp:exam_edit' exam.id %}" class="layui-btn layui-btn-xs layui-btn-normal">编辑</a>
+                    <a href="{% url 'hrbp:exam_results' exam.id %}" class="layui-btn layui-btn-xs layui-btn-warm">结果</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" style="text-align:center;padding:40px;color:#999;">暂无考核，请创建</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% include "home/pagination.html" %}
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+(function checkLayui() {
+    if (typeof layui !== 'undefined') {
+layui.use(['layer'], function() {
+    var layer = layui.layer;
+    var $ = layui.$;
+    $('#createExamBtn').click(function() {
+        parent.layer.open({
+            type: 2,
+            title: '创建考核',
+            shadeClose: false,
+            shade: 0.3,
+            maxmin: true,
+            area: ['85%', '100%'],
+            offset: 'r',
+            anim: 2,
+            content: '{% url "hrbp:exam_create_drawer" %}',
+            success: function(layero, index) {
+                $(layero).css({right: '0', top: '0', height: '100%'});
+            },
+            end: function() { location.reload(); }
+        });
+    });
+});
+    } else {
+        setTimeout(checkLayui, 50);
+    }
+})();
+</script>
+{% endblock %}

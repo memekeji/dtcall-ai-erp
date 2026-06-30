@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <title>AI 合同审查详情</title>
+    <style>
+        body { margin:0; padding:15px; background:#f2f2f2; }
+        .main-container { background:#fff; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.1); }
+        .toolbar { padding:12px 15px; border-bottom:1px solid #f6f6f6; display:flex; justify-content:space-between; align-items:center; }
+        .toolbar h3 { margin:0; font-size:15px; color:#333; }
+        .info-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:10px; padding:15px; border-bottom:1px solid #f6f6f6; }
+        .info-item { display:flex; gap:6px; padding:8px 10px; background:#fafafa; border-radius:3px; font-size:13px; }
+        .info-item .lbl { color:#888; white-space:nowrap; }
+        .info-item .val { color:#333; font-weight:500; }
+        .form-section { padding:15px; border-bottom:1px solid #f6f6f6; }
+        .form-section .row { display:flex; gap:10px; margin-bottom:10px; }
+        .form-section textarea { width:100%; min-height:180px; border:1px solid #e2e2e2; border-radius:4px; padding:10px 12px; font-size:13px; line-height:1.8; resize:vertical; font-family:inherit; }
+        .form-section textarea:focus { outline:none; border-color:#5fb878; }
+        .upload-area { border:2px dashed #d2d2d2; border-radius:4px; padding:24px; text-align:center; cursor:pointer; transition:.2s; }
+        .upload-area:hover { border-color:#5fb878; background:#f8fdf9; }
+        .upload-area.disabled { cursor:default; background:#fafafa; border-style:solid; }
+        .upload-area.disabled:hover { border-color:#d2d2d2; background:#fafafa; }
+        .auto-file-tip { margin-bottom:12px; padding:10px 12px; border-radius:4px; font-size:13px; line-height:1.7; }
+        .auto-file-tip.success { background:#f0faf4; color:#2e7d32; border:1px solid #c3e6cb; }
+        .auto-file-tip.warn { background:#fff8e1; color:#b26a00; border:1px solid #ffe082; }
+        .result-block { padding:15px; border-bottom:1px solid #f6f6f6; }
+        .result-block-title { font-size:14px; font-weight:600; color:#1e549f; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid #eef1f6; }
+        .risk-overview { padding:15px; border-radius:4px; border-left:5px solid; margin-bottom:10px; }
+        .risk-overview.high { background:#fef0f0; border-color:#e74c3c; }
+        .risk-overview.medium { background:#fef9e7; border-color:#f39c12; }
+        .risk-overview.low { background:#f0faf4; border-color:#27ae60; }
+        .risk-overview .level-tag { display:inline-block; padding:4px 14px; border-radius:12px; font-size:13px; font-weight:600; color:#fff; margin-bottom:8px; }
+        .level-tag.high { background:#e74c3c; }
+        .level-tag.medium { background:#f39c12; }
+        .level-tag.low { background:#27ae60; }
+        .clause-item { border:1px solid #eef1f6; border-radius:4px; margin-bottom:10px; overflow:hidden; }
+        .clause-item.high { border-left:4px solid #e74c3c; }
+        .clause-item.medium { border-left:4px solid #f39c12; }
+        .clause-item.low { border-left:4px solid #27ae60; }
+        .clause-hdr { padding:10px 14px; background:#fafafa; cursor:pointer; display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:600; }
+        .clause-hdr .risk-tag { font-size:11px; padding:2px 8px; border-radius:8px; }
+        .risk-tag.high { background:#fef0f0; color:#e74c3c; }
+        .risk-tag.medium { background:#fef9e7; color:#f39c12; }
+        .risk-tag.low { background:#f0faf4; color:#27ae60; }
+        .clause-body { padding:14px; display:none; }
+        .clause-body.open { display:block; }
+        .clause-fld { margin-bottom:10px; }
+        .clause-fld:last-child { margin-bottom:0; }
+        .clause-fld .fld-lbl { font-size:11px; color:#999; font-weight:600; margin-bottom:4px; }
+        .clause-fld .fld-val { font-size:13px; color:#333; line-height:1.7; }
+        .orig-text { background:#f5f5f5; padding:10px 12px; border-radius:4px; border-left:3px solid #5fb878; font-size:13px; color:#555; }
+        .sugg-text { background:#f0faf4; padding:10px 12px; border-radius:4px; border-left:3px solid #27ae60; font-size:13px; color:#2e7d32; }
+        .cross-table { width:100%; border-collapse:collapse; font-size:12px; }
+        .cross-table th { background:#f8f8f8; padding:8px 10px; text-align:left; border-bottom:2px solid #eef1f6; }
+        .cross-table td { padding:8px 10px; border-bottom:1px solid #eef1f6; }
+        .match-badge { padding:2px 8px; border-radius:8px; font-size:11px; font-weight:500; }
+        .match-badge.match { background:#f0faf4; color:#27ae60; }
+        .match-badge.mismatch { background:#fef0f0; color:#e74c3c; }
+        .match-badge.missing { background:#f5f5f5; color:#999; }
+        .cross-summary { padding:10px 14px; border-radius:4px; margin-bottom:12px; font-size:13px; }
+        .cross-summary.ok { background:#f0faf4; color:#27ae60; border:1px solid #c3e6cb; }
+        .cross-summary.err { background:#fef0f0; color:#c0392b; border:1px solid #f5c6cb; }
+        .loading-mask { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(255,255,255,0.8); z-index:9999; justify-content:center; align-items:center; flex-direction:column; }
+        .loading-mask.show { display:flex; }
+        .spinner { width:40px; height:40px; border:4px solid #eef1f6; border-top-color:#5fb878; border-radius:50%; animation:spin 0.8s linear infinite; margin-bottom:12px; }
+        @keyframes spin { to{transform:rotate(360deg);} }
+        .loading-mask .txt { color:#666; font-size:13px; }
+    </style>
+</head>
+<body>
+<div class="main-container">
+    {% csrf_token %}
+    <div class="toolbar">
+        <h3>合同审查 - {{ contract.name }}</h3>
+        <button class="layui-btn layui-btn-sm layui-btn-primary" onclick="history.back()">返回</button>
+    </div>
+
+    <div class="loading-mask" id="loadingMask"><div class="spinner"></div><div class="txt">AI 正在逐条审查...</div></div>
+
+    <div class="info-grid">
+        <div class="info-item"><span class="lbl">合同名称：</span><span class="val">{{ contract.name }}</span></div>
+        <div class="info-item"><span class="lbl">合同编号：</span><span class="val">{{ contract.code }}</span></div>
+        <div class="info-item"><span class="lbl">客户：</span><span class="val">{{ contract.customer }}</span></div>
+        <div class="info-item"><span class="lbl">金额：</span><span class="val" style="color:#e74c3c;">{{ contract.cost }} 元</span></div>
+    </div>
+
+    <div class="form-section">
+        {% if attachment_used %}
+        <div class="auto-file-tip success">已自动读取合同附件：{{ attachment_name }}，并填充到下方审查内容。</div>
+        {% elif attachment_error %}
+        <div class="auto-file-tip warn">检测到合同附件 {{ attachment_name }}，但自动解析失败：{{ attachment_error }}。你仍可手动重新上传。</div>
+        {% endif %}
+        <div class="upload-area {% if attachment_used %}disabled{% endif %}" {% if not attachment_used %}onclick="document.getElementById('fileInput').click()"{% endif %}>
+            <div style="font-size:28px;margin-bottom:6px;">📁</div>
+            <div style="color:#666;">{% if attachment_used %}已自动使用合同附件（可重新上传覆盖）{% else %}点击上传合同文件（docx/pdf/txt），自动解析{% endif %}</div>
+        </div>
+        <input type="file" id="fileInput" accept=".docx,.doc,.pdf,.txt" style="display:none" onchange="onFileUpload(this)">
+        <div id="fileInfo" style="margin-top:8px;">{% if attachment_used %}<span style='color:#5fb878;'>已自动载入: {{ attachment_name }}</span>{% endif %}</div>
+        <div class="row" style="margin-top:12px;">
+            <input type="text" id="ourRole" class="layui-input" placeholder="我方签约角色（如：甲方 - XX公司）" style="flex:1;" value="{{ our_role_default }}">
+            <input type="text" id="coreDemands" class="layui-input" placeholder="核心诉求（如：确保合法性）" style="flex:1;" value="{{ core_demands_default }}">
+        </div>
+        <textarea id="contractText" placeholder="请粘贴合同文本，或上传文件自动填充...">{{ contract_text }}</textarea>
+        <div style="margin-top:10px;">
+            <button class="layui-btn layui-btn-sm" id="btnReview" onclick="startReview()">开始AI审查</button>
+            <button class="layui-btn layui-btn-sm layui-btn-primary" id="btnQuick" onclick="quickReview()">快速评估</button>
+        </div>
+    </div>
+
+    <div id="crossCheckBlock" class="result-block" style="display:none;">
+        <div class="result-block-title">数据匹配校验</div>
+        <div id="crossCheckContent"></div>
+    </div>
+
+    <div id="overallBlock" class="result-block" style="display:none;">
+        <div class="result-block-title">总体评估</div>
+        <div id="overallContent"></div>
+    </div>
+
+    <div id="clauseBlock" class="result-block" style="display:none;">
+        <div class="result-block-title">逐条审查意见</div>
+        <div id="clauseContent"></div>
+    </div>
+
+    <div id="conclusionBlock" class="result-block" style="display:none;">
+        <div class="result-block-title">审查结论汇总</div>
+        <div id="conclusionContent"></div>
+    </div>
+</div>
+
+<script src="/static/layui/layui.js"></script>
+<script>
+var CONTRACT_ID = {{ contract.id }};
+
+function getCsrf(){
+    var input = document.querySelector("input[name='csrfmiddlewaretoken']");
+    var v = input ? input.value : "";
+    if(!v && document.cookie&&document.cookie!==""){ var cs=document.cookie.split(";"); for(var i=0;i<cs.length;i++){ var c=cs[i].trim(); if(c.substring(0,10)==="csrftoken="){ v=c.substring(10); break; } } }
+    return v||"";
+}
+
+function showLoading(msg){
+    document.getElementById("loadingMask").querySelector(".txt").textContent = msg||"处理中...";
+    document.getElementById("loadingMask").classList.add("show");
+}
+function hideLoading(){ document.getElementById("loadingMask").classList.remove("show"); }
+
+function onFileUpload(input){
+    var f = input.files[0]; if(!f) return;
+    document.getElementById("fileInfo").innerHTML = "<span style='color:#5fb878;'>解析中: "+f.name+"...</span>";
+    var fd = new FormData(); fd.append("file",f); fd.append("contract_id", CONTRACT_ID);
+    showLoading("解析文件中...");
+    fetch("/contract/ai/file-parse/",{method:"POST",body:fd,headers:{"X-CSRFToken":getCsrf()}})
+        .then(function(r){return r.json();})
+        .then(function(d){
+            hideLoading();
+            if(d.code===0){
+                document.getElementById("contractText").value = d.data.full_text;
+                document.getElementById("fileInfo").innerHTML = "<span style='color:#5fb878;'>已解析: "+f.name+" ("+d.data.text_length+" 字)</span>";
+            }else{ document.getElementById("fileInfo").innerHTML=""; layui.use("layer",function(){layer.msg(d.msg||"解析失败");}); }
+        }).catch(function(){hideLoading();document.getElementById("fileInfo").innerHTML="";layui.use("layer",function(){layer.msg("解析失败");});});
+}
+
+function startReview(){
+    var text = document.getElementById("contractText").value.trim();
+    if(!text){ layui.use("layer",function(){layer.msg("请先上传或粘贴合同文本");}); return; }
+    var btn = document.getElementById("btnReview"); btn.disabled=true; btn.textContent="审查中...";
+    showLoading("AI正在逐条审查合同条款...");
+    fetch("/contract/ai/review/"+CONTRACT_ID+"/",{
+        method:"POST",
+        headers:{"Content-Type":"application/json","X-CSRFToken":getCsrf()},
+        body:JSON.stringify({
+            contract_text:text,
+            our_role:document.getElementById("ourRole").value.trim(),
+            core_demands:document.getElementById("coreDemands").value.trim()
+        })
+    }).then(function(r){return r.json();}).then(function(d){
+        hideLoading(); btn.disabled=false; btn.textContent="开始AI审查";
+        if(d.code===0) renderReview(d.data); else layui.use("layer",function(){layer.msg(d.msg||"审查失败");});
+    }).catch(function(){hideLoading();btn.disabled=false;btn.textContent="开始AI审查";layui.use("layer",function(){layer.msg("网络错误");});});
+}
+
+function renderReview(data){
+    var rlbl={high:"高风险",medium:"中风险",low:"低风险",unknown:"未知"};
+
+    // Cross-check
+    var cc = data.data_cross_check||[];
+    if(cc.length>0){
+        document.getElementById("crossCheckBlock").style.display="block";
+        var mc = cc.filter(function(c){return !c.match;}).length;
+        var cls = mc===0?"ok":"err";
+        var sum = mc===0?"合同原文与系统数据完全一致":"发现 "+mc+" 处不一致，请核实";
+        var h = "<div class='cross-summary "+cls+"'>"+sum+"</div>";
+        h += "<table class='cross-table'><thead><tr><th>字段</th><th>原文提取值</th><th>系统录入值</th><th>状态</th><th>说明</th></tr></thead><tbody>";
+        cc.forEach(function(c){
+            var bc = c.match?"match":((c.status||"").indexOf("未提及")>=0||(c.status||"").indexOf("未录入")>=0?"missing":"mismatch");
+            h += "<tr><td><b>"+(c.field||"")+"</b></td><td>"+(c.extracted_value||"-")+"</td><td>"+(c.system_value||"-")+"</td><td><span class='match-badge "+bc+"'>"+(c.status||"")+"</span></td><td style='font-size:11px;color:#c0392b;'>"+(c.detail||"")+"</td></tr>";
+        });
+        h += "</tbody></table>";
+        document.getElementById("crossCheckContent").innerHTML = h;
+    }
+
+    // Overall
+    var oa = data.overall_assessment || {};
+    document.getElementById("overallBlock").style.display="block";
+    document.getElementById("overallContent").innerHTML = "<div class='risk-overview "+(oa.risk_level||"low")+"'><div class='level-tag "+(oa.risk_level||"low")+"'>"+(rlbl[oa.risk_level]||"")+"</div><div style='font-size:13px;line-height:1.8;'>"+(oa.summary||"").replace(/\n/g,"<br>")+"</div>"+(oa.final_recommendation?"<div style='margin-top:10px;padding:8px 12px;background:#fff;border-radius:4px;font-weight:600;'>"+oa.final_recommendation+"</div>":"")+"</div>";
+
+    // Clauses
+    var clauses = data.clause_reviews||[];
+    document.getElementById("clauseBlock").style.display = clauses.length?"block":"none";
+    var ch = "";
+    clauses.forEach(function(c,i){
+        ch += "<div class='clause-item "+(c.risk_level||"low")+"'><div class='clause-hdr' onclick='this.nextElementSibling.classList.toggle(\"open\")'><span>"+(c.clause_no||("第"+(i+1)+"条"))+" ["+(c.title||"")+"]</span><span class='risk-tag "+(c.risk_level||"low")+"'>"+(rlbl[c.risk_level]||"")+"</span></div><div class='clause-body "+(i===0?"open":"")+"'>"+(c.original_summary?"<div class='clause-fld'><div class='fld-lbl'>原文摘要</div><div class='orig-text'>"+c.original_summary+"</div></div>":"")+"<div class='clause-fld'><div class='fld-lbl'>风险分析</div><div class='fld-val'>"+(c.risk_analysis||"").replace(/\n/g,"<br>")+"</div></div>"+(c.suggestion?"<div class='clause-fld'><div class='fld-lbl'>修改建议</div><div class='sugg-text'>"+c.suggestion+"</div></div>":"")+"</div></div>";
+    });
+    document.getElementById("clauseContent").innerHTML = ch;
+
+    // Conclusion
+    var conc = data.review_conclusion||[];
+    document.getElementById("conclusionBlock").style.display = conc.length?"block":"none";
+    if(conc.length){
+        var th = "<table style='width:100%;font-size:12px;border-collapse:collapse;'><thead><tr style='background:#f8f8f8;'><th style='padding:8px 10px;text-align:left;border-bottom:2px solid #eef1f6;'>条款</th><th style='padding:8px 10px;text-align:left;border-bottom:2px solid #eef1f6;'>名称</th><th style='padding:8px 10px;text-align:left;border-bottom:2px solid #eef1f6;'>风险</th><th style='padding:8px 10px;text-align:left;border-bottom:2px solid #eef1f6;'>动作</th></tr></thead><tbody>";
+        conc.forEach(function(c){
+            var ac = c.action==="必须修改"?"must":(c.action==="无需修改"?"none":"suggest");
+            var acolor = ac==="must"?"#e74c3c":(ac==="none"?"#27ae60":"#f39c12");
+            th += "<tr><td style='padding:8px 10px;border-bottom:1px solid #eef1f6;'>"+(c.clause_no||"")+"</td><td style='padding:8px 10px;border-bottom:1px solid #eef1f6;'>"+(c.title||"")+"</td><td style='padding:8px 10px;border-bottom:1px solid #eef1f6;color:"+acolor+";'>"+(rlbl[c.risk_level]||"")+"</td><td style='padding:8px 10px;border-bottom:1px solid #eef1f6;color:"+acolor+";font-weight:500;'>"+(c.action||"")+"</td></tr>";
+        });
+        th += "</tbody></table>";
+        document.getElementById("conclusionContent").innerHTML = th;
+    }
+
+    document.getElementById("crossCheckBlock").scrollIntoView({behavior:"smooth"});
+}
+
+function quickReview(){
+    var text = document.getElementById("contractText").value.trim();
+    if(!text){ layui.use("layer",function(){layer.msg("请先输入合同文本");}); return; }
+    showLoading("快速评估中...");
+    fetch("/contract/ai/quick-review/",{
+        method:"POST",
+        headers:{"Content-Type":"application/json","X-CSRFToken":getCsrf()},
+        body:JSON.stringify({contract_text:text})
+    }).then(function(r){return r.json();}).then(function(d){
+        hideLoading();
+        if(d.code===0){
+            var dd=d.data, rlbl={high:"高风险",medium:"中风险",low:"低风险"};
+            document.getElementById("overallBlock").style.display="block";
+            document.getElementById("overallContent").innerHTML = "<div class='risk-overview "+(dd.risk_level||"low")+"'><div class='level-tag "+(dd.risk_level||"low")+"'>"+(rlbl[dd.risk_level]||"")+"</div><div style='font-size:13px;'>"+(dd.brief_summary||"")+"</div>"+(dd.key_risks?("<div style='margin-top:8px;font-size:12px;'>"+(dd.key_risks||[]).map(function(r){return "&bull; "+r;}).join("<br>"))+"</div>":"")+"</div>";
+            document.getElementById("overallBlock").scrollIntoView({behavior:"smooth"});
+        }
+    }).catch(function(){hideLoading();});
+}
+</script>
+</body>
+</html>

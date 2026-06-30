@@ -15,8 +15,17 @@
             height: 100%;
             margin: 0;
             padding: 0;
-            overflow: hidden;
+            overflow-x: hidden;
+            overflow-y: auto;
             background: #f4f7fb;
+        }
+
+        body {
+            min-height: 100%;
+        }
+
+        body.iframe-body {
+            overflow: hidden;
         }
 
         .iframe-content {
@@ -190,6 +199,84 @@
             color: #1f6feb;
         }
 
+        .message-bell.has-unread {
+            background: #fff1f0;
+            box-shadow: 0 0 0 5px rgba(240, 68, 56, 0.12), 0 12px 24px rgba(240, 68, 56, 0.22);
+            animation: messageBellPulse 1.6s ease-in-out infinite;
+        }
+
+        .message-bell.has-unread i {
+            color: #f04438;
+        }
+
+        .message-reminder-dot {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 6px;
+            margin-left: auto;
+            border-radius: 999px;
+            background: #f04438;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 18px;
+            box-shadow: 0 6px 14px rgba(240, 68, 56, 0.22);
+        }
+
+        .menu-message-unread > a {
+            color: #d92d20 !important;
+            background: #fff5f5 !important;
+            box-shadow: inset 0 0 0 1px rgba(240, 68, 56, 0.12);
+        }
+
+        .message-reminder-toast {
+            position: fixed;
+            top: 72px;
+            right: 24px;
+            z-index: 2200;
+            display: none;
+            min-width: 260px;
+            max-width: 340px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(240, 68, 56, 0.18);
+            background: #fff;
+            box-shadow: 0 18px 42px rgba(15, 23, 42, 0.18);
+            color: #1f2937;
+            cursor: pointer;
+        }
+
+        .message-reminder-toast.show {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .message-reminder-toast i {
+            color: #f04438;
+            font-size: 20px;
+        }
+
+        .message-reminder-toast strong {
+            display: block;
+            font-size: 14px;
+        }
+
+        .message-reminder-toast span {
+            display: block;
+            margin-top: 2px;
+            color: #667085;
+            font-size: 12px;
+        }
+
+        @keyframes messageBellPulse {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-2px); }
+        }
+
         .user-avatar {
             border-color: rgba(24, 144, 255, 0.28);
             box-shadow: 0 8px 18px rgba(37, 99, 235, 0.1);
@@ -248,7 +335,7 @@
 
         .layui-nav-tree {
             width: 100% !important;
-            height: calc(100% - 66px);
+            height: calc(100% - 66px - 85px);
             padding: 6px 10px 18px;
             overflow-y: auto;
             overflow-x: hidden;
@@ -467,17 +554,88 @@
             flex-direction: column;
         }
 
+        .main-tab-header {
+            position: relative;
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            min-height: 50px;
+            padding-right: 104px;
+            background: #f4f7fb;
+            border-bottom: 1px solid #e6eff9;
+        }
+
         .layui-tab-title {
             position: relative;
             z-index: 10;
             padding-left: 15px;
             box-sizing: border-box;
+            flex: 1;
+            overflow-x: auto;
+            overflow-y: hidden;
+            white-space: nowrap;
+            scrollbar-width: thin;
+            border-bottom: 0 !important;
+        }
+
+        .layui-tab-title::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .layui-tab-title::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.5);
+            border-radius: 999px;
         }
 
         .layui-tab-content {
             flex: 1;
             overflow: hidden;
             position: relative;
+            min-height: 0;
+        }
+
+        .main-tab-actions {
+            position: absolute;
+            top: 8px;
+            right: 14px;
+            z-index: 20;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+        }
+
+        .main-tab-nav-btn {
+            width: 32px;
+            height: 32px;
+            border: 0;
+            border-radius: 50%;
+            background: transparent;
+            color: #475569;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+        }
+
+        .main-tab-nav-btn:hover {
+            background: #eef7ff;
+            color: #1677ff;
+            transform: translateY(-1px);
+        }
+
+        .main-tab-nav-btn:active {
+            transform: translateY(0);
+        }
+
+        .main-tab-nav-btn i {
+            font-size: 18px;
+            line-height: 1;
         }
 
         .layui-tab-item {
@@ -503,12 +661,127 @@
             }
         }
 
+        @media (max-width: 900px) {
+            :root {
+                --dt-sidebar-width: 78px;
+            }
+
+            .layui-layout-admin .layui-logo,
+            .layui-logo {
+                padding: 0 10px;
+            }
+
+            .layui-logo img {
+                max-width: 52px;
+                height: 34px;
+            }
+
+            .sidebar-menu-heading {
+                justify-content: center;
+                padding: 0 8px;
+            }
+
+            .sidebar-menu-heading em,
+            .sidebar-menu-heading span:not(.message-reminder-dot) {
+                display: none;
+            }
+
+            .layui-nav-tree {
+                padding: 8px 6px 18px;
+            }
+
+            .layui-nav-tree > .layui-nav-item > a,
+            .layui-nav-tree .layui-nav-child dd > a {
+                justify-content: center;
+                padding: 0 8px;
+            }
+
+            .layui-nav-tree .menu-text,
+            .layui-nav-tree .layui-nav-more {
+                display: none;
+            }
+
+            .layui-nav-tree .layui-nav-child {
+                margin-left: 8px;
+                padding-left: 6px;
+            }
+
+            .layui-tab-title {
+                padding-left: 8px;
+            }
+
+            .main-tab-header {
+                padding-right: 92px;
+            }
+
+            .main-tab-actions {
+                right: 10px;
+                gap: 6px;
+            }
+
+            .user-menu-container {
+                right: 12px;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .layui-layout-admin .layui-side,
+            .layui-side {
+                width: 0;
+                border-right: 0;
+                box-shadow: none;
+            }
+
+            .layui-layout-admin .layui-logo,
+            .layui-logo {
+                width: 64px;
+                justify-content: flex-start;
+                border-right: 0;
+                box-shadow: none;
+                background: transparent;
+            }
+
+            .layui-logo img {
+                max-width: 42px;
+                height: 28px;
+            }
+
+            .layui-layout-admin .layui-body,
+            .layui-body {
+                left: 0;
+            }
+
+            .message-bell {
+                margin-right: 10px;
+            }
+
+            .iframe-content {
+                padding: 12px;
+            }
+
+            .main-tab-header {
+                padding-right: 84px;
+            }
+
+            .main-tab-actions {
+                top: 7px;
+                right: 8px;
+            }
+
+            .main-tab-nav-btn {
+                width: 30px;
+                height: 30px;
+            }
+        }
+
         @media (prefers-reduced-motion: reduce) {
             .layui-nav-tree .layui-nav-item a,
             .layui-nav-tree .layui-nav-child dd > a,
             .menu-icon,
-            .message-bell {
+            .message-bell,
+            .message-bell.has-unread {
                 transition: none;
+                animation: none;
             }
 
             .layui-nav-tree .layui-nav-item a:hover,
@@ -1036,7 +1309,7 @@
             </div>
 
             <div class="user-menu-container">
-                <div class="message-bell" onclick="openMessageCenter()">
+                <div class="message-bell" id="messageBell" onclick="openMessageCenter()" aria-label="打开消息中心" title="打开消息中心">
                     <i class="layui-icon layui-icon-notice"></i>
                     <span class="unread-badge" id="unreadBadge">0</span>
                 </div>
@@ -1065,36 +1338,41 @@
             <div class="sidebar-menu-heading">
                 <span>功能导航</span>
                 <em>Menu</em>
+                <span class="message-reminder-dot" id="messageMenuBadge">0</span>
             </div>
             <ul class="layui-nav layui-nav-tree" lay-filter="main-menu" lay-accordion>
                 {% for menu in database_menus %}
                 <li class="layui-nav-item">
-                    <a href="{% if menu.submenus_list %}javascript:;{% else %}{{ menu.src }}{% endif %}" title="{{ menu.title }}">
+                    <a href="{% if menu.submenus_list %}javascript:;{% else %}{{ menu.src }}{% endif %}" data-menu-url="{{ menu.src }}" title="{{ menu.title }}"{% if menu.src == '/message/conversations/page/' or menu.src == '/message/page/' %} data-message-menu-link="1"{% endif %}>
                         <img src="" data-src="{% static 'img/icon/'|add:menu.title|add:'.png' %}" class="menu-icon lazy-icon" alt="">
                         <span class="menu-text">{{ menu.title }}</span>
+                        {% if menu.src == '/message/conversations/page/' or menu.src == '/message/page/' %}<span class="message-reminder-dot">0</span>{% endif %}
                     </a>
                     {% if menu.submenus_list %}
                     <dl class="layui-nav-child">
                         {% for submenu in menu.submenus_list|dictsort:'sort' %}
                         {% if submenu.submenus_list %}
                         <dd class="layui-nav-item">
-                            <a href="{% if submenu.submenus_list %}javascript:;{% else %}{{ submenu.src }}{% endif %}" title="{{ submenu.title }}">
+                            <a href="{% if submenu.submenus_list %}javascript:;{% else %}{{ submenu.src }}{% endif %}" data-menu-url="{{ submenu.src }}" title="{{ submenu.title }}"{% if submenu.src == '/message/conversations/page/' or submenu.src == '/message/page/' %} data-message-menu-link="1"{% endif %}>
                                 <img src="" data-src="{% static 'img/icon/'|add:submenu.title|add:'.png' %}" class="menu-icon lazy-icon" alt="">
                                 <span class="menu-text">{{ submenu.title }}</span>
+                                {% if submenu.src == '/message/conversations/page/' or submenu.src == '/message/page/' %}<span class="message-reminder-dot">0</span>{% endif %}
                             </a>
                             <dl class="layui-nav-child">
                                 {% for thirdmenu in submenu.submenus_list|dictsort:'sort' %}
                                 <dd class="{% if thirdmenu.submenus_list %}layui-nav-item{% endif %}">
-                                    <a href="{% if thirdmenu.submenus_list %}javascript:;{% else %}{{ thirdmenu.src }}{% endif %}" title="{{ thirdmenu.title }}">
+                                    <a href="{% if thirdmenu.submenus_list %}javascript:;{% else %}{{ thirdmenu.src }}{% endif %}" data-menu-url="{{ thirdmenu.src }}" title="{{ thirdmenu.title }}"{% if thirdmenu.src == '/message/conversations/page/' or thirdmenu.src == '/message/page/' %} data-message-menu-link="1"{% endif %}>
                                         <img src="" data-src="{% static 'img/icon/'|add:thirdmenu.title|add:'.png' %}" class="menu-icon lazy-icon" alt="">
                                         <span class="menu-text">{{ thirdmenu.title }}</span>
+                                        {% if thirdmenu.src == '/message/conversations/page/' or thirdmenu.src == '/message/page/' %}<span class="message-reminder-dot">0</span>{% endif %}
                                     </a>
                                     {% if thirdmenu.submenus_list %}
                                     <dl class="layui-nav-child">
                                         {% for fourthmenu in thirdmenu.submenus_list|dictsort:'sort' %}
-                                        <dd><a href="{{ fourthmenu.src }}" title="{{ fourthmenu.title }}">
+                                        <dd><a href="{{ fourthmenu.src }}" data-menu-url="{{ fourthmenu.src }}" title="{{ fourthmenu.title }}"{% if fourthmenu.src == '/message/conversations/page/' or fourthmenu.src == '/message/page/' %} data-message-menu-link="1"{% endif %}>
                                             <img src="" data-src="{% static 'img/icon/'|add:fourthmenu.title|add:'.png' %}" class="menu-icon lazy-icon" alt="">
                                             <span class="menu-text">{{ fourthmenu.title }}</span>
+                                            {% if fourthmenu.src == '/message/conversations/page/' or fourthmenu.src == '/message/page/' %}<span class="message-reminder-dot">0</span>{% endif %}
                                         </a></dd>
                                         {% endfor %}
                                     </dl>
@@ -1104,9 +1382,10 @@
                             </dl>
                         </dd>
                         {% else %}
-                        <dd><a href="{% if submenu.submenus_list %}javascript:;{% else %}{{ submenu.src }}{% endif %}" title="{{ submenu.title }}">
+                        <dd><a href="{% if submenu.submenus_list %}javascript:;{% else %}{{ submenu.src }}{% endif %}" data-menu-url="{{ submenu.src }}" title="{{ submenu.title }}"{% if submenu.src == '/message/conversations/page/' or submenu.src == '/message/page/' %} data-message-menu-link="1"{% endif %}>
                             <img src="" data-src="{% static 'img/icon/'|add:submenu.title|add:'.png' %}" class="menu-icon lazy-icon" alt="">
                             <span class="menu-text">{{ submenu.title }}</span>
+                            {% if submenu.src == '/message/conversations/page/' or submenu.src == '/message/page/' %}<span class="message-reminder-dot">0</span>{% endif %}
                         </a></dd>
                         {% endif %}
                         {% endfor %}
@@ -1115,12 +1394,62 @@
                 </li>
                 {% endfor %}
             </ul>
+            <!-- 版本信息 & 在线更新 -->
+            <div class="sidebar-version-footer" id="sidebarVersionFooter">
+                <div class="version-info-row">
+                    <span class="version-label">版本</span>
+                    <span class="version-value" id="currentVersion">v{{ APP_VERSION }}</span>
+                    <span class="version-commit" id="currentCommit" title="提交 {{ APP_COMMIT }}">{{ APP_COMMIT|slice:":7" }}</span>
+                </div>
+                {% if request.user.is_superuser %}
+                <div class="version-actions" id="versionActions" style="display:none;">
+                    <button class="version-btn version-btn-check" id="btnCheckUpdate" title="检查更新">
+                        <i class="layui-icon layui-icon-refresh"></i>
+                    </button>
+                    {% if APP_UPDATE_INFO.update_available %}
+                    <button class="version-btn version-btn-update has-update" id="btnUpdateNow" title="立即更新" style="display:inline-flex;">
+                        <i class="layui-icon layui-icon-upload-demo"></i>
+                    </button>
+                    {% else %}
+                    <button class="version-btn version-btn-update" id="btnUpdateNow" title="立即更新" style="display:none;">
+                        <i class="layui-icon layui-icon-upload-demo"></i>
+                    </button>
+                    {% endif %}
+                    <button class="version-btn version-btn-rollback" id="btnRollback" title="回滚更新" style="display:none;">
+                        <i class="layui-icon layui-icon-return"></i>
+                    </button>
+                </div>
+                <div class="version-status" id="versionStatus">
+                    {% if APP_UPDATE_INFO.update_available %}
+                    <a href="javascript:;" class="version-status-link" id="versionStatusLink" onclick="showChangelogModal()" title="点击查看更新日志">
+                        <span class="version-status-text has-update" id="versionStatusText">可更新至 v{{ APP_UPDATE_INFO.latest_version }}</span>
+                    </a>
+                    {% else %}
+                    <span class="version-status-text" id="versionStatusText">已是最新</span>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="version-status" id="versionStatus">
+                    <span class="version-status-text" id="versionStatusText">{{ APP_UPDATE_INFO.update_available|yesno:'有新版本,已是最新' }}</span>
+                </div>
+                {% endif %}
+            </div>
         </div>
 
         <!-- 主体内容 -->
         <div class="layui-body">
             <div class="layui-tab" lay-filter="main-tab" lay-allowClose="true">
-                <ul class="layui-tab-title" id="main-tab-title"></ul>
+                <div class="main-tab-header">
+                    <ul class="layui-tab-title" id="main-tab-title"></ul>
+                    <div class="main-tab-actions" aria-label="标签页导航">
+                        <button type="button" class="main-tab-nav-btn" id="current-tab-back" title="返回当前标签页上一页" aria-label="返回当前标签页上一页">
+                            <i class="layui-icon layui-icon-left"></i>
+                        </button>
+                        <button type="button" class="main-tab-nav-btn" id="current-tab-forward" title="前进当前标签页下一页" aria-label="前进当前标签页下一页">
+                            <i class="layui-icon layui-icon-right"></i>
+                        </button>
+                    </div>
+                </div>
                 <div class="layui-tab-content main-tab-content"></div>
             </div>
 
@@ -1135,6 +1464,13 @@
         </div>
     </div>
     {% endif %}
+    <div class="message-reminder-toast" id="messageReminderToast" onclick="openMessageCenter()">
+        <i class="layui-icon layui-icon-notice"></i>
+        <div>
+            <strong>有新的未读消息</strong>
+            <span id="messageReminderText">点击查看并处理消息</span>
+        </div>
+    </div>
     {% endblock %}
 
     <!-- 数字人功能 -->
@@ -1179,9 +1515,9 @@
         // 用户菜单相关函数
         function openMessageCenter() {
             if (window.parent && window.parent.addTab) {
-                window.parent.addTab('/message/page/', '消息中心');
+                window.parent.addTab('/message/conversations/page/', '在线沟通');
             } else {
-                window.location.href = '/message/page/';
+                window.location.href = '/message/conversations/page/';
             }
             document.getElementById('userDropdown').style.display = 'none';
         }
@@ -1203,6 +1539,10 @@
             e.stopPropagation();
         });
 
+        var originalDocumentTitle = document.title;
+        var lastRenderedUnreadCount = 0;
+        var messageReminderTimer = null;
+
         // 加载未读消息数量
         function loadUnreadCount() {
             fetch('/message/unread-count/')
@@ -1215,21 +1555,69 @@
 
         function renderUnreadCount(count) {
             const safeCount = Number(count) || 0;
+            const previousCount = lastRenderedUnreadCount;
+            lastRenderedUnreadCount = safeCount;
             const badges = [
                 document.getElementById('unreadBadge'),
                 document.getElementById('unreadBadgeDropdown')
             ];
+            const messageBell = document.getElementById('messageBell');
+            const displayCount = safeCount > 99 ? '99+' : String(safeCount);
 
             badges.forEach(badge => {
                 if (badge) {
                     if (safeCount > 0) {
                         badge.style.display = 'block';
-                        badge.textContent = safeCount > 99 ? '99+' : safeCount;
+                        badge.textContent = displayCount;
                     } else {
                         badge.style.display = 'none';
                     }
                 }
             });
+
+            if (messageBell) {
+                messageBell.classList.toggle('has-unread', safeCount > 0);
+                messageBell.setAttribute('aria-label', safeCount > 0 ? '打开消息中心，当前有' + safeCount + '条未读消息' : '打开消息中心');
+                messageBell.setAttribute('title', safeCount > 0 ? '有' + safeCount + '条未读消息，点击查看' : '打开消息中心');
+            }
+
+            updateMessageMenuBadges(safeCount, displayCount);
+            updateUnreadDocumentTitle(safeCount, displayCount);
+            if (safeCount > previousCount) {
+                showMessageReminderToast(safeCount, displayCount);
+            }
+        }
+
+        function updateMessageMenuBadges(count, displayCount) {
+            const hasUnread = count > 0;
+            const allBadges = [document.getElementById('messageMenuBadge')]
+                .concat(Array.from(document.querySelectorAll('[data-message-menu-link="1"] .message-reminder-dot')));
+            allBadges.forEach(function(badge) {
+                if (!badge) return;
+                badge.textContent = displayCount;
+                badge.style.display = hasUnread ? 'inline-flex' : 'none';
+            });
+            document.querySelectorAll('[data-message-menu-link="1"]').forEach(function(link) {
+                link.parentElement.classList.toggle('menu-message-unread', hasUnread);
+            });
+        }
+
+        function updateUnreadDocumentTitle(count, displayCount) {
+            document.title = count > 0 ? '(' + displayCount + ') ' + originalDocumentTitle : originalDocumentTitle;
+        }
+
+        function showMessageReminderToast(count, displayCount) {
+            const toast = document.getElementById('messageReminderToast');
+            const text = document.getElementById('messageReminderText');
+            if (!toast || count <= 0) return;
+            if (text) {
+                text.textContent = '当前有 ' + displayCount + ' 条未读消息，点击查看';
+            }
+            toast.classList.add('show');
+            clearTimeout(messageReminderTimer);
+            messageReminderTimer = setTimeout(function() {
+                toast.classList.remove('show');
+            }, 5200);
         }
 
         function loadMenuIcons() {
@@ -1934,5 +2322,30 @@
     </script>
     <script src="{% static 'js/ai-agent-sdk.js' %}"></script>
     {% block extra_js %}{% endblock %}
+
+    <script src="{% static 'js/update.js' %}"></script>
+
+    <!-- 更新日记弹窗 -->
+    <div class="changelog-overlay" id="changelogOverlay" style="display:none;">
+        <div class="changelog-modal">
+            <div class="changelog-header">
+                <h3><i class="layui-icon layui-icon-list"></i> 更新日志</h3>
+                <div class="changelog-version-tag" id="changelogVersionTag">v-</div>
+                <button class="changelog-close" onclick="hideChangelogModal()" title="关闭">
+                    <i class="layui-icon layui-icon-close"></i>
+                </button>
+            </div>
+            <div class="changelog-body" id="changelogBody">
+                <div class="changelog-loading"><i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 加载中...</div>
+            </div>
+            <div class="changelog-footer">
+                <button class="changelog-btn changelog-btn-update" id="changelogUpdateBtn" onclick="confirmUpdateFromChangelog()">
+                    <i class="layui-icon layui-icon-upload-demo"></i> 立即更新
+                </button>
+                <button class="changelog-btn changelog-btn-close" onclick="hideChangelogModal()">关闭</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
+

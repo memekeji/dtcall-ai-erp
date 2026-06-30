@@ -6,12 +6,13 @@
 {% block css %}
 <style>
     .conversation-shell {
-        height: calc(100vh - 36px);
-        min-height: 620px;
+        height: 100%;
+        min-height: 0;
         display: grid;
-        grid-template-columns: 300px minmax(0, 1fr) 280px;
-        background: #f4f6f8;
-        border: 1px solid #e6e9ef;
+        grid-template-columns: 320px minmax(0, 1fr) 340px;
+        background: #f6f8fb;
+        border: 1px solid #e1e7f0;
+        overflow: hidden;
     }
     .conversation-sidebar,
     .conversation-main,
@@ -23,9 +24,10 @@
         border-right: 1px solid #e6e9ef;
         display: flex;
         flex-direction: column;
+        box-shadow: 8px 0 24px rgba(25, 45, 75, 0.03);
     }
     .conversation-title {
-        height: 58px;
+        height: 62px;
         padding: 12px 14px;
         border-bottom: 1px solid #edf0f5;
         display: flex;
@@ -38,6 +40,29 @@
         font-size: 18px;
         font-weight: 600;
         color: #1f2937;
+    }
+    .conversation-tabs {
+        padding: 10px 12px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        border-bottom: 1px solid #edf0f5;
+        background: #fbfdff;
+    }
+    .conversation-tabs a {
+        height: 34px;
+        line-height: 34px;
+        text-align: center;
+        border: 1px solid #dbe6f5;
+        color: #52657a;
+        background: #fff;
+        text-decoration: none;
+    }
+    .conversation-tabs a.active {
+        color: #1677ff;
+        border-color: #9fc5ff;
+        background: #eef6ff;
+        font-weight: 600;
     }
     .conversation-actions {
         display: flex;
@@ -62,32 +87,179 @@
         padding: 10px 12px;
         border-bottom: 1px solid #edf0f5;
     }
+    .group-dialog {
+        padding: 16px;
+    }
+    .group-dialog .layui-input {
+        height: 36px;
+    }
+    .group-picker-layout {
+        margin-top: 12px;
+        height: 600px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 280px;
+        gap: 14px;
+    }
+    .group-picker-main,
+    .group-picked-panel {
+        min-height: 0;
+        border: 1px solid #e1e7f0;
+        background: #fbfdff;
+        display: flex;
+        flex-direction: column;
+    }
+    .group-picked-panel h5 {
+        margin: 0;
+        padding: 12px 14px;
+        border-bottom: 1px solid #e9eef5;
+        color: #1f2937;
+        font-size: 14px;
+    }
+    .group-picked-list {
+        flex: 1;
+        overflow: auto;
+        padding: 8px;
+    }
+    .group-picked-user {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        border-bottom: 1px solid #eef2f7;
+    }
+    .group-picked-user button {
+        margin-left: auto;
+        border: 0;
+        background: transparent;
+        color: #9aa4b2;
+        cursor: pointer;
+    }
+    .task-dialog {
+        padding: 18px 20px 12px;
+    }
+    .task-dialog .layui-form-label {
+        width: 76px;
+    }
+    .task-dialog .layui-input-block {
+        margin-left: 106px;
+    }
+    .task-dialog textarea {
+        min-height: 90px;
+        resize: vertical;
+    }
+    .task-dialog-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 12px;
+    }
+    .group-contact-filter {
+        margin-bottom: 0;
+    }
+    .group-contact-list {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        border: 0;
+        background: #fff;
+    }
+    .group-contact-option {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 9px 12px;
+        border-bottom: 1px solid #f0f2f5;
+        cursor: pointer;
+    }
+    .group-contact-option:hover {
+        background: #eef5ff;
+    }
+    .group-contact-option input {
+        margin: 0;
+    }
+    .group-dialog-actions {
+        margin-top: 12px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+    .group-selected-tip {
+        margin-top: 8px;
+        color: #8a94a6;
+        font-size: 12px;
+    }
     .conversation-list {
         overflow: auto;
         flex: 1;
+        background: #fff;
     }
     .conversation-item {
-        padding: 12px 14px;
+        position: relative;
+        padding: 13px 14px;
         border-bottom: 1px solid #f0f2f5;
         cursor: pointer;
         display: grid;
-        grid-template-columns: 40px minmax(0, 1fr) auto;
+        grid-template-columns: 42px minmax(0, 1fr) auto;
         gap: 10px;
         align-items: center;
     }
     .conversation-item:hover,
     .conversation-item.active {
-        background: #eef5ff;
+        background: #edf5ff;
+    }
+    .conversation-item.active:before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 12px;
+        bottom: 12px;
+        width: 3px;
+        background: #1677ff;
+    }
+    .conversation-item.has-unread {
+        background: #fff7ed;
+        box-shadow: inset 3px 0 0 #f04438;
+    }
+    .conversation-item.has-unread .conversation-name {
+        color: #b42318;
+        font-weight: 700;
+    }
+    .conversation-item.has-unread .conversation-preview {
+        color: #7a2e0e;
+        font-weight: 600;
+    }
+    .conversation-flags {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 5px;
+    }
+    .pin-mark,
+    .mention-badge {
+        color: #1677ff;
+        font-size: 12px;
+        line-height: 1;
+    }
+    .mention-badge {
+        padding: 2px 5px;
+        border: 1px solid #ffb85c;
+        color: #b76a00;
+        background: #fff7e6;
     }
     .avatar {
-        width: 40px;
-        height: 40px;
+        width: 42px;
+        height: 42px;
         background: #2f80ed;
         color: #fff;
         display: flex;
         align-items: center;
         justify-content: center;
         font-weight: 600;
+    }
+    .avatar.small {
+        width: 30px;
+        height: 30px;
+        font-size: 12px;
     }
     .conversation-name,
     .message-author,
@@ -119,19 +291,677 @@
         font-size: 12px;
         padding: 0 6px;
         box-sizing: border-box;
+        box-shadow: 0 6px 14px rgba(240, 68, 56, 0.22);
     }
     .conversation-main {
         display: flex;
         flex-direction: column;
+        min-width: 0;
+        overflow: hidden;
     }
     .chat-header {
-        height: 58px;
+        min-height: 62px;
         border-bottom: 1px solid #edf0f5;
         padding: 10px 16px;
         box-sizing: border-box;
         display: flex;
         align-items: center;
         justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .collaboration-badges {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .collaboration-badge {
+        padding: 4px 12px;
+        background: #f0f6ff;
+        border: 1px solid #bdd7ff;
+        border-radius: 14px;
+        font-size: 12px;
+        color: #1e60d5;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .collaboration-badge:hover {
+        background: #e3efff;
+        border-color: #7bb0ff;
+    }
+    .collaboration-badge i {
+        font-size: 14px;
+    }
+    .collaboration-panel {
+        position: fixed;
+        right: 20px;
+        top: 120px;
+        width: 420px;
+        max-height: calc(100vh - 140px);
+        background: #fff;
+        border: 1px solid #d8e2f1;
+        box-shadow: 0 12px 48px rgba(15, 23, 42, 0.16);
+        border-radius: 8px;
+        z-index: 999;
+        display: none;
+        flex-direction: column;
+    }
+    .collaboration-panel.active {
+        display: flex;
+    }
+    .collaboration-panel-header {
+        padding: 16px 18px;
+        border-bottom: 1px solid #edf0f5;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: linear-gradient(135deg, #f6f9fc 0%, #ffffff 100%);
+    }
+    .collaboration-panel-header h4 {
+        margin: 0;
+        font-size: 15px;
+        color: #1f2937;
+        font-weight: 600;
+    }
+    .collaboration-panel-close {
+        border: 0;
+        background: transparent;
+        color: #8a94a6;
+        cursor: pointer;
+        font-size: 20px;
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .collaboration-panel-body {
+        flex: 1;
+        overflow: auto;
+        padding: 16px 18px;
+    }
+    .collaboration-module {
+        margin-bottom: 20px;
+        border: 1px solid #edf0f5;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    .collaboration-module-header {
+        padding: 12px 14px;
+        background: #f8fafb;
+        border-bottom: 1px solid #edf0f5;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+    }
+    .collaboration-module-header i {
+        font-size: 16px;
+        color: #1677ff;
+    }
+    .collaboration-module-header span {
+        font-weight: 600;
+        color: #1f2937;
+        flex: 1;
+    }
+    .collaboration-module-count {
+        color: #8a94a6;
+        font-size: 12px;
+        background: #e5e7eb;
+        padding: 2px 8px;
+        border-radius: 10px;
+    }
+    .collaboration-module-toggle {
+        color: #7b8aa0;
+        font-size: 14px;
+    }
+    .collaboration-module.collapsed .collaboration-module-body {
+        display: none;
+    }
+    .collaboration-module.collapsed .collaboration-module-toggle:before {
+        content: '\e602';
+    }
+    .collaboration-module-body {
+        padding: 0;
+    }
+    .collaboration-item {
+        padding: 12px 14px;
+        border-bottom: 1px solid #f3f4f6;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+        cursor: pointer;
+    }
+    .collaboration-item:last-child {
+        border-bottom: 0;
+    }
+    .collaboration-item:hover {
+        background: #f9fafb;
+    }
+    .collaboration-item-title {
+        font-weight: 500;
+        color: #1f2937;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        margin-bottom: 4px;
+    }
+    .collaboration-item-meta {
+        display: flex;
+        gap: 12px;
+        font-size: 12px;
+        color: #8a94a6;
+        flex-wrap: wrap;
+        margin-bottom: 6px;
+    }
+    .collaboration-item-type {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        color: #42526e;
+        background: #eef2f7;
+    }
+    .collaboration-item-summary {
+        font-size: 12px;
+        color: #52657a;
+        line-height: 1.6;
+        margin-bottom: 8px;
+    }
+    .collaboration-item-quick-actions {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+    .collaboration-item-quick-action {
+        display: inline-flex;
+        align-items: center;
+        height: 22px;
+        padding: 0 8px;
+        border-radius: 999px;
+        background: #f3f6fb;
+        color: #52657a;
+        font-size: 11px;
+    }
+    .collaboration-item-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        align-items: flex-end;
+    }
+    .collaboration-item-status {
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        background: #f0f6ff;
+        color: #1e60d5;
+        white-space: nowrap;
+    }
+    .collaboration-item-send {
+        font-size: 12px;
+        color: #1677ff;
+        text-decoration: none;
+    }
+    .collaboration-item-send:hover {
+        text-decoration: underline;
+    }
+    .share-dialog {
+        padding: 18px 20px;
+    }
+    .share-dialog-layout {
+        display: grid;
+        grid-template-columns: 180px minmax(0, 1fr) 280px;
+        gap: 16px;
+        min-height: 620px;
+    }
+    .share-dialog-sidebar,
+    .share-dialog-main,
+    .share-dialog-selected {
+        min-height: 0;
+        border: 1px solid #e5ebf5;
+        background: #fff;
+        border-radius: 8px;
+    }
+    .share-dialog-sidebar {
+        padding: 12px;
+        background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+    }
+    .share-dialog-sidebar-title,
+    .share-main-toolbar-title,
+    .share-selected-title {
+        margin: 0 0 10px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #1f2937;
+    }
+    .share-dialog-tabs {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .share-dialog-tab {
+        padding: 10px 12px;
+        background: #fff;
+        border: 1px solid #dbe6f5;
+        color: #52657a;
+        cursor: pointer;
+        border-radius: 8px;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        transition: all 0.2s ease;
+    }
+    .share-dialog-tab:hover {
+        background: #f0f6ff;
+        color: #1677ff;
+    }
+    .share-dialog-tab.active {
+        background: #1677ff;
+        color: #fff;
+        border-color: #1677ff;
+        font-weight: 600;
+        box-shadow: 0 10px 24px rgba(22, 119, 255, 0.18);
+    }
+    .share-tab-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+    }
+    .share-tab-count {
+        min-width: 26px;
+        height: 22px;
+        padding: 0 6px;
+        border-radius: 999px;
+        background: #eef6ff;
+        color: #1677ff;
+        font-size: 12px;
+        line-height: 22px;
+        text-align: center;
+        font-weight: 600;
+    }
+    .share-dialog-tab.active .share-tab-count {
+        background: rgba(255, 255, 255, 0.18);
+        color: #fff;
+    }
+    .share-dialog-main {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    .share-main-toolbar {
+        padding: 14px 16px 12px;
+        border-bottom: 1px solid #edf0f5;
+        background: #fbfdff;
+    }
+    .share-main-toolbar-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 12px;
+    }
+    .share-module-summary {
+        font-size: 12px;
+        color: #7b8aa0;
+    }
+    .share-search-box {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .share-search-input {
+        flex: 1;
+    }
+    .share-selected-count {
+        font-size: 13px;
+        color: #52657a;
+        white-space: nowrap;
+    }
+    .share-selected-count strong {
+        color: #1677ff;
+        font-size: 16px;
+        margin: 0 2px;
+    }
+    .share-type-filters {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .share-type-filter {
+        border: 1px solid #dbe6f5;
+        background: #fff;
+        color: #52657a;
+        height: 30px;
+        padding: 0 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .share-type-filter:hover {
+        border-color: #9fc5ff;
+        color: #1677ff;
+        background: #f4f9ff;
+    }
+    .share-type-filter.active {
+        background: #eef6ff;
+        color: #1677ff;
+        border-color: #9fc5ff;
+        font-weight: 600;
+    }
+    .share-type-filter-count {
+        min-width: 18px;
+        padding: 0 4px;
+        height: 18px;
+        line-height: 18px;
+        border-radius: 999px;
+        background: rgba(22, 119, 255, 0.08);
+        text-align: center;
+        font-size: 11px;
+    }
+    .share-dialog-content {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        padding: 14px 16px 16px;
+        background: #f7f9fc;
+    }
+    .share-dialog-tab-panel {
+        display: none;
+    }
+    .share-dialog-tab-panel.active {
+        display: block;
+    }
+    .share-item-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .share-item {
+        padding: 14px;
+        border: 1px solid #edf0f5;
+        border-radius: 8px;
+        cursor: pointer;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+        transition: all 0.2s ease;
+        background: #fff;
+    }
+    .share-item:hover {
+        background: #f9fafb;
+        border-color: #bdd7ff;
+        box-shadow: 0 2px 8px rgba(22, 119, 255, 0.08);
+    }
+    .share-item.selected {
+        background: #eef6ff;
+        border-color: #9fc5ff;
+    }
+    .share-item.selected .share-item-title {
+        color: #0958d9;
+    }
+    .share-item-content {
+        min-width: 0;
+        flex: 1;
+    }
+    .share-item-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 8px;
+    }
+    .share-item-header-main {
+        min-width: 0;
+        flex: 1;
+    }
+    .share-item-title-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+        flex-wrap: wrap;
+    }
+    .share-item-title {
+        font-weight: 500;
+        color: #1f2937;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+        min-width: 0;
+    }
+    .share-item-type-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        color: #42526e;
+        background: #eef2f7;
+        white-space: nowrap;
+    }
+    .share-item-badges {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+    .share-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+    .share-badge.badge-status {
+        background: #e8f4fd;
+        color: #1677ff;
+    }
+    .share-badge.badge-pending {
+        background: #fff3e0;
+        color: #f57c00;
+    }
+    .share-badge.badge-success {
+        background: #e8f5e9;
+        color: #43a047;
+    }
+    .share-badge.badge-danger {
+        background: #ffebee;
+        color: #e53935;
+    }
+    .share-badge.badge-warning {
+        background: #fff8e1;
+        color: #ffa000;
+    }
+    .share-badge.badge-file {
+        background: #f3e5f5;
+        color: #8e24aa;
+    }
+    .share-badge.badge-progress {
+        background: #e0f2f1;
+        color: #00897b;
+    }
+    .share-item-meta {
+        display: flex;
+        gap: 12px;
+        font-size: 12px;
+        color: #8a94a6;
+        flex-wrap: wrap;
+        margin-bottom: 8px;
+    }
+    .share-item-summary {
+        font-size: 12px;
+        color: #52657a;
+        line-height: 1.6;
+    }
+    .share-item-checkbox {
+        margin: 0;
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+    }
+    .share-item-actions {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 8px;
+        min-width: 120px;
+    }
+    .share-quick-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 6px;
+        max-width: 180px;
+    }
+    .share-quick-action-tag {
+        height: 24px;
+        padding: 0 8px;
+        border-radius: 999px;
+        background: #f3f6fb;
+        color: #42526e;
+        font-size: 11px;
+        display: inline-flex;
+        align-items: center;
+    }
+    .share-quick-action {
+        width: 32px;
+        height: 32px;
+        border: 1px solid #dbe6f5;
+        background: white;
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #52657a;
+        transition: all 0.2s ease;
+    }
+    .share-quick-action:hover {
+        background: #1677ff;
+        border-color: #1677ff;
+        color: white;
+    }
+    .share-quick-action.is-disabled,
+    .share-quick-action[disabled] {
+        cursor: not-allowed;
+        color: #b6bfcc;
+        background: #f6f7fa;
+        border-color: #e5ebf5;
+        box-shadow: none;
+    }
+    .share-quick-action.is-disabled:hover,
+    .share-quick-action[disabled]:hover {
+        transform: none;
+        background: #f6f7fa;
+        border-color: #e5ebf5;
+        color: #b6bfcc;
+    }
+    .share-quick-action i {
+        font-size: 16px;
+    }
+    .share-dialog-selected {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    .share-dialog-selected-header {
+        padding: 14px 14px 10px;
+        border-bottom: 1px solid #edf0f5;
+        background: #fbfdff;
+    }
+    .share-selected-subtitle {
+        font-size: 12px;
+        color: #7b8aa0;
+    }
+    .share-selected-list {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        padding: 10px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .share-selected-item {
+        border: 1px solid #e5ebf5;
+        border-radius: 8px;
+        padding: 10px;
+        background: #fff;
+    }
+    .share-selected-item-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    .share-selected-item-main {
+        min-width: 0;
+        flex: 1;
+    }
+    .share-selected-item-title {
+        font-size: 13px;
+        color: #1f2937;
+        font-weight: 600;
+        line-height: 1.5;
+        margin-bottom: 4px;
+        word-break: break-word;
+    }
+    .share-selected-item-meta {
+        font-size: 11px;
+        color: #8a94a6;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .share-selected-remove {
+        width: 28px;
+        height: 28px;
+        border: 1px solid #dbe6f5;
+        background: #fff;
+        border-radius: 6px;
+        color: #8a94a6;
+        cursor: pointer;
+    }
+    .share-selected-remove:hover {
+        color: #ff4d4f;
+        border-color: #ffccc7;
+        background: #fff2f0;
+    }
+    .share-empty-hint {
+        min-height: 180px;
+        border: 1px dashed #d8e2f1;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #8a94a6;
+        background: #fff;
+        text-align: center;
+        padding: 20px;
+        line-height: 1.8;
+    }
+    .share-dialog-actions {
+        margin-top: 16px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding-top: 16px;
+        border-top: 1px solid #edf0f5;
     }
     .chat-header h3 {
         margin: 0;
@@ -140,14 +970,19 @@
     }
     .chat-messages {
         flex: 1;
+        min-height: 0;
         overflow: auto;
-        padding: 18px 20px;
-        background: #f8fafc;
+        padding: 22px 28px;
+        background: #f7f9fc;
     }
     .message-row {
         display: flex;
         gap: 10px;
-        margin-bottom: 14px;
+        margin-bottom: 16px;
+    }
+    .message-row.mentioned .message-bubble {
+        border-color: #ffc875;
+        box-shadow: 0 0 0 2px rgba(255, 184, 92, 0.16);
     }
     .message-row.mine {
         flex-direction: row-reverse;
@@ -171,10 +1006,30 @@
         line-height: 1.6;
         color: #1f2937;
         word-break: break-word;
+        border-radius: 6px;
+        box-shadow: 0 8px 20px rgba(31, 41, 55, 0.04);
     }
     .message-row.mine .message-bubble {
-        background: #dbeafe;
-        border-color: #bfd7ff;
+        background: #e7f1ff;
+        border-color: #b9d7ff;
+    }
+    .reply-card {
+        margin-bottom: 7px;
+        padding: 7px 9px;
+        border-left: 3px solid #9db9df;
+        background: #f4f7fb;
+        color: #52657a;
+        font-size: 12px;
+        line-height: 1.45;
+    }
+    .reply-card strong {
+        display: block;
+        color: #334155;
+        margin-bottom: 2px;
+    }
+    .mention-token {
+        color: #0b63ce;
+        font-weight: 600;
     }
     .message-tools {
         margin-top: 5px;
@@ -193,10 +1048,356 @@
         border-top: 1px solid #edf0f5;
         padding: 12px;
         background: #fff;
+        position: relative;
+    }
+    .composer-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+    }
+    .composer-toolbar .icon-button {
+        width: 32px;
+        height: 32px;
+    }
+    .share-module-btn {
+        padding: 0 12px;
+        height: 32px;
+        border: 1px solid #d8dde8;
+        background: #fff;
+        color: #42526e;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+    .share-module-btn:hover {
+        background: #f0f6ff;
+        color: #1677ff;
+        border-color: #9fc5ff;
+    }
+    .message-card {
+        border: 1px solid #e3e8ef;
+        border-radius: 8px;
+        padding: 14px;
+        background: #f8fafb;
+        margin-top: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .message-card:hover {
+        background: #f0f4f8;
+        border-color: #bdd7ff;
+        box-shadow: 0 2px 8px rgba(22, 119, 255, 0.08);
+    }
+    .message-card-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+    .message-card-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        color: #fff;
+        flex-shrink: 0;
+    }
+    .message-card-icon.project { background: linear-gradient(135deg, #1677ff 0%, #0958d9 100%); }
+    .message-card-icon.customer { background: linear-gradient(135deg, #52c41a 0%, #389e0d 100%); }
+    .message-card-icon.contract { background: linear-gradient(135deg, #fa8c16 0%, #d46b08 100%); }
+    .message-card-icon.approval { background: linear-gradient(135deg, #722ed1 0%, #531dab 100%); }
+    .message-card-icon.task { background: linear-gradient(135deg, #13c2c2 0%, #08979c 100%); }
+    .message-card-icon.file { background: linear-gradient(135deg, #eb2f96 0%, #c41d7f 100%); }
+    .message-card-icon.disk { background: linear-gradient(135deg, #eb2f96 0%, #c41d7f 100%); }
+    .message-card-icon.production { background: linear-gradient(135deg, #fa541c 0%, #d4380d 100%); }
+    .message-card-icon.finance { background: linear-gradient(135deg, #faad14 0%, #d48806 100%); }
+    .message-card-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .message-card-title {
+        font-weight: 600;
+        color: #1f2937;
+        font-size: 14px;
+        margin-bottom: 4px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .message-card-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .message-card-type {
+        font-size: 12px;
+        color: #8a94a6;
+        padding: 2px 8px;
+        background: #fff;
+        border-radius: 10px;
+        white-space: nowrap;
+    }
+    .message-card-subtype {
+        font-size: 12px;
+        color: #42526e;
+        padding: 2px 8px;
+        background: #edf4ff;
+        border-radius: 10px;
+        white-space: nowrap;
+    }
+    .card-status-badge {
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+    .card-status-badge.status-pending {
+        background: #fff7e6;
+        color: #fa8c16;
+    }
+    .card-status-badge.status-success {
+        background: #f6ffed;
+        color: #52c41a;
+    }
+    .card-status-badge.status-danger {
+        background: #fff2f0;
+        color: #ff4d4f;
+    }
+    .message-card-extra {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+    }
+    .card-info-tag {
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 4px;
+        background: #e6f7ff;
+        color: #1677ff;
+        white-space: nowrap;
+    }
+    .card-info-tag.tag-warning {
+        background: #fff7e6;
+        color: #fa8c16;
+    }
+    .message-card-body {
+        color: #52657a;
+        font-size: 13px;
+        margin-bottom: 10px;
+    }
+    .message-card-summary {
+        line-height: 1.7;
+        word-break: break-word;
+    }
+    .message-card-action-hints {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+    }
+    .message-card-action-hint {
+        font-size: 11px;
+        color: #52657a;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: #f3f6fb;
+        border: 1px solid #e3e8ef;
+    }
+    .message-card-actions {
+        display: flex;
+        gap: 8px;
+        padding-top: 10px;
+        border-top: 1px solid #e3e8ef;
+        flex-wrap: wrap;
+    }
+    .message-card-btn {
+        flex: 1;
+        min-width: 80px;
+        padding: 7px 14px;
+        border: 1px solid #d8dde8;
+        background: #fff;
+        color: #42526e;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        text-align: center;
+        transition: all 0.2s ease;
+        font-weight: 500;
+    }
+    .message-card-btn:hover {
+        background: #f0f6ff;
+        color: #1677ff;
+        border-color: #9fc5ff;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(22, 119, 255, 0.1);
+    }
+    .message-card-btn.primary {
+        background: #1677ff;
+        color: #fff;
+        border-color: #1677ff;
+    }
+    .message-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 6px;
+    }
+    .message-action-btn {
+        color: #8a94a6;
+        font-size: 12px;
+        cursor: pointer;
+        padding: 2px 6px;
+        border-radius: 3px;
+    }
+    .message-action-btn:hover {
+        color: #1677ff;
+        background: #f0f6ff;
+    }
+    .message-read-status {
+        font-size: 12px;
+        color: #8a94a6;
+    }
+    .message-read-status.read {
+        color: #52c41a;
+    }
+    .message-read-status.unread {
+        color: #8a94a6;
+    }
+    .composer-tip {
+        margin-left: 4px;
+        color: #8a94a6;
+        font-size: 12px;
+    }
+    .reply-preview {
+        display: none;
+        margin-bottom: 8px;
+        padding: 8px 10px;
+        border: 1px solid #d7e5f8;
+        background: #f4f8ff;
+        color: #52657a;
+        font-size: 12px;
+        align-items: center;
+        gap: 8px;
+    }
+    .reply-preview.active {
+        display: flex;
+    }
+    .reply-preview-text {
+        flex: 1;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+    .reply-preview button {
+        border: 0;
+        background: transparent;
+        color: #8a94a6;
+        cursor: pointer;
+    }
+    .mention-panel {
+        display: none;
+        position: absolute;
+        left: 12px;
+        bottom: 154px;
+        width: 280px;
+        max-height: 260px;
+        overflow: auto;
+        background: #fff;
+        border: 1px solid #d8e2f1;
+        box-shadow: 0 18px 40px rgba(25, 45, 75, 0.18);
+        z-index: 20;
+    }
+    .mention-panel.active {
+        display: block;
+    }
+    .mention-option {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 10px;
+        cursor: pointer;
+        border-bottom: 1px solid #eef2f7;
+    }
+    .mention-option:hover {
+        background: #edf5ff;
+    }
+    .composer-file-input {
+        display: none;
     }
     .chat-composer textarea {
         resize: none;
         min-height: 76px;
+    }
+    .message-image-wrap {
+        max-width: 320px;
+    }
+    .message-image-preview {
+        display: block;
+        max-width: 100%;
+        max-height: 260px;
+        object-fit: contain;
+        border: 1px solid #dde5ef;
+        background: #fff;
+        cursor: zoom-in;
+    }
+    .message-attachment-name {
+        margin-top: 6px;
+        color: #52657a;
+        font-size: 12px;
+    }
+    .message-file-card {
+        min-width: 240px;
+        max-width: 360px;
+        display: grid;
+        grid-template-columns: 40px minmax(0, 1fr);
+        gap: 10px;
+        align-items: center;
+    }
+    .message-file-icon {
+        width: 40px;
+        height: 40px;
+        background: #edf5ff;
+        color: #1677ff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+    }
+    .message-file-name {
+        font-weight: 600;
+        color: #1f2937;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .message-file-size {
+        color: #8a94a6;
+        font-size: 12px;
+        margin-top: 2px;
+    }
+    .message-file-actions {
+        margin-top: 6px;
+        display: flex;
+        gap: 10px;
+    }
+    .message-file-actions a {
+        color: #1677ff;
+        text-decoration: none;
+        font-size: 12px;
+    }
+    .message-file-actions a:hover {
+        text-decoration: underline;
     }
     .composer-actions {
         margin-top: 8px;
@@ -208,22 +1409,72 @@
         border-left: 1px solid #e6e9ef;
         display: flex;
         flex-direction: column;
+        min-width: 0;
+        overflow: hidden;
     }
-    .panel-section {
-        padding: 14px;
+    .panel-tabs {
+        display: flex;
         border-bottom: 1px solid #edf0f5;
+        background: #fbfdff;
+        padding: 8px 12px 0;
+        gap: 4px;
     }
-    .panel-section h4 {
+    .panel-tab {
+        padding: 8px 16px;
+        color: #52657a;
+        cursor: pointer;
+        border: 1px solid transparent;
+        border-bottom: none;
+        background: transparent;
+        transition: all 0.2s;
+        border-radius: 6px 6px 0 0;
+        font-size: 13px;
+    }
+    .panel-tab:hover {
+        background: #f0f6ff;
+        color: #1677ff;
+    }
+    .panel-tab.active {
+        background: #fff;
+        color: #1677ff;
+        border-color: #edf0f5;
+        font-weight: 600;
+        position: relative;
+    }
+    .panel-tab.active:after {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -1px;
+        height: 2px;
+        background: #fff;
+    }
+    .panel-content {
+        flex: 1;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    .panel-content-item {
+        display: none;
+        flex: 1;
+        flex-direction: column;
+        overflow: hidden;
+        padding: 14px;
+    }
+    .panel-content-item.active {
+        display: flex;
+    }
+    .panel-content-item h4 {
         margin: 0 0 10px;
         font-size: 14px;
         color: #1f2937;
     }
-    .contact-list,
     .member-list {
-        max-height: 260px;
         overflow: auto;
+        min-height: 0;
     }
-    .contact-item,
     .member-item {
         display: flex;
         align-items: center;
@@ -231,8 +1482,92 @@
         padding: 8px 0;
         border-bottom: 1px solid #f3f4f6;
     }
+    .contact-list {
+        margin-top: 10px;
+        overflow: auto;
+        min-height: 0;
+    }
+    .contact-group {
+        border: 1px solid #edf0f5;
+        background: #fbfdff;
+        margin-bottom: 10px;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    .contact-group-title {
+        height: 36px;
+        padding: 0 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #f3f7fb;
+        border-bottom: 1px solid #edf0f5;
+        color: #1f2937;
+        font-weight: 600;
+        font-size: 13px;
+        cursor: pointer;
+    }
+    .contact-group-toggle {
+        margin-right: 6px;
+        color: #7b8aa0;
+    }
+    .contact-group.collapsed .contact-group-users {
+        display: none;
+    }
+    .contact-group-count {
+        color: #8a94a6;
+        font-weight: 400;
+        font-size: 12px;
+    }
+    .group-contact-department {
+        padding: 8px 12px;
+        background: #f3f7fb;
+        border-bottom: 1px solid #edf0f5;
+        color: #42526e;
+        font-weight: 600;
+        font-size: 13px;
+    }
+    .contact-group-users {
+        overflow: auto;
+    }
+    .contact-item,
+    .group-contact-option {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 8px 10px;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    .contact-item:last-child,
+    .group-contact-option:last-child {
+        border-bottom: 0;
+    }
     .contact-item button {
         margin-left: auto;
+    }
+    .conversation-context-menu {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        min-width: 136px;
+        padding: 6px;
+        background: #fff;
+        border: 1px solid #d8e2f1;
+        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.18);
+    }
+    .conversation-context-menu.active {
+        display: block;
+    }
+    .context-menu-item {
+        height: 32px;
+        line-height: 32px;
+        padding: 0 10px;
+        color: #334155;
+        cursor: pointer;
+    }
+    .context-menu-item:hover {
+        background: #edf5ff;
+        color: #1677ff;
     }
     .empty-state {
         height: 100%;
@@ -250,6 +1585,42 @@
             display: none;
         }
     }
+    @media (max-width: 820px) {
+        .conversation-shell {
+            grid-template-columns: 1fr;
+            height: auto;
+            min-height: 100%;
+            overflow: visible;
+        }
+        .conversation-sidebar {
+            border-right: 0;
+            border-bottom: 1px solid #e6e9ef;
+            max-height: 42vh;
+        }
+        .conversation-main {
+            min-height: 58vh;
+        }
+    }
+    @media (max-width: 640px) {
+        .conversation-shell {
+            border-left: 0;
+            border-right: 0;
+        }
+        .conversation-title,
+        .conversation-tabs,
+        .conversation-search,
+        .chat-header,
+        .chat-composer {
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+        .chat-messages {
+            padding: 14px 12px;
+        }
+        .chat-composer textarea {
+            min-height: 88px;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -263,6 +1634,10 @@
                 <button class="icon-button" id="createGroupBtn" title="创建群聊"><i class="layui-icon layui-icon-addition"></i></button>
             </div>
         </div>
+        <div class="conversation-tabs">
+            <a href="/message/conversations/page/" class="active">沟通会话</a>
+            <a href="/message/page/">通知消息</a>
+        </div>
         <div class="conversation-search">
             <input type="text" id="conversationSearch" class="layui-input" placeholder="搜索会话">
         </div>
@@ -271,17 +1646,33 @@
 
     <main class="conversation-main">
         <div class="chat-header">
-            <div>
+            <div style="flex:1;">
                 <h3 id="chatTitle">请选择会话</h3>
                 <div class="empty-text" id="chatSubtitle">支持单聊、群聊、已读状态和消息转任务</div>
             </div>
+            <div id="collaborationBadges" class="collaboration-badges"></div>
             <button class="layui-btn layui-btn-primary layui-btn-sm" id="markReadBtn">全部已读</button>
         </div>
         <div class="chat-messages" id="messageList">
             <div class="empty-state">从左侧选择会话，或在右侧联系人中发起沟通</div>
         </div>
         <div class="chat-composer">
-            <textarea id="messageInput" class="layui-textarea" placeholder="输入消息，Ctrl + Enter 发送"></textarea>
+            <div class="composer-toolbar">
+                <button type="button" class="icon-button" id="pickImageBtn" title="发送图片"><i class="layui-icon layui-icon-picture"></i></button>
+                <button type="button" class="icon-button" id="pickAttachmentBtn" title="发送附件"><i class="layui-icon layui-icon-upload"></i></button>
+                <button type="button" class="icon-button" id="mentionBtn" title="@成员"><i class="layui-icon layui-icon-at"></i></button>
+                <button type="button" class="share-module-btn" id="shareModuleBtn" title="分享协同内容"><i class="layui-icon layui-icon-share"></i>分享</button>
+                <span class="composer-tip">可直接粘贴截图，@成员提醒，或引用回复</span>
+                <input type="file" id="imageInput" class="composer-file-input" accept="image/*" multiple>
+                <input type="file" id="attachmentInput" class="composer-file-input" multiple>
+            </div>
+            <div class="reply-preview" id="replyPreview">
+                <span>引用回复</span>
+                <div class="reply-preview-text" id="replyPreviewText"></div>
+                <button type="button" id="cancelReplyBtn">×</button>
+            </div>
+            <div class="mention-panel" id="mentionPanel"></div>
+            <textarea id="messageInput" class="layui-textarea" placeholder="输入消息，Enter 发送，Ctrl + Enter 换行"></textarea>
             <div class="composer-actions">
                 <button class="layui-btn layui-btn-primary" id="reloadMessagesBtn">刷新消息</button>
                 <button class="layui-btn" id="sendBtn">发送</button>
@@ -290,30 +1681,54 @@
     </main>
 
     <aside class="conversation-panel">
-        <div class="panel-section">
-            <h4>组织联系人</h4>
-            <input type="text" id="contactSearch" class="layui-input" placeholder="搜索姓名、账号、手机">
-            <div class="contact-list" id="contactList"></div>
+        <div class="panel-tabs">
+            <div class="panel-tab active" data-tab="members">会话成员</div>
+            <div class="panel-tab" data-tab="contacts">组织联系人</div>
         </div>
-        <div class="panel-section">
-            <h4>会话成员</h4>
-            <div class="member-list" id="memberList">
-                <div class="empty-text">选择会话后查看成员</div>
+        <div class="panel-content">
+            <div class="panel-content-item active" data-content="members">
+                <div class="member-list" id="memberList">
+                    <div class="empty-text">选择会话后查看成员</div>
+                </div>
+            </div>
+            <div class="panel-content-item" data-content="contacts">
+                <input type="text" id="contactSearch" class="layui-input" placeholder="搜索姓名、账号、手机" style="margin-bottom: 10px;">
+                <div class="contact-list" id="contactList"></div>
             </div>
         </div>
     </aside>
 </div>
+<div class="conversation-context-menu" id="conversationContextMenu">
+    <div class="context-menu-item" id="pinConversationMenu">置顶会话</div>
+</div>
+<div class="collaboration-panel" id="collaborationPanel">
+    <div class="collaboration-panel-header">
+        <h4>协作信息</h4>
+        <button class="collaboration-panel-close" id="closeCollaborationBtn">×</button>
+    </div>
+    <div class="collaboration-panel-body" id="collaborationPanelBody">
+        <div class="empty-state">正在加载协作信息...</div>
+    </div>
+</div>
 {% endblock %}
 
-{% block js %}
+{% block script %}
 <script>
 layui.use(['layer'], function () {
     var layer = layui.layer;
     var state = {
         conversations: [],
         contacts: [],
+        contactGroups: [],
+        collapsedContactGroups: {}, // 右侧联系人列表折叠状态,默认全部折叠
+        collapsedGroupPickerGroups: {},
+        contextConversationId: null,
+        replyToMessage: null,
+        mentionedUsers: {},
         activeConversation: null,
-        socket: null
+        socket: null,
+        collaborationData: null,
+        collapsedCollaborationModules: {}
     };
     var currentUserId = {{ request.user.id }};
     var csrfToken = '{{ csrf_token }}';
@@ -322,7 +1737,7 @@ layui.use(['layer'], function () {
         options = options || {};
         var headers = options.headers || {};
         headers['X-CSRFToken'] = csrfToken;
-        if (options.body && !headers['Content-Type']) {
+        if (options.body && !(options.body instanceof FormData) && !headers['Content-Type']) {
             headers['Content-Type'] = 'application/json';
         }
         return fetch(url, Object.assign({credentials: 'same-origin', headers: headers}, options))
@@ -348,22 +1763,135 @@ layui.use(['layer'], function () {
         return item.display_name || item.name || '未命名会话';
     }
 
+    function lastMessageText(message) {
+        if (!message) {
+            return '暂无消息';
+        }
+        if (message.message_type === 'image') {
+            return '[图片] ' + ((message.metadata && message.metadata.file_name) || message.content || '');
+        }
+        if (message.message_type === 'file') {
+            return '[文件] ' + ((message.metadata && message.metadata.file_name) || message.content || '');
+        }
+        return message.content || '暂无消息';
+    }
+
+    function currentMembers() {
+        return state.activeConversation ? (state.activeConversation.members || []) : [];
+    }
+
+    function currentMentionUsers() {
+        var users = [];
+        var seen = {};
+        currentMembers().forEach(function (member) {
+            if (member.user && member.user.id !== currentUserId && !seen[member.user.id]) {
+                seen[member.user.id] = true;
+                users.push(member.user);
+            }
+        });
+        return users;
+    }
+
+    function totalUnreadCount() {
+        return state.conversations.reduce(function (sum, item) {
+            return sum + (Number(item.unread_count) || 0);
+        }, 0);
+    }
+
+    function notifyParentMessageStateChange() {
+        if (window.parent && window.parent !== window) {
+            window.parent.postMessage({
+                type: 'message_state_changed',
+                unread_count: totalUnreadCount()
+            }, '*');
+        }
+    }
+
+    function showIncomingMessageNotice() {
+        if (!state.activeConversation) {
+            return;
+        }
+        layer.msg('收到新消息，已更新会话列表', {
+            icon: 0,
+            time: 2600
+        });
+    }
+
     function renderConversations() {
         var keyword = document.getElementById('conversationSearch').value.trim().toLowerCase();
         var list = document.getElementById('conversationList');
         var html = state.conversations.filter(function (item) {
             return !keyword || conversationName(item).toLowerCase().indexOf(keyword) >= 0;
         }).map(function (item) {
-            var last = item.last_message ? item.last_message.content : '暂无消息';
+            var last = lastMessageText(item.last_message);
             var active = state.activeConversation && state.activeConversation.id === item.id ? ' active' : '';
+            var unreadClass = item.unread_count ? ' has-unread' : '';
             var badge = item.unread_count ? '<span class="unread-badge">' + item.unread_count + '</span>' : '';
-            return '<div class="conversation-item' + active + '" data-id="' + item.id + '">' +
+            var pin = item.is_pinned ? '<span class="pin-mark">置顶</span>' : '';
+            var mentions = item.last_message && item.last_message.metadata && item.last_message.metadata.mentions || [];
+            var mention = mentions.indexOf(currentUserId) >= 0 ? '<span class="mention-badge">@我</span>' : '';
+            return '<div class="conversation-item' + active + unreadClass + '" data-id="' + item.id + '">' +
                 '<div class="avatar">' + initials(conversationName(item)) + '</div>' +
                 '<div><div class="conversation-name">' + escapeHtml(conversationName(item)) + '</div>' +
                 '<div class="conversation-preview">' + escapeHtml(last) + '</div></div>' +
-                '<div>' + badge + '</div></div>';
+                '<div class="conversation-flags">' + pin + mention + badge + '</div></div>';
         }).join('');
         list.innerHTML = html || '<div class="empty-state">暂无会话</div>';
+    }
+
+    function renderContactGroups(groups, options) {
+        options = options || {};
+        var selectable = Boolean(options.selectable);
+        var selected = options.selected || {};
+        var collapsedMap = options.collapsedMap || state.collapsedContactGroups;
+        return (groups || []).map(function (group) {
+            var users = group.users || [];
+            var collapsed = Boolean(collapsedMap[group.id]);
+            var usersHtml = users.map(function (user) {
+                var name = userName(user);
+                var subText = user.department_name || user.mobile || user.username;
+                if (selectable) {
+                    var checked = selected[user.id] ? ' checked' : '';
+                    return '<label class="group-contact-option">' +
+                        '<input type="checkbox" value="' + user.id + '"' + checked + '>' +
+                        '<div class="avatar">' + initials(name) + '</div>' +
+                        '<div><div class="contact-name">' + escapeHtml(name) + '</div>' +
+                        '<div class="empty-text">' + escapeHtml(subText) + '</div></div>' +
+                        '</label>';
+                }
+                return '<div class="contact-item"><div class="avatar">' + initials(name) + '</div>' +
+                    '<div><div class="contact-name">' + escapeHtml(name) + '</div>' +
+                    '<div class="empty-text">' + escapeHtml(subText) + '</div></div>' +
+                    '<button class="layui-btn layui-btn-xs" data-user-id="' + user.id + '">沟通</button></div>';
+            }).join('');
+            if (!usersHtml) {
+                usersHtml = '<div class="empty-text" style="padding:10px;">暂无联系人</div>';
+            }
+            return '<div class="contact-group' + (collapsed ? ' collapsed' : '') + '" data-group-id="' + escapeAttr(group.id) + '">' +
+                '<div class="contact-group-title" data-toggle-group="' + escapeAttr(group.id) + '">' +
+                '<span><i class="layui-icon contact-group-toggle">' + (collapsed ? '&#xe602;' : '&#xe625;') + '</i>' + escapeHtml(group.name) + '</span>' +
+                '<span class="contact-group-count">' + users.length + '人</span></div>' +
+                '<div class="contact-group-users">' + usersHtml + '</div></div>';
+        }).join('');
+    }
+
+    function flattenContactGroups(groups) {
+        var seen = {};
+        var users = [];
+        (groups || []).forEach(function (group) {
+            (group.users || []).forEach(function (user) {
+                if (!seen[user.id]) {
+                    seen[user.id] = true;
+                    users.push(user);
+                }
+            });
+        });
+        return users;
+    }
+
+    function renderContacts() {
+        var box = document.getElementById('contactList');
+        box.innerHTML = renderContactGroups(state.contactGroups) || '<div class="empty-text">暂无联系人</div>';
     }
 
     function renderMembers() {
@@ -372,23 +1900,327 @@ layui.use(['layer'], function () {
             box.innerHTML = '<div class="empty-text">选择会话后查看成员</div>';
             return;
         }
-        box.innerHTML = state.activeConversation.members.map(function (member) {
+        box.innerHTML = currentMembers().map(function (member) {
             var name = userName(member.user);
-            return '<div class="member-item"><div class="avatar">' + initials(name) + '</div>' +
+            var role = member.role === 'owner' ? '群主' : (member.role === 'admin' ? '管理员' : '成员');
+            return '<div class="member-item" data-member-id="' + member.user.id + '">' +
+                '<div class="avatar small">' + initials(name) + '</div>' +
                 '<div><div class="contact-name">' + escapeHtml(name) + '</div>' +
-                '<div class="empty-text">' + member.role + '</div></div></div>';
-        }).join('');
+                '<div class="empty-text">' + role + '</div></div></div>';
+        }).join('') || '<div class="empty-text">暂无成员</div>';
     }
 
-    function renderContacts() {
-        var box = document.getElementById('contactList');
-        box.innerHTML = state.contacts.map(function (user) {
+    function renderMentionPanel(keyword) {
+        var panel = document.getElementById('mentionPanel');
+        var normalized = (keyword || '').toLowerCase();
+        var users = currentMentionUsers().filter(function (user) {
+            return !normalized ||
+                userName(user).toLowerCase().indexOf(normalized) >= 0 ||
+                String(user.username || '').toLowerCase().indexOf(normalized) >= 0;
+        });
+        panel.innerHTML = users.map(function (user) {
             var name = userName(user);
-            return '<div class="contact-item"><div class="avatar">' + initials(name) + '</div>' +
+            return '<div class="mention-option" data-user-id="' + user.id + '">' +
+                '<div class="avatar small">' + initials(name) + '</div>' +
                 '<div><div class="contact-name">' + escapeHtml(name) + '</div>' +
-                '<div class="empty-text">' + escapeHtml(user.mobile || user.username) + '</div></div>' +
-                '<button class="layui-btn layui-btn-xs" data-user-id="' + user.id + '">沟通</button></div>';
-        }).join('') || '<div class="empty-text">暂无联系人</div>';
+                '<div class="empty-text">@' + escapeHtml(user.username || name) + '</div></div></div>';
+        }).join('') || '<div class="empty-text" style="padding:10px;">暂无可提醒成员</div>';
+        panel.classList.add('active');
+    }
+
+    function hideMentionPanel() {
+        document.getElementById('mentionPanel').classList.remove('active');
+    }
+
+    function renderReplyPreview() {
+        var preview = document.getElementById('replyPreview');
+        var text = document.getElementById('replyPreviewText');
+        if (!state.replyToMessage) {
+            preview.classList.remove('active');
+            text.textContent = '';
+            return;
+        }
+        preview.classList.add('active');
+        text.textContent = userName(state.replyToMessage.sender) + ': ' + (state.replyToMessage.content || '');
+    }
+
+    function setReplyTo(message) {
+        state.replyToMessage = message;
+        renderReplyPreview();
+        document.getElementById('messageInput').focus();
+    }
+
+    function clearReplyTo() {
+        state.replyToMessage = null;
+        renderReplyPreview();
+    }
+
+    function renderMessageText(message) {
+        var text = escapeHtml(message.content || '');
+        var mentions = message.metadata && message.metadata.mention_users || [];
+        mentions.forEach(function (user) {
+            var name = userName(user);
+            var pattern = new RegExp('@' + escapeRegExp(user.username || name), 'g');
+            text = text.replace(pattern, '<span class="mention-token">@' + escapeHtml(user.username || name) + '</span>');
+        });
+        return text;
+    }
+
+    function renderMessageContent(message) {
+        var metadata = message.metadata || {};
+        var fileName = metadata.file_name || message.content || '附件';
+        var fileUrl = metadata.file_url || '';
+        var replyHtml = '';
+        if (message.reply_to_message) {
+            replyHtml = '<div class="reply-card"><strong>' +
+                escapeHtml(userName(message.reply_to_message.sender)) +
+                '</strong>' + escapeHtml(message.reply_to_message.content || '') + '</div>';
+        }
+        
+        // 检测是否为卡片类型消息 - 优先检查metadata.type
+        if (metadata.type === 'collaboration_card') {
+            return replyHtml + renderCollaborationCard(metadata, message);
+        }
+        
+        // 兼容旧格式: 检测message_type为card
+        if (message.message_type === 'card' && metadata.module) {
+            return replyHtml + renderCollaborationCard(metadata, message);
+        }
+        
+        if (message.message_type === 'image' && fileUrl) {
+            return replyHtml + '<div class="message-image-wrap">' +
+                '<img class="message-image-preview" src="' + escapeAttr(fileUrl) + '" alt="' + escapeAttr(fileName) + '" data-preview-url="' + escapeAttr(fileUrl) + '">' +
+                '<div class="message-attachment-name">' + escapeHtml(fileName) + '</div>' +
+                '</div>';
+        }
+        if (message.message_type === 'file' && fileUrl) {
+            return replyHtml + '<div class="message-file-card">' +
+                '<div class="message-file-icon"><i class="layui-icon layui-icon-file"></i></div>' +
+                '<div><div class="message-file-name" title="' + escapeAttr(fileName) + '">' + escapeHtml(fileName) + '</div>' +
+                '<div class="message-file-size">' + formatFileSize(metadata.file_size) + '</div>' +
+                '<div class="message-file-actions">' +
+                '<a href="' + escapeAttr(fileUrl) + '" target="_blank" rel="noopener">预览</a>' +
+                '<a href="' + escapeAttr(fileUrl) + '" download="' + escapeAttr(fileName) + '">下载</a>' +
+                '</div></div></div>';
+        }
+        return replyHtml + renderMessageText(message);
+    }
+    
+    function renderCollaborationCard(metadata, message) {
+        var module = metadata.module;
+        var moduleName = metadata.module_name || getModuleName(module);
+        var itemTypeLabel = metadata.item_type_label || '';
+        var title = metadata.title || metadata.name || '';
+        var itemId = metadata.item_id;
+        var messageId = message.id;
+        
+        // 构建状态信息显示
+        var statusHtml = '';
+        if (metadata.status_display) {
+            var statusClass = 'card-status-badge';
+            if (metadata.status === 'pending') statusClass += ' status-pending';
+            else if (metadata.status === 'approved' || metadata.status === 'completed') statusClass += ' status-success';
+            else if (metadata.status === 'rejected') statusClass += ' status-danger';
+            statusHtml = '<span class="' + statusClass + '">' + escapeHtml(metadata.status_display) + '</span>';
+        }
+        
+        // 构建额外信息
+        var extraInfo = [];
+        if (module === 'task' && !metadata.assignee_id) {
+            extraInfo.push('<span class="card-info-tag tag-warning">待认领</span>');
+        }
+        if (module === 'production' && metadata.progress !== undefined) {
+            extraInfo.push('<span class="card-info-tag">进度: ' + metadata.progress + '%</span>');
+        }
+        if (module === 'file' && metadata.file_name) {
+            var ext = metadata.file_name.split('.').pop().toUpperCase();
+            extraInfo.push('<span class="card-info-tag">' + escapeHtml(ext) + '</span>');
+        }
+        if (metadata.item_type_label) {
+            extraInfo.push('<span class="card-info-tag">' + escapeHtml(metadata.item_type_label) + '</span>');
+        }
+        
+        var extraHtml = extraInfo.length > 0 ? '<div class="message-card-extra">' + extraInfo.join('') + '</div>' : '';
+        var summaryHtml = metadata.summary ? '<div class="message-card-body"><div class="message-card-summary">' + escapeHtml(metadata.summary) + '</div>' : '';
+        var quickActionHints = (metadata.quick_actions || []).map(function(action) {
+            return '<span class="message-card-action-hint">' + escapeHtml(getQuickActionLabel(action)) + '</span>';
+        }).join('');
+        if (quickActionHints) {
+            summaryHtml += '<div class="message-card-action-hints">' + quickActionHints + '</div>';
+        }
+        if (summaryHtml) {
+            summaryHtml += '</div>';
+        }
+        
+        // 根据模块类型动态生成按钮
+        var actions = getCardActions(module, metadata, message);
+        
+        if (actions.length === 0) {
+            // 如果没有按钮，至少提供查看详情
+            actions.push({label: '查看详情', action: 'view', primary: true});
+        }
+        
+        var actionsHtml = actions.map(function(action) {
+            var btnClass = 'message-card-btn' + (action.primary ? ' primary' : '');
+            return '<div class="' + btnClass + '" ' +
+                'data-action="' + escapeAttr(action.action) + '" ' +
+                'data-message-id="' + messageId + '" ' +
+                'data-module="' + escapeAttr(module) + '" ' +
+                'data-item-id="' + itemId + '" ' +
+                'data-item-type="' + escapeAttr(metadata.item_type || '') + '" ' +
+                'data-item-url="' + escapeAttr(metadata.url || '') + '" ' +
+                'title="' + escapeAttr(action.label) + '">' +
+                escapeHtml(action.label) + '</div>';
+        }).join('');
+        
+        var iconMap = {
+            project: 'layui-icon-template-1',
+            customer: 'layui-icon-user',
+            contract: 'layui-icon-file',
+            approval: 'layui-icon-audit',
+            task: 'layui-icon-list',
+            file: 'layui-icon-file',
+            disk: 'layui-icon-file',
+            production: 'layui-icon-engine',
+            finance: 'layui-icon-rmb'
+        };
+        
+        return '<div class="message-card" data-module="' + escapeAttr(module) + '">' +
+            '<div class="message-card-header">' +
+            '<div class="message-card-icon ' + escapeAttr(module) + '"><i class="layui-icon ' + (iconMap[module] || 'layui-icon-file') + '"></i></div>' +
+            '<div class="message-card-info">' +
+            '<div class="message-card-title">' + escapeHtml(title) + '</div>' +
+            '<div class="message-card-meta">' +
+            '<span class="message-card-type">' + escapeHtml(moduleName) + '</span>' +
+            (itemTypeLabel ? '<span class="message-card-subtype">' + escapeHtml(itemTypeLabel) + '</span>' : '') +
+            statusHtml +
+            '</div>' +
+            '</div>' +
+            '</div>' +
+            extraHtml +
+            summaryHtml +
+            '<div class="message-card-actions">' + actionsHtml + '</div>' +
+            '</div>';
+    }
+    
+    function getCardActions(module, metadata, message) {
+        var isMine = message.sender && message.sender.id === currentUserId;
+        var actions = [];
+        var itemType = metadata.item_type || '';
+        
+        switch(module) {
+            case 'approval':
+                // 审批卡片 - 根据状态显示不同操作
+                var status = metadata.status || '';
+                if (!isMine && status === 'pending') {
+                    // 待审批状态，接收方可以审批
+                    actions.push({label: '立即审批', action: 'approve', primary: true});
+                }
+                actions.push({label: '查看详情', action: 'view', primary: status !== 'pending' || isMine});
+                break;
+                
+            case 'task':
+                // 任务卡片 - 根据状态和负责人显示操作
+                var taskStatus = metadata.status || '';
+                var assigneeId = metadata.assignee_id;
+                
+                if (!assigneeId && !isMine && taskStatus !== 'completed') {
+                    // 无负责人且未完成，可以认领
+                    actions.push({label: '认领任务', action: 'claim', primary: true});
+                }
+                
+                if (assigneeId == currentUserId && taskStatus !== 'completed') {
+                    // 是负责人且未完成，可以完成任务
+                    actions.push({label: '完成任务', action: 'complete', primary: true});
+                }
+                
+                actions.push({label: '查看详情', action: 'view'});
+                
+                if (taskStatus !== 'completed') {
+                    actions.push({label: '添加评论', action: 'comment'});
+                }
+                break;
+                
+            case 'file':
+                // 文件卡片 - 根据文件类型显示预览或下载
+                var fileExt = (metadata.file_name || '').toLowerCase().split('.').pop();
+                var previewableTypes = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'txt', 'md', 'doc', 'docx', 'xls', 'xlsx'];
+                
+                if (previewableTypes.indexOf(fileExt) !== -1) {
+                    actions.push({label: '在线预览', action: 'preview', primary: true});
+                    actions.push({label: '下载文件', action: 'download'});
+                } else {
+                    actions.push({label: '下载文件', action: 'download', primary: true});
+                }
+                actions.push({label: '分享到对话', action: 'share'});
+                break;
+                
+            case 'contract':
+                // 合同卡片 - 根据签署状态显示操作
+                var contractStatus = metadata.status || '';
+                actions.push({label: '查看合同', action: 'view', primary: true});
+                
+                if (metadata.has_file) {
+                    actions.push({label: '下载合同', action: 'download'});
+                }
+                
+                if (!isMine && contractStatus === 'pending') {
+                    actions.push({label: '签署合同', action: 'sign'});
+                }
+                break;
+                
+            case 'project':
+                // 项目卡片 - 全面的项目操作
+                if (itemType === 'document') {
+                    actions.push({label: '查看文档', action: 'view', primary: true});
+                    actions.push({label: '转发到对话', action: 'share'});
+                } else {
+                    actions.push({label: '项目详情', action: 'view', primary: true});
+                    actions.push({label: '项目文档', action: 'docs'});
+                    actions.push({label: '项目动态', action: 'activities'});
+                }
+                break;
+                
+            case 'customer':
+                // 客户卡片 - 客户管理操作
+                actions.push({label: '客户详情', action: 'view', primary: true});
+                actions.push({label: '添加跟进', action: 'follow'});
+                actions.push({label: '记录沟通', action: 'contact'});
+                break;
+                
+            case 'production':
+                // 生产卡片 - 根据进度显示操作
+                var progress = metadata.progress || 0;
+                if (itemType === 'bom') {
+                    actions.push({label: '查看BOM', action: 'view', primary: true});
+                    actions.push({label: '转发到对话', action: 'share'});
+                } else if (itemType === 'route') {
+                    actions.push({label: '查看路线', action: 'view', primary: true});
+                    actions.push({label: '转发到对话', action: 'share'});
+                } else {
+                    actions.push({label: itemType === 'task' ? '查看任务' : '查看计划', action: 'view', primary: true});
+                }
+
+                if ((itemType === 'plan' || itemType === 'task' || !itemType) && progress < 100) {
+                    actions.push({label: '更新进度', action: 'update'});
+                }
+                break;
+                
+            case 'finance':
+                // 财务卡片 - 根据审核状态显示操作
+                var financeStatus = metadata.check_status || metadata.status || '';
+                actions.push({label: itemType === 'invoice' ? '查看开票' : '查看详情', action: 'view', primary: true});
+                
+                if (itemType !== 'invoice' && !isMine && financeStatus === 'pending') {
+                    actions.push({label: '财务审核', action: 'approve_finance'});
+                }
+                break;
+                
+            default:
+                actions.push({label: '查看详情', action: 'view', primary: true});
+        }
+        
+        return actions;
     }
 
     function renderMessages(messages) {
@@ -396,16 +2228,65 @@ layui.use(['layer'], function () {
         box.innerHTML = messages.map(function (message) {
             var mine = message.sender && message.sender.id === currentUserId;
             var name = userName(message.sender);
-            return '<div class="message-row' + (mine ? ' mine' : '') + '" data-message-id="' + message.id + '">' +
+            var mentions = message.metadata && message.metadata.mentions || [];
+            var mentioned = mentions.indexOf(currentUserId) >= 0 ? ' mentioned' : '';
+            
+            // 计算已读状态
+            var readStatus = getMessageReadStatus(message);
+            var readStatusHtml = '<span class="message-read-status ' + (readStatus.isRead ? 'read' : 'unread') + '">' + readStatus.text + '</span>';
+            
+            // 撤回按钮(只有自己发送的且对方未读的消息才能撤回)
+            var recallBtn = '';
+            if (mine && !readStatus.isRead && message.message_type !== 'system') {
+                recallBtn = '<span class="message-action-btn" data-action="recall" data-message-id="' + message.id + '">撤回</span>';
+            }
+            
+            return '<div class="message-row' + (mine ? ' mine' : '') + mentioned + '" data-message-id="' + message.id + '">' +
                 '<div class="avatar">' + initials(name) + '</div>' +
                 '<div class="message-body"><div class="message-meta">' +
                 '<span class="message-author">' + escapeHtml(name) + '</span>' +
                 '<span class="message-time">' + formatTime(message.created_at) + '</span></div>' +
-                '<div class="message-bubble">' + escapeHtml(message.content) + '</div>' +
-                '<div class="message-tools"><button data-action="receipt">已读状态</button>' +
-                '<button data-action="task">转任务</button></div></div></div>';
+                '<div class="message-bubble">' + renderMessageContent(message) + '</div>' +
+                '<div class="message-actions">' + 
+                readStatusHtml +
+                recallBtn +
+                '<span class="message-action-btn" data-action="reply">引用回复</span>' +
+                '<span class="message-action-btn" data-action="task">转任务</span>' +
+                '</div></div></div>';
         }).join('') || '<div class="empty-state">暂无消息</div>';
+        state.currentMessages = messages;
         box.scrollTop = box.scrollHeight;
+    }
+    
+    function getMessageReadStatus(message) {
+        var receipts = message.receipts || [];
+        var conversationType = state.activeConversation ? state.activeConversation.conversation_type : 'direct';
+        
+        if (conversationType === 'group') {
+            // 群聊:显示已读/未读人数
+            var totalMembers = (state.activeConversation.members || []).length - 1; // 减去发送者自己
+            var readCount = receipts.filter(function(r) { 
+                return r.status === 'read' && r.user_id !== message.sender.id; 
+            }).length;
+            var unreadCount = totalMembers - readCount;
+            return {
+                isRead: readCount === totalMembers && totalMembers > 0,
+                text: readCount + '人已读 | ' + unreadCount + '人未读',
+                readCount: readCount,
+                unreadCount: unreadCount
+            };
+        } else {
+            // 单聊:显示已读/未读
+            var otherReceipt = receipts.find(function(r) { 
+                return r.user_id !== message.sender.id; 
+            });
+            var isRead = otherReceipt && otherReceipt.status === 'read';
+            return {
+                isRead: isRead,
+                text: isRead ? '已读' : '未读',
+                readTime: isRead && otherReceipt.read_at ? otherReceipt.read_at : null
+            };
+        }
     }
 
     function loadConversations() {
@@ -422,18 +2303,40 @@ layui.use(['layer'], function () {
                 }
                 renderConversations();
                 renderMembers();
+                notifyParentMessageStateChange();
             })
             .catch(function (error) { layer.msg(error.message); });
     }
 
     function loadContacts() {
         var keyword = document.getElementById('contactSearch').value.trim();
-        return requestJSON('/message/contacts/?q=' + encodeURIComponent(keyword))
+        return requestJSON('/message/contacts/?grouped=1&q=' + encodeURIComponent(keyword))
             .then(function (data) {
-                state.contacts = data.results || [];
+                state.contactGroups = data.groups || [];
+                state.contacts = flattenContactGroups(state.contactGroups);
+                // 默认折叠所有联系人分组
+                if (Object.keys(state.collapsedContactGroups).length === 0) {
+                    (data.groups || []).forEach(function(group) {
+                        state.collapsedContactGroups[group.id] = true; // 默认折叠
+                    });
+                }
                 renderContacts();
             })
             .catch(function (error) { layer.msg(error.message); });
+    }
+
+    function loadContactOptions(keyword) {
+        return requestJSON('/message/contacts/?grouped=1&q=' + encodeURIComponent(keyword || ''))
+            .then(function (data) {
+                return data.groups || [];
+            });
+    }
+
+    function loadProjectOptions(keyword) {
+        return requestJSON('/project/api/projects/?page_size=50&search=' + encodeURIComponent(keyword || ''))
+            .then(function (data) {
+                return data.results || [];
+            });
     }
 
     function openConversation(id) {
@@ -448,8 +2351,16 @@ layui.use(['layer'], function () {
         document.getElementById('chatSubtitle').innerText = item.conversation_type === 'group' ? '群聊' : '单聊';
         renderConversations();
         renderMembers();
+        hideMentionPanel();
+        clearReplyTo();
         connectSocket(item.id);
         loadMessages();
+        // 如果是单聊，加载协作信息
+        if (item.conversation_type === 'direct') {
+            loadCollaborationData();
+        } else {
+            hideCollaboration();
+        }
     }
 
     function loadMessages() {
@@ -461,6 +2372,51 @@ layui.use(['layer'], function () {
                 renderMessages(data.results || data);
             })
             .catch(function (error) { layer.msg(error.message); });
+    }
+
+    function uploadAttachment(file) {
+        if (!state.activeConversation) {
+            layer.msg('请选择会话');
+            return Promise.reject(new Error('请选择会话'));
+        }
+        if (!file) {
+            return Promise.resolve();
+        }
+        var formData = new FormData();
+        formData.append('file', file);
+        var loadingIndex = layer.load(2, {shade: 0.08});
+        return requestJSON('/message/conversations/' + state.activeConversation.id + '/messages/upload/', {
+            method: 'POST',
+            body: formData
+        }).then(function () {
+            layer.close(loadingIndex);
+            loadConversations();
+            loadMessages();
+        }).catch(function (error) {
+            layer.close(loadingIndex);
+            layer.msg(error.message);
+            throw error;
+        });
+    }
+
+    function uploadFiles(fileList) {
+        var files = Array.prototype.slice.call(fileList || []);
+        if (!files.length) {
+            return;
+        }
+        files.reduce(function (chain, file) {
+            return chain.then(function () {
+                return uploadAttachment(file);
+            });
+        }, Promise.resolve()).then(function () {
+            layer.msg(files.length > 1 ? '附件已发送' : '已发送');
+        }).catch(function () {});
+    }
+
+    function selectedMentionIds() {
+        return Object.keys(state.mentionedUsers).map(function (id) {
+            return Number(id);
+        });
     }
 
     function sendMessage() {
@@ -476,9 +2432,16 @@ layui.use(['layer'], function () {
         }
         requestJSON('/message/conversations/' + state.activeConversation.id + '/messages/', {
             method: 'POST',
-            body: JSON.stringify({content: content})
+            body: JSON.stringify({
+                content: content,
+                reply_to: state.replyToMessage ? state.replyToMessage.id : null,
+                metadata: {mentions: selectedMentionIds()}
+            })
         }).then(function () {
             input.value = '';
+            state.mentionedUsers = {};
+            clearReplyTo();
+            hideMentionPanel();
             loadConversations();
             loadMessages();
         }).catch(function (error) { layer.msg(error.message); });
@@ -507,18 +2470,127 @@ layui.use(['layer'], function () {
         }).catch(function (error) { layer.msg(error.message); });
     }
 
+    function togglePinConversation(conversationId, pinned) {
+        return requestJSON('/message/conversations/' + conversationId + '/pin/', {
+            method: 'POST',
+            body: JSON.stringify({is_pinned: pinned})
+        }).then(function () {
+            return loadConversations();
+        }).catch(function (error) { layer.msg(error.message); });
+    }
+
     function createGroup() {
-        layer.prompt({title: '群聊名称'}, function (name, index) {
-            layer.close(index);
-            var ids = state.contacts.slice(0, 8).map(function (user) { return user.id; });
-            requestJSON('/message/conversations/groups/', {
-                method: 'POST',
-                body: JSON.stringify({name: name, member_ids: ids})
-            }).then(function (conversation) {
-                return loadConversations().then(function () {
-                    openConversation(conversation.id);
+        var content = '<div class="group-dialog">' +
+            '<input type="text" id="groupNameInput" class="layui-input" placeholder="请输入群聊名称">' +
+            '<div class="group-picker-layout">' +
+            '<div class="group-picker-main">' +
+            '<input type="text" id="groupContactFilter" class="layui-input group-contact-filter" placeholder="搜索并选择群成员">' +
+            '<div class="group-contact-list" id="groupContactList"><div class="empty-state">正在加载联系人...</div></div>' +
+            '</div>' +
+            '<div class="group-picked-panel"><h5 id="groupSelectedTip">已选择 0 人</h5><div class="group-picked-list" id="groupPickedList"></div></div>' +
+            '</div>' +
+            '<div class="group-dialog-actions">' +
+            '<button type="button" class="layui-btn layui-btn-primary" id="cancelGroupBtn">取消</button>' +
+            '<button type="button" class="layui-btn" id="submitGroupBtn">创建群聊</button>' +
+            '</div>' +
+            '</div>';
+        var selected = {};
+        var dialogIndex = layer.open({
+            type: 1,
+            title: '创建群聊',
+            area: ['920px', '750px'],
+            content: content,
+            success: function (layero) {
+                var listEl = layero.find('#groupContactList')[0];
+                var filterEl = layero.find('#groupContactFilter')[0];
+                var tipEl = layero.find('#groupSelectedTip')[0];
+                var pickedEl = layero.find('#groupPickedList')[0];
+                var contactCache = {};
+
+                function updateTip() {
+                    tipEl.textContent = '已选择 ' + Object.keys(selected).length + ' 人';
+                    pickedEl.innerHTML = Object.keys(selected).map(function (id) {
+                        var user = contactCache[id] || {id: id, name: '用户' + id};
+                        var name = userName(user);
+                        return '<div class="group-picked-user" data-picked-id="' + id + '">' +
+                            '<div class="avatar small">' + initials(name) + '</div>' +
+                            '<div><div class="contact-name">' + escapeHtml(name) + '</div>' +
+                            '<div class="empty-text">' + escapeHtml(user.department_name || user.username || '') + '</div></div>' +
+                            '<button type="button" data-remove-picked="' + id + '">×</button></div>';
+                    }).join('') || '<div class="empty-text" style="padding:8px;">尚未选择成员</div>';
+                }
+
+                function renderOptions(groups) {
+                    flattenContactGroups(groups).forEach(function (user) {
+                        contactCache[user.id] = user;
+                    });
+                    listEl.innerHTML = renderContactGroups(groups, {
+                        selectable: true,
+                        selected: selected,
+                        collapsedMap: state.collapsedGroupPickerGroups
+                    }) || '<div class="empty-state">暂无联系人</div>';
+                }
+
+                function reloadOptions() {
+                    loadContactOptions(filterEl.value.trim()).then(renderOptions)
+                        .catch(function (error) {
+                            listEl.innerHTML = '<div class="empty-state">' + escapeHtml(error.message) + '</div>';
+                        });
+                }
+
+                listEl.addEventListener('change', function (event) {
+                    if (event.target.type !== 'checkbox') return;
+                    if (event.target.checked) {
+                        selected[event.target.value] = true;
+                    } else {
+                        delete selected[event.target.value];
+                    }
+                    updateTip();
                 });
-            }).catch(function (error) { layer.msg(error.message); });
+                listEl.addEventListener('click', function (event) {
+                    var toggle = event.target.closest('[data-toggle-group]');
+                    if (!toggle) return;
+                    var groupId = toggle.getAttribute('data-toggle-group');
+                    state.collapsedGroupPickerGroups[groupId] = !state.collapsedGroupPickerGroups[groupId];
+                    reloadOptions();
+                });
+                pickedEl.addEventListener('click', function (event) {
+                    var remove = event.target.closest('[data-remove-picked]');
+                    if (!remove) return;
+                    delete selected[remove.getAttribute('data-remove-picked')];
+                    reloadOptions();
+                    updateTip();
+                });
+
+                filterEl.addEventListener('input', function () {
+                    clearTimeout(window.__groupContactTimer);
+                    window.__groupContactTimer = setTimeout(reloadOptions, 250);
+                });
+
+                layero.find('#cancelGroupBtn').on('click', function () {
+                    layer.close(dialogIndex);
+                });
+                layero.find('#submitGroupBtn').on('click', function () {
+                    var name = layero.find('#groupNameInput').val().trim();
+                    var ids = Object.keys(selected).map(function (id) { return Number(id); });
+                    if (!name) {
+                        layer.msg('请输入群聊名称');
+                        return;
+                    }
+                    requestJSON('/message/conversations/groups/', {
+                        method: 'POST',
+                        body: JSON.stringify({name: name, member_ids: ids})
+                    }).then(function (conversation) {
+                        layer.close(dialogIndex);
+                        return loadConversations().then(function () {
+                            openConversation(conversation.id);
+                        });
+                    }).catch(function (error) { layer.msg(error.message); });
+                });
+
+                reloadOptions();
+                updateTip();
+            }
         });
     }
 
@@ -530,30 +2602,155 @@ layui.use(['layer'], function () {
             .catch(function (error) { layer.msg(error.message); });
     }
 
+    function optionHtml(items, valueField, textField, emptyText) {
+        var html = '<option value="">' + emptyText + '</option>';
+        return html + items.map(function (item) {
+            return '<option value="' + item[valueField] + '">' + escapeHtml(item[textField] || item.name || item.username || item.title) + '</option>';
+        }).join('');
+    }
+
+    function fillSelect(selectEl, items, valueField, textField, emptyText) {
+        selectEl.innerHTML = optionHtml(items, valueField, textField, emptyText);
+    }
+
     function convertToTask(messageId) {
-        layer.prompt({title: '任务标题'}, function (title, index) {
-            layer.close(index);
-            requestJSON('/message/conversations/' + state.activeConversation.id + '/messages/' + messageId + '/to-task/', {
-                method: 'POST',
-                body: JSON.stringify({title: title})
-            }).then(function () {
-                layer.msg('任务已创建');
-            }).catch(function (error) { layer.msg(error.message); });
+        var messageRow = document.querySelector('.message-row[data-message-id="' + messageId + '"] .message-bubble');
+        var messageText = messageRow ? messageRow.textContent.trim() : '';
+        var content = '<div class="task-dialog">' +
+            '<div class="layui-form-item"><label class="layui-form-label">任务标题</label><div class="layui-input-block">' +
+            '<input type="text" id="taskTitleInput" class="layui-input" value="' + escapeHtml(messageText.slice(0, 80)) + '">' +
+            '</div></div>' +
+            '<div class="layui-form-item"><label class="layui-form-label">任务描述</label><div class="layui-input-block">' +
+            '<textarea id="taskDescriptionInput" class="layui-textarea">' + escapeHtml(messageText) + '</textarea>' +
+            '</div></div>' +
+            '<div class="layui-form-item"><label class="layui-form-label">负责人</label><div class="layui-input-block">' +
+            '<select id="taskAssigneeSelect" class="layui-input"><option value="">不指定负责人</option></select>' +
+            '</div></div>' +
+            '<div class="layui-form-item"><label class="layui-form-label">所属项目</label><div class="layui-input-block">' +
+            '<select id="taskProjectSelect" class="layui-input"><option value="">不关联项目</option></select>' +
+            '</div></div>' +
+            '<div class="layui-form-item"><label class="layui-form-label">优先级</label><div class="layui-input-block">' +
+            '<select id="taskPrioritySelect" class="layui-input">' +
+            '<option value="1">低</option><option value="2" selected>中</option><option value="3">高</option><option value="4">紧急</option>' +
+            '</select></div></div>' +
+            '<div class="layui-form-item"><label class="layui-form-label">截止日期</label><div class="layui-input-block">' +
+            '<input type="date" id="taskEndDateInput" class="layui-input">' +
+            '</div></div>' +
+            '<div class="task-dialog-actions">' +
+            '<button type="button" class="layui-btn layui-btn-primary" id="cancelTaskBtn">取消</button>' +
+            '<button type="button" class="layui-btn" id="submitTaskBtn">创建任务</button>' +
+            '</div></div>';
+        var dialogIndex = layer.open({
+            type: 1,
+            title: '消息转任务',
+            area: ['560px', '560px'],
+            content: content,
+            success: function (layero) {
+                var root = layero[0] || layero;
+                var assigneeSelect = root.querySelector('#taskAssigneeSelect');
+                var projectSelect = root.querySelector('#taskProjectSelect');
+                loadContactOptions('').then(function (groups) {
+                    var users = flattenContactGroups(groups);
+                    fillSelect(assigneeSelect, users, 'id', 'name', '不指定负责人');
+                }).catch(function () {});
+                loadProjectOptions('').then(function (projects) {
+                    fillSelect(projectSelect, projects, 'id', 'name', '不关联项目');
+                }).catch(function () {});
+                root.querySelector('#cancelTaskBtn').addEventListener('click', function () {
+                    layer.close(dialogIndex);
+                });
+                root.querySelector('#submitTaskBtn').addEventListener('click', function () {
+                    var payload = {
+                        title: root.querySelector('#taskTitleInput').value.trim(),
+                        description: root.querySelector('#taskDescriptionInput').value.trim(),
+                        assignee_id: assigneeSelect.value || null,
+                        project_id: projectSelect.value || null,
+                        priority: Number(root.querySelector('#taskPrioritySelect').value || 2),
+                        end_date: root.querySelector('#taskEndDateInput').value || null
+                    };
+                    if (!payload.title) {
+                        layer.msg('请输入任务标题');
+                        return;
+                    }
+                    requestJSON('/message/conversations/' + state.activeConversation.id + '/messages/' + messageId + '/to-task/', {
+                        method: 'POST',
+                        body: JSON.stringify(payload)
+                    }).then(function () {
+                        layer.close(dialogIndex);
+                        layer.msg('任务已创建');
+                        loadMessages();
+                    }).catch(function (error) { layer.msg(error.message); });
+                });
+            }
         });
+    }
+
+    function openImagePreview(img) {
+        var url = img.getAttribute('data-preview-url') || img.src;
+        var title = img.getAttribute('alt') || '图片预览';
+        layer.open({
+            type: 1,
+            title: escapeHtml(title),
+            area: ['76%', '82%'],
+            shadeClose: true,
+            content: '<div style="height:100%;display:flex;align-items:center;justify-content:center;background:#0f172a;padding:18px;box-sizing:border-box;">' +
+                '<img src="' + escapeAttr(url) + '" alt="' + escapeAttr(title) + '" style="max-width:100%;max-height:100%;object-fit:contain;background:#fff;">' +
+                '</div>'
+        });
+    }
+
+    function conversationById(id) {
+        return state.conversations.find(function (item) {
+            return item.id === id;
+        });
+    }
+
+    function showConversationContextMenu(event, conversationId) {
+        event.preventDefault();
+        var menu = document.getElementById('conversationContextMenu');
+        var item = conversationById(conversationId);
+        state.contextConversationId = conversationId;
+        document.getElementById('pinConversationMenu').textContent = item && item.is_pinned ? '取消置顶' : '置顶会话';
+        menu.style.left = event.clientX + 'px';
+        menu.style.top = event.clientY + 'px';
+        menu.classList.add('active');
+    }
+
+    function hideConversationContextMenu() {
+        document.getElementById('conversationContextMenu').classList.remove('active');
+    }
+
+    function insertMention(user) {
+        var input = document.getElementById('messageInput');
+        var mentionText = '@' + (user.username || userName(user)) + ' ';
+        input.value = input.value + mentionText;
+        state.mentionedUsers[user.id] = user;
+        hideMentionPanel();
+        input.focus();
     }
 
     function connectSocket(conversationId) {
         if (state.socket) {
             state.socket.close();
         }
+        if (!window.WebSocket) {
+            return;
+        }
         var protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
         state.socket = new WebSocket(protocol + window.location.host + '/ws/message/conversations/' + conversationId + '/');
         state.socket.onmessage = function (event) {
             var data = JSON.parse(event.data);
             if (data.type === 'message' || data.type === 'read') {
-                loadConversations();
+                loadConversations().then(function () {
+                    if (data.type === 'message') {
+                        showIncomingMessageNotice();
+                    }
+                });
                 loadMessages();
             }
+        };
+        state.socket.onerror = function () {
+            state.socket = null;
         };
     }
 
@@ -563,11 +2760,30 @@ layui.use(['layer'], function () {
         });
     }
 
+    function escapeAttr(text) {
+        return escapeHtml(text).replace(/`/g, '&#096;');
+    }
+
+    function escapeRegExp(text) {
+        return String(text || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
     function formatTime(value) {
         if (!value) {
             return '';
         }
         return String(value).replace('T', ' ').slice(0, 16);
+    }
+
+    function formatFileSize(size) {
+        var value = Number(size || 0);
+        if (value >= 1024 * 1024) {
+            return (value / 1024 / 1024).toFixed(1) + ' MB';
+        }
+        if (value >= 1024) {
+            return (value / 1024).toFixed(1) + ' KB';
+        }
+        return value + ' B';
     }
 
     document.getElementById('conversationList').addEventListener('click', function (event) {
@@ -576,13 +2792,86 @@ layui.use(['layer'], function () {
             openConversation(Number(item.getAttribute('data-id')));
         }
     });
+    document.getElementById('conversationList').addEventListener('contextmenu', function (event) {
+        var item = event.target.closest('.conversation-item');
+        if (item) {
+            showConversationContextMenu(event, Number(item.getAttribute('data-id')));
+        }
+    });
+    document.getElementById('pinConversationMenu').addEventListener('click', function () {
+        var item = conversationById(state.contextConversationId);
+        if (item) {
+            togglePinConversation(item.id, !item.is_pinned);
+        }
+        hideConversationContextMenu();
+    });
+    document.addEventListener('click', function (event) {
+        if (!event.target.closest('#conversationContextMenu')) {
+            hideConversationContextMenu();
+        }
+        if (!event.target.closest('#mentionPanel') && !event.target.closest('#mentionBtn')) {
+            hideMentionPanel();
+        }
+    });
     document.getElementById('contactList').addEventListener('click', function (event) {
+        var toggle = event.target.closest('[data-toggle-group]');
+        if (toggle) {
+            var groupId = toggle.getAttribute('data-toggle-group');
+            state.collapsedContactGroups[groupId] = !state.collapsedContactGroups[groupId];
+            renderContacts();
+            return;
+        }
         var button = event.target.closest('button[data-user-id]');
         if (button) {
             startDirect(Number(button.getAttribute('data-user-id')));
         }
     });
     document.getElementById('messageList').addEventListener('click', function (event) {
+        var image = event.target.closest('.message-image-preview');
+        if (image) {
+            openImagePreview(image);
+            return;
+        }
+        
+        // 卡片按钮点击
+        var cardBtn = event.target.closest('.message-card-btn');
+        if (cardBtn) {
+            event.stopPropagation();
+            event.preventDefault();
+            handleCardButtonClick(cardBtn);
+            return;
+        }
+        
+        // 卡片整体点击 - 禁用，只允许通过按钮操作
+        var card = event.target.closest('.message-card');
+        if (card && !event.target.closest('.message-card-btn')) {
+            event.stopPropagation();
+            // 不再支持点击卡片整体跳转，改为提示用户使用按钮
+            return;
+        }
+        
+        // 消息操作按钮(新样式)
+        var actionBtn = event.target.closest('.message-action-btn');
+        if (actionBtn) {
+            event.stopPropagation();
+            var action = actionBtn.getAttribute('data-action');
+            var messageId = actionBtn.getAttribute('data-message-id');
+            var row = actionBtn.closest('.message-row');
+            var msgId = row ? parseInt(row.getAttribute('data-message-id')) : null;
+            
+            if (action === 'recall' && messageId) {
+                handleRecallMessage(messageId);
+            } else if (action === 'reply' && msgId) {
+                var msg = (state.currentMessages || []).find(function(m) { return m.id === msgId; });
+                if (msg) setReplyTo(msg);
+            } else if (action === 'task') {
+                if (msgId) {
+                    openTaskDialog(msgId);
+                }
+            }
+            return;
+        }
+        
         var button = event.target.closest('button[data-action]');
         var row = event.target.closest('.message-row');
         if (!button || !row) {
@@ -591,23 +2880,1645 @@ layui.use(['layer'], function () {
         var messageId = Number(row.getAttribute('data-message-id'));
         if (button.getAttribute('data-action') === 'receipt') {
             showReceipts(messageId);
+        } else if (button.getAttribute('data-action') === 'reply') {
+            var message = (state.currentMessages || []).find(function (item) {
+                return item.id === messageId;
+            });
+            if (message) {
+                setReplyTo(message);
+            }
         } else {
             convertToTask(messageId);
         }
     });
+    
+    function handleCardAction(action, url) {
+        if (!url) {
+            layer.msg('缺少跳转地址');
+            return;
+        }
+        
+        if (action === '查看详情' || action === '打开网盘' || action === '联系客户' || action === '下载合同') {
+            // 跳转到对应页面
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({type: 'navigate', url: url}, '*');
+            } else {
+                window.open(url, '_blank');
+            }
+        } else if (action === '预览文件') {
+            // 预览文件
+            window.open(url, '_blank');
+        } else if (action === '下载文件') {
+            // 下载文件
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = '';
+            a.click();
+        } else if (action === '立即审批') {
+            // 打开审批页面
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({type: 'navigate', url: url}, '*');
+            } else {
+                window.open(url, '_blank');
+            }
+        } else if (action === '认领任务') {
+            layer.confirm('确认认领该任务?', function(index) {
+                // 这里可以调用认领任务的API
+                requestJSON(url, {method: 'POST', body: JSON.stringify({action: 'claim'})})
+                    .then(function() {
+                        layer.msg('认领成功');
+                    })
+                    .catch(function() {
+                        layer.msg('认领失败，请先查看任务详情');
+                        // 失败时打开详情页
+                        window.open(url, '_blank');
+                    });
+                layer.close(index);
+            });
+        } else {
+            // 默认打开链接
+            window.open(url, '_blank');
+        }
+    }
+    
+    function handleCardButtonClick(button) {
+        var action = button.getAttribute('data-action');
+        var messageId = button.getAttribute('data-message-id');
+        var module = button.getAttribute('data-module');
+        var itemId = button.getAttribute('data-item-id');
+        var itemUrl = button.getAttribute('data-item-url');
+        var itemType = button.getAttribute('data-item-type') || '';
+        
+        console.log('卡片操作:', action, module, itemId, messageId);
+        
+        if (!action || !messageId || !module || !itemId) {
+            layer.msg('参数错误');
+            return;
+        }
+        
+        // 根据操作类型分发处理
+        switch(action) {
+            case 'view':
+                handleViewAction(module, itemId, itemUrl, itemType);
+                break;
+            case 'approve':
+                openApprovalDialog(itemId, messageId);
+                break;
+            case 'claim':
+                claimTaskInChat(itemId, messageId, module);
+                break;
+            case 'download':
+                handleDownloadAction(module, itemId);
+                break;
+            case 'preview':
+                handlePreviewAction(module, itemId);
+                break;
+            case 'comment':
+                openCommentDialog(module, itemId, messageId);
+                break;
+            case 'share':
+                openMessageShareDialog(module, itemId, messageId);
+                break;
+            case 'sign':
+                openSignDialog(itemId, messageId);
+                break;
+            case 'docs':
+                openProjectDocs(itemId);
+                break;
+            case 'activities':
+                openProjectActivities(itemId);
+                break;
+            case 'follow':
+                openFollowRecords(itemId, messageId);
+                break;
+            case 'contact':
+                initiateContact(itemId, messageId);
+                break;
+            case 'update':
+                openProgressUpdate(itemId, messageId);
+                break;
+            case 'approve_finance':
+                openFinanceApproval(itemId, messageId);
+                break;
+            case 'complete':
+                completeTaskInChat(itemId, messageId);
+                break;
+            default:
+                layer.msg('操作类型不支持: ' + action);
+        }
+    }
+    
+    function handleViewAction(module, itemId, itemUrl) {
+        var itemType = arguments.length > 3 ? arguments[3] : '';
+        var urlMap = {
+            project: '/project/detail/' + itemId + '/',
+            customer: '/customer/detail/' + itemId + '/',
+            contract: '/customer/orders/' + itemId + '/detail/',
+            approval: '/approval/' + itemId + '/',
+            task: '/task/detail/' + itemId + '/',
+            file: '/disk/file/preview/' + itemId + '/',
+            disk: '/disk/file/preview/' + itemId + '/',
+            production: '/production/task/plan/detail/' + itemId + '/',
+            finance: '/finance/expense/view/' + itemId + '/'
+        };
+        if (!itemUrl) {
+            if (module === 'project' && itemType === 'document') {
+                itemUrl = '/project/document/detail/' + itemId + '/';
+            } else if (module === 'finance' && itemType === 'invoice') {
+                itemUrl = '/finance/invoice/view/' + itemId + '/';
+            } else if (module === 'production' && itemType === 'bom') {
+                itemUrl = '/production/bom/detail/' + itemId + '/';
+            } else if (module === 'production' && itemType === 'route') {
+                itemUrl = '/production/process/detail/' + itemId + '/';
+            }
+        }
+        var url = itemUrl || urlMap[module];
+        if (url) {
+            var titleMap = {
+                project: '项目详情',
+                customer: '客户详情',
+                contract: '合同详情',
+                approval: '审批详情',
+                task: '任务详情',
+                file: '文件详情',
+                disk: '文件详情',
+                production: '生产计划详情',
+                finance: '财务详情'
+            };
+            
+            // 在聊天窗口内打开，使用iframe弹窗
+            layer.open({
+                type: 2,
+                title: titleMap[module] || '详情',
+                area: ['90%', '90%'],
+                content: url,
+                shade: 0.3,
+                maxmin: true
+            });
+        }
+    }
+    
+    function openCommentDialog(module, itemId, messageId) {
+        layer.prompt({title: '添加评论', formType: 2, area: ['500px', '200px']}, function(comment, index) {
+            if (!comment || !comment.trim()) {
+                layer.msg('请输入评论内容');
+                return;
+            }
+            
+            requestJSON('/message/card/action/', {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'comment',
+                    module: module,
+                    item_id: itemId,
+                    message_id: messageId,
+                    conversation_id: state.activeConversation ? state.activeConversation.id : null,
+                    comment: comment.trim()
+                })
+            }).then(function(result) {
+                if (result.success) {
+                    layer.msg('评论成功');
+                    layer.close(index);
+                    setTimeout(function() { loadMessages(); }, 1000);
+                } else {
+                    layer.msg(result.message || '评论失败');
+                }
+            }).catch(function(error) {
+                layer.msg(error.message || '评论失败');
+            });
+        });
+    }
+    
+    function openMessageShareDialog(module, itemId, messageId) {
+        // 文件分享到其他对话
+        if (!state.conversations || state.conversations.length === 0) {
+            layer.msg('暂无可分享的对话');
+            return;
+        }
+        
+        var conversationOptions = state.conversations
+            .filter(function(conv) { 
+                return conv.id !== (state.activeConversation ? state.activeConversation.id : null);
+            })
+            .map(function(conv) {
+                var name = conv.is_group ? conv.name : (conv.other_member ? conv.other_member.name : '未知');
+                return '<option value="' + conv.id + '">' + escapeHtml(name) + '</option>';
+            }).join('');
+        
+        if (!conversationOptions) {
+            layer.msg('暂无可分享的对话');
+            return;
+        }
+        
+        var content = '<div style="padding: 20px;">' +
+            '<div class="layui-form-item">' +
+            '<label class="layui-form-label">选择对话</label>' +
+            '<div class="layui-input-block">' +
+            '<select id="shareConvSelect" class="layui-input">' +
+            conversationOptions +
+            '</select>' +
+            '</div>' +
+            '</div>' +
+            '</div>';
+        
+        layer.open({
+            type: 1,
+            title: '分享文件',
+            area: ['450px', '200px'],
+            content: content,
+            btn: ['确定分享', '取消'],
+            yes: function(index) {
+                var targetConvId = document.getElementById('shareConvSelect').value;
+                if (!targetConvId) {
+                    layer.msg('请选择对话');
+                    return;
+                }
+                
+                var msg = (state.currentMessages || []).find(function(item) {
+                    return item.id === Number(messageId);
+                });
+                if (!msg || !msg.metadata) {
+                    layer.msg('未找到可分享内容');
+                    return;
+                }
+
+                requestJSON('/message/conversations/' + targetConvId + '/messages/', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        content: msg.content || '',
+                        metadata: msg.metadata
+                    })
+                }).then(function() {
+                    layer.msg('分享成功');
+                    layer.close(index);
+                }).catch(function(error) {
+                    layer.msg(error.message || '分享失败');
+                });
+            }
+        });
+    }
+    
+    function openSignDialog(itemId, messageId) {
+        layer.confirm('确认签署该合同?', function(index) {
+            requestJSON('/message/card/action/', {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'sign',
+                    module: 'contract',
+                    item_id: itemId,
+                    message_id: messageId,
+                    conversation_id: state.activeConversation ? state.activeConversation.id : null
+                })
+            }).then(function(result) {
+                if (result.success) {
+                    layer.msg('签署成功');
+                    layer.close(index);
+                    setTimeout(function() { loadMessages(); }, 1000);
+                } else {
+                    layer.msg(result.message || '签署失败');
+                }
+            }).catch(function(error) {
+                layer.msg(error.message || '签署失败');
+            });
+        });
+    }
+    
+    function openProjectDocs(itemId) {
+        // 在聊天窗口内打开项目文档
+        layer.open({
+            type: 2,
+            title: '项目文档',
+            area: ['80%', '85%'],
+            content: '/project/detail/' + itemId + '/#docs'
+        });
+    }
+    
+    function openProjectActivities(itemId) {
+        // 在聊天窗口内打开项目动态
+        layer.open({
+            type: 2,
+            title: '项目动态',
+            area: ['80%', '85%'],
+            content: '/project/detail/' + itemId + '/#activities'
+        });
+    }
+    
+    function openFollowRecords(itemId, messageId) {
+        // 添加跟进记录弹窗
+        layer.prompt({
+            title: '添加跟进记录',
+            formType: 2,
+            area: ['500px', '200px']
+        }, function(content, index) {
+            if (!content || !content.trim()) {
+                layer.msg('请输入跟进内容');
+                return;
+            }
+            
+            requestJSON('/message/card/action/', {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'follow',
+                    module: 'customer',
+                    item_id: itemId,
+                    message_id: messageId,
+                    conversation_id: state.activeConversation ? state.activeConversation.id : null,
+                    content: content.trim()
+                })
+            }).then(function(result) {
+                if (result.success) {
+                    layer.msg('跟进记录添加成功');
+                    layer.close(index);
+                    setTimeout(function() { loadMessages(); }, 1000);
+                } else {
+                    layer.msg(result.message || '添加失败');
+                }
+            }).catch(function(error) {
+                layer.msg(error.message || '添加失败');
+            });
+        });
+    }
+    
+    function initiateContact(itemId, messageId) {
+        // 发起沟通弹窗
+        var content = '<div class="layui-form" style="padding: 15px;">' +
+            '<div class="layui-form-item">' +
+            '<label class="layui-form-label">沟通方式</label>' +
+            '<div class="layui-input-block">' +
+            '<select id="contactTypeSelect" class="layui-input">' +
+            '<option value="phone">电话</option>' +
+            '<option value="email">邮件</option>' +
+            '<option value="meeting">会议</option>' +
+            '<option value="visit">拜访</option>' +
+            '</select>' +
+            '</div>' +
+            '</div>' +
+            '<div class="layui-form-item">' +
+            '<label class="layui-form-label">沟通内容</label>' +
+            '<div class="layui-input-block">' +
+            '<textarea id="contactContentInput" class="layui-textarea" placeholder="请输入沟通内容"></textarea>' +
+            '</div>' +
+            '</div>' +
+            '</div>';
+        
+        layer.open({
+            type: 1,
+            title: '发起客户沟通',
+            area: ['550px', '350px'],
+            content: content,
+            btn: ['确定', '取消'],
+            yes: function(index) {
+                var contactType = document.getElementById('contactTypeSelect').value;
+                var contactContent = document.getElementById('contactContentInput').value.trim();
+                
+                if (!contactContent) {
+                    layer.msg('请输入沟通内容');
+                    return;
+                }
+                
+                requestJSON('/message/card/action/', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'contact',
+                        module: 'customer',
+                        item_id: itemId,
+                        message_id: messageId,
+                        conversation_id: state.activeConversation ? state.activeConversation.id : null,
+                        contact_type: contactType,
+                        content: contactContent
+                    })
+                }).then(function(result) {
+                    if (result.success) {
+                        layer.msg('沟通记录添加成功');
+                        layer.close(index);
+                        setTimeout(function() { loadMessages(); }, 1000);
+                    } else {
+                        layer.msg(result.message || '添加失败');
+                    }
+                }).catch(function(error) {
+                    layer.msg(error.message || '添加失败');
+                });
+            }
+        });
+    }
+    
+    function openProgressUpdate(itemId, messageId) {
+        layer.prompt({title: '更新生产进度(%)', formType: 0, value: '0'}, function(progress, index) {
+            var progressNum = parseInt(progress);
+            if (isNaN(progressNum) || progressNum < 0 || progressNum > 100) {
+                layer.msg('请输入0-100之间的数字');
+                return;
+            }
+            
+            requestJSON('/message/card/action/', {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'update',
+                    module: 'production',
+                    item_id: itemId,
+                    message_id: messageId,
+                    conversation_id: state.activeConversation ? state.activeConversation.id : null,
+                    progress: progressNum
+                })
+            }).then(function(result) {
+                if (result.success) {
+                    layer.msg('进度更新成功');
+                    layer.close(index);
+                    setTimeout(function() { loadMessages(); }, 1000);
+                } else {
+                    layer.msg(result.message || '更新失败');
+                }
+            }).catch(function(error) {
+                layer.msg(error.message || '更新失败');
+            });
+        });
+    }
+    
+    function openFinanceApproval(itemId, messageId) {
+        layer.confirm('是否同意该报销申请?', {
+            btn: ['同意', '拒绝']
+        }, function(index) {
+            submitFinanceApproval(itemId, messageId, 'approved', '同意');
+            layer.close(index);
+        }, function(index) {
+            layer.prompt({title: '请输入拒绝理由', formType: 2}, function(reason, promptIndex) {
+                submitFinanceApproval(itemId, messageId, 'rejected', reason);
+                layer.close(promptIndex);
+                layer.close(index);
+            });
+        });
+    }
+    
+    function submitFinanceApproval(itemId, messageId, decision, comment) {
+        requestJSON('/message/card/action/', {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'approve_finance',
+                module: 'finance',
+                item_id: itemId,
+                message_id: messageId,
+                conversation_id: state.activeConversation ? state.activeConversation.id : null,
+                decision: decision,
+                comment: comment
+            })
+        }).then(function(result) {
+            if (result.success) {
+                layer.msg(result.message || '审核成功');
+                setTimeout(function() { loadMessages(); }, 1000);
+            } else {
+                layer.msg(result.message || '审核失败');
+            }
+        }).catch(function(error) {
+            layer.msg(error.message || '审核失败');
+        });
+    }
+    
+    function handleDownloadAction(module, itemId) {
+        requestJSON('/message/card/action/', {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'download',
+                module: module,
+                item_id: itemId
+            })
+        }).then(function(result) {
+            if (result.success && result.url) {
+                var a = document.createElement('a');
+                a.href = result.url;
+                a.download = result.filename || '';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                layer.msg('开始下载');
+            } else {
+                layer.msg(result.message || '下载失败');
+            }
+        }).catch(function(error) {
+            layer.msg(error.message || '下载失败');
+        });
+    }
+    
+    function handlePreviewAction(module, itemId) {
+        requestJSON('/message/card/action/', {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'preview',
+                module: module,
+                item_id: itemId
+            })
+        }).then(function(result) {
+            if (result.success && result.url) {
+                // 在聊天窗口内预览
+                if (result.previewable && result.file_type) {
+                    var title = '文件预览 - ' + (result.filename || '');
+                    layer.open({
+                        type: 2,
+                        title: title,
+                        area: ['90%', '90%'],
+                        content: result.url,
+                        shade: 0.3,
+                        maxmin: true
+                    });
+                } else {
+                    // 不可预览的文件，提示下载
+                    layer.confirm('该文件类型不支持在线预览，是否下载？', {
+                        btn: ['下载', '取消']
+                    }, function(index) {
+                        var a = document.createElement('a');
+                        a.href = result.url;
+                        a.download = result.filename || '';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        layer.close(index);
+                        layer.msg('开始下载');
+                    });
+                }
+            } else {
+                layer.msg(result.message || '预览失败');
+            }
+        }).catch(function(error) {
+            layer.msg(error.message || '预览失败');
+        });
+    }
+     
+     function openApprovalDialog(approvalId, messageId) {
+         layer.confirm('是否同意该审批?', {
+             btn: ['同意', '拒绝', '查看详情'],
+             btn3: function(index) {
+                 // 查看详情 - 在窗口内打开
+                 layer.open({
+                     type: 2,
+                     title: '审批详情',
+                     area: ['90%', '90%'],
+                     content: '/approval/' + approvalId + '/',
+                     shade: 0.3,
+                     maxmin: true
+                 });
+             }
+         }, function(index) {
+             // 同意
+             submitApproval(approvalId, messageId, 'approved', '同意');
+             layer.close(index);
+         }, function(index) {
+             // 拒绝 - 需要填写拒绝理由
+             layer.prompt({title: '请输入拒绝理由', formType: 2}, function(reason, promptIndex) {
+                 submitApproval(approvalId, messageId, 'rejected', reason);
+                 layer.close(promptIndex);
+                 layer.close(index);
+             });
+         });
+     }
+     
+     function submitApproval(approvalId, messageId, decision, comment) {
+         requestJSON('/message/card/action/', {
+             method: 'POST',
+             body: JSON.stringify({
+                 action: 'approve',
+                 module: 'approval',
+                 item_id: approvalId,
+                 message_id: messageId,
+                 conversation_id: state.activeConversation ? state.activeConversation.id : null,
+                 decision: decision,
+                 comment: comment
+             })
+         }).then(function(result) {
+             if (result.success) {
+                 layer.msg(result.message || '审批成功');
+                 setTimeout(function() {
+                     loadMessages();
+                 }, 1000);
+             } else {
+                 layer.msg(result.message || '审批失败');
+             }
+         }).catch(function(error) {
+             layer.msg(error.message || '审批失败');
+         });
+     }
+     
+     function claimTaskInChat(taskId, messageId, module) {
+         layer.confirm('确认认领该任务?', function(index) {
+             requestJSON('/message/card/action/', {
+                 method: 'POST',
+                 body: JSON.stringify({
+                     action: 'claim',
+                     module: module,
+                     item_id: taskId,
+                     message_id: messageId,
+                     conversation_id: state.activeConversation ? state.activeConversation.id : null
+                 })
+             }).then(function(result) {
+                 if (result.success) {
+                     layer.msg(result.message || '认领成功');
+                     setTimeout(function() {
+                         loadMessages();
+                     }, 1000);
+                 } else {
+                     layer.msg(result.message || '认领失败');
+                 }
+                 layer.close(index);
+             }).catch(function(error) {
+                 layer.msg(error.message || '认领失败');
+                 layer.close(index);
+             });
+         });
+     }
+     
+     function completeTaskInChat(taskId, messageId) {
+         layer.confirm('确认完成该任务?', function(index) {
+             requestJSON('/message/card/action/', {
+                 method: 'POST',
+                 body: JSON.stringify({
+                     action: 'complete',
+                     module: 'task',
+                     item_id: taskId,
+                     message_id: messageId,
+                     conversation_id: state.activeConversation ? state.activeConversation.id : null
+                 })
+             }).then(function(result) {
+                 if (result.success) {
+                     layer.msg(result.message || '任务已完成');
+                     setTimeout(function() {
+                         loadMessages();
+                     }, 1000);
+                 } else {
+                     layer.msg(result.message || '操作失败');
+                 }
+                 layer.close(index);
+             }).catch(function(error) {
+                 layer.msg(error.message || '操作失败');
+                 layer.close(index);
+             });
+         });
+     }
+     
+     function handleFileAction(action, module, itemId) {
+         requestJSON('/message/card/action/', {
+             method: 'POST',
+             body: JSON.stringify({
+                 action: action,
+                 module: module,
+                 item_id: itemId
+             })
+         }).then(function(result) {
+             if (result.success) {
+                 if (action === 'download' && result.url) {
+                     var a = document.createElement('a');
+                     a.href = result.url;
+                     a.download = result.filename || '';
+                     document.body.appendChild(a);
+                     a.click();
+                     document.body.removeChild(a);
+                     layer.msg('开始下载');
+                 } else if (action === 'preview' && result.url) {
+                     // 在窗口内预览
+                     layer.open({
+                         type: 2,
+                         title: '文件预览 - ' + (result.filename || ''),
+                         area: ['90%', '90%'],
+                         content: result.url,
+                         shade: 0.3,
+                         maxmin: true
+                     });
+                 }
+             } else {
+                 layer.msg(result.message || '操作失败');
+             }
+         }).catch(function(error) {
+             layer.msg(error.message || '操作失败');
+         });
+     }
+     
+     function executeCardAction(action, module, itemId, messageId) {
+         requestJSON('/message/card/action/', {
+             method: 'POST',
+             body: JSON.stringify({
+                 action: action,
+                 module: module,
+                 item_id: itemId,
+                 message_id: messageId,
+                 conversation_id: state.activeConversation ? state.activeConversation.id : null
+             })
+         }).then(function(result) {
+             if (result.success) {
+                 layer.msg(result.message || '操作成功');
+                 
+                 if (result.action === 'open_url' && result.url) {
+                     window.open(result.url, '_blank');
+                 }
+                 
+                 setTimeout(function() {
+                     loadMessages();
+                 }, 1000);
+             } else {
+                 layer.msg(result.message || '操作失败');
+             }
+         }).catch(function(error) {
+             layer.msg(error.message || '操作失败');
+         });
+     }
+    
+    function handleRecallMessage(messageId) {
+        if (!messageId || !state.activeConversation) {
+            layer.msg('参数错误');
+            return;
+        }
+        
+        layer.confirm('确认撤回该消息? 只能撤回对方未读的消息', {icon: 3, title: '撤回消息'}, function(index) {
+            var url = '/message/conversations/' + state.activeConversation.id + '/messages/' + messageId + '/recall/';
+            console.log('撤回消息URL:', url);
+            
+            requestJSON(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            }).then(function(data) {
+                layer.msg('撤回成功');
+                layer.close(index);
+                loadMessages();
+            }).catch(function(error) {
+                console.error('撤回失败:', error);
+                layer.msg(error.message || '撤回失败');
+                layer.close(index);
+            });
+        });
+    }
+    
     document.getElementById('sendBtn').addEventListener('click', sendMessage);
     document.getElementById('markReadBtn').addEventListener('click', markRead);
     document.getElementById('refreshBtn').addEventListener('click', loadConversations);
     document.getElementById('reloadMessagesBtn').addEventListener('click', loadMessages);
     document.getElementById('createGroupBtn').addEventListener('click', createGroup);
+    document.getElementById('mentionBtn').addEventListener('click', function () {
+        if (!state.activeConversation) {
+            layer.msg('请选择会话');
+            return;
+        }
+        renderMentionPanel('');
+    });
+    
+    document.getElementById('shareModuleBtn').addEventListener('click', function () {
+        if (!state.activeConversation) {
+            layer.msg('请选择会话');
+            return;
+        }
+        openCollaborationShareDialog();
+    });
+    document.getElementById('mentionPanel').addEventListener('click', function (event) {
+        var option = event.target.closest('.mention-option');
+        if (!option) return;
+        var userId = Number(option.getAttribute('data-user-id'));
+        var user = currentMentionUsers().find(function (item) {
+            return item.id === userId;
+        });
+        if (user) {
+            insertMention(user);
+        }
+    });
+    document.getElementById('cancelReplyBtn').addEventListener('click', clearReplyTo);
+    document.getElementById('pickImageBtn').addEventListener('click', function () {
+        document.getElementById('imageInput').click();
+    });
+    document.getElementById('pickAttachmentBtn').addEventListener('click', function () {
+        document.getElementById('attachmentInput').click();
+    });
+    document.getElementById('imageInput').addEventListener('change', function () {
+        uploadFiles(this.files);
+        this.value = '';
+    });
+    document.getElementById('attachmentInput').addEventListener('change', function () {
+        uploadFiles(this.files);
+        this.value = '';
+    });
     document.getElementById('conversationSearch').addEventListener('input', renderConversations);
     document.getElementById('contactSearch').addEventListener('input', function () {
         clearTimeout(window.__contactTimer);
         window.__contactTimer = setTimeout(loadContacts, 250);
     });
     document.getElementById('messageInput').addEventListener('keydown', function (event) {
-        if (event.ctrlKey && event.key === 'Enter') {
-            sendMessage();
+        if (event.key === 'Enter') {
+            if (event.ctrlKey) {
+                // Ctrl + Enter 换行
+                var textarea = this;
+                var start = textarea.selectionStart;
+                var end = textarea.selectionEnd;
+                var value = textarea.value;
+                textarea.value = value.substring(0, start) + '\n' + value.substring(end);
+                textarea.selectionStart = textarea.selectionEnd = start + 1;
+                event.preventDefault();
+            } else {
+                // Enter 发送
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+    });
+    document.getElementById('messageInput').addEventListener('input', function () {
+        var beforeCursor = this.value.slice(0, this.selectionStart);
+        var match = beforeCursor.match(/@([\w\u4e00-\u9fa5]*)$/);
+        if (match && state.activeConversation) {
+            renderMentionPanel(match[1]);
+        }
+    });
+    document.getElementById('messageInput').addEventListener('paste', function (event) {
+        var items = event.clipboardData && event.clipboardData.items;
+        if (!items) {
+            return;
+        }
+        var files = [];
+        Array.prototype.forEach.call(items, function (item) {
+            if (item.kind === 'file') {
+                var file = item.getAsFile();
+                if (file && file.type.indexOf('image/') === 0) {
+                    files.push(file);
+                }
+            }
+        });
+        if (files.length) {
+            event.preventDefault();
+            uploadFiles(files);
+        }
+    });
+
+    // 右侧面板标签切换
+    document.querySelector('.panel-tabs').addEventListener('click', function(event) {
+        var tab = event.target.closest('.panel-tab');
+        if (!tab) return;
+        
+        var tabName = tab.getAttribute('data-tab');
+        
+        // 切换标签激活状态
+        document.querySelectorAll('.panel-tab').forEach(function(t) {
+            t.classList.remove('active');
+        });
+        tab.classList.add('active');
+        
+        // 切换内容显示
+        document.querySelectorAll('.panel-content-item').forEach(function(item) {
+            item.classList.remove('active');
+        });
+        document.querySelector('.panel-content-item[data-content="' + tabName + '"]').classList.add('active');
+    });
+
+    // 协作信息相关函数
+    function getTargetUserId() {
+        if (!state.activeConversation || state.activeConversation.conversation_type !== 'direct') {
+            return null;
+        }
+        var members = state.activeConversation.members || [];
+        for (var i = 0; i < members.length; i++) {
+            if (members[i].user && members[i].user.id !== currentUserId) {
+                return members[i].user.id;
+            }
+        }
+        return null;
+    }
+
+    function loadCollaborationData() {
+        var targetUserId = getTargetUserId();
+        if (!targetUserId) {
+            hideCollaboration();
+            return;
+        }
+        requestJSON('/message/collaboration/?target_user_id=' + targetUserId)
+            .then(function (data) {
+                state.collaborationData = data;
+                renderCollaborationBadges();
+            })
+            .catch(function (error) {
+                console.error('加载协作信息失败:', error);
+                hideCollaboration();
+            });
+    }
+
+    function renderCollaborationBadges() {
+        var container = document.getElementById('collaborationBadges');
+        if (!state.collaborationData || !state.collaborationData.modules || state.collaborationData.modules.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+        container.innerHTML = state.collaborationData.modules.map(function (module) {
+            return '<div class="collaboration-badge" data-module="' + escapeAttr(module.module) + '">' +
+                '<i class="layui-icon ' + escapeHtml(module.icon) + '"></i>' +
+                '<span>' + escapeHtml(module.name) + '</span>' +
+                '<span class="collaboration-module-count">' + module.count + '</span>' +
+                '</div>';
+        }).join('');
+    }
+
+    function showCollaborationPanel() {
+        if (!state.collaborationData) {
+            return;
+        }
+        var panel = document.getElementById('collaborationPanel');
+        var body = document.getElementById('collaborationPanelBody');
+        body.innerHTML = state.collaborationData.modules.map(function (module) {
+            var collapsed = state.collapsedCollaborationModules[module.module] ? ' collapsed' : '';
+            var itemsHtml = module.items.map(function (item) {
+                var statusText = item.status_display || item.status || '';
+                var quickActions = (item.quick_actions || []).map(function (action) {
+                    return '<span class="collaboration-item-quick-action">' + escapeHtml(getQuickActionLabel(action)) + '</span>';
+                }).join('');
+                return '<div class="collaboration-item" data-item-url="' + escapeAttr(item.url) + '">' +
+                    '<div><div class="collaboration-item-title">' + escapeHtml(item.title) + '</div>' +
+                    '<div class="collaboration-item-meta">' +
+                    (item.item_type_label ? '<span class="collaboration-item-type">' + escapeHtml(item.item_type_label) + '</span>' : '') +
+                    (item.date ? '<span>' + escapeHtml(item.date) + '</span>' : '') +
+                    '</div>' +
+                    (item.summary ? '<div class="collaboration-item-summary">' + escapeHtml(item.summary) + '</div>' : '') +
+                    (quickActions ? '<div class="collaboration-item-quick-actions">' + quickActions + '</div>' : '') +
+                    '</div>' +
+                    '<div class="collaboration-item-actions">' +
+                    (statusText ? '<span class="collaboration-item-status">' + escapeHtml(statusText) + '</span>' : '') +
+                    '<a class="collaboration-item-send" ' +
+                    'data-send-text="' + escapeAttr(item.title + ' ' + item.url) + '" ' +
+                    'data-send-module="' + escapeAttr(module.module) + '" ' +
+                    'data-send-module-name="' + escapeAttr(module.name) + '" ' +
+                    'data-send-item-id="' + escapeAttr(item.id) + '" ' +
+                    'data-send-title="' + escapeAttr(item.title) + '" ' +
+                    'data-send-url="' + escapeAttr(item.url) + '" ' +
+                    'data-send-status="' + escapeAttr(item.status || '') + '" ' +
+                    'data-send-status-display="' + escapeAttr(item.status_display || '') + '" ' +
+                    'data-send-item-type="' + escapeAttr(item.item_type || '') + '" ' +
+                    'data-send-item-type-label="' + escapeAttr(item.item_type_label || '') + '" ' +
+                    'data-send-summary="' + escapeAttr(item.summary || '') + '" ' +
+                    'data-send-quick-actions="' + escapeAttr((item.quick_actions || []).join(",")) + '"' +
+                    '>发送</a>' +
+                    '</div></div>';
+            }).join('');
+            return '<div class="collaboration-module' + collapsed + '" data-collab-module="' + escapeAttr(module.module) + '">' +
+                '<div class="collaboration-module-header">' +
+                '<i class="layui-icon ' + escapeHtml(module.icon) + '"></i>' +
+                '<span>' + escapeHtml(module.name) + '</span>' +
+                '<span class="collaboration-module-count">' + module.count + '</span>' +
+                '<i class="layui-icon collaboration-module-toggle">&#xe625;</i>' +
+                '</div>' +
+                '<div class="collaboration-module-body">' + itemsHtml + '</div>' +
+                '</div>';
+        }).join('');
+        panel.classList.add('active');
+    }
+
+    function hideCollaboration() {
+        document.getElementById('collaborationBadges').innerHTML = '';
+        document.getElementById('collaborationPanel').classList.remove('active');
+        state.collaborationData = null;
+    }
+
+    function hideCollaborationPanel() {
+        document.getElementById('collaborationPanel').classList.remove('active');
+    }
+    
+    // 分享协同内容功能
+    function openCollaborationShareDialog() {
+        var modules = [
+            {id: 'project', name: '项目', icon: 'layui-icon-template-1'},
+            {id: 'customer', name: '客户', icon: 'layui-icon-user'},
+            {id: 'contract', name: '合同', icon: 'layui-icon-file'},
+            {id: 'approval', name: '审批', icon: 'layui-icon-audit'},
+            {id: 'task', name: '任务', icon: 'layui-icon-list'},
+            {id: 'file', name: '文件', icon: 'layui-icon-file'},
+            {id: 'production', name: '生产', icon: 'layui-icon-engine'},
+            {id: 'finance', name: '财务', icon: 'layui-icon-rmb'}
+        ];
+
+        var tabsHtml = modules.map(function(m) {
+            return '<div class="share-dialog-tab' + (m.id === 'project' ? ' active' : '') + '" data-module="' + m.id + '">' +
+                '<div class="share-tab-meta"><i class="layui-icon ' + m.icon + '"></i><span>' + m.name + '</span></div>' +
+                '<span class="share-tab-count" data-module-count="' + m.id + '">0</span>' +
+                '</div>';
+        }).join('');
+
+        var content = '<div class="share-dialog">' +
+            '<div class="share-dialog-layout">' +
+            '<div class="share-dialog-sidebar">' +
+            '<h4 class="share-dialog-sidebar-title">业务分类</h4>' +
+            '<div class="share-dialog-tabs">' + tabsHtml + '</div>' +
+            '</div>' +
+            '<div class="share-dialog-main">' +
+            '<div class="share-main-toolbar">' +
+            '<div class="share-main-toolbar-header">' +
+            '<div>' +
+            '<h4 class="share-main-toolbar-title" id="shareMainTitle">项目协同</h4>' +
+            '<div class="share-module-summary" id="shareModuleSummary">在这里选择要发送给对方的项目、文档和协同资料。</div>' +
+            '</div>' +
+            '<div class="share-selected-count">已选择 <strong id="shareSelectedCount">0</strong> 项</div>' +
+            '</div>' +
+            '<div class="share-search-box">' +
+            '<input type="text" class="layui-input share-search-input" id="shareSearchInput" placeholder="搜索名称、编号、摘要或关联信息">' +
+            '</div>' +
+            '<div class="share-type-filters" id="shareTypeFilters"></div>' +
+            '</div>' +
+            '<div class="share-dialog-content">' +
+            '<div class="share-item-list" id="shareMainList"><div class="share-empty-hint">请选择左侧模块，系统会加载可分享内容。</div></div>' +
+            '</div>' +
+            '</div>' +
+            '<div class="share-dialog-selected">' +
+            '<div class="share-dialog-selected-header">' +
+            '<h4 class="share-selected-title">待发送内容</h4>' +
+            '<div class="share-selected-subtitle" id="shareSelectedSummary">可混合发送多个模块内容，对方收到后可直接处理。</div>' +
+            '</div>' +
+            '<div class="share-selected-list" id="shareSelectedList">' +
+            '<div class="share-empty-hint">暂未选择内容。<br>建议按业务类型筛选后批量发送。</div>' +
+            '</div>' +
+            '</div>' +
+            '</div>' +
+            '<div class="share-dialog-actions">' +
+            '<button type="button" class="layui-btn layui-btn-primary" id="cancelShareBtn">取消</button>' +
+            '<button type="button" class="layui-btn" id="confirmShareBtn">发送到对话</button>' +
+            '</div></div>';
+        
+        var dialogIndex = layer.open({
+            type: 1,
+            title: '分享协同内容',
+            area: ['1100px', '750px'],
+            content: content,
+            success: function(layero) {
+                var activeModuleId = 'project';
+                var selectedItems = [];
+                var moduleDataCache = {};
+                var activeTypeFilterByModule = {};
+                var searchKeyword = '';
+
+                function moduleKey(item) {
+                    return [item.module, item.id, item.item_type || 'default'].join(':');
+                }
+
+                function getModuleConfig(moduleId) {
+                    return modules.find(function(module) {
+                        return module.id === moduleId;
+                    }) || modules[0];
+                }
+
+                function getSelectedItemCount(moduleId) {
+                    return selectedItems.filter(function(item) {
+                        return item.module === moduleId;
+                    }).length;
+                }
+
+                function shareSummaryText(item) {
+                    if (!item) {
+                        return '';
+                    }
+                    var segments = [];
+                    if (item.summary) {
+                        segments.push(item.summary);
+                    }
+                    if (item.code) {
+                        segments.push('编号 ' + item.code);
+                    }
+                    if (item.project_name) {
+                        segments.push('项目 ' + item.project_name);
+                    }
+                    if (item.mobile) {
+                        segments.push('电话 ' + item.mobile);
+                    }
+                    if (item.created_at) {
+                        segments.push('创建于 ' + item.created_at);
+                    }
+                    return segments.join(' · ');
+                }
+
+                function setActiveModule(moduleId) {
+                    activeModuleId = moduleId;
+                    var moduleConfig = getModuleConfig(moduleId);
+                    layero.find('.share-dialog-tab').removeClass('active');
+                    layero.find('.share-dialog-tab[data-module="' + moduleId + '"]').addClass('active');
+                    layero.find('#shareMainTitle').text(moduleConfig.name + '协同');
+                    layero.find('#shareSearchInput').attr('placeholder', '搜索' + moduleConfig.name + '名称、编号、摘要或关联信息');
+                    updateModuleSummary(moduleId);
+
+                    if (!moduleDataCache[moduleId]) {
+                        loadShareModuleData(moduleId, layero, '');
+                        return;
+                    }
+                    renderShareTypeFilters(moduleId, layero, moduleDataCache[moduleId]);
+                    filterShareItems(moduleId, searchKeyword, activeTypeFilterByModule[moduleId] || 'all', layero);
+                }
+
+                function updateModuleSummary(moduleId) {
+                    var cache = moduleDataCache[moduleId];
+                    var total = cache && cache.results ? cache.results.length : 0;
+                    var selectedCount = getSelectedItemCount(moduleId);
+                    var filterId = activeTypeFilterByModule[moduleId] || 'all';
+                    var filterText = filterId === 'all' ? '全部类型' : (cache && cache.type_filters || []).find(function(filter) {
+                        return filter.id === filterId;
+                    });
+                    var label = filterText && filterText.label ? filterText.label : '全部类型';
+                    layero.find('#shareModuleSummary').text(
+                        '当前模块共 ' + total + ' 条可分享数据，已选 ' + selectedCount + ' 条，正在查看 ' + label + '。'
+                    );
+                }
+
+                function updateSidebarCounts() {
+                    modules.forEach(function(module) {
+                        var cache = moduleDataCache[module.id];
+                        var total = cache && cache.results ? cache.results.length : 0;
+                        layero.find('[data-module-count="' + module.id + '"]').text(total);
+                    });
+                }
+
+                function renderShareTypeFilters(moduleId, layero, data) {
+                    var filters = (data && data.type_filters) || [{id: 'all', label: '全部', count: 0}];
+                    var activeType = activeTypeFilterByModule[moduleId] || 'all';
+                    var html = filters.map(function(filter) {
+                        var activeClass = filter.id === activeType ? ' active' : '';
+                        return '<button type="button" class="share-type-filter' + activeClass + '" data-module="' + moduleId + '" data-type="' + escapeAttr(filter.id) + '">' +
+                            '<span>' + escapeHtml(filter.label) + '</span>' +
+                            '<span class="share-type-filter-count">' + filter.count + '</span>' +
+                            '</button>';
+                    }).join('');
+                    layero.find('#shareTypeFilters').html(html || '<div class="share-empty-hint">当前模块暂无可用类型。</div>');
+                }
+
+                function renderSelectedShareItems(layero) {
+                    var listEl = layero.find('#shareSelectedList');
+                    layero.find('#shareSelectedCount').text(selectedItems.length);
+                    if (selectedItems.length === 0) {
+                        layero.find('#shareSelectedSummary').text('可混合发送多个模块内容，对方收到后可直接处理。');
+                        listEl.html('<div class="share-empty-hint">暂未选择内容。<br>建议按业务类型筛选后批量发送。</div>');
+                        updateModuleSummary(activeModuleId);
+                        return;
+                    }
+
+                    var byModule = {};
+                    selectedItems.forEach(function(item) {
+                        byModule[item.module] = (byModule[item.module] || 0) + 1;
+                    });
+                    var summaryParts = Object.keys(byModule).map(function(moduleId) {
+                        return getModuleName(moduleId) + ' ' + byModule[moduleId] + ' 项';
+                    });
+                    layero.find('#shareSelectedSummary').text('本次将发送 ' + selectedItems.length + ' 项内容：' + summaryParts.join('，') + '。');
+
+                    listEl.html(selectedItems.map(function(item) {
+                        return '<div class="share-selected-item" data-selected-key="' + escapeAttr(moduleKey(item)) + '">' +
+                            '<div class="share-selected-item-header">' +
+                            '<div class="share-selected-item-main">' +
+                            '<div class="share-selected-item-title">' + escapeHtml(item.title) + '</div>' +
+                            '<div class="share-selected-item-meta">' +
+                            '<span>' + escapeHtml(getModuleName(item.module)) + '</span>' +
+                            '<span>' + escapeHtml(item.item_type_label || item.item_type || '') + '</span>' +
+                            (item.status_display ? '<span>' + escapeHtml(item.status_display) + '</span>' : '') +
+                            '</div>' +
+                            '</div>' +
+                            '<button type="button" class="share-selected-remove" data-remove-key="' + escapeAttr(moduleKey(item)) + '" title="移除">' +
+                            '<i class="layui-icon layui-icon-close"></i>' +
+                            '</button>' +
+                            '</div>' +
+                            '</div>';
+                    }).join(''));
+                    updateModuleSummary(activeModuleId);
+                }
+
+                function syncSelectedState(layero) {
+                    layero.find('.share-item').each(function() {
+                        var itemEl = $(this);
+                        var key = itemEl.attr('data-item-key');
+                        var selected = selectedItems.some(function(item) {
+                            return moduleKey(item) === key;
+                        });
+                        itemEl.toggleClass('selected', selected);
+                        itemEl.find('.share-item-checkbox').prop('checked', selected);
+                    });
+                    renderSelectedShareItems(layero);
+                }
+
+                function filterShareItems(moduleId, keyword, typeFilter, layero) {
+                    var cache = moduleDataCache[moduleId];
+                    var listEl = layero.find('#shareMainList');
+                    if (!cache) {
+                        listEl.html('<div class="share-empty-hint">正在加载内容...</div>');
+                        return;
+                    }
+                    var normalizedKeyword = (keyword || '').trim().toLowerCase();
+                    var filterId = typeFilter || 'all';
+                    activeTypeFilterByModule[moduleId] = filterId;
+
+                    var filteredItems = (cache.results || []).filter(function(item) {
+                        var matchedType = filterId === 'all' || item.item_type === filterId;
+                        if (!matchedType) {
+                            return false;
+                        }
+                        if (!normalizedKeyword) {
+                            return true;
+                        }
+                        var haystack = [
+                            item.title,
+                            item.name,
+                            item.summary,
+                            item.code,
+                            item.project_name,
+                            item.mobile,
+                            item.item_type_label,
+                            item.status_display
+                        ].join(' ').toLowerCase();
+                        return haystack.indexOf(normalizedKeyword) !== -1;
+                    });
+
+                    if (filteredItems.length === 0) {
+                        listEl.html('<div class="share-empty-hint">当前筛选条件下暂无可分享内容。<br>试试切换业务类型或缩短关键词。</div>');
+                        updateModuleSummary(moduleId);
+                        return;
+                    }
+
+                    listEl.html(filteredItems.map(function(item) {
+                        return renderShareItem(moduleId, item);
+                    }).join(''));
+                    syncSelectedState(layero);
+                    updateModuleSummary(moduleId);
+                }
+
+                layero.find('.share-dialog-tab').on('click', function() {
+                    setActiveModule($(this).attr('data-module'));
+                });
+
+                layero.find('#shareSearchInput').on('input', function() {
+                    searchKeyword = $(this).val().trim();
+                    clearTimeout(window.__shareWorkbenchSearchTimer);
+                    window.__shareWorkbenchSearchTimer = setTimeout(function() {
+                        filterShareItems(activeModuleId, searchKeyword, activeTypeFilterByModule[activeModuleId] || 'all', layero);
+                    }, 200);
+                });
+
+                layero.on('click', '.share-type-filter', function() {
+                    var moduleId = $(this).attr('data-module');
+                    var typeFilter = $(this).attr('data-type');
+                    layero.find('.share-type-filter').removeClass('active');
+                    $(this).addClass('active');
+                    filterShareItems(moduleId, searchKeyword, typeFilter, layero);
+                });
+
+                layero.on('click', '.share-item', function(event) {
+                    if ($(event.target).closest('.share-quick-action').length || $(event.target).is('.share-item-checkbox')) {
+                        return;
+                    }
+                    var checkbox = $(this).find('.share-item-checkbox');
+                    checkbox.prop('checked', !checkbox.prop('checked')).trigger('change');
+                });
+
+                layero.on('change', '.share-item-checkbox', function(event) {
+                    event.stopPropagation();
+                    var itemEl = $(this).closest('.share-item');
+                    var itemData = JSON.parse(itemEl.attr('data-item-payload') || '{}');
+                    if (!itemData || !itemData.id) {
+                        return;
+                    }
+                    var key = moduleKey(itemData);
+                    if ($(this).prop('checked')) {
+                        if (!selectedItems.some(function(item) { return moduleKey(item) === key; })) {
+                            selectedItems.push(itemData);
+                        }
+                    } else {
+                        selectedItems = selectedItems.filter(function(item) {
+                            return moduleKey(item) !== key;
+                        });
+                    }
+                    syncSelectedState(layero);
+                });
+
+                layero.on('click', '.share-selected-remove', function() {
+                    var key = $(this).attr('data-remove-key');
+                    selectedItems = selectedItems.filter(function(item) {
+                        return moduleKey(item) !== key;
+                    });
+                    syncSelectedState(layero);
+                });
+
+                layero.find('#cancelShareBtn').on('click', function() {
+                    layer.close(dialogIndex);
+                });
+
+                layero.find('#confirmShareBtn').on('click', function() {
+                    if (selectedItems.length === 0) {
+                        layer.msg('请选择要分享的内容');
+                        return;
+                    }
+
+                    var sendPromises = selectedItems.map(function(item) {
+                        var cardData = {
+                            type: 'collaboration_card',
+                            module: item.module,
+                            module_name: getModuleName(item.module),
+                            item_id: item.id,
+                            title: item.title,
+                            url: item.url,
+                            status: item.status || '',
+                            status_display: item.status_display || '',
+                            item_type: item.item_type || '',
+                            item_type_label: item.item_type_label || '',
+                            quick_actions: item.quick_actions || [],
+                            summary: item.summary || '',
+                            ...item
+                        };
+
+                        return requestJSON('/message/conversations/' + state.activeConversation.id + '/messages/', {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                content: '[' + getModuleName(item.module) + '] ' + item.title,
+                                metadata: cardData
+                            })
+                        });
+                    });
+                    
+                    Promise.all(sendPromises).then(function() {
+                        layer.close(dialogIndex);
+                        layer.msg('已成功分享 ' + selectedItems.length + ' 项内容');
+                        loadConversations();
+                        loadMessages();
+                    }).catch(function(error) {
+                        layer.msg(error.message || '分享失败');
+                    });
+                });
+
+                loadShareModuleData(activeModuleId, layero, '');
+
+                function loadShareModuleData(moduleId, layero, keyword) {
+                    layero.find('#shareMainList').html('<div class="share-empty-hint">正在加载 ' + escapeHtml(getModuleName(moduleId)) + ' 数据...</div>');
+                    requestJSON('/message/share/content/?module=' + moduleId + '&page_size=100' + (keyword ? '&search=' + encodeURIComponent(keyword) : ''))
+                        .then(function(data) {
+                            moduleDataCache[moduleId] = {
+                                results: data.results || [],
+                                type_filters: data.type_filters || [{id: 'all', label: '全部', count: (data.results || []).length}]
+                            };
+                            if (!activeTypeFilterByModule[moduleId]) {
+                                activeTypeFilterByModule[moduleId] = 'all';
+                            }
+                            updateSidebarCounts();
+                            if (moduleId === activeModuleId) {
+                                renderShareTypeFilters(moduleId, layero, moduleDataCache[moduleId]);
+                                filterShareItems(moduleId, searchKeyword, activeTypeFilterByModule[moduleId], layero);
+                            }
+                        }).catch(function(error) {
+                            layero.find('#shareMainList').html('<div class="share-empty-hint">加载失败：' + escapeHtml(error.message) + '</div>');
+                        });
+                }
+            }
+        });
+    }
+    
+    function getModuleName(moduleId) {
+        var names = {
+            project: '项目', customer: '客户', contract: '合同', approval: '审批',
+            task: '任务', file: '文件', disk: '文件', production: '生产', finance: '财务'
+        };
+        return names[moduleId] || moduleId;
+    }
+    
+    function renderShareItem(moduleId, item) {
+        var title = item.name || item.title || item.plan_name || item.file_name || ('ID:' + item.id);
+        var meta = [];
+        var badges = [];
+
+        if (moduleId === 'project') {
+            if (item.status_display) badges.push('<span class="share-badge badge-status">' + escapeHtml(item.status_display) + '</span>');
+            if (item.code) meta.push('编号 ' + item.code);
+            if (item.created_at) meta.push('创建于 ' + item.created_at);
+        } else if (moduleId === 'customer') {
+            if (item.status_display) badges.push('<span class="share-badge badge-status">' + escapeHtml(item.status_display) + '</span>');
+            if (item.mobile) meta.push(item.mobile);
+            if (item.created_at) meta.push(item.created_at);
+        } else if (moduleId === 'contract') {
+            if (item.status_display) badges.push('<span class="share-badge badge-status">' + escapeHtml(item.status_display) + '</span>');
+            if (item.has_file) badges.push('<span class="share-badge badge-file"><i class="layui-icon layui-icon-file"></i> 有附件</span>');
+            if (item.created_at) meta.push(item.created_at);
+        } else if (moduleId === 'approval') {
+            var statusClass = item.status === 'pending' ? 'badge-pending' : (item.status === 'approved' ? 'badge-success' : 'badge-danger');
+            if (item.status_display) badges.push('<span class="share-badge ' + statusClass + '">' + escapeHtml(item.status_display) + '</span>');
+            if (item.created_at) meta.push(item.created_at);
+        } else if (moduleId === 'task') {
+            var taskStatusClass = item.status === 'completed' ? 'badge-success' : 'badge-pending';
+            if (item.status_display) badges.push('<span class="share-badge ' + taskStatusClass + '">' + escapeHtml(item.status_display) + '</span>');
+            if (!item.assignee_id) badges.push('<span class="share-badge badge-warning">待认领</span>');
+            if (item.created_at) meta.push(item.created_at);
+        } else if (moduleId === 'file' || moduleId === 'disk') {
+            var fileName = item.file_name || item.name || '';
+            var fileExt = fileName.split('.').pop().toUpperCase();
+            if (fileExt) badges.push('<span class="share-badge badge-file">' + escapeHtml(fileExt) + '</span>');
+            if (item.created_at) meta.push(item.created_at);
+        } else if (moduleId === 'production') {
+            if (item.status_display) badges.push('<span class="share-badge badge-status">' + escapeHtml(item.status_display) + '</span>');
+            if (item.progress !== undefined) badges.push('<span class="share-badge badge-progress">进度 ' + item.progress + '%</span>');
+            if (item.created_at) meta.push(item.created_at);
+        } else if (moduleId === 'finance') {
+            var financeStatusClass = item.check_status === 'approved' ? 'badge-success' : (item.check_status === 'rejected' ? 'badge-danger' : 'badge-pending');
+            if (item.status_display) badges.push('<span class="share-badge ' + financeStatusClass + '">' + escapeHtml(item.status_display) + '</span>');
+            if (item.created_at) meta.push(item.created_at);
+        } else {
+            if (item.status_display) badges.push('<span class="share-badge">' + escapeHtml(item.status_display) + '</span>');
+            if (item.created_at) meta.push(item.created_at);
+        }
+
+        if (item.project_name) meta.push('项目 ' + item.project_name);
+
+        var detailUrl = item.url || getModuleDetailUrl(moduleId, item.id, item);
+        var quickActions = item.quick_actions || [];
+        var summaryText = item.summary || '';
+        var previewDisabled = !detailUrl || detailUrl === '#';
+        var itemPayload = {
+            module: moduleId,
+            id: item.id,
+            title: title,
+            url: detailUrl,
+            status: item.status || '',
+            status_display: item.status_display || '',
+            item_type: item.item_type || '',
+            item_type_label: item.item_type_label || '',
+            quick_actions: quickActions,
+            summary: summaryText,
+            assignee_id: item.assignee_id || '',
+            progress: item.progress || 0,
+            has_file: item.has_file ? 1 : 0,
+            file_name: item.file_name || '',
+            code: item.code || '',
+            project_name: item.project_name || '',
+            mobile: item.mobile || ''
+        };
+        var dataAttrs = 'data-module="' + escapeAttr(moduleId) + '" ' +
+            'data-id="' + item.id + '" ' +
+            'data-title="' + escapeAttr(title) + '" ' +
+            'data-url="' + escapeAttr(detailUrl) + '" ' +
+            'data-status="' + escapeAttr(item.status || '') + '" ' +
+            'data-status-display="' + escapeAttr(item.status_display || '') + '" ' +
+            'data-item-key="' + escapeAttr([moduleId, item.id, item.item_type || "default"].join(":")) + '" ' +
+            'data-item-type="' + escapeAttr(item.item_type || '') + '" ' +
+            'data-item-type-label="' + escapeAttr(item.item_type_label || '') + '" ' +
+            'data-quick-actions="' + escapeAttr((quickActions || []).join(",")) + '" ' +
+            'data-summary="' + escapeAttr(summaryText) + '" ' +
+            'data-item-payload="' + escapeAttr(JSON.stringify(itemPayload)) + '" ' +
+            'data-assignee-id="' + (item.assignee_id || '') + '" ' +
+            'data-progress="' + (item.progress || 0) + '" ' +
+            'data-has-file="' + (item.has_file ? '1' : '0') + '"';
+
+        return '<div class="share-item" ' + dataAttrs + '>' +
+            '<input type="checkbox" class="share-item-checkbox">' +
+            '<div class="share-item-content">' +
+            '<div class="share-item-header">' +
+            '<div class="share-item-header-main">' +
+            '<div class="share-item-title-row">' +
+            '<div class="share-item-title">' + escapeHtml(title) + '</div>' +
+            '<span class="share-item-type-badge">' + escapeHtml(item.item_type_label || getModuleName(moduleId)) + '</span>' +
+            '</div>' +
+            '<div class="share-item-badges">' + badges.join('') + '</div>' +
+            '</div>' +
+            '</div>' +
+            '<div class="share-item-meta">' + meta.map(escapeHtml).join(' · ') + '</div>' +
+            '<div class="share-item-summary">' + escapeHtml(summaryText || '可分享到对话中，便于接收方直接查看和处理。') + '</div>' +
+            '</div>' +
+            '<div class="share-item-actions">' +
+            '<div class="share-quick-actions">' + quickActions.map(function(action) {
+                return '<span class="share-quick-action-tag">' + escapeHtml(getQuickActionLabel(action)) + '</span>';
+            }).join('') + '</div>' +
+            '<button type="button" class="share-quick-action' + (previewDisabled ? ' is-disabled' : '') + '" onclick="previewShareItem(event, \'' + moduleId + '\', ' + item.id + ', this)" title="' + (previewDisabled ? '当前类型暂无详情页' : '快速预览') + '"' + (previewDisabled ? ' disabled' : '') + '>' +
+            '<i class="layui-icon layui-icon-search"></i>' +
+            '</button>' +
+            '</div>' +
+            '</div>';
+    }
+    
+    function getQuickActionLabel(action) {
+        var labels = {
+            view: '查看',
+            docs: '文档',
+            activities: '动态',
+            follow: '跟进',
+            contact: '沟通',
+            approve: '审批',
+            claim: '认领',
+            comment: '评论',
+            preview: '预览',
+            download: '下载',
+            share: '转发',
+            sign: '签署',
+            update: '更新',
+            approve_finance: '审核'
+        };
+        return labels[action] || action;
+    }
+
+    function getModuleDetailUrl(moduleId, itemId, item) {
+        item = item || {};
+        var urls = {
+            project: '/project/detail/' + itemId + '/',
+            customer: '/customer/detail/' + itemId + '/',
+            contract: '/customer/orders/' + itemId + '/detail/',
+            approval: '/approval/' + itemId + '/',
+            task: '/task/detail/' + itemId + '/',
+            file: '/disk/file/preview/' + itemId + '/',
+            disk: '/disk/file/preview/' + itemId + '/',
+            production: '/production/task/plan/detail/' + itemId + '/',
+            finance: '/finance/expense/view/' + itemId + '/'
+        };
+        if (item.url) {
+            return item.url;
+        }
+        if (moduleId === 'finance' && item.item_type === 'invoice') {
+            return '/finance/invoice/view/' + itemId + '/';
+        }
+        if (moduleId === 'project' && item.item_type === 'document') {
+            return '/project/document/detail/' + itemId + '/';
+        }
+        if (moduleId === 'production' && item.item_type === 'bom') {
+            return '/production/bom/detail/' + itemId + '/';
+        }
+        if (moduleId === 'production' && item.item_type === 'route') {
+            return '/production/process/detail/' + itemId + '/';
+        }
+        return urls[moduleId] || '#';
+    }
+    
+    function previewShareItem(event, moduleId, itemId, trigger) {
+        event.stopPropagation(); // 阻止触发item选择
+
+        if (trigger && (trigger.disabled || trigger.classList.contains('is-disabled'))) {
+            return;
+        }
+
+        var itemEl = trigger ? trigger.closest('.share-item') : null;
+        var itemData = itemEl ? JSON.parse(itemEl.getAttribute('data-item-payload') || '{}') : {};
+        var url = itemData.url || getModuleDetailUrl(moduleId, itemId, itemData);
+        if (!url || url === '#') {
+            layer.msg('当前内容暂未配置详情页');
+            return;
+        }
+        var title = getModuleName(moduleId) + '详情';
+        
+        layer.open({
+            type: 2,
+            title: title,
+            area: ['90%', '90%'],
+            content: url,
+            shade: 0.3
+        });
+    }
+    
+    function escapeAttr(str) {
+        if (!str) return '';
+        return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    document.getElementById('collaborationBadges').addEventListener('click', function (event) {
+        var badge = event.target.closest('.collaboration-badge');
+        if (badge) {
+            showCollaborationPanel();
+        }
+    });
+
+    document.getElementById('closeCollaborationBtn').addEventListener('click', hideCollaborationPanel);
+
+    document.getElementById('collaborationPanelBody').addEventListener('click', function (event) {
+        var moduleHeader = event.target.closest('.collaboration-module-header');
+        if (moduleHeader) {
+            var moduleEl = moduleHeader.closest('.collaboration-module');
+            var moduleName = moduleEl.getAttribute('data-collab-module');
+            state.collapsedCollaborationModules[moduleName] = !state.collapsedCollaborationModules[moduleName];
+            moduleEl.classList.toggle('collapsed');
+            return;
+        }
+
+        var sendLink = event.target.closest('.collaboration-item-send');
+        if (sendLink) {
+            event.preventDefault();
+            event.stopPropagation();
+            var text = sendLink.getAttribute('data-send-text');
+            if (state.activeConversation) {
+                var cardData = {
+                    type: 'collaboration_card',
+                    module: sendLink.getAttribute('data-send-module'),
+                    module_name: sendLink.getAttribute('data-send-module-name') || getModuleName(sendLink.getAttribute('data-send-module')),
+                    item_id: sendLink.getAttribute('data-send-item-id'),
+                    title: sendLink.getAttribute('data-send-title') || text,
+                    url: sendLink.getAttribute('data-send-url') || '',
+                    status: sendLink.getAttribute('data-send-status') || '',
+                    status_display: sendLink.getAttribute('data-send-status-display') || '',
+                    item_type: sendLink.getAttribute('data-send-item-type') || '',
+                    item_type_label: sendLink.getAttribute('data-send-item-type-label') || '',
+                    summary: sendLink.getAttribute('data-send-summary') || '',
+                    quick_actions: (sendLink.getAttribute('data-send-quick-actions') || '').split(',').filter(Boolean)
+                };
+                requestJSON('/message/conversations/' + state.activeConversation.id + '/messages/', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        content: '[' + (cardData.module_name || getModuleName(cardData.module)) + '] ' + (cardData.title || text),
+                        metadata: cardData
+                    })
+                }).then(function () {
+                    layer.msg('已发送到对话');
+                    loadConversations();
+                    loadMessages();
+                }).catch(function (error) { layer.msg(error.message); });
+            }
+            return;
+        }
+
+        var item = event.target.closest('.collaboration-item');
+        if (item) {
+            var url = item.getAttribute('data-item-url');
+            if (url) {
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage({type: 'navigate', url: url}, '*');
+                } else {
+                    window.location.href = url;
+                }
+            }
         }
     });
 

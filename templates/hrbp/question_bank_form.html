@@ -1,0 +1,75 @@
+{% extends "home/iframe_base.html" %}{% load static %}
+{% block title %}{% if is_create %}新建{% else %}编辑{% endif %}题库分组 - AI-HRBP{% endblock %}
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <a href="{% url 'hrbp:question_bank_list' %}" class="layui-btn layui-btn-primary layui-btn-sm"><i class="layui-icon layui-icon-left"></i> 返回列表</a>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form" style="max-width:650px;" id="groupForm">
+            {% csrf_token %}
+            <div class="layui-form-item">
+                <label class="layui-form-label">分组名称</label>
+                <div class="layui-input-block">{{ form.name }}</div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">关联岗位</label>
+                <div class="layui-input-block">{{ form.position }}</div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">难度等级</label>
+                <div class="layui-input-block">{{ form.difficulty }}</div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">职能标签</label>
+                <div class="layui-input-block">
+                    <input type="text" name="function_tags" class="layui-input" placeholder="逗号分隔，如：后端开发,系统架构,数据库" value="{{ form.initial.function_tags }}">
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">通用标签</label>
+                <div class="layui-input-block">
+                    <input type="text" name="tags" class="layui-input" placeholder="逗号分隔，如：Python,Django,微服务" value="{{ form.initial.tags }}">
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">分组说明</label>
+                <div class="layui-input-block">{{ form.description }}</div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">是否启用</label>
+                <div class="layui-input-block"><input type="checkbox" name="is_active" lay-skin="switch" lay-text="ON|OFF" {% if not group or group.is_active %}checked{% endif %}></div>
+            </div>
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button type="submit" class="layui-btn" lay-submit lay-filter="submit">
+                        {% if is_create %}创建分组{% else %}保存修改{% endif %}
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+(function checkLayui() {
+    if (typeof layui !== 'undefined') {
+layui.use('form', function() {
+    var form = layui.form, $ = layui.$;
+    form.render();
+    form.on('submit(submit)', function(data) {
+        var url = '{% if is_create %}{% url "hrbp:question_bank_create" %}{% else %}{% url "hrbp:question_bank_edit" group.id %}{% endif %}';
+        $.post(url, data.field, function(res) {
+            if (res.success) { layer.msg(res.message, {icon:1}); setTimeout(function(){ parent.layer.closeAll(); parent.location.reload(); }, 800); }
+            else { layer.msg(res.message, {icon:2}); }
+        });
+        return false;
+    });
+});
+    } else {
+        setTimeout(checkLayui, 50);
+    }
+})();
+</script>
+{% endblock %}

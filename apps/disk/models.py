@@ -295,11 +295,17 @@ class DiskShare(models.Model):
         verbose_name='权限类型')
     allow_download = models.BooleanField(default=True, verbose_name='允许下载')
     allow_preview = models.BooleanField(default=True, verbose_name='允许预览')
+    allow_copy = models.BooleanField(default=True, verbose_name='允许复制')
+    allow_screenshot = models.BooleanField(default=True, verbose_name='允许截图')
 
     access_limit = models.IntegerField(default=0, verbose_name='访问次数限制(0为无限制)')
     access_count = models.IntegerField(default=0, verbose_name='访问次数')
     download_limit = models.IntegerField(default=0, verbose_name='下载限制(0为无限制)')
     download_count = models.IntegerField(default=0, verbose_name='下载次数')
+    copy_count = models.IntegerField(default=0, verbose_name='复制成功次数')
+    copy_blocked_count = models.IntegerField(default=0, verbose_name='复制拦截次数')
+    screenshot_count = models.IntegerField(default=0, verbose_name='截图成功次数')
+    screenshot_blocked_count = models.IntegerField(default=0, verbose_name='截图拦截次数')
 
     visitor_ips = models.TextField(blank=True, verbose_name='访问者IP记录')
 
@@ -368,6 +374,16 @@ class DiskShare(models.Model):
     def record_download(self):
         self.download_count += 1
         self.save(update_fields=['download_count', 'update_time'])
+
+    def record_copy(self, allowed=True):
+        field_name = 'copy_count' if allowed else 'copy_blocked_count'
+        setattr(self, field_name, getattr(self, field_name) + 1)
+        self.save(update_fields=[field_name, 'update_time'])
+
+    def record_screenshot(self, allowed=True):
+        field_name = 'screenshot_count' if allowed else 'screenshot_blocked_count'
+        setattr(self, field_name, getattr(self, field_name) + 1)
+        self.save(update_fields=[field_name, 'update_time'])
 
     def get_item(self):
         if self.share_type == 'file':

@@ -15,82 +15,21 @@ from .models import (
 
 
 class AIModelConfigForm(forms.ModelForm):
-    """AI模型配置表单"""
+    """AI model config simplified form."""
     class Meta:
         model = AIModelConfig
         fields = [
             'name',
-            'provider',
-            'model_type',
-            'model_name',
-            'api_key',
             'api_base',
-            'organization',
-            'project',
-            'max_tokens',
-            'temperature',
-            'top_p',
+            'api_key',
+            'image_model',
+            'video_model',
             'is_active',
-            'is_default']
+        ]
         widgets = {
             'api_key': forms.PasswordInput(render_value=True),
             'api_base': forms.URLInput(),
         }
-        # 设置非必填字段
-        required = {
-            'name': True,
-            'provider': True,
-            'model_type': True,
-            'model_name': True,
-            'api_key': True,
-            'api_base': True,
-            'organization': False,
-            'project': False,
-            'max_tokens': True,
-            'temperature': True,
-            'top_p': True,
-            'is_active': True,
-            'is_default': False,
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        # 设置默认值
-        self.fields['max_tokens'].initial = 2048
-        self.fields['temperature'].initial = 0.7
-        self.fields['top_p'].initial = 1.0
-        self.fields['is_active'].initial = True
-        self.fields['is_default'].initial = False
-
-        # 设置非必填字段
-        self.fields['organization'].required = False
-        self.fields['project'].required = False
-        self.fields['is_default'].required = False
-
-        # 添加layui样式
-        for field in self.fields:
-            self.fields[field].widget.attrs.update({'class': 'layui-input'})
-
-        # 为不同类型的字段添加更合适的样式
-        self.fields['max_tokens'].widget.attrs.update(
-            {'type': 'number', 'min': '100', 'max': '8192'})
-        self.fields['temperature'].widget.attrs.update(
-            {'type': 'number', 'step': '0.1', 'min': '0', 'max': '2'})
-        self.fields['top_p'].widget.attrs.update(
-            {'type': 'number', 'step': '0.1', 'min': '0', 'max': '1'})
-
-    def clean_provider(self):
-        provider = self.cleaned_data.get('provider')
-        aliases = {
-            'qwen': 'alibaba',
-            'wenxin': 'baidu',
-        }
-        return aliases.get(provider, provider)
-
-    def clean_api_base(self):
-        return (self.cleaned_data.get('api_base') or '').strip().rstrip('/')
-
 
 class AIWorkflowForm(forms.ModelForm):
     """AI工作流表单"""

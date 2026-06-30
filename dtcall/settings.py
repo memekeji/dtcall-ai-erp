@@ -171,6 +171,7 @@ INSTALLED_APPS = [
     'apps.ai',
     'apps.ai_orchestrator',
     'apps.inventory',
+    'apps.hrbp',
 ]
 
 # 验证码配置
@@ -214,9 +215,11 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'django.template.context_processors.csrf',
             'apps.system.context_processors.get_menus',
             'django.template.context_processors.static',
             'apps.system.context_processors.system_config',
+                'apps.system.context_processors.system_version',
             ],
             'libraries': {
             }

@@ -14,8 +14,13 @@
             height: 100%;
             margin: 0;
             padding: 0;
-            overflow: hidden;
+            overflow-x: hidden;
+            overflow-y: auto;
             background: #f4f7fb;
+        }
+
+        body {
+            min-height: 100%;
         }
     </style>
     {% block css %}{% endblock %}

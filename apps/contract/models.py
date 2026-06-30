@@ -547,3 +547,115 @@ class Purchase(models.Model):
 
     def __str__(self):
         return self.name
+
+
+# ──────────────────────────────────────────────
+# AI 合同审查模型
+# ──────────────────────────────────────────────
+
+class ContractAIReview(models.Model):
+    """AI合同审查结果 - 存储逐条审查意见和总体评估"""
+    contract = models.ForeignKey(
+        "Contract",
+        on_delete=models.CASCADE,
+        related_name="ai_reviews",
+        verbose_name="关联合同")
+    review_version = models.IntegerField(default=1, verbose_name="审查版本")
+    contract_info = models.JSONField(default=dict, blank=True, verbose_name="合同信息摘要")
+    overall_risk_level = models.CharField(max_length=20, default="unknown", verbose_name="总体风险评级")
+    overall_summary = models.TextField(default="", verbose_name="总体评估意见")
+    clause_reviews = models.JSONField(default=list, blank=True, verbose_name="逐条审查意见")
+    review_conclusion = models.JSONField(default=list, blank=True, verbose_name="审查结论汇总")
+    final_recommendation = models.TextField(default="", verbose_name="最终建议")
+    data_cross_check = models.JSONField(default=list, blank=True, verbose_name="数据交叉校验结果")
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="审查人")
+    reviewed_at = models.DateTimeField(auto_now_add=True, verbose_name="审查时间")
+    raw_response = models.TextField(default="", blank=True, verbose_name="AI原始响应")
+    is_latest = models.BooleanField(default=True, verbose_name="是否最新版本")
+
+    class Meta:
+        db_table = "contract_ai_review"
+        verbose_name = "AI合同审查记录"
+        verbose_name_plural = verbose_name
+        ordering = ["-reviewed_at"]
+
+    def __str__(self):
+        return f"{self.contract.name} - 第{self.review_version}次审查"
+
+
+class ContractDiffRecord(models.Model):
+    """合同差异比对记录"""
+    contract = models.ForeignKey(
+        "Contract",
+        on_delete=models.CASCADE,
+        related_name="diff_records",
+        verbose_name="关联合同")
+    compare_file = models.FileField(
+        upload_to="contract_diffs/%Y/%m/",
+        verbose_name="对比文件")
+    original_text = models.TextField(default="", verbose_name="原始文本")
+    compare_text = models.TextField(default="", verbose_name="对比文本")
+    diff_result = models.JSONField(default=list, blank=True, verbose_name="差异结果")
+    risk_flags = models.JSONField(default=list, blank=True, verbose_name="风险标记")
+    compared_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="比对人")
+    compared_at = models.DateTimeField(auto_now_add=True, verbose_name="比对时间")
+
+    class Meta:
+        db_table = "contract_diff_record"
+        verbose_name = "合同差异比对记录"
+        verbose_name_plural = verbose_name
+        ordering = ["-compared_at"]
+
+    def __str__(self):
+        return f"{self.contract.name} - 差异比对"
+
+
+class ContractLegalConsultRecord(models.Model):
+    """AI法律咨询与知识查询历史记录"""
+
+    QUERY_TYPE_CHOICES = (
+        ("consultation", "法律咨询"),
+        ("knowledge", "知识查询"),
+    )
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="contract_legal_consult_records",
+        verbose_name="咨询人")
+    contract = models.ForeignKey(
+        "Contract",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="legal_consult_records",
+        verbose_name="关联合同")
+    query_type = models.CharField(
+        max_length=20,
+        choices=QUERY_TYPE_CHOICES,
+        default="consultation",
+        verbose_name="查询类型")
+    question = models.TextField(default="", verbose_name="问题/查询内容")
+    context = models.TextField(default="", blank=True, verbose_name="补充上下文")
+    answer = models.TextField(default="", verbose_name="AI回复内容")
+    success = models.BooleanField(default=True, verbose_name="是否成功")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+
+    class Meta:
+        db_table = "contract_legal_consult_record"
+        verbose_name = "AI法律咨询记录"
+        verbose_name_plural = verbose_name
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"{self.get_query_type_display()} - {self.user} - {self.created_at:%Y-%m-%d %H:%M}"

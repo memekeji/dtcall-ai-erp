@@ -765,6 +765,11 @@ $(document).ready(function() {
                 if (res.code === 0) {
                     btn.text('登录成功').css({'background': 'linear-gradient(135deg, #28a745 0%, #20c997 100%)'});
                     setTimeout(function() {
+                        try {
+                            localStorage.removeItem('layuiTabs');
+                            localStorage.removeItem('activeTabId');
+                            sessionStorage.setItem('dtcallForceDashboardAfterLogin', '1');
+                        } catch (e) {}
                         window.top.location.href = res.data.redirect_url;
                     }, 800);
                 } else {

@@ -147,13 +147,13 @@
         <section class="setup-panel">
             <header class="setup-header">
                 <h1>数据库配置</h1>
-                <p>当前数据库不可用或未检测到基础表，请配置连接并执行初始化迁移。</p>
+                <p>当前系统尚未完成初始化，请配置数据库连接并创建首个管理员账号。</p>
             </header>
 
             <div class="setup-body">
                 {% if success %}
                     <div class="status-line status-success">
-                        数据库连接验证和基础迁移已完成。<a href="/">进入系统</a>
+                        数据库连接验证、基础迁移和管理员创建已完成。<a href="/">进入系统</a>
                     </div>
                 {% endif %}
 
@@ -266,6 +266,49 @@
                             <label class="layui-form-label" for="MYSQL_INIT_COMMAND">MySQL模式</label>
                             <div class="layui-input-block">
                                 <input id="MYSQL_INIT_COMMAND" type="text" name="MYSQL_INIT_COMMAND" value="{{ values.MYSQL_INIT_COMMAND }}" placeholder="SET sql_mode='STRICT_TRANS_TABLES'" class="layui-input">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="setup-actions" style="margin-top: 28px;">
+                        <strong style="font-size: 16px; color: #0f172a;">管理员账号</strong>
+                    </div>
+
+                    <div class="setup-grid" style="margin-top: 18px;">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label" for="ADMIN_USERNAME">管理员账号</label>
+                            <div class="layui-input-block">
+                                <input id="ADMIN_USERNAME" type="text" name="ADMIN_USERNAME" value="{{ values.ADMIN_USERNAME }}" placeholder="admin" class="layui-input" autocomplete="username">
+                                <div class="field-hint">用于首次登录系统，创建完成后可在后台继续维护其他账号。</div>
+                            </div>
+                        </div>
+
+                        <div class="layui-form-item">
+                            <label class="layui-form-label" for="ADMIN_NAME">管理员姓名</label>
+                            <div class="layui-input-block">
+                                <input id="ADMIN_NAME" type="text" name="ADMIN_NAME" value="{{ values.ADMIN_NAME }}" placeholder="系统管理员" class="layui-input" autocomplete="name">
+                            </div>
+                        </div>
+
+                        <div class="layui-form-item full">
+                            <label class="layui-form-label" for="ADMIN_EMAIL">管理员邮箱</label>
+                            <div class="layui-input-block">
+                                <input id="ADMIN_EMAIL" type="email" name="ADMIN_EMAIL" value="{{ values.ADMIN_EMAIL }}" placeholder="admin@example.com" class="layui-input" autocomplete="email">
+                            </div>
+                        </div>
+
+                        <div class="layui-form-item">
+                            <label class="layui-form-label" for="ADMIN_PASSWORD">管理员密码</label>
+                            <div class="layui-input-block">
+                                <input id="ADMIN_PASSWORD" type="password" name="ADMIN_PASSWORD" value="{{ values.ADMIN_PASSWORD }}" class="layui-input" autocomplete="new-password">
+                                <div class="field-hint">至少 8 位，建议使用大小写字母、数字和符号组合。</div>
+                            </div>
+                        </div>
+
+                        <div class="layui-form-item">
+                            <label class="layui-form-label" for="ADMIN_PASSWORD_CONFIRM">确认密码</label>
+                            <div class="layui-input-block">
+                                <input id="ADMIN_PASSWORD_CONFIRM" type="password" name="ADMIN_PASSWORD_CONFIRM" value="{{ values.ADMIN_PASSWORD_CONFIRM }}" class="layui-input" autocomplete="new-password">
                             </div>
                         </div>
                     </div>

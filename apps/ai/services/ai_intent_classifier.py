@@ -25,7 +25,7 @@ class AIIntentClassifier:
     INTENT_CATEGORIES = {
         'DATA_QUERY': {
             'name': '数据查询',
-            'description': '查询业务数据，包括客户、订单、合同、项目、发票、员工、部门、财务、生产等数据的查询、统计、列表展示',
+            'description': '查询业务数据，包括客户、订单、合同、项目、发票、员工、部门、财务、生产、审批、流程、任务、消息、网盘、文件等数据的查询、统计、列表展示',
             'examples': [
                 '我有多少客户',
                 '查询本月的订单总额',
@@ -36,6 +36,9 @@ class AIIntentClassifier:
                 '合同金额总和是多少',
                 '有哪些在职员工',
                 '生产计划的完成情况如何',
+                '查一下我的待审批流程',
+                '看一下共享给我的网盘文件',
+                '列出最近的站内消息',
             ]
         },
         'DATA_CREATE': {
@@ -47,6 +50,9 @@ class AIIntentClassifier:
                 '新增一条跟进记录',
                 '创建合同记录',
                 '添加项目信息',
+                '发起一个审批流程',
+                '上传一份项目文件',
+                '创建网盘分享',
             ]
         },
         'DATA_UPDATE': {
@@ -57,6 +63,8 @@ class AIIntentClassifier:
                 '修改订单金额',
                 '更改合同状态',
                 '更新项目进度',
+                '审批通过这个流程',
+                '把文件共享给研发部',
             ]
         },
         'DATA_DELETE': {
@@ -66,6 +74,7 @@ class AIIntentClassifier:
                 '删除这个客户',
                 '作废这张订单',
                 '移除合同记录',
+                '删除这个文件分享',
             ]
         },
         'KNOWLEDGE_BASE': {
@@ -142,7 +151,28 @@ class AIIntentClassifier:
         'followup',
         'supplier',
         'product',
-        'inventory'
+        'inventory',
+        'approval',
+        'approval_flow',
+        'approval_task',
+        'task',
+        'workhour',
+        'message',
+        'notice',
+        'document',
+        'meeting',
+        'schedule',
+        'disk',
+        'disk_folder',
+        'disk_share',
+        'contact',
+        'expense',
+        'income',
+        'payment',
+        'warehouse',
+        'stockin',
+        'stockout',
+        'alert',
     })
     ALLOWED_TIME_RANGES = frozenset({
         'today',
@@ -166,6 +196,46 @@ class AIIntentClassifier:
         'ui_theme_light',
         'ui_summarize_page'
     })
+    DATA_TYPE_KEYWORDS = (
+        ('disk_share', ['网盘分享', '文件分享', '分享链接', '共享链接', '提取码', '分享码']),
+        ('disk_folder', ['网盘文件夹', '共享文件夹', '文件夹权限', '目录权限']),
+        ('disk', ['网盘', '共享文件', '共享资料', '文件权限', '文件', '资料', '附件']),
+        ('approval_task', ['待审批', '待办审批', '审批任务', '待办流程']),
+        ('approval_flow', ['审批流', '审批流程', '流程配置', '流程模板']),
+        ('approval', ['审批', '流程', '申请单', '审批单']),
+        ('message', ['消息', '站内信', '通知消息', '会话', '沟通']),
+        ('notice', ['公告', '通知公告']),
+        ('meeting', ['会议', '会议纪要', '会议室']),
+        ('schedule', ['日程', '排期', '安排']),
+        ('task', ['任务', '待办']),
+        ('workhour', ['工时']),
+        ('document', ['项目文档', '业务文档', '文档']),
+        ('customer', ['客户', '客资', '线索']),
+        ('contact', ['联系人']),
+        ('order', ['订单', '销售单']),
+        ('contract', ['合同', '协议']),
+        ('project', ['项目']),
+        ('invoice', ['发票', '开票']),
+        ('employee', ['员工', '人事', '人员', '同事']),
+        ('department', ['部门', '组织', '组织架构']),
+        ('finance', ['财务', '报销', '回款', '打款']),
+        ('expense', ['费用', '报销单', '支出']),
+        ('income', ['收入', '回款']),
+        ('payment', ['付款', '收款']),
+        ('production', ['生产', '生产计划', '生产任务', '设备', '工序']),
+        ('supplier', ['供应商']),
+        ('product', ['产品', '商品']),
+        ('inventory', ['库存', '存货', '物料']),
+        ('followup', ['跟进', '回访']),
+        ('warehouse', ['仓库']),
+        ('stockin', ['入库']),
+        ('stockout', ['出库']),
+        ('alert', ['预警', '库存预警']),
+    )
+    CREATE_KEYWORDS = ('添加', '新增', '创建', '增加', '新建', '录入', '登记', '上传', '提交', '发起', '申请')
+    UPDATE_KEYWORDS = ('修改', '更新', '更改', '调整', '编辑', '维护', '设置', '共享', '分享', '审批通过', '驳回', '同意', '拒绝')
+    DELETE_KEYWORDS = ('删除', '移除', '作废', '撤销', '取消', '停用')
+    QUERY_KEYWORDS = ('查询', '查看', '查', '看一下', '看下', '找', '搜索', '统计', '多少', '数量', '列表', '有哪些', '列出', '显示', '汇总', '进度')
 
     def __init__(self):
         self.ai_client = None
@@ -180,7 +250,7 @@ class AIIntentClassifier:
                 is_active=True,
                 model_type__in=['chat', 'text']
             )
-            .order_by('-is_default', '-updated_at', '-created_at')
+            .order_by('-is_active', '-updated_at', '-created_at')
             .first()
         )
         if not config:
@@ -199,7 +269,7 @@ class AIIntentClassifier:
             'temperature': config.temperature,
             'top_p': config.top_p,
             'is_active': config.is_active,
-            'is_default': config.is_default,
+            'is_active': config.is_active,
             'organization': config.organization,
             'project': config.project,
             'provider_specific_config': {},
@@ -525,7 +595,72 @@ class AIIntentClassifier:
                     })
                     return fallback
 
+        business_result = self._build_rule_based_business_result(query, reason)
+        if business_result:
+            fallback.update(business_result)
+            return fallback
+
         return fallback
+
+    def _build_rule_based_business_result(self, query: str, reason: str) -> Dict[str, Any] | None:
+        data_type = self._infer_data_type_from_query(query)
+        action = self._infer_action_from_query(query)
+        if not data_type and action == 'chat':
+            return None
+
+        intent = self._intent_for_action(action)
+        confidence = 0.58 if data_type else 0.45
+        requires_confirmation = action in self.MUTATING_ACTIONS
+        if intent == 'DATA_QUERY':
+            requires_confirmation = confidence < self.CONFIDENCE_THRESHOLDS['MEDIUM']
+
+        return {
+            'intent': intent,
+            'confidence': confidence,
+            'action': action,
+            'data_type': data_type,
+            'requires_confirmation': requires_confirmation,
+            'reasoning': f'{reason}，已按业务关键词安全识别',
+            'fallback_options': [
+                {'text': '按当前识别继续', 'intent': intent, 'action': action},
+                {'text': '改为普通 AI 对话', 'intent': 'AI_CHAT', 'action': 'chat'},
+                {'text': '取消操作', 'intent': 'AI_CHAT', 'action': 'cancel'},
+            ],
+        }
+
+    def _infer_data_type_from_query(self, query: str) -> str | None:
+        query_lower = (query or '').lower()
+        if '生产' in query_lower:
+            return 'production'
+        for data_type, keywords in self.DATA_TYPE_KEYWORDS:
+            if any(keyword.lower() in query_lower for keyword in keywords):
+                return data_type
+        return None
+
+    def _infer_action_from_query(self, query: str) -> str:
+        query_lower = (query or '').lower()
+        if any(keyword.lower() in query_lower for keyword in self.DELETE_KEYWORDS):
+            return 'delete'
+        if any(keyword.lower() in query_lower for keyword in self.CREATE_KEYWORDS):
+            return 'create'
+        if any(keyword.lower() in query_lower for keyword in self.QUERY_KEYWORDS):
+            if any(keyword in query_lower for keyword in ['多少', '数量', '总数', '统计', '合计']):
+                return 'count'
+            return 'list'
+        if any(keyword.lower() in query_lower for keyword in self.UPDATE_KEYWORDS):
+            return 'update'
+        return 'chat'
+
+    def _intent_for_action(self, action: str) -> str:
+        if action == 'create':
+            return 'DATA_CREATE'
+        if action == 'update':
+            return 'DATA_UPDATE'
+        if action == 'delete':
+            return 'DATA_DELETE'
+        if action in {'query', 'count', 'list', 'detail', 'summary'}:
+            return 'DATA_QUERY'
+        return 'AI_CHAT'
 
     def _validate_intent(self, intent: str) -> bool:
         """验证意图是否有效"""
@@ -562,25 +697,17 @@ class AIIntentClassifier:
             result['data_type'] = None
 
         if not result.get('data_type'):
-            data_type_map = [
-                ('customer', ['客户']),
-                ('order', ['订单']),
-                ('contract', ['合同']),
-                ('project', ['项目']),
-                ('invoice', ['发票']),
-                ('employee', ['员工', '人事']),
-                ('department', ['部门']),
-                ('finance', ['财务', '报销', '回款', '打款']),
-                ('production', ['生产', '计划', '任务', '设备', '工序']),
-                ('supplier', ['供应商']),
-                ('product', ['产品']),
-                ('inventory', ['库存']),
-                ('followup', ['跟进']),
-            ]
-            for data_type, keywords in data_type_map:
-                if any(keyword in query_lower for keyword in keywords):
-                    result['data_type'] = data_type
-                    break
+            result['data_type'] = self._infer_data_type_from_query(query)
+
+        rule_action = self._infer_action_from_query(query)
+        if (
+                result.get('intent') == 'AI_CHAT' and
+                result.get('data_type') and
+                rule_action != 'chat'):
+            result['action'] = rule_action
+            result['intent'] = self._intent_for_action(rule_action)
+            result['confidence'] = max(result['confidence'], 0.6)
+            result['reasoning'] = result.get('reasoning') or '按业务关键词修正意图'
 
         if result.get('time_range') not in self.ALLOWED_TIME_RANGES:
             result['time_range'] = None

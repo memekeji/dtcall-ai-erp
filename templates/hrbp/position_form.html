@@ -1,0 +1,212 @@
+{% extends "home/iframe_base.html" %}
+{% load static %}
+
+{% block title %}{% if object %}编辑岗位{% else %}发布岗位{% endif %}{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>{% if object %}编辑岗位{% else %}发布岗位{% endif %}</h3>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form" id="positionForm" style="padding: 20px;">
+            {% csrf_token %}
+            
+            <div class="layui-row layui-col-space20">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label"><span style="color: red;">*</span> 岗位名称</label>
+                        <div class="layui-input-block">
+                            {{ form.title }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label"><span style="color: red;">*</span> 所属部门</label>
+                        <div class="layui-input-block">
+                            {{ form.department }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-row layui-col-space20">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label"><span style="color: red;">*</span> 工作类型</label>
+                        <div class="layui-input-block">
+                            {{ form.work_type }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label"><span style="color: red;">*</span> 工作地点</label>
+                        <div class="layui-input-block">
+                            {{ form.location }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-row layui-col-space20">
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">最低薪资</label>
+                        <div class="layui-input-block">
+                            {{ form.salary_min }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">最高薪资</label>
+                        <div class="layui-input-block">
+                            {{ form.salary_max }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md4">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label"><span style="color: red;">*</span> 招聘人数</label>
+                        <div class="layui-input-block">
+                            {{ form.headcount }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label"><span style="color: red;">*</span> 岗位描述</label>
+                <div class="layui-input-block">
+                    {{ form.description }}
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label"><span style="color: red;">*</span> 任职要求</label>
+                <div class="layui-input-block">
+                    {{ form.requirements }}
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label"><span style="color: red;">*</span> 岗位职责</label>
+                <div class="layui-input-block">
+                    {{ form.responsibilities }}
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">技能要求</label>
+                <div class="layui-input-block">
+                    {{ form.skills_required }}
+                    <div class="layui-form-mid layui-word-aux">每行一项技能要求</div>
+                </div>
+            </div>
+
+            <div class="layui-row layui-col-space20">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">学历要求</label>
+                        <div class="layui-input-block">
+                            {{ form.education_required }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">工作年限</label>
+                        <div class="layui-input-block">
+                            {{ form.experience_years }}
+                            <div class="layui-form-mid layui-word-aux">年</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-row layui-col-space20">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label"><span style="color: red;">*</span> 状态</label>
+                        <div class="layui-input-block">
+                            {{ form.status }}
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">截止日期</label>
+                        <div class="layui-input-block">
+                            {{ form.deadline }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button type="submit" class="layui-btn layui-btn-normal" lay-submit lay-filter="submitBtn">
+                        <i class="layui-icon layui-icon-ok"></i> 提交
+                    </button>
+                    <button type="button" class="layui-btn layui-btn-primary" onclick="parent.layer.closeAll()">
+                        取消
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+(function checkLayui() {
+    if (typeof layui !== 'undefined') {
+layui.use(['form', 'layer', 'laydate'], function(){
+    var form = layui.form;
+    var layer = layui.layer;
+    var laydate = layui.laydate;
+    var $ = layui.jquery;
+
+    // 渲染表单
+    form.render();
+
+    // 日期选择器
+    laydate.render({
+        elem: 'input[name="deadline"]',
+        type: 'date'
+    });
+
+    // 表单提交
+    form.on('submit(submitBtn)', function(data){
+        var url = {% if object %}'/hrbp/position/{{ object.id }}/update/'{% else %}'/hrbp/position/create/'{% endif %};
+        
+        $.ajax({
+            url: url,
+            type: 'POST',
+            data: $(data.form).serialize(),
+            success: function(res){
+                if(res.success){
+                    layer.msg(res.message, {icon: 1});
+                    setTimeout(function(){
+                        parent.layer.closeAll();
+                        parent.layui.table.reload('positionTable');
+                    }, 1500);
+                } else {
+                    layer.msg(res.message, {icon: 2});
+                }
+            },
+            error: function(){
+                layer.msg('提交失败，请重试', {icon: 2});
+            }
+        });
+        return false;
+    });
+});
+    } else {
+        setTimeout(checkLayui, 50);
+    }
+})();
+</script>
+{% endblock %}

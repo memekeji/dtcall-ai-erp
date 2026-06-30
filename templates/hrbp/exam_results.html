@@ -1,0 +1,50 @@
+{% extends "home/iframe_base.html" %}{% load static %}
+{% block title %}{{ exam.title }} - 考核结果 - AI-HRBP{% endblock %}
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <a href="{% url 'hrbp:exam_list' %}" class="layui-btn layui-btn-primary layui-btn-sm"><i class="layui-icon layui-icon-left"></i> 返回</a>
+        <span style="margin-left:10px;">{{ exam.title }} - 考核结果</span>
+        <div class="layui-inline" style="float:right;">
+            <select name="status" lay-filter="statusFilter"><option value="">全部状态</option>{% for code,name in status_choices %}<option value="{{ code }}" {% if request.GET.status == code %}selected{% endif %}>{{ name }}</option>{% endfor %}</select>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <table class="layui-table" lay-skin="line">
+            <thead><tr><th>候选人</th><th>岗位</th><th>状态</th><th>AI评分</th><th>正确题数</th><th>HR评分</th><th>提交时间</th><th>操作</th></tr></thead>
+            <tbody>
+            {% for r in results %}
+            <tr>
+                <td>{{ r.pipeline.resume_submission.candidate_name|default:"未知" }}</td>
+                <td>{{ r.pipeline.position.title }}</td>
+                <td><span class="layui-badge layui-bg-gray">{{ r.get_status_display }}</span></td>
+                <td>{{ r.ai_score|default:"--" }}</td>
+                <td>{% if r.total_correct %}{{ r.total_correct }}/{{ r.total_questions }}{% else %}--{% endif %}</td>
+                <td>{{ r.hr_score|default:"--" }}</td>
+                <td>{{ r.submitted_at|date:"Y-m-d H:i"|default:"--" }}</td>
+                <td>
+                    {% if r.status == 'submitted' or r.status == 'ai_graded' or r.status == 'hr_reviewed' %}
+                    <a href="{% url 'hrbp:exam_review' r.id %}" class="layui-btn layui-btn-xs layui-btn-warm">审批</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" style="text-align:center;padding:40px;color:#999;">暂无考核记录</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% include "home/pagination.html" %}
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+(function checkLayui() {
+    if (typeof layui !== 'undefined') {
+layui.use('form', function() { layui.form.on('select(statusFilter)', function(d){ window.location.href = '?status=' + d.value; }); });
+    } else {
+        setTimeout(checkLayui, 50);
+    }
+})();
+</script>
+{% endblock %}

@@ -692,11 +692,12 @@
         function shareToUserOrDept(type, id) {
             layui.use('layer', function() {
                 var layer = layui.layer;
+                var cacheBuster = new Date().getTime();
                 layer.open({
                     type: 2,
-                    title: '共享给用户或部门',
+                    title: '共享权限管理',
                     area: ['80%', '100%'],
-                    content: '/disk/permission/?type=' + type + '&id=' + id
+                    content: '/disk/permission/?type=' + type + '&id=' + id + '&_t=' + cacheBuster
                 });
             });
         }

@@ -27,6 +27,9 @@ User = get_user_model()
 class ConversationService:
     """统一沟通会话服务"""
 
+    SYSTEM_GROUP_COMPANY = 'company'
+    SYSTEM_GROUP_DEPARTMENT = 'department'
+
     @staticmethod
     def build_direct_key(user_a, user_b) -> str:
         user_ids = sorted([int(user_a.id), int(user_b.id)])
@@ -114,6 +117,178 @@ class ConversationService:
         return conversation
 
     @staticmethod
+    def _system_metadata(group_type: str, **extra):
+        metadata = {
+            'system_group': group_type,
+            'sync_managed': True,
+        }
+        metadata.update(extra)
+        return metadata
+
+    @staticmethod
+    def get_or_create_company_group():
+        """获取或创建公司全员群。"""
+        conversation = Conversation.objects.filter(
+            metadata__system_group=ConversationService.SYSTEM_GROUP_COMPANY,
+        ).first()
+        if conversation:
+            update_fields = []
+            if conversation.name != '公司全员群':
+                conversation.name = '公司全员群'
+                update_fields.append('name')
+            if conversation.conversation_type != Conversation.TYPE_GROUP:
+                conversation.conversation_type = Conversation.TYPE_GROUP
+                update_fields.append('conversation_type')
+            metadata = conversation.metadata or {}
+            if not metadata.get('sync_managed'):
+                metadata['sync_managed'] = True
+                conversation.metadata = metadata
+                update_fields.append('metadata')
+            if update_fields:
+                conversation.save(update_fields=update_fields + ['updated_at'])
+            return conversation
+
+        return Conversation.objects.create(
+            conversation_type=Conversation.TYPE_GROUP,
+            name='公司全员群',
+            metadata=ConversationService._system_metadata(
+                ConversationService.SYSTEM_GROUP_COMPANY,
+            ),
+        )
+
+    @staticmethod
+    def get_or_create_department_group(department):
+        """获取或创建部门群。"""
+        name = f'{department.name}群'
+        conversation = Conversation.objects.filter(
+            metadata__system_group=ConversationService.SYSTEM_GROUP_DEPARTMENT,
+            metadata__department_id=department.id,
+        ).first()
+        if conversation:
+            update_fields = []
+            if conversation.name != name:
+                conversation.name = name
+                update_fields.append('name')
+            if conversation.conversation_type != Conversation.TYPE_DEPARTMENT:
+                conversation.conversation_type = Conversation.TYPE_DEPARTMENT
+                update_fields.append('conversation_type')
+            metadata = conversation.metadata or {}
+            changed_metadata = False
+            for key, value in ConversationService._system_metadata(
+                ConversationService.SYSTEM_GROUP_DEPARTMENT,
+                department_id=department.id,
+            ).items():
+                if metadata.get(key) != value:
+                    metadata[key] = value
+                    changed_metadata = True
+            if changed_metadata:
+                conversation.metadata = metadata
+                update_fields.append('metadata')
+            if update_fields:
+                conversation.save(update_fields=update_fields + ['updated_at'])
+            return conversation
+
+        return Conversation.objects.create(
+            conversation_type=Conversation.TYPE_DEPARTMENT,
+            name=name,
+            metadata=ConversationService._system_metadata(
+                ConversationService.SYSTEM_GROUP_DEPARTMENT,
+                department_id=department.id,
+            ),
+        )
+
+    @staticmethod
+    def _sync_managed_members(conversation, target_user_ids):
+        target_user_ids = {int(user_id) for user_id in (target_user_ids or [])}
+        now = timezone.now()
+        existing = {
+            member.user_id: member
+            for member in ConversationMember.objects.filter(
+                conversation=conversation,
+            )
+        }
+        changed = {
+            'joined': 0,
+            'reactivated': 0,
+            'removed': 0,
+        }
+        for user_id in target_user_ids:
+            member = existing.get(user_id)
+            if member is None:
+                ConversationMember.objects.create(
+                    conversation=conversation,
+                    user_id=user_id,
+                    role=ConversationMember.ROLE_MEMBER,
+                )
+                changed['joined'] += 1
+            elif member.left_at is not None:
+                member.left_at = None
+                if member.role not in dict(ConversationMember.ROLE_CHOICES):
+                    member.role = ConversationMember.ROLE_MEMBER
+                    member.save(update_fields=['left_at', 'role'])
+                else:
+                    member.save(update_fields=['left_at'])
+                changed['reactivated'] += 1
+
+        for user_id, member in existing.items():
+            if user_id not in target_user_ids and member.left_at is None:
+                member.left_at = now
+                member.save(update_fields=['left_at'])
+                changed['removed'] += 1
+        return changed
+
+    @staticmethod
+    def _department_member_ids(department_id):
+        return set(
+            User.objects.filter(
+                did=department_id,
+                status=1,
+            ).values_list('id', flat=True).distinct()
+        )
+
+    @staticmethod
+    def sync_system_conversations():
+        """同步公司全员群和各部门群成员，可供人事变动后调用。"""
+        from apps.department.models import Department
+
+        with transaction.atomic():
+            active_user_ids = set(
+                User.objects.filter(status=1).values_list('id', flat=True)
+            )
+            company = ConversationService.get_or_create_company_group()
+            company_changes = ConversationService._sync_managed_members(
+                company,
+                active_user_ids,
+            )
+
+            department_group_ids = []
+            department_changes = {}
+            departments = Department.objects.filter(status=1).order_by('sort', 'id')
+            for department in departments:
+                group = ConversationService.get_or_create_department_group(
+                    department,
+                )
+                department_group_ids.append(group.id)
+                department_changes[str(department.id)] = ConversationService._sync_managed_members(
+                    group,
+                    ConversationService._department_member_ids(department.id),
+                )
+
+            disabled_department_groups = Conversation.objects.filter(
+                conversation_type=Conversation.TYPE_DEPARTMENT,
+                metadata__system_group=ConversationService.SYSTEM_GROUP_DEPARTMENT,
+            ).exclude(id__in=department_group_ids)
+            for group in disabled_department_groups:
+                ConversationService._sync_managed_members(group, set())
+
+        return {
+            'company_group_id': company.id,
+            'department_group_ids': department_group_ids,
+            'company_changes': company_changes,
+            'department_changes': department_changes,
+        }
+
+    @staticmethod
     def _can_manage(conversation, actor) -> bool:
         if not actor or not actor.is_authenticated:
             return False
@@ -168,13 +343,40 @@ class ConversationService:
         return True
 
     @staticmethod
+    def set_conversation_pinned(conversation, user, is_pinned: bool):
+        """设置当前用户对某个会话的置顶状态。"""
+        member = ConversationMember.objects.filter(
+            conversation=conversation,
+            user=user,
+            left_at__isnull=True,
+        ).first()
+        if member is None:
+            raise PermissionError('用户不是该会话成员')
+        member.is_pinned = bool(is_pinned)
+        member.save(update_fields=['is_pinned'])
+        return member
+
+    @staticmethod
     def list_user_conversations(user):
         """列出当前用户可见会话"""
         return Conversation.objects.filter(
             member_relations__user=user,
             member_relations__left_at__isnull=True,
             is_active=True,
-        ).distinct().select_related('last_message', 'owner', 'created_by')
+        ).annotate(
+            current_user_pinned=models.Max(
+                'member_relations__is_pinned',
+                filter=models.Q(member_relations__user=user),
+            )
+        ).distinct().select_related(
+            'last_message',
+            'owner',
+            'created_by',
+        ).order_by(
+            '-current_user_pinned',
+            '-last_message_at',
+            '-created_at',
+        )
 
 
 class ConversationMessageService:
@@ -232,26 +434,79 @@ class ConversationMessageService:
         return relation
 
     @staticmethod
-    def send_text(conversation, sender, content: str, metadata=None, reply_to=None):
-        """发送文本消息并为其他成员创建未读回执"""
+    def _mentioned_user_ids(metadata) -> set:
+        mention_ids = (metadata or {}).get('mentions') or []
+        normalized_ids = set()
+        for user_id in mention_ids:
+            try:
+                normalized_ids.add(int(user_id))
+            except (TypeError, ValueError):
+                continue
+        return normalized_ids
+
+    @staticmethod
+    def _conversation_title(conversation) -> str:
+        return conversation.name or conversation.get_conversation_type_display()
+
+    @staticmethod
+    def _notify_mentions(message, active_members) -> None:
+        mentioned_ids = ConversationMessageService._mentioned_user_ids(
+            message.metadata,
+        )
+        if not mentioned_ids:
+            return
+
+        active_member_ids = {
+            member.user_id
+            for member in active_members
+            if member.user_id != message.sender_id
+        }
+        target_user_ids = mentioned_ids & active_member_ids
+        if not target_user_ids:
+            return
+
+        sender_name = getattr(message.sender, 'name', None) or message.sender.username
+        conversation_title = ConversationMessageService._conversation_title(
+            message.conversation,
+        )
+        MessageService.send_notification(
+            title='你在沟通中被@了',
+            content=f'{sender_name} 在「{conversation_title}」中提到了你：{message.content}',
+            category_code='comment',
+            user_ids=list(target_user_ids),
+            sender=message.sender,
+            priority=3,
+            related_object_type='conversation_message',
+            related_object_id=message.id,
+            action_url=f'/message/conversations/page/?conversation_id={message.conversation_id}',
+        )
+
+    @staticmethod
+    def _create_message(
+        conversation,
+        sender,
+        message_type: str,
+        content: str,
+        metadata=None,
+        reply_to=None,
+    ):
         ConversationMessageService.ensure_member(conversation, sender)
-        content = (content or '').strip()
-        if not content:
-            raise ValueError('消息内容不能为空')
 
         with transaction.atomic():
             message = ConversationMessage.objects.create(
                 conversation=conversation,
                 sender=sender,
-                message_type=ConversationMessage.TYPE_TEXT,
+                message_type=message_type,
                 content=content,
                 metadata=metadata or {},
                 reply_to=reply_to,
             )
-            active_members = ConversationMember.objects.filter(
-                conversation=conversation,
-                left_at__isnull=True,
-            ).select_related('user')
+            active_members = list(
+                ConversationMember.objects.filter(
+                    conversation=conversation,
+                    left_at__isnull=True,
+                ).select_related('user')
+            )
             receipts = [
                 ConversationMessageReceipt(message=message, user=member.user)
                 for member in active_members
@@ -261,6 +516,10 @@ class ConversationMessageService:
                 receipts,
                 ignore_conflicts=True,
             )
+            ConversationMessageReceipt.objects.filter(
+                message=message,
+                user=sender,
+            ).delete()
             conversation.last_message = message
             conversation.last_message_at = message.created_at
             conversation.save(update_fields=['last_message', 'last_message_at', 'updated_at'])
@@ -268,6 +527,10 @@ class ConversationMessageService:
                 conversation=conversation,
                 user=sender,
             ).update(last_read_message=message, last_read_at=message.created_at)
+            ConversationMessageService._notify_mentions(message, active_members)
+            MessageService.invalidate_user_unread_counts(
+                [member.user_id for member in active_members]
+            )
         ConversationMessageService._publish(
             conversation.id,
             {
@@ -277,6 +540,62 @@ class ConversationMessageService:
             },
         )
         return message
+
+    @staticmethod
+    def send_text(conversation, sender, content: str, metadata=None, reply_to=None):
+        """发送文本消息并为其他成员创建未读回执"""
+        content = (content or '').strip()
+        if not content:
+            raise ValueError('消息内容不能为空')
+        return ConversationMessageService._create_message(
+            conversation=conversation,
+            sender=sender,
+            message_type=ConversationMessage.TYPE_TEXT,
+            content=content,
+            metadata=metadata or {},
+            reply_to=reply_to,
+        )
+
+    @staticmethod
+    def send_attachment(
+        conversation,
+        sender,
+        file_url: str,
+        file_name: str,
+        file_size: int,
+        content_type: str = '',
+        file_path: str = '',
+        reply_to=None,
+    ):
+        """发送图片或文件附件消息，并复用会话未读回执逻辑。"""
+        file_name = (file_name or '').strip()
+        file_url = (file_url or '').strip()
+        content_type = (content_type or '').strip()
+        if not file_name or not file_url:
+            raise ValueError('附件信息不能为空')
+
+        message_type = (
+            ConversationMessage.TYPE_IMAGE
+            if content_type.startswith('image/')
+            else ConversationMessage.TYPE_FILE
+        )
+        metadata = {
+            'file_url': file_url,
+            'file_name': file_name,
+            'file_size': int(file_size or 0),
+            'content_type': content_type,
+        }
+        if file_path:
+            metadata['file_path'] = file_path
+
+        return ConversationMessageService._create_message(
+            conversation=conversation,
+            sender=sender,
+            message_type=message_type,
+            content=file_name,
+            metadata=metadata,
+            reply_to=reply_to,
+        )
 
     @staticmethod
     def get_unread_count(user) -> int:
@@ -338,6 +657,7 @@ class ConversationMessageService:
                     'read_at': now.isoformat(),
                 },
             )
+            MessageService.invalidate_user_unread_counts([user.id])
         return count
 
 
@@ -624,12 +944,30 @@ class MessageService:
 
     @staticmethod
     def mark_all_as_read(user: User) -> int:
-        """标记所有消息为已读"""
+        """标记所有通知和在线沟通消息为已读"""
         now = timezone.now()
-        count = MessageUserRelation.objects.filter(
+        notification_count = MessageUserRelation.objects.filter(
             user=user,
             is_read=False
         ).update(is_read=True, read_time=now)
+
+        conversation_ids = list(
+            Conversation.objects.filter(
+                messages__receipts__user=user,
+                messages__receipts__status=ConversationMessageReceipt.STATUS_DELIVERED,
+                messages__is_deleted=False,
+                member_relations__user=user,
+                member_relations__left_at__isnull=True,
+            ).values_list('id', flat=True).distinct()
+        )
+        conversation_count = 0
+        for conversation in Conversation.objects.filter(id__in=conversation_ids):
+            conversation_count += ConversationMessageService.mark_conversation_read(
+                conversation,
+                user,
+            )
+
+        count = notification_count + conversation_count
         if count > 0:
             MessageCache.invalidate_unread_count(user.id)
         return count
@@ -654,8 +992,10 @@ class MessageService:
         if cached_count is not None:
             return cached_count
 
-        count = MessageUserRelation.objects.filter(
+        notification_count = MessageUserRelation.objects.filter(
             user=user, is_read=False).count()
+        conversation_count = ConversationMessageService.get_unread_count(user)
+        count = notification_count + conversation_count
         MessageCache.set_unread_count(user.id, count)
         return count
 

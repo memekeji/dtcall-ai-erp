@@ -1,0 +1,67 @@
+﻿{% extends "home/iframe_base.html" %}{% load static %}
+{% block title %}流程配置 - AI-HRBP{% endblock %}
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <a href="{% url "hrbp:dashboard" %}" class="layui-btn layui-btn-primary layui-btn-sm"><i class="layui-icon layui-icon-left"></i> 返回</a>
+        <span style="margin-left:10px;">招聘流程阶段执行模式配置</span>
+    </div>
+    <div class="layui-card-body">
+        <table class="layui-table" lay-skin="line">
+            <thead><tr><th width="60">序号</th><th>阶段名称</th><th width="140">执行模式</th><th width="80">启用</th><th>说明</th><th width="100">操作</th></tr></thead>
+            <tbody>
+            {% for cfg in configs %}
+            <tr>
+                <td>{{ cfg.sort_order }}</td>
+                <td>{{ cfg.stage_name }}</td>
+                <td>
+                    <select lay-filter="modeChange" data-stage="{{ cfg.stage }}" class="mode-select">
+                        {% for code, name in exec_modes.items %}
+                        <option value="{{ code }}" {% if cfg.exec_mode == code %}selected{% endif %}>{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td>
+                    <input type="checkbox" lay-filter="enabledChange" data-stage="{{ cfg.stage }}" lay-skin="switch" lay-text="ON|OFF" {% if cfg.is_enabled %}checked{% endif %}>
+                </td>
+                <td>{{ cfg.description|default:"--" }}</td>
+                <td>
+                    <button class="layui-btn layui-btn-xs" onclick="saveConfig(this, `{{ cfg.stage }}`)">保存</button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" style="text-align:center;padding:40px;color:#999;">暂未配置阶段</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <blockquote class="layui-elem-quote" style="margin-top:20px;">
+            <b>执行模式说明：</b><br>
+            <span style="color:#1E9FFF;">AI自动执行</span> - 由AI大模型辅助决策和自动处理<br>
+            <span style="color:#16baaa;">系统自动执行</span> - 按预设规则自动推进流程<br>
+            <span style="color:#999;">人工手动执行</span> - 需HR手动操作每个环节
+        </blockquote>
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+(function checkLayui() {
+    if (typeof layui !== 'undefined') {
+layui.use("form", function() { layui.form.render(); });
+function saveConfig(btn, stage) {
+    var tr = btn.parentNode.parentNode;
+    var mode = tr.querySelector("select").value;
+    var enabled = tr.querySelector("input[type=checkbox]").checked;
+    layui.$.post("/hrbp/config/update/", {
+        stage: stage, exec_mode: mode, is_enabled: enabled,
+        csrfmiddlewaretoken: document.querySelector("[name=csrfmiddlewaretoken]").value
+    }, function(res) {
+        layer.msg(res.message, {icon: res.success ? 1 : 2});
+    });
+}
+    } else {
+        setTimeout(checkLayui, 50);
+    }
+})();
+</script>
+{% endblock %}

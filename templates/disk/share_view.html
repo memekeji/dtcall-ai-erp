@@ -263,6 +263,14 @@
                 <div class="stats-value">{{ share.download_count }}</div>
                 <div class="stats-label">下载次数</div>
             </div>
+            <div class="stats-item">
+                <div class="stats-value">{{ share.copy_count }}/{{ share.copy_blocked_count }}</div>
+                <div class="stats-label">复制成功/拦截</div>
+            </div>
+            <div class="stats-item">
+                <div class="stats-value">{{ share.screenshot_count }}/{{ share.screenshot_blocked_count }}</div>
+                <div class="stats-label">截图成功/拦截</div>
+            </div>
             {% if share.access_limit > 0 %}
             <div class="stats-item">
                 <div class="stats-value">{{ share.access_limit }}</div>
@@ -292,6 +300,20 @@
         <div class="permission-notice">
             <i class="layui-icon layui-icon-tips"></i>
             <span>此分享仅允许下载，不支持预览。</span>
+        </div>
+        {% endif %}
+        {% if not share.allow_copy or not share.allow_screenshot %}
+        <div class="permission-notice">
+            <i class="layui-icon layui-icon-tips"></i>
+            <span>
+                {% if not share.allow_copy and not share.allow_screenshot %}
+                当前分享已禁用复制与截图，相关尝试会记录到分享审计中。
+                {% elif not share.allow_copy %}
+                当前分享已禁用复制操作，相关尝试会记录到分享审计中。
+                {% else %}
+                当前分享已禁用截图操作，相关尝试会记录到分享审计中。
+                {% endif %}
+            </span>
         </div>
         {% endif %}
 

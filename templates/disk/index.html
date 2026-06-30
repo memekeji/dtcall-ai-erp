@@ -9,181 +9,1011 @@
     <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
     <script src="{% static 'js/office_preview.js' %}"></script>
     <style>
-        .disk-stats { margin-bottom: 20px; }
-        .stat-card {
-            text-align: center; padding: 20px; border-radius: 8px;
-            color: white; margin-bottom: 10px;
+        :root {
+            --disk-shell-max: 100%;
+            --disk-hero-bg:
+                radial-gradient(circle at top left, rgba(22, 119, 255, 0.14), transparent 30%),
+                radial-gradient(circle at 85% 10%, rgba(6, 182, 212, 0.12), transparent 24%),
+                linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(246, 250, 255, 0.98));
+            --disk-card-shadow: 0 16px 34px rgba(18, 38, 63, 0.08);
+            --disk-card-shadow-hover: 0 22px 40px rgba(18, 38, 63, 0.12);
+            --disk-muted-bg: #f7faff;
+            --disk-soft-blue: #eef5ff;
+            --disk-soft-cyan: #eefbfd;
+            --disk-soft-amber: #fff7ea;
+            --disk-soft-rose: #fff1f5;
+            --disk-chip: rgba(255, 255, 255, 0.75);
+            --disk-radius-lg: 18px;
+            --disk-radius-md: 14px;
+            --disk-radius-sm: 10px;
         }
-        .stat-card.storage { background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%); }
-        .stat-card.files { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
-        .stat-card.folders { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
-        .stat-card.starred { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
-        .stat-number { font-size: 28px; font-weight: bold; margin-bottom: 5px; }
-        .stat-label { font-size: 14px; opacity: 0.9; }
-        .quick-actions { margin-bottom: 20px; }
-        .file-icon { font-size: 24px; margin-right: 10px; flex-shrink: 0; }
-        .file-thumbnail { width: 48px; height: 48px; object-fit: cover; border-radius: 4px; margin-right: 10px; flex-shrink: 0; }
-        
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            background: #f4f7fb;
+        }
+
+        body {
+            margin: 0;
+            color: var(--dt-text);
+            font-family: var(--dt-font);
+        }
+
+        .disk-page {
+            min-height: 100vh;
+            padding: 12px 14px 16px;
+            background:
+                linear-gradient(180deg, rgba(244, 247, 251, 0.92), rgba(244, 247, 251, 1)),
+                radial-gradient(circle at top left, rgba(22, 119, 255, 0.08), transparent 26%);
+        }
+
+        .disk-shell {
+            max-width: var(--disk-shell-max);
+            margin: 0 auto;
+            display: grid;
+            gap: 14px;
+        }
+
+        .hero-panel {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(213, 227, 242, 0.72);
+            border-radius: 20px;
+            background: var(--disk-hero-bg);
+            box-shadow: var(--disk-card-shadow);
+        }
+
+        .hero-panel::after {
+            position: absolute;
+            inset: auto -80px -120px auto;
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(22, 119, 255, 0.12), transparent 68%);
+            content: "";
+            pointer-events: none;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: minmax(0, 1.05fr) minmax(380px, 0.95fr);
+            gap: 18px;
+            padding: 18px;
+        }
+
+        .hero-copy {
+            display: grid;
+            gap: 14px;
+            align-content: start;
+        }
+
+        .hero-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            width: fit-content;
+            min-height: 32px;
+            padding: 0 12px;
+            border: 1px solid rgba(22, 119, 255, 0.14);
+            border-radius: 999px;
+            color: var(--dt-primary-strong);
+            background: rgba(255, 255, 255, 0.76);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .hero-title {
+            margin: 0;
+            font-size: 26px;
+            line-height: 1.16;
+            font-weight: 800;
+            color: #10233a;
+        }
+
+        .hero-subtitle {
+            display: none;
+            color: var(--dt-text-secondary);
+            font-size: 14px;
+            line-height: 1.75;
+        }
+
+        .hero-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .hero-summary-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 32px;
+            padding: 0 12px;
+            border: 1px solid rgba(213, 227, 242, 0.88);
+            border-radius: 999px;
+            background: var(--disk-chip);
+            color: var(--dt-text-secondary);
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding-top: 2px;
+        }
+
+        .hero-actions .layui-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 120px;
+            height: 40px;
+            padding: 0 14px;
+            border-radius: 12px;
+            font-weight: 700;
+        }
+
+        .hero-actions .layui-btn-primary {
+            background: rgba(255, 255, 255, 0.86);
+        }
+
+        .hero-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .metric-card {
+            padding: 14px;
+            border: 1px solid rgba(213, 227, 242, 0.88);
+            border-radius: 16px;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+        }
+
+        .metric-card.storage { background: var(--disk-soft-blue); }
+        .metric-card.files { background: var(--disk-soft-cyan); }
+        .metric-card.folders { background: #eefcf4; }
+        .metric-card.starred { background: var(--disk-soft-rose); }
+
+        .metric-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .metric-label {
+            color: var(--dt-text-secondary);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .metric-icon {
+            display: grid;
+            width: 38px;
+            height: 38px;
+            place-items: center;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.85);
+            color: var(--dt-primary);
+            font-size: 18px;
+        }
+
+        .metric-value {
+            font-size: 24px;
+            line-height: 1;
+            font-weight: 800;
+            color: #10233a;
+        }
+
+        .metric-note {
+            margin-top: 6px;
+            color: var(--dt-text-muted);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .workspace-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.75fr);
+            gap: 14px;
+            align-items: start;
+        }
+
+        .workspace-panel {
+            border: 1px solid var(--dt-border);
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.96);
+            box-shadow: var(--disk-card-shadow);
+            overflow: hidden;
+        }
+
+        .workspace-panel.side-panel {
+            display: grid;
+            gap: 12px;
+            padding: 0;
+            background: transparent;
+            border: 0;
+            box-shadow: none;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 16px 18px 12px;
+            border-bottom: 1px solid #edf3fb;
+        }
+
+        .panel-header-inner {
+            min-width: 0;
+        }
+
+        .panel-title {
+            margin: 0;
+            font-size: 17px;
+            line-height: 1.3;
+            font-weight: 800;
+            color: #10233a;
+        }
+
+        .panel-subtitle {
+            margin-top: 4px;
+            color: var(--dt-text-secondary);
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .panel-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--dt-primary);
+            font-size: 13px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .panel-link:hover {
+            color: var(--dt-primary-strong);
+        }
+
+        .panel-body {
+            padding: 14px 18px 18px;
+        }
+
+        .feature-strip {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .feature-tile {
+            min-height: 96px;
+            padding: 14px;
+            border: 1px solid var(--dt-border);
+            border-radius: 16px;
+            background: linear-gradient(180deg, #ffffff, #f9fbff);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+            cursor: pointer;
+        }
+
+        .feature-tile:hover {
+            transform: translateY(-2px);
+            border-color: rgba(22, 119, 255, 0.24);
+            box-shadow: 0 16px 28px rgba(18, 38, 63, 0.08);
+        }
+
+        .feature-icon {
+            display: grid;
+            width: 36px;
+            height: 36px;
+            place-items: center;
+            margin-bottom: 12px;
+            border-radius: 12px;
+            background: #eff5ff;
+            color: var(--dt-primary);
+            font-size: 16px;
+        }
+
+        .feature-name {
+            font-size: 14px;
+            font-weight: 800;
+            color: #10233a;
+        }
+
+        .feature-desc {
+            margin-top: 4px;
+            color: var(--dt-text-secondary);
+            font-size: 11px;
+            line-height: 1.6;
+        }
+
+        .stack-card {
+            border: 1px solid var(--dt-border);
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.96);
+            box-shadow: var(--disk-card-shadow);
+            overflow: hidden;
+        }
+
+        .stack-card .panel-header {
+            padding: 14px 16px 10px;
+        }
+
+        .stack-card .panel-body {
+            padding: 12px 16px 16px;
+        }
+
+        .stack-stats {
+            display: grid;
+            gap: 8px;
+        }
+
+        .stack-stat-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            min-height: 46px;
+            padding: 0 12px;
+            border: 1px solid #edf3fb;
+            border-radius: 12px;
+            background: #fbfdff;
+        }
+
+        .stack-stat-label {
+            color: var(--dt-text-secondary);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .stack-stat-value {
+            color: #10233a;
+            font-size: 15px;
+            font-weight: 800;
+        }
+
+        .batch-actions {
+            display: none;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+            padding: 10px 12px;
+            border: 1px solid rgba(22, 119, 255, 0.14);
+            border-radius: 12px;
+            background: #f2f8ff;
+        }
+
+        .batch-actions.visible {
+            display: flex;
+        }
+
+        .batch-count {
+            color: var(--dt-primary-strong);
+            font-size: 13px;
+            font-weight: 800;
+            margin-right: auto;
+        }
+
+        .batch-actions .layui-btn {
+            height: 32px;
+            line-height: 32px;
+            padding: 0 12px;
+            border-radius: 10px;
+        }
+
+        .file-list {
+            display: grid;
+            gap: 10px;
+        }
+
         .file-item {
             position: relative;
-            padding: 15px; border: 1px solid #f0f0f0; border-radius: 8px;
-            display: flex; flex-direction: column; margin-bottom: 15px;
-            background-color: #fff; transition: all 0.3s ease;
-            width: calc(50% - 8px); box-sizing: border-box; cursor: pointer;
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            gap: 12px;
+            align-items: center;
+            padding: 12px 14px 12px 48px;
+            border: 1px solid #edf3fb;
+            border-radius: 16px;
+            background: linear-gradient(180deg, #ffffff, #fbfdff);
+            transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+            cursor: pointer;
         }
-        .file-item:hover { background-color: #f8f9fa; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-        .file-item.selected { border-color: #1E9FFF; background-color: #e8f4ff; box-shadow: 0 0 0 2px rgba(30,159,255,0.2); }
-        
+
+        .file-item:hover {
+            transform: translateY(-1px);
+            border-color: rgba(22, 119, 255, 0.18);
+            background: #ffffff;
+            box-shadow: var(--disk-card-shadow-hover);
+        }
+
+        .file-item.selected {
+            border-color: rgba(22, 119, 255, 0.34);
+            background: #f3f8ff;
+            box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.08);
+        }
+
         .file-checkbox {
-            position: absolute; top: 10px; left: 10px; z-index: 10;
-            width: 20px; height: 20px; cursor: pointer;
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            z-index: 2;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
         }
+
         .file-checkbox input[type="checkbox"] {
-            width: 20px; height: 20px; cursor: pointer; margin: 0;
+            width: 20px;
+            height: 20px;
+            margin: 0;
+            cursor: pointer;
         }
-        
-        .file-header { display: flex; align-items: center; margin-bottom: 10px; padding-left: 28px; }
-        .file-info { flex: 1; min-width: 0; }
-        .file-name { font-weight: bold; margin-bottom: 5px; font-size: 14px; word-break: break-all; }
-        .file-meta { font-size: 12px; color: #999; }
+
+        .file-visual {
+            display: grid;
+            width: 48px;
+            height: 48px;
+            place-items: center;
+            overflow: hidden;
+            border: 1px solid #edf3fb;
+            border-radius: 14px;
+            background: #f7fbff;
+            flex-shrink: 0;
+        }
+
+        .file-thumbnail {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .file-icon {
+            font-size: 20px;
+        }
+
+        .file-icon.document { color: #1e77d3; }
+        .file-icon.image { color: #20a36b; }
+        .file-icon.video { color: #d3542f; }
+        .file-icon.audio { color: #d38b16; }
+        .file-icon.other { color: #7f8b9b; }
+
+        .file-main {
+            min-width: 0;
+        }
+
+        .file-name-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .file-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #10233a;
+            font-size: 14px;
+            font-weight: 800;
+        }
+
+        .file-tag {
+            display: inline-flex;
+            align-items: center;
+            min-height: 24px;
+            padding: 0 9px;
+            border-radius: 999px;
+            background: #f0f6ff;
+            color: var(--dt-primary-strong);
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .file-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 6px;
+            color: var(--dt-text-secondary);
+            font-size: 11px;
+            line-height: 1.6;
+        }
+
         .file-actions {
-            margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;
-            padding-left: 28px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 6px;
+            max-width: 360px;
         }
-        .file-actions button { pointer-events: auto; }
-        .file-list-container { display: flex; flex-wrap: wrap; gap: 15px; padding: 10px; }
-        
-        .batch-actions {
-            display: none; align-items: center; gap: 10px;
-            padding: 10px 16px; background: #e8f4ff; border: 1px solid #b3d8ff;
-            border-radius: 6px; margin-bottom: 15px;
+
+        .file-actions .layui-btn {
+            min-width: 62px;
+            height: 30px;
+            line-height: 28px;
+            padding: 0 10px;
+            border: 1px solid #dbe6f2;
+            border-radius: 10px;
+            background: #ffffff;
+            box-shadow: none;
+            color: var(--dt-text-secondary);
+            font-size: 12px;
+            font-weight: 700;
+            transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
         }
-        .batch-actions.visible { display: flex; }
-        .batch-count { font-weight: bold; color: #1E9FFF; margin-right: 10px; }
+
+        .file-actions .layui-btn:hover {
+            border-color: rgba(22, 119, 255, 0.28);
+            color: var(--dt-primary-strong);
+        }
+
+        .file-actions .layui-btn.layui-btn-primary,
+        .file-actions .layui-btn.layui-btn-normal,
+        .file-actions .layui-btn.layui-btn-warm {
+            border-color: #d7e7fb;
+            background: #f5f9ff;
+            color: var(--dt-primary-strong);
+        }
+
+        .file-actions .layui-btn.layui-btn-danger {
+            border-color: #f1d6d9;
+            background: #fff5f5;
+            color: #cf4f5d;
+        }
+
+        .file-actions .layui-btn-xs {
+            font-size: 12px;
+        }
+
+        .empty-state {
+            display: grid;
+            place-items: center;
+            min-height: 200px;
+            padding: 20px;
+            border: 1px dashed #d7e4f3;
+            border-radius: 16px;
+            background: linear-gradient(180deg, #ffffff, #fbfdff);
+            text-align: center;
+        }
+
+        .empty-state i {
+            display: block;
+            margin-bottom: 14px;
+            color: #c3d1e0;
+            font-size: 42px;
+        }
+
+        .empty-title {
+            color: #10233a;
+            font-size: 16px;
+            font-weight: 800;
+        }
+
+        .empty-desc {
+            margin-top: 8px;
+            color: var(--dt-text-secondary);
+            font-size: 13px;
+            line-height: 1.7;
+        }
+
+        @media (max-width: 1320px) {
+            .hero-content,
+            .workspace-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .workspace-panel.side-panel {
+                padding: 0;
+                border: 1px solid var(--dt-border);
+                border-radius: 18px;
+                background: rgba(255, 255, 255, 0.96);
+                box-shadow: var(--disk-card-shadow);
+            }
+
+            .workspace-panel.side-panel > .stack-card {
+                box-shadow: none;
+                border: 0;
+                border-bottom: 1px solid var(--dt-border);
+                border-radius: 0;
+            }
+
+            .workspace-panel.side-panel > .stack-card:last-child {
+                border-bottom: 0;
+            }
+        }
+
+        @media (max-width: 980px) {
+            .disk-page {
+                padding: 10px;
+            }
+
+            .hero-content {
+                padding: 16px;
+            }
+
+            .hero-title {
+                font-size: 22px;
+            }
+
+            .hero-metrics,
+            .feature-strip {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .panel-header,
+            .panel-body {
+                padding-left: 18px;
+                padding-right: 18px;
+            }
+
+            .file-item {
+                grid-template-columns: auto minmax(0, 1fr);
+                padding-right: 16px;
+            }
+
+            .file-actions {
+                grid-column: 1 / -1;
+                justify-content: flex-start;
+                max-width: none;
+                padding-top: 4px;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .hero-metrics,
+            .feature-strip {
+                grid-template-columns: 1fr;
+            }
+
+            .hero-actions .layui-btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .panel-header {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .file-item {
+                padding-left: 48px;
+            }
+
+            .file-name-row {
+                flex-wrap: wrap;
+            }
+
+            .file-actions .layui-btn {
+                flex: 1 1 calc(50% - 8px);
+                min-width: 96px;
+                text-align: center;
+            }
+        }
     </style>
 </head>
 <body>
-<div class="layui-fluid" style="padding: 20px;">
-    <div class="layui-row layui-col-space15 disk-stats">
-        <div class="layui-col-md3"><div class="stat-card storage"><div class="stat-number">{{ total_size|filesizeformat }}</div><div class="stat-label">已使用存储</div></div></div>
-        <div class="layui-col-md3"><div class="stat-card files"><div class="stat-number">{{ file_count }}</div><div class="stat-label">文件数量</div></div></div>
-        <div class="layui-col-md3"><div class="stat-card folders"><div class="stat-number">{{ folder_count }}</div><div class="stat-label">文件夹数量</div></div></div>
-        <div class="layui-col-md3"><div class="stat-card starred"><div class="stat-number">{{ starred_files.count }}</div><div class="stat-label">收藏文件</div></div></div>
-    </div>
+<div class="disk-page">
+    <div class="disk-shell">
+        <section class="hero-panel">
+            <div class="hero-content">
+                <div class="hero-copy">
+                    <div class="hero-eyebrow">
+                        <i class="layui-icon layui-icon-template-1"></i>
+                        企业网盘工作台
+                    </div>
+                    <div>
+                        <h1 class="hero-title">用一个更清晰的首页，接住你的日常文件工作。</h1>
+                        <div class="hero-subtitle">
+                            在这里快速回到最近处理的文件、继续整理收藏资料，并直接进入个人文件、共享区或回收站。页面保持企业系统的稳定感，但让高频操作更轻、更顺手。
+                        </div>
+                    </div>
+                    <div class="hero-summary">
+                        <div class="hero-summary-chip">
+                            <i class="layui-icon layui-icon-time"></i>
+                            最近文件 {{ recent_files|length }} 项
+                        </div>
+                        <div class="hero-summary-chip">
+                            <i class="layui-icon layui-icon-star-fill"></i>
+                            重点收藏 {{ starred_files.count }} 项
+                        </div>
+                        <div class="hero-summary-chip">
+                            <i class="layui-icon layui-icon-share"></i>
+                            支持内部共享与外链协作
+                        </div>
+                    </div>
+                    <div class="hero-actions">
+                        <button class="layui-btn" onclick="uploadFile()">
+                            <i class="layui-icon layui-icon-upload"></i>
+                            上传文件
+                        </button>
+                        <button class="layui-btn layui-btn-primary" onclick="goToPersonal()">
+                            <i class="layui-icon layui-icon-file"></i>
+                            个人文件
+                        </button>
+                        <button class="layui-btn layui-btn-primary" onclick="goToShared()">
+                            <i class="layui-icon layui-icon-share"></i>
+                            共享文件
+                        </button>
+                        <button class="layui-btn layui-btn-primary" onclick="goToRecycle()">
+                            <i class="layui-icon layui-icon-delete"></i>
+                            回收站
+                        </button>
+                    </div>
+                </div>
+                <div class="hero-metrics">
+                    <article class="metric-card storage">
+                        <div class="metric-top">
+                            <div class="metric-label">已使用存储</div>
+                            <div class="metric-icon"><i class="layui-icon layui-icon-chart-screen"></i></div>
+                        </div>
+                        <div class="metric-value">{{ total_size|filesizeformat }}</div>
+                        <div class="metric-note">当前账号下所有未删除文件占用的总空间。</div>
+                    </article>
+                    <article class="metric-card files">
+                        <div class="metric-top">
+                            <div class="metric-label">文件数量</div>
+                            <div class="metric-icon"><i class="layui-icon layui-icon-file-b"></i></div>
+                        </div>
+                        <div class="metric-value">{{ file_count }}</div>
+                        <div class="metric-note">包含最近上传与当前仍在使用的业务资料。</div>
+                    </article>
+                    <article class="metric-card folders">
+                        <div class="metric-top">
+                            <div class="metric-label">文件夹数量</div>
+                            <div class="metric-icon"><i class="layui-icon layui-icon-component"></i></div>
+                        </div>
+                        <div class="metric-value">{{ folder_count }}</div>
+                        <div class="metric-note">可按项目、客户或部门组织你的文件结构。</div>
+                    </article>
+                    <article class="metric-card starred">
+                        <div class="metric-top">
+                            <div class="metric-label">收藏文件</div>
+                            <div class="metric-icon"><i class="layui-icon layui-icon-rate-solid"></i></div>
+                        </div>
+                        <div class="metric-value">{{ starred_files.count }}</div>
+                        <div class="metric-note">优先展示值得持续追踪和重复使用的文件。</div>
+                    </article>
+                </div>
+            </div>
+        </section>
 
-    <div class="layui-row layui-col-space15 quick-actions">
-        <div class="layui-col-md12"><div class="layui-card"><div class="layui-card-header">快捷操作</div><div class="layui-card-body">
-            <button class="layui-btn layui-btn-primary" onclick="goToPersonal()"><i class="layui-icon layui-icon-file"></i> 个人文件</button>
-            <button class="layui-btn layui-btn-primary" onclick="goToShared()"><i class="layui-icon layui-icon-share"></i> 共享文件</button>
-            <button class="layui-btn layui-btn-primary" onclick="goToRecycle()"><i class="layui-icon layui-icon-delete"></i> 回收站</button>
-            <button class="layui-btn layui-btn-primary" onclick="uploadFile()"><i class="layui-icon layui-icon-upload"></i> 上传文件</button>
-        </div></div></div>
-    </div>
-
-    <div class="layui-row layui-col-space15">
-        <div class="layui-col-md6">
-            <div class="layui-card">
-                <div class="layui-card-header" style="display:flex;justify-content:space-between;align-items:center;">
-                    <span>最近文件</span>
+        <div class="workspace-grid">
+            <section class="workspace-panel">
+                <div class="panel-header">
+                    <div class="panel-header-inner">
+                        <h2 class="panel-title">最近文件</h2>
+                        <div class="panel-subtitle">继续处理你最近使用的文件，预览、共享、收藏和清理都可以在这里完成。</div>
+                    </div>
+                    <a class="panel-link" href="javascript:void(0)" onclick="goToPersonal()">
+                        查看全部
+                        <i class="layui-icon layui-icon-right"></i>
+                    </a>
+                </div>
+                <div class="panel-body">
                     <div class="batch-actions" id="recentBatchActions">
                         <span class="batch-count" id="recentBatchCount">已选 0 项</span>
                         <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="batchShare('recent')">批量分享</button>
                         <button class="layui-btn layui-btn-xs" onclick="batchDownload('recent')">批量下载</button>
                         <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="batchDelete('recent')">批量删除</button>
                     </div>
-                </div>
-                <div class="layui-card-body"><div class="file-list-container" id="recentFileList">
-                    {% for file in recent_files %}
-                    <div class="file-item" data-file-id="{{ file.id }}" data-file-name="{{ file.name }}" data-file-type="{{ file.file_type }}">
-                        <div class="file-checkbox" onclick="event.stopPropagation();">
-                            <input type="checkbox" data-file-id="{{ file.id }}">
-                        </div>
-                        <div class="file-header" onclick="previewFile('{{ file.id }}', '{{ file.name|escapejs }}', '{{ file.file_type }}')">
-                            {% if file.file_type == 'image' %}
-                            <img src="/disk/download/{{ file.id }}/" alt="{{ file.name }}" class="file-thumbnail">
-                            {% else %}
-                            <div class="file-icon">
-                                {% if file.file_type == 'document' %}<i class="layui-icon layui-icon-file" style="color:#1E9FFF;"></i>
-                                {% elif file.file_type == 'video' %}<i class="layui-icon layui-icon-video" style="color:#FF5722;"></i>
-                                {% elif file.file_type == 'audio' %}<i class="layui-icon layui-icon-voice" style="color:#FFB800;"></i>
-                                {% else %}<i class="layui-icon layui-icon-file" style="color:#999;"></i>{% endif %}
+                    <div class="file-list" id="recentFileList">
+                        {% for file in recent_files %}
+                        <div class="file-item" data-file-id="{{ file.id }}" data-file-name="{{ file.name }}" data-file-type="{{ file.file_type }}">
+                            <div class="file-checkbox" onclick="event.stopPropagation();">
+                                <input type="checkbox" data-file-id="{{ file.id }}">
                             </div>
-                            {% endif %}
-                            <div class="file-info"><div class="file-name">{{ file.name }}</div><div class="file-meta">{{ file.get_size_display }} · {{ file.update_time|date:"Y-m-d H:i" }}</div></div>
+                            <div class="file-visual" onclick="previewFile('{{ file.id }}', '{{ file.name|escapejs }}', '{{ file.file_type }}')">
+                                {% if file.file_type == 'image' %}
+                                <img src="/disk/download/{{ file.id }}/" alt="{{ file.name }}" class="file-thumbnail">
+                                {% elif file.file_type == 'document' %}
+                                <i class="layui-icon layui-icon-file file-icon document"></i>
+                                {% elif file.file_type == 'video' %}
+                                <i class="layui-icon layui-icon-video file-icon video"></i>
+                                {% elif file.file_type == 'audio' %}
+                                <i class="layui-icon layui-icon-voice file-icon audio"></i>
+                                {% else %}
+                                <i class="layui-icon layui-icon-file file-icon other"></i>
+                                {% endif %}
+                            </div>
+                            <div class="file-main" onclick="previewFile('{{ file.id }}', '{{ file.name|escapejs }}', '{{ file.file_type }}')">
+                                <div class="file-name-row">
+                                    <div class="file-name">{{ file.name }}</div>
+                                    <span class="file-tag">
+                                        {% if file.file_type == 'document' %}文档
+                                        {% elif file.file_type == 'image' %}图片
+                                        {% elif file.file_type == 'video' %}视频
+                                        {% elif file.file_type == 'audio' %}音频
+                                        {% elif file.file_type == 'archive' %}压缩包
+                                        {% else %}文件{% endif %}
+                                    </span>
+                                </div>
+                                <div class="file-meta">
+                                    <span>{{ file.get_size_display }}</span>
+                                    <span>{{ file.update_time|date:"Y-m-d H:i" }}</span>
+                                    <span>下载 {{ file.download_count }}</span>
+                                    {% if file.is_starred %}<span>已收藏</span>{% endif %}
+                                </div>
+                            </div>
+                            <div class="file-actions">
+                                <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="event.stopPropagation();previewFile('{{ file.id }}', '{{ file.name|escapejs }}', '{{ file.file_type }}')">预览</button>
+                                <button class="layui-btn layui-btn-xs" onclick="event.stopPropagation();downloadFile('{{ file.id }}')">下载</button>
+                                <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="event.stopPropagation();shareItem('file', '{{ file.id }}')">分享</button>
+                                <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="event.stopPropagation();shareToUserOrDept('file', '{{ file.id }}')">共享</button>
+                                {% if file.is_starred %}
+                                <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation();toggleStar('{{ file.id }}', this)"><i class="layui-icon layui-icon-star-fill" style="color:#FFB800;"></i> 取消收藏</button>
+                                {% else %}
+                                <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="event.stopPropagation();toggleStar('{{ file.id }}', this)"><i class="layui-icon layui-icon-star"></i> 收藏</button>
+                                {% endif %}
+                                <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation();deleteFile('{{ file.id }}')">删除</button>
+                            </div>
                         </div>
-                        <div class="file-actions">
-                            <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="event.stopPropagation();previewFile('{{ file.id }}', '{{ file.name|escapejs }}', '{{ file.file_type }}')">预览</button>
-                            <button class="layui-btn layui-btn-xs" onclick="event.stopPropagation();downloadFile('{{ file.id }}')">下载</button>
-                            <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="event.stopPropagation();shareItem('file', '{{ file.id }}')">分享</button>
-                            <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="event.stopPropagation();shareToUserOrDept('file', '{{ file.id }}')">共享</button>
-                            {% if file.is_starred %}
-                            <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation();toggleStar('{{ file.id }}', this)"><i class="layui-icon layui-icon-star-fill" style="color:#FFB800;"></i> 取消收藏</button>
-                            {% else %}
-                            <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="event.stopPropagation();toggleStar('{{ file.id }}', this)"><i class="layui-icon layui-icon-star"></i> 收藏</button>
-                            {% endif %}
-                            <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation();deleteFile('{{ file.id }}')">删除</button>
+                        {% empty %}
+                        <div class="empty-state">
+                            <div>
+                                <i class="layui-icon layui-icon-upload-drag"></i>
+                                <div class="empty-title">还没有最近文件</div>
+                                <div class="empty-desc">上传第一份文件后，这里会优先显示你最近处理过的内容。</div>
+                            </div>
                         </div>
+                        {% endfor %}
                     </div>
-                    {% empty %}
-                    <div style="text-align:center;padding:40px;color:#999;width:100%;">暂无最近文件</div>
-                    {% endfor %}
-                </div></div>
-            </div>
-        </div>
+                </div>
+            </section>
 
-        <div class="layui-col-md6">
-            <div class="layui-card">
-                <div class="layui-card-header" style="display:flex;justify-content:space-between;align-items:center;">
-                    <span>收藏文件</span>
-                    <div class="batch-actions" id="starredBatchActions">
-                        <span class="batch-count" id="starredBatchCount">已选 0 项</span>
-                        <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="batchShare('starred')">批量分享</button>
-                        <button class="layui-btn layui-btn-xs" onclick="batchDownload('starred')">批量下载</button>
-                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="batchDelete('starred')">批量删除</button>
-                    </div>
-                </div>
-                <div class="layui-card-body"><div class="file-list-container" id="starredFileList">
-                    {% for file in starred_files %}
-                    <div class="file-item" data-file-id="{{ file.id }}" data-file-name="{{ file.name }}" data-file-type="{{ file.file_type }}">
-                        <div class="file-checkbox" onclick="event.stopPropagation();">
-                            <input type="checkbox" data-file-id="{{ file.id }}">
+            <aside class="workspace-panel side-panel">
+                <section class="stack-card">
+                    <div class="panel-header">
+                        <div class="panel-header-inner">
+                            <h2 class="panel-title">快捷入口</h2>
+                            <div class="panel-subtitle">从首页直接进入最常用的网盘工作流。</div>
                         </div>
-                        <div class="file-header" onclick="previewFile('{{ file.id }}', '{{ file.name|escapejs }}', '{{ file.file_type }}')">
-                            {% if file.file_type == 'image' %}
-                            <img src="/disk/download/{{ file.id }}/" alt="{{ file.name }}" class="file-thumbnail">
-                            {% else %}
-                            <div class="file-icon">
-                                {% if file.file_type == 'document' %}<i class="layui-icon layui-icon-file" style="color:#1E9FFF;"></i>
-                                {% elif file.file_type == 'video' %}<i class="layui-icon layui-icon-video" style="color:#FF5722;"></i>
-                                {% elif file.file_type == 'audio' %}<i class="layui-icon layui-icon-voice" style="color:#FFB800;"></i>
-                                {% else %}<i class="layui-icon layui-icon-file" style="color:#999;"></i>{% endif %}
+                    </div>
+                    <div class="panel-body">
+                        <div class="feature-strip">
+                            <div class="feature-tile" onclick="goToPersonal()">
+                                <div class="feature-icon"><i class="layui-icon layui-icon-file"></i></div>
+                                <div class="feature-name">个人文件</div>
+                                <div class="feature-desc">进入完整目录继续整理与归档。</div>
                             </div>
-                            {% endif %}
-                            <div class="file-info"><div class="file-name">{{ file.name }}</div><div class="file-meta">{{ file.get_size_display }} · {{ file.update_time|date:"Y-m-d H:i" }}</div></div>
-                        </div>
-                        <div class="file-actions">
-                            <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="event.stopPropagation();previewFile('{{ file.id }}', '{{ file.name|escapejs }}', '{{ file.file_type }}')">预览</button>
-                            <button class="layui-btn layui-btn-xs" onclick="event.stopPropagation();downloadFile('{{ file.id }}')">下载</button>
-                            <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="event.stopPropagation();shareItem('file', '{{ file.id }}')">分享</button>
-                            <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="event.stopPropagation();shareToUserOrDept('file', '{{ file.id }}')">共享</button>
-                            {% if file.is_starred %}
-                            <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation();toggleStar('{{ file.id }}', this)"><i class="layui-icon layui-icon-star-fill" style="color:#FFB800;"></i> 取消收藏</button>
-                            {% else %}
-                            <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="event.stopPropagation();toggleStar('{{ file.id }}', this)"><i class="layui-icon layui-icon-star"></i> 收藏</button>
-                            {% endif %}
-                            <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation();deleteFile('{{ file.id }}')">删除</button>
+                            <div class="feature-tile" onclick="goToShared()">
+                                <div class="feature-icon"><i class="layui-icon layui-icon-share"></i></div>
+                                <div class="feature-name">共享文件</div>
+                                <div class="feature-desc">查看同事或部门共享给你的资料。</div>
+                            </div>
+                            <div class="feature-tile" onclick="goToRecycle()">
+                                <div class="feature-icon"><i class="layui-icon layui-icon-delete"></i></div>
+                                <div class="feature-name">回收站</div>
+                                <div class="feature-desc">恢复误删文件，保持资料可追溯。</div>
+                            </div>
+                            <div class="feature-tile" onclick="uploadFile()">
+                                <div class="feature-icon"><i class="layui-icon layui-icon-upload"></i></div>
+                                <div class="feature-name">上传文件</div>
+                                <div class="feature-desc">快速上传新的业务附件和资料。</div>
+                            </div>
                         </div>
                     </div>
-                    {% empty %}
-                    <div style="text-align:center;padding:40px;color:#999;width:100%;">暂无收藏文件</div>
-                    {% endfor %}
-                </div></div>
-            </div>
+                </section>
+
+                <section class="stack-card">
+                    <div class="panel-header">
+                        <div class="panel-header-inner">
+                            <h2 class="panel-title">收藏文件</h2>
+                            <div class="panel-subtitle">你标记的重要资料会固定出现在这里，方便重复调用。</div>
+                        </div>
+                        <a class="panel-link" href="javascript:void(0)" onclick="goToPersonal()">
+                            管理收藏
+                            <i class="layui-icon layui-icon-right"></i>
+                        </a>
+                    </div>
+                    <div class="panel-body">
+                        <div class="batch-actions" id="starredBatchActions">
+                            <span class="batch-count" id="starredBatchCount">已选 0 项</span>
+                            <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="batchShare('starred')">批量分享</button>
+                            <button class="layui-btn layui-btn-xs" onclick="batchDownload('starred')">批量下载</button>
+                            <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="batchDelete('starred')">批量删除</button>
+                        </div>
+                        <div class="file-list" id="starredFileList">
+                            {% for file in starred_files %}
+                            <div class="file-item" data-file-id="{{ file.id }}" data-file-name="{{ file.name }}" data-file-type="{{ file.file_type }}">
+                                <div class="file-checkbox" onclick="event.stopPropagation();">
+                                    <input type="checkbox" data-file-id="{{ file.id }}">
+                                </div>
+                                <div class="file-visual" onclick="previewFile('{{ file.id }}', '{{ file.name|escapejs }}', '{{ file.file_type }}')">
+                                    {% if file.file_type == 'image' %}
+                                    <img src="/disk/download/{{ file.id }}/" alt="{{ file.name }}" class="file-thumbnail">
+                                    {% elif file.file_type == 'document' %}
+                                    <i class="layui-icon layui-icon-file file-icon document"></i>
+                                    {% elif file.file_type == 'video' %}
+                                    <i class="layui-icon layui-icon-video file-icon video"></i>
+                                    {% elif file.file_type == 'audio' %}
+                                    <i class="layui-icon layui-icon-voice file-icon audio"></i>
+                                    {% else %}
+                                    <i class="layui-icon layui-icon-file file-icon other"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="file-main" onclick="previewFile('{{ file.id }}', '{{ file.name|escapejs }}', '{{ file.file_type }}')">
+                                    <div class="file-name-row">
+                                        <div class="file-name">{{ file.name }}</div>
+                                        <span class="file-tag">重点资料</span>
+                                    </div>
+                                    <div class="file-meta">
+                                        <span>{{ file.get_size_display }}</span>
+                                        <span>{{ file.update_time|date:"Y-m-d H:i" }}</span>
+                                        <span>下载 {{ file.download_count }}</span>
+                                    </div>
+                                </div>
+                                <div class="file-actions">
+                                    <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="event.stopPropagation();previewFile('{{ file.id }}', '{{ file.name|escapejs }}', '{{ file.file_type }}')">预览</button>
+                                    <button class="layui-btn layui-btn-xs" onclick="event.stopPropagation();downloadFile('{{ file.id }}')">下载</button>
+                                    <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="event.stopPropagation();shareItem('file', '{{ file.id }}')">分享</button>
+                                    <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="event.stopPropagation();shareToUserOrDept('file', '{{ file.id }}')">共享</button>
+                                    <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation();toggleStar('{{ file.id }}', this)"><i class="layui-icon layui-icon-star-fill" style="color:#FFB800;"></i> 取消收藏</button>
+                                    <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="event.stopPropagation();deleteFile('{{ file.id }}')">删除</button>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="empty-state">
+                                <div>
+                                    <i class="layui-icon layui-icon-rate-solid"></i>
+                                    <div class="empty-title">还没有收藏文件</div>
+                                    <div class="empty-desc">把高频使用的合同、方案、SOP 或图片资料收藏起来，这里就会变成你的重点资料区。</div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </section>
+
+                <section class="stack-card">
+                    <div class="panel-header">
+                        <div class="panel-header-inner">
+                            <h2 class="panel-title">工作概览</h2>
+                            <div class="panel-subtitle">用更轻的方式观察当前文件资产状态。</div>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="stack-stats">
+                            <div class="stack-stat-item">
+                                <div class="stack-stat-label">当前文件存量</div>
+                                <div class="stack-stat-value">{{ file_count }}</div>
+                            </div>
+                            <div class="stack-stat-item">
+                                <div class="stack-stat-label">文件夹结构</div>
+                                <div class="stack-stat-value">{{ folder_count }}</div>
+                            </div>
+                            <div class="stack-stat-item">
+                                <div class="stack-stat-label">收藏密度</div>
+                                <div class="stack-stat-value">{{ starred_files.count }}/{{ file_count }}</div>
+                            </div>
+                            <div class="stack-stat-item">
+                                <div class="stack-stat-label">存储占用</div>
+                                <div class="stack-stat-value">{{ total_size|filesizeformat }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </aside>
         </div>
     </div>
 </div>
+
 <script src="{% static 'layui/layui.js' %}"></script>
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="{% static 'js/jquery.min.js' %}"></script>
 <script>
 layui.use(['layer'], function(){ window.layer = layui.layer; });
 
@@ -192,29 +1022,61 @@ function goToShared(){ window.location.href='/disk/share/'; }
 function goToRecycle(){ window.location.href='/disk/recycle/'; }
 
 function uploadFile(){
-    layer.open({ type:2, title:'文件上传', shadeClose:false, shade:0.3, maxmin:true, area:['80%','100%'], offset:'r', anim:2, content:'/disk/upload/',
-        success:function(layero){ if(layero&&typeof layero.css==='function'){ layero.css({'right':'0','top':'0','height':'100%'}); } },
+    layer.open({
+        type:2,
+        title:'文件上传',
+        shadeClose:false,
+        shade:0.3,
+        maxmin:true,
+        area:['80%','100%'],
+        offset:'r',
+        anim:2,
+        content:'/disk/upload/',
+        success:function(layero){
+            if(layero && typeof layero.css === 'function'){
+                layero.css({'right':'0','top':'0','height':'100%'});
+            }
+        },
         end:function(){ layer.msg('上传完成',{icon:1}); }
     });
 }
 
 function downloadFile(fileId){
-    var a=document.createElement('a'); a.href='/disk/download/'+fileId+'/'; a.download='';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    var a=document.createElement('a');
+    a.href='/disk/download/'+fileId+'/';
+    a.download='';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 }
 
 function previewFile(fileId, fileName, fileType){
     layui.use('layer', function(){
         var previewUrl='/disk/preview/?file_id='+fileId+'&file_name='+encodeURIComponent(fileName)+'&file_type='+fileType;
-        layer.open({ type:2, title:'文件预览 - '+fileName, area:['80%','100%'], content:previewUrl, maxmin:true,
-            btn:['下载','关闭'], btn1:function(index){ downloadFile(fileId); return false; }
+        layer.open({
+            type:2,
+            title:'文件预览 - '+fileName,
+            area:['80%','100%'],
+            content:previewUrl,
+            maxmin:true,
+            btn:['下载','关闭'],
+            btn1:function(index){
+                downloadFile(fileId);
+                return false;
+            }
         });
     });
 }
 
 function shareItem(type, id){
     layui.use('layer', function(){
-        layer.open({ type:2, title:'创建分享', area:['80%','100%'], offset:'r', shade:0.3, maxmin:true,
+        layer.open({
+            type:2,
+            title:'创建分享',
+            area:['80%','100%'],
+            offset:'r',
+            shade:0.3,
+            maxmin:true,
             content:'/disk/share/create/?type='+type+'&id='+id
         });
     });
@@ -222,8 +1084,15 @@ function shareItem(type, id){
 
 function shareToUserOrDept(type, id){
     layui.use('layer', function(){
-        layer.open({ type:2, title:'共享给用户或部门', area:['80%','100%'], offset:'r', shade:0.3, maxmin:true,
-            content:'/disk/permission/?type='+type+'&id='+id
+        var cacheBuster = new Date().getTime();
+        layer.open({
+            type:2,
+            title:'共享权限管理',
+            area:['80%','100%'],
+            offset:'r',
+            shade:0.3,
+            maxmin:true,
+            content:'/disk/permission/?type='+type+'&id='+id+'&_t='+cacheBuster
         });
     });
 }
@@ -241,8 +1110,13 @@ function toggleStar(fileId, button){
                     button.innerHTML='<i class="layui-icon layui-icon-star"></i> 收藏';
                     layer.msg('取消收藏成功',{icon:1});
                 }
-            }else{ layer.msg(response.msg,{icon:2}); }
-        }).fail(function(){ layer.close(loadingIndex); layer.msg('操作失败',{icon:2}); });
+            }else{
+                layer.msg(response.msg,{icon:2});
+            }
+        }).fail(function(){
+            layer.close(loadingIndex);
+            layer.msg('操作失败',{icon:2});
+        });
     });
 }
 
@@ -253,14 +1127,20 @@ function deleteFile(fileId){
             var loadingIndex=layer.load(1,{shade:[0.1,'#fff']});
             $.post('/disk/file/delete/'+fileId+'/', {csrfmiddlewaretoken:'{{ csrf_token }}'}, function(response){
                 layer.close(loadingIndex);
-                if(response.code===0){ layer.msg('文件已删除',{icon:1}); location.reload(); }
-                else{ layer.msg(response.msg,{icon:2}); }
-            }).fail(function(){ layer.close(loadingIndex); layer.msg('删除失败',{icon:2}); });
+                if(response.code===0){
+                    layer.msg('文件已删除',{icon:1});
+                    location.reload();
+                }else{
+                    layer.msg(response.msg,{icon:2});
+                }
+            }).fail(function(){
+                layer.close(loadingIndex);
+                layer.msg('删除失败',{icon:2});
+            });
         });
     });
 }
 
-// ====== 批量选择和点击预览逻辑 ======
 function getSelectedFileIds(section){
     var containerId = section==='recent' ? 'recentFileList' : 'starredFileList';
     var checkboxes = document.querySelectorAll('#'+containerId+' input[type="checkbox"]:checked');
@@ -274,15 +1154,14 @@ function updateBatchUI(section){
     var batchActions = document.getElementById(section+'BatchActions');
     var batchCount = document.getElementById(section+'BatchCount');
     var containerId = section==='recent' ? 'recentFileList' : 'starredFileList';
-    
+
     if(ids.length > 0){
         batchActions.classList.add('visible');
-        batchCount.textContent = '已选 '+ids.length+' 项';
+        batchCount.textContent = '已选 ' + ids.length + ' 项';
     } else {
         batchActions.classList.remove('visible');
     }
-    
-    // update selected class on file items
+
     var allCheckboxes = document.querySelectorAll('#'+containerId+' input[type="checkbox"]');
     allCheckboxes.forEach(function(cb){
         var fileItem = cb.closest('.file-item');
@@ -293,7 +1172,6 @@ function updateBatchUI(section){
     });
 }
 
-// bind checkbox events
 document.addEventListener('DOMContentLoaded', function(){
     var allCheckboxes = document.querySelectorAll('.file-checkbox input[type="checkbox"]');
     allCheckboxes.forEach(function(cb){
@@ -302,8 +1180,7 @@ document.addEventListener('DOMContentLoaded', function(){
             updateBatchUI(section);
         });
     });
-    
-    // initialize batch UI
+
     updateBatchUI('recent');
     updateBatchUI('starred');
 });
@@ -318,7 +1195,9 @@ function batchShare(section){
 function batchDownload(section){
     var ids = getSelectedFileIds(section);
     if(ids.length===0){ layer.msg('请先选择文件',{icon:2}); return; }
-    ids.forEach(function(id, i){ setTimeout(function(){ downloadFile(id); }, i*500); });
+    ids.forEach(function(id, i){
+        setTimeout(function(){ downloadFile(id); }, i*500);
+    });
 }
 
 function batchDelete(section){
@@ -339,8 +1218,14 @@ function batchDelete(section){
                         else{ layer.msg('成功删除'+(ids.length-failed)+'个，'+failed+'个失败',{icon:2}); }
                         location.reload();
                     }
-                }).fail(function(){ completed++; failed++;
-                    if(completed===ids.length){ layer.close(loadingIndex); layer.msg('部分删除失败',{icon:2}); location.reload(); }
+                }).fail(function(){
+                    completed++;
+                    failed++;
+                    if(completed===ids.length){
+                        layer.close(loadingIndex);
+                        layer.msg('部分删除失败',{icon:2});
+                        location.reload();
+                    }
                 });
             });
         });

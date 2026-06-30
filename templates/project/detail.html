@@ -120,15 +120,15 @@
         <!-- 详细信息选项卡 -->
         <div class="layui-tab layui-tab-brief" lay-filter="projectDetailTab">
             <ul class="layui-tab-title">
-                <li class="layui-this">基本信息</li>
-                <li>任务列表</li>
-                <li>团队成员</li>
-                <li>工时统计</li>
-                <li>项目文档</li>
-                <li>评论系统</li>
-                <li>甘特图视图</li>
-                <li>看板视图</li>
-                <li>统计分析</li>
+                <li class="layui-this" lay-id="overview">基本信息</li>
+                <li lay-id="tasks">任务列表</li>
+                <li lay-id="members">团队成员</li>
+                <li lay-id="hours">工时统计</li>
+                <li lay-id="docs">项目文档</li>
+                <li lay-id="activities">评论系统</li>
+                <li lay-id="gantt">甘特图视图</li>
+                <li lay-id="kanban">看板视图</li>
+                <li lay-id="stats">统计分析</li>
             </ul>
             <div class="layui-tab-content">
                 <!-- 基本信息 -->
@@ -1694,11 +1694,8 @@
         // 监听选项卡切换
         layui.use('element', function() {
             var element = layui.element;
-            
-            element.on('tab(projectDetailTab)', function(data) {
-                var tabIndex = data.index;
-                var $tabContent = $(this).parents('.layui-tab').find('.layui-tab-content');
-                
+
+            function handleProjectDetailTabChange(tabIndex) {
                 // 当切换到甘特图视图时初始化甘特图
                 if (tabIndex === 6) {
                     setTimeout(function() {
@@ -1720,7 +1717,7 @@
                 }
                 
                 // 当切换到统计分析视图时初始化统计图表
-                if (tabIndex === 9) {
+                if (tabIndex === 8) {
                     setTimeout(function() {
                         // 强制显示统计图表容器
                         $('#task-status-chart, #task-priority-chart, #task-trend-chart, #member-workload-chart').parent().show();
@@ -1729,7 +1726,33 @@
                         initStatsCharts();
                     }, 300);
                 }
+            }
+
+            element.on('tab(projectDetailTab)', function(data) {
+                var currentTabId = $(this).attr('lay-id');
+                if (currentTabId) {
+                    window.history.replaceState(null, '', '#' + currentTabId);
+                }
+                handleProjectDetailTabChange(data.index);
             });
+
+            var hashTabId = window.location.hash.replace('#', '');
+            if (hashTabId) {
+                var supportedTabs = {
+                    overview: true,
+                    tasks: true,
+                    members: true,
+                    hours: true,
+                    docs: true,
+                    activities: true,
+                    gantt: true,
+                    kanban: true,
+                    stats: true
+                };
+                if (supportedTabs[hashTabId]) {
+                    element.tabChange('projectDetailTab', hashTabId);
+                }
+            }
         });
     </script>
 </body>

@@ -8,256 +8,208 @@
     <title>添加用户权限</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
     <style>
-        .permission-add-container {
-            padding: 20px;
+        :root {
+            --ink: #17212f;
+            --muted: #687589;
+            --line: #dfe6ee;
+            --soft: #f4f7fb;
+            --brand: #126b64;
+            --brand-soft: #e6f5f2;
         }
-        .section-title {
-            font-size: 16px;
-            font-weight: bold;
-            margin-bottom: 15px;
-            color: #333;
-            border-bottom: 2px solid #1E9FFF;
-            padding-bottom: 5px;
-        }
-        .content-wrapper {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-        .left-panel {
-            width: 250px;
-            border: 1px solid #e6e6e6;
-            border-radius: 6px;
-            overflow: hidden;
-        }
-        .right-panel {
-            flex: 1;
-            border: 1px solid #e6e6e6;
-            border-radius: 6px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-        .panel-header {
-            padding: 10px 15px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #e6e6e6;
-            font-weight: bold;
-        }
-        .panel-body {
-            padding: 15px;
-            overflow-y: auto;
-        }
-        .dept-tree {
-            max-height: 400px;
-            overflow-y: auto;
-        }
-        .user-list {
-            max-height: 350px;
-            overflow-y: auto;
-        }
-        .search-box {
-            margin-bottom: 15px;
-        }
-        .search-box input {
-            width: 100%;
-        }
+
+        * { box-sizing: border-box; }
+        html, body { min-height: 100%; margin: 0; background: #eef3f7; color: var(--ink); font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif; }
+        .page { min-height: 100vh; padding: 10px; }
+        .shell { min-height: calc(100vh - 20px); border: 1px solid rgba(223, 230, 238, 0.9); background: #fff; box-shadow: 0 12px 28px rgba(23, 33, 47, 0.08); overflow: hidden; }
+
+        .head { display: flex; justify-content: space-between; gap: 14px; align-items: center; padding: 14px 16px; border-bottom: 1px solid #edf1f6; background: linear-gradient(90deg, rgba(18, 107, 100, 0.08), rgba(255,255,255,0)); }
+        .head h1 { margin: 0; font-size: 17px; font-weight: 700; }
+        .head .meta { margin-top: 4px; color: var(--muted); font-size: 12px; }
+        .badge { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border: 1px solid var(--line); background: var(--brand-soft); color: #0b554f; font-size: 12px; font-weight: 700; }
+
+        .content { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: calc(100vh - 82px); }
+        .left, .right { min-width: 0; }
+        .left { border-right: 1px solid #edf1f6; background: #f8fafc; }
+        .right { background: #fff; }
+        .panel-head { padding: 12px 14px; border-bottom: 1px solid #edf1f6; font-size: 14px; font-weight: 700; }
+        .panel-body { padding: 12px 14px; }
+        .tree-box { max-height: calc(100vh - 150px); overflow: auto; }
+        .user-box { max-height: calc(100vh - 280px); overflow: auto; }
+
+        .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+        .layui-btn { border-radius: 0; font-weight: 700; }
+
+        .search { margin-bottom: 8px; }
+        .search input { width: 100%; }
+
         .user-item {
-            display: flex;
+            display: grid;
+            grid-template-columns: 18px minmax(0, 1fr);
+            gap: 10px;
             align-items: center;
-            padding: 10px;
-            border-bottom: 1px solid #f0f0f0;
+            padding: 10px 0;
+            border-bottom: 1px solid #edf1f6;
         }
-        .user-item:last-child {
-            border-bottom: none;
+
+        .user-item:last-child { border-bottom: 0; }
+        .user-info h4 { margin: 0 0 4px; font-size: 14px; }
+        .user-info p { margin: 0; color: var(--muted); font-size: 12px; }
+
+        .summary {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid var(--line);
+            background: #fbfcfe;
         }
-        .user-item:hover {
-            background: #f5f7fa;
+
+        .summary strong { font-size: 14px; }
+        .summary span { color: var(--muted); font-size: 12px; }
+
+        .permission-box {
+            margin-top: 10px;
+            padding: 12px;
+            border: 1px solid var(--line);
+            background: #fff;
         }
-        .user-info {
-            flex: 1;
-            margin-left: 10px;
-        }
-        .user-info h4 {
-            margin: 0 0 5px 0;
-            font-size: 14px;
-        }
-        .user-info p {
-            margin: 0;
-            color: #666;
-            font-size: 12px;
-        }
-        .action-buttons {
+
+        .permission-box h3 { margin: 0 0 8px; font-size: 14px; }
+        .permission-options { display: flex; gap: 14px; flex-wrap: wrap; }
+        .permission-option { display: inline-flex; align-items: center; gap: 6px; }
+
+        .footer {
             display: flex;
             gap: 10px;
-            margin-bottom: 15px;
+            padding: 12px 14px 14px;
+            border-top: 1px solid #edf1f6;
+            background: #fff;
         }
-        .selected-users {
-            margin-top: 15px;
-            padding: 10px;
-            background: #f0f9ff;
-            border: 1px solid #91d5ff;
-            border-radius: 4px;
-        }
-        .permission-settings {
-            margin-top: 20px;
-            padding: 15px;
-            background: #fafafa;
-            border-top: 1px solid #e6e6e6;
-        }
-        .permission-title {
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        .permission-options {
-            display: flex;
-            gap: 20px;
-        }
-        .permission-option {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        .footer-buttons {
-            text-align: center;
-            margin-top: 20px;
+
+        .footer .layui-btn { flex: 1; }
+        .empty { padding: 26px 10px; text-align: center; color: var(--muted); }
+        .empty .layui-icon { display: block; margin-bottom: 8px; font-size: 30px; color: #c5d0db; }
+
+        @media (max-width: 960px) {
+            .content { grid-template-columns: 1fr; }
+            .left { border-right: 0; border-bottom: 1px solid #edf1f6; }
         }
     </style>
 </head>
 
 <body>
-    <div class="permission-add-container">
-        <h3 class="section-title">选择用户并设置权限</h3>
-        
-        <div class="content-wrapper">
-            <!-- 左侧部门树形结构 -->
-            <div class="left-panel">
-                <div class="panel-header">部门列表</div>
-                <div class="panel-body dept-tree" id="deptTree"></div>
+    <div class="page">
+        <div class="shell">
+            <div class="head">
+                <div>
+                    <h1>添加用户权限</h1>
+                    <div class="meta">{{ item_type_name }} · {{ item_name }}</div>
+                </div>
+                <div class="badge"><i class="layui-icon layui-icon-group"></i> 按部门筛选用户</div>
             </div>
-            
-            <!-- 右侧用户列表 -->
-            <div class="right-panel">
-                <div class="panel-header">
-                    <div class="action-buttons">
-                        <button class="layui-btn layui-btn-sm" onclick="selectAllUsers()">
-                            <i class="layui-icon layui-icon-ok-circle"></i> 全选
-                        </button>
-                        <button class="layui-btn layui-btn-sm layui-btn-normal" onclick="selectInverseUsers()">
-                            <i class="layui-icon layui-icon-not-found"></i> 反选
-                        </button>
-                        <button class="layui-btn layui-btn-sm layui-btn-primary" onclick="clearSelectedUsers()">
-                            <i class="layui-icon layui-icon-close"></i> 清空
-                        </button>
-                    </div>
-                    <div class="search-box">
-                        <input type="text" class="layui-input" placeholder="搜索用户..." id="userSearch" onkeyup="searchUsers()">
-                    </div>
-                </div>
-                <div class="panel-body user-list" id="userList"></div>
-                
-                <!-- 已选用户 -->
-                <div class="selected-users">
-                    <span id="selectedCount">已选 0 人</span>
-                    <div id="selectedUserNames" style="margin-top: 5px; color: #666; font-size: 12px;"></div>
-                </div>
-                
-                <!-- 权限设置 -->
-                <div class="permission-settings">
-                    <div class="permission-title">权限设置</div>
-                    <div class="permission-options">
-                        <div class="permission-option">
-                            <input type="radio" name="permission_level" value="1" checked>
-                            <span>只读</span>
+
+            <div class="content">
+                <section class="left">
+                    <div class="panel-head">部门树</div>
+                    <div class="panel-body tree-box" id="deptTree"></div>
+                </section>
+
+                <section class="right">
+                    <div class="panel-head">
+                        <div class="toolbar">
+                            <button class="layui-btn layui-btn-sm" onclick="selectAllUsers()"><i class="layui-icon layui-icon-ok-circle"></i> 全选</button>
+                            <button class="layui-btn layui-btn-sm layui-btn-normal" onclick="selectInverseUsers()"><i class="layui-icon layui-icon-refresh"></i> 反选</button>
+                            <button class="layui-btn layui-btn-sm layui-btn-primary" onclick="clearSelectedUsers()"><i class="layui-icon layui-icon-close"></i> 清空</button>
                         </div>
-                        <div class="permission-option">
-                            <input type="radio" name="permission_level" value="2">
-                            <span>读写</span>
-                        </div>
-                        <div class="permission-option">
-                            <input type="radio" name="permission_level" value="3">
-                            <span>管理</span>
+                        <div class="search">
+                            <input type="text" class="layui-input" placeholder="搜索用户" id="userSearch" onkeyup="searchUsers()">
                         </div>
                     </div>
-                </div>
+
+                    <div class="panel-body user-box" id="userList"></div>
+
+                    <div class="summary">
+                        <div>
+                            <strong id="selectedCount">已选 0 人</strong>
+                            <span id="selectedUserNames">暂无选择</span>
+                        </div>
+                    </div>
+
+                    <div class="panel-body">
+                        <div class="permission-box">
+                            <h3>权限级别</h3>
+                            <div class="permission-options">
+                                <label class="permission-option"><input type="radio" name="permission_level" value="1" checked> <span>只读</span></label>
+                                <label class="permission-option"><input type="radio" name="permission_level" value="2"> <span>读写</span></label>
+                                <label class="permission-option"><input type="radio" name="permission_level" value="3"> <span>管理</span></label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="footer">
+                        <button class="layui-btn" onclick="savePermissions()"><i class="layui-icon layui-icon-ok"></i> 保存</button>
+                        <button class="layui-btn layui-btn-primary" onclick="closeDialog()"><i class="layui-icon layui-icon-close"></i> 取消</button>
+                    </div>
+                </section>
             </div>
-        </div>
-        
-        <div class="footer-buttons">
-            <button class="layui-btn" onclick="savePermissions()">
-                <i class="layui-icon layui-icon-ok"></i> 保存
-            </button>
-            <button class="layui-btn layui-btn-primary" onclick="closeDialog()">
-                <i class="layui-icon layui-icon-close"></i> 取消
-            </button>
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'js/jquery.min.js' %}"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        let selectedUsers = [];
-        let currentDeptId = null;
-        let allUsers = [];
-        let existingPermissionUsers = []; // 已有权限的用户列表
-        
-        // 页面加载时获取已有权限的用户
-        $(document).ready(function() {
-            $.get('/disk/permission/user/list/existing/', {
-                item_type: '{{ item_type }}',
-                item_id: '{{ item_id }}',
-                csrfmiddlewaretoken: '{{ csrf_token }}'
-            }, function(response) {
-                if (response.code === 0) {
-                    existingPermissionUsers = response.data.users;
-                    // 将已有权限的用户添加到selectedUsers数组中
-                    existingPermissionUsers.forEach(function(user) {
-                        if (!selectedUsers.some(u => u.id === user.id)) {
-                            selectedUsers.push({
-                                id: user.id,
-                                username: user.username,
-                                realname: user.name
-                            });
-                        }
-                    });
-                    updateSelectedUsers();
-                }
+        var selectedUsers = [];
+        var currentDeptId = null;
+        var allUsers = [];
+        var existingPermissionUsers = [];
+        var departmentTree = {{ department_tree_json|safe }};
+
+        function uniqueById(list) {
+            var seen = new Set();
+            return list.filter(function(item) {
+                if (seen.has(item.id)) return false;
+                seen.add(item.id);
+                return true;
             });
-        });
-        
-        // 渲染用户列表
+        }
+
+        function formatDeptPath(dept) {
+            if (!dept) return '无部门';
+            return dept.title || dept.name || '无部门';
+        }
+
         function renderUserList(users) {
             var userList = $('#userList');
             userList.empty();
-            
-            if (users.length === 0) {
-                userList.html('<div style="text-align: center; color: #999; padding: 20px;">该部门下没有用户</div>');
+
+            if (!users || users.length === 0) {
+                userList.html('<div class="empty"><i class="layui-icon layui-icon-user"></i>该部门暂无用户</div>');
                 return;
             }
-            
+
             users.forEach(function(user) {
-                // 检查用户是否已有权限或已被选中
-                var isExisting = existingPermissionUsers.some(u => u.id === user.id);
-                var isSelected = selectedUsers.some(u => u.id === user.id) || isExisting;
-                var userItem = $('<div class="user-item"></div>');
-                userItem.html(`
-                    <input type="checkbox" lay-skin="primary" ${isSelected ? 'checked' : ''} data-user-id="${user.id}" data-user-name="${user.username}" data-user-realname="${user.name}">
-                    <div class="user-info">
-                        <h4>${user.username}</h4>
-                        <p>${user.name || user.username} · ${user.department.title}</p>
+                var isSelected = selectedUsers.some(function(u) { return String(u.id) === String(user.id); });
+                var checked = isSelected ? 'checked' : '';
+                var disabled = '';
+                userList.append(`
+                    <div class="user-item">
+                        <input type="checkbox" lay-skin="primary" ${checked} ${disabled}
+                               data-user-id="${user.id}"
+                               data-user-name="${user.username}"
+                               data-user-realname="${user.name || ''}">
+                        <div class="user-info">
+                            <h4>${user.username}</h4>
+                            <p>${user.name || user.username} · ${formatDeptPath(user.department)}</p>
+                        </div>
                     </div>
                 `);
-                userList.append(userItem);
             });
-            
-            // 只渲染复选框，不绑定事件
-            layui.use('form', function() {
-                var form = layui.form;
-                form.render('checkbox');
-            });
+
+            layui.use('form', function() { layui.form.render('checkbox'); });
         }
-        
-        // 加载部门下的用户
+
         function loadUsersByDept(deptId) {
             currentDeptId = deptId;
             $.get('/disk/permission/user/list/', {
@@ -265,198 +217,142 @@
                 csrfmiddlewaretoken: '{{ csrf_token }}'
             }, function(response) {
                 if (response.code === 0) {
-                    allUsers = response.data.users;
+                    allUsers = response.data.users || [];
                     renderUserList(allUsers);
                 } else {
                     layui.use('layer', function() {
-                        var layer = layui.layer;
-                        layer.msg(response.msg, {icon: 2});
+                        layui.layer.msg(response.msg || '加载失败', {icon: 2});
                     });
                 }
             });
         }
-        
+
+        function updateSelectedUsers() {
+            selectedUsers = uniqueById(selectedUsers);
+            $('#selectedCount').text('已选 ' + selectedUsers.length + ' 人');
+            $('#selectedUserNames').text(selectedUsers.length ? selectedUsers.map(function(user) {
+                return user.realname || user.username;
+            }).join('、') : '暂无选择');
+        }
+
         layui.use(['form', 'tree'], function () {
-            var form = layui.form;
-            var tree = layui.tree;
-            form.render();
-            
-            // 部门树形数据
-            var deptData = JSON.parse('{{ departments|safe }}');
-            
-            // 渲染部门树形结构
-            tree.render({
+            layui.form.render();
+            layui.tree.render({
                 elem: '#deptTree',
-                data: deptData,
+                data: departmentTree,
                 onlyIconControl: false,
                 click: function(obj) {
                     loadUsersByDept(obj.data.id);
                 }
             });
+            if (departmentTree.length) {
+                loadUsersByDept(departmentTree[0].id);
+            }
         });
-        
-        // 使用事件委托绑定复选框变化事件，确保所有复选框都能触发
-        $(document).on('change', 'input[type="checkbox"]', function() {
+
+        $(document).on('change', '#userList input[type="checkbox"]', function() {
             var userId = $(this).data('user-id');
             var userName = $(this).data('user-name');
             var userRealname = $(this).data('user-realname');
-            
+
             if (this.checked) {
-                // 添加到已选用户
-                if (!selectedUsers.some(u => u.id === userId)) {
-                    selectedUsers.push({
-                        id: userId,
-                        username: userName,
-                        realname: userRealname
-                    });
+                if (!selectedUsers.some(function(u) { return String(u.id) === String(userId); })) {
+                    selectedUsers.push({ id: userId, username: userName, realname: userRealname });
                 }
             } else {
-                // 从已选用户中移除
-                selectedUsers = selectedUsers.filter(user => user.id !== userId);
+                selectedUsers = selectedUsers.filter(function(user) {
+                    return String(user.id) !== String(userId);
+                });
             }
-            
             updateSelectedUsers();
         });
-        
-        // 搜索用户
+
         function searchUsers() {
-            var searchTerm = $('#userSearch').val().toLowerCase();
-            var filteredUsers = allUsers.filter(user => 
-                user.username.toLowerCase().includes(searchTerm) || 
-                (user.name && user.name.toLowerCase().includes(searchTerm))
-            );
+            var searchTerm = ($('#userSearch').val() || '').toLowerCase();
+            var filteredUsers = allUsers.filter(function(user) {
+                return user.username.toLowerCase().includes(searchTerm) || (user.name && user.name.toLowerCase().includes(searchTerm));
+            });
             renderUserList(filteredUsers);
         }
-        
-        // 全选用户
+
         function selectAllUsers() {
             $('#userList input[type="checkbox"]').each(function() {
-                if (!this.checked) {
-                    this.checked = true;
-                    var userId = $(this).data('user-id');
-                    var userName = $(this).data('user-name');
-                    var userRealname = $(this).data('user-realname');
-                    
-                    // 添加到已选用户
-                    if (!selectedUsers.some(u => u.id === userId)) {
-                        selectedUsers.push({
-                            id: userId,
-                            username: userName,
-                            realname: userRealname
-                        });
-                    }
+                this.checked = true;
+                var userId = $(this).data('user-id');
+                var userName = $(this).data('user-name');
+                var userRealname = $(this).data('user-realname');
+                if (!selectedUsers.some(function(u) { return String(u.id) === String(userId); })) {
+                    selectedUsers.push({ id: userId, username: userName, realname: userRealname });
                 }
             });
-            
-            layui.use('form', function() {
-                var form = layui.form;
-                form.render('checkbox');
-            });
-            
+            layui.use('form', function() { layui.form.render('checkbox'); });
             updateSelectedUsers();
         }
-        
-        // 反选用户
+
         function selectInverseUsers() {
             $('#userList input[type="checkbox"]').each(function() {
                 this.checked = !this.checked;
                 var userId = $(this).data('user-id');
                 var userName = $(this).data('user-name');
                 var userRealname = $(this).data('user-realname');
-                
                 if (this.checked) {
-                    // 添加到已选用户
-                    if (!selectedUsers.some(u => u.id === userId)) {
-                        selectedUsers.push({
-                            id: userId,
-                            username: userName,
-                            realname: userRealname
-                        });
+                    if (!selectedUsers.some(function(u) { return String(u.id) === String(userId); })) {
+                        selectedUsers.push({ id: userId, username: userName, realname: userRealname });
                     }
                 } else {
-                    // 从已选用户中移除
-                    selectedUsers = selectedUsers.filter(user => user.id !== userId);
+                    selectedUsers = selectedUsers.filter(function(user) {
+                        return String(user.id) !== String(userId);
+                    });
                 }
             });
-            
-            layui.use('form', function() {
-                var form = layui.form;
-                form.render('checkbox');
-            });
-            
+            layui.use('form', function() { layui.form.render('checkbox'); });
             updateSelectedUsers();
         }
-        
-        // 清空已选用户
+
         function clearSelectedUsers() {
             selectedUsers = [];
             $('#userList input[type="checkbox"]').prop('checked', false);
-            
-            layui.use('form', function() {
-                var form = layui.form;
-                form.render('checkbox');
-            });
-            
+            layui.use('form', function() { layui.form.render('checkbox'); });
             updateSelectedUsers();
         }
-        
-        // 更新已选用户显示
-        function updateSelectedUsers() {
-            $('#selectedCount').text('已选 ' + selectedUsers.length + ' 人');
-            
-            var userNames = selectedUsers.map(user => user.realname || user.username).join(', ');
-            $('#selectedUserNames').text(userNames || '暂无选择');
-        }
-        
-        // 保存权限
+
         function savePermissions() {
             if (selectedUsers.length === 0) {
-                layui.use('layer', function() {
-                    var layer = layui.layer;
-                    layer.msg('请至少选择一个用户', {icon: 2});
-                });
+                layui.use('layer', function() { layui.layer.msg('请至少选择一个用户', {icon: 2}); });
                 return;
             }
-            
-            // 获取选中的权限级别
+
             var permissionLevel = $('input[name="permission_level"]:checked').val();
-            
-            // 构建权限数据
-            var permissions = selectedUsers.map(user => ({
-                user_id: user.id,
-                permission_level: permissionLevel
-            }));
-            
-            // 发送请求
+            var permissions = selectedUsers.map(function(user) {
+                return { user_id: user.id, permission_level: permissionLevel };
+            });
+
             $.post('/disk/permission/user/', {
                 item_type: '{{ item_type }}',
                 item_id: '{{ item_id }}',
                 permissions: JSON.stringify(permissions),
                 csrfmiddlewaretoken: '{{ csrf_token }}'
             }, function(response) {
-                if (response.code === 0) {
-                    layui.use('layer', function() {
-                        var layer = layui.layer;
-                        layer.msg('权限设置成功', {icon: 1});
-                        setTimeout(function() {
-                            closeDialog();
-                        }, 1500);
-                    });
-                } else {
-                    layui.use('layer', function() {
-                        var layer = layui.layer;
-                        layer.msg(response.msg, {icon: 2});
-                    });
-                }
+                layui.use('layer', function() {
+                    layui.layer.msg(response.msg || '操作完成', {icon: response.code === 0 ? 1 : 2});
+                    if (response.code === 0) {
+                        setTimeout(function() { closeDialog(true); }, 600);
+                    }
+                });
             });
         }
-        
-        // 关闭对话框
-        function closeDialog() {
-            var index = parent.layer.getFrameIndex(window.name);
-            parent.layer.close(index);
+
+        function closeDialog(refreshParent) {
+            if (parent && parent.layer) {
+                var index = parent.layer.getFrameIndex(window.name);
+                parent.layer.close(index);
+                if (refreshParent && parent.location) {
+                    setTimeout(function() { parent.location.reload(); }, 100);
+                }
+                return;
+            }
+            window.history.back();
         }
     </script>
 </body>
-
 </html>

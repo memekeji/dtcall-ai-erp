@@ -1,0 +1,51 @@
+{% extends "home/iframe_base.html" %}{% load static %}
+{% block title %}入职办理 - AI-HRBP{% endblock %}
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <a href="{% url 'hrbp:onboarding_list' %}" class="layui-btn layui-btn-primary layui-btn-sm"><i class="layui-icon layui-icon-left"></i> 返回</a>
+    </div>
+    <div class="layui-card-body">
+        <div class="layui-row" style="margin-bottom:16px;">
+            <div class="layui-col-md4"><b>候选人：</b>{{ pipeline.resume_submission.candidate_name|default:"未知" }}</div>
+            <div class="layui-col-md4"><b>岗位：</b>{{ pipeline.resume_submission.position.title }}</div>
+            <div class="layui-col-md4"><b>电话：</b>{{ pipeline.resume_submission.candidate_phone|default:"--" }}</div>
+        </div>
+        <form class="layui-form" style="max-width:600px;" id="onboardingForm">
+            {% csrf_token %}
+            {{ form.as_p|safe }}
+            <div class="layui-form-item">
+                <label class="layui-form-label">发送入职通知</label>
+                <div class="layui-input-block"><input type="checkbox" name="send_notice" lay-skin="switch" lay-text="是|否"></div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">标记入职完成</label>
+                <div class="layui-input-block"><input type="checkbox" name="mark_completed" lay-skin="switch" lay-text="是|否"></div>
+            </div>
+            <div class="layui-form-item" style="text-align:center;">
+                <button type="submit" class="layui-btn" lay-submit lay-filter="submit">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+(function checkLayui() {
+    if (typeof layui !== 'undefined') {
+layui.use('form', function() {
+    var form = layui.form, $ = layui.$;
+    form.on('submit(submit)', function(data) {
+        $.post('{% url "hrbp:onboarding_manage" pipeline.id %}', $('#onboardingForm').serialize(), function(res) {
+            layer.msg(res.message, {icon: res.success ? 1 : 2});
+            if (res.success) setTimeout(function(){ window.location.href='{% url "hrbp:onboarding_list" %}'; }, 1200);
+        });
+        return false;
+    });
+});
+    } else {
+        setTimeout(checkLayui, 50);
+    }
+})();
+</script>
+{% endblock %}

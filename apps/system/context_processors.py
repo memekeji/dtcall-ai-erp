@@ -444,3 +444,28 @@ def get_menus(request):
     cache.set(cache_key, authorized_menus, MENU_CACHE_TIMEOUT)
 
     return {'menus': authorized_menus}
+
+
+# ---------------------------------------------------------------------------
+# Version context processor - exposes current system version to all templates
+# ---------------------------------------------------------------------------
+
+def system_version(request):
+    from apps.system.version_service import get_current_version, get_current_commit, check_for_updates
+    ver = get_current_version()
+    commit = get_current_commit()
+    # Check cache first to avoid hitting git on every request
+    from django.core.cache import cache
+    cache_key = 'system_version_check'
+    update_info = cache.get(cache_key)
+    if update_info is None:
+        try:
+            update_info = check_for_updates()
+            cache.set(cache_key, update_info, 1800)  # 30 min cache
+        except Exception:
+            update_info = {'update_available': False}
+    return {
+        'APP_VERSION': ver,
+        'APP_COMMIT': commit,
+        'APP_UPDATE_INFO': update_info,
+    }

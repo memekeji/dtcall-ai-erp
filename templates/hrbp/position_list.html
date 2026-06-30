@@ -1,0 +1,155 @@
+{% extends "home/iframe_base.html" %}
+{% load static %}
+
+{% block title %}岗位管理 - AI-HRBP{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <div class="layui-inline">
+            <button class="layui-btn layui-btn-normal" id="addPosition" type="button">
+                <i class="layui-icon layui-icon-add-1"></i> 发布岗位
+            </button>
+        </div>
+        <div class="layui-inline" style="float: right;">
+            <form method="get" style="display: inline-block;">
+                <div class="layui-input-inline" style="width: 200px;">
+                    <input type="text" name="search" placeholder="搜索岗位名称" class="layui-input" value="{{ request.GET.search }}">
+                </div>
+                <button type="submit" class="layui-btn layui-btn-primary">
+                    <i class="layui-icon layui-icon-search"></i> 搜索
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="layui-card-body">
+        <table class="layui-table" lay-skin="line">
+            <thead>
+                <tr>
+                    <th width="80">ID</th>
+                    <th width="200">岗位名称</th>
+                    <th width="150">所属部门</th>
+                    <th width="100">工作类型</th>
+                    <th width="150">工作地点</th>
+                    <th width="150">薪资范围</th>
+                    <th width="100">招聘人数</th>
+                    <th width="100">简历数</th>
+                    <th width="100">状态</th>
+                    <th width="180">发布时间</th>
+                    <th width="280">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for position in positions %}
+                <tr>
+                    <td>{{ position.id }}</td>
+                    <td>{{ position.title }}</td>
+                    <td>{{ position.department.title }}</td>
+                    <td>{{ position.get_work_type_display }}</td>
+                    <td>{{ position.location }}</td>
+                    <td>
+                        {% if position.salary_min and position.salary_max %}
+                            {{ position.salary_min }}-{{ position.salary_max }}
+                        {% else %}
+                            面议
+                        {% endif %}
+                    </td>
+                    <td>{{ position.headcount }}</td>
+                    <td>{{ position.resume_submissions.count }}</td>
+                    <td>
+                        {% if position.status == 'published' %}
+                            <span class="layui-badge layui-bg-green">已发布</span>
+                        {% elif position.status == 'draft' %}
+                            <span class="layui-badge layui-bg-gray">草稿</span>
+                        {% else %}
+                            <span class="layui-badge">已关闭</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ position.published_at|date:"Y-m-d H:i"|default:"-" }}</td>
+                    <td>
+                        <button class="layui-btn layui-btn-xs" type="button" onclick="viewDetail({{ position.id }})">详情</button>
+                        <button class="layui-btn layui-btn-xs layui-btn-normal" type="button" onclick="uploadResume({{ position.id }})">上传简历</button>
+                        <button class="layui-btn layui-btn-xs layui-btn-warm" type="button" onclick="viewResumes({{ position.id }})">查看简历</button>
+                        <button class="layui-btn layui-btn-xs layui-btn-danger" type="button" onclick="editPosition({{ position.id }})">编辑</button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="11" style="text-align: center; padding: 50px; color: #999;">
+                        <i class="layui-icon layui-icon-template" style="font-size: 50px;"></i>
+                        <p style="margin-top: 20px;">暂无岗位数据，请点击"发布岗位"创建新岗位</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+// 等待layui加载完成
+(function checkLayui() {
+    if (typeof layui !== 'undefined') {
+        initPage();
+    } else {
+        setTimeout(checkLayui, 50);
+    }
+})();
+
+function initPage() {
+    layui.use(['layer'], function(){
+        var layer = layui.layer;
+        var $ = layui.jquery;
+
+        // 右侧弹出函数
+        function openRight(title, url) {
+            parent.layer.open({
+                type: 2,
+                title: title,
+                shadeClose: false,
+                shade: 0.3,
+                maxmin: true,
+                area: ['80%', '100%'],
+                offset: 'r',
+                anim: 2,
+                content: url,
+                success: function(layero, index) {
+                    $(layero).css({
+                        'right': '0',
+                        'top': '0',
+                        'height': '100%'
+                    });
+                },
+                end: function() {
+                    location.reload();
+                }
+            });
+        }
+
+        // 全局函数
+        window.viewDetail = function(id) {
+            openRight('岗位详情', '/hrbp/position/' + id + '/');
+        };
+
+        window.uploadResume = function(id) {
+            openRight('上传简历', '/hrbp/position/' + id + '/upload/');
+        };
+
+        window.viewResumes = function(id) {
+            openRight('简历列表', '/hrbp/position/' + id + '/resumes/');
+        };
+
+        window.editPosition = function(id) {
+            openRight('编辑岗位', '/hrbp/position/' + id + '/update/');
+        };
+
+        // 发布岗位按钮
+        $('#addPosition').on('click', function() {
+            openRight('发布岗位', '/hrbp/position/create/');
+        });
+    });
+}
+</script>
+{% endblock %}

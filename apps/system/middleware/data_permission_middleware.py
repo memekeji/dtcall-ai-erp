@@ -32,6 +32,7 @@ class DataPermissionMiddleware:
         r'^/disk/share/download/',
         r'^/disk/share/folder/',
         r'^/disk/share/preview/',
+        r'^/disk/share/action/',
         r'^/disk/preview/',
     ]
 
@@ -314,7 +315,7 @@ class PermissionChecker:
         """
         if not user or not user.is_authenticated:
             return False
-        if user.is_superuser:
+        if getattr(user, 'is_superuser', False):
             return True
         return user.has_perm(f'user.view_{resource_type}')
 
@@ -325,7 +326,7 @@ class PermissionChecker:
         """
         if not user or not user.is_authenticated:
             return False
-        if user.is_superuser:
+        if getattr(user, 'is_superuser', False):
             return True
         return user.has_perm(f'user.add_{resource_type}')
 
@@ -336,7 +337,7 @@ class PermissionChecker:
         """
         if not user or not user.is_authenticated:
             return False
-        if user.is_superuser:
+        if getattr(user, 'is_superuser', False):
             return True
         return user.has_perm(f'user.change_{resource_type}')
 
@@ -347,7 +348,7 @@ class PermissionChecker:
         """
         if not user or not user.is_authenticated:
             return False
-        if user.is_superuser:
+        if getattr(user, 'is_superuser', False):
             return True
         return user.has_perm(f'user.delete_{resource_type}')
 
@@ -358,7 +359,7 @@ class PermissionChecker:
         """
         if not user or not user.is_authenticated:
             return False
-        if user.is_superuser:
+        if getattr(user, 'is_superuser', False):
             return True
         return user.has_perm(f'user.approve_{resource_type}')
 

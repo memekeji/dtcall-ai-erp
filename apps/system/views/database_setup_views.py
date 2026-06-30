@@ -7,8 +7,11 @@ from django.views.decorators.http import require_http_methods
 from apps.system.database_setup import (
     apply_database_config,
     build_database_config,
+    create_initial_admin,
     current_form_values,
     get_database_state,
+    has_initial_admin,
+    normalize_admin_form_data,
     run_base_migrations,
     save_database_environment,
     test_database_config,
@@ -18,7 +21,8 @@ from apps.system.database_setup import (
 @require_http_methods(['GET', 'POST'])
 def database_setup_view(request):
     state = get_database_state(force=True)
-    if state.is_locked:
+    admin_ready = has_initial_admin()
+    if state.is_locked and admin_ready:
         return redirect('/')
 
     context = {
@@ -27,6 +31,7 @@ def database_setup_view(request):
         'values': current_form_values(),
         'errors': [],
         'success': False,
+        'admin_ready': admin_ready,
     }
 
     if request.method == 'POST':
@@ -39,9 +44,15 @@ def database_setup_view(request):
             apply_database_config(config)
             migrated_state = run_base_migrations()
             context['state'] = migrated_state
-            context['success'] = migrated_state.is_locked
             if not migrated_state.is_locked:
                 context['errors'].append('迁移已执行，但未检测到数据表，请检查迁移输出。')
+            elif has_initial_admin():
+                context['success'] = True
+                context['admin_ready'] = True
+            else:
+                create_initial_admin(values)
+                context['success'] = True
+                context['admin_ready'] = True
         except Exception as exc:
             context['errors'].append(str(exc))
 
@@ -72,6 +83,7 @@ def _posted_values(request):
         'MYSQL_CHARSET': request.POST.get('MYSQL_CHARSET', 'utf8mb4').strip(),
         'MYSQL_INIT_COMMAND': request.POST.get('MYSQL_INIT_COMMAND', '').strip(),
     }
+    values.update(normalize_admin_form_data(request.POST))
     if is_sqlite:
         values.update({
             'DATABASE_URL': '',

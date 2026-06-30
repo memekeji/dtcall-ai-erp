@@ -3,6 +3,8 @@ from django.http import JsonResponse, HttpResponse, Http404, FileResponse
 from django.views import View
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Q, Sum
 from django.utils import timezone
 from django.conf import settings
@@ -115,6 +117,127 @@ def get_user_department_id(user):
     return getattr(user, 'did', None) or getattr(user, 'department_id', None)
 
 
+def add_no_cache_headers(response):
+    response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response
+
+
+def ensure_modern_disk_ui(request):
+    if request.GET.get('_ui') == 'modern':
+        return None
+
+    query = request.GET.copy()
+    query['_ui'] = 'modern'
+    query['_v'] = '20260630'
+    return redirect(f'{request.path}?{query.urlencode()}')
+
+
+def get_permission_target_params(request):
+    """兼容旧版/新版权限参数命名。"""
+    item_type = (
+        request.GET.get('type')
+        or request.GET.get('item_type')
+        or request.POST.get('type')
+        or request.POST.get('item_type')
+    )
+    item_id = (
+        request.GET.get('id')
+        or request.GET.get('item_id')
+        or request.POST.get('id')
+        or request.POST.get('item_id')
+    )
+    return item_type, item_id
+
+
+def get_permission_target_item(request, item_type, item_id):
+    if item_type == 'file':
+        return get_object_or_404(
+            DiskFile,
+            id=item_id,
+            owner=request.user,
+            delete_time__isnull=True)
+    if item_type == 'folder':
+        return get_object_or_404(
+            DiskFolder,
+            id=item_id,
+            owner=request.user,
+            delete_time__isnull=True)
+    raise Http404('参数错误')
+
+
+def build_department_tree(departments, parent_id=0):
+    tree = []
+    for dept in departments:
+        if dept.pid == parent_id:
+            children = build_department_tree(departments, dept.id)
+            tree.append({
+                'id': dept.id,
+                'title': dept.name,
+                'name': dept.name,
+                'spread': True,
+                'children': children
+            })
+    return tree
+
+
+def get_shared_source_labels(user, item):
+    labels = []
+    user_dept_id = get_user_department_id(user)
+    if getattr(item, 'shared_users', None) and item.shared_users.filter(id=user.id).exists():
+        labels.append('用户共享')
+    if getattr(item, 'shared_departments', None) and user_dept_id and item.shared_departments.filter(id=user_dept_id).exists():
+        labels.append('部门共享')
+    if getattr(item, 'is_public', False):
+        labels.append('公开可见')
+    if not labels and getattr(item, 'folder_id', None):
+        labels.append(f'继承自 {item.folder.name}')
+    return ' / '.join(labels) if labels else '可访问'
+
+
+def get_shared_source_detail(user, item):
+    details = []
+    user_dept_id = get_user_department_id(user)
+
+    owner_name = ''
+    if getattr(item, 'owner', None):
+        owner_name = getattr(item.owner, 'name', '') or item.owner.username
+        if item.owner_id != user.id:
+            details.append(f'来源用户：{owner_name}')
+
+    if getattr(item, 'shared_users', None) and item.shared_users.filter(id=user.id).exists():
+        details.append('方式：直接共享')
+    elif getattr(item, 'shared_departments', None) and user_dept_id:
+        matched_department = item.shared_departments.filter(id=user_dept_id).first()
+        if matched_department:
+            details.append(f'方式：通过 {matched_department.name} 共享')
+    elif getattr(item, 'is_public', False):
+        details.append('方式：组织公开')
+    elif getattr(item, 'folder_id', None):
+        details.append(f'来源目录：{item.folder.name}')
+
+    return ' / '.join(details) if details else '可访问'
+
+
+def annotate_shared_items(user, items):
+    for item in items:
+        item.share_source_label = get_shared_source_labels(user, item)
+        item.share_source_detail = get_shared_source_detail(user, item)
+        item.owner_department = ''
+        if getattr(item, 'owner', None) and getattr(item.owner, 'did', None):
+            dept = Department.objects.filter(id=item.owner.did).first()
+            if dept:
+                item.owner_department = dept.name
+        if getattr(item, 'owner', None):
+            item.owner_department = item.owner_department or '无部门'
+        if hasattr(item, 'shared_departments'):
+            item.shared_departments_list = [
+                dept.name for dept in item.shared_departments.all()
+            ]
+    return items
+
+
 def user_can_access_shared_folder(user, folder):
     if folder.owner_id == user.id or folder.is_public:
         return True
@@ -148,7 +271,23 @@ def user_can_access_shared_file(user, disk_file):
     if user_dept_id and disk_file.shared_departments.filter(id=user_dept_id).exists():
         return True
 
-    return disk_file.folder and user_can_access_shared_folder(user, disk_file.folder)
+    return bool(disk_file.folder and user_can_access_shared_folder(user, disk_file.folder))
+
+
+def filter_accessible_shared_folders(user, folders):
+    folder_ids = [
+        folder.id for folder in folders
+        if user_can_access_shared_folder(user, folder)
+    ]
+    return folders.filter(id__in=folder_ids)
+
+
+def filter_accessible_shared_files(user, files):
+    file_ids = [
+        disk_file.id for disk_file in files
+        if user_can_access_shared_file(user, disk_file)
+    ]
+    return files.filter(id__in=file_ids)
 
 
 def get_preview_cache_key(file_id, update_timestamp):
@@ -374,31 +513,36 @@ class SharedDiskView(BaseDiskView):
             if not user_can_access_shared_folder(request.user, current_folder):
                 return HttpResponse('您没有权限访问该共享文件夹', status=403)
 
-            shared_folders = DiskFolder.objects.filter(
-                parent=current_folder,
-                delete_time__isnull=True
-            ).order_by('name')
-            shared_files = DiskFile.objects.filter(
-                folder=current_folder,
-                delete_time__isnull=True
-            ).order_by('-update_time')
+            shared_folders = filter_accessible_shared_folders(
+                request.user,
+                DiskFolder.objects.filter(
+                    parent=current_folder,
+                    delete_time__isnull=True
+                ).select_related('owner', 'parent').prefetch_related('shared_users', 'shared_departments').order_by('name')
+            )
+            shared_files = filter_accessible_shared_files(
+                request.user,
+                DiskFile.objects.filter(
+                    folder=current_folder,
+                    delete_time__isnull=True
+                ).select_related('owner', 'folder').prefetch_related('shared_users', 'shared_departments').order_by('-update_time')
+            )
+            shared_folders = annotate_shared_items(request.user, shared_folders)
+            shared_files = annotate_shared_items(request.user, shared_files)
         else:
             current_folder = None
-            user_dept_id = get_user_department_id(request.user)
-            conditions = Q(shared_users=request.user) | Q(is_public=True)
-
-            if user_dept_id:
-                conditions |= Q(shared_departments__id=user_dept_id)
-
             shared_files = DiskFile.objects.filter(
-                conditions,
                 delete_time__isnull=True
-            ).distinct().order_by('-update_time')
+            ).exclude(owner=request.user).select_related('owner', 'folder').prefetch_related('shared_users', 'shared_departments').order_by('-update_time')
+            shared_files = filter_accessible_shared_files(request.user, shared_files)
 
             shared_folders = DiskFolder.objects.filter(
-                conditions,
                 delete_time__isnull=True
-            ).distinct().order_by('name')
+            ).exclude(owner=request.user).select_related('owner', 'parent').prefetch_related('shared_users', 'shared_departments').order_by('name')
+            shared_folders = filter_accessible_shared_folders(request.user, shared_folders)
+
+            shared_files = annotate_shared_items(request.user, shared_files)
+            shared_folders = annotate_shared_items(request.user, shared_folders)
 
         breadcrumbs = []
         cursor = current_folder
@@ -428,14 +572,20 @@ class SharedFolderChildrenView(BaseDiskView):
         if not user_can_access_shared_folder(request.user, folder):
             return JsonResponse({'code': 1, 'msg': '没有权限访问该共享文件夹'})
 
-        folders = DiskFolder.objects.filter(
-            parent=folder,
-            delete_time__isnull=True
-        ).order_by('name')
-        files = DiskFile.objects.filter(
-            folder=folder,
-            delete_time__isnull=True
-        ).order_by('-update_time')
+        folders = filter_accessible_shared_folders(
+            request.user,
+            DiskFolder.objects.filter(
+                parent=folder,
+                delete_time__isnull=True
+            ).select_related('owner', 'parent').prefetch_related('shared_users', 'shared_departments').order_by('name')
+        )
+        files = filter_accessible_shared_files(
+            request.user,
+            DiskFile.objects.filter(
+                folder=folder,
+                delete_time__isnull=True
+            ).select_related('owner', 'folder').prefetch_related('shared_users', 'shared_departments').order_by('-update_time')
+        )
 
         return JsonResponse({
             'code': 0,
@@ -586,6 +736,8 @@ class FileShareCreateView(BaseDiskView):
             permission_type = request.POST.get('permission_type', 'download')
             allow_download = request.POST.get('allow_download') == 'on'
             allow_preview = request.POST.get('allow_preview', 'on') == 'on'
+            allow_copy = request.POST.get('allow_copy', 'on') == 'on'
+            allow_screenshot = request.POST.get('allow_screenshot', 'on') == 'on'
             access_limit = int(request.POST.get('access_limit', 0))
             download_limit = int(request.POST.get('download_limit', 0))
 
@@ -600,7 +752,7 @@ class FileShareCreateView(BaseDiskView):
                     id=share_id,
                     creator=request.user,
                     share_type=share_type)
-                if share.get_item() != item:
+                if share.file_id != item.id and share.folder_id != item.id:
                     return JsonResponse({'code': 1, 'msg': '分享记录与当前项目不匹配'})
                 action_msg = '分享更新成功'
             else:
@@ -630,6 +782,8 @@ class FileShareCreateView(BaseDiskView):
             share.permission_type = permission_type
             share.allow_download = allow_download
             share.allow_preview = allow_preview
+            share.allow_copy = allow_copy
+            share.allow_screenshot = allow_screenshot
             share.access_limit = access_limit
             share.download_limit = download_limit
             share.is_active = request.POST.get('is_active', 'on') == 'on'
@@ -655,6 +809,8 @@ class FileShareCreateView(BaseDiskView):
                     'permission_type': permission_type,
                     'allow_download': allow_download,
                     'allow_preview': allow_preview,
+                    'allow_copy': allow_copy,
+                    'allow_screenshot': allow_screenshot,
                     'access_limit': access_limit,
                     'download_limit': download_limit
                 }
@@ -867,11 +1023,24 @@ class PreviewView(View):
         file_type = request.GET.get('file_type')
         share_code = request.GET.get('share_code')
 
+        allow_copy = True
+        allow_screenshot = True
+        if share_code:
+            share = DiskShare.objects.filter(
+                share_code=share_code,
+                is_active=True
+            ).first()
+            if share:
+                allow_copy = share.allow_copy
+                allow_screenshot = share.allow_screenshot
+
         context = {
             'file_id': file_id,
             'file_name': file_name,
             'file_type': file_type,
-            'share_code': share_code
+            'share_code': share_code,
+            'allow_copy': allow_copy,
+            'allow_screenshot': allow_screenshot,
         }
 
         return render(request, 'disk/preview.html', context)
@@ -901,8 +1070,11 @@ class FilePreviewView(LoginRequiredMixin, View):
             file_obj = get_object_or_404(
                 DiskFile,
                 id=file_id,
-                owner=request.user,
                 delete_time__isnull=True)
+
+            if not self.has_permission(request.user, file_obj):
+                return JsonResponse({'code': 1, 'msg': '没有权限访问文件'}, json_dumps_params={
+                                    'ensure_ascii': False})
 
             file_obj.view_count += 1
             file_obj.preview_count += 1
@@ -973,6 +1145,9 @@ class FilePreviewView(LoginRequiredMixin, View):
             return JsonResponse({'code': 1,
                                  'msg': f'文件预览失败: {str(e)}'},
                                 json_dumps_params={'ensure_ascii': False})
+
+    def has_permission(self, user, disk_file):
+        return user_can_access_shared_file(user, disk_file)
 
     def _get_preview_content(self, file_obj, request):
         file_ext = file_obj.file_ext.lstrip('.').lower()
@@ -1449,6 +1624,48 @@ class ShareDownloadView(View):
                 return True
             current_folder = current_folder.parent
         return False
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class ShareActionView(View):
+    """记录外链分享中的复制和截图动作。"""
+
+    ACTION_CONFIG = {
+        'copy': ('allow_copy', 'record_copy', '复制'),
+        'screenshot': ('allow_screenshot', 'record_screenshot', '截图'),
+    }
+
+    def post(self, request):
+        try:
+            share_code = request.POST.get('share_code', '').strip()
+            action = request.POST.get('action', '').strip()
+
+            if not share_code or action not in self.ACTION_CONFIG:
+                return JsonResponse({'code': 1, 'msg': '参数错误'})
+
+            share = get_object_or_404(
+                DiskShare, share_code=share_code, is_active=True)
+
+            if share.is_expired():
+                return JsonResponse({'code': 1, 'msg': '分享已过期'})
+
+            if share.password and not request.session.get(
+                    f'share_auth_{share_code}'):
+                return JsonResponse({'code': 2, 'msg': '请先验证密码', 'need_password': True})
+
+            permission_field, record_method, action_label = self.ACTION_CONFIG[action]
+            allowed = getattr(share, permission_field)
+            getattr(share, record_method)(allowed=allowed)
+
+            if allowed:
+                return JsonResponse({'code': 0, 'msg': f'{action_label}记录成功'})
+            return JsonResponse({'code': 1, 'msg': f'当前分享禁止{action_label}'})
+
+        except Http404:
+            return JsonResponse({'code': 1, 'msg': '分享不存在'})
+        except Exception as e:
+            logger.error(f'记录分享动作失败: {str(e)}', exc_info=True)
+            return JsonResponse({'code': 1, 'msg': f'记录失败: {str(e)}'})
 
 
 class ShareFolderView(View):
@@ -2316,31 +2533,30 @@ class PermissionManageView(BaseDiskView):
     """权限管理视图"""
 
     def get(self, request):
-        item_type = request.GET.get('type', 'file')
-        item_id = request.GET.get('id', '')
+        modern_redirect = ensure_modern_disk_ui(request)
+        if modern_redirect:
+            return add_no_cache_headers(modern_redirect)
+
+        item_type, item_id = get_permission_target_params(request)
 
         if not item_id or item_type not in ['file', 'folder']:
             return JsonResponse({'code': 1, 'msg': '参数错误'})
 
-        if item_type == 'file':
-            item = get_object_or_404(
-                DiskFile,
-                id=item_id,
-                owner=request.user,
-                delete_time__isnull=True)
-            item_name = item.name
-            item_type_name = '文件'
-        else:
-            item = get_object_or_404(
-                DiskFolder,
-                id=item_id,
-                owner=request.user,
-                delete_time__isnull=True)
-            item_name = item.name
-            item_type_name = '文件夹'
+        item = get_permission_target_item(request, item_type, item_id)
+        item_name = item.name
+        item_type_name = '文件' if item_type == 'file' else '文件夹'
 
         shared_users = item.shared_users.all()
         shared_departments = item.shared_departments.all()
+        user_department_map = {}
+        for user in shared_users:
+            dept_name = '无部门'
+            if getattr(user, 'did', None):
+                dept = Department.objects.filter(id=user.did).first()
+                if dept:
+                    dept_name = dept.name
+            setattr(user, 'department_name', dept_name)
+            user_department_map[user.id] = dept_name
 
         context = {
             'item': item,
@@ -2349,8 +2565,24 @@ class PermissionManageView(BaseDiskView):
             'item_type_name': item_type_name,
             'shared_users': shared_users,
             'shared_departments': shared_departments,
+            'user_department_map': user_department_map,
+            'shared_user_count': shared_users.count(),
+            'shared_dept_count': shared_departments.count(),
         }
-        return render(request, 'disk/permission_manage.html', context)
+        response = render(request, 'disk/permission_manage.html', context)
+        response['X-Disk-UI-Version'] = 'modern-permission-v2'
+        return add_no_cache_headers(response)
+
+
+class PermissionManageLegacyView(BaseDiskView):
+    """旧权限管理路径兼容视图"""
+
+    def get(self, request):
+        item_type, item_id = get_permission_target_params(request)
+        if not item_id or item_type not in ['file', 'folder']:
+            return JsonResponse({'code': 1, 'msg': '参数错误'})
+
+        return redirect(f'/disk/permission/?type={item_type}&id={item_id}')
 
 
 class UserPermissionView(BaseDiskView):
@@ -2358,26 +2590,14 @@ class UserPermissionView(BaseDiskView):
 
     def post(self, request):
         try:
-            item_type = request.POST.get('item_type')
-            item_id = request.POST.get('item_id')
+            item_type, item_id = get_permission_target_params(request)
             permissions = request.POST.get('permissions')
 
             if not all([item_type, item_id]) or item_type not in [
                     'file', 'folder']:
                 return JsonResponse({'code': 1, 'msg': '参数错误'})
 
-            if item_type == 'file':
-                item = get_object_or_404(
-                    DiskFile,
-                    id=item_id,
-                    owner=request.user,
-                    delete_time__isnull=True)
-            else:
-                item = get_object_or_404(
-                    DiskFolder,
-                    id=item_id,
-                    owner=request.user,
-                    delete_time__isnull=True)
+            item = get_permission_target_item(request, item_type, item_id)
 
             if permissions:
                 permission_list = json.loads(permissions)
@@ -2570,26 +2790,14 @@ class DeptPermissionView(BaseDiskView):
 
     def post(self, request):
         try:
-            item_type = request.POST.get('item_type')
-            item_id = request.POST.get('item_id')
+            item_type, item_id = get_permission_target_params(request)
             permissions = request.POST.get('permissions')
 
             if not all([item_type, item_id]) or item_type not in [
                     'file', 'folder']:
                 return JsonResponse({'code': 1, 'msg': '参数错误'})
 
-            if item_type == 'file':
-                item = get_object_or_404(
-                    DiskFile,
-                    id=item_id,
-                    owner=request.user,
-                    delete_time__isnull=True)
-            else:
-                item = get_object_or_404(
-                    DiskFolder,
-                    id=item_id,
-                    owner=request.user,
-                    delete_time__isnull=True)
+            item = get_permission_target_item(request, item_type, item_id)
 
             if permissions:
                 permission_list = json.loads(permissions)
@@ -2641,26 +2849,14 @@ class DeptPermissionRemoveView(BaseDiskView):
 
     def post(self, request):
         try:
-            item_type = request.POST.get('item_type')
-            item_id = request.POST.get('item_id')
+            item_type, item_id = get_permission_target_params(request)
             dept_id = request.POST.get('dept_id')
 
             if not all([item_type, item_id, dept_id]
                        ) or item_type not in ['file', 'folder']:
                 return JsonResponse({'code': 1, 'msg': '参数错误'})
 
-            if item_type == 'file':
-                item = get_object_or_404(
-                    DiskFile,
-                    id=item_id,
-                    owner=request.user,
-                    delete_time__isnull=True)
-            else:
-                item = get_object_or_404(
-                    DiskFolder,
-                    id=item_id,
-                    owner=request.user,
-                    delete_time__isnull=True)
+            item = get_permission_target_item(request, item_type, item_id)
 
             dept = get_object_or_404(Department, id=dept_id)
 
@@ -2683,27 +2879,14 @@ class ExistingPermissionDepartmentsView(BaseDiskView):
 
     def get(self, request):
         try:
-            item_type = request.GET.get('item_type')
-            item_id = request.GET.get('item_id')
+            item_type, item_id = get_permission_target_params(request)
 
             if not all([item_type, item_id]) or item_type not in [
                     'file', 'folder']:
                 return JsonResponse({'code': 1, 'msg': '参数错误'})
 
-            if item_type == 'file':
-                item = get_object_or_404(
-                    DiskFile,
-                    id=item_id,
-                    owner=request.user,
-                    delete_time__isnull=True)
-                departments = item.shared_departments.all()
-            else:
-                item = get_object_or_404(
-                    DiskFolder,
-                    id=item_id,
-                    owner=request.user,
-                    delete_time__isnull=True)
-                departments = item.shared_departments.all()
+            item = get_permission_target_item(request, item_type, item_id)
+            departments = item.shared_departments.all()
 
             dept_list = []
             for dept in departments:
@@ -2731,26 +2914,14 @@ class PermissionSaveView(BaseDiskView):
 
     def post(self, request):
         try:
-            item_type = request.POST.get('item_type')
-            item_id = request.POST.get('item_id')
+            item_type, item_id = get_permission_target_params(request)
             is_public = request.POST.get('is_public') == 'true'
 
             if not all([item_type, item_id]) or item_type not in [
                     'file', 'folder']:
                 return JsonResponse({'code': 1, 'msg': '参数错误'})
 
-            if item_type == 'file':
-                item = get_object_or_404(
-                    DiskFile,
-                    id=item_id,
-                    owner=request.user,
-                    delete_time__isnull=True)
-            else:
-                item = get_object_or_404(
-                    DiskFolder,
-                    id=item_id,
-                    owner=request.user,
-                    delete_time__isnull=True)
+            item = get_permission_target_item(request, item_type, item_id)
 
             item.is_public = is_public
             item.save(update_fields=['is_public', 'update_time'])
@@ -2771,57 +2942,59 @@ class UserPermissionAddView(BaseDiskView):
     """添加用户权限视图"""
 
     def get(self, request):
-        item_type = request.GET.get('type')
-        item_id = request.GET.get('id')
+        modern_redirect = ensure_modern_disk_ui(request)
+        if modern_redirect:
+            return add_no_cache_headers(modern_redirect)
+
+        item_type, item_id = get_permission_target_params(request)
 
         if not item_id or item_type not in ['file', 'folder']:
             return JsonResponse({'code': 1, 'msg': '参数错误'})
 
-        users = User.objects.exclude(id=request.user.id)
-        departments = Department.objects.all()
-
-        def build_dept_tree(dept_list, parent_id=0):
-            tree = []
-            for dept in dept_list:
-                if dept.pid == parent_id:
-                    children = build_dept_tree(dept_list, dept.id)
-                    tree.append({
-                        'id': dept.id,
-                        'title': dept.name,
-                        'spread': True,
-                        'children': children
-                    })
-            return tree
-
-        dept_tree = build_dept_tree(list(departments))
+        item = get_permission_target_item(request, item_type, item_id)
+        users = User.objects.exclude(id=request.user.id).order_by('did', 'username')
+        departments = Department.objects.all().order_by('sort', 'id')
+        dept_tree = build_department_tree(list(departments))
 
         context = {
             'item_type': item_type,
             'item_id': item_id,
+            'item_name': item.name,
+            'item_type_name': '文件' if item_type == 'file' else '文件夹',
             'users': users,
-            'departments': json.dumps(dept_tree)
+            'department_tree_json': json.dumps(dept_tree, ensure_ascii=False),
         }
-        return render(request, 'disk/permission_add_user.html', context)
+        response = render(request, 'disk/permission_add_user.html', context)
+        response['X-Disk-UI-Version'] = 'modern-permission-user-v2'
+        return add_no_cache_headers(response)
 
 
 class DeptPermissionAddView(BaseDiskView):
     """添加部门权限视图"""
 
     def get(self, request):
-        item_type = request.GET.get('type')
-        item_id = request.GET.get('id')
+        modern_redirect = ensure_modern_disk_ui(request)
+        if modern_redirect:
+            return add_no_cache_headers(modern_redirect)
+
+        item_type, item_id = get_permission_target_params(request)
 
         if not item_id or item_type not in ['file', 'folder']:
             return JsonResponse({'code': 1, 'msg': '参数错误'})
 
-        departments = Department.objects.all()
+        item = get_permission_target_item(request, item_type, item_id)
+        departments = Department.objects.all().order_by('sort', 'id')
 
         context = {
             'item_type': item_type,
             'item_id': item_id,
+            'item_name': item.name,
+            'item_type_name': '文件' if item_type == 'file' else '文件夹',
             'departments': departments
         }
-        return render(request, 'disk/permission_add_dept.html', context)
+        response = render(request, 'disk/permission_add_dept.html', context)
+        response['X-Disk-UI-Version'] = 'modern-permission-dept-v2'
+        return add_no_cache_headers(response)
 
 
 @login_required

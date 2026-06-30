@@ -2,6 +2,8 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.utils import timezone
 from django.core.paginator import Paginator
+from django.conf import settings
+from django.core.files.storage import default_storage
 from django.db import models
 from rest_framework import viewsets, status, views
 from rest_framework.decorators import action
@@ -11,6 +13,8 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django.contrib.auth.decorators import login_required
 import logging
+import os
+import uuid
 
 from .models import (
     Conversation,
@@ -40,6 +44,7 @@ from .serializers import (
 )
 from apps.common.services import CommonService
 from apps.user.models import Admin
+from apps.department.models import Department
 
 logger = logging.getLogger(__name__)
 
@@ -290,13 +295,9 @@ class MessageMarkReadView(views.APIView):
                 user=request.user,
                 is_read=False
             ).update(is_read=True, read_time=timezone.now())
+            MessageService.invalidate_user_unread_counts([request.user.id])
         else:
-            MessageUserRelation.objects.filter(
-                user=request.user,
-                is_read=False
-            ).update(is_read=True, read_time=timezone.now())
-
-        MessageService.invalidate_user_unread_counts([request.user.id])
+            MessageService.mark_all_as_read(request.user)
 
         return Response({'status': 'success'})
 
@@ -412,8 +413,8 @@ class ConversationViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ['name', 'messages__content']
-    ordering_fields = ['last_message_at', 'created_at', 'updated_at']
-    ordering = ['-last_message_at', '-created_at']
+    ordering_fields = ['current_user_pinned', 'last_message_at', 'created_at', 'updated_at']
+    ordering = ['-current_user_pinned', '-last_message_at', '-created_at']
 
     def get_queryset(self):
         queryset = ConversationService.list_user_conversations(
@@ -547,6 +548,28 @@ class ConversationViewSet(viewsets.ReadOnlyModelViewSet):
             )
         return Response({'status': 'success', 'removed': removed})
 
+    @action(detail=True, methods=['post'], url_path='pin')
+    def pin(self, request, pk=None):
+        """设置当前用户的会话置顶状态"""
+        conversation = self._get_member_conversation()
+        is_pinned = request.data.get('is_pinned', True)
+        if isinstance(is_pinned, str):
+            is_pinned = is_pinned.lower() in {'1', 'true', 'yes', 'on'}
+        try:
+            member = ConversationService.set_conversation_pinned(
+                conversation,
+                request.user,
+                bool(is_pinned),
+            )
+        except PermissionError:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('您不是该会话成员')
+        return Response({
+            'status': 'success',
+            'conversation_id': conversation.id,
+            'is_pinned': member.is_pinned,
+        })
+
     @action(detail=True, methods=['get', 'post'], url_path='messages')
     def messages(self, request, pk=None):
         """获取或发送会话消息"""
@@ -592,6 +615,59 @@ class ConversationViewSet(viewsets.ReadOnlyModelViewSet):
             content=serializer.validated_data['content'],
             metadata=serializer.validated_data.get('metadata') or {},
             reply_to=reply_to,
+        )
+        output = ConversationMessageSerializer(
+            message,
+            context={'request': request},
+        )
+        return Response(output.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='messages/upload')
+    def upload_message(self, request, pk=None):
+        """上传图片或附件并发送为会话消息"""
+        if not request.user.has_perm('message.send_conversation_message'):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('您没有权限发送沟通消息')
+
+        conversation = self._get_member_conversation()
+        uploaded_file = request.FILES.get('file')
+        if uploaded_file is None:
+            return Response(
+                {'detail': '请选择要发送的文件'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        max_size = getattr(
+            settings,
+            'CONVERSATION_ATTACHMENT_MAX_SIZE',
+            50 * 1024 * 1024,
+        )
+        if uploaded_file.size > max_size:
+            return Response(
+                {'detail': '文件大小不能超过50MB'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        original_name = os.path.basename(uploaded_file.name or 'attachment')
+        _, ext = os.path.splitext(original_name)
+        unique_name = f'{uuid.uuid4().hex}{ext.lower()}'
+        storage_path = os.path.join(
+            'conversations',
+            str(conversation.id),
+            unique_name,
+        ).replace('\\', '/')
+        saved_path = default_storage.save(storage_path, uploaded_file)
+        file_url = default_storage.url(saved_path)
+        content_type = uploaded_file.content_type or ''
+
+        message = ConversationMessageService.send_attachment(
+            conversation=conversation,
+            sender=request.user,
+            file_url=file_url,
+            file_name=original_name,
+            file_size=uploaded_file.size,
+            content_type=content_type,
+            file_path=saved_path,
         )
         output = ConversationMessageSerializer(
             message,
@@ -735,7 +811,10 @@ class UnreadCountView(views.APIView):
 
     def get(self, request):
         """获取未读消息数量"""
-        if not request.user.has_perm('message.view_message'):
+        if not (
+            request.user.has_perm('message.view_message') or
+            request.user.has_perm('message.view_conversation_center')
+        ):
             return Response({'unread_count': 0})
         user = request.user
         unread_count = MessageService.get_unread_count(user)
@@ -745,6 +824,72 @@ class UnreadCountView(views.APIView):
 class ConversationContactView(views.APIView):
     """组织通讯录轻量搜索"""
     permission_classes = [IsAuthenticated]
+
+    def _serialize_user(self, user, department_name=''):
+        return {
+            'id': user.id,
+            'username': user.username,
+            'name': getattr(user, 'name', None) or user.username,
+            'avatar': getattr(user, 'thumb', None),
+            'mobile': getattr(user, 'mobile', '') or '',
+            'department_id': getattr(user, 'did', None),
+            'department_name': department_name,
+        }
+
+    def _department_map(self, department_ids=None):
+        queryset = Department.objects.filter(status=1)
+        if department_ids is not None:
+            queryset = queryset.filter(id__in=department_ids)
+        return {department.id: department for department in queryset}
+
+    def _grouped_response(self, request, queryset):
+        users = list(queryset.order_by('name', 'username', 'id')[:300])
+        department_ids = {user.did for user in users if getattr(user, 'did', 0)}
+        departments = self._department_map(department_ids)
+
+        def serialize(user):
+            department = departments.get(getattr(user, 'did', 0))
+            return self._serialize_user(
+                user,
+                department.name if department else '',
+            )
+
+        groups = [{
+            'id': 'company',
+            'name': '公司全员',
+            'type': 'company',
+            'users': [serialize(user) for user in users],
+        }]
+        department_users = {}
+        for user in users:
+            department_id = getattr(user, 'did', 0) or 0
+            department_users.setdefault(department_id, []).append(user)
+
+        for department in sorted(
+            departments.values(),
+            key=lambda item: (item.sort, item.id),
+        ):
+            groups.append({
+                'id': f'department-{department.id}',
+                'name': department.name,
+                'type': 'department',
+                'department_id': department.id,
+                'users': [
+                    self._serialize_user(user, department.name)
+                    for user in department_users.get(department.id, [])
+                ],
+            })
+
+        ungrouped = department_users.get(0, [])
+        if ungrouped:
+            groups.append({
+                'id': 'ungrouped',
+                'name': '未分配部门',
+                'type': 'ungrouped',
+                'users': [self._serialize_user(user) for user in ungrouped],
+            })
+
+        return Response({'groups': groups})
 
     def get(self, request):
         keyword = (request.query_params.get('q') or '').strip()
@@ -756,16 +901,17 @@ class ConversationContactView(views.APIView):
                 models.Q(mobile__icontains=keyword) |
                 models.Q(job_number__icontains=keyword)
             )
+        if request.query_params.get('grouped') in {'1', 'true', 'yes'}:
+            return self._grouped_response(request, queryset)
+
+        department_ids = queryset.values_list('did', flat=True).distinct()
+        departments = self._department_map(department_ids)
         queryset = queryset.order_by('name', 'username', 'id')[:50]
         results = [
-            {
-                'id': user.id,
-                'username': user.username,
-                'name': getattr(user, 'name', None) or user.username,
-                'avatar': getattr(user, 'thumb', None),
-                'mobile': getattr(user, 'mobile', '') or '',
-                'department_id': getattr(user, 'did_id', None),
-            }
+            self._serialize_user(
+                user,
+                departments.get(user.did).name if user.did in departments else '',
+            )
             for user in queryset
         ]
         return Response({'results': results})
@@ -784,6 +930,7 @@ def conversation_center_page(request):
     """统一在线沟通页面"""
     if not request.user.has_perm('message.view_conversation_center'):
         return render(request, '403.html', {'message': '您没有权限访问在线沟通'})
+    ConversationService.sync_system_conversations()
     return render(request, 'message/conversation_center.html')
 
 
@@ -801,3 +948,82 @@ def message_stats_page(request):
     if not request.user.has_perm('message.view_message_stats'):
         return render(request, '403.html', {'message': '您没有权限查看消息统计'})
     return render(request, 'message/message_stats.html')
+
+
+class MessageRecallView(views.APIView):
+    """消息撤回视图"""
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, conversation_id, message_id):
+        """撤回消息 - 完整版本:检查已读状态"""
+        try:
+            from .models import ConversationMessage, ConversationMessageReceipt
+            ConversationMessageService.ensure_member(
+                Conversation.objects.get(id=conversation_id),
+                request.user,
+            )
+            
+            message = ConversationMessage.objects.get(id=message_id, conversation_id=conversation_id)
+            
+            # 只能撤回自己发送的消息
+            if message.sender_id != request.user.id:
+                return Response({'error': '只能撤回自己发送的消息'}, status=403)
+            
+            # 检查是否所有接收者都未读
+            read_receipts = ConversationMessageReceipt.objects.filter(
+                message=message,
+                status=ConversationMessageReceipt.STATUS_READ
+            ).exclude(user=request.user)
+            
+            if read_receipts.exists():
+                # 获取已读的用户列表
+                read_users = [r.user.name for r in read_receipts[:3]]
+                user_str = '、'.join(read_users)
+                if read_receipts.count() > 3:
+                    user_str += f' 等{read_receipts.count()}人'
+                return Response({'error': f'消息已被 {user_str} 读取,无法撤回'}, status=400)
+            
+            # 标记为已撤回
+            message.message_type = 'system'
+            message.content = f'[{request.user.name} 撤回了一条消息]'
+            message.metadata = message.metadata or {}
+            message.metadata['recalled'] = True
+            message.metadata['recalled_at'] = str(timezone.now())
+            message.metadata['recalled_by'] = request.user.id
+            message.save(update_fields=['message_type', 'content', 'metadata', 'updated_at'])
+            
+            ConversationMessageService._publish(
+                conversation_id,
+                {
+                    'type': 'conversation.message',
+                    'conversation_id': conversation_id,
+                    'message': ConversationMessageService._message_payload(message),
+                },
+            )
+            
+            return Response({'message': '撤回成功', 'message_id': message_id})
+        except ConversationMessage.DoesNotExist:
+            return Response({'error': '消息不存在'}, status=404)
+        except PermissionError:
+            return Response({'error': '您不是该会话成员'}, status=403)
+        except Exception as e:
+            logger.error(f'撤回消息失败: {e}', exc_info=True)
+            return Response({'error': str(e)}, status=500)
+
+
+def user_collaboration_view(request):
+    """用户协作信息视图 - 函数式包装避免循环导入"""
+    from .collaboration_views import UserCollaborationView
+    return UserCollaborationView.as_view()(request)
+
+
+def shareable_content_view(request):
+    """可分享内容视图 - 函数式包装避免循环导入"""
+    from .share_views import ShareableContentView
+    return ShareableContentView.as_view()(request)
+
+
+def card_action_view(request):
+    """卡片操作视图 - 函数式包装避免循环导入"""
+    from .card_views import CardActionView
+    return CardActionView.as_view()(request)

@@ -81,6 +81,8 @@ urlpatterns = [
     path('inventory/', include('apps.inventory.urls', namespace='inventory')),
     # 公共接口
     path('common/', include('apps.common.urls', namespace='web_common')),
+    # AI-HRBP人力资源
+    path('hrbp/', include('apps.hrbp.urls', namespace='hrbp')),
     
     # 修复dashboard路径重定向
     path('dashboard/', RedirectView.as_view(url='/home/dashboard/', permanent=True)),

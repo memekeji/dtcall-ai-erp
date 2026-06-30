@@ -1,0 +1,116 @@
+{% extends "home/iframe_base.html" %}
+{% load static %}
+
+{% block title %}简历列表 - {{ position.title }}{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>{{ position.title }} - 简历列表</h3>
+        <p style="color: #999; margin-top: 10px;">
+            总计：{{ resumes|length }} 份 | 
+            待处理：{{ resumes|length }} 份
+        </p>
+    </div>
+    <div class="layui-card-body">
+        <div class="layui-btn-group" style="margin-bottom: 20px;">
+            <button class="layui-btn layui-btn-normal" onclick="location.href='/hrbp/position/{{ position.id }}/upload/'">
+                <i class="layui-icon layui-icon-upload"></i> 继续上传简历
+            </button>
+            <button class="layui-btn layui-btn-warm" onclick="location.href='/hrbp/position/{{ position.id }}/batch-reports/'">
+                <i class="layui-icon layui-icon-chart"></i> 批量分析报告
+            </button>
+        </div>
+
+        <table class="layui-table" lay-skin="line">
+            <thead>
+                <tr>
+                    <th width="80">序号</th>
+                    <th width="150">候选人姓名</th>
+                    <th width="150">联系电话</th>
+                    <th width="200">邮箱</th>
+                    <th width="200">文件名</th>
+                    <th width="100">文件类型</th>
+                    <th width="120">状态</th>
+                    <th width="180">提交时间</th>
+                    <th width="200">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for resume in resumes %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ resume.candidate_name|default:"未提取" }}</td>
+                    <td>{{ resume.candidate_phone|default:"未提取" }}</td>
+                    <td>{{ resume.candidate_email|default:"未提取" }}</td>
+                    <td title="{{ resume.file_name }}">{{ resume.file_name|truncatechars:30 }}</td>
+                    <td>
+                        <span class="layui-badge layui-bg-blue">{{ resume.get_file_type_display }}</span>
+                    </td>
+                    <td>
+                        {% if resume.status == 'completed' %}
+                            <span class="layui-badge layui-bg-green">已完成</span>
+                        {% elif resume.status == 'analyzing' %}
+                            <span class="layui-badge layui-bg-orange">分析中</span>
+                        {% elif resume.status == 'pending' %}
+                            <span class="layui-badge layui-bg-gray">待处理</span>
+                        {% else %}
+                            <span class="layui-badge layui-bg-red">失败</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ resume.submitted_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        {% if resume.status == 'completed' %}
+                            <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="viewReport({{ resume.id }})">
+                                <i class="layui-icon layui-icon-read"></i> 查看报告
+                            </button>
+                        {% elif resume.status == 'failed' %}
+                            <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="retryAnalysis({{ resume.id }})">
+                                <i class="layui-icon layui-icon-refresh"></i> 重试
+                            </button>
+                        {% else %}
+                            <button class="layui-btn layui-btn-xs layui-btn-disabled" disabled>
+                                <i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 处理中
+                            </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" style="text-align: center; padding: 50px; color: #999;">
+                        <i class="layui-icon layui-icon-file" style="font-size: 50px;"></i>
+                        <p style="margin-top: 20px;">暂无简历数据</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+(function checkLayui() {
+    if (typeof layui !== 'undefined') {
+function viewReport(resumeId) {
+    layer.open({
+        type: 2,
+        title: '简历分析报告',
+        content: '/hrbp/resume/' + resumeId + '/report/',
+        area: ['90%', '90%'],
+        maxmin: true
+    });
+}
+
+function retryAnalysis(resumeId) {
+    layer.confirm('确定要重新分析该简历吗？', {icon: 3, title:'提示'}, function(index){
+        layer.msg('重新分析功能开发中...', {icon: 0});
+        layer.close(index);
+    });
+}
+    } else {
+        setTimeout(checkLayui, 50);
+    }
+})();
+</script>
+{% endblock %}

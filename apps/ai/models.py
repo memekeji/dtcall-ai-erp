@@ -55,69 +55,50 @@ class EncryptedAPIKeyField(models.CharField):
 
 
 class AIModelConfig(models.Model):
-    """AI 模型配置"""
+    """AI 模型配置 - 简化版：仅需配置API接口、API Key、图片模型、视频模型"""
     PROVIDERS = [
         ('openai', 'OpenAI'),
-        ('azure', 'Azure OpenAI'),
+        ('alibaba', '阿里云百炼'),
+        ('deepseek', 'DeepSeek'),
+        ('doubao', '豆包'),
+        ('baidu', '百度文心'),
         ('anthropic', 'Anthropic'),
         ('google', 'Google Gemini'),
-        ('baidu', '百度文心一言'),
-        ('alibaba', '阿里通义千问'),
         ('tencent', '腾讯混元'),
-        ('deepseek', 'DeepSeek'),
-        ('doubao', '字节跳动豆包'),
-        ('ollama', 'Ollama (本地模型)'),
+        ('azure', 'Azure OpenAI'),
+        ('ollama', 'Ollama'),
         ('local', '本地模型'),
     ]
-
     MODEL_TYPES = [
         ('chat', '对话模型'),
-        ('text', '文本生成'),
+        ('text', '文本模型'),
         ('embedding', '嵌入模型'),
-        ('image', '图像模型'),
         ('audio', '音频模型'),
+        ('image', '图像模型'),
+        ('video', '视频模型'),
     ]
 
-    name = models.CharField(max_length=100, verbose_name='模型名称')
-    provider = models.CharField(
-        max_length=50,
-        choices=PROVIDERS,
-        verbose_name='提供商')
-    model_type = models.CharField(
-        max_length=20,
-        choices=MODEL_TYPES,
-        verbose_name='模型类型')
-    model_name = models.CharField(
+    name = models.CharField(
         max_length=100,
-        default='',
-        verbose_name='模型标识')
-    api_key = EncryptedAPIKeyField(verbose_name='API密钥')
+        default='默认配置',
+        verbose_name='配置名称')
     api_base = models.URLField(
-        max_length=200,
-        blank=True,
-        null=True,
-        verbose_name='API基础URL')
-    organization = models.CharField(
+        max_length=300,
+        verbose_name='API接口地址',
+        help_text='OpenAI兼容的API接口地址，例如 https://api.openai.com/v1')
+    api_key = EncryptedAPIKeyField(verbose_name='API密钥')
+    image_model = models.CharField(
         max_length=100,
-        blank=True,
-        null=True,
-        verbose_name='组织ID')
-    project = models.CharField(
+        default='gpt-image-1',
+        verbose_name='图片模型名称',
+        help_text='用于图片生成的模型标识')
+    video_model = models.CharField(
         max_length=100,
+        default='sora-1',
         blank=True,
-        null=True,
-        verbose_name='项目ID')
-    max_tokens = models.IntegerField(default=2048, verbose_name='最大tokens')
-    temperature = models.FloatField(
-        default=0.7,
-        verbose_name='温度',
-        help_text='0-2，值越高越随机')
-    top_p = models.FloatField(
-        default=1.0,
-        verbose_name='top_p',
-        help_text='0-1，核采样参数')
+        verbose_name='视频模型名称',
+        help_text='用于视频生成的模型标识')
     is_active = models.BooleanField(default=True, verbose_name='是否激活')
-    is_default = models.BooleanField(default=False, verbose_name='是否默认')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
 
@@ -125,10 +106,139 @@ class AIModelConfig(models.Model):
         verbose_name = 'AI模型配置'
         verbose_name_plural = verbose_name
         db_table = 'ai_model_config'
-        unique_together = ['provider', 'model_name', 'model_type']
 
     def __str__(self):
-        return f"{self.provider} - {self.model_name} ({self.get_model_type_display()})"
+        return f"{self.name} ({self.api_base})"
+
+    def _infer_provider(self):
+        base = (self.api_base or '').lower()
+        if 'dashscope.aliyuncs.com' in base:
+            return 'alibaba'
+        if 'api.deepseek.com' in base:
+            return 'deepseek'
+        if 'ark.cn-beijing.volces.com' in base:
+            return 'doubao'
+        if 'aip.baidubce.com' in base:
+            return 'baidu'
+        if 'api.anthropic.com' in base:
+            return 'anthropic'
+        if 'generativelanguage.googleapis.com' in base:
+            return 'google'
+        if 'hunyuan.cloud.tencent.com' in base:
+            return 'tencent'
+        if 'azure' in base and 'openai' in base:
+            return 'azure'
+        if 'localhost:11434' in base:
+            return 'ollama'
+        if 'localhost' in base or '127.0.0.1' in base:
+            return 'local'
+        return 'openai'
+
+    def _infer_model_name(self):
+        candidate = (self.name or '').strip()
+        if candidate and candidate != '默认配置':
+            return candidate
+
+        provider_defaults = {
+            'openai': 'gpt-4o-mini',
+            'alibaba': 'qwen-turbo',
+            'deepseek': 'deepseek-chat',
+            'doubao': 'doubao-seed-1-6-250615',
+            'baidu': 'ernie-4.0-turbo-8k',
+            'anthropic': 'claude-3-5-sonnet-20241022',
+            'google': 'gemini-1.5-flash',
+            'tencent': 'hunyuan-lite',
+            'azure': 'gpt-4o-mini',
+            'ollama': 'llama3.1',
+            'local': 'local-model',
+        }
+        return provider_defaults.get(self.provider, 'gpt-4o-mini')
+
+    @property
+    def provider(self):
+        return self._infer_provider()
+
+    @property
+    def model_type(self):
+        return 'chat'
+
+    @property
+    def model_name(self):
+        return self._infer_model_name()
+
+    @property
+    def max_tokens(self):
+        return 2000
+
+    @property
+    def temperature(self):
+        return 0.7
+
+    @property
+    def top_p(self):
+        return 1.0
+
+    @property
+    def provider_specific_config(self):
+        return {}
+
+    @property
+    def organization(self):
+        return ''
+
+    @property
+    def project(self):
+        return ''
+
+    @property
+    def api_version(self):
+        return ''
+
+    @property
+    def secret_key(self):
+        return ''
+
+    @property
+    def access_token(self):
+        return ''
+
+    @property
+    def anthropic_version(self):
+        return ''
+
+    def get_provider_display(self):
+        return dict(self.PROVIDERS).get(self.provider, self.provider)
+
+    def get_model_type_display(self):
+        return dict(self.MODEL_TYPES).get(self.model_type, self.model_type)
+
+    @classmethod
+    def get_active_config(cls):
+        """获取当前激活的配置"""
+        return cls.objects.filter(is_active=True).first()
+
+    @classmethod
+    def get_image_model(cls):
+        """获取图片模型名称"""
+        config = cls.get_active_config()
+        return config.image_model if config else 'gpt-image-1'
+
+    @classmethod
+    def get_video_model(cls):
+        """获取视频模型名称"""
+        config = cls.get_active_config()
+        return config.video_model if config else 'sora-1'
+
+    @classmethod
+    def get_client_kwargs(cls):
+        """获取用于初始化AI客户端的参数"""
+        config = cls.get_active_config()
+        if not config:
+            return {'api_key': '', 'base_url': ''}
+        return {
+            'api_key': config.api_key,
+            'base_url': config.api_base,
+        }
 
 
 class AIWorkflow(models.Model):
@@ -1213,5 +1323,11 @@ from .models_enhanced import (  # noqa: E402,F401
     WorkflowTemplate,
     WorkflowVersion,
     WorkflowWebhook,
+)
+from .models_operation import (  # noqa: E402,F401
+    AIOperation,
+    AIOperationChangeSet,
+    AIOperationConfirmation,
+    AIOperationRollback,
 )
 

@@ -309,3 +309,453 @@ a:hover {
         padding: 14px;
     }
 }
+
+
+/* ============================================================
+   Sidebar Version Footer — online update section
+   ============================================================ */
+.sidebar-version-footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 85px;
+    padding: 10px 14px 12px;
+    border-top: 1px solid rgba(59, 130, 246, 0.12);
+    background: #fff;
+    box-shadow: 0 -4px 16px rgba(37, 99, 235, 0.06);
+    z-index: 15;
+    box-sizing: border-box;
+}
+
+.version-info-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.version-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.version-value {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.version-commit {
+    font-size: 10px;
+    font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+    color: #94a3b8;
+    background: rgba(148,163,184,0.1);
+    padding: 1px 5px;
+    border-radius: 4px;
+    cursor: default;
+}
+
+.version-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.version-btn {
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 8px;
+    background: rgba(59, 130, 246, 0.06);
+    color: #64748b;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, color 0.2s, transform 0.2s, box-shadow 0.2s;
+    padding: 0;
+}
+
+.version-btn:hover {
+    background: rgba(22, 119, 255, 0.12);
+    color: #1677ff;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.14);
+    transform: translateY(-1px);
+}
+
+.version-btn:active {
+    transform: scale(0.94);
+}
+
+.version-btn i {
+    font-size: 14px;
+}
+
+.version-btn-update {
+    color: #fff;
+    background: linear-gradient(135deg, #1677ff, #0ea5e9);
+    box-shadow: 0 4px 14px rgba(22, 119, 255, 0.22);
+}
+
+.version-btn-update:hover {
+    color: #fff;
+    background: linear-gradient(135deg, #0958d9, #0891b2);
+    box-shadow: 0 6px 18px rgba(22, 119, 255, 0.28);
+}
+
+.version-btn-rollback {
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.18);
+    background: rgba(245, 158, 11, 0.06);
+}
+
+.version-btn-rollback:hover {
+    color: #d97706;
+    border-color: rgba(245, 158, 11, 0.32);
+    background: rgba(245, 158, 11, 0.12);
+}
+
+.version-status {
+    margin-top: 4px;
+}
+
+.version-status-text {
+    font-size: 10px;
+    color: #94a3b8;
+}
+
+.version-status.has-update .version-status-text {
+    color: #1677ff;
+    font-weight: 600;
+}
+
+/* Update progress overlay */
+.update-progress-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.update-progress-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 32px 40px;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.2);
+    text-align: center;
+}
+
+.update-progress-card h3 {
+    margin: 0 0 8px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.update-progress-card .update-step {
+    font-size: 13px;
+    color: #64748b;
+    margin-bottom: 16px;
+}
+
+.update-progress-card .layui-progress {
+    margin: 16px 0;
+}
+
+.update-progress-card .update-log {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 12px;
+    max-height: 80px;
+    overflow-y: auto;
+    text-align: left;
+}
+
+/* Spin animation for check update button */
+@keyframes versionSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.version-btn-check.checking i {
+    animation: versionSpin 0.8s linear infinite;
+}
+
+/* Pulse for update available */
+@keyframes versionPulse {
+    0%, 100% { box-shadow: 0 4px 14px rgba(22, 119, 255, 0.22); }
+    50% { box-shadow: 0 4px 24px rgba(22, 119, 255, 0.42); }
+}
+
+.version-btn-update.has-update {
+    animation: versionPulse 2s ease-in-out infinite;
+}
+
+/* Responsive: collapse version footer on narrow screens */
+@media (max-width: 900px) {
+    .sidebar-version-footer {
+        text-align: center;
+    }
+    .version-info-row {
+        justify-content: center;
+    }
+    .version-commit {
+        display: none;
+    }
+    .version-actions {
+        justify-content: center;
+    }
+}
+
+
+/* ============================================================
+   Version status link (clickable for changelog)
+   ============================================================ */
+.version-status-link {
+    text-decoration: none;
+    cursor: pointer;
+    display: inline-block;
+}
+
+.version-status-link:hover .version-status-text {
+    color: #0958d9;
+    text-decoration: underline;
+}
+
+.version-status-text.has-update {
+    color: #1677ff;
+    font-weight: 600;
+}
+
+/* ============================================================
+   Changelog Modal
+   ============================================================ */
+.changelog-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.changelog-modal {
+    background: #fff;
+    border-radius: 16px;
+    width: 520px;
+    max-width: 90vw;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 24px 64px rgba(15, 23, 42, 0.22);
+    overflow: hidden;
+}
+
+.changelog-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 85px;padding: 20px 24px 14px;
+    border-bottom: 1px solid #eef2f6;
+    flex-shrink: 0;
+}
+
+.changelog-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.changelog-header h3 i {
+    font-size: 20px;
+    color: #1677ff;
+}
+
+.changelog-version-tag {
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
+    background: linear-gradient(135deg, #1677ff, #0ea5e9);
+    padding: 2px 10px;
+    border-radius: 99px;
+    letter-spacing: 0.04em;
+}
+
+.changelog-close {
+    margin-left: auto;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, color 0.2s;
+}
+
+.changelog-close:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+.changelog-close i {
+    font-size: 16px;
+}
+
+.changelog-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 24px;
+    min-height: 120px;
+    max-height: 50vh;
+}
+
+.changelog-loading,
+.changelog-empty {
+    text-align: center;
+    color: #94a3b8;
+    padding: 32px 0;
+    font-size: 13px;
+}
+
+.changelog-loading i {
+    font-size: 20px;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+/* Changelog list */
+.changelog-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.changelog-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    transition: background 0.15s;
+}
+
+.changelog-item:hover {
+    background: #f8fafc;
+}
+
+.changelog-item + .changelog-item {
+    margin-top: 2px;
+}
+
+.changelog-item-new {
+    background: linear-gradient(135deg, #eff6ff, #f0f9ff);
+    border: 1px solid rgba(59, 130, 246, 0.1);
+}
+
+.changelog-item-new:hover {
+    background: linear-gradient(135deg, #e0f0ff, #e6f6ff);
+}
+
+.changelog-hash {
+    flex-shrink: 0;
+    font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+    font-size: 11px;
+    color: #1677ff;
+    background: rgba(22, 119, 255, 0.08);
+    padding: 1px 6px;
+    border-radius: 4px;
+    line-height: 20px;
+}
+
+.changelog-msg {
+    font-size: 13px;
+    color: #334155;
+    line-height: 20px;
+    word-break: break-word;
+}
+
+.changelog-footer {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    padding: 14px 24px 20px;
+    border-top: 1px solid #eef2f6;
+    flex-shrink: 0;
+}
+
+.changelog-btn {
+    border: 0;
+    border-radius: 10px;
+    padding: 8px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.changelog-btn:active {
+    transform: scale(0.97);
+}
+
+.changelog-btn-update {
+    background: linear-gradient(135deg, #1677ff, #0ea5e9);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(22, 119, 255, 0.22);
+}
+
+.changelog-btn-update:hover {
+    box-shadow: 0 6px 20px rgba(22, 119, 255, 0.32);
+}
+
+.changelog-btn-close {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.changelog-btn-close:hover {
+    background: #e2e8f0;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .changelog-modal {
+        width: 96vw;
+        max-height: 85vh;
+        border-radius: 12px;
+    }
+    .changelog-header {
+        padding: 16px 18px 12px;
+    }
+    .changelog-body {
+        padding: 12px 18px;
+    }
+    .changelog-footer {
+        padding: 12px 18px 16px;
+    }
+}
+
+
+

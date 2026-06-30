@@ -25,6 +25,32 @@
         color: #333;
         border-bottom: 1px solid #e6e6e6;
     }
+
+    .message-center-tabs {
+        padding: 12px 14px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        border-bottom: 1px solid #edf0f5;
+        background: #fbfdff;
+    }
+
+    .message-center-tabs a {
+        height: 34px;
+        line-height: 34px;
+        text-align: center;
+        border: 1px solid #dbe6f5;
+        color: #52657a;
+        background: #fff;
+        text-decoration: none;
+    }
+
+    .message-center-tabs a.active {
+        color: #1677ff;
+        border-color: #9fc5ff;
+        background: #eef6ff;
+        font-weight: 600;
+    }
     
     .message-category-list {
         list-style: none;
@@ -383,6 +409,10 @@
     <div class="message-sidebar">
         <div class="message-sidebar-title">
             <i class="layui-icon layui-icon-notice"></i> 消息中心
+        </div>
+        <div class="message-center-tabs">
+            <a href="/message/conversations/page/">沟通会话</a>
+            <a href="/message/page/" class="active">通知消息</a>
         </div>
         <ul class="message-category-list" id="categoryList">
             <li class="message-category-item active" data-category="all">

@@ -8,365 +8,272 @@
     <title>添加部门权限</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
     <style>
-        .permission-add-container {
-            padding: 20px;
+        :root {
+            --ink: #17212f;
+            --muted: #687589;
+            --line: #dfe6ee;
+            --soft: #f4f7fb;
+            --brand: #126b64;
+            --brand-soft: #e6f5f2;
         }
-        .section-title {
-            font-size: 16px;
-            font-weight: bold;
-            margin-bottom: 15px;
-            color: #333;
-            border-bottom: 2px solid #1E9FFF;
-            padding-bottom: 5px;
-        }
+
+        * { box-sizing: border-box; }
+        html, body { min-height: 100%; margin: 0; background: #eef3f7; color: var(--ink); font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif; }
+        .page { min-height: 100vh; padding: 10px; }
+        .shell { min-height: calc(100vh - 20px); border: 1px solid rgba(223, 230, 238, 0.9); background: #fff; box-shadow: 0 12px 28px rgba(23, 33, 47, 0.08); overflow: hidden; }
+        .head { display: flex; justify-content: space-between; gap: 14px; align-items: center; padding: 14px 16px; border-bottom: 1px solid #edf1f6; background: linear-gradient(90deg, rgba(18, 107, 100, 0.08), rgba(255,255,255,0)); }
+        .head h1 { margin: 0; font-size: 17px; font-weight: 700; }
+        .head .meta { margin-top: 4px; color: var(--muted); font-size: 12px; }
+        .badge { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border: 1px solid var(--line); background: var(--brand-soft); color: #0b554f; font-size: 12px; font-weight: 700; }
+
+        .content { display: grid; grid-template-rows: auto 1fr auto; min-height: calc(100vh - 82px); }
+        .panel-head { padding: 12px 14px; border-bottom: 1px solid #edf1f6; font-size: 14px; font-weight: 700; }
+        .panel-body { padding: 12px 14px; }
+        .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+        .layui-btn { border-radius: 0; font-weight: 700; }
+        .summary { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 10px; padding: 10px 12px; border: 1px solid var(--line); background: #fbfcfe; }
+        .summary strong { font-size: 14px; }
+        .summary span { color: var(--muted); font-size: 12px; }
+
         .dept-list {
-            max-height: 400px;
-            overflow-y: auto;
-            border: 1px solid #e6e6e6;
-            border-radius: 6px;
-            margin-bottom: 20px;
+            padding: 0 16px 16px;
+            overflow: auto;
         }
+
         .dept-item {
-            display: flex;
+            display: grid;
+            grid-template-columns: 44px minmax(0, 1fr) auto;
+            gap: 12px;
             align-items: center;
-            justify-content: space-between;
-            padding: 15px;
-            border-bottom: 1px solid #f0f0f0;
+            padding: 12px 14px;
+            margin-bottom: 8px;
+            border: 1px solid var(--line);
+            background: #fff;
         }
-        .dept-item:last-child {
-            border-bottom: none;
-        }
-        .dept-info {
-            display: flex;
-            align-items: center;
-        }
+
         .dept-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: #52c41a;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 15px;
-            font-weight: bold;
+            display: grid;
+            width: 44px;
+            height: 44px;
+            place-items: center;
+            color: #fff;
+            background: #0ea5e9;
+            font-weight: 700;
         }
-        .dept-details h4 {
-            margin: 0 0 5px 0;
-            font-size: 14px;
-        }
-        .dept-details p {
-            margin: 0;
-            color: #666;
-            font-size: 12px;
-        }
-        .dept-checkbox {
-            margin-right: 20px;
-        }
-        .action-buttons {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        .permission-settings {
-            margin-top: 20px;
-            padding: 15px;
-            background: #fafafa;
-            border: 1px solid #e6e6e6;
-            border-radius: 6px;
-        }
-        .permission-title {
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        .permission-options {
-            display: flex;
-            gap: 20px;
-        }
-        .permission-option {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        .selected-depts {
-            margin-bottom: 20px;
-            padding: 10px;
-            background: #f0f9ff;
-            border: 1px solid #91d5ff;
-            border-radius: 4px;
-        }
-        .footer-buttons {
-            text-align: center;
-            margin-top: 20px;
+
+        .dept-details h4 { margin: 0 0 4px; font-size: 14px; }
+        .dept-details p { margin: 0; color: var(--muted); font-size: 12px; }
+        .footer { display: flex; gap: 10px; padding: 12px 14px 14px; border-top: 1px solid #edf1f6; background: #fff; }
+        .footer .layui-btn { flex: 1; }
+        .empty { padding: 26px 10px; text-align: center; color: var(--muted); }
+        .empty .layui-icon { display: block; margin-bottom: 8px; font-size: 30px; color: #c5d0db; }
+
+        @media (max-width: 960px) {
+            .dept-item { grid-template-columns: 44px minmax(0, 1fr); }
+            .dept-checkbox { grid-column: 1 / -1; }
         }
     </style>
 </head>
 
 <body>
-    <div class="permission-add-container">
-        <h3 class="section-title">选择部门并设置权限</h3>
-        
-        <div class="action-buttons">
-            <button class="layui-btn layui-btn-sm" onclick="selectAllDepts()">
-                <i class="layui-icon layui-icon-ok-circle"></i> 全选
-            </button>
-            <button class="layui-btn layui-btn-sm layui-btn-normal" onclick="selectInverseDepts()">
-                <i class="layui-icon layui-icon-not-found"></i> 反选
-            </button>
-            <button class="layui-btn layui-btn-sm layui-btn-primary" onclick="clearSelectedDepts()">
-                <i class="layui-icon layui-icon-close"></i> 清空
-            </button>
-        </div>
-        
-        <!-- 已选部门 -->
-        <div class="selected-depts">
-            <span id="selectedCount">已选 0 个部门</span>
-            <div id="selectedDeptNames" style="margin-top: 5px; color: #666; font-size: 12px;"></div>
-        </div>
-        
-        <!-- 部门列表 -->
-        <div class="dept-list" id="deptList">
-            {% for dept in departments %}
-            <div class="dept-item">
-                <div class="dept-info">
-                    <div class="dept-avatar">{{ dept.title|first|upper }}</div>
-                    <div class="dept-details">
-                        <h4>{{ dept.title }}</h4>
-                        <p>部门 · {{ dept.users_count }}名成员</p>
+    <div class="page">
+        <div class="shell">
+            <div class="head">
+                <div>
+                    <h1>添加部门权限</h1>
+                    <div class="meta">{{ item_type_name }} · {{ item_name }}</div>
+                </div>
+                <div class="badge"><i class="layui-icon layui-icon-group"></i> 多部门共享</div>
+            </div>
+
+            <div class="content">
+                <div>
+                    <div class="panel-head">
+                        <div class="toolbar">
+                            <button class="layui-btn layui-btn-sm" onclick="selectAllDepts()"><i class="layui-icon layui-icon-ok-circle"></i> 全选</button>
+                            <button class="layui-btn layui-btn-sm layui-btn-normal" onclick="selectInverseDepts()"><i class="layui-icon layui-icon-refresh"></i> 反选</button>
+                            <button class="layui-btn layui-btn-sm layui-btn-primary" onclick="clearSelectedDepts()"><i class="layui-icon layui-icon-close"></i> 清空</button>
+                        </div>
+                    </div>
+
+                    <div class="panel-body">
+                        <div class="summary">
+                            <div>
+                                <strong id="selectedCount">已选 0 个部门</strong>
+                                <span id="selectedDeptNames">暂无选择</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dept-list" id="deptList">
+                        {% for dept in departments %}
+                        <div class="dept-item">
+                            <div class="dept-avatar">{{ dept.title|first|upper }}</div>
+                            <div class="dept-details">
+                                <h4>{{ dept.title }}</h4>
+                                <p>部门 · {{ dept.users_count }} 名成员</p>
+                            </div>
+                            <div class="dept-checkbox">
+                                <input type="checkbox" name="dept_ids" value="{{ dept.id }}" lay-skin="primary" data-dept-name="{{ dept.title }}">
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="empty">
+                            <i class="layui-icon layui-icon-group"></i>
+                            暂无可选部门
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="panel-body">
+                        <div class="summary" style="margin-bottom:0;">
+                            <div>
+                                <strong>权限级别</strong>
+                                <span>为所选部门统一设置访问级别</span>
+                            </div>
+                        </div>
+                        <div style="padding: 14px 0 0;">
+                            <label style="display:inline-flex;align-items:center;gap:6px;margin-right:14px;"><input type="radio" name="permission_level" value="1" checked> <span>只读</span></label>
+                            <label style="display:inline-flex;align-items:center;gap:6px;margin-right:14px;"><input type="radio" name="permission_level" value="2"> <span>读写</span></label>
+                            <label style="display:inline-flex;align-items:center;gap:6px;"><input type="radio" name="permission_level" value="3"> <span>管理</span></label>
+                        </div>
                     </div>
                 </div>
-                <div class="dept-checkbox">
-                    <input type="checkbox" name="dept_ids" value="{{ dept.id }}" lay-skin="primary" data-dept-name="{{ dept.title }}">
+
+                <div class="footer">
+                    <button class="layui-btn" onclick="savePermissions()"><i class="layui-icon layui-icon-ok"></i> 保存</button>
+                    <button class="layui-btn layui-btn-primary" onclick="closeDialog()"><i class="layui-icon layui-icon-close"></i> 取消</button>
                 </div>
             </div>
-            {% endfor %}
-        </div>
-        
-        <!-- 权限设置 -->
-        <div class="permission-settings">
-            <div class="permission-title">权限设置</div>
-            <div class="permission-options">
-                <div class="permission-option">
-                    <input type="radio" name="permission_level" value="1" checked>
-                    <span>只读</span>
-                </div>
-                <div class="permission-option">
-                    <input type="radio" name="permission_level" value="2">
-                    <span>读写</span>
-                </div>
-                <div class="permission-option">
-                    <input type="radio" name="permission_level" value="3">
-                    <span>管理</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="footer-buttons">
-            <button class="layui-btn" onclick="savePermissions()">
-                <i class="layui-icon layui-icon-ok"></i> 保存
-            </button>
-            <button class="layui-btn layui-btn-primary" onclick="closeDialog()">
-                <i class="layui-icon layui-icon-close"></i> 取消
-            </button>
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'js/jquery.min.js' %}"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        let selectedDepts = [];
-        let existingPermissionDepts = []; // 已有权限的部门列表
-        
-        // 页面加载时获取已有权限的部门
-        $(document).ready(function() {
-            $.get('/disk/permission/dept/list/existing/', {
-                item_type: '{{ item_type }}',
-                item_id: '{{ item_id }}',
-                csrfmiddlewaretoken: '{{ csrf_token }}'
-            }, function(response) {
-                if (response.code === 0) {
-                    existingPermissionDepts = response.data.departments;
-                    // 将已有权限的部门添加到selectedDepts数组中
-                    existingPermissionDepts.forEach(function(dept) {
-                        if (!selectedDepts.includes(dept.name)) {
-                            selectedDepts.push(dept.name);
-                        }
-                    });
-                    updateSelectedDepts();
-                    
-                    // 预选中已有权限的部门
-                    existingPermissionDepts.forEach(function(dept) {
-                        $('input[name="dept_ids"][value="' + dept.id + '"]').prop('checked', true);
-                    });
-                    
-                    // 重新渲染复选框
-                    layui.use('form', function() {
-                        var form = layui.form;
-                        form.render('checkbox');
-                    });
-                }
+        var selectedDepts = [];
+
+        function unique(list) {
+            var seen = new Set();
+            return list.filter(function(item) {
+                if (seen.has(item.id)) return false;
+                seen.add(item.id);
+                return true;
             });
+        }
+
+        function updateSelectedDepts() {
+            selectedDepts = unique(selectedDepts);
+            $('#selectedCount').text('已选 ' + selectedDepts.length + ' 个部门');
+            $('#selectedDeptNames').text(selectedDepts.length ? selectedDepts.map(function(item) {
+                return item.name;
+            }).join('、') : '暂无选择');
+        }
+
+        layui.use('form', function() {
+            layui.form.render();
         });
 
-        // 初始化已选部门
-        function initSelectedDepts() {
-            updateSelectedDepts();
-        }
-        
-        // 更新已选部门显示
-        function updateSelectedDepts() {
-            var selectedCount = $('#selectedCount');
-            var selectedDeptNames = $('#selectedDeptNames');
-            
-            selectedCount.text('已选 ' + selectedDepts.length + ' 个部门');
-            
-            var deptNames = selectedDepts.join(', ');
-            selectedDeptNames.text(deptNames || '暂无选择');
-        }
-        
-        // 监听复选框变化
-        layui.use('form', function() {
-            var form = layui.form;
-            
-            form.on('checkbox', function(data) {
-                var deptId = data.value;
-                var deptName = $(data.elem).data('dept-name');
-                
-                if (data.elem.checked) {
-                    // 添加到已选部门
-                    if (!selectedDepts.includes(deptName)) {
-                        selectedDepts.push(deptName);
-                    }
-                } else {
-                    // 从已选部门中移除
-                    selectedDepts = selectedDepts.filter(name => name !== deptName);
+        $(document).on('change', '#deptList input[type="checkbox"]', function() {
+            var deptId = $(this).val();
+            var deptName = $(this).data('dept-name');
+            if (this.checked) {
+                if (!selectedDepts.some(function(item) { return String(item.id) === String(deptId); })) {
+                    selectedDepts.push({ id: deptId, name: deptName });
                 }
-                
-                updateSelectedDepts();
-            });
+            } else {
+                selectedDepts = selectedDepts.filter(function(item) {
+                    return String(item.id) !== String(deptId);
+                });
+            }
+            updateSelectedDepts();
         });
-        
-        // 全选部门
+
         function selectAllDepts() {
             $('#deptList input[type="checkbox"]').each(function() {
-                if (!this.checked) {
-                    this.checked = true;
-                    var deptName = $(this).data('dept-name');
-                    
-                    // 添加到已选部门
-                    if (!selectedDepts.includes(deptName)) {
-                        selectedDepts.push(deptName);
-                    }
+                this.checked = true;
+                var deptId = $(this).val();
+                var deptName = $(this).data('dept-name');
+                if (!selectedDepts.some(function(item) { return String(item.id) === String(deptId); })) {
+                    selectedDepts.push({ id: deptId, name: deptName });
                 }
             });
-            
-            layui.use('form', function() {
-                var form = layui.form;
-                form.render('checkbox');
-            });
-            
+            layui.use('form', function() { layui.form.render('checkbox'); });
             updateSelectedDepts();
         }
-        
-        // 反选部门
+
         function selectInverseDepts() {
             $('#deptList input[type="checkbox"]').each(function() {
                 this.checked = !this.checked;
+                var deptId = $(this).val();
                 var deptName = $(this).data('dept-name');
-                
                 if (this.checked) {
-                    // 添加到已选部门
-                    if (!selectedDepts.includes(deptName)) {
-                        selectedDepts.push(deptName);
+                    if (!selectedDepts.some(function(item) { return String(item.id) === String(deptId); })) {
+                        selectedDepts.push({ id: deptId, name: deptName });
                     }
                 } else {
-                    // 从已选部门中移除
-                    selectedDepts = selectedDepts.filter(name => name !== deptName);
+                    selectedDepts = selectedDepts.filter(function(item) {
+                        return String(item.id) !== String(deptId);
+                    });
                 }
             });
-            
-            layui.use('form', function() {
-                var form = layui.form;
-                form.render('checkbox');
-            });
-            
+            layui.use('form', function() { layui.form.render('checkbox'); });
             updateSelectedDepts();
         }
-        
-        // 清空已选部门
+
         function clearSelectedDepts() {
             selectedDepts = [];
             $('#deptList input[type="checkbox"]').prop('checked', false);
-            
-            layui.use('form', function() {
-                var form = layui.form;
-                form.render('checkbox');
-            });
-            
+            layui.use('form', function() { layui.form.render('checkbox'); });
             updateSelectedDepts();
         }
-        
-        // 保存权限
+
         function savePermissions() {
-            // 获取选中的部门ID
             var selectedDeptIds = [];
             $('#deptList input[type="checkbox"]:checked').each(function() {
                 selectedDeptIds.push($(this).val());
             });
-            
+
             if (selectedDeptIds.length === 0) {
-                layui.use('layer', function() {
-                    var layer = layui.layer;
-                    layer.msg('请至少选择一个部门', {icon: 2});
-                });
+                layui.use('layer', function() { layui.layer.msg('请至少选择一个部门', {icon: 2}); });
                 return;
             }
-            
-            // 获取选中的权限级别
+
             var permissionLevel = $('input[name="permission_level"]:checked').val();
-            
-            // 构建权限数据
-            var permissions = selectedDeptIds.map(deptId => ({
-                dept_id: deptId,
-                permission_level: permissionLevel
-            }));
-            
-            // 发送请求
+            var permissions = selectedDeptIds.map(function(deptId) {
+                return { dept_id: deptId, permission_level: permissionLevel };
+            });
+
             $.post('/disk/permission/dept/', {
                 item_type: '{{ item_type }}',
                 item_id: '{{ item_id }}',
                 permissions: JSON.stringify(permissions),
                 csrfmiddlewaretoken: '{{ csrf_token }}'
             }, function(response) {
-                if (response.code === 0) {
-                    layui.use('layer', function() {
-                        var layer = layui.layer;
-                        layer.msg('权限设置成功', {icon: 1});
-                        setTimeout(function() {
-                            closeDialog();
-                        }, 1500);
-                    });
-                } else {
-                    layui.use('layer', function() {
-                        var layer = layui.layer;
-                        layer.msg(response.msg, {icon: 2});
-                    });
-                }
+                layui.use('layer', function() {
+                    layui.layer.msg(response.msg || '操作完成', {icon: response.code === 0 ? 1 : 2});
+                    if (response.code === 0) {
+                        setTimeout(function() { closeDialog(true); }, 600);
+                    }
+                });
             });
         }
-        
-        // 关闭对话框
-        function closeDialog() {
-            var index = parent.layer.getFrameIndex(window.name);
-            parent.layer.close(index);
+
+        function closeDialog(refreshParent) {
+            if (parent && parent.layer) {
+                var index = parent.layer.getFrameIndex(window.name);
+                parent.layer.close(index);
+                if (refreshParent && parent.location) {
+                    setTimeout(function() { parent.location.reload(); }, 100);
+                }
+                return;
+            }
+            window.history.back();
         }
-        
-        // 初始化
+
         $(document).ready(function() {
-            initSelectedDepts();
+            updateSelectedDepts();
         });
     </script>
 </body>
-
 </html>

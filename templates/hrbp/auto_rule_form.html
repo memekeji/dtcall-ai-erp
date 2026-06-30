@@ -1,0 +1,94 @@
+{% extends "home/iframe_base.html" %}{% load static %}
+{% block title %}{% if is_create %}新建{% else %}编辑{% endif %}组卷规则 - AI-HRBP{% endblock %}
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <a href="{% url 'hrbp:auto_rule_list' %}" class="layui-btn layui-btn-primary layui-btn-sm"><i class="layui-icon layui-icon-left"></i> 返回列表</a>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form" style="max-width:700px;" id="ruleForm">
+            {% csrf_token %}
+            <div class="layui-form-item">
+                <label class="layui-form-label">规则名称</label>
+                <div class="layui-input-block">{{ form.name }}</div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">规则说明</label>
+                <div class="layui-input-block">{{ form.description }}</div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">题库分组</label>
+                <div class="layui-input-block">
+                    <select name="bank_groups" multiple lay-search>
+                        {% for bg in bank_groups %}
+                        <option value="{{ bg.id }}" {% if rule and bg in rule.bank_groups.all %}selected{% endif %}>{{ bg.name }} ({{ bg.get_difficulty_display }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">岗位筛选</label>
+                <div class="layui-input-block">{{ form.position_filter }}</div>
+            </div>
+            <div class="layui-form-item">
+                <div class="layui-inline"><label class="layui-form-label">题目总数</label><div class="layui-input-inline">{{ form.total_questions }}</div></div>
+                <div class="layui-inline"><label class="layui-form-label">总分</label><div class="layui-input-inline">{{ form.total_score }}</div></div>
+            </div>
+            <fieldset class="layui-elem-field layui-field-title" style="margin-top:20px;"><legend>难度分布（百分比，合计100）</legend></fieldset>
+            <div class="layui-form-item">
+                <div class="layui-inline"><label class="layui-form-label">简单%</label><div class="layui-input-inline"><input type="number" name="difficulty_easy" class="layui-input" value="{{ rule.difficulty_distribution.easy|default:30 }}" style="width:100px;"></div></div>
+                <div class="layui-inline"><label class="layui-form-label">中等%</label><div class="layui-input-inline"><input type="number" name="difficulty_medium" class="layui-input" value="{{ rule.difficulty_distribution.medium|default:50 }}" style="width:100px;"></div></div>
+                <div class="layui-inline"><label class="layui-form-label">困难%</label><div class="layui-input-inline"><input type="number" name="difficulty_hard" class="layui-input" value="{{ rule.difficulty_distribution.hard|default:20 }}" style="width:100px;"></div></div>
+            </div>
+            <fieldset class="layui-elem-field layui-field-title" style="margin-top:20px;"><legend>题型分布（数量）</legend></fieldset>
+            <div class="layui-form-item">
+                <div class="layui-inline"><label class="layui-form-label">单选题</label><div class="layui-input-inline"><input type="number" name="qtype_single" class="layui-input" value="{{ rule.question_type_distribution.single|default:10 }}" style="width:100px;"></div></div>
+                <div class="layui-inline"><label class="layui-form-label">多选题</label><div class="layui-input-inline"><input type="number" name="qtype_multiple" class="layui-input" value="{{ rule.question_type_distribution.multiple|default:5 }}" style="width:100px;"></div></div>
+                <div class="layui-inline"><label class="layui-form-label">判断题</label><div class="layui-input-inline"><input type="number" name="qtype_true_false" class="layui-input" value="{{ rule.question_type_distribution.true_false|default:3 }}" style="width:100px;"></div></div>
+                <div class="layui-inline"><label class="layui-form-label">问答题</label><div class="layui-input-inline"><input type="number" name="qtype_essay" class="layui-input" value="{{ rule.question_type_distribution.essay|default:2 }}" style="width:100px;"></div></div>
+            </div>
+            <fieldset class="layui-elem-field layui-field-title" style="margin-top:20px;"><legend>标签要求</legend></fieldset>
+            <div class="layui-form-item">
+                <label class="layui-form-label">必需标签</label>
+                <div class="layui-input-block"><input type="text" name="required_tags" class="layui-input" placeholder="逗号分隔，如：Python,Django" value="{{ rule.tag_requirements.required|join:', ' }}"></div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">状态</label>
+                <div class="layui-input-block">{{ form.status }}</div>
+            </div>
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button type="submit" class="layui-btn" lay-submit lay-filter="submit">{% if is_create %}创建规则{% else %}保存修改{% endif %}</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+(function checkLayui() {
+    if (typeof layui !== 'undefined') {
+layui.use('form', function() {
+    var form = layui.form, $ = layui.$;
+    form.render();
+    form.on('submit(submit)', function(data) {
+        // Build JSON fields
+        data.field.difficulty_distribution = JSON.stringify({easy: parseInt(data.field.difficulty_easy)||0, medium: parseInt(data.field.difficulty_medium)||0, hard: parseInt(data.field.difficulty_hard)||0});
+        data.field.question_type_distribution = JSON.stringify({single: parseInt(data.field.qtype_single)||0, multiple: parseInt(data.field.qtype_multiple)||0, true_false: parseInt(data.field.qtype_true_false)||0, essay: parseInt(data.field.qtype_essay)||0});
+        var reqTags = data.field.required_tags.split(',').map(function(t){return t.trim();}).filter(Boolean);
+        data.field.tag_requirements = JSON.stringify({required: reqTags});
+        var url = '{% if is_create %}{% url "hrbp:auto_rule_create" %}{% else %}{% url "hrbp:auto_rule_edit" rule.id %}{% endif %}';
+        $.post(url, data.field, function(res) {
+            if (res.success) { layer.msg(res.message, {icon:1}); setTimeout(function(){ window.location.href='{% url "hrbp:auto_rule_list" %}'; }, 800); }
+            else { layer.msg(res.message, {icon:2}); }
+        });
+        return false;
+    });
+});
+    } else {
+        setTimeout(checkLayui, 50);
+    }
+})();
+</script>
+{% endblock %}

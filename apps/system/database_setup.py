@@ -5,6 +5,8 @@ from pathlib import Path
 from urllib.parse import parse_qsl, unquote, urlparse
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import make_password
 from django.core.management import call_command
 from django.db import DEFAULT_DB_ALIAS, connections
 from django.db.utils import load_backend
@@ -231,6 +233,11 @@ def current_form_values():
         'MYSQL_CHARSET': os.environ.get('MYSQL_CHARSET', 'utf8mb4'),
         'MYSQL_INIT_COMMAND': os.environ.get(
             'MYSQL_INIT_COMMAND', "SET sql_mode='STRICT_TRANS_TABLES'"),
+        'ADMIN_USERNAME': '',
+        'ADMIN_NAME': '',
+        'ADMIN_EMAIL': '',
+        'ADMIN_PASSWORD': '',
+        'ADMIN_PASSWORD_CONFIRM': '',
     }
 
 
@@ -243,6 +250,63 @@ def has_explicit_database_config():
 
 def is_setup_path(path):
     return path.startswith(SETUP_PATH)
+
+
+def has_initial_admin():
+    try:
+        return _admin_queryset().exists()
+    except Exception:
+        return False
+
+
+def create_initial_admin(form_data):
+    values = normalize_admin_form_data(form_data)
+    _validate_initial_admin(values)
+
+    User = get_user_model()
+    admin_user = User(
+        username=values['ADMIN_USERNAME'],
+        name=values['ADMIN_NAME'] or values['ADMIN_USERNAME'],
+        email=values['ADMIN_EMAIL'],
+        is_staff=True,
+        is_superuser=True,
+        is_active=True,
+        status=1,
+    )
+    encoded_password = make_password(values['ADMIN_PASSWORD'])
+    admin_user.password = encoded_password
+    admin_user.pwd = encoded_password
+    admin_user.save()
+    return admin_user
+
+
+def normalize_admin_form_data(form_data):
+    return {
+        'ADMIN_USERNAME': (form_data.get('ADMIN_USERNAME') or '').strip(),
+        'ADMIN_NAME': (form_data.get('ADMIN_NAME') or '').strip(),
+        'ADMIN_EMAIL': (form_data.get('ADMIN_EMAIL') or '').strip(),
+        'ADMIN_PASSWORD': form_data.get('ADMIN_PASSWORD') or '',
+        'ADMIN_PASSWORD_CONFIRM': form_data.get('ADMIN_PASSWORD_CONFIRM') or '',
+    }
+
+
+def _validate_initial_admin(values):
+    username = values['ADMIN_USERNAME']
+    password = values['ADMIN_PASSWORD']
+    password_confirm = values['ADMIN_PASSWORD_CONFIRM']
+
+    if has_initial_admin():
+        raise ValueError('系统已存在可用管理员账号，无需重复创建。')
+    if not username:
+        raise ValueError('管理员账号不能为空')
+    if _user_exists(username):
+        raise ValueError('管理员账号已存在，请更换用户名')
+    if not password:
+        raise ValueError('管理员密码不能为空')
+    if len(password) < 8:
+        raise ValueError('管理员密码长度不能少于8位')
+    if password != password_confirm:
+        raise ValueError('管理员密码与确认密码不一致')
 
 
 def _write_env(updates):
@@ -373,3 +437,16 @@ def _complete_database_config(config):
 def _clear_state_cache():
     _state_cache['checked_at'] = 0.0
     _state_cache['state'] = None
+
+
+def _admin_queryset():
+    User = get_user_model()
+    queryset = User.objects.filter(is_superuser=True)
+    if hasattr(User, 'status'):
+        queryset = queryset.filter(status=1)
+    return queryset
+
+
+def _user_exists(username):
+    User = get_user_model()
+    return User.objects.filter(username=username).exists()
