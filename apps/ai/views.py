@@ -209,7 +209,7 @@ class AIModelConfigValidateView(
                     'model_type': model_config.model_type
                 }
             })
-        except Exception as e:
+        except AIClientError as e:
             import traceback
             logger.error(f"AI模型连接失败 - 模型ID: {model_config.id}")
             logger.error(f"错误类型: {type(e).__name__}")
@@ -218,18 +218,18 @@ class AIModelConfigValidateView(
             logger.error(
                 f"模型配置 - 提供商: {model_config.provider}, 基础URL: {model_config.api_base}, 模型名称: {model_config.model_name}, 模型类型: {model_config.model_type}")
 
-            return JsonResponse({
-                'status': 'error',
-                'message': '连接失败，请检查模型配置后重试',
-                'details': {
-                    'provider': model_config.provider,
-                    'base_url': model_config.api_base,
-                    'model_name': model_config.model_name,
-                    'model_type': model_config.model_type,
-                    'error_type': type(e).__name__,
-                    'suggestion': self._get_error_suggestion(type(e).__name__, model_config)
-                }
-            })
+            error_payload = self._build_validation_error_payload(model_config, e)
+            return JsonResponse(error_payload)
+        except Exception as e:
+            import traceback
+            logger.error(f"AI模型连接失败 - 模型ID: {model_config.id}")
+            logger.error(f"错误类型: {type(e).__name__}")
+            logger.error(f"错误详情: {str(e)}")
+            logger.error(f"完整错误堆栈: {traceback.format_exc()}")
+            logger.error(
+                f"模型配置 - 提供商: {model_config.provider}, 基础URL: {model_config.api_base}, 模型名称: {model_config.model_name}, 模型类型: {model_config.model_type}")
+            error_payload = self._build_validation_error_payload(model_config, e)
+            return JsonResponse(error_payload)
 
     def _run_model_validation(self, client, model_config):
         if model_config.model_type == 'embedding':
@@ -247,8 +247,65 @@ class AIModelConfigValidateView(
         text = str(result or '')
         return text[:50] + '...' if len(text) > 50 else text
 
-    def _get_error_suggestion(self, error_type, model_config):
+    def _build_validation_error_payload(self, model_config, error):
+        error_type = type(error).__name__
+        status_code = getattr(error, 'status_code', None)
+        error_code = getattr(error, 'error_code', None)
+        detail = getattr(error, 'detail', None) or str(error)
+        message = self._build_validation_message(error_type, status_code)
+        return {
+            'status': 'error',
+            'message': message,
+            'details': {
+                'provider': model_config.provider,
+                'base_url': model_config.api_base,
+                'model_name': model_config.model_name,
+                'model_type': model_config.model_type,
+                'error_type': error_type,
+                'error_code': error_code,
+                'status_code': status_code,
+                'detail': detail[:500] if isinstance(detail, str) else str(detail),
+                'suggestion': self._get_error_suggestion(error_type, model_config, status_code=status_code, error_code=error_code)
+            }
+        }
+
+    def _build_validation_message(self, error_type, status_code=None):
+        if status_code == 401:
+            return '连接失败：API 密钥无效或已过期'
+        if status_code == 403:
+            return '连接失败：当前密钥无权访问该模型或接口'
+        if status_code == 404:
+            return '连接失败：API 地址或模型接口不存在'
+        if status_code == 429:
+            return '连接失败：请求过于频繁或额度已耗尽'
+        if status_code == 500:
+            return '连接失败：模型服务端返回 500 错误'
+        if status_code == 502:
+            return '连接失败：模型网关返回 502 错误'
+        if status_code == 503:
+            return '连接失败：模型服务暂时不可用（503）'
+        if status_code == 504:
+            return '连接失败：模型服务网关超时（504）'
+        if error_type == 'AIClientError':
+            return '连接失败，请检查模型配置或稍后重试'
+        return '连接失败，请检查模型配置后重试'
+
+    def _get_error_suggestion(self, error_type, model_config, status_code=None, error_code=None):
         """根据错误类型提供修复建议"""
+        if status_code == 401:
+            return '请检查数据库中保存的 API 密钥是否正确、是否已过期，并确认该密钥属于当前服务地址'
+        if status_code == 403:
+            return '请确认当前密钥已开通目标模型权限，并检查服务商侧访问控制设置'
+        if status_code == 404:
+            return f'请检查 API 地址或兼容路径是否正确。当前配置地址：{model_config.api_base}'
+        if status_code == 429:
+            return '请检查调用频率限制、账户余额或套餐额度'
+        if status_code in {500, 502, 503, 504}:
+            return '模型服务端暂时异常，建议稍后重试；若持续失败，请联系模型服务提供方检查网关和实例状态'
+        if error_code == 'timeout':
+            return '请求超时，请检查网络连通性、代理配置或服务响应速度'
+        if error_code == 'connection_error':
+            return f'无法连接到模型服务，请检查网络、DNS、代理或服务地址。当前配置地址：{model_config.api_base}'
         suggestions = {
             'ConnectionError': '请检查网络连接是否正常，以及API地址是否正确',
             'TimeoutError': '请求超时，请检查网络连接或API地址是否正确',
@@ -1721,7 +1778,7 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
             referrer = request.session.get('ai_last_referrer')
             intent_input = f"当前页面URL: {referrer}\n用户请求: {message}" if referrer else message
             intent_result = intent_recognition_service.process_request(
-                request.user, intent_input)
+                request.user, intent_input, chat_id=data.get('chat_id'))
 
             # 2. 获取意图
             intent_result.get('intent_type', 'ai_chat')
@@ -1730,7 +1787,15 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
             ai_response = self.get_response_text(intent_result)
 
             try:
-                self.save_chat_record(request.user, data.get('chat_id'), message, ai_response)
+                chat, user_message, ai_message = self.save_chat_record(
+                    request.user,
+                    data.get('chat_id'),
+                    message,
+                    ai_response,
+                )
+                if ai_message:
+                    ai_message.runtime_payload = dict(intent_result)
+                    ai_message.save(update_fields=['runtime_payload'])
             except Exception as e:
                 logger.error(f'保存聊天记录失败: {str(e)}')
 
@@ -1754,7 +1819,11 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
         request_obj = request or getattr(self, 'request', None)
         referrer = request_obj.session.get('ai_last_referrer') if request_obj else None
         intent_input = f"当前页面URL: {referrer}\n用户请求: {message}" if referrer else message
-        intent_result = intent_recognition_service.process_request(user, intent_input)
+        intent_result = intent_recognition_service.process_request(
+            user,
+            intent_input,
+            chat_id=chat_id,
+        )
         ai_response = self.get_response_text(intent_result)
         chat, user_message, ai_message = self.save_chat_record(
             user, chat_id, message, ai_response)
@@ -2090,18 +2159,14 @@ class ModelConfigListAPIView(View):
     def get(self, request):
         """获取模型配置列表"""
         try:
-            model_configs = AIModelConfig.objects.filter(
-                is_active=True
-            ).values('id', 'name', 'provider', 'model_name')
+            model_configs = AIModelConfig.get_active_runtime_configs()
 
-            model_list = []
-            for config in model_configs:
-                model_list.append({
-                    'id': str(config['id']),
-                    'name': config['name'],
-                    'provider': config['provider'],
-                    'model_name': config['model_name']
-                })
+            model_list = [{
+                'id': str(config['id']),
+                'name': config['name'],
+                'provider': config['provider'],
+                'model_name': config['model_name']
+            } for config in model_configs]
 
             return JsonResponse({
                 'success': True,

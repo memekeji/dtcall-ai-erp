@@ -361,10 +361,15 @@ def _get_active_contract_categories():
 
 
 def _get_purchase_form_context(purchase=None):
+    from apps.project.models import Project
+
+    selected_project_id = purchase.project_id if purchase else 0
     return {
         'purchase': purchase,
         'contract_categories': _get_active_contract_categories(),
-        'admin_users': Admin.objects.filter(status=1).order_by('id')
+        'admin_users': Admin.objects.filter(status=1).order_by('id'),
+        'projects': Project.objects.filter(delete_time__isnull=True).order_by('-create_time')[:200],
+        'selected_project_id': selected_project_id,
     }
 
 
@@ -390,7 +395,7 @@ def _build_purchase_payload(params, request_user=None, require_all=True):
     field_names = [
         'name', 'code', 'cate_id', 'types', 'amount', 'sign_time',
         'start_time', 'end_time', 'check_status', 'remark', 'share_ids',
-        'check_uids', 'check_history_uids', 'file_ids'
+        'check_uids', 'check_history_uids', 'file_ids', 'project_id'
     ]
     payload = {}
 
@@ -398,9 +403,11 @@ def _build_purchase_payload(params, request_user=None, require_all=True):
         if field in params:
             payload[field] = params.get(field)
 
-    for field in ['cate_id', 'types', 'check_status']:
+    for field in ['cate_id', 'types', 'check_status', 'project_id']:
         if field in payload:
             payload[field] = safe_int(payload.get(field), 0)
+            if field == 'project_id' and payload[field] <= 0:
+                payload[field] = None
 
     for field in ['amount']:
         if field in payload:
@@ -636,6 +643,7 @@ def _filter_purchase_queryset(request, queryset):
     code = params.get('code', '').strip()
     status = (params.get('status') or params.get('check_status') or '').strip()
     keywords = params.get('keywords', '').strip()
+    project_id = safe_int(params.get('project_id'), 0)
     date_range = params.get('sign_date', '').strip() or params.get('date', '').strip()
     tab = params.get('tab', '').strip()
     uid = getattr(request.user, 'id', 0)
@@ -651,6 +659,8 @@ def _filter_purchase_queryset(request, queryset):
         queryset = queryset.filter(check_status=status)
     if keywords:
         queryset = queryset.filter(Q(name__icontains=keywords) | Q(code__icontains=keywords))
+    if project_id > 0:
+        queryset = queryset.filter(project_id=project_id)
     if tab in tab_filter_map:
         field, value = tab_filter_map[tab]
         if value is not None:
@@ -1022,13 +1032,17 @@ class PurchaseView(LoginRequiredMixin, View):
     def get(self, request):
         if _is_data_request(request):
             return self.get_data_list(request)
-        return render(request, 'contract/purchase_list.html')
+        return render(
+            request,
+            'contract/purchase_list.html',
+            {'initial_project_id': safe_int(request.GET.get('project_id'), 0)},
+        )
 
     def get_data_list(self, request):
         params = _get_request_params(request)
         queryset = _filter_purchase_queryset(
             request,
-            Purchase.objects.select_related('cate').filter(delete_time__isnull=True)
+            Purchase.objects.select_related('cate', 'project').filter(delete_time__isnull=True)
         )
 
         page = safe_int(params.get('page'), 1)
@@ -1043,6 +1057,8 @@ class PurchaseView(LoginRequiredMixin, View):
                 'id': purchase.id,
                 'name': purchase.name or '',
                 'code': purchase.code or '',
+                'project_id': purchase.project_id or 0,
+                'project_name': purchase.project.name if purchase.project else '',
                 'category': purchase.cate.title if purchase.cate else '',
                 'customer': '',
                 'cost': str(purchase.amount or 0),
@@ -1068,9 +1084,11 @@ class PurchaseAddView(LoginRequiredMixin, View):
     redirect_field_name = 'next'
 
     def get(self, request):
-        return render(request,
-                      'contract/purchase_add.html',
-                      _get_purchase_form_context())
+        context = _get_purchase_form_context()
+        project_id = safe_int(request.GET.get('project_id'), 0)
+        if project_id > 0:
+            context['selected_project_id'] = project_id
+        return render(request, 'contract/purchase_add.html', context)
 
     def post(self, request):
         params = request.POST.dict()

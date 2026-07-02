@@ -89,7 +89,13 @@ def run_startup_migrations():
 def has_explicit_database_config():
     return any(
         os.environ.get(name, '').strip()
-        for name in ('DATABASE_URL', 'DATABASE_ENGINE', 'DATABASE_HOST')
+        for name in (
+            'DATABASE_URL',
+            'DATABASE_ENGINE',
+            'DATABASE_TYPE',
+            'DB_ENGINE',
+            'DATABASE_HOST',
+        )
     )
 
 

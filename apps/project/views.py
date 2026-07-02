@@ -10,11 +10,24 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q, Count
 from django.utils import timezone
 from .models import Project, Task, ProjectDocument, ProjectCategory
+from .comment_mentions import get_project_comment_candidate_users
 from django.contrib.auth import get_user_model
 from apps.user.models import Admin
 from datetime import datetime
 
 User = get_user_model()
+
+
+def _is_checked_post_flag(request, field_name):
+    value = str(request.POST.get(field_name, '')).strip().lower()
+    return value in {'1', 'true', 'on', 'yes'}
+
+
+def _get_selected_auto_create_targets(request, *targets):
+    return {
+        target for target in targets
+        if _is_checked_post_flag(request, f'auto_create_{target}')
+    }
 
 
 class ProjectListView(LoginRequiredMixin, View):
@@ -254,23 +267,8 @@ class ProjectDetailView(LoginRequiredMixin, View):
         else:
             project_progress = 0
 
-        # 获取所有参与项目的成员（项目成员 + 任务成员）
-        all_members = set()
-
-        # 添加项目成员
-        for member in project.members.all():
-            all_members.add(member)
-
-        # 添加任务负责人
-        for task in tasks:
-            if task.assignee:
-                all_members.add(task.assignee)
-            # 添加任务参与者
-            for participant in task.participants.all():
-                all_members.add(participant)
-
-        # 将set转换为list
-        all_members = list(all_members)
+        # 获取所有参与项目的成员（项目经理 + 项目成员 + 任务成员）
+        all_members = list(get_project_comment_candidate_users(project))
 
         # 计算任务完成趋势（最近6个月）
         import datetime
@@ -326,6 +324,11 @@ class ProjectDetailView(LoginRequiredMixin, View):
         related_contracts = []
         related_orders = []
         related_suppliers = []
+        related_purchases = []
+        purchase_summary = {
+            'count': 0,
+            'total_amount': 0,
+        }
 
         # 获取关联客户
         if project.customer_id and project.customer_id > 0:
@@ -392,6 +395,44 @@ class ProjectDetailView(LoginRequiredMixin, View):
         except Exception as e:
             pass
 
+        # 获取关联采购记录和采购成本汇总
+        try:
+            from apps.contract.models import Purchase
+
+            purchase_queryset = Purchase.objects.filter(
+                project=project,
+                delete_time__isnull=True,
+            ).select_related('cate').order_by('-sign_time', '-create_time')
+
+            purchase_aggregate = purchase_queryset.aggregate(
+                count=Count('id'),
+                total_amount=Sum('amount'),
+            )
+            purchase_summary = {
+                'count': purchase_aggregate['count'] or 0,
+                'total_amount': purchase_aggregate['total_amount'] or 0,
+            }
+
+            for purchase in purchase_queryset[:10]:
+                related_purchases.append({
+                    'id': purchase.id,
+                    'name': purchase.name,
+                    'code': purchase.code,
+                    'category': purchase.cate.title if purchase.cate else '',
+                    'amount': purchase.amount,
+                    'sign_time': purchase.sign_time.strftime('%Y-%m-%d') if purchase.sign_time else '',
+                    'status': purchase.check_status,
+                    'status_display': {
+                        0: '待审核',
+                        1: '审核中',
+                        2: '审核通过',
+                        3: '审核不通过',
+                        4: '撤销审核',
+                    }.get(purchase.check_status, '未知'),
+                })
+        except Exception:
+            pass
+
         # 获取项目的content_type ID
         from django.contrib.contenttypes.models import ContentType
         project_content_type = ContentType.objects.get_for_model(Project)
@@ -412,6 +453,8 @@ class ProjectDetailView(LoginRequiredMixin, View):
             'related_contracts': related_contracts,
             'related_orders': related_orders,
             'related_suppliers': related_suppliers,
+            'related_purchases': related_purchases,
+            'purchase_summary': purchase_summary,
             'all_members': all_members,
             'project_content_type_id': project_content_type_id
         }
@@ -565,19 +608,25 @@ class ProjectAddView(LoginRequiredMixin, View):
             if member_ids:
                 main_task.participants.set(member_ids)
 
-            # 需求案例2：创建项目后自动生成待签约合同、待收款、待确认订单、待开票
-            try:
-                contract_record = self._auto_generate_related_records(
-                    project, request.user)
-                # 将自动生成的合同关联到项目
-                if contract_record:
-                    project.contract = contract_record
-                    project.save()
-            except Exception as auto_gen_error:
-                # 记录错误但不影响项目创建
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.error(f"自动生成相关记录失败: {str(auto_gen_error)}")
+            selected_targets = _get_selected_auto_create_targets(
+                request,
+                'contract',
+                'order',
+            )
+            if selected_targets:
+                try:
+                    contract_record = self._auto_generate_related_records(
+                        project,
+                        request.user,
+                        selected_targets,
+                    )
+                    if contract_record:
+                        project.contract = contract_record
+                        project.save()
+                except Exception as auto_gen_error:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"自动生成相关记录失败: {str(auto_gen_error)}")
 
             return JsonResponse({'code': 0, 'msg': '项目创建成功', 'data': {
                                 'id': project.id, 'main_task_id': main_task.id}}, json_dumps_params={'ensure_ascii': False})
@@ -585,9 +634,9 @@ class ProjectAddView(LoginRequiredMixin, View):
             return JsonResponse({'code': 1, 'msg': f'创建失败: {str(e)}'}, json_dumps_params={
                                 'ensure_ascii': False})
 
-    def _auto_generate_related_records(self, project, user):
+    def _auto_generate_related_records(self, project, user, selected_targets):
         """
-        自动生成与项目相关的记录：待签约合同、待收款、待确认订单
+        根据用户勾选结果生成与项目相关的记录：合同、订单
         返回创建的合同记录
         """
         import time
@@ -596,77 +645,45 @@ class ProjectAddView(LoginRequiredMixin, View):
 
         contract_record = None
 
-        # 1. 生成待签约合同记录
-        if hasattr(self, '_generate_contract_record'):
-            self._generate_contract_record(project, user)
-        else:
-            # 检查是否存在CustomerContract模型（客户合同）
-            try:
-                from apps.customer.models import CustomerContract
-                # 创建待签约合同记录
-                contract_record = CustomerContract.objects.create(
-                    customer_id=project.customer_id,
-                    name=f"{project.name}合同",
-                    contract_number=f"CONT-PROJ-{project.code}-{int(time.time())}",
-                    amount=project.budget,
-                    sign_date=project.start_date if project.start_date else None,
-                    end_date=project.end_date if project.end_date else None,
-                    status='pending',  # 待签约状态
-                    create_user_id=user.id,
-                    auto_generated=True  # 标记为自动生成
-                )
-            except Exception as e:
-                logger.error(f"创建合同记录失败: {e}")
+        if 'contract' in selected_targets:
+            if hasattr(self, '_generate_contract_record'):
+                self._generate_contract_record(project, user)
+            else:
+                try:
+                    from apps.customer.models import CustomerContract
+                    contract_record = CustomerContract.objects.create(
+                        customer_id=project.customer_id,
+                        name=f"{project.name}合同",
+                        contract_number=f"CONT-PROJ-{project.code}-{int(time.time())}",
+                        amount=project.budget,
+                        sign_date=project.start_date if project.start_date else None,
+                        end_date=project.end_date if project.end_date else None,
+                        status='pending',
+                        create_user_id=user.id,
+                        auto_generated=True,
+                    )
+                except Exception as e:
+                    logger.error(f"创建合同记录失败: {e}")
 
-        # 2. 生成待收款记录
-        if hasattr(self, '_generate_payment_record'):
-            self._generate_payment_record(project, user)
-        else:
-            # 创建待收款记录
-            try:
-                from apps.finance.models import Invoice
-                # 确保project已保存到数据库
-                if not project.id:
-                    project.save()
-                # 创建发票记录（待开票，待收款）- 使用实际的Invoice模型字段
-                invoice_record = Invoice.objects.create(
-                    code=f"INV-PROJ-{project.code}-{int(time.time())}",
-                    customer_id=project.customer_id,
-                    project_id=project.id,
-                    amount=project.budget,
-                    admin_id=user.id,
-                    did=1,  # 默认部门ID
-                    open_status=0,  # 未开票状态
-                    enter_status=0,  # 未回款状态
-                    invoice_title="",  # 留空，后续填写
-                    invoice_tax="",  # 留空，后续填写
-                    create_time=int(time.time()),
-                    auto_generated=True  # 标记为自动生成
-                )
-            except Exception as e:
-                logger.error(f"创建发票记录失败: {e}")
-
-        # 3. 生成待确认订单记录
-        if hasattr(self, '_generate_order_record'):
-            self._generate_order_record(project, user)
-        else:
-            # 检查是否存在CustomerOrder模型
-            try:
-                from apps.customer.models import CustomerOrder
-                # 创建客户订单记录（待确认）
-                order_record = CustomerOrder.objects.create(
-                    customer_id=project.customer_id,
-                    order_number=f"PO-{project.code}-{int(time.time())}",
-                    product_name=project.name,
-                    amount=project.budget,
-                    order_date=datetime.now().date(),
-                    status='pending',  # 待处理状态
-                    description=f"项目订单：{project.name}",
-                    create_user_id=user.id,
-                    auto_generated=True  # 标记为自动生成
-                )
-            except Exception as e:
-                logger.error(f"创建客户订单记录失败: {e}")
+        if 'order' in selected_targets:
+            if hasattr(self, '_generate_order_record'):
+                self._generate_order_record(project, user)
+            else:
+                try:
+                    from apps.customer.models import CustomerOrder
+                    CustomerOrder.objects.create(
+                        customer_id=project.customer_id,
+                        order_number=f"PO-{project.code}-{int(time.time())}",
+                        product_name=project.name,
+                        amount=project.budget,
+                        order_date=datetime.now().date(),
+                        status='pending',
+                        description=f"项目订单：{project.name}",
+                        create_user_id=user.id,
+                        auto_generated=True,
+                    )
+                except Exception as e:
+                    logger.error(f"创建客户订单记录失败: {e}")
 
         return contract_record
 

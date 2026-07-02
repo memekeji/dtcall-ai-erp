@@ -144,10 +144,22 @@ class AIIntentClassifier:
         'contract',
         'project',
         'invoice',
+        'finance_expense',
+        'finance_invoice',
+        'finance_income',
+        'finance_order_record',
         'employee',
         'department',
         'finance',
         'production',
+        'production_plan',
+        'production_task',
+        'production_equipment',
+        'production_procedure',
+        'project_document',
+        'project_stage',
+        'project_category',
+        'work_type',
         'followup',
         'supplier',
         'product',
@@ -173,6 +185,13 @@ class AIIntentClassifier:
         'stockin',
         'stockout',
         'alert',
+        'enterprise',
+        'position',
+        'work_record',
+        'work_report',
+        'personal_task',
+        'personal_note',
+        'personal_contact',
     })
     ALLOWED_TIME_RANGES = frozenset({
         'today',
@@ -209,7 +228,11 @@ class AIIntentClassifier:
         ('schedule', ['日程', '排期', '安排']),
         ('task', ['任务', '待办']),
         ('workhour', ['工时']),
-        ('document', ['项目文档', '业务文档', '文档']),
+        ('project_document', ['项目文档', '项目资料', '项目附件', '项目文件']),
+        ('project_stage', ['项目阶段', '阶段管理', '阶段列表']),
+        ('project_category', ['项目分类', '分类管理', '分类列表']),
+        ('work_type', ['工作类型', '工作类别', '工时类型']),
+        ('document', ['业务文档', '文档']),
         ('customer', ['客户', '客资', '线索']),
         ('contact', ['联系人']),
         ('order', ['订单', '销售单']),
@@ -231,6 +254,13 @@ class AIIntentClassifier:
         ('stockin', ['入库']),
         ('stockout', ['出库']),
         ('alert', ['预警', '库存预警']),
+        ('enterprise', ['企业信息', '公司信息', '公司', '企业']),
+        ('position', ['岗位', '职称', '职位', '岗位信息']),
+        ('work_record', ['工作记录', '工作日志', '履职记录']),
+        ('work_report',
+        'personal_task',
+        'personal_note',
+        'personal_contact', ['工作汇报', '日报', '周报', '月报', '工作总结', '工作报告']),
     )
     CREATE_KEYWORDS = ('添加', '新增', '创建', '增加', '新建', '录入', '登记', '上传', '提交', '发起', '申请')
     UPDATE_KEYWORDS = ('修改', '更新', '更改', '调整', '编辑', '维护', '设置', '共享', '分享', '审批通过', '驳回', '同意', '拒绝')
@@ -245,35 +275,7 @@ class AIIntentClassifier:
         self._client_ttl_seconds = 60
 
     def _get_latest_chat_config(self):
-        config = (
-            AIModelConfig.objects.filter(
-                is_active=True,
-                model_type__in=['chat', 'text']
-            )
-            .order_by('-is_active', '-updated_at', '-created_at')
-            .first()
-        )
-        if not config:
-            return None
-        return {
-            'id': config.id,
-            'name': config.name,
-            'provider': config.provider,
-            'model_type': config.model_type,
-            'api_key': config.api_key,
-            'base_url': config.api_base,
-            'api_base': config.api_base,
-            'model_name': config.model_name,
-            'chat': config.model_name,
-            'max_tokens': config.max_tokens,
-            'temperature': config.temperature,
-            'top_p': config.top_p,
-            'is_active': config.is_active,
-            'is_active': config.is_active,
-            'organization': config.organization,
-            'project': config.project,
-            'provider_specific_config': {},
-        }
+        return AIModelConfig.get_latest_chat_runtime_config()
 
     def _ensure_ai_client(self, force_refresh=False):
         """确保 AI 客户端已初始化"""
@@ -447,9 +449,10 @@ class AIIntentClassifier:
         response_text = response if isinstance(response, str) else json.dumps(response, ensure_ascii=False)
         try:
             response_text = response_text.strip()
+            json_candidate = self._extract_json_object_text(response_text)
             decoder = json.JSONDecoder()
-            result, end_index = decoder.raw_decode(response_text)
-            if response_text[end_index:].strip():
+            result, end_index = decoder.raw_decode(json_candidate)
+            if json_candidate[end_index:].strip():
                 raise ValueError('AI 响应包含 JSON 之外的内容')
             if not isinstance(result, dict):
                 raise ValueError('AI 响应不是 JSON 对象')
@@ -457,6 +460,41 @@ class AIIntentClassifier:
         except Exception as e:
             logger.warning(f"解析 AI 响应失败：{str(e)}")
             raise ValueError('AI 响应格式无效')
+
+    def _extract_json_object_text(self, response_text: str) -> str:
+        """从模型响应中提取 JSON 对象文本，兼容代码块和前后说明"""
+        fenced_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response_text, re.DOTALL | re.IGNORECASE)
+        if fenced_match:
+            return fenced_match.group(1).strip()
+
+        first_brace = response_text.find('{')
+        if first_brace == -1:
+            raise ValueError('AI 响应中未找到 JSON 对象')
+
+        depth = 0
+        in_string = False
+        escape = False
+        for index in range(first_brace, len(response_text)):
+            char = response_text[index]
+            if in_string:
+                if escape:
+                    escape = False
+                elif char == '\\':
+                    escape = True
+                elif char == '"':
+                    in_string = False
+                continue
+
+            if char == '"':
+                in_string = True
+            elif char == '{':
+                depth += 1
+            elif char == '}':
+                depth -= 1
+                if depth == 0:
+                    return response_text[first_brace:index + 1].strip()
+
+        raise ValueError('AI 响应中的 JSON 对象不完整')
 
     def _normalize_ai_result(
             self, result: Dict[str, Any], query: str) -> Dict[str, Any]:
@@ -552,6 +590,9 @@ class AIIntentClassifier:
     def _safe_fallback_result(self, query: str, reason: str) -> Dict[str, Any]:
         """模型不可用时的安全降级结果"""
         query_lower = (query or '').lower()
+        ai_configured = self.ai_config is not None
+        model_provider = self.ai_config.get('provider') if self.ai_config else None
+        model_name = self.ai_config.get('model_name') if self.ai_config else None
         fallback = {
             'intent': 'AI_CHAT',
             'confidence': 0.35,
@@ -570,8 +611,10 @@ class AIIntentClassifier:
             'reasoning': reason,
             'source': 'safe_fallback',
             'ai_available': False,
-            'model_provider': None,
-            'model_name': None
+            'ai_configured': ai_configured,
+            'failure_reason': reason,
+            'model_provider': model_provider,
+            'model_name': model_name,
         }
 
         ui_intent_indicators = ['刷新', '重载', '返回', '后退', '上一页', '助手', 'ai', 'AI', '深色', '夜间', '黑夜', '暗色', '浅色', '白天', '亮色', '总结', '概括']
@@ -678,6 +721,8 @@ class AIIntentClassifier:
         result.setdefault('fallback_options', [])
         result.setdefault('source', 'ai')
         result.setdefault('ai_available', result.get('source') == 'ai')
+        result.setdefault('ai_configured', bool(result.get('model_provider') or result.get('model_name')))
+        result.setdefault('failure_reason', None)
         result.setdefault('model_provider', None)
         result.setdefault('model_name', None)
 
@@ -773,6 +818,8 @@ class AIIntentClassifier:
             'reasoning': '空查询',
             'source': 'empty',
             'ai_available': self.ai_client is not None,
+            'ai_configured': self.ai_config is not None,
+            'failure_reason': None,
             'model_provider': None,
             'model_name': None
         }
@@ -797,6 +844,8 @@ class AIIntentClassifier:
             'reasoning': '分类失败，进入安全降级',
             'source': 'safe_fallback',
             'ai_available': False,
+            'ai_configured': self.ai_config is not None,
+            'failure_reason': '意图识别服务异常',
             'model_provider': None,
             'model_name': None
         }
@@ -809,3 +858,5 @@ class AIIntentClassifier:
 
 
 ai_intent_classifier = AIIntentClassifier()
+
+

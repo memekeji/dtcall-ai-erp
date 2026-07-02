@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -33,6 +34,7 @@ var webFiles embed.FS
 
 const dataFile = "storage/official-site.json"
 const mysqlSchemaVersion = 1
+const defaultPublicDomain = "https://www.dtcall.cn"
 
 var adminSessions sync.Map
 
@@ -182,17 +184,27 @@ type Resource struct {
 }
 
 type Release struct {
-	ID          int      `json:"id"`
-	Version     string   `json:"version"`
-	Title       string   `json:"title"`
-	Summary     string   `json:"summary"`
-	PackageURL  string   `json:"packageUrl"`
-	Checksum    string   `json:"checksum"`
-	Target      string   `json:"target"`
-	Status      string   `json:"status"`
-	PublishedAt string   `json:"publishedAt"`
-	UpdatedAt   string   `json:"updatedAt"`
-	Highlights  []string `json:"highlights"`
+	ID                   int      `json:"id"`
+	Version              string   `json:"version"`
+	Title                string   `json:"title"`
+	Summary              string   `json:"summary"`
+	PackageURL           string   `json:"packageUrl"`
+	Checksum             string   `json:"checksum"`
+	ChecksumType         string   `json:"checksumType"`
+	ManifestURL          string   `json:"manifestUrl"`
+	Target               string   `json:"target"`
+	Channel              string   `json:"channel"`
+	Platform             string   `json:"platform"`
+	Build                string   `json:"build"`
+	PackageSize          int64    `json:"packageSize"`
+	MinSupportedVersion  string   `json:"minSupportedVersion"`
+	ForceUpdate          bool     `json:"forceUpdate"`
+	DockerImageTags      []string `json:"dockerImageTags"`
+	ReleaseNotesMarkdown string   `json:"releaseNotesMarkdown"`
+	Status               string   `json:"status"`
+	PublishedAt          string   `json:"publishedAt"`
+	UpdatedAt            string   `json:"updatedAt"`
+	Highlights           []string `json:"highlights"`
 }
 
 type FAQ struct {
@@ -311,6 +323,7 @@ func (s *Server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/public/news/", s.handlePublicNewsDetail)
 	mux.HandleFunc("/api/public/resources", s.handlePublicResources)
 	mux.HandleFunc("/api/public/releases", s.handlePublicReleases)
+	mux.HandleFunc("/api/public/updates/latest", s.handlePublicLatestRelease)
 	mux.HandleFunc("/api/public/seo/", s.handlePublicSEO)
 	mux.HandleFunc("/api/public/leads", s.handlePublicLeads)
 	mux.HandleFunc("/api/admin/auth/login", s.handleAdminLogin)
@@ -353,14 +366,21 @@ func NewStore(path string) (*Store, error) {
 		}
 		return store, nil
 	}
-	bytes, err := os.ReadFile(path)
+	fileBytes, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	if err := json.Unmarshal(bytes, &store.data); err != nil {
+	if err := json.Unmarshal(fileBytes, &store.data); err != nil {
 		return nil, err
 	}
+	original, _ := json.Marshal(store.data)
 	store.normalizeLocked()
+	normalized, _ := json.Marshal(store.data)
+	if !bytes.Equal(original, normalized) {
+		if err := store.saveLocked(); err != nil {
+			return nil, err
+		}
+	}
 	return store, nil
 }
 
@@ -589,6 +609,146 @@ func (s *Store) normalizeLocked() {
 	if len(s.data.Releases) == 0 {
 		s.data.Releases = defaultReleases(nowString())
 	}
+	applyLegacySiteRefresh(&s.data)
+}
+
+func applyLegacySiteRefresh(data *SiteData) {
+	refreshLegacySiteConfig(&data.Site)
+	refreshLegacyNavigation(data.Navigation)
+	refreshLegacyPages(data.Pages)
+	refreshLegacyFAQs(&data.FAQs)
+	refreshLegacyReleases(&data.Releases)
+}
+
+func refreshLegacySiteConfig(site *SiteConfig) {
+	if looksLocalDomain(site.Domain) || strings.TrimSpace(site.Domain) == "" {
+		site.Domain = defaultPublicDomain
+	}
+	if site.ThemePrimary == "" || strings.EqualFold(site.ThemePrimary, "#8B5CF6") {
+		site.ThemePrimary = "#0D4FBE"
+	}
+	if site.Slogan == "" || site.Slogan == "AI 驱动的一体化企业数字化管理平台" {
+		site.Slogan = "轻奢蓝金未来科技的一体化企业管理平台"
+	}
+	if site.SeoTitle == "" || strings.Contains(site.SeoTitle, "AI 驱动的一体化企业管理平台") {
+		site.SeoTitle = "DT 企业智能管理系统 - CRM、合同、财务、项目、OA 一体化企业管理平台"
+	}
+	if site.SeoKeywords == "" || strings.Contains(site.SeoKeywords, "生产管理系统") {
+		site.SeoKeywords = "企业管理系统,CRM系统,合同管理系统,财务管理系统,项目管理系统,OA系统,私有化部署,在线更新,更新中心,企业一体化平台"
+	}
+	if site.SeoDescription == "" || strings.Contains(site.SeoDescription, "生产、项目、OA") {
+		site.SeoDescription = "DT 企业智能管理系统覆盖 CRM、合同、财务、项目、OA、AI 协同、私有化部署与官网更新中心，帮助企业构建统一流程、统一数据和持续升级能力。"
+	}
+}
+
+func refreshLegacyNavigation(items []NavigationItem) {
+	for i := range items {
+		if items[i].Path == "/updates" && (items[i].Title == "版本更新" || strings.TrimSpace(items[i].Title) == "") {
+			items[i].Title = "更新中心"
+		}
+	}
+}
+
+func refreshLegacyPages(items []Page) {
+	for i := range items {
+		page := &items[i]
+		switch page.Key {
+		case "home":
+			if page.SEO.Title == "" || strings.Contains(page.SEO.Title, "AI 驱动的一体化企业管理平台") || needsCanonicalRefresh(page.SEO.Canonical) {
+				page.SEO = defaultSEO("DT 企业智能管理系统 - CRM、合同、财务、项目、OA 一体化智能管理平台", "面向通用企业管理客户的一体化企业智能管理平台，打通 CRM、合同、财务、项目、OA、AI 协同、私有化部署与官网更新中心。", "/")
+			}
+			for j := range page.Blocks {
+				block := &page.Blocks[j]
+				if block.BlockKey == "hero" && (block.Title == "让企业管理进入 AI 协同时代" || strings.TrimSpace(block.Title) == "") {
+					block.Title = "企业一体化智能管理平台"
+					block.Subtitle = "打通 CRM、合同、财务、项目、OA 与 AI 协同，让企业从分散管理走向统一经营。"
+					block.Content = "DT 企业智能管理系统以统一权限、统一流程、统一数据为基础，帮助企业建立可复制、可追踪、可持续优化的经营管理体系，并支持私有化部署与持续在线升级。"
+					block.ActionText = "预约产品演示"
+					block.ActionLink = "/contact"
+				}
+				if block.BlockKey == "value" && (block.Title == "把复杂业务装进同一张管理网络" || strings.TrimSpace(block.Title) == "") {
+					block.Title = "把复杂经营链路收束到同一张管理网络里"
+					block.Subtitle = "从客户线索到合同回款，从项目交付到组织流程，所有关键节点都能被实时看见。"
+					block.Content = "通过流程联动、经营看板、AI 智能建议和精细化权限，企业可以减少重复录入、降低沟通成本、提升管理决策速度，并建立面向未来的版本更新与部署能力。"
+				}
+			}
+		case "updates":
+			if page.Title == "版本更新" || strings.TrimSpace(page.Title) == "" {
+				page.Title = "更新中心"
+			}
+			if page.SEO.Title == "" || strings.Contains(page.SEO.Title, "版本更新发布") || needsCanonicalRefresh(page.SEO.Canonical) {
+				page.SEO = defaultSEO("DT 企业管理系统更新中心 - Docker Compose 在线更新与离线 ZIP", "通过 DT 官网更新中心发布 Linux Docker Compose 升级包、版本目录切换方案、离线 ZIP 包、校验信息和回滚说明，服务客户部署系统持续升级。", "/updates")
+			}
+			for j := range page.Blocks {
+				block := &page.Blocks[j]
+				if block.BlockKey == "overview" && (block.Title == "DT 企业管理系统版本发布中心" || strings.TrimSpace(block.Title) == "") {
+					block.Title = "DT 企业管理系统更新中心"
+					block.Subtitle = "固定域名发布在线升级、离线 ZIP、校验信息与回滚说明"
+					block.Content = "更新中心面向已部署客户提供版本号、目标环境、Docker Compose 升级包、版本目录切换、离线 ZIP 导入与升级回滚说明。"
+				}
+			}
+		case "resources":
+			if needsCanonicalRefresh(page.SEO.Canonical) {
+				page.SEO = defaultSEO("企业管理系统资源中心 - 白皮书 手册 FAQ 部署说明", "获取 DT 企业智能管理系统白皮书、产品手册、部署说明、更新指南和常见问题，帮助企业更快完成数字化管理选型。", "/resources")
+			}
+		case "contact":
+			if needsCanonicalRefresh(page.SEO.Canonical) {
+				page.SEO = defaultSEO("联系 DT 企业智能管理系统 - 预约演示 获取方案", "联系 DT 企业智能管理系统商务团队，预约产品演示、获取行业方案、咨询私有化部署、在线更新与企业数字化升级路径。", "/contact")
+			}
+		default:
+			if needsCanonicalRefresh(page.SEO.Canonical) {
+				page.SEO.Canonical = buildCanonical(page.Path)
+			}
+		}
+	}
+}
+
+func refreshLegacyFAQs(items *[]FAQ) {
+	if len(*items) == 0 {
+		*items = defaultFAQs()
+		return
+	}
+	for i := range *items {
+		item := &(*items)[i]
+		switch item.Question {
+		case "DT 企业管理系统版本更新如何发布给客户？":
+			item.Answer = "通过官网更新中心统一发布版本号、升级说明、Docker Compose 在线更新包、离线 ZIP 包、校验信息与回滚说明，客户部署后可通过固定公网域名检测更新。"
+		}
+	}
+	if len(*items) < 4 {
+		*items = defaultFAQs()
+	}
+}
+
+func refreshLegacyReleases(items *[]Release) {
+	if len(*items) == 0 {
+		*items = defaultReleases(nowString())
+		return
+	}
+	legacy := len(*items) <= 2 && ((*items)[0].Version == "v3.6.0" || (*items)[0].Version == "v3.5.2" || strings.Contains((*items)[0].Target, "MySQL 8.0"))
+	if legacy {
+		*items = defaultReleases(nowString())
+	}
+}
+
+func looksLocalDomain(value string) bool {
+	lower := strings.ToLower(strings.TrimSpace(value))
+	return lower == "" || strings.Contains(lower, "127.0.0.1") || strings.Contains(lower, "localhost")
+}
+
+func needsCanonicalRefresh(value string) bool {
+	return looksLocalDomain(value)
+}
+
+func buildCanonical(path string) string {
+	normalized := strings.TrimSpace(path)
+	if normalized == "" {
+		normalized = "/"
+	}
+	if !strings.HasPrefix(normalized, "/") {
+		normalized = "/" + normalized
+	}
+	return strings.TrimRight(defaultPublicDomain, "/") + normalized
 }
 
 func writeJSON(w http.ResponseWriter, status int, message string, data interface{}) {
@@ -673,6 +833,115 @@ func filterFAQs(items []FAQ) []FAQ {
 	return result
 }
 
+func normalizeVersion(value string) string {
+	return strings.TrimSpace(strings.TrimPrefix(strings.ToLower(value), "v"))
+}
+
+func versionParts(value string) []int {
+	normalized := normalizeVersion(value)
+	parts := strings.Split(normalized, ".")
+	result := make([]int, 0, len(parts))
+	for _, part := range parts {
+		if part == "" {
+			result = append(result, 0)
+			continue
+		}
+		piece := part
+		for i, ch := range piece {
+			if ch < '0' || ch > '9' {
+				piece = piece[:i]
+				break
+			}
+		}
+		if piece == "" {
+			result = append(result, 0)
+			continue
+		}
+		number, err := strconv.Atoi(piece)
+		if err != nil {
+			result = append(result, 0)
+			continue
+		}
+		result = append(result, number)
+	}
+	return result
+}
+
+func compareVersions(a, b string) int {
+	ap := versionParts(a)
+	bp := versionParts(b)
+	maxLen := len(ap)
+	if len(bp) > maxLen {
+		maxLen = len(bp)
+	}
+	for i := 0; i < maxLen; i++ {
+		av := 0
+		bv := 0
+		if i < len(ap) {
+			av = ap[i]
+		}
+		if i < len(bp) {
+			bv = bp[i]
+		}
+		if av > bv {
+			return 1
+		}
+		if av < bv {
+			return -1
+		}
+	}
+	return 0
+}
+
+func releaseMatches(release Release, channel, platform string) bool {
+	if !published(release.Status) {
+		return false
+	}
+	if strings.TrimSpace(channel) != "" && !strings.EqualFold(strings.TrimSpace(release.Channel), strings.TrimSpace(channel)) {
+		return false
+	}
+	if strings.TrimSpace(platform) != "" && !strings.EqualFold(strings.TrimSpace(release.Platform), strings.TrimSpace(platform)) {
+		return false
+	}
+	return true
+}
+
+func latestRelease(items []Release, channel, platform string) (Release, bool) {
+	result := make([]Release, 0, len(items))
+	for _, item := range items {
+		if releaseMatches(item, channel, platform) {
+			result = append(result, item)
+		}
+	}
+	if len(result) == 0 {
+		return Release{}, false
+	}
+	sort.Slice(result, func(i, j int) bool {
+		cmp := compareVersions(result[i].Version, result[j].Version)
+		if cmp == 0 {
+			return result[i].PublishedAt > result[j].PublishedAt
+		}
+		return cmp > 0
+	})
+	return result[0], true
+}
+
+func releaseByVersion(items []Release, version, channel, platform string) (Release, bool) {
+	target := normalizeVersion(version)
+	if target == "" {
+		return Release{}, false
+	}
+	for _, item := range filterReleases(items) {
+		if !releaseMatches(item, channel, platform) {
+			continue
+		}
+		if normalizeVersion(item.Version) == target {
+			return item, true
+		}
+	}
+	return Release{}, false
+}
+
 func filterReleases(items []Release) []Release {
 	result := make([]Release, 0, len(items))
 	for _, item := range items {
@@ -680,7 +949,13 @@ func filterReleases(items []Release) []Release {
 			result = append(result, item)
 		}
 	}
-	sort.Slice(result, func(i, j int) bool { return result[i].PublishedAt > result[j].PublishedAt })
+	sort.Slice(result, func(i, j int) bool {
+		cmp := compareVersions(result[i].Version, result[j].Version)
+		if cmp == 0 {
+			return result[i].PublishedAt > result[j].PublishedAt
+		}
+		return cmp > 0
+	})
 	return result
 }
 
@@ -779,6 +1054,59 @@ func (s *Server) handlePublicResources(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handlePublicReleases(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, "获取成功", filterReleases(s.store.Snapshot().Releases))
+}
+
+func (s *Server) handlePublicLatestRelease(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, "请求方法不允许", nil)
+		return
+	}
+	channel := strings.TrimSpace(r.URL.Query().Get("channel"))
+	if channel == "" {
+		channel = "stable"
+	}
+	platform := strings.TrimSpace(r.URL.Query().Get("platform"))
+	if platform == "" {
+		platform = "linux-docker-x64"
+	}
+	currentVersion := strings.TrimSpace(r.URL.Query().Get("version"))
+	releaseVersion := strings.TrimSpace(r.URL.Query().Get("releaseVersion"))
+
+	var (
+		release Release
+		ok      bool
+	)
+	if releaseVersion != "" {
+		release, ok = releaseByVersion(s.store.Snapshot().Releases, releaseVersion, channel, platform)
+	} else {
+		release, ok = latestRelease(s.store.Snapshot().Releases, channel, platform)
+	}
+	if !ok {
+		writeJSON(w, http.StatusNotFound, "未找到可用更新版本", map[string]interface{}{
+			"channel":         channel,
+			"platform":        platform,
+			"releaseVersion":  releaseVersion,
+			"updateAvailable": false,
+		})
+		return
+	}
+
+	updateAvailable := false
+	if currentVersion != "" {
+		updateAvailable = compareVersions(release.Version, currentVersion) > 0
+	}
+
+	writeJSON(w, http.StatusOK, "获取成功", map[string]interface{}{
+		"channel":         release.Channel,
+		"platform":        release.Platform,
+		"currentVersion":  currentVersion,
+		"releaseVersion":  release.Version,
+		"latestVersion":   release.Version,
+		"updateAvailable": updateAvailable,
+		"release":         release,
+		"releaseNotes":    release.ReleaseNotesMarkdown,
+		"highlights":      release.Highlights,
+	})
 }
 
 func (s *Server) handlePublicSEO(w http.ResponseWriter, r *http.Request) {
@@ -1600,21 +1928,21 @@ func securityHeaders(next http.Handler) http.Handler {
 }
 
 func defaultSEO(title, desc, path string) SEO {
-	keywords := "企业管理系统,CRM,合同管理,财务管理,生产管理,项目管理,OA办公,AI工作流,企业网盘,私有化部署"
-	return SEO{Title: title, Keywords: keywords, Description: desc, Canonical: "http://127.0.0.1:8099" + path, OgTitle: title, OgDesc: desc, OgImage: ""}
+	keywords := "企业管理系统,CRM系统,合同管理系统,财务管理系统,项目管理系统,OA办公系统,AI工作流,企业一体化管理平台,私有化部署,在线更新"
+	return SEO{Title: title, Keywords: keywords, Description: desc, Canonical: buildCanonical(path), OgTitle: title, OgDesc: desc, OgImage: ""}
 }
 
 func defaultSiteData() SiteData {
 	now := nowString()
-	site := SiteConfig{SiteName: "DT 企业智能管理系统", Slogan: "AI 驱动的一体化企业数字化管理平台", Logo: "DT", Favicon: "", Phone: "400-888-2026", Email: "business@dtcall.com", Address: "中国 · 企业数字化服务中心", ICP: "", Domain: "http://127.0.0.1:8099", ThemePrimary: "#8B5CF6", SeoTitle: "DT 企业智能管理系统 - CRM 合同 财务 生产 项目 OA AI 工作流一体化平台", SeoKeywords: "企业管理系统,CRM系统,合同管理系统,财务管理软件,生产管理系统,项目管理系统,OA系统,AI工作流,企业网盘,私有化部署", SeoDescription: "DT 企业智能管理系统覆盖 CRM、合同、财务、生产、项目、OA、AI 工作流与企业网盘，帮助企业实现流程协同、数据决策、降本增效和安全可控的数字化升级。", OgImage: ""}
+	site := SiteConfig{SiteName: "DT 企业智能管理系统", Slogan: "轻奢蓝金未来科技风的一体化企业智能管理平台", Logo: "DT", Favicon: "", Phone: "400-888-2026", Email: "business@dtcall.com", Address: "中国 · 企业数字化服务中心", ICP: "", Domain: defaultPublicDomain, ThemePrimary: "#0D4FBE", SeoTitle: "DT 企业智能管理系统 - CRM、合同、财务、项目、OA 一体化企业管理平台", SeoKeywords: "企业管理系统,CRM系统,合同管理系统,财务管理系统,项目管理系统,OA系统,私有化部署,在线更新,企业一体化平台", SeoDescription: "DT 企业智能管理系统覆盖 CRM、合同、财务、项目、OA、AI 协同、私有化部署与官网更新中心，帮助企业构建统一流程、统一数据和持续升级能力。", OgImage: ""}
 	return SiteData{Site: site, Navigation: defaultNavigation(), Pages: defaultPages(now), Products: defaultProducts(now), Solutions: defaultSolutions(now), Cases: defaultCases(now), News: defaultNews(now), Resources: defaultResources(now), FAQs: defaultFAQs(), Releases: defaultReleases(now), Users: defaultUsers(), Roles: defaultRoles(), Logs: []OperationLog{}, UpdatedAt: now, NextLeadID: 1, NextLogID: 1, NextItemID: 1000}
 }
 
 func defaultPages(now string) []Page {
 	return []Page{
-		{ID: 1, Key: "home", Title: "首页", Path: "/", Status: "published", SEO: defaultSEO("DT 企业智能管理系统 - AI 驱动的一体化企业管理平台", "面向成长型企业与集团组织的智能管理平台，整合客户、合同、财务、生产、项目、OA、AI 工作流和企业网盘能力，构建统一数据与流程中台。", "/"), UpdateAt: now, Blocks: []PageBlock{
-			{ID: 11, BlockKey: "hero", Title: "让企业管理进入 AI 协同时代", Subtitle: "CRM、合同、财务、生产、项目、OA、企业网盘与 AI 工作流，一套系统完成全链路数字化升级。", Content: "DT 企业智能管理系统以统一权限、统一流程、统一数据为基础，帮助企业建立可复制、可追踪、可持续优化的经营管理体系。", ActionText: "预约产品演示", ActionLink: "/contact", Sort: 1, Status: "published"},
-			{ID: 12, BlockKey: "value", Title: "把复杂业务装进同一张管理网络", Subtitle: "从客户线索到合同回款，从生产交付到项目复盘，所有关键节点都能被实时看见。", Content: "通过流程联动、数据看板、AI 智能建议和精细化权限，企业可以减少重复录入、降低沟通成本、提升经营决策速度。", Sort: 2, Status: "published"},
+		{ID: 1, Key: "home", Title: "首页", Path: "/", Status: "published", SEO: defaultSEO("DT 企业智能管理系统 - CRM、合同、财务、项目、OA 一体化智能管理平台", "面向通用企业管理客户的一体化企业智能管理平台，打通 CRM、合同、财务、项目、OA、AI 协同、私有化部署与官网更新中心。", "/"), UpdateAt: now, Blocks: []PageBlock{
+			{ID: 11, BlockKey: "hero", Title: "企业一体化智能管理平台", Subtitle: "打通 CRM、合同、财务、项目、OA 与 AI 协同，让企业从分散管理走向统一经营。", Content: "DT 企业智能管理系统以统一权限、统一流程、统一数据为基础，帮助企业建立可复制、可追踪、可持续优化的经营管理体系，并支持私有化部署与持续在线升级。", ActionText: "预约产品演示", ActionLink: "/contact", Sort: 1, Status: "published"},
+			{ID: 12, BlockKey: "value", Title: "把复杂经营链路收束到同一张管理网络里", Subtitle: "从客户线索到合同回款，从项目交付到组织流程，所有关键节点都能被实时看见。", Content: "通过流程联动、经营看板、AI 智能建议和精细化权限，企业可以减少重复录入、降低沟通成本、提升管理决策速度，并建立面向未来的版本更新与部署能力。", Sort: 2, Status: "published"},
 		}},
 		{ID: 2, Key: "product", Title: "产品能力", Path: "/product", Status: "published", SEO: defaultSEO("DT 企业智能管理系统产品能力 - CRM 合同 财务 生产 项目 OA AI", "系统展示 DT 在客户关系管理、合同管理、财务管理、生产管理、项目管理、OA 协同、AI 工作流、企业网盘等方面的完整能力。", "/product"), UpdateAt: now, Blocks: []PageBlock{{ID: 21, BlockKey: "overview", Title: "统一产品矩阵", Subtitle: "围绕企业经营全链路建设模块能力", Content: "产品能力页面集中展示 CRM、合同、财务、生产、项目、OA、AI、网盘、安全与移动协同等模块。", Sort: 1, Status: "published"}}},
 		{ID: 3, Key: "solutions", Title: "解决方案", Path: "/solutions", Status: "published", SEO: defaultSEO("企业数字化管理解决方案 - 制造 销售 项目 集团管控", "面向制造业、销售型企业、项目型企业与集团组织提供企业数字化管理解决方案，覆盖流程协同、数据决策、成本控制和私有化部署。", "/solutions"), UpdateAt: now, Blocks: []PageBlock{{ID: 31, BlockKey: "overview", Title: "按行业和组织模式落地", Subtitle: "让系统能力匹配真实业务现场", Content: "方案页面展示制造、销售、项目交付和集团管控场景下的落地路径。", Sort: 1, Status: "published"}}},
@@ -1627,7 +1955,7 @@ func defaultPages(now string) []Page {
 }
 
 func defaultNavigation() []NavigationItem {
-	return []NavigationItem{{ID: 1, Title: "首页", Path: "/", Position: "header", Target: "_self", Sort: 1, Enabled: true}, {ID: 2, Title: "产品能力", Path: "/product", Position: "header", Target: "_self", Sort: 2, Enabled: true}, {ID: 3, Title: "解决方案", Path: "/solutions", Position: "header", Target: "_self", Sort: 3, Enabled: true}, {ID: 4, Title: "客户案例", Path: "/cases", Position: "header", Target: "_self", Sort: 4, Enabled: true}, {ID: 5, Title: "新闻动态", Path: "/news", Position: "header", Target: "_self", Sort: 5, Enabled: true}, {ID: 6, Title: "帮助资源", Path: "/resources", Position: "header", Target: "_self", Sort: 6, Enabled: true}, {ID: 7, Title: "版本更新", Path: "/updates", Position: "header", Target: "_self", Sort: 7, Enabled: true}, {ID: 8, Title: "联系我们", Path: "/contact", Position: "header", Target: "_self", Sort: 8, Enabled: true}}
+	return []NavigationItem{{ID: 1, Title: "首页", Path: "/", Position: "header", Target: "_self", Sort: 1, Enabled: true}, {ID: 2, Title: "产品能力", Path: "/product", Position: "header", Target: "_self", Sort: 2, Enabled: true}, {ID: 3, Title: "解决方案", Path: "/solutions", Position: "header", Target: "_self", Sort: 3, Enabled: true}, {ID: 4, Title: "客户案例", Path: "/cases", Position: "header", Target: "_self", Sort: 4, Enabled: true}, {ID: 5, Title: "新闻动态", Path: "/news", Position: "header", Target: "_self", Sort: 5, Enabled: true}, {ID: 6, Title: "帮助资源", Path: "/resources", Position: "header", Target: "_self", Sort: 6, Enabled: true}, {ID: 7, Title: "更新中心", Path: "/updates", Position: "header", Target: "_self", Sort: 7, Enabled: true}, {ID: 8, Title: "联系我们", Path: "/contact", Position: "header", Target: "_self", Sort: 8, Enabled: true}}
 }
 
 func defaultProducts(now string) []Product {
@@ -1676,8 +2004,7 @@ func defaultFAQs() []FAQ {
 
 func defaultReleases(now string) []Release {
 	return []Release{
-		{ID: 701, Version: "v3.6.0", Title: "DT 企业管理系统 v3.6.0 稳定版", Summary: "面向客户部署环境的稳定版本，增强 AI 工作流、合同财务联动、项目交付看板与权限审计能力。", PackageURL: "", Checksum: "", Target: "Ubuntu 22.04 x86_64 / MySQL 8.0", Status: "published", PublishedAt: now, UpdatedAt: now, Highlights: []string{"AI 意图识别与业务流程建议增强", "合同回款、发票、费用与项目成本联动优化", "客户部署环境版本校验与升级说明完善"}},
-		{ID: 702, Version: "v3.5.2", Title: "DT 企业管理系统 v3.5.2 维护版", Summary: "修复客户部署环境中的若干稳定性问题，优化生产项目协同与移动端审批体验。", PackageURL: "", Checksum: "", Target: "Ubuntu 22.04 x86_64", Status: "published", PublishedAt: now, UpdatedAt: now, Highlights: []string{"生产任务与项目节点同步更稳定", "移动端审批处理体验优化", "后台操作日志检索效率提升"}},
+		{ID: 701, Version: "1.0.0", Title: "DT 企业管理系统 1.0.0 稳定版", Summary: "Linux Docker Compose 首个标准化离线发布版本，支持官网更新中心检测、Docker ZIP 升级包和版本目录切换。", PackageURL: "", Checksum: "", ChecksumType: "sha256", ManifestURL: "", Target: "Ubuntu 22.04 x86_64 / Docker Compose", Channel: "stable", Platform: "linux-docker-x64", Build: "20260701.1", PackageSize: 0, MinSupportedVersion: "1.0.0", ForceUpdate: false, DockerImageTags: []string{"dtcall-web:1.0.0", "dtcall-ai-orchestrator:1.0.0"}, ReleaseNotesMarkdown: "- 首次提供官网更新中心\n- 支持 Docker ZIP 离线升级包\n- 支持版本目录切换和回滚", Status: "published", PublishedAt: now, UpdatedAt: now, Highlights: []string{"官网统一版本检测", "Docker 离线更新包", "版本目录切换与回滚"}},
 	}
 }
 

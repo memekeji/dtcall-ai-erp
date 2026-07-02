@@ -6,6 +6,7 @@
 import logging
 from typing import Dict, Any
 from django.contrib.auth.models import User
+from apps.ai.models import AIChat, AIChatMessage
 from apps.ai.services.ai_intent_classifier import ai_intent_classifier
 from apps.ai.services.query_service import query_service
 from apps.user.services.permission_node_mapper import permission_node_mapper
@@ -258,10 +259,12 @@ class EnhancedIntentService:
         logger.warning("直接智能助手业务执行已被安全策略禁用")
         return None
 
-    def process_user_request(self, user: User, query: str) -> Dict[str, Any]:
+    def process_user_request(self, user: User, query: str, chat_id: int | None = None) -> Dict[str, Any]:
         """处理用户请求"""
         try:
+            conversation_context = self._build_conversation_context(user, chat_id)
             intent_result = self.classifier.classify_intent(user, query)
+            intent_result = self._apply_follow_up_context(intent_result, query, conversation_context)
 
             if not intent_result.get('intent'):
                 return self._create_error_response('无法识别您的意图，请重新描述您的需求')
@@ -281,13 +284,123 @@ class EnhancedIntentService:
             if intent_result['confidence'] < 0.65 or intent_result.get('requires_confirmation'):
                 return self._create_confirmation_response(intent_result, query, user)
 
-            execution_result = self._execute_intent(user, intent_result, query)
+            execution_result = self._execute_intent(user, intent_result, query, conversation_context)
 
             return execution_result
 
         except Exception as e:
             logger.error(f"处理用户请求失败：{str(e)}")
             return self._create_error_response('处理请求时发生错误，请稍后重试')
+
+    def _apply_follow_up_context(
+            self,
+            intent_result: Dict[str, Any],
+            query: str,
+            conversation_context: Dict[str, Any] | None = None) -> Dict[str, Any]:
+        conversation_context = conversation_context or {}
+        previous_query = conversation_context.get('previous_query') or {}
+        query_lower = (query or '').lower()
+        if not previous_query:
+            return intent_result
+
+        previous_specific_intent = previous_query.get('specific_intent')
+        is_short_follow_up = len((query or '').strip()) <= 20
+        mentions_time_range = any(keyword in query_lower for keyword in ['本月', '这个月', '上月', '上个月', '今天', '昨天', '昨日'])
+        mentions_count = any(keyword in query_lower for keyword in ['数量', '多少', '几个', '有几个', '总数'])
+        mentions_in_progress = any(keyword in query_lower for keyword in ['进行中', '在进行'])
+        mentions_detail = any(keyword in query_lower for keyword in ['明细', '列表', '看一下', '看下', '展开'])
+        previous_entities = dict(previous_query.get('entities') or {})
+        if previous_query.get('status') and 'status' not in previous_entities:
+            previous_entities['status'] = previous_query.get('status')
+        if previous_query.get('time_range') and 'time_range' not in previous_entities:
+            previous_entities['time_range'] = previous_query.get('time_range')
+
+        if (
+            previous_specific_intent in {'order_total', 'order_total_this_month', 'order_total_last_month'} and
+            is_short_follow_up and mentions_time_range and
+            intent_result.get('intent') == 'AI_CHAT'
+        ):
+            patched = dict(intent_result)
+            patched['intent'] = 'DATA_QUERY'
+            patched['action'] = 'summary'
+            patched['data_type'] = 'order'
+            patched['confidence'] = max(float(patched.get('confidence', 0.0) or 0.0), 0.82)
+            patched['requires_confirmation'] = False
+            patched['reasoning'] = '承接上一轮订单金额查询的时间范围追问'
+            entities = dict(patched.get('entities') or {})
+            if any(keyword in query_lower for keyword in ['本月', '这个月']):
+                patched['time_range'] = 'this_month'
+                entities['time_range'] = 'this_month'
+            elif any(keyword in query_lower for keyword in ['上月', '上个月']):
+                patched['time_range'] = 'last_month'
+                entities['time_range'] = 'last_month'
+            elif '今天' in query_lower:
+                patched['time_range'] = 'today'
+                entities['time_range'] = 'today'
+            elif any(keyword in query_lower for keyword in ['昨天', '昨日']):
+                patched['time_range'] = 'yesterday'
+                entities['time_range'] = 'yesterday'
+            patched['entities'] = entities
+            return patched
+
+        if intent_result.get('intent') == 'AI_CHAT' and is_short_follow_up:
+            if previous_specific_intent in {'approval_task_list', 'approval_task_count'} and mentions_count:
+                patched = dict(intent_result)
+                patched['intent'] = 'DATA_QUERY'
+                patched['action'] = 'count'
+                patched['data_type'] = 'approval_task'
+                patched['confidence'] = max(float(patched.get('confidence', 0.0) or 0.0), 0.82)
+                patched['requires_confirmation'] = False
+                patched['reasoning'] = '承接上一轮待审批查询的数量追问'
+                patched['entities'] = previous_entities
+                return patched
+
+            if previous_specific_intent in {'project_list', 'project_count', 'project_list_in_progress', 'project_count_in_progress'}:
+                patched = dict(intent_result)
+                if mentions_count or mentions_in_progress:
+                    patched['intent'] = 'DATA_QUERY'
+                    patched['data_type'] = 'project'
+                    patched['action'] = 'count' if mentions_count else 'list'
+                    patched['confidence'] = max(float(patched.get('confidence', 0.0) or 0.0), 0.8)
+                    patched['requires_confirmation'] = False
+                    patched['reasoning'] = '承接上一轮项目查询的状态/数量追问'
+                    entities = dict(previous_entities)
+                    if previous_specific_intent in {'project_list_in_progress', 'project_count_in_progress'} or mentions_in_progress:
+                        entities['status'] = '进行中'
+                    patched['entities'] = entities
+                    return patched
+
+            if mentions_detail:
+                detail_data_type = None
+                if previous_specific_intent:
+                    if previous_specific_intent.startswith('supplier'):
+                        detail_data_type = 'supplier'
+                    elif previous_specific_intent.startswith('product'):
+                        detail_data_type = 'product'
+                    elif previous_specific_intent.startswith('inventory'):
+                        detail_data_type = 'inventory'
+                    elif previous_specific_intent.startswith('followup'):
+                        detail_data_type = 'followup'
+                    elif previous_specific_intent.startswith('approval_task'):
+                        detail_data_type = 'approval_task'
+                    elif previous_specific_intent.startswith('approval'):
+                        detail_data_type = 'approval'
+                    elif previous_specific_intent.startswith('disk_share'):
+                        detail_data_type = 'disk_share'
+                    elif previous_specific_intent.startswith('disk'):
+                        detail_data_type = 'disk'
+                if detail_data_type:
+                    patched = dict(intent_result)
+                    patched['intent'] = 'DATA_QUERY'
+                    patched['data_type'] = detail_data_type
+                    patched['action'] = 'list'
+                    patched['confidence'] = max(float(patched.get('confidence', 0.0) or 0.0), 0.8)
+                    patched['requires_confirmation'] = False
+                    patched['reasoning'] = '承接上一轮统计结果的明细追问'
+                    patched['entities'] = previous_entities
+                    return patched
+
+        return intent_result
 
     def _check_data_permission(
             self, user: User, intent_result: Dict[str, Any]) -> Dict[str, Any]:
@@ -364,7 +477,9 @@ class EnhancedIntentService:
             'workhour': 'task.view_workhour',
             'message': 'message.view_message',
             'notice': 'user.view_notice',
-            'document': 'oa.view_document',
+            'contact': 'customer.view_customer',
+            'document': 'system.view_document',
+            'payment': 'finance.view_payment',
             'meeting': 'oa.view_meetingrecord',
             'schedule': '__authenticated__',
             'disk': 'disk.view_disk_file',
@@ -423,7 +538,7 @@ class EnhancedIntentService:
             return 'self'
 
     def _execute_intent(
-            self, user: User, intent_result: Dict[str, Any], query: str) -> Dict[str, Any]:
+            self, user: User, intent_result: Dict[str, Any], query: str, conversation_context: Dict[str, Any] | None = None) -> Dict[str, Any]:
         """
         执行意图处理
 
@@ -458,15 +573,20 @@ class EnhancedIntentService:
         if intent_type in ['DATA_QUERY', 'DATA_CREATE', 'DATA_UPDATE', 'DATA_DELETE']:
             if self._is_mutating_intent(intent_result):
                 return self._create_confirmation_response(intent_result, query, user)
-            return self._handle_data_query(user, intent_result, query)
+            return self._handle_data_query(user, intent_result, query, conversation_context)
 
-        return self._handle_data_query(user, intent_result, query)
+        return self._handle_data_query(user, intent_result, query, conversation_context)
 
     def _handle_data_query(
-            self, user: User, intent_result: Dict[str, Any], query: str) -> Dict[str, Any]:
+            self, user: User, intent_result: Dict[str, Any], query: str, conversation_context: Dict[str, Any] | None = None) -> Dict[str, Any]:
         """处理数据查询"""
         try:
-            result = self.query_service.process_query(user, query, intent_result)
+            result = self.query_service.process_query(
+                user,
+                query,
+                intent_result,
+                context=conversation_context,
+            )
 
             if result.get('success'):
                 return {
@@ -483,6 +603,31 @@ class EnhancedIntentService:
         except Exception as e:
             logger.error(f"数据查询处理失败：{str(e)}")
             return self._create_error_response('数据查询失败，请稍后重试')
+
+    def _build_conversation_context(self, user: User, chat_id: int | None) -> Dict[str, Any]:
+        if not chat_id:
+            return {}
+        try:
+            chat = AIChat.objects.get(id=chat_id, user=user)
+        except AIChat.DoesNotExist:
+            return {}
+
+        previous_user_message = (
+            AIChatMessage.objects.filter(chat=chat, role='user')
+            .order_by('-created_at')
+            .first()
+        )
+        previous_assistant_message = (
+            AIChatMessage.objects.filter(chat=chat, role='assistant')
+            .exclude(runtime_payload={})
+            .order_by('-created_at')
+            .first()
+        )
+
+        return {
+            'previous_user_message': previous_user_message.content if previous_user_message else '',
+            'previous_query': previous_assistant_message.runtime_payload if previous_assistant_message else {},
+        }
 
     def _handle_data_create(
             self, user: User, intent_result: Dict[str, Any], query: str) -> Dict[str, Any]:
@@ -567,7 +712,13 @@ class EnhancedIntentService:
 
     def _create_fallback_response(self, query: str) -> Dict[str, Any]:
         """创建降级响应（AI 不可用时）"""
-        response = '当前未配置可用的 AI 模型，我可以继续提供基础帮助。请配置 AI 模型后获得更准确的意图识别和自然语言理解能力。'
+        ai_configured = ai_intent_classifier.ai_config is not None
+        failure_reason = 'AI 模型服务暂时不可用，请稍后重试。' if ai_configured else '当前未配置可用的 AI 模型，请先完成模型配置。'
+        response = (
+            'AI 模型服务暂时不可用，我可以继续提供基础帮助。请稍后重试。'
+            if ai_configured else
+            '当前未配置可用的 AI 模型，我可以继续提供基础帮助。请配置 AI 模型后获得更准确的意图识别和自然语言理解能力。'
+        )
 
         return {
             'success': True,
@@ -575,7 +726,12 @@ class EnhancedIntentService:
             'intent_type': 'AI_CHAT',
             'result': response,
             'confidence': 0.35,
-            'source': 'safe_fallback'
+            'source': 'safe_fallback',
+            'ai_available': False,
+            'ai_configured': ai_configured,
+            'failure_reason': failure_reason,
+            'model_provider': ai_intent_classifier.ai_config.get('provider') if ai_intent_classifier.ai_config else None,
+            'model_name': ai_intent_classifier.ai_config.get('model_name') if ai_intent_classifier.ai_config else None,
         }
 
     def _create_error_response(self, message: str) -> Dict[str, Any]:
@@ -629,7 +785,10 @@ class EnhancedIntentService:
                 ]
 
             if intent_result.get('source') != 'ai':
-                message = '当前未配置可用的 AI 模型，无法进行高置信度意图识别。请补充说明或先配置 AI 模型。'
+                if intent_result.get('ai_configured'):
+                    message = 'AI 模型服务暂时不可用，当前已按安全降级规则识别您的意图。您可以继续补充说明，或稍后再试。'
+                else:
+                    message = '当前未配置可用的 AI 模型，无法进行高置信度意图识别。请补充说明或先配置 AI 模型。'
             else:
                 message = f'我不太确定您的意图（置信度：{confidence:.0%}），请选择：'
 
@@ -645,6 +804,11 @@ class EnhancedIntentService:
             'action': intent_result.get('action'),
             'data_type': intent_result.get('data_type'),
             'entities': intent_result.get('entities') or {},
+            'ai_available': intent_result.get('ai_available', False),
+            'ai_configured': intent_result.get('ai_configured', False),
+            'failure_reason': intent_result.get('failure_reason'),
+            'model_provider': intent_result.get('model_provider'),
+            'model_name': intent_result.get('model_name'),
         }
         if business_task:
             response['task'] = business_task

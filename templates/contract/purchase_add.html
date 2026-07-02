@@ -46,6 +46,22 @@
                 </div>
                 <div class="layui-col-md6">
                     <div class="layui-form-item">
+                        <label class="layui-form-label">关联项目</label>
+                        <div class="layui-input-block">
+                            <select name="project_id">
+                                <option value="">请选择项目</option>
+                                {% for project_option in projects %}
+                                <option value="{{ project_option.id }}" {% if purchase and purchase.project_id == project_option.id or selected_project_id == project_option.id %}selected{% endif %}>{{ project_option.name }} ({{ project_option.code }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-form-item">
                         <label class="layui-form-label">采购金额</label>
                         <div class="layui-input-block">
                             <input type="number" name="amount" value="{{ purchase.amount|default:'' }}" placeholder="请输入采购金额" class="layui-input" lay-verify="required|number" step="0.01">

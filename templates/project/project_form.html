@@ -7,6 +7,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% if is_edit %}编辑项目{% else %}新建项目{% endif %}</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        .auto-create-panel {
+            padding: 14px 16px;
+            border: 1px solid #dbe6f7;
+            border-radius: 8px;
+            background: #f8fbff;
+        }
+        .auto-create-panel .layui-form-mid {
+            float: none;
+            margin-bottom: 12px;
+            padding: 0;
+            color: #6a7a90;
+        }
+    </style>
 </head>
 
 <body>
@@ -190,6 +204,19 @@
                               class="layui-textarea">{% if project %}{{ project.description }}{% endif %}</textarea>
                 </div>
             </div>
+
+            {% if not is_edit %}
+            <div class="layui-form-item">
+                <label class="layui-form-label">自动创建关联信息</label>
+                <div class="layui-input-block">
+                    <div class="auto-create-panel">
+                        <div class="layui-form-mid">保存项目时，仅在你勾选后自动补建协同记录。</div>
+                        <input type="checkbox" name="auto_create_contract" title="合同">
+                        <input type="checkbox" name="auto_create_order" title="订单">
+                    </div>
+                </div>
+            </div>
+            {% endif %}
             
             <div class="layui-form-item">
                 <label class="layui-form-label">项目成员</label>

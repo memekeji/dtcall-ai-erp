@@ -1,4 +1,3 @@
-from django.conf import settings
 from apps.ai.models import AIKnowledgeItem, AIKnowledgeVector
 from apps.ai.utils.ai_client import AIClient
 from apps.ai.utils.ai_config_manager import get_ai_config_manager
@@ -393,14 +392,6 @@ class RAGService:
     """RAG服务类，实现完整的RAG流程"""
 
     def __init__(self):
-        # 检查是否允许自动加载配置
-        if not getattr(settings, 'AI_AUTO_LOAD_CONFIG', True):
-            self.ai_client = None
-            self.max_relevant_items = 5
-            self.similarity_threshold = 0.5
-            self.enhanced_service = None
-            return
-
         config = get_ai_config_manager().get_recommended_config()
         if config:
             self.ai_client = AIClient.from_config(config)

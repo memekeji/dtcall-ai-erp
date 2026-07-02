@@ -977,6 +977,7 @@ class ProjectDetailTemplateTests(TestCase):
         html = template_path.read_text(encoding='utf-8')
 
         self.assertIn('lay-id="docs"', html)
+        self.assertIn('lay-id="purchases"', html)
         self.assertIn('lay-id="activities"', html)
         self.assertIn("window.location.hash.replace('#', '')", html)
         self.assertIn("element.tabChange('projectDetailTab', hashTabId);", html)
@@ -985,8 +986,8 @@ class ProjectDetailTemplateTests(TestCase):
         template_path = Path('templates/project/detail.html')
         html = template_path.read_text(encoding='utf-8')
 
-        self.assertIn('if (tabIndex === 8)', html)
-        self.assertNotIn('if (tabIndex === 9)', html)
+        self.assertIn('if (tabIndex === 9)', html)
+        self.assertNotIn('if (tabIndex === 10)', html)
 
 
 @override_settings(ROOT_URLCONF='apps.message.test_urls')

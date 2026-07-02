@@ -17,7 +17,7 @@
                         <h3>{% if object %}编辑客户意向{% else %}新增客户意向{% endif %}</h3>
                     </div>
                     <div class="layui-card-body">
-                        <form class="layui-form" method="post">
+                        <form class="layui-form" method="post" id="intentForm">
                             {% csrf_token %}
                             {% if form.errors %}
                                 <div class="layui-form-item">
@@ -64,7 +64,7 @@
                             <div class="layui-form-item">
                                 <div class="layui-input-block">
                                     <button class="layui-btn" type="submit">保存</button>
-                                    <a href="{% url 'customer:customer_intent_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                                    <button type="button" class="layui-btn layui-btn-primary" onclick="closeIntentForm()">返回</button>
                                 </div>
                             </div>
                         </form>
@@ -76,9 +76,67 @@
 
     <script src="/static/layui/layui.js"></script>
     <script>
-        layui.use(['form'], function(){
+        layui.use(['form', 'layer', 'jquery'], function(){
             var form = layui.form;
+            var layer = layui.layer;
+            var $ = layui.jquery;
             form.render();
+
+            function getParentLayerIndex() {
+                try {
+                    if (window.parent && window.parent !== window && window.parent.layer) {
+                        return window.parent.layer.getFrameIndex(window.name);
+                    }
+                } catch (error) {
+                    return null;
+                }
+                return null;
+            }
+
+            function isLayerFrame() {
+                var index = getParentLayerIndex();
+                return index !== null && index !== undefined && index !== '';
+            }
+
+            window.closeIntentForm = function() {
+                var index = getParentLayerIndex();
+                if (isLayerFrame()) {
+                    window.parent.layer.close(index);
+                    return;
+                }
+                window.location.href = "{% url 'customer:customer_intent_list' %}";
+            };
+
+            $('#intentForm').on('submit', function(event) {
+                if (!isLayerFrame()) {
+                    return true;
+                }
+
+                event.preventDefault();
+                var $form = $(this);
+                $.ajax({
+                    url: $form.attr('action') || window.location.href,
+                    type: 'POST',
+                    data: $form.serialize(),
+                    dataType: 'json',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    success: function(res) {
+                        if (res.code === 0) {
+                            layer.msg(res.msg || '保存成功', {icon: 1, time: 800}, function() {
+                                closeIntentForm();
+                            });
+                        } else {
+                            layer.msg(res.msg || '保存失败', {icon: 2});
+                        }
+                    },
+                    error: function() {
+                        layer.msg('保存失败，请稍后重试', {icon: 2});
+                    }
+                });
+                return false;
+            });
         });
     </script>
 </body>

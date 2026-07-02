@@ -71,6 +71,62 @@
         .priority-2 { color: #FFB800; }
         .priority-3 { color: #FF5722; }
         .priority-4 { color: #FF0000; font-weight: bold; }
+        .comment-notification-bubble {
+            display: none;
+            margin-bottom: 12px;
+            padding: 10px 12px;
+            background: #fff7e6;
+            border: 1px solid #ffd591;
+            border-radius: 6px;
+            color: #ad6800;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .comment-editor-container,
+        .reply-form {
+            position: relative;
+        }
+        .mention-suggestions {
+            position: absolute;
+            z-index: 1000;
+            display: none;
+            min-width: 220px;
+            max-width: 280px;
+            max-height: 220px;
+            overflow-y: auto;
+            background: #fff;
+            border: 1px solid #e6e6e6;
+            border-radius: 6px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+        }
+        .mention-suggestion-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            line-height: 1.4;
+        }
+        .mention-suggestion-item:hover,
+        .mention-suggestion-item.active {
+            background: #f5faff;
+        }
+        .mention-suggestion-name {
+            font-size: 13px;
+            color: #333;
+        }
+        .mention-suggestion-meta {
+            font-size: 12px;
+            color: #999;
+        }
+        .comment-text-content {
+            margin-bottom: 10px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.7;
+        }
+        .comment-mention-token {
+            color: #1677ff;
+            font-weight: 600;
+        }
     </style>
 </head>
 
@@ -125,6 +181,7 @@
                 <li lay-id="members">团队成员</li>
                 <li lay-id="hours">工时统计</li>
                 <li lay-id="docs">项目文档</li>
+                <li lay-id="purchases">采购记录</li>
                 <li lay-id="activities">评论系统</li>
                 <li lay-id="gantt">甘特图视图</li>
                 <li lay-id="kanban">看板视图</li>
@@ -200,6 +257,14 @@
                                                 <td>¥{{ project.actual_cost|floatformat:2 }}</td>
                                             </tr>
                                             <tr>
+                                                <td>采购总成本</td>
+                                                <td>¥{{ purchase_summary.total_amount|floatformat:2 }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td>采购记录</td>
+                                                <td>{{ purchase_summary.count }} 笔</td>
+                                            </tr>
+                                            <tr>
                                                 <td>项目进度</td>
                                                 <td>
                                                     <div class="layui-progress">
@@ -225,7 +290,7 @@
                         </div>
                     </div>
                     {% endif %}
-                    
+
                     <!-- 关联信息 -->
                     <div class="layui-card" style="margin-top: 20px;">
                         <div class="layui-card-header">关联信息</div>
@@ -491,6 +556,71 @@
                     </div>
                 </div>
 
+                <!-- 采购记录 -->
+                <div class="layui-tab-item">
+                    <div class="layui-card">
+                        <div class="layui-card-header">
+                            采购记录
+                            <div class="layui-btn-group" style="float: right;">
+                                <button class="layui-btn layui-btn-sm" onclick="addPurchase()">新增采购</button>
+                                <button class="layui-btn layui-btn-sm layui-btn-primary" onclick="viewPurchases()">查看全部</button>
+                            </div>
+                        </div>
+                        <div class="layui-card-body">
+                            <div class="layui-row layui-col-space20" style="margin-bottom: 15px;">
+                                <div class="layui-col-md4">
+                                    <div style="padding: 16px; background: #f8faff; border: 1px solid #e8f0ff; border-radius: 6px;">
+                                        <div style="font-size: 12px; color: #666;">采购总成本</div>
+                                        <div style="font-size: 24px; font-weight: bold; color: #1677ff; margin-top: 8px;">¥{{ purchase_summary.total_amount|floatformat:2 }}</div>
+                                    </div>
+                                </div>
+                                <div class="layui-col-md4">
+                                    <div style="padding: 16px; background: #f6ffed; border: 1px solid #d9f7be; border-radius: 6px;">
+                                        <div style="font-size: 12px; color: #666;">采购笔数</div>
+                                        <div style="font-size: 24px; font-weight: bold; color: #52c41a; margin-top: 8px;">{{ purchase_summary.count }}</div>
+                                    </div>
+                                </div>
+                                <div class="layui-col-md4">
+                                    <div style="padding: 16px; background: #fffbe6; border: 1px solid #ffe58f; border-radius: 6px;">
+                                        <div style="font-size: 12px; color: #666;">预算占比</div>
+                                        <div style="font-size: 24px; font-weight: bold; color: #faad14; margin-top: 8px;">
+                                            {% if project.budget %}{{ purchase_summary.total_amount|floatformat:2 }} / {{ project.budget|floatformat:2 }}{% else %}--{% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <table class="layui-table" lay-skin="line">
+                                <thead>
+                                    <tr>
+                                        <th>采购编号</th>
+                                        <th>采购名称</th>
+                                        <th>采购分类</th>
+                                        <th>采购金额</th>
+                                        <th>签订时间</th>
+                                        <th>审核状态</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for purchase in related_purchases %}
+                                    <tr>
+                                        <td>{{ purchase.code }}</td>
+                                        <td>{{ purchase.name }}</td>
+                                        <td>{{ purchase.category|default:"-" }}</td>
+                                        <td>¥{{ purchase.amount|floatformat:2 }}</td>
+                                        <td>{{ purchase.sign_time }}</td>
+                                        <td>{{ purchase.status_display }}</td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="6" style="text-align: center; color: #999;">暂无采购记录</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 评论系统 -->
                 <div class="layui-tab-item">
                     <div class="layui-card">
@@ -498,8 +628,15 @@
                         <div class="layui-card-body">
                             <div id="comments-container">
                                 <!-- 评论系统内容 -->
-                                <div style="margin-bottom: 20px;">
+                                <div id="comment-notification-bubble" class="comment-notification-bubble">
+                                    <span id="comment-notification-bubble-text">你有新的评论提醒</span>
+                                    <button type="button" class="layui-btn layui-btn-xs layui-btn-primary" id="comment-notification-bubble-refresh">刷新</button>
+                                </div>
+                                <div class="comment-editor-container" style="margin-bottom: 20px;"
+                                     data-comment-mention-endpoint="/api/project/comments/mention_candidates/"
+                                     data-comment-notification-endpoint="/api/project/comments/notification_state/">
                                     <textarea id="comment-content" placeholder="请输入评论内容" class="layui-textarea" style="width: 100%;"></textarea>
+                                    <div id="comment-mention-suggestions" class="mention-suggestions"></div>
                                     <button id="submit-comment" class="layui-btn layui-btn-normal" style="margin-top: 10px;">发布评论</button>
                                 </div>
                                 
@@ -743,6 +880,26 @@
             });
         }
 
+        function addPurchase() {
+            var url = '/contract/purchase/add/?project_id={{ project.id }}';
+            parent.layer.open({
+                type: 2,
+                title: '新增采购',
+                shadeClose: true,
+                shade: 0.3,
+                area: ['80%', '100%'],
+                offset: 'r',
+                content: url,
+                end: function() {
+                    window.location.reload();
+                }
+            });
+        }
+
+        function viewPurchases() {
+            window.location.href = '/contract/purchase/?project_id={{ project.id }}';
+        }
+
         function editTask(taskId) {
             var url = '/adm/task/edit/' + taskId + '/';
             parent.layer.open({
@@ -805,21 +962,399 @@
         }
 
         // 评论系统
+        var projectCommentState = {
+            objectId: '{{ project.id }}',
+            contentTypeId: '{{ project_content_type_id }}',
+            mentionEndpoint: '/api/project/comments/mention_candidates/',
+            notificationEndpoint: '/api/project/comments/notification_state/',
+            candidatesLoaded: false,
+            candidates: [],
+            rootMentionedUserIds: [],
+            replyMentionedUserIds: {},
+            notificationPollTimer: null,
+            lastNotificationMessageId: null
+        };
+
         $(document).ready(function() {
-            // 加载评论
+            var $commentRoot = $('#comment-content');
+            var $commentSuggestionBox = $('#comment-mention-suggestions');
+            var $commentBubble = $('#comment-notification-bubble');
+            var $commentBubbleText = $('#comment-notification-bubble-text');
+            var rootConfigContainer = $commentRoot.closest('[data-comment-mention-endpoint]');
+
+            if (rootConfigContainer.length) {
+                projectCommentState.mentionEndpoint = rootConfigContainer.data('comment-mention-endpoint') || projectCommentState.mentionEndpoint;
+                projectCommentState.notificationEndpoint = rootConfigContainer.data('comment-notification-endpoint') || projectCommentState.notificationEndpoint;
+            }
+
+            loadMentionCandidates();
             loadComments();
-            
-            // 发布评论
+            startCommentNotificationPolling();
+
+            $commentRoot.on('focus keyup click', function() {
+                handleMentionInput($(this), $commentSuggestionBox, 'root');
+            });
+
+            $commentRoot.on('blur', function() {
+                window.setTimeout(function() {
+                    hideSuggestionBox($commentSuggestionBox);
+                }, 150);
+            });
+
             $('#submit-comment').on('click', function() {
-                var content = $('#comment-content').val().trim();
+                var content = $commentRoot.val().trim();
                 if (!content) {
                     layer.msg('请输入评论内容', {icon: 5});
                     return;
                 }
-                
+
                 submitComment(content);
             });
+
+            $('#comment-notification-bubble-refresh').on('click', function() {
+                hideNotificationBubble();
+                loadComments();
+                triggerUnreadCountRefresh();
+            });
         });
+
+        function loadMentionCandidates() {
+            if (projectCommentState.candidatesLoaded) {
+                return Promise.resolve(projectCommentState.candidates);
+            }
+
+            return axios.get(projectCommentState.mentionEndpoint, {
+                params: {
+                    content_type: 'project',
+                    object_id: projectCommentState.objectId
+                },
+                headers: {
+                    'X-CSRFToken': getCsrfToken()
+                }
+            }).then(function(response) {
+                projectCommentState.candidates = (response.data && response.data.results) || [];
+                projectCommentState.candidatesLoaded = true;
+                return projectCommentState.candidates;
+            }).catch(function(error) {
+                console.error('加载评论提及成员失败:', error);
+                projectCommentState.candidates = [];
+                return [];
+            });
+        }
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function renderCommentContent(content) {
+            var escaped = escapeHtml(content || '');
+            return escaped.replace(/(^|\s)@([^\s@]+)/g, function(match, prefix, name) {
+                return prefix + '<span class="comment-mention-token">@' + name + '</span>';
+            });
+        }
+
+        function getMentionStateKey(stateKey) {
+            return stateKey === 'root' ? 'rootMentionedUserIds' : null;
+        }
+
+        function setMentionIds(stateKey, ids) {
+            if (stateKey === 'root') {
+                projectCommentState.rootMentionedUserIds = ids;
+                return;
+            }
+            projectCommentState.replyMentionedUserIds[stateKey] = ids;
+        }
+
+        function getMentionIds(stateKey) {
+            if (stateKey === 'root') {
+                return projectCommentState.rootMentionedUserIds.slice();
+            }
+            return (projectCommentState.replyMentionedUserIds[stateKey] || []).slice();
+        }
+
+        function updateMentionIdsForText(stateKey, text) {
+            var currentIds = getMentionIds(stateKey);
+            if (!currentIds.length) {
+                return;
+            }
+
+            var allowedIds = [];
+            currentIds.forEach(function(userId) {
+                var candidate = projectCommentState.candidates.find(function(item) {
+                    return item.id === userId;
+                });
+                if (!candidate) {
+                    return;
+                }
+                var mentionToken = '@' + (candidate.display_name || candidate.username);
+                if (text.indexOf(mentionToken) !== -1) {
+                    allowedIds.push(userId);
+                }
+            });
+            setMentionIds(stateKey, allowedIds);
+        }
+
+        function getMentionQuery(text, caretPosition) {
+            var beforeCaret = text.slice(0, caretPosition);
+            var match = beforeCaret.match(/(^|\s)@([^\s@]*)$/);
+            if (!match) {
+                return null;
+            }
+            return {
+                query: (match[2] || '').toLowerCase(),
+                replaceStart: beforeCaret.length - match[2].length - 1,
+                replaceEnd: caretPosition
+            };
+        }
+
+        function filterMentionCandidates(query) {
+            var keyword = (query || '').toLowerCase();
+            return projectCommentState.candidates.filter(function(item) {
+                var displayName = (item.display_name || '').toLowerCase();
+                var username = (item.username || '').toLowerCase();
+                var name = (item.name || '').toLowerCase();
+                return !keyword || displayName.indexOf(keyword) !== -1 || username.indexOf(keyword) !== -1 || name.indexOf(keyword) !== -1;
+            }).slice(0, 8);
+        }
+
+        function positionSuggestionBox($textarea, $box) {
+            var position = $textarea.position();
+            if (!position) {
+                return;
+            }
+            $box.css({
+                top: position.top + $textarea.outerHeight() + 4,
+                left: position.left,
+                width: Math.min(Math.max($textarea.outerWidth() * 0.45, 220), 320)
+            });
+        }
+
+        function hideSuggestionBox($box) {
+            $box.hide().empty().removeData('mention-meta');
+        }
+
+        function applyMentionSelection($textarea, $box, stateKey, candidate) {
+            var cursorPosition = $textarea[0].selectionStart || 0;
+            var text = $textarea.val();
+            var mentionQuery = getMentionQuery(text, cursorPosition);
+            if (!mentionQuery) {
+                hideSuggestionBox($box);
+                return;
+            }
+
+            var displayName = candidate.display_name || candidate.username;
+            var replacement = '@' + displayName + ' ';
+            var nextText = text.slice(0, mentionQuery.replaceStart) + replacement + text.slice(mentionQuery.replaceEnd);
+            $textarea.val(nextText);
+
+            var mentionIds = getMentionIds(stateKey);
+            if (mentionIds.indexOf(candidate.id) === -1) {
+                mentionIds.push(candidate.id);
+            }
+            setMentionIds(stateKey, mentionIds);
+            hideSuggestionBox($box);
+
+            var nextCursor = mentionQuery.replaceStart + replacement.length;
+            $textarea[0].focus();
+            $textarea[0].setSelectionRange(nextCursor, nextCursor);
+        }
+
+        function renderSuggestionBox($textarea, $box, stateKey, matches) {
+            if (!matches.length) {
+                hideSuggestionBox($box);
+                return;
+            }
+
+            positionSuggestionBox($textarea, $box);
+            $box.empty();
+            matches.forEach(function(item, index) {
+                var itemHtml = [
+                    '<div class="mention-suggestion-item',
+                    index === 0 ? ' active' : '',
+                    '" data-state-key="', escapeHtml(stateKey),
+                    '" data-user-id="', item.id,
+                    '"><div class="mention-suggestion-name">', escapeHtml(item.display_name || item.username),
+                    '</div><div class="mention-suggestion-meta">@', escapeHtml(item.username || ''),
+                    '</div></div>'
+                ].join('');
+                $box.append(itemHtml);
+            });
+            $box.show();
+            $box.data('mention-meta', { stateKey: stateKey, matches: matches });
+        }
+
+        function handleMentionInput($textarea, $box, stateKey) {
+            loadMentionCandidates().then(function() {
+                var text = $textarea.val() || '';
+                updateMentionIdsForText(stateKey, text);
+                var caretPosition = $textarea[0].selectionStart || 0;
+                var mentionQuery = getMentionQuery(text, caretPosition);
+                if (!mentionQuery) {
+                    hideSuggestionBox($box);
+                    return;
+                }
+                var matches = filterMentionCandidates(mentionQuery.query);
+                renderSuggestionBox($textarea, $box, stateKey, matches);
+            });
+        }
+
+        $(document).off('mousedown', '.mention-suggestion-item').on('mousedown', '.mention-suggestion-item', function(event) {
+            event.preventDefault();
+            var $item = $(this);
+            var userId = Number($item.data('user-id'));
+            var stateKey = $item.data('state-key');
+            var candidate = projectCommentState.candidates.find(function(item) {
+                return item.id === userId;
+            });
+            if (!candidate) {
+                return;
+            }
+
+            var $targetTextarea = stateKey === 'root'
+                ? $('#comment-content')
+                : $('.reply-content[data-mention-state="' + stateKey + '"]');
+            var $targetBox = stateKey === 'root'
+                ? $('#comment-mention-suggestions')
+                : $('.mention-suggestions[data-mention-state="' + stateKey + '"]');
+
+            applyMentionSelection($targetTextarea, $targetBox, stateKey, candidate);
+        });
+
+        function showNotificationBubble(text) {
+            $('#comment-notification-bubble-text').text(text || '你有新的评论提醒');
+            $('#comment-notification-bubble').css('display', 'flex');
+        }
+
+        function hideNotificationBubble() {
+            $('#comment-notification-bubble').hide();
+        }
+
+        function triggerUnreadCountRefresh() {
+            if (typeof window.loadUnreadCount === 'function') {
+                window.loadUnreadCount();
+                return;
+            }
+            if (window.parent && window.parent !== window && typeof window.parent.loadUnreadCount === 'function') {
+                window.parent.loadUnreadCount();
+            }
+        }
+
+        function pollCommentNotificationState() {
+            axios.get(projectCommentState.notificationEndpoint, {
+                params: {
+                    object_id: projectCommentState.objectId
+                },
+                headers: {
+                    'X-CSRFToken': getCsrfToken()
+                }
+            }).then(function(response) {
+                var payload = response.data || {};
+                if (!payload.latest || !payload.latest.message_id) {
+                    hideNotificationBubble();
+                    return;
+                }
+
+                if (projectCommentState.lastNotificationMessageId === null) {
+                    projectCommentState.lastNotificationMessageId = payload.latest.message_id;
+                } else if (payload.latest.message_id !== projectCommentState.lastNotificationMessageId) {
+                    projectCommentState.lastNotificationMessageId = payload.latest.message_id;
+                    showNotificationBubble('你有新的项目评论提醒，点击刷新查看');
+                    triggerUnreadCountRefresh();
+                }
+
+                if (payload.has_unread && payload.unread_count > 0) {
+                    showNotificationBubble('当前项目有 ' + payload.unread_count + ' 条未读评论提醒');
+                } else {
+                    hideNotificationBubble();
+                }
+            }).catch(function(error) {
+                console.error('获取项目评论提醒状态失败:', error);
+            });
+        }
+
+        function startCommentNotificationPolling() {
+            pollCommentNotificationState();
+            if (projectCommentState.notificationPollTimer) {
+                clearInterval(projectCommentState.notificationPollTimer);
+            }
+            projectCommentState.notificationPollTimer = setInterval(function() {
+                if (!isCommentTabActive()) {
+                    return;
+                }
+                pollCommentNotificationState();
+            }, 15000);
+        }
+
+        function isCommentTabActive() {
+            var hash = window.location.hash || '';
+            return !hash || hash === '#activities' || hash.indexOf('#comment-') === 0;
+        }
+
+        function renderReplyHtml(reply) {
+            if (!reply || !reply.username) {
+                return '';
+            }
+
+            var isOwner = reply.user_id === {{ request.user.id }};
+            var firstChar = reply.username ? reply.username.charAt(0) : '?';
+            var displayName = reply.username || '未知用户';
+            var actionButtons = '';
+
+            if (isOwner || {{ request.user.is_superuser|yesno:"true,false" }}) {
+                actionButtons = `
+                    <div style="display: flex; gap: 5px;">
+                        <button class="layui-btn layui-btn-xs layui-btn-primary edit-comment-btn" data-id="${reply.id}" data-content="${encodeURIComponent(reply.content || '')}">编辑</button>
+                        <button class="layui-btn layui-btn-xs layui-btn-danger delete-comment-btn" data-id="${reply.id}">删除</button>
+                    </div>
+                `;
+            }
+
+            var replyStateKey = 'reply-' + reply.id;
+            return `
+                <div id="comment-${reply.id}" class="reply-comment-item" style="margin-bottom: 12px; padding: 12px; border-left: 3px solid #e6f4ff; background: #fafcff; border-radius: 6px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center;">
+                            <div class="member-avatar">${firstChar}</div>
+                            <div>
+                                <div style="font-weight: bold;">${displayName}</div>
+                                <div style="font-size: 12px; color: #999;">${reply.create_time || ''}</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <button class="layui-btn layui-btn-xs layui-btn-primary reply-btn" data-id="${reply.id}">回复</button>
+                            ${actionButtons}
+                        </div>
+                    </div>
+                    <div class="comment-text-content">${renderCommentContent(reply.content || '')}</div>
+                    ${buildReplyForm(replyStateKey, reply.id)}
+                    <div class="edit-form" style="display: none; margin-top: 10px;">
+                        <textarea class="layui-textarea edit-content" placeholder="请输入评论内容" style="width: 100%; height: 80px;"></textarea>
+                        <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+                            <button class="layui-btn layui-btn-xs layui-btn-primary cancel-edit">取消</button>
+                            <button class="layui-btn layui-btn-xs layui-btn-normal save-edit" data-id="${reply.id}">保存</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function buildReplyForm(stateKey, commentId) {
+            return `
+                <div class="reply-form" style="display: none; margin-top: 10px; margin-left: 40px;">
+                    <textarea class="layui-textarea reply-content" data-mention-state="${stateKey}" data-comment-id="${commentId}" placeholder="请输入回复内容" style="width: 100%; height: 80px;"></textarea>
+                    <div class="mention-suggestions" data-mention-state="${stateKey}"></div>
+                    <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+                        <button class="layui-btn layui-btn-xs layui-btn-primary cancel-reply">取消</button>
+                        <button class="layui-btn layui-btn-xs layui-btn-normal submit-reply" data-id="${commentId}" data-mention-state="${stateKey}">发布回复</button>
+                    </div>
+                </div>
+            `;
+        }
 
         function loadComments() {
             axios.get('/api/project/comments/by_object/', {
@@ -870,8 +1405,14 @@
                             `;
                         }
                         
+                        var replyStateKey = 'reply-' + comment.id;
+                        var repliesHtml = Array.isArray(comment.replies)
+                            ? comment.replies.map(function(reply) {
+                                return renderReplyHtml(reply);
+                            }).join('')
+                            : '';
                         var commentHtml = `
-                            <li style="margin-bottom: 20px; padding: 15px; border: 1px solid #e6e6e6; border-radius: 8px;">
+                            <li id="comment-${comment.id}" style="margin-bottom: 20px; padding: 15px; border: 1px solid #e6e6e6; border-radius: 8px;">
                                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
                                     <div style="display: flex; align-items: center;">
                                         <div class="member-avatar">${firstChar}</div>
@@ -885,18 +1426,13 @@
                                         ${actionButtons}
                                     </div>
                                 </div>
-                                <div style="margin-bottom: 10px;">${comment.content || ''}</div>
+                                <div class="comment-text-content">${renderCommentContent(comment.content || '')}</div>
                                 <div class="comment-replies" style="margin-left: 40px; margin-top: 15px;">
+                                    ${repliesHtml}
                                 </div>
-                                <div class="reply-form" style="display: none; margin-top: 10px; margin-left: 40px;">
-                                    <textarea class="layui-textarea reply-content" placeholder="请输入回复内容" style="width: 100%; height: 80px;"></textarea>
-                                    <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
-                                        <button class="layui-btn layui-btn-xs layui-btn-primary cancel-reply">取消</button>
-                                        <button class="layui-btn layui-btn-xs layui-btn-normal submit-reply" data-id="${comment.id}">发布回复</button>
-                                    </div>
-                                </div>
+                                ${buildReplyForm(replyStateKey, comment.id)}
                                 <div class="edit-form" style="display: none; margin-top: 10px; margin-left: 40px;">
-                                    <textarea class="layui-textarea edit-content" placeholder="请输入评论内容" style="width: 100%; height: 80px;">${comment.content || ''}</textarea>
+                                    <textarea class="layui-textarea edit-content" placeholder="请输入评论内容" style="width: 100%; height: 80px;"></textarea>
                                     <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
                                         <button class="layui-btn layui-btn-xs layui-btn-primary cancel-edit">取消</button>
                                         <button class="layui-btn layui-btn-xs layui-btn-normal save-edit" data-id="${comment.id}">保存</button>
@@ -923,10 +1459,14 @@
                     
                     // 绑定编辑评论按钮事件
                     $(document).off('click', '.edit-comment-btn').on('click', '.edit-comment-btn', function() {
-                        var commentId = $(this).data('id');
-                        var replyForm = $(this).closest('li').find('.reply-form');
-                        var editForm = $(this).closest('li').find('.edit-form');
+                        var rawContent = $(this).data('content');
+                        var decodedContent = rawContent ? decodeURIComponent(rawContent) : '';
+                        var containerSelector = $(this).closest('.reply-comment-item').length ? '.reply-comment-item' : 'li';
+                        var $container = $(this).closest(containerSelector);
+                        var replyForm = $container.children('.reply-form');
+                        var editForm = $container.children('.edit-form');
                         replyForm.hide();
+                        editForm.find('.edit-content').val(decodedContent);
                         editForm.toggle();
                     });
                     
@@ -962,13 +1502,29 @@
                     // 绑定提交回复按钮事件
                     $(document).off('click', '.submit-reply').on('click', '.submit-reply', function() {
                         var commentId = $(this).data('id');
+                        var mentionState = $(this).data('mention-state');
                         var content = $(this).closest('.reply-form').find('.reply-content').val().trim();
                         if (!content) {
                             layer.msg('请输入回复内容', {icon: 5});
                             return;
                         }
                         
-                        submitReply(commentId, content);
+                        submitReply(commentId, content, mentionState);
+                    });
+
+                    $(document).off('focus keyup click', '.reply-content').on('focus keyup click', '.reply-content', function() {
+                        var $textarea = $(this);
+                        var stateKey = $textarea.data('mention-state');
+                        var $box = $('.mention-suggestions[data-mention-state="' + stateKey + '"]');
+                        handleMentionInput($textarea, $box, stateKey);
+                    });
+
+                    $(document).off('blur', '.reply-content').on('blur', '.reply-content', function() {
+                        var stateKey = $(this).data('mention-state');
+                        var $box = $('.mention-suggestions[data-mention-state="' + stateKey + '"]');
+                        window.setTimeout(function() {
+                            hideSuggestionBox($box);
+                        }, 150);
                     });
                 })
                 .catch(function(error) {
@@ -1024,7 +1580,8 @@
             axios.post('/api/project/comments/', {
                 content: content,
                 object_id: '{{ project.id }}',
-                content_type_id: '{{ project_content_type_id }}'
+                content_type_id: '{{ project_content_type_id }}',
+                mentioned_user_ids: projectCommentState.rootMentionedUserIds
             }, {
                 headers: {
                     'X-CSRFToken': getCsrfToken()
@@ -1033,7 +1590,10 @@
             .then(function(response) {
                 layer.msg('评论发布成功', {icon: 6});
                 $('#comment-content').val('');
+                projectCommentState.rootMentionedUserIds = [];
+                hideSuggestionBox($('#comment-mention-suggestions'));
                 loadComments();
+                triggerUnreadCountRefresh();
             })
             .catch(function(error) {
                 console.error('发布评论失败:', error);
@@ -1045,12 +1605,13 @@
             });
         }
 
-        function submitReply(commentId, content) {
+        function submitReply(commentId, content, mentionState) {
             axios.post('/api/project/comments/', {
                 content: content,
                 parent_id: commentId,
                 object_id: '{{ project.id }}',
-                content_type_id: '{{ project_content_type_id }}'
+                content_type_id: '{{ project_content_type_id }}',
+                mentioned_user_ids: getMentionIds(mentionState)
             }, {
                 headers: {
                     'X-CSRFToken': getCsrfToken()
@@ -1058,7 +1619,9 @@
             })
             .then(function(response) {
                 layer.msg('回复发布成功', {icon: 6});
+                projectCommentState.replyMentionedUserIds[mentionState] = [];
                 loadComments();
+                triggerUnreadCountRefresh();
             })
             .catch(function(error) {
                 console.error('发布回复失败:', error);
@@ -1697,7 +2260,7 @@
 
             function handleProjectDetailTabChange(tabIndex) {
                 // 当切换到甘特图视图时初始化甘特图
-                if (tabIndex === 6) {
+                if (tabIndex === 7) {
                     setTimeout(function() {
                         // 强制显示甘特图容器
                         $('#gantt-chart').css('display', 'block');
@@ -1708,7 +2271,7 @@
                 }
                 
                 // 当切换到看板视图时加载看板任务
-                if (tabIndex === 7) {
+                if (tabIndex === 8) {
                     setTimeout(function() {
                         // 强制显示看板容器
                         $('#kanban-container').css('display', 'flex');
@@ -1717,7 +2280,7 @@
                 }
                 
                 // 当切换到统计分析视图时初始化统计图表
-                if (tabIndex === 8) {
+                if (tabIndex === 9) {
                     setTimeout(function() {
                         // 强制显示统计图表容器
                         $('#task-status-chart, #task-priority-chart, #task-trend-chart, #member-workload-chart').parent().show();
@@ -1744,6 +2307,7 @@
                     members: true,
                     hours: true,
                     docs: true,
+                    purchases: true,
                     activities: true,
                     gantt: true,
                     kanban: true,
@@ -1751,6 +2315,19 @@
                 };
                 if (supportedTabs[hashTabId]) {
                     element.tabChange('projectDetailTab', hashTabId);
+                } else if (hashTabId.indexOf('comment-') === 0) {
+                    element.tabChange('projectDetailTab', 'activities');
+                    setTimeout(function() {
+                        var commentTarget = document.getElementById(hashTabId);
+                        if (!commentTarget) {
+                            return;
+                        }
+                        commentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        commentTarget.style.boxShadow = '0 0 0 2px rgba(22, 119, 255, 0.24)';
+                        setTimeout(function() {
+                            commentTarget.style.boxShadow = '';
+                        }, 2400);
+                    }, 500);
                 }
             }
         });

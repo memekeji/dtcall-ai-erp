@@ -99,9 +99,9 @@
                             <!-- 左侧工具栏 -->
                             <div class="layui-col-xs12 layui-col-sm6 layui-col-md4">
                                 <div class="toolbar-left">
-                                    <a href="{% url 'customer:customer_intent_form' %}" class="layui-btn layui-btn-sm">
+                                    <button type="button" class="layui-btn layui-btn-sm" onclick="openIntentForm('新增客户意向', '{% url 'customer:customer_intent_form' %}')">
                                         <i class="layui-icon layui-icon-add-1"></i> 添加意向
-                                    </a>
+                                    </button>
                                 </div>
                             </div>
                             <!-- 右侧搜索表单 -->
@@ -139,11 +139,20 @@
 
     <script src="/static/layui/layui.js"></script>
     <script>
+    {% include "common/_right_popup_function.html" with popup_reload_table_id="intentTable" %}
+    </script>
+    <script>
         layui.use(['table', 'form', 'layer', 'jquery'], function(){
             var table = layui.table;
             var form = layui.form;
             var layer = layui.layer;
             var $ = layui.jquery;
+
+            window.openIntentForm = function(title, url) {
+                openRightPopup(title, url, function() {
+                    table.reload('intentTable');
+                });
+            };
             
             // 初始化表格
             table.render({
@@ -192,7 +201,7 @@
                 var data = obj.data;
                 switch(obj.event) {
                     case 'edit':
-                        window.location.href = '{% url "customer:customer_intent_form_edit" 0 %}'.replace('0', data.id);
+                        openIntentForm('编辑客户意向', '{% url "customer:customer_intent_form_edit" 0 %}'.replace('0', data.id));
                         break;
                     case 'toggle':
                         toggleIntentStatus(data.id);

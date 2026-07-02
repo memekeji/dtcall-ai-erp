@@ -84,11 +84,35 @@ MENU_URL_TO_PERMISSION_MAP = {
     '/news/': 'view_company_news',
     '/calendar/': 'view_work_calendar',
     '/report/': 'view_report',
+    '/finance/': 'view_finance',
     '/adm/finance/reimbursement/': 'view_reimbursement',
     '/adm/finance/invoice/': 'view_invoice',
     '/adm/finance/receive_invoice/': 'view_receive_invoice',
     '/adm/finance/payment_receive/': 'view_payment_receive',
     '/adm/finance/payment/': 'view_payment',
+    '/finance/reimbursement/': 'view_reimbursement',
+    '/finance/invoice/': 'view_invoice',
+    '/finance/receiveinvoice/': 'view_receive_invoice',
+    '/finance/payment/': 'view_payment',
+    '/finance/invoice-request/': 'view_finance',
+    '/finance/income/': 'view_payment_receive',
+    '/finance/advanced/account/': 'view_finance',
+    '/finance/advanced/receivable/': 'view_finance',
+    '/finance/advanced/payable/': 'view_finance',
+    '/finance/advanced/cash-flow-plan/': 'view_finance',
+    '/finance/advanced/bank-transaction/': 'view_finance',
+    '/finance/advanced/bank-reconciliation/': 'view_finance',
+    '/finance/advanced/chart-account/': 'view_finance',
+    '/finance/advanced/ledger-voucher/': 'view_finance',
+    '/finance/advanced/voucher-line/': 'view_finance',
+    '/finance/advanced/period-close/': 'view_finance',
+    '/finance/advanced/budget/': 'view_finance',
+    '/finance/advanced/cost-allocation/': 'view_finance',
+    '/finance/order-finance/': 'view_finance',
+    '/finance/advanced/fixed-asset/': 'view_finance',
+    '/finance/advanced/tax/': 'view_finance',
+    '/finance/advanced/financial-report/': 'view_finance',
+    '/finance/advanced/financial-ratio/': 'view_finance',
     '/contract/sales/': 'view_contract',
     '/contract/purchase/': 'view_contract',
     '/contract/terminate/': 'view_contract',
@@ -108,6 +132,18 @@ MENU_URL_TO_PERMISSION_MAP = {
     '/customer/spider/': 'view_spider_task',
     '/customer/robot/': 'view_ai_robot',
     '/customer/abandoned/': 'view_abandoned_customer',
+    '/customer/discard/': 'view_abandoned_customer',
+    '/customer/followup/': 'view_follow_record',
+    '/customer/callrecord/': 'view_call_record',
+    '/customer/field/list/': 'view_customer_field',
+    '/customer/source/list/': 'view_customer_source',
+    '/customer/grade/list/': 'view_customer_grade',
+    '/customer/intent/list/': 'view_customer_intent',
+    '/customer/follow/field/list/': 'view_follow_field',
+    '/customer/order/field/list/': 'view_order_field',
+    '/customer/public/list/': 'view_public_customer',
+    '/customer/public/ai-robot/': 'view_ai_robot',
+    '/customer/spider_task/': 'view_spider_task',
     '/project/': 'view_project',
     '/project/list/': 'view_project',
     '/project/category/': 'view_project_category',
@@ -120,18 +156,35 @@ MENU_URL_TO_PERMISSION_MAP = {
     '/production/': 'view_production_plan',
     '/production/plan/': 'view_production_plan',
     '/production/task/': 'view_production_task',
+    '/production/baseinfo/': 'view_production_baseinfo',
     '/production/procedure/': 'view_procedure',
+    '/production/procedureset/': 'view_procedureset',
     '/production/bom/': 'view_bom',
     '/production/quality/': 'view_quality_check',
     '/production/data/': 'view_datacollection',
+    '/production/data/source/': 'view_datacollection',
+    '/production/data/mapping/': 'view_datacollection',
+    '/production/data/record/': 'view_datacollection',
+    '/production/data/task/': 'view_datacollection',
     '/production/equipment/': 'view_equipment',
     '/production/monitor/': 'view_equipment_monitor',
     '/production/process/': 'view_process',
     '/production/product/': 'view_production_product',
     '/production/sop/': 'view_sop',
     '/production/analysis/': 'view_performance_analysis',
-    '/production/procedureset/': 'view_procedureset',
     '/production/resource_dispatch/': 'view_resource_dispatch',
+    '/production/technology/': 'view_resource_dispatch',
+    '/production/task/plan/': 'view_production_plan',
+    '/production/task/execution/': 'view_production_task',
+    '/production/equipment/monitor/': 'view_equipment_monitor',
+    '/production/material/request/': 'view_production',
+    '/production/material/issue/': 'view_production',
+    '/production/material/return/': 'view_production',
+    '/production/line/dayplan/': 'view_production',
+    '/production/order/change/': 'view_production',
+    '/production/completion/report/': 'view_production',
+    '/production/completion/red-flush/': 'view_production',
+    '/production/product/receipt/': 'view_production_product',
     '/ai/': 'view_ai_task',
     '/ai/robot/': 'view_ai_robot',
     '/ai/model/': 'view_model_config',
@@ -248,6 +301,10 @@ MENU_URL_TO_PERMISSION_MAP = {
     '/disk/recycle/': 'view_recycle',
 }
 
+MENU_URL_TO_PERMISSION_MAP_NORMALIZED = {
+    key.rstrip('/'): value for key, value in MENU_URL_TO_PERMISSION_MAP.items()
+}
+
 
 def _normalize_permission(permission_code):
     """标准化权限代码"""
@@ -263,20 +320,20 @@ def get_permission_from_src(src):
     if not src or not src.startswith('/') or src == 'javascript:;':
         return None
 
-    src = src.rstrip('/')
+    normalized_src = src.rstrip('/') or '/'
 
-    if src in MENU_URL_TO_PERMISSION_MAP:
-        return MENU_URL_TO_PERMISSION_MAP[src]
+    if normalized_src in MENU_URL_TO_PERMISSION_MAP_NORMALIZED:
+        return MENU_URL_TO_PERMISSION_MAP_NORMALIZED[normalized_src]
 
-    parts = src.strip('/').split('/')
+    parts = normalized_src.strip('/').split('/')
 
     if len(parts) >= 2:
         app = parts[0]
         module = parts[1]
 
-        url_key = f'/{app}/{module}/'
-        if url_key in MENU_URL_TO_PERMISSION_MAP:
-            return MENU_URL_TO_PERMISSION_MAP[url_key]
+        url_key = f'/{app}/{module}'
+        if url_key in MENU_URL_TO_PERMISSION_MAP_NORMALIZED:
+            return MENU_URL_TO_PERMISSION_MAP_NORMALIZED[url_key]
 
         if module == 'statistics':
             if len(parts) >= 3:
@@ -318,9 +375,9 @@ def get_permission_from_src(src):
 
     if len(parts) >= 1:
         app = parts[0]
-        url_key = f'/{app}/'
-        if url_key in MENU_URL_TO_PERMISSION_MAP:
-            return MENU_URL_TO_PERMISSION_MAP[url_key]
+        url_key = f'/{app}'
+        if url_key in MENU_URL_TO_PERMISSION_MAP_NORMALIZED:
+            return MENU_URL_TO_PERMISSION_MAP_NORMALIZED[url_key]
 
         if len(parts) >= 2:
             module = parts[1]
@@ -452,6 +509,7 @@ def get_menus(request):
 
 def system_version(request):
     from apps.system.version_service import get_current_version, get_current_commit, check_for_updates
+    from apps.system.update_permissions import can_view_update_center, can_manage_update_center
     ver = get_current_version()
     commit = get_current_commit()
     # Check cache first to avoid hitting git on every request
@@ -468,4 +526,6 @@ def system_version(request):
         'APP_VERSION': ver,
         'APP_COMMIT': commit,
         'APP_UPDATE_INFO': update_info,
+        'APP_UPDATE_ADMIN_VISIBLE': can_view_update_center(request.user),
+        'APP_UPDATE_ADMIN_MANAGEABLE': can_manage_update_center(request.user),
     }

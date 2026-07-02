@@ -8,7 +8,6 @@ import logging
 import json
 from typing import Optional, Dict, Any
 import requests
-from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -17,22 +16,19 @@ def get_stt_config_from_db():
     """从数据库获取语音转文字配置"""
     try:
         from apps.ai.models import AIModelConfig
-        active_configs = AIModelConfig.objects.filter(
-            is_active=True,
-            model_type__in=['audio', 'chat', 'text']
-        ).order_by('-is_active', '-updated_at', '-created_at')
+        active_configs = AIModelConfig.get_active_runtime_configs()
         for config in active_configs:
-            provider = config.provider
+            provider = config.get('provider')
             if provider in ['openai', 'alibaba', 'deepseek', 'doubao', 'tencent', 'azure']:
                 if provider in ['alibaba', 'deepseek', 'doubao', 'tencent']:
                     provider = 'openai'
-                model_name = config.model_name or ''
-                if config.model_type != 'audio' and 'whisper' not in model_name.lower():
+                model_name = config.get('model_name') or ''
+                if config.get('model_type') != 'audio' and 'whisper' not in model_name.lower():
                     model_name = 'whisper-1'
                 return {
                     'service_type': provider,
-                    'api_key': config.api_key,
-                    'base_url': config.api_base,
+                    'api_key': config.get('api_key'),
+                    'base_url': config.get('api_base') or config.get('base_url'),
                     'model': model_name or 'whisper-1'
                 }
     except Exception as e:
@@ -117,27 +113,18 @@ class OpenAISTTService(STTService):
             model: Optional[str] = None):
         super().__init__()
         self.model = model or 'whisper-1'
-        # 优先使用传入的参数，其次从数据库获取，最后从settings获取
+        # 优先使用传入的参数，其次从数据库获取
         if api_key:
             self.api_key = api_key
         else:
-            # 尝试从数据库获取配置
             db_config = get_stt_config_from_db()
-            if db_config and db_config.get('api_key'):
-                self.api_key = db_config['api_key']
-            else:
-                self.api_key = getattr(settings, 'OPENAI_API_KEY', None)
+            self.api_key = db_config.get('api_key') if db_config else None
 
         if base_url:
             self.base_url = base_url
         else:
-            # 尝试从数据库获取配置
             db_config = get_stt_config_from_db()
-            if db_config and db_config.get('base_url'):
-                self.base_url = db_config['base_url']
-            else:
-                self.base_url = getattr(
-                    settings, 'OPENAI_BASE_URL', 'https://api.openai.com/v1')
+            self.base_url = (db_config.get('base_url') if db_config else None) or 'https://api.openai.com/v1'
 
     def transcribe_audio(self, audio_file_path: str, **kwargs) -> str:
         """使用OpenAI Whisper API进行语音转文字"""
@@ -194,28 +181,18 @@ class BaiduSTTService(STTService):
             api_key: Optional[str] = None,
             secret_key: Optional[str] = None):
         super().__init__()
-        # 优先使用传入的参数，其次从数据库获取，最后从settings获取
+        # 优先使用传入的参数，其次从数据库获取
         if api_key:
             self.api_key = api_key
         else:
-            # 尝试从数据库获取配置
             db_config = get_stt_config_from_db()
-            if db_config and db_config.get('api_key'):
-                self.api_key = db_config['api_key']
-            else:
-                self.api_key = getattr(settings, 'BAIDU_API_KEY', None)
+            self.api_key = db_config.get('api_key') if db_config else None
 
         if secret_key:
             self.secret_key = secret_key
         else:
-            # 尝试从数据库获取配置
             db_config = get_stt_config_from_db()
-            if db_config and db_config.get('api_key'):
-                # 对于百度服务，可能需要特殊处理secret_key
-                self.secret_key = db_config.get('secret_key') or getattr(
-                    settings, 'BAIDU_SECRET_KEY', None)
-            else:
-                self.secret_key = getattr(settings, 'BAIDU_SECRET_KEY', None)
+            self.secret_key = db_config.get('secret_key') if db_config else None
         self.token_url = "https://aip.baidubce.com/oauth/2.0/token"
         self.stt_url = "https://aip.baidubce.com/rpc/2.0/aasr/v1/create"
 

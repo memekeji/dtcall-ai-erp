@@ -1,5 +1,7 @@
 from django import forms
 from django.forms import inlineformset_factory
+import re
+from apps.common.constants import CUSTOMER_INDUSTRY_CHOICES
 from .models import (
     Customer, Contact, CustomerOrder, CustomerContract,
     FollowRecord, CustomerSource, CustomerGrade, CustomerIntent,
@@ -96,7 +98,7 @@ class CustomerForm(forms.ModelForm):
             'name': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入客户名称', 'required': True}),
             'customer_source': forms.Select(attrs={'class': 'layui-input'}),
             'grade_id': forms.NumberInput(attrs={'class': 'layui-input', 'placeholder': '客户等级ID'}),
-            'industry_id': forms.NumberInput(attrs={'class': 'layui-input', 'placeholder': '所属行业ID'}),
+            'industry_id': forms.Select(attrs={'class': 'layui-input'}),
             'services_id': forms.NumberInput(attrs={'class': 'layui-input', 'placeholder': '客户意向ID'}),
             'province': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入省份'}),
             'city': forms.TextInput(attrs={'class': 'layui-input', 'placeholder': '请输入城市'}),
@@ -180,6 +182,15 @@ class CustomerForm(forms.ModelForm):
             grade_choices.append((grade.id, grade.title))
         self.fields['grade_id'] = forms.ChoiceField(
             choices=grade_choices,
+            widget=forms.Select(attrs={'class': 'layui-input'}),
+            required=False
+        )
+
+        industry_choices = [('', '请选择所属行业')]
+        for industry_id, industry_name in CUSTOMER_INDUSTRY_CHOICES.items():
+            industry_choices.append((industry_id, industry_name))
+        self.fields['industry_id'] = forms.ChoiceField(
+            choices=industry_choices,
             widget=forms.Select(attrs={'class': 'layui-input'}),
             required=False
         )
@@ -542,12 +553,31 @@ class CustomerIntentForm(forms.ModelForm):
 
 
 class CustomerFieldForm(forms.ModelForm):
+    FORMULA_TOKEN_PATTERN = re.compile(r'\{([a-zA-Z0-9_]+)\}')
+    FORMULA_VALUE_PATTERN = re.compile(r'-?\d+(?:\.\d+)?')
+    FORMULA_SIMPLE_EXPRESSION_PATTERN = re.compile(
+        r'^\s*(\{[a-zA-Z0-9_]+\}|-?\d+(?:\.\d+)?)\s*([+\-*/])\s*(\{[a-zA-Z0-9_]+\}|-?\d+(?:\.\d+)?)\s*$'
+    )
+    FORMULA_OPERATOR_CHOICES = [
+        ('+', '加法'),
+        ('-', '减法'),
+        ('*', '乘法'),
+        ('/', '除法'),
+    ]
+
     status = forms.BooleanField(
         required=False,
         widget=forms.CheckboxInput(
             attrs={
                 'lay-skin': 'switch',
                 'lay-text': '启用|禁用'}))
+    relation_enabled = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(
+            attrs={
+                'lay-skin': 'switch',
+                'lay-text': '开启|关闭',
+                'lay-filter': 'relationEnabledSwitch'}))
 
     class Meta:
         model = CustomerField
@@ -558,6 +588,11 @@ class CustomerFieldForm(forms.ModelForm):
             'options',
             'is_required',
             'is_unique',
+            'relation_enabled',
+            'related_field',
+            'relation_type',
+            'calculation_type',
+            'formula_expression',
             'is_list_display',
             'sort']
         widgets = {
@@ -581,16 +616,237 @@ class CustomerFieldForm(forms.ModelForm):
                 attrs={
                     'class': 'layui-input',
                     'placeholder': '排序号'}),
+            'related_field': forms.Select(
+                attrs={
+                    'class': 'layui-input'}),
+            'relation_type': forms.Select(
+                attrs={
+                    'class': 'layui-input',
+                    'lay-filter': 'relationTypeSelect'}),
+            'calculation_type': forms.Select(
+                attrs={
+                    'class': 'layui-input',
+                    'lay-filter': 'calculationTypeSelect'}),
+            'formula_expression': forms.Textarea(
+                attrs={
+                    'class': 'layui-textarea',
+                    'placeholder': '请输入公式，例如：{unit_price} * {quantity}',
+                    'rows': 4}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance.pk:
             self.fields['status'].initial = self.instance.status
+        self.fields['relation_enabled'].initial = getattr(self.instance, 'relation_enabled', False)
+        self.fields['related_field'].required = False
+        self.fields['relation_type'].required = False
+        self.fields['calculation_type'].required = False
+        self.fields['formula_expression'].required = False
+        self.fields['relation_type'].initial = getattr(self.instance, 'relation_type', '') or 'bind'
+        self.fields['calculation_type'].initial = getattr(self.instance, 'calculation_type', '') or 'count'
+        self.fields['formula_expression'].initial = getattr(self.instance, 'formula_expression', '') or ''
+        self.fields['related_field'].queryset = CustomerField.objects.filter(
+            delete_time=0
+        ).exclude(pk=self.instance.pk).order_by('sort', 'id')
+        self.fields['related_field'].empty_label = '请选择关联字段'
+        self.available_formula_fields = list(self.fields['related_field'].queryset)
+        self.available_formula_field_options = [
+            {
+                'field_name': field.field_name,
+                'name': field.name,
+            }
+            for field in self.available_formula_fields
+        ]
+        self.formula_operator_choices = list(self.FORMULA_OPERATOR_CHOICES)
+        (
+            self.formula_builder_rows,
+            self.formula_builder_parse_failed,
+        ) = self._build_formula_builder_rows(self.fields['formula_expression'].initial)
+
+    def _default_formula_builder_row(self, join_operator=''):
+        return {
+            'join_operator': join_operator,
+            'left_type': 'field',
+            'left_field_name': '',
+            'left_value': '',
+            'operator': '*',
+            'right_type': 'field',
+            'right_field_name': '',
+            'right_value': '',
+        }
+
+    def _parse_formula_operand(self, operand):
+        operand = (operand or '').strip()
+        token_match = self.FORMULA_TOKEN_PATTERN.fullmatch(operand)
+        if token_match:
+            return {
+                'type': 'field',
+                'field_name': token_match.group(1),
+                'value': '',
+            }
+        if self.FORMULA_VALUE_PATTERN.fullmatch(operand):
+            return {
+                'type': 'value',
+                'field_name': '',
+                'value': operand,
+            }
+        return None
+
+    def _split_formula_segments(self, expression):
+        segments = []
+        join_operators = []
+        depth = 0
+        current = []
+
+        for char in expression:
+            if char == '(':
+                depth += 1
+            elif char == ')' and depth > 0:
+                depth -= 1
+
+            if depth == 0 and char in '+-*/':
+                segment = ''.join(current).strip()
+                if segment:
+                    segments.append(segment)
+                    join_operators.append(char)
+                    current = []
+                    continue
+            current.append(char)
+
+        final_segment = ''.join(current).strip()
+        if final_segment:
+            segments.append(final_segment)
+        return segments, join_operators
+
+    def _parse_formula_segment(self, segment):
+        normalized_segment = (segment or '').strip()
+        if normalized_segment.startswith('(') and normalized_segment.endswith(')'):
+            normalized_segment = normalized_segment[1:-1].strip()
+
+        match = self.FORMULA_SIMPLE_EXPRESSION_PATTERN.match(normalized_segment)
+        if not match:
+            return None
+
+        left_operand = self._parse_formula_operand(match.group(1))
+        right_operand = self._parse_formula_operand(match.group(3))
+        if not left_operand or not right_operand:
+            return None
+
+        return {
+            'left_type': left_operand['type'],
+            'left_field_name': left_operand['field_name'],
+            'left_value': left_operand['value'],
+            'operator': match.group(2),
+            'right_type': right_operand['type'],
+            'right_field_name': right_operand['field_name'],
+            'right_value': right_operand['value'],
+        }
+
+    def _build_formula_builder_rows(self, expression):
+        expression = (expression or '').strip()
+        if not expression:
+            return [self._default_formula_builder_row()], False
+
+        simple_match = self.FORMULA_SIMPLE_EXPRESSION_PATTERN.match(expression)
+        if simple_match:
+            parsed = self._parse_formula_segment(expression)
+            if parsed:
+                row = self._default_formula_builder_row()
+                row.update(parsed)
+                return [row], False
+
+        segments, join_operators = self._split_formula_segments(expression)
+        rows = []
+        if len(segments) > 1:
+            for index, segment in enumerate(segments):
+                parsed = self._parse_formula_segment(segment)
+                if not parsed:
+                    return [self._default_formula_builder_row()], True
+                row = self._default_formula_builder_row(
+                    '' if index == 0 else join_operators[index - 1]
+                )
+                row.update(parsed)
+                rows.append(row)
+            return rows, False
+
+        return [self._default_formula_builder_row()], True
+
+    def clean(self):
+        cleaned_data = super().clean()
+        relation_enabled = cleaned_data.get('relation_enabled')
+        related_field = cleaned_data.get('related_field')
+        relation_type = cleaned_data.get('relation_type')
+        calculation_type = cleaned_data.get('calculation_type')
+        formula_expression = (cleaned_data.get('formula_expression') or '').strip()
+
+        if not relation_enabled:
+            cleaned_data['related_field'] = None
+            cleaned_data['relation_type'] = 'bind'
+            cleaned_data['calculation_type'] = ''
+            cleaned_data['formula_expression'] = ''
+            return cleaned_data
+
+        requires_related_field = not (
+            relation_type == 'calculate' and calculation_type == 'formula'
+        )
+
+        if requires_related_field and not related_field:
+            self.add_error('related_field', '开启字段关联后必须选择关联字段')
+            return cleaned_data
+
+        if relation_type == 'bind' and related_field and related_field.field_type != 'list':
+            self.add_error('related_field', '关联绑定仅支持关联列表类型字段')
+
+        if relation_type == 'calculate':
+            if not calculation_type:
+                self.add_error('calculation_type', '选择计算结果后必须指定计算规则')
+                return cleaned_data
+
+            if calculation_type == 'formula':
+                if not formula_expression:
+                    self.add_error('formula_expression', '选择公式计算后必须填写计算公式')
+                    return cleaned_data
+
+                tokens = self.FORMULA_TOKEN_PATTERN.findall(formula_expression)
+                if not tokens:
+                    self.add_error('formula_expression', '计算公式中至少需要引用一个字段变量，例如 {unit_price}')
+                    return cleaned_data
+
+                cleaned_data['related_field'] = None
+            else:
+                if calculation_type == 'count' and related_field.field_type != 'list':
+                    self.add_error('calculation_type', '统计数量当前仅支持关联列表类型字段')
+
+                if calculation_type in {'sum', 'avg', 'max', 'min'} and related_field.field_type not in {'number', 'list'}:
+                    self.add_error('calculation_type', '数值计算仅支持关联数字或列表类型字段')
+
+                if calculation_type == 'concat' and related_field.field_type == 'checkbox':
+                    self.add_error('calculation_type', '文本拼接不支持复选框类型字段')
+                cleaned_data['formula_expression'] = ''
+
+        if relation_type != 'calculate':
+            cleaned_data['calculation_type'] = ''
+            cleaned_data['formula_expression'] = ''
+
+        return cleaned_data
 
     def save(self, commit=True):
         instance = super().save(commit=False)
         instance.status = 1 if self.cleaned_data.get('status') else 0
+        instance.relation_enabled = bool(self.cleaned_data.get('relation_enabled'))
+        if not instance.relation_enabled:
+            instance.related_field = None
+            instance.relation_type = 'bind'
+            instance.calculation_type = ''
+            instance.formula_expression = ''
+        elif instance.relation_type != 'calculate':
+            instance.calculation_type = ''
+            instance.formula_expression = ''
+        elif instance.calculation_type != 'formula':
+            instance.formula_expression = ''
+        else:
+            instance.related_field = None
         if commit:
             instance.save()
         return instance

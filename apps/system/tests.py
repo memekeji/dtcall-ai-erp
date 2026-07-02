@@ -1,15 +1,20 @@
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
 from django.http import HttpResponse
-from django.test import RequestFactory, TestCase, override_settings
+from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import include, path
 
 from apps.system.middleware.database_setup_middleware import DatabaseSetupMiddleware
+from apps.system.database_setup import build_database_config, test_database_config
 from apps.system.views.database_setup_views import database_setup_view
 from apps.system.models import ServiceCategory, ServiceProvider
+from apps.system.context_processors import system_version, get_permission_from_src
+from apps.system.update_center_service import perform_online_update
 from apps.system.views.service_config_views import ServiceConfigFormView
+from apps.user.config.permission_nodes import get_all_permission_codenames
 
 urlpatterns = [
     path(
@@ -186,3 +191,160 @@ class DatabaseSetupAdminInitializationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(get_user_model().objects.filter(username='bootstrap_admin').exists())
         self.assertContains(response, '管理员密码与确认密码不一致')
+
+
+class DatabaseSetupConfigValidationTests(SimpleTestCase):
+    def test_malformed_database_url_raises_readable_error(self):
+        with self.assertRaisesMessage(ValueError, 'DATABASE_URL格式不正确'):
+            build_database_config({
+                'DATABASE_URL': '://bad',
+                'DATABASE_ENGINE': 'mysql',
+            })
+
+    def test_example_database_url_raises_readable_error(self):
+        with self.assertRaisesMessage(ValueError, 'DATABASE_URL仍是示例值'):
+            build_database_config({
+                'DATABASE_URL': 'postgresql://user:password@127.0.0.1:5432/dtcall',
+                'DATABASE_ENGINE': 'mysql',
+            })
+
+    def test_database_url_type_must_match_selected_engine(self):
+        with self.assertRaisesMessage(ValueError, '数据库类型与下方选择不一致'):
+            build_database_config({
+                'DATABASE_URL': 'postgresql://real_user:real_password@127.0.0.1:5432/erp51mimu',
+                'DATABASE_ENGINE': 'mysql',
+            })
+
+    def test_empty_database_engine_raises_readable_error_before_backend_import(self):
+        with self.assertRaisesMessage(ValueError, '数据库类型不能为空'):
+            test_database_config({'ENGINE': '', 'NAME': 'dtcall'})
+
+
+class UpdateCenterPermissionTests(TestCase):
+    @patch('apps.system.context_processors.cache')
+    @patch('apps.system.version_service.check_for_updates')
+    @patch('apps.system.version_service.get_current_commit')
+    @patch('apps.system.version_service.get_current_version')
+    def test_system_version_marks_config_admin_as_update_admin(
+        self,
+        mock_get_current_version,
+        mock_get_current_commit,
+        mock_check_for_updates,
+        mock_cache,
+    ):
+        request = RequestFactory().get('/')
+        request.user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=Mock(side_effect=lambda perm: perm == 'user.change_config'),
+        )
+        mock_cache.get.return_value = None
+        mock_get_current_version.return_value = '1.0.0'
+        mock_get_current_commit.return_value = 'abc1234'
+        mock_check_for_updates.return_value = {'update_available': False}
+
+        context = system_version(request)
+
+        self.assertTrue(context['APP_UPDATE_ADMIN_VISIBLE'])
+
+    @patch('apps.system.context_processors.cache')
+    @patch('apps.system.version_service.check_for_updates')
+    @patch('apps.system.version_service.get_current_commit')
+    @patch('apps.system.version_service.get_current_version')
+    def test_system_version_hides_update_admin_controls_for_normal_user(
+        self,
+        mock_get_current_version,
+        mock_get_current_commit,
+        mock_check_for_updates,
+        mock_cache,
+    ):
+        request = RequestFactory().get('/')
+        request.user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=Mock(return_value=False),
+        )
+        mock_cache.get.return_value = None
+        mock_get_current_version.return_value = '1.0.0'
+        mock_get_current_commit.return_value = 'abc1234'
+        mock_check_for_updates.return_value = {'update_available': False}
+
+        context = system_version(request)
+
+        self.assertFalse(context['APP_UPDATE_ADMIN_VISIBLE'])
+
+
+class MenuPermissionMappingTests(TestCase):
+    def test_menu_urls_map_to_expected_permissions(self):
+        cases = {
+            '/finance/': 'view_finance',
+            '/finance/reimbursement/': 'view_reimbursement',
+            '/finance/receiveinvoice/': 'view_receive_invoice',
+            '/finance/payment/': 'view_payment',
+            '/customer/followup/': 'view_follow_record',
+            '/customer/callrecord/': 'view_call_record',
+            '/customer/public/list/': 'view_public_customer',
+            '/production/baseinfo/': 'view_production_baseinfo',
+            '/production/data/source/': 'view_datacollection',
+            '/production/equipment/monitor/': 'view_equipment_monitor',
+            '/production/task/plan/': 'view_production_plan',
+        }
+
+        for src, expected in cases.items():
+            with self.subTest(src=src):
+                self.assertEqual(get_permission_from_src(src), expected)
+
+    def test_root_permissions_exist_in_permission_config(self):
+        permission_codes = set(get_all_permission_codenames())
+        self.assertIn('view_finance', permission_codes)
+        self.assertIn('view_customer', permission_codes)
+        self.assertIn('view_production', permission_codes)
+
+
+class UpdateCenterServiceTests(TestCase):
+    @patch('apps.system.update_center_service.finalize_staged_release')
+    @patch('apps.system.update_center_service.extract_release_package')
+    @patch('apps.system.update_center_service.verify_release_package')
+    @patch('apps.system.update_center_service.download_release_package')
+    @patch('apps.system.update_center_service.fetch_latest_release_info')
+    @patch('apps.system.update_center_service.check_for_updates')
+    @patch('apps.system.update_center_service.get_current_version')
+    def test_online_update_fetches_exact_target_release_when_target_version_is_provided(
+        self,
+        mock_get_current_version,
+        mock_check_for_updates,
+        mock_fetch_latest_release_info,
+        mock_download_release_package,
+        mock_verify_release_package,
+        mock_extract_release_package,
+        mock_finalize_staged_release,
+    ):
+        mock_get_current_version.return_value = '1.0.0'
+        mock_check_for_updates.return_value = {
+            'latest_version': '1.2.0',
+            'release': {
+                'version': '1.2.0',
+                'packageUrl': 'https://www.dtcall.cn/releases/1.2.0.zip',
+                'checksum': 'sha256:latest',
+            },
+        }
+        mock_fetch_latest_release_info.return_value = {
+            'release': {
+                'version': '1.1.0',
+                'packageUrl': 'https://www.dtcall.cn/releases/1.1.0.zip',
+                'checksum': 'sha256:target',
+            }
+        }
+        mock_download_release_package.return_value = {'success': True, 'file': '/tmp/release.zip'}
+        mock_verify_release_package.return_value = {'success': True}
+        mock_extract_release_package.return_value = {'success': True, 'staging_dir': '/tmp/staging'}
+        mock_finalize_staged_release.return_value = {'success': True, 'new_version': '1.1.0'}
+
+        perform_online_update(target_version='1.1.0')
+
+        mock_fetch_latest_release_info.assert_called_once_with(
+            version='1.0.0',
+            channel=None,
+            platform=None,
+            release_version='1.1.0',
+        )

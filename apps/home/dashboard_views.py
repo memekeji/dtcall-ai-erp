@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
 from django.db.models import Avg, Count, Sum
 from django.utils import timezone
+from apps.common.constants import CUSTOMER_INDUSTRY_CHOICES
 from apps.user.models import Admin
 from datetime import timedelta
 import json
@@ -135,31 +136,6 @@ def _build_menu_tree(
                     subsubsubmenu for subsubsubmenu in filtered_menus if subsubsubmenu.pid_id == subsubmenu.id]
 
     return top_menus, filtered_menus
-
-
-INDUSTRY_CHOICES = {
-    0: '其他',
-    1: '互联网',
-    2: '金融',
-    3: '制造业',
-    4: '零售',
-    5: '医疗',
-    6: '教育',
-    7: '房地产',
-    8: '物流',
-    9: '餐饮',
-    10: '旅游',
-    11: '能源',
-    12: '农业',
-    13: '媒体',
-    14: '娱乐',
-    15: '体育',
-    16: '汽车',
-    17: '建筑',
-    18: '法律',
-    19: '咨询',
-    20: '服务业',
-}
 
 
 @login_required
@@ -838,7 +814,7 @@ def business_dashboard(request):
             ).order_by('-count')[:6]
 
             industry_data = {
-                'labels': json.dumps([INDUSTRY_CHOICES.get(item['industry_id'], '其他') for item in industry_dist]),
+                'labels': json.dumps([CUSTOMER_INDUSTRY_CHOICES.get(item['industry_id'], '其他') for item in industry_dist]),
                 'data': json.dumps([item['count'] for item in industry_dist])
             }
         except Exception as e:

@@ -10,7 +10,9 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import user_passes_test
+from apps.system.update_permissions import can_manage_update_center
 superuser_required = user_passes_test(lambda u: u.is_superuser)
+update_center_manage_required = user_passes_test(can_manage_update_center)
 from apps.system.decorators.module_check import module_active_required
 from django.core.paginator import Paginator
 from django.db.models import Q
@@ -1740,7 +1742,7 @@ def version_info_api(request):
     """Return current version, commit, and latest available update info."""
     from apps.system.version_service import (
         get_current_version, get_current_commit, get_current_branch,
-        get_latest_tag, check_for_updates, get_rollback_info,
+        check_for_updates, get_rollback_info,
     )
     try:
         update_info = check_for_updates()
@@ -1763,18 +1765,23 @@ def version_info_api(request):
             'current_version': get_current_version(),
             'current_commit': get_current_commit(),
             'current_branch': get_current_branch(),
-            'latest_version': get_latest_tag(),
+            'latest_version': update_info.get('latest_version'),
             'update_available': update_info.get('update_available', False),
             'changelog': update_info.get('changelog', []),
             'checked_at': update_info.get('checked_at'),
             'can_rollback': rollback_info is not None,
             'rollback_info': rollback_info,
+            'source': update_info.get('source'),
+            'release': update_info.get('release'),
+            'release_notes': update_info.get('release_notes', ''),
+            'channel': update_info.get('channel'),
+            'platform': update_info.get('platform'),
         }
     }, json_dumps_params={'ensure_ascii': False})
 
 
 @login_required
-@superuser_required
+@update_center_manage_required
 @require_http_methods(['POST'])
 def update_backup_api(request):
     """Create a pre-update database backup."""
@@ -1788,10 +1795,10 @@ def update_backup_api(request):
 
 
 @login_required
-@superuser_required
+@update_center_manage_required
 @require_http_methods(['POST'])
 def update_execute_api(request):
-    """Execute the update to the latest (or specified) version.
+    """Execute the online update to the latest (or specified) version.
     
     Body (optional JSON):
         target_version: str or null (null = latest)
@@ -1816,7 +1823,49 @@ def update_execute_api(request):
 
 
 @login_required
-@superuser_required
+@update_center_manage_required
+@require_http_methods(['POST'])
+def update_import_package_api(request):
+    """Import an offline ZIP package from a local path or uploaded file for update."""
+    import json as _json
+    from apps.system.version_service import perform_offline_import, save_uploaded_package
+
+    zip_path = None
+    uploaded_from = None
+
+    upload_file = request.FILES.get('package')
+    if upload_file is not None:
+        try:
+            saved = save_uploaded_package(upload_file.name, upload_file)
+            zip_path = saved.get('file')
+            uploaded_from = upload_file.name
+        except Exception as e:
+            logger.error('save_uploaded_package failed: %s', e)
+            return JsonResponse({'success': False, 'error': f'保存上传文件失败: {e}'}, status=500)
+
+    try:
+        if not zip_path:
+            body = _json.loads(request.body.decode('utf-8'))
+            zip_path = body.get('zip_path')
+    except Exception:
+        pass
+
+    if not zip_path:
+        return JsonResponse({'success': False, 'error': '缺少 zip_path 参数或 package 上传文件'}, status=400)
+
+    try:
+        result = perform_offline_import(zip_path)
+        if uploaded_from:
+            result['uploaded_from'] = uploaded_from
+        status_code = 200 if result.get('success') else 500
+        return JsonResponse(result, status=status_code, json_dumps_params={'ensure_ascii': False})
+    except Exception as e:
+        logger.error('perform_offline_import failed: %s', e)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@update_center_manage_required
 @require_http_methods(['POST'])
 def update_rollback_api(request):
     """Rollback to the version saved before the last update."""

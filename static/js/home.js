@@ -258,6 +258,11 @@ document.addEventListener('DOMContentLoaded', function() {
                           target.parentElement.querySelector('.layui-nav-child');
         const menuUrl = target.getAttribute('data-menu-url') || url;
         
+        // 有子菜单的父级项交给 LayUI 自己处理展开/收起
+        if (hasSubmenu) {
+            return;
+        }
+
         // 如果没有真实地址，就保留 LayUI 的展开/收起行为
         if (!url || url === '#' || (url === 'javascript:;' && (!menuUrl || menuUrl === 'javascript:;'))) {
             // 不阻止默认行为，让LayUI内置菜单展开逻辑正常工作

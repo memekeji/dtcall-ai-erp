@@ -3,10 +3,8 @@ AI模型配置管理器
 统一管理所有AI模型的配置、验证和选择
 """
 
-import os
 import logging
 from typing import Dict, List, Optional
-from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from apps.ai.models import AIModelConfig
 from apps.common.cache_service import AICache
@@ -27,11 +25,6 @@ class AIConfigManager:
         if self._loaded:
             return
 
-        # 检查是否允许自动加载配置
-        if not getattr(settings, 'AI_AUTO_LOAD_CONFIG', True):
-            logger.debug("AI配置自动加载已禁用")
-            return
-
         cached_config = AICache.get_config()
         if cached_config is not None:
             self._configs = cached_config
@@ -41,90 +34,14 @@ class AIConfigManager:
 
         # 从数据库加载配置
         try:
-            db_configs = AIModelConfig.objects.filter(
-                is_active=True
-            ).order_by('-is_active', '-updated_at', '-created_at')
+            db_configs = AIModelConfig.get_active_runtime_configs()
             for config in db_configs:
-                self._configs[config.id] = {
-                    'id': config.id,
-                    'name': config.name,
-                    'provider': config.provider,
-                    'model_type': config.model_type,
-                    'api_key': config.api_key,
-                    'base_url': config.api_base,
-                    'api_base': config.api_base,
-                    'model_name': config.model_name,
-                    'max_tokens': config.max_tokens,
-                    'temperature': config.temperature,
-                    'top_p': config.top_p,
-                    'is_active': config.is_active,
-                    'is_active': config.is_active,
-                    'created_at': config.created_at,
-                    'updated_at': config.updated_at
-                }
+                self._configs[config['id']] = config
             AICache.set_config(self._configs)
             self._loaded = True
             logger.info(f"从数据库加载AI配置并缓存，共{len(self._configs)}个配置")
         except Exception as e:
             logger.warning(f"加载数据库AI配置失败: {e}")
-
-        # 从settings.py加载默认配置
-        self._load_settings_configs()
-
-    def _load_settings_configs(self):
-        """从settings.py加载默认配置"""
-        provider = os.environ.get('AI_PROVIDER')
-        api_key = os.environ.get('AI_API_KEY')
-        api_base = os.environ.get('AI_API_BASE') or os.environ.get('AI_BASE_URL')
-        chat_model = os.environ.get('AI_CHAT_MODEL')
-        embedding_model = os.environ.get('AI_EMBEDDING_MODEL')
-
-        if not provider or not api_key:
-            return
-
-        if provider in ['qwen', 'wenxin']:
-            provider = {'qwen': 'alibaba', 'wenxin': 'baidu'}[provider]
-
-        if not api_base:
-            if provider == 'openai':
-                api_base = 'https://api.openai.com/v1'
-            elif provider in ['qwen', 'alibaba']:
-                api_base = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
-            elif provider == 'deepseek':
-                api_base = 'https://api.deepseek.com/v1'
-            elif provider == 'anthropic':
-                api_base = 'https://api.anthropic.com/v1'
-            elif provider == 'google':
-                api_base = 'https://generativelanguage.googleapis.com/v1beta'
-            elif provider == 'tencent':
-                api_base = 'https://api.hunyuan.cloud.tencent.com/v1'
-            elif provider == 'doubao':
-                api_base = 'https://ark.cn-beijing.volces.com/api/v3'
-            elif provider == 'ollama':
-                api_base = 'http://localhost:11434'
-            elif provider == 'local':
-                api_base = 'http://localhost:8001'
-            else:
-                api_base = ''
-
-        config_id = 'settings-default'
-        self._configs[config_id] = {
-            'id': config_id,
-            'name': '环境变量默认配置',
-            'provider': provider,
-            'model_type': 'chat',
-            'api_key': api_key,
-            'base_url': api_base,
-            'api_base': api_base,
-            'model_name': chat_model or 'gpt-3.5-turbo',
-            'chat': chat_model or 'gpt-3.5-turbo',
-            'embedding': embedding_model or 'text-embedding-3-small',
-            'max_tokens': int(os.environ.get('AI_MAX_TOKENS', '2048')),
-            'temperature': float(os.environ.get('AI_TEMPERATURE', '0.7')),
-            'top_p': float(os.environ.get('AI_TOP_P', '1.0')),
-            'is_active': True,
-            'is_active': True,
-        }
 
     def get_all_configs(self) -> Dict:
         """获取所有配置"""

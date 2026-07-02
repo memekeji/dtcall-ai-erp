@@ -11,6 +11,11 @@ from django.core.management import call_command
 from django.db import DEFAULT_DB_ALIAS, connections
 from django.db.utils import load_backend
 
+from apps.system.database_config_utils import (
+    DEFAULT_MYSQL_INIT_COMMAND,
+    normalize_mysql_init_command,
+)
+
 
 SETUP_PATH = '/setup/database/'
 BASE_DIR = Path(settings.BASE_DIR)
@@ -26,6 +31,11 @@ DATABASE_ENGINE_ALIASES = {
     'psql': 'django.db.backends.postgresql',
     'mysql': 'django.db.backends.mysql',
     'mariadb': 'django.db.backends.mysql',
+}
+
+DATABASE_URL_EXAMPLES = {
+    'postgresql://user:password@127.0.0.1:5432/dtcall',
+    'mysql://user:password@127.0.0.1:3306/dtcall',
 }
 
 _state_cache = {
@@ -66,7 +76,15 @@ def build_database_config(data):
     engine = resolve_database_engine(raw_engine)
     database_url = (data.get('DATABASE_URL') or '').strip()
     if database_url and engine != 'django.db.backends.sqlite3':
-        return _database_config_from_url(database_url)
+        if database_url in DATABASE_URL_EXAMPLES:
+            raise ValueError('DATABASE_URL仍是示例值，请清空后使用下方分项配置，或填写真实连接串。')
+        config = _database_config_from_url(database_url)
+        if engine and config['ENGINE'] != engine:
+            raise ValueError(
+                'DATABASE_URL已填写并会优先使用，但它的数据库类型与下方选择不一致；'
+                '请清空DATABASE_URL或改成匹配的连接串。'
+            )
+        return config
 
     name = (data.get('DATABASE_NAME') or '').strip()
     if engine == 'django.db.backends.sqlite3':
@@ -100,9 +118,8 @@ def build_database_config(data):
         options['connect_timeout'] = connect_timeout
     if engine == 'django.db.backends.mysql':
         options['charset'] = (data.get('MYSQL_CHARSET') or 'utf8mb4').strip()
-        options['init_command'] = (
-            data.get('MYSQL_INIT_COMMAND')
-            or "SET sql_mode='STRICT_TRANS_TABLES'"
+        options['init_command'] = normalize_mysql_init_command(
+            data.get('MYSQL_INIT_COMMAND'),
         )
     if options:
         config['OPTIONS'] = options
@@ -112,6 +129,9 @@ def build_database_config(data):
 def test_database_config(config):
     wrapper = None
     try:
+        engine = (config.get('ENGINE') or '').strip()
+        if not engine:
+            raise ValueError('数据库类型不能为空')
         backend = load_backend(config['ENGINE'])
         wrapper = backend.DatabaseWrapper(
             _complete_database_config(config),
@@ -189,8 +209,7 @@ def save_database_environment(form_data):
         'MYSQL_CHARSET': '' if is_sqlite else (
             form_data.get('MYSQL_CHARSET') or 'utf8mb4').strip(),
         'MYSQL_INIT_COMMAND': '' if is_sqlite else (
-            form_data.get('MYSQL_INIT_COMMAND')
-            or "SET sql_mode='STRICT_TRANS_TABLES'"
+            normalize_mysql_init_command(form_data.get('MYSQL_INIT_COMMAND'))
         ).strip(),
         'AUTO_MIGRATE_ON_STARTUP': 'True',
     }
@@ -231,8 +250,9 @@ def current_form_values():
         'DATABASE_CONNECT_TIMEOUT': os.environ.get(
             'DATABASE_CONNECT_TIMEOUT', '10'),
         'MYSQL_CHARSET': os.environ.get('MYSQL_CHARSET', 'utf8mb4'),
-        'MYSQL_INIT_COMMAND': os.environ.get(
-            'MYSQL_INIT_COMMAND', "SET sql_mode='STRICT_TRANS_TABLES'"),
+        'MYSQL_INIT_COMMAND': normalize_mysql_init_command(
+            os.environ.get('MYSQL_INIT_COMMAND', DEFAULT_MYSQL_INIT_COMMAND),
+        ),
         'ADMIN_USERNAME': '',
         'ADMIN_NAME': '',
         'ADMIN_EMAIL': '',
@@ -244,7 +264,13 @@ def current_form_values():
 def has_explicit_database_config():
     return any(
         os.environ.get(name, '').strip()
-        for name in ('DATABASE_URL', 'DATABASE_ENGINE', 'DATABASE_HOST')
+        for name in (
+            'DATABASE_URL',
+            'DATABASE_ENGINE',
+            'DATABASE_TYPE',
+            'DB_ENGINE',
+            'DATABASE_HOST',
+        )
     )
 
 
@@ -339,6 +365,8 @@ def _write_env(updates):
 
 def _database_config_from_url(database_url):
     parsed = urlparse(database_url)
+    if not parsed.scheme or not parsed.netloc:
+        raise ValueError('DATABASE_URL格式不正确，请填写类似 mysql://user:password@host:3306/dbname 的连接串。')
     engine = resolve_database_engine(parsed.scheme.split('+', 1)[0])
     if engine == 'django.db.backends.sqlite3':
         db_name = unquote(parsed.path.lstrip('/')) or 'db.sqlite3'
@@ -366,7 +394,9 @@ def _database_config_from_url(database_url):
     options = dict(parse_qsl(parsed.query))
     if engine == 'django.db.backends.mysql':
         options.setdefault('charset', os.environ.get('MYSQL_CHARSET', 'utf8mb4'))
-        options.setdefault('init_command', "SET sql_mode='STRICT_TRANS_TABLES'")
+        options['init_command'] = normalize_mysql_init_command(
+            options.get('init_command') or os.environ.get('MYSQL_INIT_COMMAND'),
+        )
     if options:
         config['OPTIONS'] = options
     return config

@@ -12,6 +12,12 @@ SAFE_AI_ERROR_MESSAGE = "AI模型调用失败，请检查模型配置后重试"
 class AIClientError(Exception):
     """AI客户端错误"""
 
+    def __init__(self, message, *, error_code=None, status_code=None, detail=None):
+        super().__init__(message)
+        self.error_code = error_code
+        self.status_code = status_code
+        self.detail = detail or message
+
 
 class BaseAIClient:
     """AI模型客户端基类"""
@@ -115,15 +121,60 @@ class BaseAIClient:
                 )
                 response.raise_for_status()
                 return response
+            except requests.exceptions.HTTPError as e:
+                if attempt == self.max_retries:
+                    status_code = e.response.status_code if e.response is not None else None
+                    detail = None
+                    if e.response is not None:
+                        try:
+                            detail = e.response.text[:500]
+                        except Exception:
+                            detail = str(e)
+                    logger.error(f"请求失败: {str(e)}")
+                    raise AIClientError(
+                        SAFE_AI_ERROR_MESSAGE,
+                        error_code='http_error',
+                        status_code=status_code,
+                        detail=detail or str(e),
+                    ) from None
+                time.sleep(self.retry_delay * (2 ** attempt))
+            except requests.exceptions.Timeout as e:
+                if attempt == self.max_retries:
+                    logger.error(f"请求超时: {str(e)}")
+                    raise AIClientError(
+                        SAFE_AI_ERROR_MESSAGE,
+                        error_code='timeout',
+                        detail=str(e),
+                    ) from None
+                time.sleep(self.retry_delay * (2 ** attempt))
+            except requests.exceptions.ConnectionError as e:
+                if attempt == self.max_retries:
+                    logger.error(f"连接失败: {str(e)}")
+                    raise AIClientError(
+                        SAFE_AI_ERROR_MESSAGE,
+                        error_code='connection_error',
+                        detail=str(e),
+                    ) from None
+                time.sleep(self.retry_delay * (2 ** attempt))
             except requests.exceptions.RequestException as e:
                 if attempt == self.max_retries:
                     logger.error(f"请求失败: {str(e)}")
-                    raise AIClientError(SAFE_AI_ERROR_MESSAGE) from None
+                    raise AIClientError(
+                        SAFE_AI_ERROR_MESSAGE,
+                        error_code='request_error',
+                        detail=str(e),
+                    ) from None
                 time.sleep(self.retry_delay * (2 ** attempt))
 
     def _raise_safe_error(self, message, error):
         logger.error(f"{message}: {str(error)}")
-        raise AIClientError(SAFE_AI_ERROR_MESSAGE) from None
+        if isinstance(error, AIClientError):
+            raise error
+        raise AIClientError(
+            SAFE_AI_ERROR_MESSAGE,
+            error_code='client_error',
+            detail=str(error),
+        ) from None
 
     def _parse_chat_response(self, result, kwargs):
         """解析聊天完成响应"""

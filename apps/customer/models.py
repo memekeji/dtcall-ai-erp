@@ -317,6 +317,23 @@ class Customer(models.Model):
         else:
             return 'green'  # 个人客户
 
+    @property
+    def customer_status(self):
+        """统一客户状态编码：0个人客户，1废弃客户，2公海客户"""
+        if self.discard_time > 0:
+            return 1
+        if self.belong_uid == 0:
+            return 2
+        return 0
+
+    def get_customer_status_display(self):
+        """获取客户状态显示文本"""
+        if self.customer_status == 1:
+            return '废弃客户'
+        if self.customer_status == 2:
+            return '公海客户'
+        return '个人客户'
+
     def get_belong_time_display(self):
         """获取获取时间的显示格式"""
         if self.belong_time and self.belong_time > 0:
@@ -391,9 +408,24 @@ class CustomerField(models.Model):
         ('date', '日期'),
         ('datetime', '日期时间'),
         ('textarea', '多行文本'),
+        ('list', '列表'),
         ('select', '下拉选择'),
         ('checkbox', '复选框'),
         ('radio', '单选框'),
+    ]
+    RELATION_TYPES = [
+        ('bind', '关联绑定'),
+        ('copy', '同步赋值'),
+        ('calculate', '计算结果'),
+    ]
+    CALCULATION_TYPES = [
+        ('count', '统计数量'),
+        ('sum', '求和'),
+        ('avg', '平均值'),
+        ('max', '最大值'),
+        ('min', '最小值'),
+        ('concat', '文本拼接'),
+        ('formula', '公式计算'),
     ]
     name = models.CharField(max_length=100, verbose_name='字段名称')
     field_name = models.CharField(
@@ -407,6 +439,26 @@ class CustomerField(models.Model):
     options = models.TextField(blank=True, null=True, verbose_name='选项配置')
     is_required = models.BooleanField(default=False, verbose_name='是否必填')
     is_unique = models.BooleanField(default=False, verbose_name='是否唯一')
+    relation_enabled = models.BooleanField(default=False, verbose_name='是否关联已有字段')
+    related_field = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='linked_customer_fields',
+        verbose_name='关联字段')
+    relation_type = models.CharField(
+        max_length=20,
+        choices=RELATION_TYPES,
+        default='bind',
+        verbose_name='关联方式')
+    calculation_type = models.CharField(
+        max_length=20,
+        choices=CALCULATION_TYPES,
+        blank=True,
+        default='',
+        verbose_name='计算规则')
+    formula_expression = models.TextField(blank=True, default='', verbose_name='计算公式')
     is_list_display = models.BooleanField(default=False, verbose_name='是否列表显示')
     sort = models.IntegerField(default=0, verbose_name='排序')
     status = models.BooleanField(default=True, verbose_name='是否启用')

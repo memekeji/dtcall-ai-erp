@@ -18,7 +18,7 @@
                         <h3>{% if object %}编辑订单字段{% else %}新增订单字段{% endif %}</h3>
                     </div>
                     <div class="layui-card-body">
-        <form class="layui-form" method="post">
+        <form class="layui-form" method="post" id="orderFieldForm">
             {% csrf_token %}
             <div class="layui-row layui-col-space15">
                 <div class="layui-col-md6">
@@ -106,7 +106,7 @@
             <div class="layui-form-item">
                 <div class="layui-input-block">
                     <button class="layui-btn" type="submit">保存</button>
-                    <a href="{% url 'customer:order_field_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                    <button type="button" class="layui-btn layui-btn-primary" onclick="closePopupForm()">返回</button>
                 </div>
             </div>
                         </form>
@@ -269,5 +269,6 @@
             return result;
         }
     </script>
+    {% include "customer/_popup_form_submit.html" with popup_form_id="orderFieldForm" popup_back_url="/customer/order/field/list/" %}
 </body>
 </html>

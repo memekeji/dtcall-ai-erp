@@ -461,6 +461,13 @@ class Purchase(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         verbose_name='采购分类')
+    project = models.ForeignKey(
+        'project.Project',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='purchases',
+        verbose_name='关联项目')
     types = models.SmallIntegerField(default=0, verbose_name='采购类型')
     amount = models.DecimalField(
         max_digits=12,

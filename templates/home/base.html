@@ -1259,7 +1259,7 @@
     </style>
     {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body data-update-manageable="{% if APP_UPDATE_ADMIN_MANAGEABLE %}true{% else %}false{% endif %}">
     <script>
         // 检测是否在iframe中并添加相应类
         const isInIframe = window !== window.top;
@@ -1401,20 +1401,14 @@
                     <span class="version-value" id="currentVersion">v{{ APP_VERSION }}</span>
                     <span class="version-commit" id="currentCommit" title="提交 {{ APP_COMMIT }}">{{ APP_COMMIT|slice:":7" }}</span>
                 </div>
-                {% if request.user.is_superuser %}
+                {% if APP_UPDATE_ADMIN_VISIBLE %}
                 <div class="version-actions" id="versionActions" style="display:none;">
                     <button class="version-btn version-btn-check" id="btnCheckUpdate" title="检查更新">
                         <i class="layui-icon layui-icon-refresh"></i>
                     </button>
-                    {% if APP_UPDATE_INFO.update_available %}
-                    <button class="version-btn version-btn-update has-update" id="btnUpdateNow" title="立即更新" style="display:inline-flex;">
+                    <button class="version-btn version-btn-update{% if APP_UPDATE_INFO.update_available %} has-update{% endif %}" id="btnUpdateNow" title="立即更新" style="{% if APP_UPDATE_INFO.update_available %}display:inline-flex;{% else %}display:none;{% endif %}">
                         <i class="layui-icon layui-icon-upload-demo"></i>
                     </button>
-                    {% else %}
-                    <button class="version-btn version-btn-update" id="btnUpdateNow" title="立即更新" style="display:none;">
-                        <i class="layui-icon layui-icon-upload-demo"></i>
-                    </button>
-                    {% endif %}
                     <button class="version-btn version-btn-rollback" id="btnRollback" title="回滚更新" style="display:none;">
                         <i class="layui-icon layui-icon-return"></i>
                     </button>

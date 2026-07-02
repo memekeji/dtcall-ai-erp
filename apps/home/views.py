@@ -59,17 +59,18 @@ def _build_menu_tree(
     """
     from apps.system.context_processors import get_permission_from_src
 
+    menu_dict = {menu.id: menu for menu in available_menus}
+
+    def attach_children(menu):
+        children = [item for item in available_menus if item.pid_id == menu.id]
+        menu.submenus_list = children
+        for child in children:
+            attach_children(child)
+
     if is_superuser:
         top_menus = [menu for menu in available_menus if menu.pid is None]
         for menu in top_menus:
-            menu.submenus_list = [
-                submenu for submenu in available_menus if submenu.pid_id == menu.id]
-            for submenu in menu.submenus_list:
-                submenu.submenus_list = [
-                    subsubmenu for subsubmenu in available_menus if subsubmenu.pid_id == submenu.id]
-                for subsubmenu in submenu.submenus_list:
-                    subsubmenu.submenus_list = [
-                        subsubsubmenu for subsubsubmenu in available_menus if subsubsubmenu.pid_id == subsubmenu.id]
+            attach_children(menu)
         return top_menus, available_menus
 
     def _check_permission(codename):
@@ -144,7 +145,6 @@ def _build_menu_tree(
 
         return authorized
 
-    menu_dict = {menu.id: menu for menu in available_menus}
     authorized_menu_ids = findAuthorizedMenus()
 
     filtered_menus = [
@@ -152,14 +152,13 @@ def _build_menu_tree(
 
     top_menus = [menu for menu in filtered_menus if menu.pid is None]
     for menu in top_menus:
-        menu.submenus_list = [
-            submenu for submenu in filtered_menus if submenu.pid_id == menu.id]
-        for submenu in menu.submenus_list:
-            submenu.submenus_list = [
-                subsubmenu for subsubmenu in filtered_menus if subsubmenu.pid_id == submenu.id]
-            for subsubmenu in submenu.submenus_list:
-                subsubmenu.submenus_list = [
-                    subsubsubmenu for subsubsubmenu in filtered_menus if subsubsubmenu.pid_id == subsubmenu.id]
+        def attach_filtered_children(node):
+            children = [item for item in filtered_menus if item.pid_id == node.id]
+            node.submenus_list = children
+            for child in children:
+                attach_filtered_children(child)
+
+        attach_filtered_children(menu)
 
     return top_menus, filtered_menus
 

@@ -1,5 +1,31 @@
 {% extends "customer/_base_list.html" %}
 
+{% block toolbar %}
+<button type="button" class="layui-btn layui-btn-sm" onclick="addItem()">
+    <i class="layui-icon layui-icon-add-1"></i> 新增跟进字段
+</button>
+{% endblock %}
+
+{% block table_columns_config %}
+var tableColumns = [
+    {field: 'id', title: 'ID', width: 80},
+    {field: 'name', title: '字段名称', width: 180},
+    {field: 'field_name', title: '字段标识', width: 180},
+    {field: 'field_type', title: '字段类型', width: 140, templet: function(d) {
+        return escapeHtml(d.get_field_type_display || d.field_type || '');
+    }},
+    {field: 'is_required', title: '必填', width: 100, templet: function(d) {
+        return d.is_required ? '<span class="layui-badge layui-bg-red">必填</span>' : '<span class="layui-badge layui-bg-gray">可选</span>';
+    }},
+    {field: 'sort_order', title: '排序', width: 100},
+    {field: 'is_active', title: '状态', width: 100, templet: function(d) {
+        return d.is_active ? '<span class="layui-badge layui-bg-green">启用</span>' : '<span class="layui-badge">禁用</span>';
+    }},
+    {field: 'created_at', title: '创建时间', width: 170},
+    {title: '操作', width: 140, fixed: 'right', align: 'center', toolbar: '#operationBar'}
+];
+{% endblock %}
+
 {% block table_headers %}
 <th>字段名称</th>
 <th>字段标识</th>

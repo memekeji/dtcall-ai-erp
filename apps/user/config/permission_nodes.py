@@ -615,6 +615,12 @@ PERMISSION_NODES = {
         'name': '财务管理',
         'icon': 'layui-icon-money',
         'children': {
+            'finance_home': {
+                'name': '财务工作台',
+                'permissions': [
+                    {'codename': 'view_finance', 'name': '菜单查看'},
+                ]
+            },
             'reimbursement': {
                 'name': '报销管理',
                 'permissions': [
@@ -724,6 +730,12 @@ PERMISSION_NODES = {
         'name': '客户管理',
         'icon': 'layui-icon-group',
         'children': {
+            'customer_home': {
+                'name': '客户工作台',
+                'permissions': [
+                    {'codename': 'view_customer', 'name': '菜单查看'},
+                ]
+            },
             'customer_list': {
                 'name': '客户列表',
                 'permissions': [
@@ -1053,6 +1065,12 @@ PERMISSION_NODES = {
         'name': '生产管理',
         'icon': 'layui-icon-engine',
         'children': {
+            'production_home': {
+                'name': '生产工作台',
+                'permissions': [
+                    {'codename': 'view_production', 'name': '菜单查看'},
+                ]
+            },
             'baseinfo': {
                 'name': '基础信息',
                 'children': {

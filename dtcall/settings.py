@@ -11,10 +11,12 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 from urllib.parse import parse_qsl, unquote, urlparse
 
 from django.core.exceptions import ImproperlyConfigured
+from apps.system.database_config_utils import normalize_mysql_init_command
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -325,9 +327,8 @@ def _database_options(engine):
     if engine == 'django.db.backends.mysql':
         options.update({
             'charset': os.environ.get('MYSQL_CHARSET', 'utf8mb4'),
-            'init_command': os.environ.get(
-                'MYSQL_INIT_COMMAND',
-                "SET sql_mode='STRICT_TRANS_TABLES'",
+            'init_command': normalize_mysql_init_command(
+                os.environ.get('MYSQL_INIT_COMMAND'),
             ),
         })
     return options
@@ -340,6 +341,10 @@ def _sqlite_name(name):
         return name
     path = Path(name)
     return path if path.is_absolute() else BASE_DIR / path
+
+
+def _is_test_command():
+    return any(arg == 'test' or arg.endswith('.test') for arg in sys.argv[1:3])
 
 
 def _database_from_url(database_url):
@@ -382,7 +387,16 @@ def _database_from_env():
 
     host = os.environ.get('DATABASE_HOST', '').strip()
     if not engine:
-        engine = 'django.db.backends.postgresql' if host else 'django.db.backends.sqlite3'
+        if not host:
+            if _is_test_command():
+                return {
+                    'ENGINE': 'django.db.backends.sqlite3',
+                    'NAME': _sqlite_name(''),
+                }
+            return {
+                'ENGINE': 'django.db.backends.dummy',
+            }
+        engine = 'django.db.backends.postgresql'
 
     name = os.environ.get('DATABASE_NAME', '').strip()
     if engine == 'django.db.backends.sqlite3':

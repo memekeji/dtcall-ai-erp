@@ -1,4 +1,4 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.core.paginator import Paginator
 from django.db.models import Q
@@ -19,7 +19,11 @@ def generic_list_view(
         model_class,
         template_name,
         search_fields=None,
-        filter_fields=None):
+        filter_fields=None,
+        list_url=None,
+        add_url=None,
+        edit_url=None,
+        delete_url=None):
     search = request.GET.get('search', '')
     objects = model_class.objects.all()
 
@@ -92,10 +96,10 @@ def generic_list_view(
         'model_name': model_class._meta.verbose_name,
         'model_name_plural': model_class._meta.verbose_name_plural,
         'page_title': f'{model_class._meta.verbose_name_plural}管理',
-        'list_url': request.path,
-        'add_url': f"{request.path.rstrip('/')}/add/",
-        'edit_url': f"{request.path.rstrip('/')}/{{id}}/edit/",
-        'delete_url': f"/delete/{model_class._meta.model_name}/{{id}}/",
+        'list_url': list_url or request.path,
+        'add_url': add_url or f"{request.path.rstrip('/')}/add/",
+        'edit_url': edit_url or f"{request.path.rstrip('/')}/{{id}}/edit/",
+        'delete_url': delete_url or f"/delete/{model_class._meta.model_name}/{{id}}/",
     }
 
     return render(request, template_name, context)
@@ -121,13 +125,20 @@ def generic_form_view(
         if form.is_valid():
             try:
                 form.save()
+                if not is_ajax:
+                    return redirect(success_url)
                 return JsonResponse(
-                    {'code': 0, 'msg': f'{model_class._meta.verbose_name}保存成功！'})
+                    {'code': 0, 'msg': f'{model_class._meta.verbose_name}保存成功！'},
+                    json_dumps_params={'ensure_ascii': False})
             except Exception as e:
-                return JsonResponse({'code': 1, 'msg': f'保存失败: {str(e)}'})
+                return JsonResponse(
+                    {'code': 1, 'msg': f'保存失败: {str(e)}'},
+                    json_dumps_params={'ensure_ascii': False})
         else:
-            return JsonResponse(
-                {'code': 1, 'msg': '表单验证失败', 'errors': form.errors})
+            if is_ajax:
+                return JsonResponse(
+                    {'code': 1, 'msg': '表单验证失败', 'errors': form.errors},
+                    json_dumps_params={'ensure_ascii': False})
     else:
         form = form_class(instance=obj)
 

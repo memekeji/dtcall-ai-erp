@@ -13,9 +13,9 @@
             <!-- 左侧工具栏 -->
             <div class="layui-col-xs12 layui-col-sm6 layui-col-md4">
                 <div class="toolbar-left">
-                    <a href="{% url 'customer:customer_field_form' %}" class="layui-btn layui-btn-sm">
+                    <button type="button" class="layui-btn layui-btn-sm" onclick="openCustomerFieldForm('新增客户字段', '{% url 'customer:customer_field_form' %}')">
                         <i class="layui-icon layui-icon-add-1"></i> 添加字段
-                    </a>
+                    </button>
                 </div>
             </div>
             <!-- 右侧搜索表单 -->
@@ -50,10 +50,20 @@
 
 <script src="/static/layui/layui.js"></script>
 <script>
-    layui.use(['table', 'form', 'layer'], function(){
+{% include "common/_right_popup_function.html" with popup_reload_table_id="fieldTable" %}
+</script>
+<script>
+    layui.use(['table', 'form', 'layer', 'jquery'], function(){
         var table = layui.table;
         var form = layui.form;
         var layer = layui.layer;
+        var $ = layui.jquery;
+
+        window.openCustomerFieldForm = function(title, url) {
+            openRightPopup(title, url, function() {
+                table.reload('fieldTable');
+            });
+        };
         
         // 初始化表格
         table.render({
@@ -63,7 +73,23 @@
                 {field: 'id', title: 'ID', width: 80},
                 {field: 'name', title: '字段名称', width: 200},
                 {field: 'field_name', title: '字段标识', width: 200},
-                {field: 'field_type', title: '字段类型', width: 150},
+                {field: 'field_type_display', title: '字段类型', width: 120},
+                {field: 'relation_type_display', title: '关联配置', width: 240, templet: function(d) {
+                    if (!d.relation_enabled) {
+                        return '<span style="color: #999;">独立字段</span>';
+                    }
+                    var relatedName = d.related_field_name || '未选择';
+                    var relationType = d.relation_type_display || '';
+                    if (d.relation_type === 'calculate' && d.calculation_type_display) {
+                        var detail = relationType + ' / ' + d.calculation_type_display;
+                        if (d.calculation_type === 'formula' && d.formula_expression) {
+                            return '<span class="layui-badge-rim" style="margin-right: 6px;">公式</span>' +
+                                detail + '<div style="margin-top: 6px; color: #666; white-space: normal; line-height: 1.5;">' + d.formula_expression + '</div>';
+                        }
+                        return '<span class="layui-badge-rim" style="margin-right: 6px;">' + relatedName + '</span>' + detail;
+                    }
+                    return '<span class="layui-badge-rim" style="margin-right: 6px;">' + relatedName + '</span>' + relationType;
+                }},
                 {field: 'sort', title: '排序', width: 100},
                 {field: 'status', title: '状态', width: 100, templet: function(d) {
                     return d.status ? '<span style="color: #5FB878;">启用</span>' : '<span style="color: #FF5722;">禁用</span>';
@@ -102,7 +128,7 @@
             var data = obj.data;
             switch(obj.event) {
                 case 'edit':
-                    window.location.href = '{% url "customer:customer_field_form_edit" 0 %}'.replace('0', data.id);
+                    openCustomerFieldForm('编辑客户字段', '{% url "customer:customer_field_form_edit" 0 %}'.replace('0', data.id));
                     break;
                 case 'toggle':
                     toggleFieldStatus(data.id);

@@ -126,6 +126,7 @@ class CommentSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
     content_type_id = serializers.IntegerField(write_only=True, required=False)
     content_type_display = serializers.SerializerMethodField()
+    replies = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
@@ -137,6 +138,7 @@ class CommentSerializer(serializers.ModelSerializer):
             'content',
             'content_type',
             'content_type_display',
+            'replies',
             'object_id',
             'parent',
             'parent_id',
@@ -145,6 +147,26 @@ class CommentSerializer(serializers.ModelSerializer):
 
     def get_content_type_display(self, obj):
         return obj.content_type.name
+
+    def get_replies(self, obj):
+        reply_queryset = obj.replies.filter(delete_time__isnull=True).select_related('user')
+        return [
+            {
+                'id': reply.id,
+                'user_id': reply.user_id,
+                'username': reply.user.username,
+                'content': reply.content,
+                'content_type': reply.content_type_id,
+                'content_type_display': reply.content_type.name,
+                'object_id': reply.object_id,
+                'parent': reply.parent_id,
+                'parent_id': reply.parent_id,
+                'create_time': reply.create_time,
+                'update_time': reply.update_time,
+                'replies': [],
+            }
+            for reply in reply_queryset.order_by('create_time')
+        ]
 
     def validate_content_type_id(self, value):
         if value is None:

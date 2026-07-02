@@ -15,8 +15,9 @@ class Command(BaseCommand):
             self.stderr.write(self.style.ERROR('No rollback state found. Nothing to rollback.'))
             return
 
+        previous_commit = rb.get('previous_commit') or 'unknown'
         self.stdout.write(f"Rolling back from version {rb.get('target_version', 'unknown')} "
-                          f"to {rb['previous_version']} ({rb['previous_commit']})")
+                          f"to {rb['previous_version']} ({previous_commit})")
         self.stdout.write('Confirm? [y/N] ', ending='')
         answer = input().strip().lower()
         if answer != 'y':
@@ -25,8 +26,9 @@ class Command(BaseCommand):
 
         result = perform_rollback()
         if result['success']:
+            restored_commit = result.get('restored_commit') or 'unknown'
             self.stdout.write(self.style.SUCCESS(
-                f"Rollback successful. Restored to {result['restored_version']} ({result['restored_commit']})"
+                f"Rollback successful. Restored to {result['restored_version']} ({restored_commit})"
             ))
         else:
             self.stderr.write(self.style.ERROR(f"Rollback failed: {result.get('error', 'Unknown error')}"))

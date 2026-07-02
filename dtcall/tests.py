@@ -1,6 +1,84 @@
+import os
+from unittest.mock import patch
+
 from django.conf import settings
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from django.urls import NoReverseMatch, reverse
+
+
+class DatabaseConfigurationTests(SimpleTestCase):
+    def test_missing_database_environment_uses_dummy_backend(self):
+        from dtcall import settings as dtcall_settings
+
+        keys = [
+            'DATABASE_URL',
+            'DATABASE_ENGINE',
+            'DATABASE_TYPE',
+            'DB_ENGINE',
+            'DATABASE_HOST',
+            'DATABASE_NAME',
+        ]
+        saved = {key: os.environ.get(key) for key in keys}
+        try:
+            for key in keys:
+                os.environ.pop(key, None)
+
+            with patch.object(dtcall_settings.sys, 'argv', ['manage.py', 'runserver']):
+                database_config = dtcall_settings._database_from_env()
+        finally:
+            for key, value in saved.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+        self.assertEqual(
+            database_config['ENGINE'],
+            'django.db.backends.dummy',
+        )
+
+    def test_mysql_database_options_normalize_bare_init_command(self):
+        from dtcall import settings as dtcall_settings
+
+        with patch.dict(os.environ, {'MYSQL_INIT_COMMAND': "'STRICT_TRANS_TABLES'"}):
+            options = dtcall_settings._database_options('django.db.backends.mysql')
+
+        self.assertEqual(
+            options['init_command'],
+            "SET sql_mode='STRICT_TRANS_TABLES'",
+        )
+
+    def test_mysql_database_options_preserve_full_init_command(self):
+        from dtcall import settings as dtcall_settings
+
+        with patch.dict(
+            os.environ,
+            {'MYSQL_INIT_COMMAND': "SET SESSION sql_mode='STRICT_TRANS_TABLES,NO_ZERO_DATE'"},
+        ):
+            options = dtcall_settings._database_options('django.db.backends.mysql')
+
+        self.assertEqual(
+            options['init_command'],
+            "SET SESSION sql_mode='STRICT_TRANS_TABLES,NO_ZERO_DATE'",
+        )
+
+    def test_database_setup_build_config_normalizes_mysql_init_command(self):
+        from apps.system.database_setup import build_database_config
+
+        config = build_database_config({
+            'DATABASE_ENGINE': 'mysql',
+            'DATABASE_HOST': '127.0.0.1',
+            'DATABASE_PORT': '3306',
+            'DATABASE_NAME': 'dtcall',
+            'DATABASE_USER': 'root',
+            'DATABASE_PASSWORD': 'secret',
+            'MYSQL_INIT_COMMAND': 'STRICT_TRANS_TABLES',
+        })
+
+        self.assertEqual(
+            config['OPTIONS']['init_command'],
+            "SET sql_mode='STRICT_TRANS_TABLES'",
+        )
 
 
 class ProjectSmokeTests(TestCase):

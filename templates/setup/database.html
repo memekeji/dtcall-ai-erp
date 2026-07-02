@@ -178,7 +178,7 @@
                         <label class="layui-form-label" for="DATABASE_URL">DATABASE_URL</label>
                         <div class="layui-input-block">
                             <input id="DATABASE_URL" type="text" name="DATABASE_URL" value="{{ values.DATABASE_URL }}" placeholder="postgresql://user:password@127.0.0.1:5432/dtcall" class="layui-input">
-                            <div class="field-hint">填写后优先使用该连接串；留空时使用下方分项配置。</div>
+                            <div class="field-hint">可选。填写后会覆盖下方分项配置；使用主机、用户名、密码等分项时请保持此处为空。</div>
                         </div>
                     </div>
 
@@ -328,9 +328,14 @@
             var form = layui.form;
             var engineSelect = document.getElementById('DATABASE_ENGINE');
             var setupForm = document.querySelector('form.layui-form');
+            var databaseUrlInput = document.getElementById('DATABASE_URL');
             var dbNameInput = document.getElementById('DATABASE_NAME');
             var dbNameLabel = document.getElementById('DATABASE_NAME_LABEL');
             var dbNameHint = document.getElementById('DATABASE_NAME_HINT');
+            var databaseUrlExamples = [
+                'postgresql://user:password@127.0.0.1:5432/dtcall',
+                'mysql://user:password@127.0.0.1:3306/dtcall'
+            ];
             var sqlFields = ['url', 'host', 'port', 'user', 'password', 'timeout', 'pool', 'health'];
             var sqliteOnlyEmptyFields = [
                 'DATABASE_URL',
@@ -373,6 +378,10 @@
                 if (input) {
                     input.value = value;
                 }
+            }
+
+            function isExampleDatabaseUrl() {
+                return databaseUrlExamples.indexOf(valueOf('DATABASE_URL')) !== -1;
             }
 
             function clearSqliteIgnoredFields() {
@@ -420,6 +429,9 @@
             engineSelect.addEventListener('change', applyDatabaseMode);
             form.on('select(databaseEngine)', applyDatabaseMode);
             setupForm.addEventListener('submit', function() {
+                if (isExampleDatabaseUrl()) {
+                    databaseUrlInput.value = '';
+                }
                 if (isSqlite()) {
                     clearSqliteIgnoredFields();
                     if (!valueOf('DATABASE_NAME')) {

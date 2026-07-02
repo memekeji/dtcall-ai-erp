@@ -212,10 +212,55 @@ class AIModelConfig(models.Model):
     def get_model_type_display(self):
         return dict(self.MODEL_TYPES).get(self.model_type, self.model_type)
 
+    def to_runtime_config(self):
+        """转换为兼容旧版调用链的运行时配置字典"""
+        return {
+            'id': self.id,
+            'name': self.name,
+            'provider': self.provider,
+            'model_type': self.model_type,
+            'api_key': self.api_key,
+            'base_url': self.api_base,
+            'api_base': self.api_base,
+            'model_name': self.model_name,
+            'chat': self.model_name,
+            'image_model': self.image_model,
+            'video_model': self.video_model,
+            'max_tokens': self.max_tokens,
+            'temperature': self.temperature,
+            'top_p': self.top_p,
+            'is_active': self.is_active,
+            'organization': self.organization,
+            'project': self.project,
+            'provider_specific_config': self.provider_specific_config,
+            'created_at': self.created_at,
+            'updated_at': self.updated_at,
+        }
+
     @classmethod
     def get_active_config(cls):
         """获取当前激活的配置"""
         return cls.objects.filter(is_active=True).first()
+
+    @classmethod
+    def get_active_runtime_config(cls):
+        """获取当前激活配置的运行时字典"""
+        config = cls.get_active_config()
+        return config.to_runtime_config() if config else None
+
+    @classmethod
+    def get_active_runtime_configs(cls):
+        """获取所有激活配置的运行时字典列表"""
+        configs = cls.objects.filter(is_active=True).order_by('-updated_at', '-created_at')
+        return [config.to_runtime_config() for config in configs]
+
+    @classmethod
+    def get_latest_chat_runtime_config(cls):
+        """获取可用于聊天/文本任务的最新运行时配置"""
+        for config in cls.objects.filter(is_active=True).order_by('-updated_at', '-created_at'):
+            if config.model_type in ['chat', 'text']:
+                return config.to_runtime_config()
+        return None
 
     @classmethod
     def get_image_model(cls):

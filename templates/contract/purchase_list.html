@@ -74,6 +74,7 @@
         };
 
         var currentTab = '0';
+        var initialProjectId = '{{ initial_project_id|default:"" }}';
 
         function appendQuery(url, params) {
             var query = $.param(params || {});
@@ -88,13 +89,18 @@
 
             function initTable(tab) {
                 currentTab = tab || '0';
+                var query = { tab: currentTab };
+                if (initialProjectId) {
+                    query.project_id = initialProjectId;
+                }
                 table.render({
                     elem: '#purchaseTable',
-                    url: '/contract/purchase/datalist/?tab=' + currentTab,
+                    url: appendQuery('/contract/purchase/datalist/', query),
                     cols: [[
                         {field: 'id', title: 'ID', width: 80},
                         {field: 'code', title: '采购编号', width: 150},
                         {field: 'name', title: '采购名称', width: 200},
+                        {field: 'project_name', title: '关联项目', width: 180},
                         {field: 'amount', title: '采购金额', width: 120},
                         {field: 'check_status', title: '审核状态', width: 100, templet: function(d) {
                             var statusMap = {0: '待审核', 1: '审核中', 2: '审核通过', 3: '审核不通过', 4: '撤销审核'};
@@ -215,7 +221,7 @@
                     area: ['80%', '100%'],
                     offset: 'r',
                     anim: 2,
-                    content: '/contract/purchase/add/',
+                    content: appendQuery('/contract/purchase/add/', initialProjectId ? {project_id: initialProjectId} : {}),
                     success: function(layero, index) {
                         if (layero && typeof layero.css === 'function') {
                             layero.css({
@@ -238,6 +244,7 @@
             var code = $('#searchPurchaseCode').val();
             var status = $('#searchPurchaseStatus').val();
             params.tab = currentTab;
+            if (initialProjectId) params.project_id = initialProjectId;
             if (code) params.code = code;
             if (status) params.status = status;
             window.location.href = appendQuery('/contract/purchase/export/', params);
@@ -251,6 +258,7 @@
                 var status = $('#searchPurchaseStatus').val();
                 var params = {};
                 params.tab = currentTab;
+                if (initialProjectId) params.project_id = initialProjectId;
                 if (code) params.code = code;
                 if (status) params.status = status;
 
@@ -269,8 +277,10 @@
                 $('#searchPurchaseCode').val('');
                 $('#searchPurchaseStatus').val('');
                 form.render('select');
+                var params = {tab: currentTab};
+                if (initialProjectId) params.project_id = initialProjectId;
                 table.reload('purchaseTable', {
-                    where: {tab: currentTab}
+                    where: params
                 });
             });
         }

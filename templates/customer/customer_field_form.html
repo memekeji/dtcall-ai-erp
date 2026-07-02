@@ -7,6 +7,60 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <link rel="stylesheet" href="/static/layui/css/layui.css" media="all">
+    <style>
+        .formula-builder {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 14px;
+            border: 1px solid #dbe6f7;
+            border-radius: 8px;
+            background: #f8fbff;
+        }
+        .formula-builder-row {
+            padding: 12px;
+            border: 1px solid #e6eefb;
+            border-radius: 8px;
+            background: #fff;
+        }
+        .formula-builder-row .layui-row {
+            margin-bottom: 10px;
+        }
+        .formula-builder-row .layui-form-mid {
+            float: none;
+            margin-top: 4px;
+            padding: 0;
+        }
+        .formula-builder-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .formula-preview {
+            min-height: 38px;
+            padding: 9px 12px;
+            border-radius: 6px;
+            border: 1px dashed #c7d8f5;
+            background: #fff;
+            color: #3b4a60;
+            line-height: 20px;
+        }
+        .formula-advanced {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px dashed #dbe6f7;
+        }
+        .formula-builder-alert {
+            margin-bottom: 12px;
+            padding: 10px 12px;
+            border-radius: 6px;
+            background: #fff7e6;
+            color: #ad6800;
+            line-height: 20px;
+        }
+    </style>
 </head>
 <body>
     <div class="layui-fluid">
@@ -17,7 +71,7 @@
                         <h3>{% if object %}编辑客户字段{% else %}新增客户字段{% endif %}</h3>
                     </div>
                     <div class="layui-card-body">
-                        <form class="layui-form" method="post">
+                        <form class="layui-form" method="post" id="customerFieldForm">
                             {% csrf_token %}
                             {% if form.errors %}
                                 <div class="layui-form-item">
@@ -83,6 +137,80 @@
                             </div>
 
                             <div class="layui-form-item">
+                                <label class="layui-form-label">关联已有字段</label>
+                                <div class="layui-input-block">
+                                    {{ form.relation_enabled }}
+                                    <div class="layui-form-mid layui-word-aux">适用于账号与绑定邮箱这类成组录入场景。</div>
+                                </div>
+                            </div>
+
+                            <div id="relationConfigBlock">
+                                <div class="layui-row layui-col-space15">
+                                    <div class="layui-col-md6">
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">关联字段</label>
+                                            <div class="layui-input-block">
+                                                {{ form.related_field }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="layui-col-md6">
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">关联方式</label>
+                                            <div class="layui-input-block">
+                                                {{ form.relation_type }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="layui-form-item" id="calculationConfigBlock">
+                                    <label class="layui-form-label">计算规则</label>
+                                    <div class="layui-input-block">
+                                        {{ form.calculation_type }}
+                                        <div class="layui-form-mid layui-word-aux">可选统计数量、求和、平均值、最大值、最小值、文本拼接、公式计算。</div>
+                                    </div>
+                                </div>
+                                <div class="layui-form-item" id="formulaConfigBlock">
+                                    <label class="layui-form-label">计算公式</label>
+                                    <div class="layui-input-block">
+                                        {% if form.formula_builder_parse_failed %}
+                                        <div class="formula-builder-alert">
+                                            当前已保存的是较复杂公式，已保留“高级公式”原文。你可以继续手动编辑，或使用下方节点重新搭建。
+                                        </div>
+                                        {% endif %}
+                                        <div class="formula-builder" id="formulaBuilder">
+                                            <div id="formulaBuilderRows"></div>
+                                            <div class="formula-builder-toolbar">
+                                                <button type="button" class="layui-btn layui-btn-normal layui-btn-sm" id="addFormulaNodeBtn">
+                                                    <i class="layui-icon layui-icon-add-1"></i> 添加计算节点
+                                                </button>
+                                                <div class="formula-preview" id="formulaPreview">请先配置计算节点</div>
+                                            </div>
+                                            <div class="formula-advanced">
+                                                <label class="layui-form-label" style="width:auto; padding-left:0;">高级公式</label>
+                                                <div style="margin-top: 8px;">
+                                                    {{ form.formula_expression }}
+                                                </div>
+                                                <div class="layui-form-mid layui-word-aux">
+                                                    节点会自动生成公式文本。需要更复杂表达式时，也可直接编辑这里，支持 + - * / () 与字段变量。
+                                                </div>
+                                                {% if form.available_formula_fields %}
+                                                <div class="layui-form-mid layui-word-aux" style="float:none; margin-top: 8px;">
+                                                    可用字段变量：
+                                                    {% for available_field in form.available_formula_fields %}
+                                                        <span class="layui-badge-rim formula-token-chip"
+                                                              data-formula-token="{{ available_field.field_name }}"
+                                                              style="margin-right: 6px; margin-bottom: 6px; cursor: pointer;">{{ '{' }}{{ available_field.field_name }}{{ '}' }}</span>
+                                                    {% endfor %}
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="layui-form-item">
                                 <label class="layui-form-label">字段属性</label>
                                 <div class="layui-input-block">
                                     <input type="checkbox"
@@ -110,7 +238,7 @@
                             <div class="layui-form-item">
                                 <div class="layui-input-block">
                                     <button class="layui-btn" type="submit">保存</button>
-                                    <a href="{% url 'customer:customer_field_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                                    <button type="button" class="layui-btn layui-btn-primary" onclick="closePopupForm()">返回</button>
                                 </div>
                             </div>
                         </form>
@@ -121,11 +249,343 @@
     </div>
 
     <script src="/static/layui/layui.js"></script>
+    {{ form.formula_builder_rows|json_script:"formulaBuilderRowsData" }}
+    {{ form.formula_operator_choices|json_script:"formulaOperatorChoicesData" }}
+    {{ form.available_formula_field_options|json_script:"formulaFieldChoicesData" }}
     <script>
         layui.use(["form"], function () {
             var form = layui.form;
+            var relationSwitch = document.getElementById('id_relation_enabled');
+            var relationConfigBlock = document.getElementById('relationConfigBlock');
+            var relationTypeSelect = document.getElementById('id_relation_type');
+            var calculationConfigBlock = document.getElementById('calculationConfigBlock');
+            var relatedFieldWrapper = document.getElementById('id_related_field');
+            var calculationTypeSelect = document.getElementById('id_calculation_type');
+            var formulaConfigBlock = document.getElementById('formulaConfigBlock');
+            var formulaExpressionField = document.getElementById('id_formula_expression');
+            var formulaBuilderRowsContainer = document.getElementById('formulaBuilderRows');
+            var addFormulaNodeBtn = document.getElementById('addFormulaNodeBtn');
+            var formulaPreview = document.getElementById('formulaPreview');
+            var formulaBuilderRows = JSON.parse(document.getElementById('formulaBuilderRowsData').textContent || '[]');
+            var formulaOperatorChoices = JSON.parse(document.getElementById('formulaOperatorChoicesData').textContent || '[]');
+            var formulaFieldChoices = JSON.parse(document.getElementById('formulaFieldChoicesData').textContent || '[]');
+            var formulaBuilderParseFailed = {% if form.formula_builder_parse_failed %}true{% else %}false{% endif %};
+
+            function buildFormulaFieldOptions(selectedValue) {
+                var options = ['<option value="">请选择字段</option>'];
+                formulaFieldChoices.forEach(function(field) {
+                    var selected = field.field_name === selectedValue ? ' selected' : '';
+                    options.push('<option value="' + field.field_name + '"' + selected + '>' + field.name + '（' + field.field_name + '）</option>');
+                });
+                return options.join('');
+            }
+
+            function buildFormulaOperatorOptions(selectedValue) {
+                return formulaOperatorChoices.map(function(choice) {
+                    var value = choice[0];
+                    var label = choice[1];
+                    var selected = value === selectedValue ? ' selected' : '';
+                    return '<option value="' + value + '"' + selected + '>' + label + ' (' + value + ')</option>';
+                }).join('');
+            }
+
+            function createDefaultFormulaRow(joinOperator) {
+                return {
+                    join_operator: joinOperator || '',
+                    left_type: 'field',
+                    left_field_name: '',
+                    left_value: '',
+                    operator: '*',
+                    right_type: 'field',
+                    right_field_name: '',
+                    right_value: ''
+                };
+            }
+
+            function renderFormulaBuilderRows() {
+                if (!formulaBuilderRowsContainer) return;
+                if (!formulaBuilderRows.length) {
+                    formulaBuilderRows = [createDefaultFormulaRow('')];
+                }
+
+                var html = formulaBuilderRows.map(function(row, index) {
+                    var joinSelector = '';
+                    if (index > 0) {
+                        joinSelector =
+                            '<div class="layui-row layui-col-space12">' +
+                                '<div class="layui-col-md4">' +
+                                    '<label class="layui-form-label" style="width: 100px;">与上节点关系</label>' +
+                                    '<div class="layui-input-block" style="margin-left: 130px;">' +
+                                        '<select class="layui-input formula-join-operator" lay-filter="formulaJoinOperator" data-row-index="' + index + '">' +
+                                            buildFormulaOperatorOptions(row.join_operator || '+') +
+                                        '</select>' +
+                                    '</div>' +
+                                '</div>' +
+                            '</div>';
+                    }
+
+                    return (
+                        '<div class="formula-builder-row" data-row-index="' + index + '">' +
+                            joinSelector +
+                            '<div class="layui-row layui-col-space12">' +
+                                '<div class="layui-col-md3">' +
+                                    '<label class="layui-form-label" style="width: 90px;">左侧来源</label>' +
+                                    '<div class="layui-input-block" style="margin-left: 120px;">' +
+                                        '<select class="layui-input formula-left-type" lay-filter="formulaLeftType" data-row-index="' + index + '">' +
+                                            '<option value="field"' + (row.left_type === 'field' ? ' selected' : '') + '>字段</option>' +
+                                            '<option value="value"' + (row.left_type === 'value' ? ' selected' : '') + '>固定值</option>' +
+                                        '</select>' +
+                                    '</div>' +
+                                '</div>' +
+                                '<div class="layui-col-md3 formula-left-field-wrap" data-row-index="' + index + '" style="' + (row.left_type === 'field' ? '' : 'display:none;') + '">' +
+                                    '<select class="layui-input formula-left-field" lay-filter="formulaLeftField" data-row-index="' + index + '">' +
+                                        buildFormulaFieldOptions(row.left_field_name || '') +
+                                    '</select>' +
+                                '</div>' +
+                                '<div class="layui-col-md3 formula-left-value-wrap" data-row-index="' + index + '" style="' + (row.left_type === 'value' ? '' : 'display:none;') + '">' +
+                                    '<input type="text" class="layui-input formula-left-value" data-row-index="' + index + '" placeholder="请输入固定值" value="' + (row.left_value || '') + '">' +
+                                '</div>' +
+                                '<div class="layui-col-md3">' +
+                                    '<label class="layui-form-label" style="width: 70px;">运算</label>' +
+                                    '<div class="layui-input-block" style="margin-left: 100px;">' +
+                                        '<select class="layui-input formula-node-operator" lay-filter="formulaNodeOperator" data-row-index="' + index + '">' +
+                                            buildFormulaOperatorOptions(row.operator || '*') +
+                                        '</select>' +
+                                    '</div>' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="layui-row layui-col-space12">' +
+                                '<div class="layui-col-md3">' +
+                                    '<label class="layui-form-label" style="width: 90px;">右侧来源</label>' +
+                                    '<div class="layui-input-block" style="margin-left: 120px;">' +
+                                        '<select class="layui-input formula-right-type" lay-filter="formulaRightType" data-row-index="' + index + '">' +
+                                            '<option value="field"' + (row.right_type === 'field' ? ' selected' : '') + '>字段</option>' +
+                                            '<option value="value"' + (row.right_type === 'value' ? ' selected' : '') + '>固定值</option>' +
+                                        '</select>' +
+                                    '</div>' +
+                                '</div>' +
+                                '<div class="layui-col-md3 formula-right-field-wrap" data-row-index="' + index + '" style="' + (row.right_type === 'field' ? '' : 'display:none;') + '">' +
+                                    '<select class="layui-input formula-right-field" lay-filter="formulaRightField" data-row-index="' + index + '">' +
+                                        buildFormulaFieldOptions(row.right_field_name || '') +
+                                    '</select>' +
+                                '</div>' +
+                                '<div class="layui-col-md3 formula-right-value-wrap" data-row-index="' + index + '" style="' + (row.right_type === 'value' ? '' : 'display:none;') + '">' +
+                                    '<input type="text" class="layui-input formula-right-value" data-row-index="' + index + '" placeholder="请输入固定值" value="' + (row.right_value || '') + '">' +
+                                '</div>' +
+                                '<div class="layui-col-md3">' +
+                                    '<button type="button" class="layui-btn layui-btn-primary layui-btn-sm remove-formula-node" data-row-index="' + index + '" style="margin-top: 2px;">删除节点</button>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>'
+                    );
+                }).join('');
+
+                formulaBuilderRowsContainer.innerHTML = html;
+                form.render('select');
+                bindFormulaBuilderEvents();
+                updateFormulaExpressionFromBuilder(false);
+            }
+
+            function getFormulaOperand(row, side) {
+                if (!row) return '';
+                if (row[side + '_type'] === 'value') {
+                    return (row[side + '_value'] || '').trim();
+                }
+                var fieldName = (row[side + '_field_name'] || '').trim();
+                return fieldName ? ('{' + fieldName + '}') : '';
+            }
+
+            function updateFormulaExpressionFromBuilder(forceRewrite) {
+                if (!formulaExpressionField) return;
+                if (formulaBuilderParseFailed && !forceRewrite) {
+                    formulaPreview.textContent = formulaExpressionField.value || '请先配置计算节点';
+                    return;
+                }
+
+                var builtSegments = [];
+                formulaBuilderRows.forEach(function(row, index) {
+                    var leftOperand = getFormulaOperand(row, 'left');
+                    var rightOperand = getFormulaOperand(row, 'right');
+                    var operator = row.operator || '';
+                    if (!leftOperand || !rightOperand || !operator) {
+                        return;
+                    }
+                    var segment = '(' + leftOperand + ' ' + operator + ' ' + rightOperand + ')';
+                    if (index === 0) {
+                        builtSegments.push(segment);
+                        return;
+                    }
+                    builtSegments.push((row.join_operator || '+') + ' ' + segment);
+                });
+
+                var expression = builtSegments.join(' ').trim();
+                formulaExpressionField.value = expression;
+                formulaPreview.textContent = expression || '请先配置计算节点';
+            }
+
+            function syncRowFromInputs(rowIndex) {
+                var row = formulaBuilderRows[rowIndex];
+                if (!row) return;
+
+                var leftType = document.querySelector('.formula-left-type[data-row-index="' + rowIndex + '"]');
+                var leftField = document.querySelector('.formula-left-field[data-row-index="' + rowIndex + '"]');
+                var leftValue = document.querySelector('.formula-left-value[data-row-index="' + rowIndex + '"]');
+                var rightType = document.querySelector('.formula-right-type[data-row-index="' + rowIndex + '"]');
+                var rightField = document.querySelector('.formula-right-field[data-row-index="' + rowIndex + '"]');
+                var rightValue = document.querySelector('.formula-right-value[data-row-index="' + rowIndex + '"]');
+                var nodeOperator = document.querySelector('.formula-node-operator[data-row-index="' + rowIndex + '"]');
+                var joinOperator = document.querySelector('.formula-join-operator[data-row-index="' + rowIndex + '"]');
+
+                row.left_type = leftType ? leftType.value : row.left_type;
+                row.left_field_name = leftField ? leftField.value : row.left_field_name;
+                row.left_value = leftValue ? leftValue.value : row.left_value;
+                row.right_type = rightType ? rightType.value : row.right_type;
+                row.right_field_name = rightField ? rightField.value : row.right_field_name;
+                row.right_value = rightValue ? rightValue.value : row.right_value;
+                row.operator = nodeOperator ? nodeOperator.value : row.operator;
+                if (rowIndex > 0) {
+                    row.join_operator = joinOperator ? joinOperator.value : row.join_operator;
+                }
+            }
+
+            function toggleOperandWrap(rowIndex, side, sourceType) {
+                var fieldWrap = document.querySelector('.formula-' + side + '-field-wrap[data-row-index="' + rowIndex + '"]');
+                var valueWrap = document.querySelector('.formula-' + side + '-value-wrap[data-row-index="' + rowIndex + '"]');
+                if (fieldWrap) {
+                    fieldWrap.style.display = sourceType === 'field' ? '' : 'none';
+                }
+                if (valueWrap) {
+                    valueWrap.style.display = sourceType === 'value' ? '' : 'none';
+                }
+            }
+
+            function bindFormulaBuilderEvents() {
+                formulaBuilderRowsContainer.querySelectorAll('input').forEach(function(element) {
+                    var eventName = 'input';
+                    element.addEventListener(eventName, function() {
+                        var rowIndex = Number(this.getAttribute('data-row-index'));
+                        syncRowFromInputs(rowIndex);
+                        formulaBuilderParseFailed = false;
+                        updateFormulaExpressionFromBuilder(true);
+                    });
+                });
+
+                formulaBuilderRowsContainer.querySelectorAll('.remove-formula-node').forEach(function(button) {
+                    button.addEventListener('click', function() {
+                        if (formulaBuilderRows.length === 1) {
+                            formulaBuilderRows = [createDefaultFormulaRow('')];
+                        } else {
+                            formulaBuilderRows.splice(Number(this.getAttribute('data-row-index')), 1);
+                            if (formulaBuilderRows.length) {
+                                formulaBuilderRows[0].join_operator = '';
+                            }
+                        }
+                        formulaBuilderParseFailed = false;
+                        renderFormulaBuilderRows();
+                    });
+                });
+            }
+
+            function toggleRelationConfig(isEnabled) {
+                if (!relationConfigBlock) return;
+                relationConfigBlock.style.display = isEnabled ? '' : 'none';
+                toggleCalculationConfig(isEnabled && relationTypeSelect && relationTypeSelect.value === 'calculate');
+            }
+
+            function toggleCalculationConfig(isCalculate) {
+                if (!calculationConfigBlock) return;
+                calculationConfigBlock.style.display = isCalculate ? '' : 'none';
+                var isFormula = isCalculate && calculationTypeSelect && calculationTypeSelect.value === 'formula';
+                if (formulaConfigBlock) {
+                    formulaConfigBlock.style.display = isFormula ? '' : 'none';
+                }
+                if (relatedFieldWrapper && relatedFieldWrapper.closest('.layui-form-item')) {
+                    relatedFieldWrapper.closest('.layui-form-item').style.display = isFormula ? 'none' : '';
+                }
+            }
+
             form.render();
+
+            form.on('switch(relationEnabledSwitch)', function (data) {
+                toggleRelationConfig(data.elem.checked);
+            });
+
+            form.on('select(relationTypeSelect)', function (data) {
+                toggleCalculationConfig(relationSwitch && relationSwitch.checked && data.value === 'calculate');
+            });
+
+            form.on('select(calculationTypeSelect)', function () {
+                toggleCalculationConfig(
+                    relationSwitch &&
+                    relationSwitch.checked &&
+                    relationTypeSelect &&
+                    relationTypeSelect.value === 'calculate'
+                );
+            });
+
+            function handleFormulaBuilderSelect(data, side, shouldToggleWrap) {
+                var rowIndex = Number(data.elem.getAttribute('data-row-index'));
+                syncRowFromInputs(rowIndex);
+                if (shouldToggleWrap) {
+                    toggleOperandWrap(rowIndex, side, data.value);
+                }
+                formulaBuilderParseFailed = false;
+                updateFormulaExpressionFromBuilder(true);
+            }
+
+            form.on('select(formulaJoinOperator)', function (data) {
+                handleFormulaBuilderSelect(data);
+            });
+
+            form.on('select(formulaLeftType)', function (data) {
+                handleFormulaBuilderSelect(data, 'left', true);
+            });
+
+            form.on('select(formulaLeftField)', function (data) {
+                handleFormulaBuilderSelect(data);
+            });
+
+            form.on('select(formulaNodeOperator)', function (data) {
+                handleFormulaBuilderSelect(data);
+            });
+
+            form.on('select(formulaRightType)', function (data) {
+                handleFormulaBuilderSelect(data, 'right', true);
+            });
+
+            form.on('select(formulaRightField)', function (data) {
+                handleFormulaBuilderSelect(data);
+            });
+
+            document.querySelectorAll('.formula-token-chip').forEach(function(chip) {
+                chip.addEventListener('click', function() {
+                    if (!formulaExpressionField) return;
+                    var token = '{' + this.getAttribute('data-formula-token') + '}';
+                    var current = formulaExpressionField.value || '';
+                    formulaExpressionField.value = current ? (current + ' ' + token) : token;
+                    formulaExpressionField.focus();
+                    formulaPreview.textContent = formulaExpressionField.value;
+                });
+            });
+
+            if (formulaExpressionField) {
+                formulaExpressionField.addEventListener('input', function() {
+                    formulaPreview.textContent = this.value || '请先配置计算节点';
+                });
+            }
+
+            if (addFormulaNodeBtn) {
+                addFormulaNodeBtn.addEventListener('click', function() {
+                    formulaBuilderRows.push(createDefaultFormulaRow('+'));
+                    formulaBuilderParseFailed = false;
+                    renderFormulaBuilderRows();
+                });
+            }
+
+            renderFormulaBuilderRows();
+            toggleRelationConfig(relationSwitch && relationSwitch.checked);
         });
     </script>
+    {% include "customer/_popup_form_submit.html" with popup_form_id="customerFieldForm" popup_back_url="/customer/field/list/" %}
 </body>
 </html>

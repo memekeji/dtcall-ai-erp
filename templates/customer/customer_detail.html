@@ -67,17 +67,99 @@
             gap: 15px;
         }
         .custom-field-item {
-            background: #f8f8f8;
-            padding: 10px;
-            border-radius: 4px;
+            background: #f8fbff;
+            border: 1px solid #e3ecfb;
+            padding: 14px;
+            border-radius: 6px;
         }
         .custom-field-label {
             font-weight: bold;
             color: #666;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
         .custom-field-value {
             color: #333;
+        }
+        .custom-list-chip-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .custom-list-chip {
+            padding: 0 10px;
+            height: 26px;
+            line-height: 24px;
+            border-radius: 13px;
+            border-color: #cfe0ff;
+            background: #fff;
+            color: #2457a6;
+        }
+        .custom-list-linked-group {
+            counter-reset: custom-linked-row;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .custom-list-linked-row {
+            counter-increment: custom-linked-row;
+            position: relative;
+            border: 1px solid #dbe6f7;
+            border-radius: 8px;
+            background: #fff;
+            padding: 14px 14px 14px 56px;
+            box-shadow: 0 6px 18px rgba(22, 119, 255, 0.06);
+        }
+        .custom-list-linked-row::before {
+            content: counter(custom-linked-row);
+            position: absolute;
+            left: 14px;
+            top: 14px;
+            width: 28px;
+            height: 28px;
+            line-height: 28px;
+            text-align: center;
+            border-radius: 50%;
+            background: rgba(30, 159, 255, 0.12);
+            color: #1677ff;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .custom-list-linked-main {
+            display: inline-flex;
+            align-items: center;
+            min-height: 30px;
+            padding: 0 12px;
+            border-radius: 15px;
+            background: #f3f8ff;
+            border: 1px solid #d9e7ff;
+            font-weight: 600;
+            color: #1f2d3d;
+            margin-bottom: 10px;
+            word-break: break-all;
+        }
+        .custom-list-linked-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 8px;
+        }
+        .custom-list-linked-meta-item {
+            background: #f6f9ff;
+            border: 1px solid #e4edfb;
+            border-radius: 8px;
+            padding: 8px 10px;
+        }
+        .custom-list-linked-meta-label {
+            display: block;
+            color: #6b7a90;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+        .custom-list-linked-meta-value {
+            color: #1f2d3d;
+            word-break: break-all;
         }
         .action-buttons {
             position: fixed;
@@ -168,7 +250,7 @@
                                         </tr>
                                         <tr>
                                             <td><strong>所属行业</strong></td>
-                                            <td>{{ customer.industry_id|default:"未设置" }}</td>
+                                            <td>{{ customer_industry|default:"未设置" }}</td>
                                         </tr>
                                         <tr>
                                             <td><strong>客户等级</strong></td>
@@ -258,10 +340,43 @@
                     </div>
                     <div class="layui-card-body">
                         <div class="custom-field-grid">
-                            {% for field_name, field_value in custom_field_values.items %}
+                            {% for field in custom_field_values %}
                             <div class="custom-field-item">
-                                <div class="custom-field-label">{{ field_name }}</div>
-                                <div class="custom-field-value">{{ field_value|default:"未设置" }}</div>
+                                <div class="custom-field-label">
+                                    <span>{{ field.name }}</span>
+                                    {% if field.field_type == 'list' and field.list_values %}
+                                        <span class="layui-badge layui-bg-blue">{{ field.list_values|length }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="custom-field-value">
+                                    {% if field.field_type == 'list' and field.related_rows %}
+                                        <div class="custom-list-linked-group">
+                                            {% for row in field.related_rows %}
+                                            <div class="custom-list-linked-row">
+                                                <div class="custom-list-linked-main">{{ row.primary_value }}</div>
+                                                {% if row.children %}
+                                                <div class="custom-list-linked-meta">
+                                                    {% for child in row.children %}
+                                                    <div class="custom-list-linked-meta-item">
+                                                        <span class="custom-list-linked-meta-label">{{ child.name }}</span>
+                                                        <span class="custom-list-linked-meta-value">{{ child.value|default:"未设置" }}</span>
+                                                    </div>
+                                                    {% endfor %}
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% elif field.field_type == 'list' and field.list_values %}
+                                        <div class="custom-list-chip-group">
+                                            {% for item in field.list_values %}
+                                                <span class="layui-badge-rim custom-list-chip">{{ item }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        {{ field.value|default:"未设置" }}
+                                    {% endif %}
+                                </div>
                             </div>
                             {% endfor %}
                         </div>

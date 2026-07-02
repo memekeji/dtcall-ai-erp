@@ -36,6 +36,98 @@
             border-radius: 10px;
             font-size: 12px;
         }
+        .custom-list-field {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 14px;
+            border: 1px solid #dce8fb;
+            border-radius: 8px;
+            background: linear-gradient(180deg, #f8fbff 0%, #fdfefe 100%);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+        }
+        .custom-list-rows {
+            counter-reset: custom-list-row;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .custom-list-row {
+            counter-increment: custom-list-row;
+            position: relative;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            padding: 14px 14px 14px 56px;
+            border: 1px solid #dbe6f7;
+            border-radius: 8px;
+            background: #fff;
+            box-shadow: 0 6px 18px rgba(22, 119, 255, 0.06);
+        }
+        .custom-list-row::before {
+            content: counter(custom-list-row);
+            position: absolute;
+            left: 14px;
+            top: 14px;
+            width: 28px;
+            height: 28px;
+            line-height: 28px;
+            text-align: center;
+            border-radius: 50%;
+            background: rgba(30, 159, 255, 0.12);
+            color: #1677ff;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .custom-list-row-main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 10px;
+        }
+        .custom-list-input-group {
+            min-width: 0;
+        }
+        .custom-list-input-label {
+            margin-bottom: 8px;
+            color: #6a7a90;
+            font-size: 12px;
+            line-height: 1;
+            font-weight: 600;
+        }
+        .custom-list-row .layui-input,
+        .custom-list-row .layui-textarea {
+            flex: 1;
+        }
+        .custom-list-actions {
+            display: flex;
+            align-items: flex-end;
+            min-height: 58px;
+        }
+        .custom-list-actions .layui-btn {
+            border-radius: 6px;
+        }
+        .custom-list-toolbar {
+            display: flex;
+            justify-content: flex-end;
+        }
+        .custom-list-toolbar .layui-btn {
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(31, 94, 196, 0.12);
+        }
+        .auto-create-panel {
+            padding: 14px 16px;
+            border: 1px solid #dbe6f7;
+            border-radius: 8px;
+            background: #f8fbff;
+        }
+        .auto-create-panel .layui-form-mid {
+            float: none;
+            margin-bottom: 12px;
+            padding: 0;
+            color: #6a7a90;
+        }
     </style>
 </head>
 <body>
@@ -101,14 +193,6 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="layui-col-md6">
-                                            <div class="layui-form-item">
-                                                <label class="layui-form-label">客户状态</label>
-                                                <div class="layui-input-block">
-                                                    {{ form.customer_status }}
-                                                </div>
-                                            </div>
-                                        </div>
                                     </div>
                                 </div>
                             </fieldset>
@@ -160,6 +244,20 @@
                                     </div>
                                 </div>
                             </fieldset>
+
+                            {% if not object %}
+                            <fieldset class="layui-elem-field">
+                                <legend>自动创建关联信息</legend>
+                                <div class="layui-field-box">
+                                    <div class="auto-create-panel">
+                                        <div class="layui-form-mid">保存客户时，仅在你勾选后自动补建对应业务记录。</div>
+                                        <input type="checkbox" name="auto_create_contract" title="合同">
+                                        <input type="checkbox" name="auto_create_order" title="订单">
+                                        <input type="checkbox" name="auto_create_project" title="项目">
+                                    </div>
+                                </div>
+                            </fieldset>
+                            {% endif %}
                             
                             <!-- 联系人信息 -->
                             <fieldset class="layui-elem-field">
@@ -256,27 +354,133 @@
                                                         {{ field.name }}
                                                     </label>
                                                     <div class="layui-input-block">
-                                                        {% if field.field_type == 'text' %}
+                                                        {% if field.is_calculated %}
+                                                            <div class="calculated-field-preview"
+                                                                 data-calculated-field="{{ field.id }}"
+                                                                 data-related-field="{{ field.related_field_id }}"
+                                                                 data-calculation-type="{{ field.calculation_type }}"
+                                                                 data-formula-expression="{{ field.formula_expression|escapejs }}">
+                                                                <input type="{% if field.field_type == 'number' %}number{% else %}text{% endif %}"
+                                                                       class="layui-input"
+                                                                       value="{{ field.current_value|default:'' }}"
+                                                                       readonly
+                                                                       data-calculated-output="{{ field.id }}"
+                                                                       placeholder="{% if field.calculation_type == 'formula' %}将根据公式自动计算{% elif field.related_field %}将根据{{ field.related_field.name }}自动{{ field.get_calculation_type_display }}{% else %}将自动{{ field.get_calculation_type_display }}{% endif %}">
+                                                                <div class="layui-form-mid layui-word-aux">
+                                                                    {% if field.calculation_type == 'formula' %}
+                                                                        根据公式 {{ field.formula_expression }} 自动计算，保存时同步更新。
+                                                                    {% else %}
+                                                                        根据“{{ field.related_field.name }}”自动{{ field.get_calculation_type_display }}，保存时同步更新。
+                                                                    {% endif %}
+                                                                </div>
+                                                            </div>
+                                                        {% elif field.field_type == 'text' %}
                                                             <input type="text" name="custom_field_{{ field.id }}" 
+                                                                   data-custom-field-id="{{ field.id }}"
+                                                                   data-custom-field-name="{{ field.field_name }}"
                                                                    class="layui-input" placeholder="请输入{{ field.name }}"
                                                                    {% if field.is_required %}required{% endif %}
                                                                    value="{{ field.current_value|default:'' }}">
                                                         {% elif field.field_type == 'number' %}
                                                             <input type="number" name="custom_field_{{ field.id }}" 
+                                                                   data-custom-field-id="{{ field.id }}"
+                                                                   data-custom-field-name="{{ field.field_name }}"
                                                                    class="layui-input" placeholder="请输入{{ field.name }}"
                                                                    {% if field.is_required %}required{% endif %}
                                                                    value="{{ field.current_value|default:'' }}">
                                                         {% elif field.field_type == 'date' %}
                                                             <input type="date" name="custom_field_{{ field.id }}" 
+                                                                   data-custom-field-id="{{ field.id }}"
+                                                                   data-custom-field-name="{{ field.field_name }}"
                                                                    class="layui-input"
                                                                    {% if field.is_required %}required{% endif %}
                                                                    value="{{ field.current_value|default:'' }}">
                                                         {% elif field.field_type == 'textarea' %}
                                                             <textarea name="custom_field_{{ field.id }}" 
+                                                                      data-custom-field-id="{{ field.id }}"
+                                                                      data-custom-field-name="{{ field.field_name }}"
                                                                       class="layui-textarea" placeholder="请输入{{ field.name }}"
                                                                       {% if field.is_required %}required{% endif %}>{{ field.current_value|default:'' }}</textarea>
+                                                        {% elif field.field_type == 'list' %}
+                                                            <div class="custom-list-field" data-list-custom-field="{{ field.id }}" data-field-name="{{ field.name|escapejs }}">
+                                                                <div class="custom-list-rows">
+                                                                    {% if field.bound_children %}
+                                                                        {% for row in field.related_rows %}
+                                                                        <div class="custom-list-row">
+                                                                            <div class="custom-list-row-main">
+                                                                                <div class="custom-list-input-group">
+                                                                                    <div class="custom-list-input-label">{{ field.name }}</div>
+                                                                                    <input type="text" name="custom_field_{{ field.id }}"
+                                                                                           data-custom-field-id="{{ field.id }}"
+                                                                                           data-custom-field-name="{{ field.field_name }}"
+                                                                                           class="layui-input" placeholder="请输入{{ field.name }}"
+                                                                                           value="{{ row.primary_value }}"
+                                                                                           {% if field.is_required and forloop.first %}required{% endif %}>
+                                                                                </div>
+                                                                                {% for child in row.children %}
+                                                                                <div class="custom-list-input-group" data-related-child-field="{{ child.id }}">
+                                                                                    <div class="custom-list-input-label">{{ child.name }}</div>
+                                                                                    <input type="text" name="custom_field_{{ child.id }}"
+                                                                                           data-custom-field-id="{{ child.id }}"
+                                                                                           data-custom-field-name="{{ child.field_name }}"
+                                                                                           class="layui-input" placeholder="请输入{{ child.name }}"
+                                                                                           value="{{ child.value }}"
+                                                                                           {% if child.required and forloop.parentloop.first %}required{% endif %}>
+                                                                                </div>
+                                                                                {% endfor %}
+                                                                            </div>
+                                                                            <div class="custom-list-actions">
+                                                                                <button type="button" class="layui-btn layui-btn-primary layui-btn-sm" onclick="removeCustomListItem(this)">删除</button>
+                                                                            </div>
+                                                                        </div>
+                                                                        {% endfor %}
+                                                                    {% elif field.current_items %}
+                                                                        {% for item in field.current_items %}
+                                                                        <div class="custom-list-row">
+                                                                            <div class="custom-list-row-main">
+                                                                                <div class="custom-list-input-group">
+                                                                                    <div class="custom-list-input-label">{{ field.name }}</div>
+                                                                                    <input type="text" name="custom_field_{{ field.id }}"
+                                                                                           data-custom-field-id="{{ field.id }}"
+                                                                                           data-custom-field-name="{{ field.field_name }}"
+                                                                                           class="layui-input" placeholder="请输入{{ field.name }}"
+                                                                                           value="{{ item }}"
+                                                                                           {% if field.is_required and forloop.first %}required{% endif %}>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div class="custom-list-actions">
+                                                                                <button type="button" class="layui-btn layui-btn-primary layui-btn-sm" onclick="removeCustomListItem(this)">删除</button>
+                                                                            </div>
+                                                                        </div>
+                                                                        {% endfor %}
+                                                                    {% else %}
+                                                                        <div class="custom-list-row">
+                                                                            <div class="custom-list-row-main">
+                                                                                <div class="custom-list-input-group">
+                                                                                    <div class="custom-list-input-label">{{ field.name }}</div>
+                                                                                    <input type="text" name="custom_field_{{ field.id }}"
+                                                                                           data-custom-field-id="{{ field.id }}"
+                                                                                           data-custom-field-name="{{ field.field_name }}"
+                                                                                           class="layui-input" placeholder="请输入{{ field.name }}"
+                                                                                           {% if field.is_required %}required{% endif %}>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div class="custom-list-actions">
+                                                                                <button type="button" class="layui-btn layui-btn-primary layui-btn-sm" onclick="removeCustomListItem(this)">删除</button>
+                                                                            </div>
+                                                                        </div>
+                                                                    {% endif %}
+                                                                </div>
+                                                                <div class="custom-list-toolbar">
+                                                                    <button type="button" class="layui-btn layui-btn-normal layui-btn-sm" onclick="addCustomListItem(this)">
+                                                                        <i class="layui-icon layui-icon-add-1"></i> 添加{{ field.name }}
+                                                                    </button>
+                                                                </div>
+                                                            </div>
                                                         {% elif field.field_type == 'select' %}
                                                             <select name="custom_field_{{ field.id }}" class="layui-input"
+                                                                    data-custom-field-id="{{ field.id }}"
+                                                                    data-custom-field-name="{{ field.field_name }}"
                                                                     {% if field.is_required %}required{% endif %}>
                                                                 <option value="">请选择{{ field.name }}</option>
                                                                 {% for option in field.options_list %}
@@ -288,6 +492,8 @@
                                                             </select>
                                                         {% elif field.field_type == 'datetime' %}
                                                             <input type="datetime-local" name="custom_field_{{ field.id }}" 
+                                                                   data-custom-field-id="{{ field.id }}"
+                                                                   data-custom-field-name="{{ field.field_name }}"
                                                                    class="layui-input"
                                                                    {% if field.is_required %}required{% endif %}
                                                                    value="{{ field.current_value|default:'' }}">
@@ -295,6 +501,8 @@
                                                             <div class="layui-input-block">
                                                                 {% for option in field.options_list %}
                                                                 <input type="radio" name="custom_field_{{ field.id }}" 
+                                                                       data-custom-field-id="{{ field.id }}"
+                                                                       data-custom-field-name="{{ field.field_name }}"
                                                                        value="{{ option }}" title="{{ option }}"
                                                                        {% if option == field.current_value %}checked{% endif %}
                                                                        {% if field.is_required and forloop.first %}required{% endif %}>
@@ -302,10 +510,14 @@
                                                             </div>
                                                         {% elif field.field_type == 'checkbox' %}
                                                             <input type="checkbox" name="custom_field_{{ field.id }}" 
+                                                                   data-custom-field-id="{{ field.id }}"
+                                                                   data-custom-field-name="{{ field.field_name }}"
                                                                    value="1" lay-skin="switch" lay-text="是|否"
                                                                    {% if field.current_value == '1' %}checked{% endif %}>
                                                         {% else %}
                                                             <input type="text" name="custom_field_{{ field.id }}" 
+                                                                   data-custom-field-id="{{ field.id }}"
+                                                                   data-custom-field-name="{{ field.field_name }}"
                                                                    class="layui-input" placeholder="请输入{{ field.name }}"
                                                                    {% if field.is_required %}required{% endif %}
                                                                    value="{{ field.current_value|default:'' }}">
@@ -440,6 +652,159 @@
             }
         }
         // 联系人管理功能 - 简化版实现
+        function addCustomListItem(button) {
+            var container = button.closest('[data-list-custom-field]');
+            if (!container) return;
+            var rowsContainer = container.querySelector('.custom-list-rows');
+            var templateRow = rowsContainer ? rowsContainer.querySelector('.custom-list-row') : null;
+            if (!rowsContainer || !templateRow) return;
+
+            var row = templateRow.cloneNode(true);
+            row.querySelectorAll('input').forEach(function(input) {
+                input.value = '';
+            });
+            rowsContainer.appendChild(row);
+            updateCalculatedCustomFields();
+        }
+
+        function removeCustomListItem(button) {
+            var row = button.closest('.custom-list-row');
+            var container = button.closest('[data-list-custom-field]');
+            if (!row || !container) return;
+
+            var rowsContainer = container.querySelector('.custom-list-rows');
+            var rows = rowsContainer ? rowsContainer.querySelectorAll('.custom-list-row') : [];
+            if (rows.length <= 1) {
+                row.querySelectorAll('input').forEach(function(input) {
+                    input.value = '';
+                });
+                updateCalculatedCustomFields();
+                return;
+            }
+            row.remove();
+            updateCalculatedCustomFields();
+        }
+
+        function getCustomFieldSourceValues(fieldId) {
+            var selector = '[name="custom_field_' + fieldId + '"]';
+            var nodes = Array.prototype.slice.call(document.querySelectorAll(selector));
+            if (!nodes.length) {
+                return [];
+            }
+
+            var firstNode = nodes[0];
+            if (firstNode.type === 'checkbox') {
+                return firstNode.checked ? ['1'] : [];
+            }
+            if (firstNode.type === 'radio') {
+                var checked = nodes.find(function(node) { return node.checked; });
+                return checked && checked.value ? [checked.value.trim()] : [];
+            }
+
+            return nodes
+                .map(function(node) { return (node.value || '').trim(); })
+                .filter(function(value) { return value !== ''; });
+        }
+
+        function formatCalculatedNumber(value) {
+            if (!isFinite(value)) {
+                return '';
+            }
+            if (Math.abs(value - Math.round(value)) < 0.0000001) {
+                return String(Math.round(value));
+            }
+            return String(Number(value.toFixed(6))).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
+        }
+
+        function calculateCustomFieldValue(calculationType, sourceValues) {
+            if (calculationType === 'count') {
+                return String(sourceValues.length);
+            }
+            if (calculationType === 'concat') {
+                return sourceValues.join('、');
+            }
+
+            var numericValues = sourceValues
+                .map(function(value) { return Number(value); })
+                .filter(function(value) { return !Number.isNaN(value); });
+
+            if (!numericValues.length) {
+                return '';
+            }
+
+            if (calculationType === 'sum') {
+                return formatCalculatedNumber(numericValues.reduce(function(sum, value) { return sum + value; }, 0));
+            }
+            if (calculationType === 'avg') {
+                return formatCalculatedNumber(numericValues.reduce(function(sum, value) { return sum + value; }, 0) / numericValues.length);
+            }
+            if (calculationType === 'max') {
+                return formatCalculatedNumber(Math.max.apply(null, numericValues));
+            }
+            if (calculationType === 'min') {
+                return formatCalculatedNumber(Math.min.apply(null, numericValues));
+            }
+            return '';
+        }
+
+        function getCustomFieldFirstNumberByName(fieldName) {
+            if (!fieldName) {
+                return 0;
+            }
+            var fieldInput = document.querySelector('[data-custom-field-name="' + fieldName + '"]');
+            if (!fieldInput) {
+                return 0;
+            }
+            var fieldId = fieldInput.getAttribute('data-custom-field-id');
+            if (!fieldId) {
+                return 0;
+            }
+            var sourceValues = getCustomFieldSourceValues(fieldId);
+            if (!sourceValues.length) {
+                return 0;
+            }
+            var numericValue = Number(sourceValues[0]);
+            return Number.isNaN(numericValue) ? 0 : numericValue;
+        }
+
+        function calculateFormulaFieldValue(expression) {
+            if (!expression) {
+                return '';
+            }
+            var normalizedExpression = expression.replace(/\{([a-zA-Z0-9_]+)\}/g, function(_, fieldName) {
+                return String(getCustomFieldFirstNumberByName(fieldName));
+            });
+            if (!/^[\d\s+\-*/().]+$/.test(normalizedExpression)) {
+                return '';
+            }
+            try {
+                var result = Function('"use strict"; return (' + normalizedExpression + ');')();
+                return formatCalculatedNumber(Number(result));
+            } catch (error) {
+                return '';
+            }
+        }
+
+        function updateCalculatedCustomFields() {
+            document.querySelectorAll('[data-calculated-field]').forEach(function(wrapper) {
+                var relatedFieldId = wrapper.getAttribute('data-related-field');
+                var calculationType = wrapper.getAttribute('data-calculation-type');
+                var formulaExpression = wrapper.getAttribute('data-formula-expression');
+                var output = wrapper.querySelector('[data-calculated-output]');
+                if (!calculationType || !output) {
+                    return;
+                }
+                if (calculationType === 'formula') {
+                    output.value = calculateFormulaFieldValue(formulaExpression);
+                    return;
+                }
+                if (!relatedFieldId) {
+                    return;
+                }
+                var sourceValues = getCustomFieldSourceValues(relatedFieldId);
+                output.value = calculateCustomFieldValue(calculationType, sourceValues);
+            });
+        }
         
         // 在layui加载完成后执行初始化
         layui.use(['form'], function() {
@@ -640,9 +1005,22 @@
             
             // 初始化
             initContactManagement();
+            updateCalculatedCustomFields();
             
             // 加载员工列表
             loadEmployees();
+        });
+
+        document.addEventListener('input', function(event) {
+            if (event.target && event.target.name && event.target.name.indexOf('custom_field_') === 0) {
+                updateCalculatedCustomFields();
+            }
+        });
+
+        document.addEventListener('change', function(event) {
+            if (event.target && event.target.name && event.target.name.indexOf('custom_field_') === 0) {
+                updateCalculatedCustomFields();
+            }
         });
         
         // 加载员工列表

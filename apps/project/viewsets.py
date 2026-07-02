@@ -15,6 +15,11 @@ from django.contrib.auth import get_user_model
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q, Count, Sum
+from django.contrib.contenttypes.models import ContentType
+import json
+from apps.message.models import MessageUserRelation
+
+from .comment_mentions import get_project_comment_candidate_users
 
 User = get_user_model()
 
@@ -303,6 +308,9 @@ class CommentViewSet(viewsets.ModelViewSet):
             object_id = request.data.get('object_id')
             content = request.data.get('content')
             parent_id = request.data.get('parent_id')
+            mentioned_user_ids = self._parse_mentioned_user_ids(
+                request.data.get('mentioned_user_ids')
+            )
 
             if not content_type_id or not object_id or not content:
                 return Response(
@@ -332,6 +340,8 @@ class CommentViewSet(viewsets.ModelViewSet):
             if parent_id:
                 self._send_reply_notification(comment)
 
+            self._send_mention_notifications(comment, mentioned_user_ids)
+
             # 返回创建的评论
             serializer = self.get_serializer(comment)
             return Response(serializer.data, status=201)
@@ -344,10 +354,71 @@ class CommentViewSet(viewsets.ModelViewSet):
             logger.error(f'[CommentError] Traceback: {traceback.format_exc()}')
             return Response({'error': str(e)}, status=400)
 
+    def _parse_mentioned_user_ids(self, raw_user_ids):
+        if raw_user_ids in (None, '', []):
+            return []
+
+        if isinstance(raw_user_ids, str):
+            try:
+                raw_user_ids = json.loads(raw_user_ids)
+            except json.JSONDecodeError:
+                raw_user_ids = [raw_user_ids]
+
+        if not isinstance(raw_user_ids, (list, tuple, set)):
+            raw_user_ids = [raw_user_ids]
+
+        parsed_ids = []
+        for user_id in raw_user_ids:
+            try:
+                parsed_ids.append(int(user_id))
+            except (TypeError, ValueError):
+                continue
+        return parsed_ids
+
+    def _allowed_project_mention_user_ids(self, comment):
+        if comment.content_type.model != 'project':
+            return set()
+
+        project = comment.content_object
+        if not project:
+            return set()
+
+        return set(
+            get_project_comment_candidate_users(project).values_list('id', flat=True)
+        )
+
+    def _send_mention_notifications(self, comment, mentioned_user_ids):
+        allowed_user_ids = self._allowed_project_mention_user_ids(comment)
+        target_user_ids = {
+            user_id for user_id in mentioned_user_ids
+            if user_id in allowed_user_ids and user_id != comment.user_id
+        }
+        if not target_user_ids:
+            return
+
+        from apps.message.services import MessageService
+
+        project = comment.content_object
+        snippet = comment.content[:100]
+        if len(comment.content) > 100:
+            snippet += '...'
+
+        MessageService.send_notification(
+            title='项目评论提及通知',
+            content=f'{comment.user.username}在项目“{project.name}”的评论中提到了你：\n\n"{snippet}"',
+            category_code='comment',
+            user_ids=list(target_user_ids),
+            sender=comment.user,
+            priority=2,
+            related_object_type='comment',
+            related_object_id=comment.id,
+            action_url=f'/project/detail/{project.id}/#comment-{comment.id}',
+        )
+
     def _send_reply_notification(self, comment):
         """发送评论回复通知"""
         try:
-            from apps.message.models import Message, MessageCategory
+            from apps.message.services import MessageService
 
             parent_comment = comment.parent
             if not parent_comment:
@@ -356,25 +427,20 @@ class CommentViewSet(viewsets.ModelViewSet):
             if parent_comment.user == comment.user:
                 return
 
-            category, created = MessageCategory.objects.get_or_create(
-                code='comment',
-                defaults={
-                    'name': '评论回复通知',
-                    'type': 'comment',
-                    'icon': 'layui-icon-reply-fill'
-                }
-            )
+            snippet = parent_comment.content[:100]
+            if len(parent_comment.content) > 100:
+                snippet += '...'
 
-            Message.objects.create(
-                category=category,
-                user=parent_comment.user,
+            MessageService.send_notification(
+                title='评论回复通知',
+                content=f'{comment.user.username}回复了你的评论：\n\n"{snippet}"',
+                category_code='comment',
+                user_ids=[parent_comment.user_id],
                 sender=comment.user,
-                title=f'评论回复通知',
-                content=f'{comment.user.username}回复了你的评论：\n\n"{parent_comment.content[:100]}{"..." if len(parent_comment.content) > 100 else ""}"',
                 priority=2,
                 related_object_type='comment',
                 related_object_id=comment.id,
-                action_url=f'/project/detail/{comment.object_id}/#comment-{comment.id}'
+                action_url=f'/project/detail/{comment.object_id}/#comment-{comment.id}',
             )
         except Exception as e:
             import logging
@@ -454,3 +520,83 @@ class CommentViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Invalid object_id format'}, status=400)
         except Exception as e:
             return Response({'error': str(e)}, status=400)
+
+    @action(detail=False, methods=['get'])
+    def mention_candidates(self, request):
+        content_type_param = request.query_params.get('content_type')
+        object_id = request.query_params.get('object_id')
+
+        if not content_type_param or not object_id:
+            return Response(
+                {'error': 'Missing required parameters: content_type and object_id'},
+                status=400,
+            )
+
+        try:
+            if content_type_param.isdigit():
+                content_type = ContentType.objects.get(id=int(content_type_param))
+            else:
+                content_type = ContentType.objects.get(model=content_type_param.lower())
+
+            if content_type.model != 'project':
+                return Response({'error': 'Mention candidates only support project comments'}, status=400)
+
+            project = Project.objects.get(id=int(object_id), delete_time__isnull=True)
+            users = get_project_comment_candidate_users(project)
+            results = [
+                {
+                    'id': user.id,
+                    'username': user.username,
+                    'name': getattr(user, 'name', '') or '',
+                    'display_name': getattr(user, 'name', '') or user.username,
+                }
+                for user in users
+            ]
+            return Response({'results': results})
+        except ContentType.DoesNotExist:
+            return Response({'error': 'Invalid content_type'}, status=400)
+        except Project.DoesNotExist:
+            return Response({'error': 'Invalid object_id'}, status=404)
+        except ValueError:
+            return Response({'error': 'Invalid object_id format'}, status=400)
+        except Exception as exc:
+            return Response({'error': str(exc)}, status=400)
+
+    @action(detail=False, methods=['get'])
+    def notification_state(self, request):
+        object_id = request.query_params.get('object_id')
+        if not object_id:
+            return Response({'error': 'Missing required parameter: object_id'}, status=400)
+
+        try:
+            project = Project.objects.get(id=int(object_id), delete_time__isnull=True)
+            unread_relations = MessageUserRelation.objects.filter(
+                user=request.user,
+                is_read=False,
+                message__category__code='comment',
+            )
+        except ValueError:
+            return Response({'error': 'Invalid object_id format'}, status=400)
+        except Project.DoesNotExist:
+            return Response({'error': 'Invalid object_id'}, status=404)
+
+        project_prefix = f'/project/detail/{project.id}/'
+        unread_relations = unread_relations.filter(
+            message__action_url__startswith=project_prefix
+        ).select_related('message').order_by('-message__created_at')
+
+        latest_relation = unread_relations.first()
+        latest_payload = None
+        if latest_relation:
+            latest_payload = {
+                'message_id': latest_relation.message_id,
+                'related_object_id': latest_relation.message.related_object_id,
+                'title': latest_relation.message.title,
+                'action_url': latest_relation.message.action_url,
+            }
+
+        return Response({
+            'has_unread': unread_relations.exists(),
+            'unread_count': unread_relations.count(),
+            'latest': latest_payload,
+        })

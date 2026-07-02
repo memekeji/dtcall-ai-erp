@@ -185,9 +185,18 @@ function validateModelConfig(configId) {
                         time: 3000
                     });
                 } else {
-                    layer.msg('❌ 验证失败：' + response.message, {
+                    var details = response.details || {};
+                    var lines = [
+                        response.message || '连接失败',
+                        details.status_code ? ('状态码：' + details.status_code) : null,
+                        details.error_code ? ('错误代码：' + details.error_code) : null,
+                        details.detail ? ('错误详情：' + details.detail) : null,
+                        details.suggestion ? ('处理建议：' + details.suggestion) : null
+                    ].filter(Boolean);
+                    layer.alert(lines.join('<br><br>'), {
                         icon: 2,
-                        time: 5000
+                        title: '模型验证失败',
+                        area: ['620px', 'auto']
                     });
                 }
             },

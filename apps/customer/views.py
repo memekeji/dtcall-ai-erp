@@ -4,6 +4,10 @@ import logging
 import os
 import time
 import uuid
+import ast
+import operator
+import re
+from decimal import Decimal, InvalidOperation
 from datetime import datetime, timedelta
 
 # Django核心导入
@@ -25,6 +29,7 @@ from django.views.generic import (
 # 系统日志导入
 from apps.user.models import SystemLog, SystemConfiguration
 from apps.common.cache_service import SystemCache
+from apps.common.constants import CUSTOMER_INDUSTRY_CHOICES
 from apps.common.services import CommonService
 
 # 本地应用导入
@@ -42,6 +47,357 @@ from .forms import CustomerSourceForm, CustomerGradeForm, CustomerIntentForm
 from .serializers import CustomerFieldSerializer
 
 logger = logging.getLogger(__name__)
+CUSTOMER_FORMULA_TOKEN_PATTERN = re.compile(r'\{([a-zA-Z0-9_]+)\}')
+CUSTOMER_SAFE_FORMULA_OPERATORS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+}
+CUSTOMER_SAFE_UNARY_OPERATORS = {
+    ast.UAdd: lambda value: value,
+    ast.USub: lambda value: -value,
+}
+
+
+def _get_customer_field_options(field):
+    if not field.options:
+        return []
+    return [option.strip() for option in field.options.replace(',', '\n').split('\n') if option.strip()]
+
+
+def _parse_customer_list_field_value(value):
+    if not value:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+
+    text = str(value).strip()
+    if not text:
+        return []
+
+    try:
+        parsed = json.loads(text)
+    except (TypeError, ValueError):
+        parsed = None
+
+    if isinstance(parsed, list):
+        return [str(item).strip() for item in parsed if str(item).strip()]
+
+    return [item.strip() for item in text.replace(',', '\n').split('\n') if item.strip()]
+
+
+def _serialize_customer_list_field_value(values):
+    cleaned_values = [str(value).strip() for value in values if str(value).strip()]
+    return json.dumps(cleaned_values, ensure_ascii=False)
+
+
+def _parse_customer_related_field_value(value):
+    if not value:
+        return []
+
+    if isinstance(value, list):
+        return [
+            {
+                'source': str(item.get('source', '')).strip(),
+                'value': str(item.get('value', '')).strip(),
+            }
+            for item in value
+            if isinstance(item, dict) and str(item.get('source', '')).strip()
+        ]
+
+    try:
+        parsed = json.loads(str(value))
+    except (TypeError, ValueError):
+        return []
+
+    if not isinstance(parsed, list):
+        return []
+
+    normalized_items = []
+    for item in parsed:
+        if not isinstance(item, dict):
+            continue
+        source = str(item.get('source', '')).strip()
+        if not source:
+            continue
+        normalized_items.append({
+            'source': source,
+            'value': str(item.get('value', '')).strip(),
+        })
+    return normalized_items
+
+
+def _serialize_customer_related_field_value(source_values, related_values):
+    normalized_items = []
+    for index, source_value in enumerate(source_values):
+        source_text = str(source_value).strip()
+        if not source_text:
+            continue
+        related_text = ''
+        if index < len(related_values):
+            related_text = str(related_values[index]).strip()
+        normalized_items.append({
+            'source': source_text,
+            'value': related_text,
+        })
+    return json.dumps(normalized_items, ensure_ascii=False)
+
+
+def _format_customer_decimal_value(value):
+    normalized = value.normalize()
+    text = format(normalized, 'f')
+    if '.' in text:
+        text = text.rstrip('0').rstrip('.')
+    return text or '0'
+
+
+def _get_customer_request_field_values(request, field):
+    field_key = f'custom_field_{field.id}'
+    if field.field_type == 'checkbox':
+        return ['1' if request.POST.get(field_key) else '0']
+    if field.field_type == 'list':
+        return [str(item).strip() for item in request.POST.getlist(field_key) if str(item).strip()]
+    value = str(request.POST.get(field_key, '')).strip()
+    return [value] if value else []
+
+
+def _get_customer_request_field_value_map(request):
+    value_map = {}
+    custom_fields = CustomerField.objects.filter(delete_time=0)
+    for field in custom_fields:
+        values = _get_customer_request_field_values(request, field)
+        value_map[field.field_name] = values
+    return value_map
+
+
+def _get_customer_formula_tokens(expression):
+    return CUSTOMER_FORMULA_TOKEN_PATTERN.findall(expression or '')
+
+
+def _safe_customer_decimal_eval(expression):
+    def _eval(node):
+        if isinstance(node, ast.Expression):
+            return _eval(node.body)
+        if isinstance(node, ast.Constant):
+            if isinstance(node.value, (int, float)):
+                return Decimal(str(node.value))
+            raise ValueError('unsupported constant')
+        if isinstance(node, ast.Num):
+            return Decimal(str(node.n))
+        if isinstance(node, ast.BinOp) and type(node.op) in CUSTOMER_SAFE_FORMULA_OPERATORS:
+            left = _eval(node.left)
+            right = _eval(node.right)
+            if type(node.op) is ast.Div and right == 0:
+                return Decimal('0')
+            return CUSTOMER_SAFE_FORMULA_OPERATORS[type(node.op)](left, right)
+        if isinstance(node, ast.UnaryOp) and type(node.op) in CUSTOMER_SAFE_UNARY_OPERATORS:
+            return CUSTOMER_SAFE_UNARY_OPERATORS[type(node.op)](_eval(node.operand))
+        raise ValueError('unsupported expression')
+
+    parsed = ast.parse(expression, mode='eval')
+    return _eval(parsed)
+
+
+def _calculate_customer_formula_value(field, request):
+    expression = (getattr(field, 'formula_expression', '') or '').strip()
+    if not expression:
+        return ''
+
+    value_map = _get_customer_request_field_value_map(request)
+    tokens = _get_customer_formula_tokens(expression)
+    if not tokens:
+        return ''
+
+    token_values = {}
+    for token in tokens:
+        values = value_map.get(token, [])
+        if not values:
+            token_values[token] = Decimal('0')
+            continue
+        try:
+            token_values[token] = Decimal(str(values[0]))
+        except (InvalidOperation, TypeError, ValueError):
+            token_values[token] = Decimal('0')
+
+    normalized_expression = expression
+    for token in sorted(set(tokens), key=len, reverse=True):
+        normalized_expression = normalized_expression.replace(
+            f'{{{token}}}',
+            str(token_values[token]),
+        )
+
+    try:
+        result = _safe_customer_decimal_eval(normalized_expression)
+    except (SyntaxError, ValueError, InvalidOperation, ZeroDivisionError):
+        return ''
+    return _format_customer_decimal_value(result)
+
+
+def _calculate_customer_related_value(field, request):
+    if getattr(field, 'calculation_type', '') == 'formula':
+        return _calculate_customer_formula_value(field, request)
+
+    related_field = getattr(field, 'related_field', None)
+    if not related_field:
+        return ''
+
+    source_values = _get_customer_request_field_values(request, related_field)
+    calculation_type = getattr(field, 'calculation_type', '') or 'count'
+
+    if calculation_type == 'count':
+        return str(len(source_values))
+
+    if calculation_type == 'concat':
+        return '、'.join(source_values)
+
+    numeric_values = []
+    for item in source_values:
+        try:
+            numeric_values.append(Decimal(str(item)))
+        except (InvalidOperation, TypeError, ValueError):
+            continue
+
+    if not numeric_values:
+        return ''
+
+    if calculation_type == 'sum':
+        return _format_customer_decimal_value(sum(numeric_values, Decimal('0')))
+    if calculation_type == 'avg':
+        average = sum(numeric_values, Decimal('0')) / Decimal(len(numeric_values))
+        return _format_customer_decimal_value(average)
+    if calculation_type == 'max':
+        return _format_customer_decimal_value(max(numeric_values))
+    if calculation_type == 'min':
+        return _format_customer_decimal_value(min(numeric_values))
+    return ''
+
+
+def _is_checked_post_flag(request, field_name):
+    value = str(request.POST.get(field_name, '')).strip().lower()
+    return value in {'1', 'true', 'on', 'yes'}
+
+
+def _get_selected_auto_create_targets(request, *targets):
+    return {
+        target for target in targets
+        if _is_checked_post_flag(request, f'auto_create_{target}')
+    }
+
+
+def _get_customer_bound_child_fields(fields):
+    bound_children = {}
+    for field in fields:
+        if not getattr(field, 'relation_enabled', False):
+            continue
+        if getattr(field, 'relation_type', '') != 'bind':
+            continue
+        if not getattr(field, 'related_field_id', None):
+            continue
+        bound_children.setdefault(field.related_field_id, []).append(field)
+    for child_fields in bound_children.values():
+        child_fields.sort(key=lambda item: (item.sort, item.id))
+    return bound_children
+
+
+def _build_customer_related_rows(field, current_values):
+    current_values = current_values or {}
+    primary_items = _parse_customer_list_field_value(current_values.get(field.id, ''))
+    child_value_map = {
+        child.id: _parse_customer_related_field_value(current_values.get(child.id, ''))
+        for child in getattr(field, 'bound_children', [])
+    }
+
+    row_count = len(primary_items)
+    if row_count == 0:
+        row_count = 1
+
+    rows = []
+    for index in range(row_count):
+        row = {
+            'primary_value': primary_items[index] if index < len(primary_items) else '',
+            'children': [],
+        }
+        for child in getattr(field, 'bound_children', []):
+            child_items = child_value_map.get(child.id, [])
+            child_value = ''
+            if index < len(child_items):
+                child_value = child_items[index].get('value', '')
+            row['children'].append({
+                'id': child.id,
+                'name': child.name,
+                'field_name': child.field_name,
+                'value': child_value,
+                'required': child.is_required,
+            })
+        rows.append(row)
+    return rows
+
+
+def _display_customer_custom_field_value(field, value):
+    if field.field_type == 'checkbox':
+        return '是' if value == '1' else '否'
+    if getattr(field, 'relation_enabled', False) and getattr(field, 'relation_type', '') == 'bind':
+        return '、'.join(
+            item.get('value', '')
+            for item in _parse_customer_related_field_value(value)
+            if item.get('value', '')
+        )
+    if getattr(field, 'relation_enabled', False) and getattr(field, 'relation_type', '') == 'calculate':
+        if getattr(field, 'calculation_type', '') == 'concat':
+            return value or ''
+        return value or ''
+    if field.field_type == 'list':
+        return '、'.join(_parse_customer_list_field_value(value))
+    return value or ''
+
+
+def _prepare_customer_custom_fields(custom_fields, current_values=None):
+    current_values = current_values or {}
+    field_list = list(custom_fields)
+    bound_children = _get_customer_bound_child_fields(field_list)
+    prepared_fields = []
+
+    for field in field_list:
+        field.options_list = _get_customer_field_options(field)
+        field.current_value = current_values.get(field.id, '')
+        field.current_items = _parse_customer_list_field_value(field.current_value)
+        field.bound_children = bound_children.get(field.id, [])
+        field.related_rows = _build_customer_related_rows(field, current_values) if field.bound_children else []
+        field.formula_expression = getattr(field, 'formula_expression', '') or ''
+        field.formula_tokens = _get_customer_formula_tokens(field.formula_expression)
+        field.is_calculated = bool(
+            getattr(field, 'relation_enabled', False) and
+            getattr(field, 'relation_type', '') == 'calculate' and (
+                getattr(field, 'related_field_id', None) or field.formula_expression
+            )
+        )
+        field.is_bound_child = bool(
+            getattr(field, 'relation_enabled', False) and
+            getattr(field, 'relation_type', '') == 'bind' and
+            getattr(field, 'related_field_id', None)
+        )
+        if field.is_bound_child:
+            continue
+        prepared_fields.append(field)
+    return prepared_fields
+
+
+def _get_customer_custom_field_post_value(request, field):
+    field_key = f'custom_field_{field.id}'
+    if field.field_type == 'checkbox':
+        return '1' if request.POST.get(field_key) else '0'
+    if getattr(field, 'relation_enabled', False) and getattr(field, 'relation_type', '') == 'bind' and field.related_field_id:
+        source_values = request.POST.getlist(f'custom_field_{field.related_field_id}')
+        related_values = request.POST.getlist(field_key)
+        return _serialize_customer_related_field_value(source_values, related_values)
+    if getattr(field, 'relation_enabled', False) and getattr(field, 'relation_type', '') == 'calculate':
+        return _calculate_customer_related_value(field, request)
+    if field.field_type == 'list':
+        return _serialize_customer_list_field_value(request.POST.getlist(field_key))
+    if getattr(field, 'relation_enabled', False) and getattr(field, 'relation_type', '') == 'copy' and field.related_field_id:
+        return request.POST.get(f'custom_field_{field.related_field_id}', '')
+    return request.POST.get(field_key, '')
 
 
 class CustomerListView(LoginRequiredMixin, ListView):
@@ -338,7 +694,10 @@ class CustomerListDataView(LoginRequiredMixin, View):
                 
                 # 添加自定义字段值
                 for cfv in item.custom_field_values:
-                    item_data[f'custom_{cfv.field.id}'] = cfv.value
+                    item_data[f'custom_{cfv.field.id}'] = _display_customer_custom_field_value(
+                        cfv.field,
+                        cfv.value,
+                    )
                 
                 items.append(item_data)
 
@@ -369,15 +728,9 @@ class CustomerCreateView(LoginRequiredMixin, CreateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # 获取启用的自定义字段
-        custom_fields = CustomerField.objects.filter(status=True, delete_time=0).order_by('sort')
+        custom_fields = CustomerField.objects.filter(status=True, delete_time=0).select_related('related_field').order_by('sort', 'id')
         
-        # 为每个字段添加选项列表和当前值
-        for field in custom_fields:
-            if field.options:
-                field.options_list = [opt.strip() for opt in field.options.split('\n') if opt.strip()]
-            else:
-                field.options_list = []
-            field.current_value = ''
+        _prepare_customer_custom_fields(custom_fields)
         
         context['custom_fields'] = custom_fields
         
@@ -438,12 +791,22 @@ class CustomerCreateView(LoginRequiredMixin, CreateView):
             # 处理自定义字段
             self.save_custom_fields()
             
-            # 需求案例1：创建客户后自动生成待签约合同、待确认订单、待收款、待开票、项目
-            try:
-                self._auto_generate_related_records(self.object, self.request.user)
-            except Exception as auto_gen_error:
-                # 记录错误但不影响客户创建
-                logger.error(f"自动生成相关记录失败: {str(auto_gen_error)}")
+            selected_targets = _get_selected_auto_create_targets(
+                self.request,
+                'contract',
+                'order',
+                'project',
+            )
+            if selected_targets:
+                try:
+                    self._auto_generate_related_records(
+                        self.object,
+                        self.request.user,
+                        selected_targets,
+                    )
+                except Exception as auto_gen_error:
+                    # 记录错误但不影响客户创建
+                    logger.error(f"自动生成相关记录失败: {str(auto_gen_error)}")
             
             # 添加操作日志
             SystemLog.objects.create(
@@ -461,112 +824,81 @@ class CustomerCreateView(LoginRequiredMixin, CreateView):
         from django.urls import reverse
         return HttpResponseRedirect(reverse('customer:customer_list'))
     
-    def _auto_generate_related_records(self, customer, user):
+    def _auto_generate_related_records(self, customer, user, selected_targets):
         """
-        自动生成与客户相关的记录：待签约合同、待确认订单、待收款、待开票、项目
+        根据用户勾选结果生成与客户相关的记录：合同、订单、项目
         """
         import time
         
-        # 1. 生成待签约合同记录（CustomerContract）
-        try:
-            from apps.customer.models import CustomerContract
-            # 创建待签约合同记录
-            contract_record = CustomerContract.objects.create(
-                customer_id=customer.id,
-                name=f"{customer.name}合同",
-                contract_number=f"CONT-CUST-{customer.id}-{int(time.time())}",
-                amount=0,  # 客户创建时金额为0，后续填写
-                sign_date=timezone.now().date(),  # 使用当前日期作为签约日期
-                end_date=None,  # 待签约，未设置结束日期
-                status='pending',  # 待签约状态
-                create_user_id=user.id,
-                auto_generated=True  # 标记为自动生成
-            )
-        except Exception as e:
-            logger.error(f"创建CustomerContract记录失败: {e}")
-        
-        # 2. 生成Contract记录（销售合同）
-        try:
-            from apps.contract.models import Contract
-            # 创建Contract记录
-            contract = Contract.objects.create(
-                customer_id=customer.id,
-                customer=customer.name,
-                code=f"CONTRACT-{customer.id}-{int(time.time())}",
-                name=f"{customer.name}销售合同",
-                cate_id=1,  # 默认分类ID
-                types=1,  # 普通合同
-                admin_id=user.id,
-                prepared_uid=user.id,
-                cost=0.00,  # 客户创建时金额为0，后续填写
-                check_status=0,  # 待审核状态
-                delete_time=0,  # 未删除
-                auto_generated=True  # 标记为自动生成
-            )
-        except Exception as e:
-            logger.error(f"创建Contract记录失败: {e}")
-        
-        # 2. 生成待确认订单记录
-        try:
-            from apps.customer.models import CustomerOrder
-            # 创建客户订单记录（待确认）
-            order_record = CustomerOrder.objects.create(
-                customer_id=customer.id,
-                order_number=f"ORD-CUST-{customer.id}-{int(time.time())}",
-                product_name=f"{customer.name}相关产品",
-                amount=0,  # 客户创建时金额为0，后续填写
-                order_date=timezone.now().date(),
-                status='pending',  # 待处理状态
-                description=f"客户{customer.name}相关订单",
-                create_user_id=user.id,
-                auto_generated=True  # 标记为自动生成
-            )
-        except Exception as e:
-            logger.error(f"创建客户订单记录失败: {e}")
-        
-        # 3. 生成项目记录（因为发票记录需要项目ID）
-        project_record = None
-        try:
-            from apps.project.models import Project
-            # 创建项目记录
-            project_record = Project.objects.create(
-                customer_id=customer.id,
-                name=f"{customer.name}项目",
-                code=f"PROJ-CUST-{customer.id}-{int(time.time())}",
-                budget=0,  # 客户创建时预算为0，后续填写
-                start_date=None,  # 待开始，未设置开始日期
-                end_date=None,  # 待结束，未设置结束日期
-                status=1,  # 未开始状态
-                creator=user,
-                auto_generated=True  # 标记为自动生成
-            )
-        except Exception as e:
-            logger.error(f"创建项目记录失败: {e}")
-        
-        # 4. 生成待收款记录（需要项目ID）
-        try:
-            from apps.finance.models import Invoice
-            # 创建发票记录（待收款）- 确保提供项目ID
-            invoice_data = {
-                'code': f"INV-CUST-{customer.id}-{int(time.time())}",
-                'customer_id': customer.id,
-                'amount': 0,  # 客户创建时金额为0，后续填写
-                'admin_id': user.id,
-                'did': 1,  # 默认部门ID
-                'open_status': 0,  # 未开票状态
-                'enter_status': 0,  # 未回款状态
-                'invoice_title': "",  # 留空，后续填写
-                'invoice_tax': "",  # 留空，后续填写
-                'create_time': int(time.time())
-            }
-            
-            # 如果项目记录创建成功，添加项目ID
-            if project_record and hasattr(project_record, 'id'):
-                invoice_data['project_id'] = project_record.id
-            
-            Invoice.objects.create(**invoice_data)
-        except Exception as e:
-            logger.error(f"创建发票记录失败: {e}")
+        if 'contract' in selected_targets:
+            try:
+                from apps.customer.models import CustomerContract
+                CustomerContract.objects.create(
+                    customer_id=customer.id,
+                    name=f"{customer.name}合同",
+                    contract_number=f"CONT-CUST-{customer.id}-{int(time.time())}",
+                    amount=0,
+                    sign_date=timezone.now().date(),
+                    end_date=None,
+                    status='pending',
+                    create_user_id=user.id,
+                    auto_generated=True,
+                )
+            except Exception as e:
+                logger.error(f"创建CustomerContract记录失败: {e}")
+
+            try:
+                from apps.contract.models import Contract
+                Contract.objects.create(
+                    customer_id=customer.id,
+                    customer=customer.name,
+                    code=f"CONTRACT-{customer.id}-{int(time.time())}",
+                    name=f"{customer.name}销售合同",
+                    cate_id=1,
+                    types=1,
+                    admin_id=user.id,
+                    prepared_uid=user.id,
+                    cost=0.00,
+                    check_status=0,
+                    delete_time=0,
+                    auto_generated=True,
+                )
+            except Exception as e:
+                logger.error(f"创建Contract记录失败: {e}")
+
+        if 'order' in selected_targets:
+            try:
+                from apps.customer.models import CustomerOrder
+                CustomerOrder.objects.create(
+                    customer_id=customer.id,
+                    order_number=f"ORD-CUST-{customer.id}-{int(time.time())}",
+                    product_name=f"{customer.name}相关产品",
+                    amount=0,
+                    order_date=timezone.now().date(),
+                    status='pending',
+                    description=f"客户{customer.name}相关订单",
+                    create_user_id=user.id,
+                    auto_generated=True,
+                )
+            except Exception as e:
+                logger.error(f"创建客户订单记录失败: {e}")
+
+        if 'project' in selected_targets:
+            try:
+                from apps.project.models import Project
+                Project.objects.create(
+                    customer_id=customer.id,
+                    name=f"{customer.name}项目",
+                    code=f"PROJ-CUST-{customer.id}-{int(time.time())}",
+                    budget=0,
+                    start_date=None,
+                    end_date=None,
+                    status=1,
+                    creator=user,
+                    auto_generated=True,
+                )
+            except Exception as e:
+                logger.error(f"创建项目记录失败: {e}")
     
     def form_invalid(self, form):
         messages.error(self.request, '表单验证失败，请检查输入信息')
@@ -574,14 +906,10 @@ class CustomerCreateView(LoginRequiredMixin, CreateView):
     
     def save_custom_fields(self):
         """保存自定义字段值"""
-        custom_fields = CustomerField.objects.filter(status=True, delete_time=0)
+        custom_fields = CustomerField.objects.filter(status=True, delete_time=0).select_related('related_field').order_by('sort', 'id')
         
         for field in custom_fields:
-            field_key = f'custom_field_{field.id}'
-            field_value = self.request.POST.get(field_key, '')
-            
-            if field.field_type == 'checkbox':
-                field_value = '1' if field_value else '0'
+            field_value = _get_customer_custom_field_post_value(self.request, field)
             
             # 创建或更新字段值
             CustomerCustomFieldValue.objects.update_or_create(
@@ -620,20 +948,14 @@ class CustomerUpdateView(LoginRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # 获取启用的自定义字段
-        custom_fields = CustomerField.objects.filter(status=True, delete_time=0).order_by('sort')
+        custom_fields = CustomerField.objects.filter(status=True, delete_time=0).select_related('related_field').order_by('sort', 'id')
         
         # 获取当前客户的自定义字段值
         current_values = {}
         for cfv in CustomerCustomFieldValue.objects.filter(customer=self.object):
             current_values[cfv.field_id] = cfv.value
         
-        # 为每个字段添加选项列表和当前值
-        for field in custom_fields:
-            if field.options:
-                field.options_list = [opt.strip() for opt in field.options.split('\n') if opt.strip()]
-            else:
-                field.options_list = []
-            field.current_value = current_values.get(field.id, '')
+        _prepare_customer_custom_fields(custom_fields, current_values)
         
         context['custom_fields'] = custom_fields
         
@@ -712,14 +1034,10 @@ class CustomerUpdateView(LoginRequiredMixin, UpdateView):
     
     def save_custom_fields(self):
         """保存自定义字段值"""
-        custom_fields = CustomerField.objects.filter(status=True, delete_time=0)
+        custom_fields = CustomerField.objects.filter(status=True, delete_time=0).select_related('related_field').order_by('sort', 'id')
         
         for field in custom_fields:
-            field_key = f'custom_field_{field.id}'
-            field_value = self.request.POST.get(field_key, '')
-            
-            if field.field_type == 'checkbox':
-                field_value = '1' if field_value else '0'
+            field_value = _get_customer_custom_field_post_value(self.request, field)
             
             # 创建或更新字段值
             CustomerCustomFieldValue.objects.update_or_create(
@@ -758,10 +1076,31 @@ class CustomerDetailView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
-        # 获取客户的自定义字段值
-        custom_field_values = {}
-        for cfv in CustomerCustomFieldValue.objects.filter(customer=self.object).select_related('field'):
-            custom_field_values[cfv.field.name] = cfv.value
+        current_values = {
+            cfv.field_id: cfv.value
+            for cfv in CustomerCustomFieldValue.objects.filter(customer=self.object).select_related('field')
+        }
+        custom_field_values = []
+        custom_fields = _prepare_customer_custom_fields(
+            CustomerField.objects.filter(status=True, delete_time=0).select_related('related_field').order_by('sort', 'id'),
+            current_values,
+        )
+        for field in custom_fields:
+            raw_value = current_values.get(field.id, '')
+            list_values = _parse_customer_list_field_value(raw_value) if field.field_type == 'list' else []
+            related_rows = [
+                row for row in getattr(field, 'related_rows', [])
+                if row.get('primary_value') or any(child.get('value') for child in row.get('children', []))
+            ]
+            custom_field_values.append({
+                'id': field.id,
+                'name': field.name,
+                'field_type': field.field_type,
+                'value': _display_customer_custom_field_value(field, raw_value),
+                'list_values': list_values,
+                'related_rows': related_rows,
+                'bound_children': getattr(field, 'bound_children', []),
+            })
         
         # 获取基础数据映射
         try:
@@ -773,6 +1112,7 @@ class CustomerDetailView(LoginRequiredMixin, DetailView):
         
         context['custom_field_values'] = custom_field_values
         context['customer_grade'] = customer_grade
+        context['customer_industry'] = CUSTOMER_INDUSTRY_CHOICES.get(self.object.industry_id, '未设置')
         context['customer_intent'] = customer_intent
         context['contacts'] = self.object.contacts.all()
         context['follow_records'] = self.object.follow_records.all()[:10]  # 最近10条跟进记录
@@ -1950,12 +2290,17 @@ class CustomerOrderCreateView(LoginRequiredMixin, View):
                             value=value
                         )
             
-            # 需求案例3：创建订单后自动生成待签约合同、待收款、待开票、项目
-            try:
-                self._auto_generate_related_records(order, request.user)
-            except Exception as auto_gen_error:
-                # 记录错误但不影响订单创建
-                logger.error(f"自动生成相关记录失败: {str(auto_gen_error)}")
+            selected_targets = _get_selected_auto_create_targets(
+                request,
+                'contract',
+                'project',
+            )
+            if selected_targets:
+                try:
+                    self._auto_generate_related_records(order, request.user, selected_targets)
+                except Exception as auto_gen_error:
+                    # 记录错误但不影响订单创建
+                    logger.error(f"自动生成相关记录失败: {str(auto_gen_error)}")
             
             return JsonResponse({'status': 'success', 'message': '订单添加成功'}, json_dumps_params={'ensure_ascii': False})
             
@@ -1965,69 +2310,47 @@ class CustomerOrderCreateView(LoginRequiredMixin, View):
             logger.error(f"创建客户订单失败: {str(e)}")
             return JsonResponse({'status': 'error', 'message': f'添加失败: {str(e)}'}, json_dumps_params={'ensure_ascii': False})
     
-    def _auto_generate_related_records(self, order, user):
+    def _auto_generate_related_records(self, order, user, selected_targets):
         """
-        自动生成与订单相关的记录：待签约合同、待收款、待开票、项目
+        根据用户勾选结果生成与订单相关的记录：合同、项目
         """
         import time
         
-        # 1. 生成待签约合同记录
-        try:
-            from apps.customer.models import CustomerContract
-            # 创建待签约合同记录
-            contract_record = CustomerContract.objects.create(
-                customer_id=order.customer_id,
-                name=f"{order.product_name}合同",
-                contract_number=f"CONT-ORD-{order.order_number}-{int(time.time())}",
-                amount=order.amount,
-                sign_date=order.order_date if order.order_date else None,
-                end_date=None,  # 待签约，未设置结束日期
-                status='pending',  # 待签约状态
-                create_user_id=user.id,
-                auto_generated=True  # 标记为自动生成
-            )
-        except Exception as e:
-            logger.error(f"创建合同记录失败: {e}")
-        
-        # 2. 生成项目记录
-        try:
-            from apps.project.models import Project
-            # 创建项目记录
-            project_record = Project.objects.create(
-                name=order.product_name,
-                code=f"PROJ-ORD-{order.order_number}-{int(time.time())}",
-                description=f"订单项目：{order.product_name}",
-                customer_id=order.customer_id,
-                contract_id=0,  # 待签约，暂不关联合同
-                budget=order.amount,
-                status=1,  # 未开始状态
-                priority=2,  # 中等优先级
-                progress=0,  # 0%进度
-                creator=user,
-                auto_generated=True  # 标记为自动生成
-            )
-        except Exception as e:
-            logger.error(f"创建项目记录失败: {e}")
-        
-        # 3. 生成待收款记录
-        try:
-            from apps.finance.models import Invoice as FinanceInvoice
-            invoice_data = {
-                'code': f"INV-ORD-{order.order_number}-{int(time.time())}",
-                'customer_id': order.customer_id,
-                'amount': order.amount,
-                'applicant': user,
-                'invoice_title': "",
-                'invoice_status': 'draft',
-                'enter_status': 0,
-                'auto_generated': True
-            }
-            if 'project_record' in locals() and project_record:
-                invoice_data['project_id'] = project_record.id
-            
-            invoice_record = FinanceInvoice.objects.create(**invoice_data)
-        except Exception as e:
-            logger.error(f"创建发票记录失败: {e}")
+        if 'contract' in selected_targets:
+            try:
+                from apps.customer.models import CustomerContract
+                CustomerContract.objects.create(
+                    customer_id=order.customer_id,
+                    name=f"{order.product_name}合同",
+                    contract_number=f"CONT-ORD-{order.order_number}-{int(time.time())}",
+                    amount=order.amount,
+                    sign_date=order.order_date if order.order_date else None,
+                    end_date=None,
+                    status='pending',
+                    create_user_id=user.id,
+                    auto_generated=True,
+                )
+            except Exception as e:
+                logger.error(f"创建合同记录失败: {e}")
+
+        if 'project' in selected_targets:
+            try:
+                from apps.project.models import Project
+                Project.objects.create(
+                    name=order.product_name,
+                    code=f"PROJ-ORD-{order.order_number}-{int(time.time())}",
+                    description=f"订单项目：{order.product_name}",
+                    customer_id=order.customer_id,
+                    contract=None,
+                    budget=order.amount,
+                    status=1,
+                    priority=2,
+                    progress=0,
+                    creator=user,
+                    auto_generated=True,
+                )
+            except Exception as e:
+                logger.error(f"创建项目记录失败: {e}")
 
 class CustomerOrderUpdateView(LoginRequiredMixin, UpdateView):
     """编辑客户订单视图"""
@@ -5254,7 +5577,7 @@ def customer_grade_form(request, pk=None):
         CustomerGrade,
         CustomerGradeForm,
         'customer/customer_grade_form.html',
-        'basedata:customer_grade_list',
+        'customer:customer_grade_list',
         pk
     )
 
@@ -5339,7 +5662,7 @@ def customer_intent_form(request, pk=None):
         CustomerIntent,
         CustomerIntentForm,
         'customer/customer_intent_form.html',
-        'basedata:customer_intent_list',
+        'customer:customer_intent_list',
         pk
     )
 
@@ -5456,7 +5779,7 @@ def customer_field_form(request, pk=None):
         CustomerField,
         CustomerFieldForm,
         'customer/customer_field_form.html',
-        'basedata:customer_field_list',
+        'customer:customer_field_list',
         pk
     )
 
@@ -5468,7 +5791,7 @@ def customer_field_list_data(request):
         page = int(request.GET.get('page', 1))
         limit = CommonService.get_page_size(request, 20)
         
-        queryset = CustomerField.objects.filter(delete_time=0)
+        queryset = CustomerField.objects.filter(delete_time=0).select_related('related_field')
         
         if search:
             queryset = queryset.filter(Q(name__icontains=search) | Q(field_name__icontains=search))
@@ -5488,6 +5811,13 @@ def customer_field_list_data(request):
                 'field_type_display': obj.get_field_type_display(),
                 'is_required': obj.is_required,
                 'is_unique': obj.is_unique,
+                'relation_enabled': obj.relation_enabled,
+                'related_field_name': obj.related_field.name if obj.related_field else '',
+                'relation_type': obj.relation_type,
+                'relation_type_display': obj.get_relation_type_display() if obj.relation_enabled else '',
+                'calculation_type': obj.calculation_type,
+                'calculation_type_display': obj.get_calculation_type_display() if getattr(obj, 'calculation_type', '') else '',
+                'formula_expression': getattr(obj, 'formula_expression', '') or '',
                 'is_list_display': obj.is_list_display,
                 'sort': obj.sort,
                 'status': obj.status,
@@ -5536,7 +5866,11 @@ def follow_field_list(request):
         request,
         FollowField,
         'customer/follow_field_list.html',
-        search_fields=['name', 'field_name']
+        search_fields=['name', 'field_name'],
+        list_url=reverse_lazy('customer:follow_field_list_data'),
+        add_url=reverse_lazy('customer:follow_field_form'),
+        edit_url='/customer/follow/field/form/{id}/',
+        delete_url='/customer/follow/field/delete/{id}/',
     )
 
 
@@ -5558,7 +5892,11 @@ def order_field_list(request):
         request,
         OrderField,
         'customer/order_field_list.html',
-        search_fields=['name', 'field_name']
+        search_fields=['name', 'field_name'],
+        list_url=reverse_lazy('customer:order_field_list_data'),
+        add_url=reverse_lazy('customer:order_field_form'),
+        edit_url='/customer/order/field/form/{id}/',
+        delete_url='/customer/order/field/delete/{id}/',
     )
 
 

@@ -572,7 +572,7 @@
             {% if custom_fields %}
                 var customFieldsData = [{% for field in custom_fields %}{
                     id: {{ field.id|default:0 }},
-                    title: '{{ field.title|escapejs }}',
+                    title: '{{ field.name|escapejs }}',
                     name: '{{ field.name|escapejs }}',
                     width: {{ field.width|default:120 }}
                 }{% if not forloop.last %},{% endif %}{% endfor %}];

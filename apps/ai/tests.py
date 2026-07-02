@@ -1,5 +1,5 @@
 import json
-from datetime import timedelta
+from datetime import date, timedelta
 from dataclasses import asdict
 from decimal import Decimal
 from pathlib import Path
@@ -620,6 +620,401 @@ class AIIntentCoverageTests(SimpleTestCase):
         self.assertEqual(result['action'], 'list')
         self.assertEqual(result['data_type'], 'approval_task')
 
+    def test_safe_fallback_marks_configured_service_failure(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        classifier.ai_config = {
+            'provider': 'openai',
+            'model_name': 'gpt-5.4',
+        }
+
+        result = classifier._safe_fallback_result('帮我查询今天待审批的流程', 'AI 模型暂时不可用')
+
+        self.assertFalse(result['ai_available'])
+        self.assertTrue(result['ai_configured'])
+        self.assertEqual(result['failure_reason'], 'AI 模型暂时不可用')
+        self.assertEqual(result['model_provider'], 'openai')
+        self.assertEqual(result['model_name'], 'gpt-5.4')
+
+    def test_parse_ai_response_accepts_json_wrapped_in_text(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        response = '''好的，结果如下：
+```json
+{"intent":"DATA_QUERY","confidence":0.91,"action":"count","data_type":"finance","entities":{},"time_range":"this_month","status":null,"customer_name":null,"requires_confirmation":false,"reasoning":"识别为本月成交金额统计"}
+```
+'''
+
+        result = classifier._parse_ai_response(response, '本月成交金额')
+
+        self.assertEqual(result['intent'], 'DATA_QUERY')
+        self.assertEqual(result['action'], 'count')
+        self.assertEqual(result['data_type'], 'finance')
+
+    def test_normalize_ai_result_keeps_finance_invoice_subtype(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._normalize_ai_result({
+            'intent': 'DATA_QUERY',
+            'confidence': 0.91,
+            'action': 'list',
+            'data_type': 'finance_invoice',
+            'entities': {},
+            'time_range': None,
+            'status': 'unissued',
+            'customer_name': None,
+            'requires_confirmation': False,
+            'reasoning': '识别为发票列表',
+        }, '未开票的发票有哪些')
+
+        self.assertEqual(result['data_type'], 'finance_invoice')
+        self.assertEqual(result['status'], 'unissued')
+
+    def test_normalize_ai_result_keeps_production_task_subtype(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._normalize_ai_result({
+            'intent': 'DATA_QUERY',
+            'confidence': 0.88,
+            'action': 'list',
+            'data_type': 'production_task',
+            'entities': {},
+            'time_range': None,
+            'status': None,
+            'customer_name': None,
+            'requires_confirmation': False,
+            'reasoning': '识别为生产任务列表',
+        }, '查询生产任务')
+
+        self.assertEqual(result['data_type'], 'production_task')
+
+    def test_normalize_ai_result_keeps_warehouse_subtype(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._normalize_ai_result({
+            'intent': 'DATA_QUERY',
+            'confidence': 0.84,
+            'action': 'list',
+            'data_type': 'warehouse',
+            'entities': {},
+            'time_range': None,
+            'status': None,
+            'customer_name': None,
+            'requires_confirmation': False,
+            'reasoning': '识别为仓库列表',
+        }, '看看仓库列表')
+
+        self.assertEqual(result['data_type'], 'warehouse')
+
+    def test_normalize_ai_result_keeps_contact_subtype(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._normalize_ai_result({
+            'intent': 'DATA_QUERY',
+            'confidence': 0.82,
+            'action': 'list',
+            'data_type': 'contact',
+            'entities': {},
+            'time_range': None,
+            'status': None,
+            'customer_name': None,
+            'requires_confirmation': False,
+            'reasoning': '识别为联系人列表',
+        }, '查一下联系人')
+
+        self.assertEqual(result['data_type'], 'contact')
+
+    def test_normalize_ai_result_keeps_enterprise_subtype(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._normalize_ai_result({
+            'intent': 'DATA_QUERY',
+            'confidence': 0.82,
+            'action': 'list',
+            'data_type': 'enterprise',
+            'entities': {},
+            'time_range': None,
+            'status': None,
+            'customer_name': None,
+            'requires_confirmation': False,
+            'reasoning': '识别为企业列表',
+        }, '查看企业信息')
+
+        self.assertEqual(result['data_type'], 'enterprise')
+
+    def test_normalize_ai_result_keeps_position_subtype(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._normalize_ai_result({
+            'intent': 'DATA_QUERY',
+            'confidence': 0.82,
+            'action': 'list',
+            'data_type': 'position',
+            'entities': {},
+            'time_range': None,
+            'status': None,
+            'customer_name': None,
+            'requires_confirmation': False,
+            'reasoning': '识别为岗位列表',
+        }, '查看岗位信息')
+
+        self.assertEqual(result['data_type'], 'position')
+
+    def test_normalize_ai_result_keeps_work_record_subtype(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._normalize_ai_result({
+            'intent': 'DATA_QUERY',
+            'confidence': 0.82,
+            'action': 'list',
+            'data_type': 'work_record',
+            'entities': {},
+            'time_range': None,
+            'status': None,
+            'customer_name': None,
+            'requires_confirmation': False,
+            'reasoning': '识别为工作记录列表',
+        }, '查看工作记录')
+
+        self.assertEqual(result['data_type'], 'work_record')
+
+    def test_normalize_ai_result_keeps_work_report_subtype(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._normalize_ai_result({
+            'intent': 'DATA_QUERY',
+            'confidence': 0.82,
+            'action': 'list',
+            'data_type': 'work_report',
+            'entities': {},
+            'time_range': None,
+            'status': None,
+            'customer_name': None,
+            'requires_confirmation': False,
+            'reasoning': '识别为工作汇报列表',
+        }, '查看工作汇报')
+
+        self.assertEqual(result['data_type'], 'work_report')
+
+    def test_normalize_ai_result_keeps_personal_task_subtype(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._normalize_ai_result({
+            'intent': 'DATA_QUERY',
+            'confidence': 0.82,
+            'action': 'list',
+            'data_type': 'personal_task',
+            'entities': {},
+            'time_range': None,
+            'status': None,
+            'customer_name': None,
+            'requires_confirmation': False,
+            'reasoning': '识别为个人任务列表',
+        }, '查看个人任务')
+
+        self.assertEqual(result['data_type'], 'personal_task')
+
+    def test_normalize_ai_result_keeps_personal_note_subtype(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._normalize_ai_result({
+            'intent': 'DATA_QUERY',
+            'confidence': 0.82,
+            'action': 'list',
+            'data_type': 'personal_note',
+            'entities': {},
+            'time_range': None,
+            'status': None,
+            'customer_name': None,
+            'requires_confirmation': False,
+            'reasoning': '识别为个人笔记列表',
+        }, '查看个人笔记')
+
+        self.assertEqual(result['data_type'], 'personal_note')
+
+    def test_normalize_ai_result_keeps_project_document_subtype(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._normalize_ai_result({
+            'intent': 'DATA_QUERY',
+            'confidence': 0.83,
+            'action': 'list',
+            'data_type': 'project_document',
+            'entities': {},
+            'time_range': None,
+            'status': None,
+            'customer_name': None,
+            'requires_confirmation': False,
+            'reasoning': '识别为项目文档列表',
+        }, '看一下项目文档')
+
+        self.assertEqual(result['data_type'], 'project_document')
+
+
+class AIConfigurationSourceTests(SimpleTestCase):
+    def test_config_manager_only_uses_database_configs(self):
+        from apps.ai.utils.ai_config_manager import AIConfigManager
+
+        db_config = {
+            'id': 1,
+            'name': '数据库配置',
+            'provider': 'openai',
+            'model_type': 'chat',
+            'api_key': 'db-key',
+            'api_base': 'https://db.example.com/v1',
+            'model_name': 'db-model',
+            'is_active': True,
+        }
+
+        with patch('apps.ai.utils.ai_config_manager.AICache.get_config', return_value=None), \
+                patch('apps.ai.utils.ai_config_manager.AICache.set_config'), \
+                patch('apps.ai.utils.ai_config_manager.AIModelConfig.get_active_runtime_configs', return_value=[db_config]), \
+                patch.dict('os.environ', {
+                    'AI_PROVIDER': 'openai',
+                    'AI_API_KEY': 'env-key',
+                    'AI_API_BASE': 'https://env.example.com/v1',
+                    'AI_CHAT_MODEL': 'env-model',
+                }, clear=False):
+            manager = AIConfigManager()
+            configs = manager.get_all_configs()
+
+        self.assertEqual(list(configs.keys()), [1])
+        self.assertEqual(configs[1]['api_key'], 'db-key')
+        self.assertNotIn('settings-default', configs)
+
+    def test_enhanced_intent_uses_service_unavailable_message_when_model_is_configured(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        intent_result = {
+            'intent': 'DATA_QUERY',
+            'confidence': 0.58,
+            'source': 'safe_fallback',
+            'action': 'list',
+            'data_type': 'approval_task',
+            'entities': {},
+            'fallback_options': [],
+            'ai_available': False,
+            'ai_configured': True,
+            'failure_reason': 'AI 模型暂时不可用',
+            'model_provider': 'openai',
+            'model_name': 'gpt-5.4',
+        }
+
+        response = service._create_confirmation_response(intent_result, '看一下我的待审批流程', None)
+
+        self.assertTrue(response['success'])
+        self.assertIn('AI 模型服务暂时不可用', response['message'])
+        self.assertTrue(response['ai_configured'])
+        self.assertEqual(response['failure_reason'], 'AI 模型暂时不可用')
+
+    def test_enhanced_intent_inherits_approval_count_follow_up_from_previous_query(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        intent_result = {
+            'intent': 'AI_CHAT',
+            'confidence': 0.32,
+            'entities': {},
+            'action': 'chat',
+            'data_type': None,
+        }
+
+        patched = service._apply_follow_up_context(
+            intent_result,
+            '数量呢',
+            {
+                'previous_query': {
+                    'specific_intent': 'approval_task_list',
+                    'entities': {'status': 'pending'},
+                }
+            },
+        )
+
+        self.assertEqual(patched['intent'], 'DATA_QUERY')
+        self.assertEqual(patched['action'], 'count')
+        self.assertEqual(patched['data_type'], 'approval_task')
+        self.assertEqual(patched['entities']['status'], 'pending')
+
+    def test_enhanced_intent_inherits_project_status_follow_up_from_previous_query(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        intent_result = {
+            'intent': 'AI_CHAT',
+            'confidence': 0.28,
+            'entities': {},
+            'action': 'chat',
+            'data_type': None,
+        }
+
+        patched = service._apply_follow_up_context(
+            intent_result,
+            '进行中的呢',
+            {
+                'previous_query': {
+                    'specific_intent': 'project_list',
+                    'entities': {},
+                }
+            },
+        )
+
+        self.assertEqual(patched['intent'], 'DATA_QUERY')
+        self.assertEqual(patched['action'], 'list')
+        self.assertEqual(patched['data_type'], 'project')
+        self.assertEqual(patched['entities']['status'], '进行中')
+
+    def test_enhanced_intent_inherits_detail_follow_up_from_previous_count_query(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        intent_result = {
+            'intent': 'AI_CHAT',
+            'confidence': 0.21,
+            'entities': {},
+            'action': 'chat',
+            'data_type': None,
+        }
+
+        patched = service._apply_follow_up_context(
+            intent_result,
+            '明细呢',
+            {
+                'previous_query': {
+                    'specific_intent': 'supplier_count',
+                    'entities': {},
+                }
+            },
+        )
+
+        self.assertEqual(patched['intent'], 'DATA_QUERY')
+        self.assertEqual(patched['action'], 'list')
+        self.assertEqual(patched['data_type'], 'supplier')
+
+
+class STTDatabaseOnlyConfigTests(SimpleTestCase):
+    def test_openai_stt_does_not_fallback_to_settings_when_database_missing(self):
+        from apps.ai.utils.stt_service import OpenAISTTService
+
+        with patch('apps.ai.utils.stt_service.get_stt_config_from_db', return_value=None):
+            service = OpenAISTTService()
+
+        self.assertIsNone(service.api_key)
+        self.assertEqual(service.base_url, 'https://api.openai.com/v1')
+
 
 class AIQueryServiceIntentCoverageTests(SimpleTestCase):
     def test_recognize_disk_share_plain_language(self):
@@ -660,6 +1055,885 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         intent, entities = QueryService().recognize_intent('查一下我今天的日程安排')
 
         self.assertEqual(intent, 'schedule_list')
+        self.assertEqual(entities['time_range'], 'today')
+
+    def test_recognize_contract_total_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('合同金额总和是多少')
+
+        self.assertEqual(intent, 'contract_total')
+        self.assertEqual(entities, {})
+
+    def test_recognize_project_in_progress_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看看进行中的项目')
+
+        self.assertEqual(intent, 'project_list_in_progress')
+        self.assertEqual(entities['status'], '进行中')
+
+    def test_recognize_approval_task_count_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('我还有几个待审批')
+
+        self.assertEqual(intent, 'approval_task_count')
+        self.assertEqual(entities['status'], 'pending')
+
+    def test_recognize_finance_income_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('查一下回款记录')
+
+        self.assertEqual(intent, 'finance_income_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_finance_overview_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('财务有哪些')
+
+        self.assertEqual(intent, 'finance_expense_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_production_overview_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('生产有哪些')
+
+        self.assertEqual(intent, 'production_plan_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_followup_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看一下最近的客户跟进记录')
+
+        self.assertEqual(intent, 'followup_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_supplier_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('查一下供应商')
+
+        self.assertEqual(intent, 'supplier_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_product_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看看产品列表')
+
+        self.assertEqual(intent, 'product_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_inventory_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('库存有多少')
+
+        self.assertEqual(intent, 'inventory_count')
+        self.assertEqual(entities, {})
+
+    def test_recognize_disk_shared_to_me_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看一下共享给我的网盘文件')
+
+        self.assertEqual(intent, 'disk_list')
+        self.assertEqual(entities['scope'], 'shared_to_me')
+
+    def test_recognize_disk_share_created_by_me_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('我分享的文件链接')
+
+        self.assertEqual(intent, 'disk_share_list')
+        self.assertEqual(entities['scope'], 'created_by_me')
+
+    def test_recognize_my_approval_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看一下我发起的审批')
+
+        self.assertEqual(intent, 'approval_list')
+        self.assertEqual(entities['scope'], 'created_by_me')
+
+    def test_recognize_unread_message_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看看我的未读消息')
+
+        self.assertEqual(intent, 'message_list')
+        self.assertEqual(entities['status'], 'unread')
+
+    def test_recognize_today_meeting_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('今天有哪些会议')
+
+        self.assertEqual(intent, 'meeting_list')
+        self.assertEqual(entities['time_range'], 'today')
+
+    def test_recognize_this_week_schedule_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('本周日程安排')
+
+        self.assertEqual(intent, 'schedule_list')
+        self.assertEqual(entities['time_range'], 'this_week')
+
+    def test_recognize_pending_payment_expense_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('待打款的报销有哪些')
+
+        self.assertEqual(intent, 'finance_expense_list')
+        self.assertEqual(entities['status'], 'pending_payment')
+
+    def test_recognize_contact_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('查一下联系人')
+
+        self.assertEqual(intent, 'contact_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_project_document_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看一下项目文档')
+
+        self.assertEqual(intent, 'project_document_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_project_stage_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看一下项目阶段')
+
+        self.assertEqual(intent, 'project_stage_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_project_category_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('项目分类有哪些')
+
+        self.assertEqual(intent, 'project_category_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_work_type_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('工作类型有多少')
+
+        self.assertEqual(intent, 'work_type_count')
+        self.assertEqual(entities, {})
+
+    def test_recognize_project_document_synonym_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看一下项目资料')
+
+        self.assertEqual(intent, 'project_document_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_project_attachment_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('查一下项目附件')
+
+        self.assertEqual(intent, 'project_document_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_personal_task_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看一下我的个人任务')
+
+        self.assertEqual(intent, 'personal_task_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_personal_task_count_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('有几个待办任务')
+
+        self.assertEqual(intent, 'personal_task_count')
+        self.assertEqual(entities, {})
+
+    def test_recognize_personal_note_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看下我的笔记')
+
+        self.assertEqual(intent, 'personal_note_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_personal_contact_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('打开个人通讯录')
+
+        self.assertEqual(intent, 'personal_contact_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_enterprise_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看一下企业信息')
+
+        self.assertEqual(intent, 'enterprise_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_enterprise_count_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('有几家企业')
+
+        self.assertEqual(intent, 'enterprise_count')
+        self.assertEqual(entities, {})
+
+    def test_recognize_position_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('查一下岗位信息')
+
+        self.assertEqual(intent, 'position_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_position_count_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('岗位有多少个')
+
+        self.assertEqual(intent, 'position_count')
+        self.assertEqual(entities, {})
+
+    def test_recognize_work_record_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看一下我的工作记录')
+
+        self.assertEqual(intent, 'work_record_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_work_record_count_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('工作记录有多少条')
+
+        self.assertEqual(intent, 'work_record_count')
+        self.assertEqual(entities, {})
+
+    def test_recognize_work_report_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('查看工作汇报')
+
+        self.assertEqual(intent, 'work_report_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_work_report_daily_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看看我上周的日报')
+
+        self.assertEqual(intent, 'work_report_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_work_report_weekly_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('查一下本月周报')
+
+        self.assertEqual(intent, 'work_report_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_payment_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('查一下付款记录')
+
+        self.assertEqual(intent, 'payment_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_unissued_invoice_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('未开票的发票有多少')
+
+        self.assertEqual(intent, 'finance_invoice_count')
+        self.assertEqual(entities['status'], 'unissued')
+
+    def test_recognize_owned_customer_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('我负责的客户有哪些')
+
+        self.assertEqual(intent, 'customer_list')
+        self.assertEqual(entities['scope'], 'owned_by_me')
+
+    def test_recognize_customer_orders_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('张三公司的订单有哪些')
+
+        self.assertEqual(intent, 'order_list')
+        self.assertEqual(entities['customer_name'], '张三公司')
+
+    def test_recognize_owned_task_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('我负责的任务')
+
+        self.assertEqual(intent, 'task_list')
+        self.assertEqual(entities['scope'], 'owned_by_me')
+
+    def test_recognize_completed_task_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('已完成任务有几个')
+
+        self.assertEqual(intent, 'task_count')
+        self.assertEqual(entities['status'], 'completed')
+
+    def test_recognize_top_notice_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('置顶公告有哪些')
+
+        self.assertEqual(intent, 'notice_list')
+        self.assertEqual(entities['status'], 'top')
+
+    def test_recognize_recent_notice_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('最近公告')
+
+        self.assertEqual(intent, 'notice_list')
+        self.assertEqual(entities['time_range'], 'recent')
+
+    def test_recognize_last_week_meeting_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('上周会议有哪些')
+
+        self.assertEqual(intent, 'meeting_list')
+        self.assertEqual(entities['time_range'], 'last_week')
+
+    def test_resolve_specific_intent_prefers_order_total_for_deal_amount_query(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '我问的是成交订单金额',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'finance',
+                'action': 'list',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'order_total')
+        self.assertEqual(entities, {})
+
+    def test_resolve_specific_intent_inherits_time_range_from_follow_up_query(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '而且是问的本月的',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': None,
+                'action': 'query',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={
+                'previous_query': {
+                    'specific_intent': 'order_total',
+                }
+            },
+        )
+
+        self.assertEqual(intent, 'order_total_this_month')
+        self.assertEqual(entities['time_range'], 'this_month')
+
+    def test_resolve_specific_intent_prefers_contract_total_for_contract_amount_query(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '合同金额总和是多少',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'finance',
+                'action': 'list',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'contract_total')
+        self.assertEqual(entities, {})
+
+    def test_resolve_specific_intent_inherits_count_from_approval_follow_up_query(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '数量呢',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': None,
+                'action': 'query',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={
+                'previous_query': {
+                    'specific_intent': 'approval_task_list',
+                    'entities': {'status': 'pending'},
+                }
+            },
+        )
+
+        self.assertEqual(intent, 'approval_task_count')
+        self.assertEqual(entities['status'], 'pending')
+
+    def test_resolve_specific_intent_inherits_count_from_project_follow_up_query(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '有几个',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': None,
+                'action': 'query',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={
+                'previous_query': {
+                    'specific_intent': 'project_list_in_progress',
+                    'entities': {'status': '进行中'},
+                }
+            },
+        )
+
+        self.assertEqual(intent, 'project_count_in_progress')
+        self.assertEqual(entities['status'], '进行中')
+
+    def test_resolve_specific_intent_inherits_list_from_count_follow_up_query(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '明细呢',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': None,
+                'action': 'query',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={
+                'previous_query': {
+                    'specific_intent': 'supplier_count',
+                    'entities': {},
+                }
+            },
+        )
+
+        self.assertEqual(intent, 'supplier_list')
+        self.assertEqual(entities, {})
+
+    def test_resolve_specific_intent_inherits_recent_notice_follow_up(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '前5个',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': None,
+                'action': 'query',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={
+                'previous_query': {
+                    'specific_intent': 'notice_list',
+                    'entities': {'time_range': 'recent'},
+                }
+            },
+        )
+
+        self.assertEqual(intent, 'notice_list')
+        self.assertEqual(entities['time_range'], 'recent')
+
+    def test_resolve_specific_intent_maps_finance_invoice_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '未开票的发票有哪些',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'finance_invoice',
+                'action': 'list',
+                'entities': {},
+                'status': 'unissued',
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'finance_invoice_list')
+        self.assertEqual(entities['status'], 'unissued')
+
+    def test_resolve_specific_intent_maps_finance_income_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '查一下回款记录',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'finance_income',
+                'action': 'list',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'finance_income_list')
+        self.assertEqual(entities, {})
+
+    def test_resolve_specific_intent_maps_production_task_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '查询生产任务',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'production_task',
+                'action': 'list',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'production_task_list')
+        self.assertEqual(entities, {})
+
+    def test_resolve_specific_intent_maps_warehouse_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '看看仓库列表',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'warehouse',
+                'action': 'list',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'warehouse_list')
+        self.assertEqual(entities, {})
+
+    def test_resolve_specific_intent_maps_stockin_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '看看入库单',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'stockin',
+                'action': 'list',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'stockin_list')
+        self.assertEqual(entities, {})
+
+    def test_resolve_specific_intent_maps_stockout_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '看看出库单',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'stockout',
+                'action': 'list',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'stockout_list')
+        self.assertEqual(entities, {})
+
+    def test_resolve_specific_intent_maps_alert_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '看看库存预警',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'alert',
+                'action': 'list',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'alert_list')
+        self.assertEqual(entities, {})
+
+    def test_resolve_specific_intent_maps_contact_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '查一下联系人',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'contact',
+                'action': 'list',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'contact_list')
+        self.assertEqual(entities, {})
+
+    def test_resolve_specific_intent_maps_project_document_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '看一下项目文档',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'project_document',
+                'action': 'list',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'project_document_list')
+        self.assertEqual(entities, {})
+
+    def test_resolve_specific_intent_maps_project_stage_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '看一下项目阶段',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'project_stage',
+                'action': 'list',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'project_stage_list')
+        self.assertEqual(entities, {})
+
+    def test_resolve_specific_intent_maps_project_category_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '项目分类有哪些',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'project_category',
+                'action': 'list',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'project_category_list')
+        self.assertEqual(entities, {})
+
+    def test_resolve_specific_intent_maps_work_type_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '工作类型有多少',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'work_type',
+                'action': 'count',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'work_type_count')
+        self.assertEqual(entities, {})
+
+    def test_resolve_specific_intent_maps_enterprise_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '查看企业信息',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'enterprise',
+                'action': 'list',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'enterprise_list')
+        self.assertEqual(entities, {})
+
+    def test_resolve_specific_intent_maps_position_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '查看岗位',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'position',
+                'action': 'list',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'position_list')
+        self.assertEqual(entities, {})
+
+    def test_resolve_specific_intent_maps_work_record_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '查看工作记录',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'work_record',
+                'action': 'list',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'work_record_list')
+        self.assertEqual(entities, {})
+
+    def test_resolve_specific_intent_maps_work_report_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '查看工作汇报',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'work_report',
+                'action': 'list',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'work_report_list')
+        self.assertEqual(entities, {})
+
+    def test_resolve_specific_intent_maps_payment_alias(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '查一下付款记录',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'payment',
+                'action': 'list',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'payment_list')
+        self.assertEqual(entities, {})
+
+    def test_resolve_specific_intent_maps_expense_alias(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '查一下费用支出',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'expense',
+                'action': 'list',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'finance_expense_list')
+        self.assertEqual(entities, {})
+
+    def test_resolve_specific_intent_maps_income_alias(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '查一下收入回款',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'income',
+                'action': 'list',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'finance_income_list')
+        self.assertEqual(entities, {})
+
+    def test_resolve_specific_intent_maps_workhour_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '看一下工时记录',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'workhour',
+                'action': 'list',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'workhour_list')
         self.assertEqual(entities, {})
 
 
@@ -711,6 +1985,64 @@ class AIQueryServiceDiskVisibilityTests(TestCase):
 
         self.assertEqual(result['total'], 1)
         self.assertEqual(names, {'共享资料夹'})
+
+    def test_disk_list_shared_to_me_scope_excludes_owned_files(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.disk.models import DiskFile
+
+        User = get_user_model()
+        owner = User.objects.create_user(username='scope-owner')
+        recipient = User.objects.create_user(username='scope-recipient')
+
+        shared = DiskFile.objects.create(
+            name='共享给我的文件.docx',
+            original_name='共享给我的文件.docx',
+            file_path='disk/shared-to-me.docx',
+            owner=owner,
+        )
+        shared.shared_users.add(recipient)
+        DiskFile.objects.create(
+            name='我自己的文件.docx',
+            original_name='我自己的文件.docx',
+            file_path='disk/my-own.docx',
+            owner=recipient,
+        )
+
+        result = QueryService().handle_disk_list({'scope': 'shared_to_me'}, recipient)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(names, {'共享给我的文件.docx'})
+
+    def test_disk_share_list_created_by_me_scope_only_returns_my_shares(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.disk.models import DiskFile, DiskShare
+
+        User = get_user_model()
+        creator = User.objects.create_user(username='share-creator')
+        other = User.objects.create_user(username='share-other')
+
+        my_file = DiskFile.objects.create(
+            name='我的分享文件.pdf',
+            original_name='我的分享文件.pdf',
+            file_path='disk/my-share.pdf',
+            owner=creator,
+        )
+        other_file = DiskFile.objects.create(
+            name='别人的分享文件.pdf',
+            original_name='别人的分享文件.pdf',
+            file_path='disk/other-share.pdf',
+            owner=other,
+        )
+
+        DiskShare.objects.create(file=my_file, creator=creator, permission_type='view', share_type='link', share_code='mine-001')
+        DiskShare.objects.create(file=other_file, creator=other, permission_type='view', share_type='link', share_code='other-001')
+
+        result = QueryService().handle_disk_share_list({'scope': 'created_by_me'}, creator)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(names, {'我的分享文件.pdf'})
 
 
 class AIQueryServiceOfficeVisibilityTests(TestCase):
@@ -796,6 +2128,341 @@ class AIQueryServiceOfficeVisibilityTests(TestCase):
 
         self.assertEqual(result['total'], 1)
         self.assertEqual(titles, {'我的日程'})
+
+    def test_message_list_unread_scope_only_returns_unread_messages(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.message.models import Message, MessageUserRelation
+
+        User = get_user_model()
+        recipient = User.objects.create_user(username='message-recipient')
+        sender = User.objects.create_user(username='message-sender')
+
+        unread = Message.objects.create(title='未读消息', content='x', user=recipient, sender=sender, is_active=True)
+        read = Message.objects.create(title='已读消息', content='x', user=recipient, sender=sender, is_active=True)
+        MessageUserRelation.objects.create(message=unread, user=recipient, is_read=False)
+        MessageUserRelation.objects.create(message=read, user=recipient, is_read=True)
+
+        result = QueryService().handle_message_list({'status': 'unread'}, recipient)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(titles, {'未读消息'})
+
+    def test_meeting_list_today_scope_only_returns_today_meetings(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.oa.models import MeetingRecord
+
+        User = get_user_model()
+        host = User.objects.create_user(username='meeting-host')
+        now = timezone.now()
+
+        MeetingRecord.objects.create(
+            title='今天会议',
+            host=host,
+            meeting_date=now,
+            meeting_end_time=now + timedelta(hours=1),
+        )
+        tomorrow = now + timedelta(days=1)
+        MeetingRecord.objects.create(
+            title='明天会议',
+            host=host,
+            meeting_date=tomorrow,
+            meeting_end_time=tomorrow + timedelta(hours=1),
+        )
+
+        result = QueryService().handle_meeting_list({'time_range': 'today'}, host)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(titles, {'今天会议'})
+
+
+class AIQueryServiceApprovalAndFinanceScopeTests(TestCase):
+    def test_approval_list_created_by_me_scope_only_returns_my_approvals(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.approval.models import Approval
+
+        User = get_user_model()
+        applicant = User.objects.create_user(username='approval-applicant')
+        other = User.objects.create_user(username='approval-other')
+
+        Approval.objects.create(title='我发起的审批', applicant_id=applicant.id)
+        Approval.objects.create(title='别人的审批', applicant_id=other.id)
+
+        result = QueryService().handle_approval_list({'scope': 'created_by_me'}, applicant)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(titles, {'我发起的审批'})
+
+    def test_finance_expense_list_pending_payment_scope_only_returns_pending(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.finance.models import Expense
+
+        User = get_user_model()
+        user = User.objects.create_user(username='expense-user')
+
+        Expense.objects.create(code='BX-001', cost=100, pay_status=0, check_status=0)
+        Expense.objects.create(code='BX-002', cost=120, pay_status=1, check_status=0)
+
+        result = QueryService().handle_finance_expense_list({'status': 'pending_payment'}, user)
+        codes = {item['code'] for item in result['items']}
+
+        self.assertEqual(codes, {'BX-001'})
+
+    def test_finance_invoice_list_unissued_scope_only_returns_unissued(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.finance.models import Invoice
+
+        User = get_user_model()
+        user = User.objects.create_user(username='invoice-user')
+
+        Invoice.objects.create(code='FP-001', amount=100, open_status=0)
+        Invoice.objects.create(code='FP-002', amount=120, open_status=1)
+
+        result = QueryService().handle_finance_invoice_list({'status': 'unissued'}, user)
+        codes = {item['code'] for item in result['items']}
+
+        self.assertEqual(codes, {'FP-001'})
+
+
+class AIQueryServiceCustomerOrderTaskScopeTests(TestCase):
+    def test_customer_list_owned_by_me_scope_only_returns_owned_customers(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.customer.models import Customer
+
+        User = get_user_model()
+        owner = User.objects.create_user(username='customer-owner')
+        other = User.objects.create_user(username='customer-other')
+
+        Customer.objects.create(name='我的客户', belong_uid=owner.id, delete_time=0)
+        Customer.objects.create(name='别人的客户', belong_uid=other.id, delete_time=0)
+
+        result = QueryService().handle_customer_list({'scope': 'owned_by_me'}, owner)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(names, {'我的客户'})
+
+    def test_order_list_customer_name_scope_only_returns_matching_customer_orders(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.customer.models import Customer, CustomerOrder
+
+        User = get_user_model()
+        owner = User.objects.create_user(username='order-owner')
+
+        customer_a = Customer.objects.create(name='张三公司', belong_uid=owner.id, delete_time=0)
+        customer_b = Customer.objects.create(name='李四公司', belong_uid=owner.id, delete_time=0)
+        CustomerOrder.objects.create(customer=customer_a, order_number='A-001', product_name='产品A', amount=100, order_date=date.today(), create_user=owner, delete_time=0)
+        CustomerOrder.objects.create(customer=customer_b, order_number='B-001', product_name='产品B', amount=200, order_date=date.today(), create_user=owner, delete_time=0)
+
+        result = QueryService().handle_order_list({'customer_name': '张三公司'}, owner)
+        numbers = {item['order_number'] for item in result['items']}
+
+        self.assertEqual(numbers, {'A-001'})
+
+    def test_task_list_owned_by_me_scope_only_returns_assigned_tasks(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.task.models import Task
+
+        User = get_user_model()
+        assignee = User.objects.create_user(username='task-assignee')
+        other = User.objects.create_user(username='task-other')
+
+        Task.objects.create(title='我的任务', assignee_id=assignee.id)
+        Task.objects.create(title='别人的任务', assignee_id=other.id)
+
+        result = QueryService().handle_task_list({'scope': 'owned_by_me'}, assignee)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(titles, {'我的任务'})
+
+
+class AIQueryServiceNoticeAndMeetingScopeTests(TestCase):
+    def test_notice_list_top_scope_only_returns_top_notices(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.system.models import Notice
+
+        User = get_user_model()
+        author = User.objects.create_user(username='notice-author-2')
+
+        Notice.objects.create(title='置顶公告', content='x', author=author, is_published=True, is_top=True, publish_time=timezone.now())
+        Notice.objects.create(title='普通公告', content='x', author=author, is_published=True, is_top=False, publish_time=timezone.now())
+
+        result = QueryService().handle_notice_list({'status': 'top'}, author)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(titles, {'置顶公告'})
+
+    def test_meeting_list_last_week_scope_only_returns_last_week_meetings(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.oa.models import MeetingRecord
+
+        User = get_user_model()
+        host = User.objects.create_user(username='meeting-host-last-week')
+        now = timezone.now()
+        this_week = now
+        last_week = now - timedelta(days=7)
+
+        MeetingRecord.objects.create(
+            title='上周会议',
+            host=host,
+            meeting_date=last_week,
+            meeting_end_time=last_week + timedelta(hours=1),
+        )
+        MeetingRecord.objects.create(
+            title='本周会议',
+            host=host,
+            meeting_date=this_week,
+            meeting_end_time=this_week + timedelta(hours=1),
+        )
+
+        result = QueryService().handle_meeting_list({'time_range': 'last_week'}, host)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(titles, {'上周会议'})
+
+
+class AIQueryServiceInventoryIntentBridgeTests(TestCase):
+    def test_warehouse_list_returns_warehouses(self):
+        from apps.ai.services.query_service import QueryService
+        from apps.inventory.models import Warehouse
+
+        Warehouse.objects.create(name='华东仓', code='WH-001')
+        Warehouse.objects.create(name='华南仓', code='WH-002')
+
+        result = QueryService().handle_warehouse_list({}, SimpleNamespace(is_superuser=False, id=1))
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(names, {'华东仓', '华南仓'})
+
+    def test_stockin_list_returns_stockin_orders(self):
+        from apps.ai.services.query_service import QueryService
+        from apps.inventory.models import Warehouse, StockIn
+
+        warehouse = Warehouse.objects.create(name='主仓', code='WH-IN-001')
+        StockIn.objects.create(code='IN-001', stock_in_type='purchase', warehouse=warehouse)
+
+        result = QueryService().handle_stockin_list({}, SimpleNamespace(is_superuser=False, id=1))
+        codes = {item['stock_in_no'] for item in result['items']}
+
+        self.assertEqual(codes, {'IN-001'})
+
+    def test_stockout_list_returns_stockout_orders(self):
+        from apps.ai.services.query_service import QueryService
+        from apps.inventory.models import Warehouse, StockOut
+
+        warehouse = Warehouse.objects.create(name='成品仓', code='WH-OUT-001')
+        StockOut.objects.create(code='OUT-001', stock_out_type='sale', warehouse=warehouse)
+
+        result = QueryService().handle_stockout_list({}, SimpleNamespace(is_superuser=False, id=1))
+        codes = {item['stock_out_no'] for item in result['items']}
+
+        self.assertEqual(codes, {'OUT-001'})
+
+    def test_alert_list_returns_inventory_alerts(self):
+        from apps.ai.services.query_service import QueryService
+        from apps.inventory.models import Warehouse, InventoryCategory, InventoryItem, InventoryAlert
+
+        warehouse = Warehouse.objects.create(name='预警仓', code='WH-AL-001')
+        category = InventoryCategory.objects.create(name='原料', code='CAT-001')
+        item = InventoryItem.objects.create(name='钢材', code='IT-001', category=category, unit='吨')
+        InventoryAlert.objects.create(
+            item=item,
+            warehouse=warehouse,
+            alert_type='low_stock',
+            current_quantity=1,
+            threshold_value=5,
+            message='库存过低'
+        )
+
+        result = QueryService().handle_alert_list({}, SimpleNamespace(is_superuser=False, id=1))
+        names = {item['product_name'] for item in result['items']}
+
+        self.assertEqual(names, {'钢材'})
+
+
+class AIQueryServiceContactDocumentPaymentBridgeTests(TestCase):
+    def test_contact_list_returns_customer_contacts(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.customer.models import Customer, Contact
+
+        User = get_user_model()
+        owner = User.objects.create_user(username='contact-owner')
+        customer = Customer.objects.create(name='华星科技', belong_uid=owner.id, delete_time=0)
+        Contact.objects.create(customer=customer, contact_person='张三', phone='13800138000', is_primary=True)
+
+        result = QueryService().handle_contact_list({}, owner)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(names, {'张三'})
+
+    def test_project_document_list_only_returns_visible_project_documents(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.project.models import Project, ProjectDocument
+
+        User = get_user_model()
+        creator = User.objects.create_user(username='project-doc-author')
+        recipient = User.objects.create_user(username='project-doc-recipient')
+        other = User.objects.create_user(username='project-doc-other')
+        project = Project.objects.create(name='A项目', code='P-001', creator=creator, manager=recipient)
+        other_project = Project.objects.create(name='B项目', code='P-002', creator=other, manager=other)
+
+        own_doc = ProjectDocument.objects.create(project=project, title='项目方案', content='对内可见', creator=creator, file_path='docs/a.pdf')
+        ProjectDocument.objects.create(project=other_project, title='别的项目文档', content='不可见', creator=other, file_path='docs/b.pdf')
+
+        result = QueryService().handle_project_document_list({}, recipient)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(titles, {'项目方案'})
+        self.assertIn(own_doc.title, titles)
+
+    def test_payment_list_returns_payment_records(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.finance.models import Expense, Payment
+
+        User = get_user_model()
+        user = User.objects.create_user(username='payment-user')
+
+        expense = Expense.objects.create(code='BX-PAY-001', cost=300, pay_status=1, check_status=2)
+        Payment.objects.create(expense_id=expense.id, amount=300, payment_date=timezone.now(), remark='测试付款')
+
+        result = QueryService().handle_payment_list({}, user)
+        expense_codes = {item['expense_code'] for item in result['items']}
+
+        self.assertEqual(expense_codes, {'BX-PAY-001'})
+
+
+class AIQueryServiceWorkHourAndAliasBridgeTests(TestCase):
+    def test_workhour_list_returns_user_visible_workhours(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.project.models import Task, WorkHour
+
+        User = get_user_model()
+        worker = User.objects.create_user(username='workhour-worker')
+        other = User.objects.create_user(username='workhour-other')
+
+        my_task = Task.objects.create(title='我的项目任务', assignee=worker, creator=worker)
+        other_task = Task.objects.create(title='别人的项目任务', assignee=other, creator=other)
+
+        WorkHour.objects.create(task=my_task, user=worker, work_date=date.today(), hours=2.5, description='联调')
+        WorkHour.objects.create(task=other_task, user=other, work_date=date.today(), hours=1.0, description='无权限')
+
+        result = QueryService().handle_workhour_list({}, worker)
+        titles = {item['task_title'] for item in result['items']}
+
+        self.assertEqual(titles, {'我的项目任务'})
 
 
 class AICustomerAdapterTests(SimpleTestCase):
@@ -1758,6 +3425,28 @@ class AIModelConfigCompatibilityTests(SimpleTestCase):
         self.assertEqual(config.get_provider_display(), 'OpenAI')
         self.assertEqual(config.get_model_type_display(), '对话模型')
 
+    def test_runtime_config_contains_derived_legacy_fields(self):
+        from apps.ai.models import AIModelConfig
+
+        config = AIModelConfig(
+            id=9,
+            name='deepseek-chat',
+            api_base='https://api.deepseek.com/v1',
+            api_key='test-key',
+            image_model='gpt-image-1',
+            video_model='sora-1',
+            is_active=True,
+        )
+
+        runtime_config = config.to_runtime_config()
+
+        self.assertEqual(runtime_config['id'], 9)
+        self.assertEqual(runtime_config['provider'], 'deepseek')
+        self.assertEqual(runtime_config['model_type'], 'chat')
+        self.assertEqual(runtime_config['model_name'], 'deepseek-chat')
+        self.assertEqual(runtime_config['chat'], 'deepseek-chat')
+        self.assertEqual(runtime_config['api_base'], 'https://api.deepseek.com/v1')
+
     def test_ai_client_can_read_simplified_model_config(self):
         from apps.ai.models import AIModelConfig
         from apps.ai.utils.ai_client import AIClient
@@ -1778,6 +3467,63 @@ class AIModelConfigCompatibilityTests(SimpleTestCase):
 
         self.assertEqual(client.provider, 'openai')
         create_client.assert_called_once()
+
+    def test_intent_classifier_reads_simplified_active_runtime_config(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        expected_config = {
+            'id': 1,
+            'name': 'gpt-4o-mini',
+            'provider': 'openai',
+            'model_type': 'chat',
+            'api_key': 'test-key',
+            'api_base': 'https://api.openai.com/v1',
+            'base_url': 'https://api.openai.com/v1',
+            'model_name': 'gpt-4o-mini',
+            'chat': 'gpt-4o-mini',
+            'max_tokens': 2000,
+            'temperature': 0.7,
+            'top_p': 1.0,
+            'is_active': True,
+        }
+
+        with patch('apps.ai.services.ai_intent_classifier.AIModelConfig.get_latest_chat_runtime_config', return_value=expected_config):
+            result = AIIntentClassifier()._get_latest_chat_config()
+
+        self.assertEqual(result, expected_config)
+
+
+class AIModelConfigValidateViewTests(SimpleTestCase):
+    def test_validate_view_returns_http_status_details_for_ai_client_error(self):
+        from apps.ai.views import AIModelConfigValidateView
+        from apps.ai.utils.ai_client import AIClientError
+
+        view = AIModelConfigValidateView()
+        model_config = SimpleNamespace(
+            id=1,
+            provider='openai',
+            api_base='https://www.aitokens.link/v1',
+            model_name='gpt-5.4',
+            model_type='chat',
+            get_model_type_display=lambda: '对话模型',
+            api_key='sk-test',
+        )
+
+        with patch.object(AIModelConfigValidateView, 'get_object', return_value=model_config), \
+                patch('apps.ai.views.AIClient', side_effect=AIClientError(
+                    'AI模型调用失败，请检查模型配置后重试',
+                    error_code='http_error',
+                    status_code=503,
+                    detail='Service Unavailable',
+                )):
+            response = view.validate_connection()
+
+        payload = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(payload['status'], 'error')
+        self.assertIn('503', payload['message'])
+        self.assertEqual(payload['details']['status_code'], 503)
+        self.assertEqual(payload['details']['error_code'], 'http_error')
+        self.assertEqual(payload['details']['detail'], 'Service Unavailable')
 
 
 class STTServiceSelectionTests(SimpleTestCase):
