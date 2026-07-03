@@ -1,5 +1,6 @@
 import uuid
 from django.db import models
+from urllib.parse import urlparse
 
 
 class EncryptedAPIKeyField(models.CharField):
@@ -55,236 +56,143 @@ class EncryptedAPIKeyField(models.CharField):
 
 
 class AIModelConfig(models.Model):
-    """AI 模型配置 - 简化版：仅需配置API接口、API Key、图片模型、视频模型"""
+    """AI 模型配置 — 简化版，全站 OpenAI 兼容调用。"""
     PROVIDERS = [
-        ('openai', 'OpenAI'),
-        ('alibaba', '阿里云百炼'),
-        ('deepseek', 'DeepSeek'),
-        ('doubao', '豆包'),
-        ('baidu', '百度文心'),
-        ('anthropic', 'Anthropic'),
-        ('google', 'Google Gemini'),
-        ('tencent', '腾讯混元'),
-        ('azure', 'Azure OpenAI'),
-        ('ollama', 'Ollama'),
-        ('local', '本地模型'),
-    ]
-    MODEL_TYPES = [
-        ('chat', '对话模型'),
-        ('text', '文本模型'),
-        ('embedding', '嵌入模型'),
-        ('audio', '音频模型'),
-        ('image', '图像模型'),
-        ('video', '视频模型'),
+        ("openai", "OpenAI"),
+        ("alibaba", "阿里云百炼"),
+        ("deepseek", "DeepSeek"),
+        ("doubao", "豆包"),
+        ("baidu", "百度文心"),
+        ("anthropic", "Anthropic"),
+        ("google", "Google Gemini"),
+        ("tencent", "腾讯混元"),
+        ("azure", "Azure OpenAI"),
+        ("ollama", "Ollama"),
+        ("local", "本地模型"),
     ]
 
-    name = models.CharField(
-        max_length=100,
-        default='默认配置',
-        verbose_name='配置名称')
-    api_base = models.URLField(
-        max_length=300,
-        verbose_name='API接口地址',
-        help_text='OpenAI兼容的API接口地址，例如 https://api.openai.com/v1')
-    api_key = EncryptedAPIKeyField(verbose_name='API密钥')
-    image_model = models.CharField(
-        max_length=100,
-        default='gpt-image-1',
-        verbose_name='图片模型名称',
-        help_text='用于图片生成的模型标识')
-    video_model = models.CharField(
-        max_length=100,
-        default='sora-1',
-        blank=True,
-        verbose_name='视频模型名称',
-        help_text='用于视频生成的模型标识')
-    is_active = models.BooleanField(default=True, verbose_name='是否激活')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+    name = models.CharField(max_length=100, default="默认配置", verbose_name="配置名称")
+    api_base = models.URLField(max_length=300, verbose_name="API接口地址", help_text="OpenAI兼容的API接口地址，例如 https://api.openai.com/v1")
+    api_key = EncryptedAPIKeyField(verbose_name="API密钥")
+    model_names = models.JSONField(default=list, blank=True, verbose_name="模型名称列表", help_text="可用模型标识列表，如 gpt-4o-mini, gpt-4o")
+    is_default = models.BooleanField(default=False, verbose_name="是否默认", help_text="是否为系统默认使用的模型配置")
+    is_active = models.BooleanField(default=True, verbose_name="是否激活")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
     class Meta:
-        verbose_name = 'AI模型配置'
+        verbose_name = "AI模型配置"
         verbose_name_plural = verbose_name
-        db_table = 'ai_model_config'
+        db_table = "ai_model_config"
+
+    @staticmethod
+    def normalize_api_base(value):
+        raw_value = (value or "").strip()
+        if not raw_value:
+            return raw_value
+
+        normalized = raw_value.rstrip("/")
+        parsed = urlparse(normalized)
+        path = (parsed.path or "").rstrip("/")
+
+        if path.endswith("/chat/completions"):
+            normalized = normalized[:-len("/chat/completions")]
+            path = path[:-len("/chat/completions")]
+        elif path.endswith("/embeddings"):
+            normalized = normalized[:-len("/embeddings")]
+            path = path[:-len("/embeddings")]
+        elif path.endswith("/responses"):
+            normalized = normalized[:-len("/responses")]
+            path = path[:-len("/responses")]
+        elif path.endswith("/models"):
+            normalized = normalized[:-len("/models")]
+            path = path[:-len("/models")]
+
+        if not path:
+            return f"{normalized}/v1"
+
+        if path.endswith("/v1") or "/compatible-mode/v1" in path or path.endswith("/api/v3"):
+            return normalized
+
+        return normalized
 
     def __str__(self):
-        return f"{self.name} ({self.api_base})"
+        return self.name
 
     def _infer_provider(self):
-        base = (self.api_base or '').lower()
-        if 'dashscope.aliyuncs.com' in base:
-            return 'alibaba'
-        if 'api.deepseek.com' in base:
-            return 'deepseek'
-        if 'ark.cn-beijing.volces.com' in base:
-            return 'doubao'
-        if 'aip.baidubce.com' in base:
-            return 'baidu'
-        if 'api.anthropic.com' in base:
-            return 'anthropic'
-        if 'generativelanguage.googleapis.com' in base:
-            return 'google'
-        if 'hunyuan.cloud.tencent.com' in base:
-            return 'tencent'
-        if 'azure' in base and 'openai' in base:
-            return 'azure'
-        if 'localhost:11434' in base:
-            return 'ollama'
-        if 'localhost' in base or '127.0.0.1' in base:
-            return 'local'
-        return 'openai'
-
-    def _infer_model_name(self):
-        candidate = (self.name or '').strip()
-        if candidate and candidate != '默认配置':
-            return candidate
-
-        provider_defaults = {
-            'openai': 'gpt-4o-mini',
-            'alibaba': 'qwen-turbo',
-            'deepseek': 'deepseek-chat',
-            'doubao': 'doubao-seed-1-6-250615',
-            'baidu': 'ernie-4.0-turbo-8k',
-            'anthropic': 'claude-3-5-sonnet-20241022',
-            'google': 'gemini-1.5-flash',
-            'tencent': 'hunyuan-lite',
-            'azure': 'gpt-4o-mini',
-            'ollama': 'llama3.1',
-            'local': 'local-model',
-        }
-        return provider_defaults.get(self.provider, 'gpt-4o-mini')
+        base = (self.api_base or "").lower()
+        if "dashscope.aliyuncs.com" in base: return "alibaba"
+        if "api.deepseek.com" in base: return "deepseek"
+        if "ark.cn-beijing.volces.com" in base: return "doubao"
+        if "aip.baidubce.com" in base: return "baidu"
+        if "api.anthropic.com" in base: return "anthropic"
+        if "generativelanguage.googleapis.com" in base: return "google"
+        if "hunyuan.cloud.tencent.com" in base: return "tencent"
+        if "azure" in base and "openai" in base: return "azure"
+        if "localhost:11434" in base: return "ollama"
+        if "localhost" in base or "127.0.0.1" in base: return "local"
+        return "openai"
 
     @property
     def provider(self):
         return self._infer_provider()
 
-    @property
-    def model_type(self):
-        return 'chat'
-
-    @property
-    def model_name(self):
-        return self._infer_model_name()
-
-    @property
-    def max_tokens(self):
-        return 2000
-
-    @property
-    def temperature(self):
-        return 0.7
-
-    @property
-    def top_p(self):
-        return 1.0
-
-    @property
-    def provider_specific_config(self):
-        return {}
-
-    @property
-    def organization(self):
-        return ''
-
-    @property
-    def project(self):
-        return ''
-
-    @property
-    def api_version(self):
-        return ''
-
-    @property
-    def secret_key(self):
-        return ''
-
-    @property
-    def access_token(self):
-        return ''
-
-    @property
-    def anthropic_version(self):
-        return ''
-
     def get_provider_display(self):
         return dict(self.PROVIDERS).get(self.provider, self.provider)
 
-    def get_model_type_display(self):
-        return dict(self.MODEL_TYPES).get(self.model_type, self.model_type)
+    @property
+    def model_name(self):
+        return self.primary_model_name()
+
+    @property
+    def base_url(self):
+        return self.normalize_api_base(self.api_base)
+
+    def primary_model_name(self):
+        names = self.model_names or []
+        return names[0] if names else "gpt-4o-mini"
 
     def to_runtime_config(self):
-        """转换为兼容旧版调用链的运行时配置字典"""
+        names = self.model_names or []
+        primary = names[0] if names else "gpt-4o-mini"
+        normalized_api_base = self.normalize_api_base(self.api_base)
         return {
-            'id': self.id,
-            'name': self.name,
-            'provider': self.provider,
-            'model_type': self.model_type,
-            'api_key': self.api_key,
-            'base_url': self.api_base,
-            'api_base': self.api_base,
-            'model_name': self.model_name,
-            'chat': self.model_name,
-            'image_model': self.image_model,
-            'video_model': self.video_model,
-            'max_tokens': self.max_tokens,
-            'temperature': self.temperature,
-            'top_p': self.top_p,
-            'is_active': self.is_active,
-            'organization': self.organization,
-            'project': self.project,
-            'provider_specific_config': self.provider_specific_config,
-            'created_at': self.created_at,
-            'updated_at': self.updated_at,
+            "id": self.id, "name": self.name,
+            "api_key": self.api_key, "api_base": normalized_api_base, "base_url": normalized_api_base,
+            "provider": self.provider, "provider_display": self.get_provider_display(),
+            "model_names": names, "model_name": primary, "chat": primary,
+            "is_default": self.is_default, "is_active": self.is_active,
+            "created_at": self.created_at, "updated_at": self.updated_at,
         }
 
     @classmethod
+    def get_default_config(cls):
+        return cls.objects.filter(is_active=True, is_default=True).first() or cls.objects.filter(is_active=True).first()
+
+    @classmethod
     def get_active_config(cls):
-        """获取当前激活的配置"""
-        return cls.objects.filter(is_active=True).first()
+        return cls.get_default_config()
 
     @classmethod
     def get_active_runtime_config(cls):
-        """获取当前激活配置的运行时字典"""
         config = cls.get_active_config()
         return config.to_runtime_config() if config else None
 
     @classmethod
     def get_active_runtime_configs(cls):
-        """获取所有激活配置的运行时字典列表"""
-        configs = cls.objects.filter(is_active=True).order_by('-updated_at', '-created_at')
-        return [config.to_runtime_config() for config in configs]
+        configs = cls.objects.filter(is_active=True).order_by("-is_default", "-updated_at", "-created_at")
+        return [c.to_runtime_config() for c in configs]
 
     @classmethod
     def get_latest_chat_runtime_config(cls):
-        """获取可用于聊天/文本任务的最新运行时配置"""
-        for config in cls.objects.filter(is_active=True).order_by('-updated_at', '-created_at'):
-            if config.model_type in ['chat', 'text']:
-                return config.to_runtime_config()
-        return None
-
-    @classmethod
-    def get_image_model(cls):
-        """获取图片模型名称"""
-        config = cls.get_active_config()
-        return config.image_model if config else 'gpt-image-1'
-
-    @classmethod
-    def get_video_model(cls):
-        """获取视频模型名称"""
-        config = cls.get_active_config()
-        return config.video_model if config else 'sora-1'
+        config = cls.get_default_config()
+        return config.to_runtime_config() if config else None
 
     @classmethod
     def get_client_kwargs(cls):
-        """获取用于初始化AI客户端的参数"""
         config = cls.get_active_config()
-        if not config:
-            return {'api_key': '', 'base_url': ''}
-        return {
-            'api_key': config.api_key,
-            'base_url': config.api_base,
-        }
-
+        if not config: return {"api_key": "", "base_url": ""}
+        return {"api_key": config.api_key, "base_url": config.base_url}
 
 class AIWorkflow(models.Model):
     """AI工作流"""
@@ -1375,4 +1283,3 @@ from .models_operation import (  # noqa: E402,F401
     AIOperationConfirmation,
     AIOperationRollback,
 )
-

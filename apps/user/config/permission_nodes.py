@@ -1030,15 +1030,6 @@ PERMISSION_NODES = {
                     {'codename': 'delete_risk_prediction', 'name': '删除风险'},
                 ]
             },
-            'progress_analysis': {
-                'name': '进度分析',
-                'permissions': [
-                    {'codename': 'view_progress_analysis', 'name': '菜单查看'},
-                    {'codename': 'add_progress_analysis', 'name': '新增分析'},
-                    {'codename': 'change_progress_analysis', 'name': '编辑分析'},
-                    {'codename': 'delete_progress_analysis', 'name': '删除分析'},
-                ]
-            },
             'project_stage': {
                 'name': '项目阶段',
                 'permissions': [

@@ -4,68 +4,229 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>风险预测分析</title>
+    <title>项目风险分析</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
     <style>
-        .analysis-container {
+        body {
+            background: #f6f8fb;
+        }
+        .page-shell {
             padding: 20px;
         }
-        .project-selector {
-            margin-bottom: 20px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 8px;
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 16px;
+            margin-bottom: 18px;
         }
-        .risk-card {
+        .summary-card {
+            background: #fff;
             border-radius: 8px;
+            padding: 18px 20px;
+            box-shadow: 0 6px 24px rgba(15, 23, 42, 0.06);
+        }
+        .summary-card .label {
+            color: #667085;
+            font-size: 13px;
+        }
+        .summary-card .value {
+            margin-top: 10px;
+            font-size: 28px;
+            font-weight: 600;
+            color: #101828;
+        }
+        .summary-card.high .value { color: #d92d20; }
+        .summary-card.medium .value { color: #dc6803; }
+        .summary-card.low .value { color: #079455; }
+        .toolbar-card,
+        .table-card {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 6px 24px rgba(15, 23, 42, 0.06);
             padding: 20px;
-            margin-bottom: 15px;
-            color: white;
+        }
+        .table-card {
+            margin-top: 18px;
+            padding-top: 12px;
+        }
+        .toolbar-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: flex-end;
+        }
+        .toolbar-title {
+            margin: 0 0 14px;
+            font-size: 20px;
+            color: #101828;
+        }
+        .toolbar-subtitle {
+            margin: 4px 0 18px;
+            color: #667085;
+            font-size: 13px;
+        }
+        .toolbar-field {
+            min-width: 280px;
+            flex: 1;
+        }
+        .toolbar-actions {
+            display: flex;
+            gap: 12px;
+        }
+        .risk-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 76px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
         }
         .risk-high {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            background: #fef3f2;
+            color: #d92d20;
         }
         .risk-medium {
-            background: linear-gradient(135deg, #feca57 0%, #ff9f43 100%);
+            background: #fffaeb;
+            color: #b54708;
         }
         .risk-low {
-            background: linear-gradient(135deg, #26de81 0%, #20bf6b 100%);
+            background: #ecfdf3;
+            color: #027a48;
         }
-        .stat-box {
-            text-align: center;
-            padding: 15px;
-            border-radius: 8px;
-            background: #fff;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        .risk-unknown {
+            background: #f2f4f7;
+            color: #475467;
+        }
+        .summary-text {
+            color: #344054;
+            line-height: 1.7;
+        }
+        .muted-text {
+            color: #98a2b3;
+        }
+        .table-card .layui-table th {
+            background: #f8fafc;
+            color: #475467;
+        }
+        .table-card .layui-table td {
+            vertical-align: top;
+        }
+        @media (max-width: 1200px) {
+            .summary-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+        @media (max-width: 768px) {
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+            .toolbar-actions {
+                width: 100%;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="analysis-container">
-        <div class="project-selector">
-            <h3>选择项目进行风险预测分析</h3>
-            <div class="layui-form">
-                <div class="layui-form-item">
-                    <div class="layui-input-inline" style="width: 400px;">
-                        <select id="projectSelect" lay-filter="projectSelect">
+    <div class="page-shell">
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="label">项目总数</div>
+                <div class="value">{{ stats.total }}</div>
+            </div>
+            <div class="summary-card high">
+                <div class="label">高风险</div>
+                <div class="value">{{ stats.high }}</div>
+            </div>
+            <div class="summary-card medium">
+                <div class="label">中风险</div>
+                <div class="value">{{ stats.medium }}</div>
+            </div>
+            <div class="summary-card low">
+                <div class="label">低风险</div>
+                <div class="value">{{ stats.low }}</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">待分析</div>
+                <div class="value">{{ stats.unknown }}</div>
+            </div>
+        </div>
+
+        <div class="toolbar-card">
+            <h1 class="toolbar-title">项目风险分析</h1>
+            <p class="toolbar-subtitle">系统支持每日后台批量巡检，同时保留单项目手动重跑分析。</p>
+            <div class="layui-form toolbar-row">
+                <div class="toolbar-field">
+                    <label class="layui-form-label" style="width: 90px; padding-left: 0;">手动分析</label>
+                    <div class="layui-input-block" style="margin-left: 90px;">
+                        <select id="projectSelect" lay-search>
                             <option value="">请选择项目</option>
                             {% for project in projects %}
-                            <option value="{{ project.id }}">{{ project.name }}</option>
+                            <option value="{{ project.id }}" {% if selected_project_id == project.id|stringformat:'s' %}selected{% endif %}>
+                                {{ project.name }}{% if project.code %}（{{ project.code }}）{% endif %}
+                            </option>
                             {% endfor %}
                         </select>
                     </div>
-                    <button type="button" class="layui-btn" onclick="analyzeRisk()">
-                        <i class="layui-icon layui-icon-search"></i> 开始分析
+                </div>
+                <div class="toolbar-actions">
+                    <button type="button" class="layui-btn" onclick="triggerSelectedAnalysis()">
+                        <i class="layui-icon layui-icon-refresh-3"></i> 立即分析
                     </button>
                 </div>
             </div>
         </div>
 
-        <div id="analysisResult" style="display: none;">
-            <div class="layui-row layui-col-space15" id="riskCards">
-                <!-- 风险卡片将通过AJAX加载 -->
-            </div>
-            <div id="riskInsight" style="margin-top: 20px;"></div>
+        <div class="table-card">
+            <table class="layui-table">
+                <thead>
+                    <tr>
+                        <th>项目名称</th>
+                        <th>项目经理</th>
+                        <th>项目状态</th>
+                        <th>风险等级</th>
+                        <th>风险得分</th>
+                        <th>预警数</th>
+                        <th>推荐动作</th>
+                        <th>关键信息</th>
+                        <th>分析时间</th>
+                        <th style="width: 180px;">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr>
+                        <td>
+                            <div>{{ row.project_name }}</div>
+                            <div class="muted-text">{{ row.project_code }}</div>
+                        </td>
+                        <td>{{ row.manager_name|default:'-' }}</td>
+                        <td>{{ row.status_display }}</td>
+                        <td>
+                            <span class="risk-badge risk-{{ row.risk_level }}">{{ row.risk_level_display }}</span>
+                        </td>
+                        <td>{% if row.risk_score != None %}{{ row.risk_score }}{% else %}<span class="muted-text">-</span>{% endif %}</td>
+                        <td>{{ row.warning_count }}</td>
+                        <td>{{ row.recommended_action_display }}</td>
+                        <td class="summary-text">{{ row.summary }}</td>
+                        <td>{% if row.analyzed_at %}{{ row.analyzed_at|date:'Y-m-d H:i' }}{% else %}<span class="muted-text">尚未分析</span>{% endif %}</td>
+                        <td>
+                            {% if row.analysis %}
+                            <a class="layui-btn layui-btn-xs" href="{{ row.detail_url }}">查看详情</a>
+                            {% else %}
+                            <span class="muted-text">暂无详情</span>
+                            {% endif %}
+                            <button type="button" class="layui-btn layui-btn-normal layui-btn-xs" onclick="triggerProjectAnalysis('{{ row.project_id }}')">重新分析</button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="muted-text" style="text-align: center;">暂无可查看的项目</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -73,105 +234,57 @@
     <script src="{% static 'layui/layui.js' %}"></script>
     <script src="{% static 'js/ai-agent-sdk.js' %}"></script>
     <script>
-        layui.use(['form', 'layer'], function() {
-            var form = layui.form;
-            var layer = layui.layer;
-            form.render();
+        layui.use(['form', 'layer'], function () {
+            layui.form.render();
         });
 
-        function analyzeRisk() {
+        function getCsrfToken() {
+            var cookieValue = '';
+            if (document.cookie && document.cookie !== '') {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = jQuery.trim(cookies[i]);
+                    if (cookie.substring(0, 10) === 'csrftoken=') {
+                        cookieValue = decodeURIComponent(cookie.substring(10));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        function triggerSelectedAnalysis() {
             var projectId = $('#projectSelect').val();
             if (!projectId) {
-                layer.msg('请先选择项目', {icon: 0});
+                layui.layer.msg('请先选择项目', {icon: 0});
                 return;
             }
+            triggerProjectAnalysis(projectId);
+        }
 
-            var index = layer.load(2, {shade: [0.3, '#000']});
-            
+        function triggerProjectAnalysis(projectId) {
+            var index = layui.layer.load(2, {shade: [0.2, '#000']});
             $.ajax({
                 url: '/project/api/ai/risk-prediction/' + projectId + '/',
-                type: 'GET',
-                dataType: 'json',
-                success: function(res) {
-                    layer.close(index);
-                    if (res.code === 0) {
-                        $('#analysisResult').show();
-                        renderRiskCards(res.data);
-                    } else {
-                        layer.msg(res.msg || '分析失败', {icon: 2});
-                    }
+                type: 'POST',
+                headers: {
+                    'X-CSRFToken': getCsrfToken()
                 },
-                error: function() {
-                    layer.close(index);
-                    layer.msg('请求失败，请检查网络', {icon: 2});
+                success: function (res) {
+                    layui.layer.close(index);
+                    if (res && res.code === 0) {
+                        layui.layer.msg(res.msg || '分析完成', {icon: 1}, function () {
+                            window.location.reload();
+                        });
+                        return;
+                    }
+                    layui.layer.msg((res && res.msg) || '分析失败', {icon: 2});
+                },
+                error: function () {
+                    layui.layer.close(index);
+                    layui.layer.msg('分析请求失败，请稍后重试', {icon: 2});
                 }
             });
-        }
-
-        function renderRiskCards(data) {
-            var html = '';
-            var raw = data.raw_result && typeof data.raw_result === 'object' ? data.raw_result : {};
-            
-            // 风险概览
-            var riskLevel = normalizeRiskLevel(data.risk_level || 'low');
-            var riskClass = 'risk-' + riskLevel;
-            var riskScore = normalizeNumber(data.risk_score || raw.risk_score || Math.round((data.confidence || 0) * 100), 0);
-            var warningCount = normalizeNumber(data.warning_count || raw.warning_count || (data.risk_points ? data.risk_points.length : 0), 0);
-            
-            html += '<div class="layui-col-md4">';
-            html += '<div class="stat-box">';
-            html += '<h4>风险等级</h4>';
-            html += '<div class="risk-card ' + riskClass + '" style="margin-top: 10px;">';
-            html += '<h2>' + getRiskLevelDisplay(data.risk_level_display || raw.risk_level_display || riskLevel) + '</h2>';
-            html += '</div></div></div>';
-            
-            html += '<div class="layui-col-md4">';
-            html += '<div class="stat-box">';
-            html += '<h4>风险得分</h4>';
-            html += '<h2 style="color: #009688; margin-top: 10px;">' + riskScore + '</h2>';
-            html += '</div></div>';
-            
-            html += '<div class="layui-col-md4">';
-            html += '<div class="stat-box">';
-            html += '<h4>预警指标</h4>';
-            html += '<h2 style="color: #ff6b6b; margin-top: 10px;">' + warningCount + '</h2>';
-            html += '</div></div>';
-            
-            $('#riskCards').html(html);
-            renderBusinessAIInsight('#riskInsight', data);
-        }
-
-        function renderBusinessAIInsight(selector, data) {
-            if (window.aiAgent && typeof window.aiAgent.mountBusinessAIResult === 'function') {
-                window.aiAgent.mountBusinessAIResult(selector, data);
-            } else {
-                $(selector).text(data.summary || 'AI 分析已完成');
-            }
-        }
-
-        function getRiskLevelDisplay(level) {
-            var labels = {
-                high: '高风险',
-                medium: '中风险',
-                low: '低风险',
-                unknown: '风险未知'
-            };
-            return labels[normalizeRiskLevel(level)] || '风险未知';
-        }
-
-        function normalizeRiskLevel(level) {
-            var allowed = {
-                high: true,
-                medium: true,
-                low: true,
-                unknown: true
-            };
-            return allowed[level] ? level : 'unknown';
-        }
-
-        function normalizeNumber(value, fallback) {
-            var numberValue = Number(value);
-            return Number.isFinite(numberValue) ? numberValue : fallback;
         }
     </script>
 </body>

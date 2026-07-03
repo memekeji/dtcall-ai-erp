@@ -128,7 +128,12 @@ class IntentRecognitionService:
         """
         return self.enhanced_service._handle_ai_chat(user, message)
 
-    def process_request(self, user: User, query: str, chat_id: int | None = None) -> Dict[str, Any]:
+    def process_request(
+            self,
+            user: User,
+            query: str,
+            chat_id: int | None = None,
+            context: Dict[str, Any] | None = None) -> Dict[str, Any]:
         """
         处理用户请求（推荐使用）
 
@@ -139,7 +144,7 @@ class IntentRecognitionService:
         Returns:
             Dict[str, Any]: 处理结果
         """
-        return self.enhanced_service.process_user_request(user, query, chat_id=chat_id)
+        return self.enhanced_service.process_user_request(user, query, chat_id=chat_id, context=context)
 
 
 intent_recognition_service = IntentRecognitionService()

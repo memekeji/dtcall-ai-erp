@@ -80,6 +80,44 @@ class DatabaseConfigurationTests(SimpleTestCase):
             "SET sql_mode='STRICT_TRANS_TABLES'",
         )
 
+    def test_runserver_auto_starts_project_risk_scheduler_subprocess(self):
+        from dtcall import startup_tasks
+
+        with patch.dict(
+            os.environ,
+            {'AUTO_START_PROJECT_RISK_REFRESH_SCHEDULER': 'true'},
+            clear=False,
+        ):
+            os.environ.pop('DTCALL_PROJECT_RISK_SCHEDULER_STARTED', None)
+            os.environ.pop('DTCALL_PROJECT_RISK_SCHEDULER_CHILD', None)
+            with patch.object(startup_tasks.sys, 'argv', ['manage.py', 'runserver']):
+                with patch('dtcall.startup_tasks.subprocess.Popen') as popen:
+                    started = startup_tasks.start_project_risk_scheduler_subprocess(
+                        context='runserver'
+                    )
+
+        self.assertTrue(started)
+        popen.assert_called_once()
+
+    def test_non_runserver_command_does_not_auto_start_project_risk_scheduler(self):
+        from dtcall import startup_tasks
+
+        with patch.dict(
+            os.environ,
+            {'AUTO_START_PROJECT_RISK_REFRESH_SCHEDULER': 'true'},
+            clear=False,
+        ):
+            os.environ.pop('DTCALL_PROJECT_RISK_SCHEDULER_STARTED', None)
+            os.environ.pop('DTCALL_PROJECT_RISK_SCHEDULER_CHILD', None)
+            with patch.object(startup_tasks.sys, 'argv', ['manage.py', 'migrate']):
+                with patch('dtcall.startup_tasks.subprocess.Popen') as popen:
+                    started = startup_tasks.start_project_risk_scheduler_subprocess(
+                        context='runserver'
+                    )
+
+        self.assertFalse(started)
+        popen.assert_not_called()
+
 
 class ProjectSmokeTests(TestCase):
     def test_root_redirects_to_login(self):

@@ -39,8 +39,9 @@
         /* 头部导航样式 */
         .layui-header {
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-start;
             align-items: center;
+            position: relative;
             border-bottom: 1px solid #e6e6e6;
         }
 
@@ -57,12 +58,14 @@
 
         /* 用户菜单样式 */
         .user-menu-container {
-            position: absolute;
-            right: 20px;
-            top: 0;
+            position: static;
+            flex: 0 0 auto;
+            margin-left: auto;
+            padding: 0 24px 0 12px;
             height: 60px;
             display: flex;
             align-items: center;
+            box-sizing: border-box;
             z-index: 1003;
         }
 
@@ -173,8 +176,114 @@
             object-fit: contain;
         }
 
+        .quick-menu-strip {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            height: 100%;
+            overflow: hidden;
+            padding: 0 24px 0 20px;
+            box-sizing: border-box;
+        }
+
+        .quick-menu-group {
+            display: flex;
+            flex: 1 1 0;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .quick-menu-label {
+            flex: 0 0 auto;
+            font-size: 13px;
+            font-weight: 700;
+            color: #1e3a8a;
+            white-space: nowrap;
+        }
+
+        .quick-menu-list {
+            display: flex;
+            flex: 1 1 auto;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .quick-menu-list::-webkit-scrollbar {
+            display: none;
+        }
+
+        .quick-menu-item {
+            position: relative;
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            height: 34px;
+            padding: 0 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(59, 130, 246, 0.16);
+            background: rgba(255, 255, 255, 0.82);
+            color: #334155;
+            text-decoration: none;
+            box-shadow: 0 1px 0 rgba(255, 255, 255, 0.82) inset;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+        }
+
+        .quick-menu-item:hover {
+            transform: translateY(-1px);
+            border-color: rgba(37, 99, 235, 0.32);
+            box-shadow: 0 8px 18px rgba(37, 99, 235, 0.10);
+            background: #ffffff;
+        }
+
+        .quick-menu-item .quick-menu-icon {
+            width: 18px;
+            height: 18px;
+            object-fit: contain;
+            flex: 0 0 auto;
+        }
+
+        .quick-menu-item .quick-menu-title {
+            max-width: 84px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 13px;
+        }
+
+        .quick-menu-item .quick-menu-pin {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            margin-left: 2px;
+            border: 0;
+            padding: 0;
+            background: transparent;
+            color: #94a3b8;
+            cursor: pointer;
+        }
+
+        .quick-menu-item.is-pinned .quick-menu-pin {
+            color: #f59e0b;
+        }
+
+        .quick-menu-empty {
+            font-size: 12px;
+            color: #94a3b8;
+            white-space: nowrap;
+        }
+
         .user-menu-container {
-            right: 24px;
+            padding-right: 24px;
         }
 
         .message-bell {
@@ -720,7 +829,8 @@
             }
 
             .user-menu-container {
-                right: 12px;
+                padding-right: 12px;
+                padding-left: 8px;
             }
         }
 
@@ -744,6 +854,28 @@
             .layui-logo img {
                 max-width: 42px;
                 height: 28px;
+            }
+
+            .quick-menu-strip {
+                padding: 0 10px;
+                gap: 8px;
+            }
+
+            .quick-menu-group {
+                gap: 8px;
+            }
+
+            .quick-menu-label {
+                font-size: 12px;
+            }
+
+            .quick-menu-item .quick-menu-title {
+                max-width: 62px;
+            }
+
+            .user-menu-container {
+                padding-right: 8px;
+                padding-left: 6px;
             }
 
             .layui-layout-admin .layui-body,
@@ -1308,6 +1440,17 @@
                 <img src="{% if configs.system_logo and configs.system_logo.value %}{{ configs.system_logo.value }}{% else %}{% static 'img/logo.png' %}{% endif %}" alt="{{ configs.system_name.value|default:'DTCALL' }}">
             </div>
 
+            <div class="quick-menu-strip" id="quickMenuStrip" aria-label="常用菜单快捷入口">
+                <div class="quick-menu-group">
+                    <span class="quick-menu-label">固定</span>
+                    <div class="quick-menu-list" id="pinnedQuickMenus"></div>
+                </div>
+                <div class="quick-menu-group">
+                    <span class="quick-menu-label">常用</span>
+                    <div class="quick-menu-list" id="frequentQuickMenus"></div>
+                </div>
+            </div>
+
             <div class="user-menu-container">
                 <div class="message-bell" id="messageBell" onclick="openMessageCenter()" aria-label="打开消息中心" title="打开消息中心">
                     <i class="layui-icon layui-icon-notice"></i>
@@ -1343,7 +1486,7 @@
             <ul class="layui-nav layui-nav-tree" lay-filter="main-menu" lay-accordion>
                 {% for menu in database_menus %}
                 <li class="layui-nav-item">
-                    <a href="{% if menu.submenus_list %}javascript:;{% else %}{{ menu.src }}{% endif %}" data-menu-url="{{ menu.src }}" title="{{ menu.title }}"{% if menu.src == '/message/conversations/page/' or menu.src == '/message/page/' %} data-message-menu-link="1"{% endif %}>
+                    <a href="{% if menu.submenus_list %}javascript:;{% else %}{{ menu.src }}{% endif %}" data-menu-id="{{ menu.id }}" data-menu-url="{{ menu.src }}" title="{{ menu.title }}"{% if menu.src == '/message/conversations/page/' or menu.src == '/message/page/' %} data-message-menu-link="1"{% endif %}>
                         <img src="" data-src="{% static 'img/icon/'|add:menu.title|add:'.png' %}" class="menu-icon lazy-icon" alt="">
                         <span class="menu-text">{{ menu.title }}</span>
                         {% if menu.src == '/message/conversations/page/' or menu.src == '/message/page/' %}<span class="message-reminder-dot">0</span>{% endif %}
@@ -1353,7 +1496,7 @@
                         {% for submenu in menu.submenus_list|dictsort:'sort' %}
                         {% if submenu.submenus_list %}
                         <dd class="layui-nav-item">
-                            <a href="{% if submenu.submenus_list %}javascript:;{% else %}{{ submenu.src }}{% endif %}" data-menu-url="{{ submenu.src }}" title="{{ submenu.title }}"{% if submenu.src == '/message/conversations/page/' or submenu.src == '/message/page/' %} data-message-menu-link="1"{% endif %}>
+                            <a href="{% if submenu.submenus_list %}javascript:;{% else %}{{ submenu.src }}{% endif %}" data-menu-id="{{ submenu.id }}" data-menu-url="{{ submenu.src }}" title="{{ submenu.title }}"{% if submenu.src == '/message/conversations/page/' or submenu.src == '/message/page/' %} data-message-menu-link="1"{% endif %}>
                                 <img src="" data-src="{% static 'img/icon/'|add:submenu.title|add:'.png' %}" class="menu-icon lazy-icon" alt="">
                                 <span class="menu-text">{{ submenu.title }}</span>
                                 {% if submenu.src == '/message/conversations/page/' or submenu.src == '/message/page/' %}<span class="message-reminder-dot">0</span>{% endif %}
@@ -1361,7 +1504,7 @@
                             <dl class="layui-nav-child">
                                 {% for thirdmenu in submenu.submenus_list|dictsort:'sort' %}
                                 <dd class="{% if thirdmenu.submenus_list %}layui-nav-item{% endif %}">
-                                    <a href="{% if thirdmenu.submenus_list %}javascript:;{% else %}{{ thirdmenu.src }}{% endif %}" data-menu-url="{{ thirdmenu.src }}" title="{{ thirdmenu.title }}"{% if thirdmenu.src == '/message/conversations/page/' or thirdmenu.src == '/message/page/' %} data-message-menu-link="1"{% endif %}>
+                                    <a href="{% if thirdmenu.submenus_list %}javascript:;{% else %}{{ thirdmenu.src }}{% endif %}" data-menu-id="{{ thirdmenu.id }}" data-menu-url="{{ thirdmenu.src }}" title="{{ thirdmenu.title }}"{% if thirdmenu.src == '/message/conversations/page/' or thirdmenu.src == '/message/page/' %} data-message-menu-link="1"{% endif %}>
                                         <img src="" data-src="{% static 'img/icon/'|add:thirdmenu.title|add:'.png' %}" class="menu-icon lazy-icon" alt="">
                                         <span class="menu-text">{{ thirdmenu.title }}</span>
                                         {% if thirdmenu.src == '/message/conversations/page/' or thirdmenu.src == '/message/page/' %}<span class="message-reminder-dot">0</span>{% endif %}
@@ -1369,7 +1512,7 @@
                                     {% if thirdmenu.submenus_list %}
                                     <dl class="layui-nav-child">
                                         {% for fourthmenu in thirdmenu.submenus_list|dictsort:'sort' %}
-                                        <dd><a href="{{ fourthmenu.src }}" data-menu-url="{{ fourthmenu.src }}" title="{{ fourthmenu.title }}"{% if fourthmenu.src == '/message/conversations/page/' or fourthmenu.src == '/message/page/' %} data-message-menu-link="1"{% endif %}>
+                                        <dd><a href="{{ fourthmenu.src }}" data-menu-id="{{ fourthmenu.id }}" data-menu-url="{{ fourthmenu.src }}" title="{{ fourthmenu.title }}"{% if fourthmenu.src == '/message/conversations/page/' or fourthmenu.src == '/message/page/' %} data-message-menu-link="1"{% endif %}>
                                             <img src="" data-src="{% static 'img/icon/'|add:fourthmenu.title|add:'.png' %}" class="menu-icon lazy-icon" alt="">
                                             <span class="menu-text">{{ fourthmenu.title }}</span>
                                             {% if fourthmenu.src == '/message/conversations/page/' or fourthmenu.src == '/message/page/' %}<span class="message-reminder-dot">0</span>{% endif %}

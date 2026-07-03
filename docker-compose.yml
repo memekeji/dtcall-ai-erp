@@ -73,6 +73,27 @@ services:
       - redis
     restart: unless-stopped
 
+  project-risk-refresh:
+    build: .
+    command: ["python", "manage.py", "run_project_risk_refresh_scheduler", "--hour", "12", "--minute", "0"]
+    environment:
+      - DATABASE_ENGINE=${DATABASE_ENGINE:-postgresql}
+      - DATABASE_HOST=${DATABASE_HOST:-db}
+      - DATABASE_PORT=${DATABASE_PORT:-5432}
+      - DATABASE_NAME=${DATABASE_NAME:-dtcall}
+      - DATABASE_USER=${DATABASE_USER:-dtcall_user}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY is required}
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,testserver,erp.dtcall.cn,www.dtcall.cn,dtcall.cn}
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-https://erp.dtcall.cn,https://www.dtcall.cn,https://dtcall.cn}
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:

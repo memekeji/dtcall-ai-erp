@@ -13,7 +13,6 @@ TASK_TYPE_BY_SCENARIO = {
     'oa_meeting_audio_minutes': 'meeting_minutes',
     'personal_meeting_minutes_generation': 'meeting_minutes',
     'project_risk_prediction': 'project_risk',
-    'project_progress_analysis': 'project_risk',
     'disk_file_analysis': 'document_summary',
     'contract_risk_analysis': 'text_generation',
     'contract_term_extraction': 'text_generation',

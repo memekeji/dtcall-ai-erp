@@ -22,72 +22,49 @@ class Command(BaseCommand):
         default_configs = [
             {
                 'name': '千问-Turbo',
-                'provider': 'alibaba',
-                'model_type': 'chat',
-                'model_name': 'qwen-turbo',
+                'model_names': ['qwen-turbo'],
                 'api_key': '',
                 'api_base': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-                'temperature': 0.7,
-                'max_tokens': 2000,
-                'top_p': 1.0,
+                'is_default': False,
                 'is_active': True
             },
             {
                 'name': '豆包-标准版',
-                'provider': 'doubao',
-                'model_type': 'chat',
-                'model_name': 'doubao-seed-1-6-250615',
+                'model_names': ['doubao-seed-1-6-250615'],
                 'api_key': '',
                 'api_base': 'https://ark.cn-beijing.volces.com/api/v3',
-                'temperature': 0.7,
-                'max_tokens': 2000,
-                'top_p': 1.0,
+                'is_default': False,
                 'is_active': True
             },
             {
                 'name': '文心一言-Turbo',
-                'provider': 'baidu',
-                'model_type': 'chat',
-                'model_name': 'eb-instant',
+                'model_names': ['ernie-4.0-turbo-8k'],
                 'api_key': '',
                 'api_base': 'https://aip.baidubce.com/rpc/2.0/ai_custom/v1',
-                'temperature': 0.7,
-                'max_tokens': 2000,
-                'top_p': 1.0,
+                'is_default': False,
                 'is_active': True
             },
             {
                 'name': 'DeepSeek-Chat',
-                'provider': 'deepseek',
-                'model_type': 'chat',
-                'model_name': 'deepseek-chat',
+                'model_names': ['deepseek-chat'],
                 'api_key': '',
                 'api_base': 'https://api.deepseek.com/v1',
-                'temperature': 0.7,
-                'max_tokens': 2000,
-                'top_p': 1.0,
+                'is_default': False,
                 'is_active': True
             },
             {
                 'name': 'OpenAI-GPT-4o-Mini',
-                'provider': 'openai',
-                'model_type': 'chat',
-                'model_name': 'gpt-4o-mini',
+                'model_names': ['gpt-4o-mini'],
                 'api_key': '',
                 'api_base': 'https://api.openai.com/v1',
-                'temperature': 0.7,
-                'max_tokens': 2000,
-                'top_p': 1.0,
+                'is_default': True,
                 'is_active': True
             }
         ]
 
         created_count = 0
         for config_data in default_configs:
-            config, created = AIModelConfig.objects.get_or_create(
-                name=config_data['name'],
-                defaults=config_data
-            )
+            config, created = AIModelConfig.objects.get_or_create(name=config_data['name'], defaults=config_data)
             if created:
                 created_count += 1
                 self.stdout.write(f"✓ 创建配置: {config.name}")
@@ -96,3 +73,4 @@ class Command(BaseCommand):
 
         self.stdout.write(f'\n创建完成: {created_count} 个新配置')
         self.stdout.write('\n注意: 默认配置的API密钥为空，请通过管理界面配置实际的API密钥')
+

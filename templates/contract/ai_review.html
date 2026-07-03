@@ -37,6 +37,45 @@
         .level-tag.high { background:#e74c3c; }
         .level-tag.medium { background:#f39c12; }
         .level-tag.low { background:#27ae60; }
+        .level-tag.unknown { background:#8c8c8c; }
+        .quick-review-card { border:1px solid #e9eef5; border-radius:6px; padding:16px 18px; background:#fff; }
+        .quick-review-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:12px; }
+        .quick-review-label { font-size:12px; color:#8a94a6; }
+        .quick-review-summary { font-size:14px; line-height:1.8; color:#2f3542; margin-bottom:12px; }
+        .quick-review-list { margin:0; padding-left:18px; color:#475569; line-height:1.8; font-size:13px; }
+        .quick-review-list li { margin-bottom:6px; }
+        .quick-review-note { margin-top:12px; padding-top:12px; border-top:1px solid #eef1f6; color:#8a94a6; font-size:12px; }
+        .quick-review-empty { padding:14px 16px; border:1px dashed #dbe3ef; border-radius:6px; background:#fbfcfe; color:#5c667a; font-size:13px; line-height:1.8; }
+        .history-layout { display:grid; grid-template-columns:320px minmax(0, 1fr); gap:16px; }
+        .history-list-panel, .history-detail-panel { min-height:240px; }
+        .history-list { display:flex; flex-direction:column; gap:10px; }
+        .history-card { border:1px solid #e8edf5; border-radius:6px; padding:12px; background:#fff; cursor:pointer; transition:.2s; }
+        .history-card:hover { border-color:#cfd9e8; box-shadow:0 4px 12px rgba(31, 45, 61, 0.06); }
+        .history-card.active { border-color:#1e9fff; background:#f7fbff; box-shadow:0 4px 12px rgba(30, 159, 255, 0.08); }
+        .history-card-head { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; }
+        .history-card-tags { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+        .history-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; line-height:1.5; }
+        .history-badge.type { background:#eef5ff; color:#1e549f; }
+        .history-badge.latest { background:#f0faf4; color:#2e7d32; }
+        .history-time { color:#8a94a6; font-size:12px; white-space:nowrap; }
+        .history-summary { font-size:13px; color:#3d4a5d; line-height:1.7; max-height:44px; overflow:hidden; }
+        .history-empty { display:flex; align-items:center; justify-content:center; min-height:240px; border:1px dashed #dbe3ef; border-radius:6px; background:#fbfcfe; color:#6b7280; font-size:13px; text-align:center; padding:16px; }
+        .history-detail-panel { border:1px solid #e8edf5; border-radius:6px; background:#fbfcfe; padding:14px; }
+        .history-meta { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px; margin-bottom:14px; }
+        .history-meta-item { background:#fff; border:1px solid #edf2f7; border-radius:6px; padding:10px 12px; }
+        .history-meta-item .meta-label { color:#8a94a6; font-size:12px; margin-bottom:4px; }
+        .history-meta-item .meta-value { color:#2f3542; font-size:13px; line-height:1.7; word-break:break-word; }
+        .history-detail-section { margin-bottom:14px; }
+        .history-detail-section:last-child { margin-bottom:0; }
+        .history-detail-title { font-size:13px; font-weight:600; color:#1e549f; margin-bottom:8px; }
+        .history-detail .clause-item { background:#fff; }
+        .history-detail .cross-summary,
+        .history-detail .cross-table,
+        .history-detail .quick-review-card,
+        .history-detail .risk-overview { background:#fff; }
+        @media (max-width: 1100px) {
+            .history-layout { grid-template-columns:1fr; }
+        }
         .clause-item { border:1px solid #eef1f6; border-radius:4px; margin-bottom:10px; overflow:hidden; }
         .clause-item.high { border-left:4px solid #e74c3c; }
         .clause-item.medium { border-left:4px solid #f39c12; }
@@ -117,7 +156,7 @@
     </div>
 
     <div id="overallBlock" class="result-block" style="display:none;">
-        <div class="result-block-title">总体评估</div>
+        <div class="result-block-title" id="overallBlockTitle">总体评估</div>
         <div id="overallContent"></div>
     </div>
 
@@ -130,11 +169,26 @@
         <div class="result-block-title">审查结论汇总</div>
         <div id="conclusionContent"></div>
     </div>
+
+    <div id="historyBlock" class="result-block">
+        <div class="result-block-title">审查历史</div>
+        <div class="history-layout">
+            <div class="history-list-panel">
+                <div id="historyList" class="history-list"></div>
+            </div>
+            <div class="history-detail-panel">
+                <div id="historyDetailEmpty" class="history-empty">当前合同还没有历史审查记录。完成一次快速评估或完整审查后，会自动留存在这里。</div>
+                <div id="historyDetail" class="history-detail" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script src="/static/layui/layui.js"></script>
 <script>
 var CONTRACT_ID = {{ contract.id }};
+var RISK_LABELS = {high:"高风险",medium:"中风险",low:"低风险",unknown:"待确认"};
+var currentHistoryReviewId = null;
 
 function getCsrf(){
     var input = document.querySelector("input[name='csrfmiddlewaretoken']");
@@ -180,59 +234,40 @@ function startReview(){
         })
     }).then(function(r){return r.json();}).then(function(d){
         hideLoading(); btn.disabled=false; btn.textContent="开始AI审查";
-        if(d.code===0) renderReview(d.data); else layui.use("layer",function(){layer.msg(d.msg||"审查失败");});
+        if(d.code===0){ renderReview(d.data); loadReviewHistory(d.data.review_id); } else layui.use("layer",function(){layer.msg(d.msg||"审查失败");});
     }).catch(function(){hideLoading();btn.disabled=false;btn.textContent="开始AI审查";layui.use("layer",function(){layer.msg("网络错误");});});
 }
 
 function renderReview(data){
-    var rlbl={high:"高风险",medium:"中风险",low:"低风险",unknown:"未知"};
+    document.getElementById("overallBlockTitle").textContent = "总体评估";
 
     // Cross-check
     var cc = data.data_cross_check||[];
     if(cc.length>0){
         document.getElementById("crossCheckBlock").style.display="block";
-        var mc = cc.filter(function(c){return !c.match;}).length;
-        var cls = mc===0?"ok":"err";
-        var sum = mc===0?"合同原文与系统数据完全一致":"发现 "+mc+" 处不一致，请核实";
-        var h = "<div class='cross-summary "+cls+"'>"+sum+"</div>";
-        h += "<table class='cross-table'><thead><tr><th>字段</th><th>原文提取值</th><th>系统录入值</th><th>状态</th><th>说明</th></tr></thead><tbody>";
-        cc.forEach(function(c){
-            var bc = c.match?"match":((c.status||"").indexOf("未提及")>=0||(c.status||"").indexOf("未录入")>=0?"missing":"mismatch");
-            h += "<tr><td><b>"+(c.field||"")+"</b></td><td>"+(c.extracted_value||"-")+"</td><td>"+(c.system_value||"-")+"</td><td><span class='match-badge "+bc+"'>"+(c.status||"")+"</span></td><td style='font-size:11px;color:#c0392b;'>"+(c.detail||"")+"</td></tr>";
-        });
-        h += "</tbody></table>";
-        document.getElementById("crossCheckContent").innerHTML = h;
+        document.getElementById("crossCheckContent").innerHTML = renderCrossCheckContent(cc);
+    } else {
+        document.getElementById("crossCheckBlock").style.display="none";
     }
 
     // Overall
     var oa = data.overall_assessment || {};
     document.getElementById("overallBlock").style.display="block";
-    document.getElementById("overallContent").innerHTML = "<div class='risk-overview "+(oa.risk_level||"low")+"'><div class='level-tag "+(oa.risk_level||"low")+"'>"+(rlbl[oa.risk_level]||"")+"</div><div style='font-size:13px;line-height:1.8;'>"+(oa.summary||"").replace(/\n/g,"<br>")+"</div>"+(oa.final_recommendation?"<div style='margin-top:10px;padding:8px 12px;background:#fff;border-radius:4px;font-weight:600;'>"+oa.final_recommendation+"</div>":"")+"</div>";
+    document.getElementById("overallContent").innerHTML = renderOverallAssessment(oa, RISK_LABELS);
 
     // Clauses
     var clauses = data.clause_reviews||[];
     document.getElementById("clauseBlock").style.display = clauses.length?"block":"none";
-    var ch = "";
-    clauses.forEach(function(c,i){
-        ch += "<div class='clause-item "+(c.risk_level||"low")+"'><div class='clause-hdr' onclick='this.nextElementSibling.classList.toggle(\"open\")'><span>"+(c.clause_no||("第"+(i+1)+"条"))+" ["+(c.title||"")+"]</span><span class='risk-tag "+(c.risk_level||"low")+"'>"+(rlbl[c.risk_level]||"")+"</span></div><div class='clause-body "+(i===0?"open":"")+"'>"+(c.original_summary?"<div class='clause-fld'><div class='fld-lbl'>原文摘要</div><div class='orig-text'>"+c.original_summary+"</div></div>":"")+"<div class='clause-fld'><div class='fld-lbl'>风险分析</div><div class='fld-val'>"+(c.risk_analysis||"").replace(/\n/g,"<br>")+"</div></div>"+(c.suggestion?"<div class='clause-fld'><div class='fld-lbl'>修改建议</div><div class='sugg-text'>"+c.suggestion+"</div></div>":"")+"</div></div>";
-    });
-    document.getElementById("clauseContent").innerHTML = ch;
+    document.getElementById("clauseContent").innerHTML = renderClauseItems(clauses, RISK_LABELS, true);
 
     // Conclusion
     var conc = data.review_conclusion||[];
     document.getElementById("conclusionBlock").style.display = conc.length?"block":"none";
     if(conc.length){
-        var th = "<table style='width:100%;font-size:12px;border-collapse:collapse;'><thead><tr style='background:#f8f8f8;'><th style='padding:8px 10px;text-align:left;border-bottom:2px solid #eef1f6;'>条款</th><th style='padding:8px 10px;text-align:left;border-bottom:2px solid #eef1f6;'>名称</th><th style='padding:8px 10px;text-align:left;border-bottom:2px solid #eef1f6;'>风险</th><th style='padding:8px 10px;text-align:left;border-bottom:2px solid #eef1f6;'>动作</th></tr></thead><tbody>";
-        conc.forEach(function(c){
-            var ac = c.action==="必须修改"?"must":(c.action==="无需修改"?"none":"suggest");
-            var acolor = ac==="must"?"#e74c3c":(ac==="none"?"#27ae60":"#f39c12");
-            th += "<tr><td style='padding:8px 10px;border-bottom:1px solid #eef1f6;'>"+(c.clause_no||"")+"</td><td style='padding:8px 10px;border-bottom:1px solid #eef1f6;'>"+(c.title||"")+"</td><td style='padding:8px 10px;border-bottom:1px solid #eef1f6;color:"+acolor+";'>"+(rlbl[c.risk_level]||"")+"</td><td style='padding:8px 10px;border-bottom:1px solid #eef1f6;color:"+acolor+";font-weight:500;'>"+(c.action||"")+"</td></tr>";
-        });
-        th += "</tbody></table>";
-        document.getElementById("conclusionContent").innerHTML = th;
+        document.getElementById("conclusionContent").innerHTML = renderConclusionTable(conc, RISK_LABELS);
     }
 
-    document.getElementById("crossCheckBlock").scrollIntoView({behavior:"smooth"});
+    document.getElementById((cc.length ? "crossCheckBlock" : "overallBlock")).scrollIntoView({behavior:"smooth"});
 }
 
 function quickReview(){
@@ -242,17 +277,228 @@ function quickReview(){
     fetch("/contract/ai/quick-review/",{
         method:"POST",
         headers:{"Content-Type":"application/json","X-CSRFToken":getCsrf()},
-        body:JSON.stringify({contract_text:text})
+        body:JSON.stringify({
+            contract_id:CONTRACT_ID,
+            contract_name:"{{ contract.name|escapejs }}",
+            contract_text:text,
+            our_role:document.getElementById("ourRole").value.trim(),
+            core_demands:document.getElementById("coreDemands").value.trim()
+        })
     }).then(function(r){return r.json();}).then(function(d){
         hideLoading();
         if(d.code===0){
-            var dd=d.data, rlbl={high:"高风险",medium:"中风险",low:"低风险"};
+            var dd=d.data;
             document.getElementById("overallBlock").style.display="block";
-            document.getElementById("overallContent").innerHTML = "<div class='risk-overview "+(dd.risk_level||"low")+"'><div class='level-tag "+(dd.risk_level||"low")+"'>"+(rlbl[dd.risk_level]||"")+"</div><div style='font-size:13px;'>"+(dd.brief_summary||"")+"</div>"+(dd.key_risks?("<div style='margin-top:8px;font-size:12px;'>"+(dd.key_risks||[]).map(function(r){return "&bull; "+r;}).join("<br>"))+"</div>":"")+"</div>";
+            document.getElementById("overallBlockTitle").textContent = "快速评估结果";
+            document.getElementById("overallContent").innerHTML = renderQuickReview(dd, RISK_LABELS);
+            document.getElementById("crossCheckBlock").style.display="none";
+            document.getElementById("clauseBlock").style.display="none";
+            document.getElementById("conclusionBlock").style.display="none";
+            loadReviewHistory(dd.review_id);
             document.getElementById("overallBlock").scrollIntoView({behavior:"smooth"});
-        }
-    }).catch(function(){hideLoading();});
+        } else { layui.use("layer",function(){layer.msg(d.msg||"快速评估失败");}); }
+    }).catch(function(){hideLoading();layui.use("layer",function(){layer.msg("网络错误");});});
 }
+
+function escapeHtml(text){
+    return String(text||"")
+        .replace(/&/g,"&amp;")
+        .replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;")
+        .replace(/\"/g,"&quot;")
+        .replace(/'/g,"&#39;");
+}
+
+function renderOverallAssessment(oa, labels){
+    var level = oa.risk_level || "unknown";
+    var summary = oa.summary || "暂未获取到总体评估，请稍后重试。";
+    var recommendation = oa.final_recommendation || "";
+    return "<div class='risk-overview "+level+"'>"
+        +"<div class='level-tag "+level+"'>"+(labels[level]||"待确认")+"</div>"
+        +"<div style='font-size:13px;line-height:1.8;'>"+escapeHtml(summary).replace(/\n/g,"<br>")+"</div>"
+        +(recommendation?"<div style='margin-top:10px;padding:8px 12px;background:#fff;border-radius:4px;font-weight:600;'>"+escapeHtml(recommendation)+"</div>":"")
+        +"</div>";
+}
+
+function renderCrossCheckContent(cc){
+    var mc = cc.filter(function(c){return !c.match;}).length;
+    var cls = mc===0?"ok":"err";
+    var sum = mc===0?"合同原文与系统数据完全一致":"发现 "+mc+" 处不一致，请核实";
+    var h = "<div class='cross-summary "+cls+"'>"+sum+"</div>";
+    h += "<table class='cross-table'><thead><tr><th>字段</th><th>原文提取值</th><th>系统录入值</th><th>状态</th><th>说明</th></tr></thead><tbody>";
+    cc.forEach(function(c){
+        var bc = c.match?"match":((c.status||"").indexOf("未提及")>=0||(c.status||"").indexOf("未录入")>=0?"missing":"mismatch");
+        h += "<tr><td><b>"+escapeHtml(c.field||"")+"</b></td><td>"+escapeHtml(c.extracted_value||"-")+"</td><td>"+escapeHtml(c.system_value||"-")+"</td><td><span class='match-badge "+bc+"'>"+escapeHtml(c.status||"")+"</span></td><td style='font-size:11px;color:#c0392b;'>"+escapeHtml(c.detail||"")+"</td></tr>";
+    });
+    h += "</tbody></table>";
+    return h;
+}
+
+function renderClauseItems(clauses, labels, openFirst){
+    var html = "";
+    clauses.forEach(function(c,i){
+        html += "<div class='clause-item "+(c.risk_level||"low")+"'>"
+            +"<div class='clause-hdr' onclick='this.nextElementSibling.classList.toggle(\"open\")'>"
+            +"<span>"+escapeHtml(c.clause_no||("第"+(i+1)+"条"))+" ["+escapeHtml(c.title||"未命名条款")+"]</span>"
+            +"<span class='risk-tag "+(c.risk_level||"low")+"'>"+(labels[c.risk_level]||"")+"</span></div>"
+            +"<div class='clause-body "+((openFirst&&i===0)?"open":"")+"'>"
+            +(c.original_summary?"<div class='clause-fld'><div class='fld-lbl'>原文摘要</div><div class='orig-text'>"+escapeHtml(c.original_summary).replace(/\n/g,"<br>")+"</div></div>":"")
+            +"<div class='clause-fld'><div class='fld-lbl'>风险分析</div><div class='fld-val'>"+escapeHtml(c.risk_analysis||"").replace(/\n/g,"<br>")+"</div></div>"
+            +(c.suggestion?"<div class='clause-fld'><div class='fld-lbl'>修改建议</div><div class='sugg-text'>"+escapeHtml(c.suggestion).replace(/\n/g,"<br>")+"</div></div>":"")
+            +"</div></div>";
+    });
+    return html;
+}
+
+function renderConclusionTable(conc, labels){
+    var html = "<table style='width:100%;font-size:12px;border-collapse:collapse;'><thead><tr style='background:#f8f8f8;'><th style='padding:8px 10px;text-align:left;border-bottom:2px solid #eef1f6;'>条款</th><th style='padding:8px 10px;text-align:left;border-bottom:2px solid #eef1f6;'>名称</th><th style='padding:8px 10px;text-align:left;border-bottom:2px solid #eef1f6;'>风险</th><th style='padding:8px 10px;text-align:left;border-bottom:2px solid #eef1f6;'>动作</th></tr></thead><tbody>";
+    conc.forEach(function(c){
+        var ac = c.action==="必须修改"?"must":(c.action==="无需修改"?"none":"suggest");
+        var acolor = ac==="must"?"#e74c3c":(ac==="none"?"#27ae60":"#f39c12");
+        html += "<tr><td style='padding:8px 10px;border-bottom:1px solid #eef1f6;'>"+escapeHtml(c.clause_no||"")+"</td><td style='padding:8px 10px;border-bottom:1px solid #eef1f6;'>"+escapeHtml(c.title||"")+"</td><td style='padding:8px 10px;border-bottom:1px solid #eef1f6;color:"+acolor+";'>"+(labels[c.risk_level]||"")+"</td><td style='padding:8px 10px;border-bottom:1px solid #eef1f6;color:"+acolor+";font-weight:500;'>"+escapeHtml(c.action||"")+"</td></tr>";
+    });
+    html += "</tbody></table>";
+    return html;
+}
+
+function renderQuickReview(data, labels){
+    var level = data.risk_level || "unknown";
+    var summary = data.brief_summary || "";
+    var risks = Array.isArray(data.key_risks) ? data.key_risks.filter(function(item){ return item; }) : [];
+    if(!summary && !risks.length){
+        return "<div class='quick-review-empty'>本次快速评估未返回可读结果，建议重新评估，或直接使用“开始AI审查”获取逐条审查意见。</div>";
+    }
+
+    var html = "<div class='quick-review-card'>"
+        +"<div class='quick-review-head'>"
+        +"<div><div class='quick-review-label'>快速扫描结论</div></div>"
+        +"<span class='level-tag "+level+"'>"+(labels[level]||"待确认")+"</span>"
+        +"</div>";
+
+    if(summary){
+        html += "<div class='quick-review-summary'>"+escapeHtml(summary).replace(/\n/g,"<br>")+"</div>";
+    }
+    if(risks.length){
+        html += "<ul class='quick-review-list'>"+risks.map(function(item){
+            return "<li>"+escapeHtml(item)+"</li>";
+        }).join("")+"</ul>";
+    }
+    html += "<div class='quick-review-note'>快速评估适合先做风险分流，逐条修改建议请继续使用“开始AI审查”。</div></div>";
+    return html;
+}
+
+function loadReviewHistory(selectedReviewId){
+    fetch("/contract/ai/review/history/"+CONTRACT_ID+"/",{
+        headers:{"X-Requested-With":"XMLHttpRequest"}
+    }).then(function(r){return r.json();}).then(function(d){
+        if(d.code!==0){
+            return;
+        }
+        renderHistoryList(d.data||[], selectedReviewId);
+    }).catch(function(){});
+}
+
+function renderHistoryList(records, selectedReviewId){
+    var listEl = document.getElementById("historyList");
+    var emptyEl = document.getElementById("historyDetailEmpty");
+    var detailEl = document.getElementById("historyDetail");
+
+    if(!records.length){
+        listEl.innerHTML = "<div class='history-empty' style='min-height:180px;'>还没有历史记录</div>";
+        emptyEl.style.display = "flex";
+        detailEl.style.display = "none";
+        detailEl.innerHTML = "";
+        currentHistoryReviewId = null;
+        return;
+    }
+
+    currentHistoryReviewId = selectedReviewId || currentHistoryReviewId || records[0].id;
+    listEl.innerHTML = records.map(function(item){
+        var active = item.id === currentHistoryReviewId ? " active" : "";
+        return "<div class='history-card"+active+"' data-review-id='"+item.id+"' onclick='loadReviewDetail("+item.id+")'>"
+            +"<div class='history-card-head'><div class='history-card-tags'>"
+            +"<span class='history-badge type'>"+escapeHtml(item.review_type_label||"审查记录")+"</span>"
+            +(item.is_latest?"<span class='history-badge latest'>最新</span>":"")
+            +"<span class='risk-tag "+(item.overall_risk_level||"unknown")+"'>"+(RISK_LABELS[item.overall_risk_level]||"待确认")+"</span>"
+            +"</div><span class='history-time'>"+escapeHtml(item.reviewed_at||"")+"</span></div>"
+            +"<div class='history-summary'>"+escapeHtml(item.overall_summary||"本次记录暂无摘要").replace(/\n/g,"<br>")+"</div></div>";
+    }).join("");
+    emptyEl.style.display = "none";
+    loadReviewDetail(currentHistoryReviewId, true);
+}
+
+function loadReviewDetail(reviewId, skipListRefresh){
+    currentHistoryReviewId = reviewId;
+    if(!skipListRefresh){
+        var cards = document.querySelectorAll(".history-card");
+        cards.forEach(function(card){
+            card.classList.toggle("active", String(reviewId) === card.getAttribute("data-review-id"));
+        });
+    }
+    fetch("/contract/ai/review/detail/"+reviewId+"/",{
+        headers:{"X-Requested-With":"XMLHttpRequest"}
+    }).then(function(r){return r.json();}).then(function(d){
+        if(d.code!==0){
+            return;
+        }
+        renderHistoryDetail(d.data);
+    }).catch(function(){});
+}
+
+function renderHistoryMeta(detail){
+    var info = detail.contract_info || {};
+    var metaItems = [
+        {label:"审查类型", value:detail.review_type_label || "-"},
+        {label:"审查时间", value:detail.reviewed_at || "-"},
+        {label:"风险等级", value:RISK_LABELS[detail.overall_risk_level] || "待确认"},
+        {label:"合同名称", value:info.contract_name || "{{ contract.name|escapejs }}"},
+        {label:"我方角色", value:info.our_role || "-"},
+        {label:"核心诉求", value:info.core_demands || "-"}
+    ];
+
+    return "<div class='history-meta'>"+metaItems.map(function(item){
+        return "<div class='history-meta-item'><div class='meta-label'>"+escapeHtml(item.label)+"</div><div class='meta-value'>"+escapeHtml(item.value||"-").replace(/\n/g,"<br>")+"</div></div>";
+    }).join("")+"</div>";
+}
+
+function renderHistoryDetail(detail){
+    var emptyEl = document.getElementById("historyDetailEmpty");
+    var detailEl = document.getElementById("historyDetail");
+    var html = renderHistoryMeta(detail);
+
+    if(detail.review_type === "quick"){
+        html += "<div class='history-detail-section'><div class='history-detail-title'>快速评估结果</div>"
+            +renderQuickReview(detail.quick_review_result || {}, RISK_LABELS)
+            +"</div>";
+    } else {
+        if((detail.data_cross_check||[]).length){
+            html += "<div class='history-detail-section'><div class='history-detail-title'>数据匹配校验</div>"
+                +renderCrossCheckContent(detail.data_cross_check||[])
+                +"</div>";
+        }
+        html += "<div class='history-detail-section'><div class='history-detail-title'>总体评估</div>"
+            +renderOverallAssessment(detail.overall_assessment || {}, RISK_LABELS)
+            +"</div>";
+        if((detail.clause_reviews||[]).length){
+            html += "<div class='history-detail-section'><div class='history-detail-title'>逐条审查意见</div>"
+                +renderClauseItems(detail.clause_reviews || [], RISK_LABELS, false)
+                +"</div>";
+        }
+        if((detail.review_conclusion||[]).length){
+            html += "<div class='history-detail-section'><div class='history-detail-title'>结论汇总</div>"
+                +renderConclusionTable(detail.review_conclusion || [], RISK_LABELS)
+                +"</div>";
+        }
+    }
+
+    detailEl.innerHTML = html;
+    emptyEl.style.display = "none";
+    detailEl.style.display = "block";
+}
+
+document.addEventListener("DOMContentLoaded", function(){
+    loadReviewHistory();
+});
 </script>
 </body>
 </html>

@@ -104,6 +104,12 @@ def main():
     load_env_file()
     configure_runserver_addrport()
     run_startup_migrations()
+    try:
+        from dtcall.startup_tasks import start_project_risk_scheduler_subprocess
+
+        start_project_risk_scheduler_subprocess(context='runserver')
+    except Exception as exc:
+        print(f'Auto-start project risk refresh scheduler skipped: {exc}')
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dtcall.settings')
     try:
         from django.core.management import execute_from_command_line

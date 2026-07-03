@@ -135,8 +135,7 @@ class EnhancedIntentService:
             'create_url': '/approval/apply/',
             'edit_url_template': '/approval/{id}/process/',
             'permission_base': 'approval',
-            'available': False,
-            'unavailable_reason': '审批模块当前未配置统一权限节点，已阻止从 AI 直接进入写操作',
+            'skip_permission_gate': True,
         },
         'approval_flow': {
             'name': '审批流程',
@@ -145,8 +144,7 @@ class EnhancedIntentService:
             'create_url': '/approval/approvalflow/add/',
             'edit_url_template': '/approval/approvalflow/{id}/edit/',
             'permission_base': 'approval_flow',
-            'available': False,
-            'unavailable_reason': '审批流程模块当前未配置统一权限节点，已阻止从 AI 直接进入写操作',
+            'skip_permission_gate': True,
         },
         'approval_task': {
             'name': '待办审批',
@@ -155,8 +153,7 @@ class EnhancedIntentService:
             'create_url': None,
             'edit_url_template': '/approval/{id}/process/',
             'permission_base': 'approval',
-            'available': False,
-            'unavailable_reason': '审批任务模块当前未配置统一权限节点，已阻止从 AI 直接进入写操作',
+            'skip_permission_gate': True,
         },
         'task': {
             'name': '任务',
@@ -259,10 +256,15 @@ class EnhancedIntentService:
         logger.warning("直接智能助手业务执行已被安全策略禁用")
         return None
 
-    def process_user_request(self, user: User, query: str, chat_id: int | None = None) -> Dict[str, Any]:
+    def process_user_request(
+            self,
+            user: User,
+            query: str,
+            chat_id: int | None = None,
+            context: Dict[str, Any] | None = None) -> Dict[str, Any]:
         """处理用户请求"""
         try:
-            conversation_context = self._build_conversation_context(user, chat_id)
+            conversation_context = self._build_conversation_context(user, chat_id, extra_context=context)
             intent_result = self.classifier.classify_intent(user, query)
             intent_result = self._apply_follow_up_context(intent_result, query, conversation_context)
 
@@ -565,7 +567,7 @@ class EnhancedIntentService:
             }
 
         if intent_type == 'AI_CHAT':
-            return self._handle_ai_chat(user, query)
+            return self._handle_ai_chat(user, query, conversation_context)
 
         if intent_type == 'KNOWLEDGE_BASE':
             return self._handle_knowledge_base(user, query)
@@ -604,13 +606,18 @@ class EnhancedIntentService:
             logger.error(f"数据查询处理失败：{str(e)}")
             return self._create_error_response('数据查询失败，请稍后重试')
 
-    def _build_conversation_context(self, user: User, chat_id: int | None) -> Dict[str, Any]:
+    def _build_conversation_context(
+            self,
+            user: User,
+            chat_id: int | None,
+            extra_context: Dict[str, Any] | None = None) -> Dict[str, Any]:
+        base_context = dict(extra_context or {})
         if not chat_id:
-            return {}
+            return base_context
         try:
             chat = AIChat.objects.get(id=chat_id, user=user)
         except AIChat.DoesNotExist:
-            return {}
+            return base_context
 
         previous_user_message = (
             AIChatMessage.objects.filter(chat=chat, role='user')
@@ -624,10 +631,11 @@ class EnhancedIntentService:
             .first()
         )
 
-        return {
+        base_context.update({
             'previous_user_message': previous_user_message.content if previous_user_message else '',
             'previous_query': previous_assistant_message.runtime_payload if previous_assistant_message else {},
-        }
+        })
+        return base_context
 
     def _handle_data_create(
             self, user: User, intent_result: Dict[str, Any], query: str) -> Dict[str, Any]:
@@ -677,22 +685,39 @@ class EnhancedIntentService:
             'result': '知识库查询功能即将上线，敬请期待'
         }
 
-    def _handle_ai_chat(self, user: User, query: str) -> Dict[str, Any]:
+    def _handle_ai_chat(
+            self,
+            user: User,
+            query: str,
+            conversation_context: Dict[str, Any] | None = None) -> Dict[str, Any]:
         """处理 AI 对话"""
         try:
             from apps.ai.services.ai_intent_classifier import ai_intent_classifier
 
             ai_intent_classifier._ensure_ai_client(force_refresh=True)
+            ai_config = ai_intent_classifier.ai_config or {}
+            if self._is_model_meta_question(query):
+                response_text = self._build_model_meta_response(ai_config, conversation_context)
+                return {
+                    'success': True,
+                    'message': response_text,
+                    'intent_type': 'AI_CHAT',
+                    'result': response_text,
+                    'confidence': 1.0
+                }
             ai_client = ai_intent_classifier.ai_client
             if ai_client is None:
                 return self._create_fallback_response(query)
 
             messages = [
-                {'role': 'system', 'content': '你是友好的企业级智能助手。只进行安全的自然语言回答，不直接执行业务数据新增、修改、删除，不调用工具。'},
+                {
+                    'role': 'system',
+                    'content': self._build_ai_chat_system_prompt(query, conversation_context, ai_config),
+                },
                 {'role': 'user', 'content': query}
             ]
 
-            response = ai_client.chat_completion(messages)
+            response = ai_client.chat_completion(messages=messages)
             response_text = response.get('content', '') if isinstance(response, dict) else str(response)
 
             if not response_text or not response_text.strip():
@@ -709,6 +734,72 @@ class EnhancedIntentService:
         except Exception as e:
             logger.error(f"AI 对话失败：{str(e)}")
             return self._create_fallback_response(query)
+
+    def _build_ai_chat_system_prompt(
+            self,
+            query: str,
+            conversation_context: Dict[str, Any] | None,
+            ai_config: Dict[str, Any] | None) -> str:
+        page_context = (conversation_context or {}).get('page_context') or {}
+        previous_user_message = (conversation_context or {}).get('previous_user_message') or ''
+        previous_query = (conversation_context or {}).get('previous_query') or {}
+        model_name = ai_config.get('model_name') or ', '.join(ai_config.get('model_names') or [])
+        prompt_parts = [
+            '你是 DTCall 系统内的 AI 助手。',
+            '回答时优先结合当前系统、当前页面、当前业务模块，不要把自己描述成通用闲聊助手。',
+            '当用户询问在这个项目、这个系统、这个页面里可以做什么时，应优先说明当前页面相关的业务功能、操作建议、数据理解和风险提示。',
+            '你可以解释 DTCall 中的客户、合同、项目、审批、财务、生产、网盘等模块。',
+            '不要声称会直接新增、修改、删除业务数据；涉及写操作时，应明确说明需要在业务页面内继续完成。',
+        ]
+        if model_name:
+            prompt_parts.append(f'当前接入模型：{model_name}。')
+        if page_context:
+            title = page_context.get('title') or '未识别'
+            module = page_context.get('module') or '综合业务'
+            path = page_context.get('path') or ''
+            prompt_parts.append(f'当前页面标题：{title}。')
+            prompt_parts.append(f'当前业务模块：{module}。')
+            if path:
+                prompt_parts.append(f'当前页面路径：{path}。')
+            if page_context.get('summary'):
+                prompt_parts.append(f'页面摘要：{page_context.get("summary")}。')
+        if previous_user_message:
+            prompt_parts.append(f'上一条用户消息：{previous_user_message}。')
+        specific_intent = previous_query.get('specific_intent')
+        if specific_intent:
+            prompt_parts.append(f'上一轮识别到的业务意图：{specific_intent}。')
+        prompt_parts.append(f'请结合以上上下文回答当前问题：{query}')
+        return '\n'.join(prompt_parts)
+
+    def _is_model_meta_question(self, query: str) -> bool:
+        value = str(query or '').strip().lower()
+        if not value:
+            return False
+        keywords = [
+            '什么模型', '啥模型', '哪个模型', '模型是什么', '你是什么模型',
+            'model', 'llm', 'api base', 'api_base', 'base url', 'base_url',
+        ]
+        return any(keyword in value for keyword in keywords)
+
+    def _build_model_meta_response(
+            self,
+            ai_config: Dict[str, Any],
+            conversation_context: Dict[str, Any] | None = None) -> str:
+        page_context = (conversation_context or {}).get('page_context') or {}
+        model_names = ai_config.get('model_names') or []
+        model_name = ai_config.get('model_name') or (', '.join(model_names) if model_names else '未配置')
+        api_base = ai_config.get('api_base') or ai_config.get('base_url') or '未配置'
+        provider = ai_config.get('provider') or 'openai-compatible'
+
+        parts = [
+            f'当前在 DTCall 中接入的是 {provider} 兼容模型。',
+            f'模型名称：{model_name}。',
+            f'接口地址：{api_base}。',
+        ]
+        if page_context.get('title'):
+            parts.append(f'当前页面：{page_context.get("title")}。')
+        parts.append('我会优先结合当前系统页面和业务上下文来回答。')
+        return ''.join(parts)
 
     def _create_fallback_response(self, query: str) -> Dict[str, Any]:
         """创建降级响应（AI 不可用时）"""
@@ -785,8 +876,13 @@ class EnhancedIntentService:
                 ]
 
             if intent_result.get('source') != 'ai':
+                failure_reason = intent_result.get('failure_reason')
                 if intent_result.get('ai_configured'):
-                    message = 'AI 模型服务暂时不可用，当前已按安全降级规则识别您的意图。您可以继续补充说明，或稍后再试。'
+                    if failure_reason in {None, '', 'AI 模型暂时不可用', 'AI 模型服务暂时不可用'}:
+                        prefix = 'AI 模型服务暂时不可用。'
+                    else:
+                        prefix = failure_reason
+                    message = f'{prefix} 当前已按安全降级规则识别您的意图。您可以继续补充说明，或稍后再试。'
                 else:
                     message = '当前未配置可用的 AI 模型，无法进行高置信度意图识别。请补充说明或先配置 AI 模型。'
             else:
@@ -839,10 +935,12 @@ class EnhancedIntentService:
         target_url, disabled_reason = self._resolve_business_target_url(config, action, intent_result)
         permission = self._build_business_permission(config.get('permission_base'), action)
         entities = intent_result.get('entities') or {}
-        permission_exists = self._business_permission_exists(permission)
-        user_has_permission = self._user_has_business_permission(user, permission)
-        disabled_reason = self._merge_disabled_reason(disabled_reason, None if permission_exists else '当前业务操作权限节点未配置，已阻止直接打开')
-        disabled_reason = self._merge_disabled_reason(disabled_reason, None if user_has_permission else '您当前没有该业务操作权限')
+        skip_permission_gate = bool(config.get('skip_permission_gate'))
+        permission_exists = True if skip_permission_gate else self._business_permission_exists(permission)
+        user_has_permission = True if skip_permission_gate else self._user_has_business_permission(user, permission)
+        if not skip_permission_gate:
+            disabled_reason = self._merge_disabled_reason(disabled_reason, None if permission_exists else '当前业务操作权限节点未配置，已阻止直接打开')
+            disabled_reason = self._merge_disabled_reason(disabled_reason, None if user_has_permission else '您当前没有该业务操作权限')
         enabled = bool(target_url and not disabled_reason and config.get('available', True))
         safety_notice = self._get_business_safety_notice(action)
         if action in {'update', 'delete'} and target_url == config.get('list_url'):
@@ -1048,8 +1146,10 @@ class EnhancedIntentService:
         options = []
         if task.get('target_url'):
             option_text = f"打开{task.get('title')}"
-            if task.get('action') in {'update', 'delete'} and task.get('target_url') == task.get('list_url'):
-                option_text = f"打开{config.get('name')}列表并定位记录"
+            if task.get('action') in self.MUTATING_ACTIONS and task.get('target_url') == task.get('list_url'):
+                option_text = f"打开{config.get('name')}列表"
+                if task.get('action') in {'update', 'delete'}:
+                    option_text = f"{option_text}并定位记录"
             options.append({
                 'text': option_text,
                 'intent': task.get('intent_type'),

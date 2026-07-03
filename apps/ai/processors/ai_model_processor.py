@@ -13,6 +13,45 @@ logger = logging.getLogger(__name__)
 class AIModelProcessor(BaseNodeProcessor):
     """AI模型节点处理器"""
 
+    @staticmethod
+    def _build_model_options(available_configs):
+        model_options = []
+        for config_id, config in available_configs.items():
+            if not config.get('is_active'):
+                continue
+            label = config.get('name', str(config_id))
+            primary_model = config.get('model_name') or (
+                (config.get('model_names') or [''])[0]
+            )
+            provider = config.get('provider_display') or config.get('provider')
+            summary = primary_model or provider or '未命名模型'
+            model_options.append({
+                'value': str(config_id),
+                'label': f"{label} ({summary})"
+            })
+
+        if model_options:
+            return model_options
+
+        return [
+            {'value': '', 'label': '暂无可用模型配置'}
+        ]
+
+    @staticmethod
+    def _resolve_ai_config(config_manager, model_config_value):
+        if model_config_value:
+            ai_config = config_manager.get_config(model_config_value)
+            if ai_config:
+                return ai_config
+
+        if ':' in (model_config_value or ''):
+            provider, _ = model_config_value.split(':', 1)
+            ai_config = config_manager.get_config_by_provider(provider)
+            if ai_config:
+                return ai_config
+
+        return config_manager.get_active_config()
+
     @classmethod
     def get_display_name(cls):
         return "AI模型节点"
@@ -34,24 +73,7 @@ class AIModelProcessor(BaseNodeProcessor):
         available_configs = config_manager.get_all_configs()
 
         # 生成模型选项列表
-        model_options = []
-        for config_id, config in available_configs.items():
-            if config.get('is_active'):
-                provider = config.get('provider', 'unknown')
-                name = config.get('name', config_id)
-                model_options.append(
-                    {'value': f"{provider}:{name}", 'label': f"{provider}:{name}"})
-
-        # 如果没有可用配置，添加默认选项
-        if not model_options:
-            model_options = [
-                {'value': 'openai:GPT-3.5 Turbo', 'label': 'openai:GPT-3.5 Turbo'},
-                {'value': 'openai:GPT-4', 'label': 'openai:GPT-4'},
-                {'value': 'qwen:千问', 'label': 'qwen:千问'},
-                {'value': 'wenxin:文心一言', 'label': 'wenxin:文心一言'},
-                {'value': 'deepseek:DeepSeek', 'label': 'deepseek:DeepSeek'},
-                {'value': 'doubao:豆包', 'label': 'doubao:豆包'}
-            ]
+        model_options = self._build_model_options(available_configs)
 
         return {
             'model_config': {
@@ -109,19 +131,7 @@ class AIModelProcessor(BaseNodeProcessor):
 
         # 解析模型配置
         config_manager = get_ai_config_manager()
-        ai_config = None
-
-        if ':' in model_config_str:
-            # 格式为 provider:name
-            provider, name = model_config_str.split(':', 1)
-            ai_config = config_manager.get_config_by_provider(provider)
-        else:
-            # 尝试直接使用配置ID
-            ai_config = config_manager.get_config(model_config_str)
-
-        if not ai_config:
-            # 如果没有找到配置，使用默认配置
-            ai_config = config_manager.get_active_config()
+        ai_config = self._resolve_ai_config(config_manager, model_config_str)
 
         if not ai_config:
             return {
@@ -140,15 +150,9 @@ class AIModelProcessor(BaseNodeProcessor):
 
         # 调用AI服务
         try:
-            # 使用BaseAIClient而非AIClient，支持直接传递配置参数
-            from apps.ai.utils.ai_client import BaseAIClient
+            from apps.ai.utils.ai_client import AIClient
 
-            ai_client = BaseAIClient(
-                provider=ai_config.get('provider'),
-                base_url=ai_config.get('api_base'),
-                api_key=ai_config.get('api_key'),
-                model_config=ai_config
-            )
+            ai_client = AIClient.from_config(ai_config)
 
             result = ai_client.chat_completion(
                 messages=[
@@ -206,24 +210,7 @@ class AIGenerationProcessor(AIModelProcessor):
         available_configs = config_manager.get_all_configs()
 
         # 生成模型选项列表
-        model_options = []
-        for config_id, config in available_configs.items():
-            if config.get('is_active'):
-                provider = config.get('provider', 'unknown')
-                name = config.get('name', config_id)
-                model_options.append(
-                    {'value': f"{provider}:{name}", 'label': f"{provider}:{name}"})
-
-        # 如果没有可用配置，添加默认选项
-        if not model_options:
-            model_options = [
-                {'value': 'openai:GPT-3.5 Turbo', 'label': 'openai:GPT-3.5 Turbo'},
-                {'value': 'openai:GPT-4', 'label': 'openai:GPT-4'},
-                {'value': 'qwen:千问', 'label': 'qwen:千问'},
-                {'value': 'wenxin:文心一言', 'label': 'wenxin:文心一言'},
-                {'value': 'deepseek:DeepSeek', 'label': 'deepseek:DeepSeek'},
-                {'value': 'doubao:豆包', 'label': 'doubao:豆包'}
-            ]
+        model_options = self._build_model_options(available_configs)
 
         return {
             'model_config': {
@@ -319,24 +306,7 @@ class AIClassificationProcessor(AIModelProcessor):
         available_configs = config_manager.get_all_configs()
 
         # 生成模型选项列表
-        model_options = []
-        for config_id, config in available_configs.items():
-            if config.get('is_active'):
-                provider = config.get('provider', 'unknown')
-                name = config.get('name', config_id)
-                model_options.append(
-                    {'value': f"{provider}:{name}", 'label': f"{provider}:{name}"})
-
-        # 如果没有可用配置，添加默认选项
-        if not model_options:
-            model_options = [
-                {'value': 'openai:GPT-3.5 Turbo', 'label': 'openai:GPT-3.5 Turbo'},
-                {'value': 'openai:GPT-4', 'label': 'openai:GPT-4'},
-                {'value': 'qwen:千问', 'label': 'qwen:千问'},
-                {'value': 'wenxin:文心一言', 'label': 'wenxin:文心一言'},
-                {'value': 'deepseek:DeepSeek', 'label': 'deepseek:DeepSeek'},
-                {'value': 'doubao:豆包', 'label': 'doubao:豆包'}
-            ]
+        model_options = self._build_model_options(available_configs)
 
         return {
             'model_config': {
@@ -425,24 +395,7 @@ class AIExtractionProcessor(AIModelProcessor):
         available_configs = config_manager.get_all_configs()
 
         # 生成模型选项列表
-        model_options = []
-        for config_id, config in available_configs.items():
-            if config.get('is_active'):
-                provider = config.get('provider', 'unknown')
-                name = config.get('name', config_id)
-                model_options.append(
-                    {'value': f"{provider}:{name}", 'label': f"{provider}:{name}"})
-
-        # 如果没有可用配置，添加默认选项
-        if not model_options:
-            model_options = [
-                {'value': 'openai:GPT-3.5 Turbo', 'label': 'openai:GPT-3.5 Turbo'},
-                {'value': 'openai:GPT-4', 'label': 'openai:GPT-4'},
-                {'value': 'qwen:千问', 'label': 'qwen:千问'},
-                {'value': 'wenxin:文心一言', 'label': 'wenxin:文心一言'},
-                {'value': 'deepseek:DeepSeek', 'label': 'deepseek:DeepSeek'},
-                {'value': 'doubao:豆包', 'label': 'doubao:豆包'}
-            ]
+        model_options = self._build_model_options(available_configs)
 
         return {
             'model_config': {

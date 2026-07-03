@@ -7,7 +7,8 @@ import logging
 from datetime import datetime
 from django.utils import timezone
 from django.utils import timezone
-from apps.ai.utils.ai_client import BaseAIClient
+import requests
+from apps.ai.utils.ai_client import AIClient
 from apps.ai.models import AIModelConfig
 
 logger = logging.getLogger(__name__)
@@ -23,18 +24,9 @@ class ResumeAnalysisService:
     def _init_ai_client(self):
         """初始化AI客户端"""
         try:
-            config = AIModelConfig.objects.filter(
-                is_active=True,
-                model_type='chat'
-            ).first()
-            
+            config = AIModelConfig.get_active_config()
             if config:
-                self.ai_client = BaseAIClient(
-                    provider=config.provider,
-                    base_url=config.api_base,
-                    api_key=config.api_key,
-                    model_config=config
-                )
+                self.ai_client = AIClient(model_config_id=config.id)
         except Exception as e:
             logger.error(f"初始化AI客户端失败: {str(e)}")
 
@@ -168,32 +160,11 @@ class ResumeAnalysisService:
     def _call_ai_api(self, prompt):
         """调用AI API"""
         try:
-            url = self.ai_client._join_url('/chat/completions')
-            headers = {
-                'Authorization': f'Bearer {self.ai_client.api_key}',
-                'Content-Type': 'application/json'
-            }
-            
-            data = {
-                'model': self.ai_client.model_name,
-                'messages': [
-                    {'role': 'user', 'content': prompt}
-                ],
-                'temperature': 0.7,
-                'max_tokens': 2000
-            }
-            
-            import requests
-            response = requests.post(
-                url,
-                headers=headers,
-                json=data,
-                timeout=60
+            return self.ai_client.chat_completion(
+                [{'role': 'user', 'content': prompt}],
+                temperature=0.7,
+                max_tokens=2000
             )
-            response.raise_for_status()
-            
-            result = response.json()
-            return result['choices'][0]['message']['content']
         except Exception as e:
             logger.error(f"AI API调用失败: {str(e)}")
             raise
@@ -840,42 +811,22 @@ class ExamService:
     def _ai_score_essay(cls, question, answer, reference):
         """使用AI对主观题评分"""
         try:
-            from apps.ai.utils.ai_client import BaseAIClient
-            from apps.ai.models import AIModelConfig
-
-            config = AIModelConfig.objects.filter(is_active=True, model_type='chat').first()
+            config = AIModelConfig.get_active_config()
             if not config:
                 return (60, 'AI评分服务不可用')
 
-            ai_client = BaseAIClient(
-                provider=config.provider,
-                base_url=config.api_base,
-                api_key=config.api_key,
-                model_config=config,
-            )
-
-            url = ai_client._join_url('/chat/completions')
-            headers = {
-                'Authorization': f'Bearer {ai_client.api_key}',
-                'Content-Type': 'application/json'
-            }
+            ai_client = AIClient(model_config_id=config.id)
             prompt = f'''请对以下主观题作答进行评分（满分100分），返回JSON格式: {{"score": 数字, "comment": "评语"}}
 
 【题目】{question}
 【参考答案】{reference}
 【考生答案】{answer}'''
 
-            data = {
-                'model': ai_client.model_name,
-                'messages': [{'role': 'user', 'content': prompt}],
-                'temperature': 0.3,
-                'max_tokens': 300,
-            }
-
-            response = requests.post(url, headers=headers, json=data, timeout=30)
-            response.raise_for_status()
-            result = response.json()
-            text = result['choices'][0]['message']['content']
+            text = ai_client.chat_completion(
+                [{'role': 'user', 'content': prompt}],
+                temperature=0.3,
+                max_tokens=300
+            )
 
             import json, re
             json_match = re.search(r'\{[^}]+\}', text)

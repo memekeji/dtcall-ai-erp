@@ -23,7 +23,7 @@ def get_stt_config_from_db():
                 if provider in ['alibaba', 'deepseek', 'doubao', 'tencent']:
                     provider = 'openai'
                 model_name = config.get('model_name') or ''
-                if config.get('model_type') != 'audio' and 'whisper' not in model_name.lower():
+                if 'whisper' not in model_name.lower():
                     model_name = 'whisper-1'
                 return {
                     'service_type': provider,

@@ -215,6 +215,21 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
+        function getCsrfToken() {
+            var cookieValue = '';
+            if (document.cookie && document.cookie !== '') {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = jQuery.trim(cookies[i]);
+                    if (cookie.substring(0, 10) === 'csrftoken=') {
+                        cookieValue = decodeURIComponent(cookie.substring(10));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
         layui.use(['element', 'table', 'layer', 'form'], function () {
             if (typeof layui === 'undefined') {
                 console.warn('LayUI is not loaded properly');
@@ -342,13 +357,31 @@
                         });
                     } else if (layEvent === 'delete' && layer && layer.confirm) {
                         layer.confirm('确定删除这个项目吗？', function (index) {
-                            // 这里添加删除逻辑
-                            if (layer && layer.msg) {
-                                layer.msg('删除功能开发中...', { icon: 0 });
-                            }
-                            if (layer && layer.close) {
-                                layer.close(index);
-                            }
+                            $.ajax({
+                                url: '/adm/project/delete/' + data.id + '/',
+                                type: 'POST',
+                                headers: {
+                                    'X-CSRFToken': getCsrfToken()
+                                },
+                                success: function (res) {
+                                    if (res && res.code === 0) {
+                                        layer.msg(res.msg || '项目删除成功', { icon: 1 });
+                                        if (table && table.reload) {
+                                            table.reload('projectTable');
+                                        }
+                                        return;
+                                    }
+                                    layer.msg((res && res.msg) || '项目删除失败', { icon: 2 });
+                                },
+                                error: function () {
+                                    layer.msg('项目删除失败，请稍后重试', { icon: 2 });
+                                },
+                                complete: function () {
+                                    if (layer && layer.close) {
+                                        layer.close(index);
+                                    }
+                                }
+                            });
                         });
                     }
                 });

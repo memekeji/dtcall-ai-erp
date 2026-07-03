@@ -43,7 +43,13 @@ class AIAgentSDK {
     enhanceTextareas() {
         const textareas = document.querySelectorAll('textarea');
         textareas.forEach(ta => {
-            if (ta.closest('.digital-human-container') || ta.hasAttribute('data-ai-enhanced') || ta.disabled || ta.readOnly) return;
+            if (
+                ta.closest('.digital-human-container') ||
+                ta.hasAttribute('data-ai-enhanced') ||
+                ta.getAttribute('data-ai-enhance') === 'off' ||
+                ta.disabled ||
+                ta.readOnly
+            ) return;
             ta.setAttribute('data-ai-enhanced', 'true');
 
             const wrapper = document.createElement('div');
@@ -1095,12 +1101,24 @@ class AIAgentSDK {
 
     openAIAssistant(initialText = '') {
         const url = '/ai/chat/';
+        const context = this.getPageBusinessContext();
+        const summary = this.buildPageBusinessSummary().text;
         if (initialText) {
             try {
                 window.sessionStorage.setItem('dtcall_ai_pending_message', initialText);
             } catch (error) {
                 // Ignore storage errors; the assistant still opens normally.
             }
+        }
+        try {
+            window.sessionStorage.setItem('dtcall_ai_page_context', JSON.stringify({
+                title: context.title,
+                path: context.path,
+                module: context.module,
+                summary
+            }));
+        } catch (error) {
+            // Ignore storage errors; the assistant still opens normally.
         }
         if (window.layui && window.layui.layer) {
             const existingIndex = window.aiAssistantLayerIndex;

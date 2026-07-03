@@ -287,24 +287,6 @@ class ProjectAnalysisTool(AIAnalysisTool):
         # 调用现有的风险预测方法
         return self.predict_risk(project_with_stats, task_data, {})
 
-    def analyze_project_progress(self, project_data, tasks):
-        """
-        项目进度分析
-        :param project_data: 项目基本数据
-        :param tasks: 任务数据列表
-        :return: 进度分析结果
-        """
-        context = f"项目信息：{json.dumps(project_data, ensure_ascii=False)}\n\n任务列表：{json.dumps(tasks, ensure_ascii=False)}"
-        task_type = "项目进度分析"
-
-        progress_requirements = "Please analyze whether the current project progress is normal, whether there is a delay risk, the completion status of critical path tasks, and provide acceleration suggestions"
-
-        result = self.analyze(
-            context,
-            task_type,
-            analysis_requirements=progress_requirements)
-        return result
-
 
 class MeetingAnalysisTool(AIAnalysisTool):
     """会议分析工具"""

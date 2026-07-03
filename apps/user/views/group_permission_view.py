@@ -435,7 +435,6 @@ class MenuPermissionsAPIView(LoginRequiredMixin, PermissionRequiredMixin, View):
         '工时管理': 'workhour',
         '文档列表': 'project_document',
         '风险预测': 'risk_prediction',
-        '进度分析': 'progress_analysis',
         '项目阶段': 'project_stage',
         '工作类型': 'work_type',
         '生产管理': 'production',

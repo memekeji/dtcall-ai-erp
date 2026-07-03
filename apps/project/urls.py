@@ -1,4 +1,5 @@
 from django.urls import path, include
+from django.views.generic import RedirectView
 from . import views, ai_views
 
 app_name = 'project'
@@ -115,10 +116,10 @@ urlpatterns = [
 
     # AI分析功能 - 页面视图
     path('ai/progress-analysis/',
-         ai_views.AIProgressAnalysisView.as_view(),
+         RedirectView.as_view(url='/project/ai/risk-prediction/', permanent=True),
          name='ai_progress_analysis_page_default'),
     path('ai/progress-analysis/<int:project_id>/',
-         ai_views.AIProgressAnalysisView.as_view(),
+         RedirectView.as_view(url='/project/ai/risk-prediction/%(project_id)s/', permanent=True),
          name='ai_progress_analysis_page'),
     path('ai/risk-prediction/',
          ai_views.AIRiskPredictionView.as_view(),
@@ -126,6 +127,9 @@ urlpatterns = [
     path('ai/risk-prediction/<int:project_id>/',
          ai_views.AIRiskPredictionView.as_view(),
          name='ai_risk_prediction_page'),
+    path('ai/risk-prediction/detail/<int:analysis_id>/',
+         ai_views.AIRiskPredictionDetailView.as_view(),
+         name='ai_risk_prediction_detail'),
 
     # AI分析功能 - API接口
     path(

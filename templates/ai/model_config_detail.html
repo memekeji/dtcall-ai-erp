@@ -1,176 +1,37 @@
-{% extends 'home/iframe_base.html' %}
-
+{% extends "home/iframe_base.html" %}
 {% block title %}AI模型配置详情{% endblock %}
-
 {% block content %}
 <div class="layui-card">
-    <div class="layui-card-header">
-        <div class="layui-row">
-            <div class="layui-col-md8">
-                <h3>AI模型配置详情</h3>
-            </div>
-            <div class="layui-col-md4 layui-right">
-                <a href="{% url 'ai:model_config_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">
-                    <i class="layui-icon layui-icon-return"></i> 返回列表
-                </a>
-                <a href="{% url 'ai:model_config_update' pk=model_config.id %}" class="layui-btn layui-btn-sm layui-btn-normal">
-                    <i class="layui-icon layui-icon-edit"></i> 编辑
-                </a>
-                <button type="button" class="layui-btn layui-btn-sm layui-btn-warm" onclick="validateCurrentModelConfig()">
-                    <i class="layui-icon layui-icon-vercode"></i> 验证连接
-                </button>
-            </div>
-        </div>
-    </div>
-    <div class="layui-card-body">
-        <div class="layui-panel" style="padding: 20px; background-color: #f8f8f8; margin-bottom: 20px;">
-            <h4>基本信息</h4>
-            <table class="layui-table" style="margin: 0;">
-                <tbody>
-                    <tr>
-                        <td width="120">配置ID</td>
-                        <td>{{ model_config.id }}</td>
-                    </tr>
-                    <tr>
-                        <td>配置名称</td>
-                        <td>{{ model_config.name }}</td>
-                    </tr>
-                    <tr>
-                        <td>服务提供商</td>
-                        <td>{{ model_config.get_provider_display }}</td>
-                    </tr>
-                    <tr>
-                        <td>模型类型</td>
-                        <td>{{ model_config.get_model_type_display }}</td>
-                    </tr>
-                    <tr>
-                        <td>推断模型标识</td>
-                        <td>{{ model_config.model_name }}</td>
-                    </tr>
-                    <tr>
-                        <td>状态</td>
-                        <td>
-                            {% if model_config.is_active %}
-                            <span class="layui-badge layui-bg-green">已启用</span>
-                            {% else %}
-                            <span class="layui-badge">已禁用</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>创建时间</td>
-                        <td>{{ model_config.created_at|date:"Y-m-d H:i:s" }}</td>
-                    </tr>
-                    <tr>
-                        <td>更新时间</td>
-                        <td>{{ model_config.updated_at|date:"Y-m-d H:i:s" }}</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        
-        <div class="layui-panel" style="padding: 20px; background-color: #f8f8f8; margin-bottom: 20px;">
-            <h4>API配置信息</h4>
-            <table class="layui-table" style="margin: 0;">
-                <tbody>
-                    <tr>
-                        <td width="120">API基础URL</td>
-                        <td>{{ model_config.api_base|default:"未设置" }}</td>
-                    </tr>
-                    <tr>
-                        <td>API密钥</td>
-                        <td>
-                            {% if model_config.api_key %}
-                            <span class="layui-badge layui-bg-blue">已设置</span>
-                            {% else %}
-                            <span class="layui-badge">未设置</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        
-        <div class="layui-panel" style="padding: 20px; background-color: #f8f8f8;">
-            <h4>默认参数配置</h4>
-            <div style="background: white; padding: 15px; border-radius: 4px; border: 1px solid #e6e6e6;">
-                {% if model_config.default_params %}
-                <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">{{ model_config.default_params|pprint }}</pre>
-                {% else %}
-                <p style="margin: 0; color: #999;">当前版本使用运行时推断参数：provider={{ model_config.provider }}，model_name={{ model_config.model_name }}，max_tokens={{ model_config.max_tokens }}，temperature={{ model_config.temperature }}，top_p={{ model_config.top_p }}</p>
-                {% endif %}
-            </div>
-        </div>
-        
-        <div class="layui-row" style="margin-top: 20px;">
-            <div class="layui-col-md12 layui-center">
-                <a href="{% url 'ai:model_config_list' %}" class="layui-btn layui-btn-primary">
-                    <i class="layui-icon layui-icon-return"></i> 返回列表
-                </a>
-                <a href="{% url 'ai:model_config_update' pk=model_config.id %}" class="layui-btn layui-btn-normal">
-                    <i class="layui-icon layui-icon-edit"></i> 编辑配置
-                </a>
-                <a href="{% url 'ai:model_config_delete' pk=model_config.id %}" class="layui-btn layui-btn-danger">
-                    <i class="layui-icon layui-icon-delete"></i> 删除配置
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script type="text/javascript">
-layui.use(['layer'], function() {
-    var layer = layui.layer;
-});
-
-function validateCurrentModelConfig() {
-    layui.use(['layer', 'jquery'], function() {
-        var layer = layui.layer;
-        var $ = layui.jquery;
-        var loadIndex = layer.load(1, {
-            shade: [0.1, '#fff']
-        });
-
-        $.ajax({
-            url: '{% url "ai:model_config_validate" pk=model_config.id %}',
-            type: 'POST',
-            dataType: 'json',
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            success: function(response) {
-                layer.close(loadIndex);
-                if (response.status === 'success') {
-                    layer.alert('连接成功<br><br>结果：' + (response.result || '模型响应正常'), {
-                        icon: 1,
-                        title: '模型验证成功'
-                    });
-                    return;
-                }
-
-                var details = response.details || {};
-                var lines = [
-                    response.message || '连接失败',
-                    details.status_code ? ('状态码：' + details.status_code) : null,
-                    details.error_code ? ('错误代码：' + details.error_code) : null,
-                    details.detail ? ('错误详情：' + details.detail) : null,
-                    details.suggestion ? ('处理建议：' + details.suggestion) : null
-                ].filter(Boolean);
-                layer.alert(lines.join('<br><br>'), {
-                    icon: 2,
-                    title: '模型验证失败',
-                    area: ['620px', 'auto']
-                });
-            },
-            error: function(xhr, status, error) {
-                layer.close(loadIndex);
-                layer.alert('验证请求失败：' + error, {
-                    icon: 2,
-                    title: '请求失败'
-                });
-            }
+<div class="layui-card-header"><div class="layui-row"><div class="layui-col-md8"><h3 style="margin:0">AI模型配置详情</h3></div><div class="layui-col-md4 layui-right"><a href="{% url "ai:model_config_list" %}" class="layui-btn layui-btn-sm layui-btn-primary"><i class="layui-icon layui-icon-return"></i> 返回</a><button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="openConfigDrawer('{% url "ai:model_config_update" pk=model_config.id %}', '编辑AI模型配置')"><i class="layui-icon layui-icon-edit"></i> 编辑</button><button class="layui-btn layui-btn-sm layui-btn-warm" onclick="validateConfig({{ model_config.id }})"><i class="layui-icon layui-icon-vercode"></i> 验证</button></div></div></div>
+<div class="layui-card-body">
+<table class="layui-table"><tbody>
+<tr><td width="120">配置名称</td><td>{{ model_config.name }}</td></tr>
+<tr><td>API接口地址</td><td>{{ model_config.base_url }}</td></tr>
+<tr><td>API密钥</td><td>{% if model_config.api_key %}已设置{% else %}未设置{% endif %}</td></tr>
+<tr><td>模型列表</td><td>{{ model_config.model_names|join:", "|default:"-" }}</td></tr>
+<tr><td>默认模型</td><td>{% if model_config.is_default %}<span class="layui-badge layui-bg-green">是</span>{% else %}否{% endif %}</td></tr>
+<tr><td>启用状态</td><td>{% if model_config.is_active %}<span class="layui-badge layui-bg-green">已启用</span>{% else %}<span class="layui-badge">已停用</span>{% endif %}</td></tr>
+<tr><td>创建时间</td><td>{{ model_config.created_at|date:"Y-m-d H:i:s" }}</td></tr>
+<tr><td>更新时间</td><td>{{ model_config.updated_at|date:"Y-m-d H:i:s" }}</td></tr>
+</tbody></table>
+<div style="margin-top:20px"><a href="{% url "ai:model_config_list" %}" class="layui-btn layui-btn-primary">返回列表</a><button type="button" class="layui-btn layui-btn-normal" onclick="openConfigDrawer('{% url "ai:model_config_update" pk=model_config.id %}', '编辑AI模型配置')">编辑</button><a href="{% url "ai:model_config_delete" pk=model_config.id %}" class="layui-btn layui-btn-danger">删除</a></div>
+</div></div>
+<script>
+function openConfigDrawer(url, title){
+    layui.use(["layer"], function(){
+        layui.layer.open({
+            type: 2,
+            title: title,
+            area: ['80%', '100%'],
+            offset: 'r',
+            maxmin: true,
+            shadeClose: true,
+            content: url,
+            end: function(){ location.reload(); }
         });
     });
 }
+
+function validateConfig(id){layui.use(["layer","jquery"],function(){var l=layui.layer,$=layui.jquery,li=l.load(1);$.ajax({url:"/ai/model-config/validate/"+id+"/",type:"POST",dataType:"json",headers:{"X-CSRFToken":"{{ csrf_token }}"},success:function(r){l.close(li);r.status==="success"?l.msg("连接成功",{icon:1,time:2000}):l.alert(r.message||"连接失败",{icon:2,title:"验证失败"})},error:function(){l.close(li);l.msg("请求失败",{icon:2})}})})}
 </script>
 {% endblock %}

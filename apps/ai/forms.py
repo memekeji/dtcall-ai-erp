@@ -16,20 +16,50 @@ from .models import (
 
 class AIModelConfigForm(forms.ModelForm):
     """AI model config simplified form."""
+    model_names = forms.CharField(
+        required=True,
+        widget=forms.Textarea(attrs={'class': 'layui-textarea', 'data-ai-enhance': 'off'}),
+    )
+
     class Meta:
         model = AIModelConfig
         fields = [
             'name',
             'api_base',
             'api_key',
-            'image_model',
-            'video_model',
+            'model_names',
+            'is_default',
             'is_active',
         ]
         widgets = {
             'api_key': forms.PasswordInput(render_value=True),
             'api_base': forms.URLInput(),
         }
+        help_texts = {
+            'model_names': 'JSON list, e.g. ["gpt-4o-mini", "gpt-4o"]',
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            self.initial['api_base'] = self.instance.base_url
+            self.initial['model_names'] = '\n'.join(self.instance.model_names or [])
+
+    def clean_api_base(self):
+        api_base = self.cleaned_data.get('api_base', '')
+        return AIModelConfig.normalize_api_base(api_base)
+
+    def clean_model_names(self):
+        raw_value = self.cleaned_data.get('model_names', '')
+        if isinstance(raw_value, list):
+            names = [str(item).strip() for item in raw_value if str(item).strip()]
+        else:
+            names = [line.strip() for line in str(raw_value).splitlines() if line.strip()]
+
+        if not names:
+            raise forms.ValidationError('请至少填写一个模型名称')
+
+        return names
 
 class AIWorkflowForm(forms.ModelForm):
     """AI工作流表单"""

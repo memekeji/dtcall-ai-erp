@@ -908,7 +908,10 @@ class ProjectDeleteView(LoginRequiredMixin, View):
         """检查用户是否有权限删除项目"""
         if user.is_superuser:
             return True
-        return project.creator == user
+        return (
+            project.creator == user or
+            project.manager == user
+        )
 
 
 class ProjectDocumentAddView(LoginRequiredMixin, View):

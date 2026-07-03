@@ -461,3 +461,69 @@ class Comment(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.content[:50]}"
+
+
+class ProjectRiskAnalysis(models.Model):
+    """项目风险分析结果快照"""
+
+    TRIGGER_SOURCE_CHOICES = (
+        ('manual', '手动触发'),
+        ('scheduled', '每日巡检'),
+    )
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='risk_analyses',
+        verbose_name='所属项目')
+    risk_level = models.CharField(max_length=20, default='unknown', verbose_name='风险等级')
+    risk_score = models.PositiveSmallIntegerField(default=0, verbose_name='风险得分')
+    warning_count = models.PositiveSmallIntegerField(default=0, verbose_name='预警数量')
+    summary = models.TextField(blank=True, verbose_name='分析摘要')
+    key_risks = models.JSONField(default=list, blank=True, verbose_name='关键风险点')
+    suggestions = models.JSONField(default=list, blank=True, verbose_name='建议措施')
+    recommended_action = models.CharField(max_length=50, default='manual_review', verbose_name='推荐动作')
+    confidence = models.DecimalField(
+        max_digits=5,
+        decimal_places=4,
+        default=0,
+        verbose_name='置信度')
+    metrics = models.JSONField(default=dict, blank=True, verbose_name='指标快照')
+    analysis_payload = models.JSONField(default=dict, blank=True, verbose_name='标准化分析结果')
+    trigger_source = models.CharField(
+        max_length=20,
+        choices=TRIGGER_SOURCE_CHOICES,
+        default='manual',
+        verbose_name='触发来源')
+    triggered_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='triggered_project_risk_analyses',
+        verbose_name='触发人')
+    analyzed_at = models.DateTimeField(default=timezone.now, verbose_name='分析时间')
+    create_time = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    update_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+
+    class Meta:
+        db_table = 'project_risk_analysis'
+        verbose_name = '项目风险分析'
+        verbose_name_plural = verbose_name
+        ordering = ['-analyzed_at', '-id']
+        indexes = [
+            models.Index(fields=['project', 'analyzed_at']),
+            models.Index(fields=['risk_level', 'analyzed_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.project.name} - {self.risk_level} - {self.analyzed_at:%Y-%m-%d %H:%M}"
+
+    @property
+    def risk_level_display(self):
+        return {
+            'high': '高风险',
+            'medium': '中风险',
+            'low': '低风险',
+            'unknown': '待评估',
+        }.get(self.risk_level, '待评估')

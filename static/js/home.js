@@ -241,6 +241,167 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     }
+
+    function getQuickMenuIconSrc(menu) {
+        if (menu && menu.icon) {
+            return menu.icon;
+        }
+
+        const title = menu && menu.title ? menu.title : '';
+        return `/static/img/icon/${encodeURI(title)}.png`;
+    }
+
+    function recordQuickMenuUsage(menuId) {
+        if (!menuId) {
+            return;
+        }
+
+        fetch('/home/menu-usage/', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': typeof getCsrfToken === 'function' ? getCsrfToken() : ''
+            },
+            body: JSON.stringify({ menu_id: Number(menuId) })
+        }).catch(error => {
+            console.warn('记录常用菜单失败:', error);
+        });
+    }
+
+    function toggleQuickMenuPin(menuId, isPinned) {
+        if (!menuId) {
+            return;
+        }
+
+        fetch('/home/quick-menus/pin/', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': typeof getCsrfToken === 'function' ? getCsrfToken() : ''
+            },
+            body: JSON.stringify({
+                menu_id: Number(menuId),
+                is_pinned: Boolean(isPinned)
+            })
+        }).then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+        }).then(() => {
+            renderQuickMenus();
+        }).catch(error => {
+            console.warn('更新固定菜单失败:', error);
+            if (typeof layui !== 'undefined') {
+                layui.use(['layer'], function() {
+                    layui.layer.msg('固定菜单更新失败');
+                });
+            }
+        });
+    }
+
+    function buildQuickMenuItem(menu, options) {
+        const item = document.createElement('a');
+        item.className = 'quick-menu-item';
+        item.href = 'javascript:;';
+        item.setAttribute('data-menu-id', menu.id);
+        item.setAttribute('data-menu-url', menu.src || '');
+        item.setAttribute('data-menu-title', menu.title || '');
+        item.setAttribute('title', menu.title || '');
+        if (options && options.pinned) {
+            item.classList.add('is-pinned');
+        }
+
+        const icon = document.createElement('img');
+        icon.className = 'quick-menu-icon';
+        icon.src = getQuickMenuIconSrc(menu);
+        icon.alt = '';
+        icon.loading = 'lazy';
+
+        const title = document.createElement('span');
+        title.className = 'quick-menu-title';
+        title.textContent = menu.title || '';
+
+        const pinButton = document.createElement('button');
+        pinButton.type = 'button';
+        pinButton.className = 'quick-menu-pin';
+        pinButton.title = options && options.pinned ? '取消固定' : '固定菜单';
+        pinButton.setAttribute('aria-label', pinButton.title);
+        pinButton.innerHTML = `<i class="layui-icon ${options && options.pinned ? 'layui-icon-rate-solid' : 'layui-icon-rate'}"></i>`;
+        pinButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            toggleQuickMenuPin(menu.id, !(options && options.pinned));
+        });
+
+        item.appendChild(icon);
+        item.appendChild(title);
+        item.appendChild(pinButton);
+
+        item.addEventListener('click', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (menu.src) {
+                recordQuickMenuUsage(menu.id);
+                window.addTab(menu.src, menu.title || '');
+            }
+        });
+
+        return item;
+    }
+
+    function renderQuickMenuList(container, menus, options) {
+        if (!container) {
+            return;
+        }
+
+        container.innerHTML = '';
+        const safeMenus = Array.isArray(menus) ? menus : [];
+        if (safeMenus.length === 0) {
+            const empty = document.createElement('span');
+            empty.className = 'quick-menu-empty';
+            empty.textContent = options && options.emptyText ? options.emptyText : '暂无';
+            container.appendChild(empty);
+            return;
+        }
+
+        safeMenus.forEach(menu => {
+            container.appendChild(buildQuickMenuItem(menu, options));
+        });
+    }
+
+    function renderQuickMenus() {
+        const pinnedContainer = document.getElementById('pinnedQuickMenus');
+        const frequentContainer = document.getElementById('frequentQuickMenus');
+        if (!pinnedContainer || !frequentContainer) {
+            return;
+        }
+
+        fetch('/home/quick-menus/', {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        }).then(response => response.json()).then(payload => {
+            renderQuickMenuList(pinnedContainer, payload.pinned_menus || [], {
+                pinned: true,
+                emptyText: '暂无固定菜单'
+            });
+            renderQuickMenuList(frequentContainer, payload.frequent_menus || [], {
+                pinned: false,
+                emptyText: '暂无常用菜单'
+            });
+        }).catch(error => {
+            console.warn('加载常用菜单失败:', error);
+            renderQuickMenuList(pinnedContainer, [], { pinned: true, emptyText: '暂无固定菜单' });
+            renderQuickMenuList(frequentContainer, [], { pinned: false, emptyText: '暂无常用菜单' });
+        });
+    }
     
     // 菜单点击事件处理 - 使用原生JavaScript实现，避免jQuery和LayUI的冲突
     function handleMenuClick(e) {
@@ -331,11 +492,39 @@ document.addEventListener('DOMContentLoaded', function() {
             // 切换到对应的标签页
             element.tabChange('main-tab', id);
             activateTab(id);
+
+            const menuId = target.getAttribute('data-menu-id');
+            recordQuickMenuUsage(menuId);
             
             // 保存标签页状态到localStorage
             saveTabs();
         });
     }
+
+    document.addEventListener('click', function(e) {
+        const quickMenuItem = e.target.closest('.quick-menu-item');
+        if (!quickMenuItem) {
+            return;
+        }
+
+        const pinButton = e.target.closest('.quick-menu-pin');
+        if (pinButton) {
+            return;
+        }
+
+        const menuId = quickMenuItem.getAttribute('data-menu-id');
+        const menuUrl = quickMenuItem.getAttribute('data-menu-url');
+        const menuTitle = quickMenuItem.getAttribute('data-menu-title') || quickMenuItem.textContent.trim();
+
+        if (!menuUrl || menuUrl === 'javascript:;') {
+            return;
+        }
+
+        e.preventDefault();
+        e.stopPropagation();
+        recordQuickMenuUsage(menuId);
+        window.addTab(menuUrl, menuTitle);
+    }, true);
     
     // 添加标签页的全局函数
     window.addTab = function(url, title) {
@@ -686,6 +875,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 初始化当前标签页前进/后退按钮
     initTabNavigationButtons();
+    renderQuickMenus();
     
     // 监听LayUI标签页切换事件，保存当前激活标签页
     if (typeof layui !== 'undefined') {

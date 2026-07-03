@@ -1,11 +1,17 @@
-from django.shortcuts import redirect
-from django.contrib.auth import logout as auth_logout
-from django.shortcuts import render
-from apps.user.models import Menu
-from dtcall.utils import get_system_config
-from django.contrib.auth.decorators import login_required
-from django.utils import timezone
 import logging
+import json
+
+from django.contrib.auth import logout as auth_logout
+from django.contrib.auth.decorators import login_required
+from django.db.models import F
+from django.http import JsonResponse
+from django.shortcuts import redirect
+from django.shortcuts import render
+from django.views.decorators.http import require_POST
+from django.utils import timezone
+
+from apps.user.models import Menu, UserMenuPreference
+from dtcall.utils import get_system_config
 
 logger = logging.getLogger('django')
 
@@ -187,6 +193,166 @@ def _get_menus_for_user(request):
             available_menus, user_permissions, False)
 
     return top_menus, menus
+
+
+def _is_clickable_menu(menu):
+    return bool(menu.src and menu.src != 'javascript:;')
+
+
+def _get_accessible_quick_menu_map(request):
+    _, menus = _get_menus_for_user(request)
+    return {
+        menu.id: menu for menu in menus
+        if _is_clickable_menu(menu) and menu.is_available()
+    }
+
+
+def _parse_json_request(request):
+    try:
+        return json.loads(request.body.decode('utf-8') or '{}')
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
+
+
+def _serialize_quick_menu(preference, menu):
+    return {
+        'id': menu.id,
+        'title': menu.title,
+        'src': menu.src,
+        'icon': menu.icon,
+        'use_count': preference.use_count,
+        'is_pinned': preference.is_pinned,
+        'last_used_at': preference.last_used_at.isoformat() if preference.last_used_at else None,
+    }
+
+
+@login_required
+def quick_menus(request):
+    accessible_menus = _get_accessible_quick_menu_map(request)
+    if not accessible_menus:
+        return JsonResponse({
+            'success': True,
+            'pinned_menus': [],
+            'frequent_menus': [],
+        }, json_dumps_params={'ensure_ascii': False})
+
+    preferences = UserMenuPreference.objects.filter(
+        user=request.user,
+        menu_id__in=accessible_menus.keys(),
+    ).select_related('menu')
+
+    pinned_preferences = list(
+        preferences.filter(is_pinned=True).order_by(
+            'pin_sort', '-last_used_at', '-updated_at', 'id')
+    )
+    frequent_preferences = list(
+        preferences.filter(is_pinned=False).order_by(
+            '-use_count', '-last_used_at', '-updated_at', 'id')[:8]
+    )
+
+    return JsonResponse({
+        'success': True,
+        'pinned_menus': [
+            _serialize_quick_menu(preference, accessible_menus[preference.menu_id])
+            for preference in pinned_preferences
+        ],
+        'frequent_menus': [
+            _serialize_quick_menu(preference, accessible_menus[preference.menu_id])
+            for preference in frequent_preferences
+        ],
+    }, json_dumps_params={'ensure_ascii': False})
+
+
+@login_required
+@require_POST
+def menu_usage(request):
+    payload = _parse_json_request(request)
+    if payload is None:
+        return JsonResponse({
+            'success': False,
+            'message': '无效的JSON格式',
+        }, status=400, json_dumps_params={'ensure_ascii': False})
+
+    menu_id = payload.get('menu_id')
+    if not menu_id:
+        return JsonResponse({
+            'success': False,
+            'message': '缺少 menu_id',
+        }, status=400, json_dumps_params={'ensure_ascii': False})
+
+    accessible_menus = _get_accessible_quick_menu_map(request)
+    menu = accessible_menus.get(menu_id)
+    if not menu:
+        return JsonResponse({
+            'success': False,
+            'message': '菜单不存在或无权访问',
+        }, status=404, json_dumps_params={'ensure_ascii': False})
+
+    now = timezone.now()
+    preference, created = UserMenuPreference.objects.get_or_create(
+        user=request.user,
+        menu=menu,
+        defaults={
+            'use_count': 1,
+            'last_used_at': now,
+        },
+    )
+    if not created:
+        UserMenuPreference.objects.filter(pk=preference.pk).update(
+            use_count=F('use_count') + 1,
+            last_used_at=now,
+        )
+        preference.refresh_from_db()
+
+    return JsonResponse({
+        'success': True,
+        'menu': _serialize_quick_menu(preference, menu),
+    }, json_dumps_params={'ensure_ascii': False})
+
+
+@login_required
+@require_POST
+def quick_menu_pin(request):
+    payload = _parse_json_request(request)
+    if payload is None:
+        return JsonResponse({
+            'success': False,
+            'message': '无效的JSON格式',
+        }, status=400, json_dumps_params={'ensure_ascii': False})
+
+    menu_id = payload.get('menu_id')
+    if not menu_id:
+        return JsonResponse({
+            'success': False,
+            'message': '缺少 menu_id',
+        }, status=400, json_dumps_params={'ensure_ascii': False})
+
+    accessible_menus = _get_accessible_quick_menu_map(request)
+    menu = accessible_menus.get(menu_id)
+    if not menu:
+        return JsonResponse({
+            'success': False,
+            'message': '菜单不存在或无权访问',
+        }, status=404, json_dumps_params={'ensure_ascii': False})
+
+    is_pinned = bool(payload.get('is_pinned'))
+    preference, _ = UserMenuPreference.objects.get_or_create(
+        user=request.user,
+        menu=menu,
+        defaults={
+            'use_count': 0,
+            'last_used_at': timezone.now(),
+        },
+    )
+    preference.is_pinned = is_pinned
+    if preference.last_used_at is None:
+        preference.last_used_at = timezone.now()
+    preference.save(update_fields=['is_pinned', 'last_used_at', 'updated_at'])
+
+    return JsonResponse({
+        'success': True,
+        'menu': _serialize_quick_menu(preference, menu),
+    }, json_dumps_params={'ensure_ascii': False})
 
 
 @login_required

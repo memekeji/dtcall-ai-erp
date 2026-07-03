@@ -145,7 +145,7 @@ class OpenAIAdapter(BaseModelAdapter):
                     payload["stream"] = True
 
                 response = await client.post(
-                    f"{self.config.api_base}/chat/completions",
+                    f"{self.config.base_url}/chat/completions",
                     headers=headers,
                     json=payload
                 )
@@ -207,7 +207,7 @@ class OpenAIAdapter(BaseModelAdapter):
                 }
 
                 response = await client.post(
-                    f"{self.config.api_base}/embeddings",
+                    f"{self.config.base_url}/embeddings",
                     headers=headers,
                     json=payload
                 )
@@ -278,7 +278,7 @@ class AnthropicAdapter(BaseModelAdapter):
                     payload["system"] = system_message
 
                 response = await client.post(
-                    f"{self.config.api_base}/messages",
+                    f"{self.config.base_url}/messages",
                     headers=headers,
                     json=payload
                 )
@@ -355,7 +355,7 @@ class DeepSeekAdapter(BaseModelAdapter):
                 }
 
                 response = await client.post(
-                    f"{self.config.api_base}/chat/completions",
+                    f"{self.config.base_url}/chat/completions",
                     headers=headers,
                     json=payload
                 )
@@ -417,7 +417,7 @@ class DeepSeekAdapter(BaseModelAdapter):
                 }
 
                 response = await client.post(
-                    f"{self.config.api_base}/embeddings",
+                    f"{self.config.base_url}/embeddings",
                     headers=headers,
                     json=payload
                 )

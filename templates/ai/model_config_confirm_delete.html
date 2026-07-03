@@ -22,16 +22,16 @@
                         <td>{{ object.name }}</td>
                     </tr>
                     <tr>
-                        <td>模型类型</td>
-                        <td>{{ object.model_type }}</td>
+                        <td>默认模型</td>
+                        <td>{{ object.primary_model_name }}</td>
                     </tr>
                     <tr>
                         <td>提供商</td>
-                        <td>{{ object.provider }}</td>
+                        <td>{{ object.get_provider_display }}</td>
                     </tr>
                     <tr>
                         <td>API地址</td>
-                        <td>{{ object.base_url|default:"未设置" }}</td>
+                        <td>{{ object.api_base|default:"未设置" }}</td>
                     </tr>
                     <tr>
                         <td>状态</td>

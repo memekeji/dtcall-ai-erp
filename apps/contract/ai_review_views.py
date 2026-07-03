@@ -20,6 +20,19 @@ from .contract_review_service import (
 logger = logging.getLogger(__name__)
 
 
+def _safe_json_loads(raw_text, default=None):
+    if default is None:
+        default = {}
+    if not raw_text:
+        return default
+    if isinstance(raw_text, (dict, list)):
+        return raw_text
+    try:
+        return json.loads(raw_text)
+    except (TypeError, ValueError):
+        return default
+
+
 def _serialize_legal_record(record):
     return {
         "id": record.id,
@@ -33,6 +46,102 @@ def _serialize_legal_record(record):
         "contract_id": record.contract_id,
         "contract_name": record.contract.name if record.contract_id else "",
     }
+
+
+def _build_review_overall_assessment(review):
+    return {
+        "risk_level": review.overall_risk_level,
+        "summary": review.overall_summary,
+        "final_recommendation": review.final_recommendation,
+    }
+
+
+def _extract_quick_review_result(review):
+    raw_payload = _safe_json_loads(review.raw_response, default={})
+    if isinstance(raw_payload, dict) and isinstance(raw_payload.get("analysis"), dict):
+        raw_payload = raw_payload["analysis"]
+
+    key_risks = raw_payload.get("key_risks", []) if isinstance(raw_payload, dict) else []
+    if not isinstance(key_risks, list):
+        key_risks = []
+
+    return {
+        "risk_level": review.overall_risk_level or (raw_payload.get("risk_level", "unknown") if isinstance(raw_payload, dict) else "unknown"),
+        "brief_summary": review.overall_summary or (raw_payload.get("brief_summary", "") if isinstance(raw_payload, dict) else ""),
+        "key_risks": key_risks,
+    }
+
+
+def _serialize_review_summary(review):
+    return {
+        "id": review.id,
+        "review_version": review.review_version,
+        "review_type": review.review_type,
+        "review_type_label": review.get_review_type_display(),
+        "overall_risk_level": review.overall_risk_level,
+        "overall_summary": review.overall_summary,
+        "reviewed_at": review.reviewed_at.strftime("%Y-%m-%d %H:%M"),
+        "is_latest": review.is_latest,
+    }
+
+
+def _serialize_review_detail(review):
+    payload = {
+        "review_id": review.id,
+        "contract_id": review.contract_id,
+        "review_version": review.review_version,
+        "review_type": review.review_type,
+        "review_type_label": review.get_review_type_display(),
+        "contract_info": review.contract_info,
+        "overall_risk_level": review.overall_risk_level,
+        "overall_summary": review.overall_summary,
+        "overall_assessment": _build_review_overall_assessment(review),
+        "clause_reviews": review.clause_reviews,
+        "review_conclusion": review.review_conclusion,
+        "final_recommendation": review.final_recommendation,
+        "data_cross_check": review.data_cross_check,
+        "reviewed_at": review.reviewed_at.strftime("%Y-%m-%d %H:%M"),
+        "is_latest": review.is_latest,
+    }
+    if review.review_type == "quick":
+        payload["quick_review_result"] = _extract_quick_review_result(review)
+    return payload
+
+
+def _create_contract_review_record(contract, review_type, result, reviewed_by=None, contract_info=None, data_cross_check=None):
+    ContractAIReview.objects.filter(contract=contract, is_latest=True).update(is_latest=False)
+    review_count = ContractAIReview.objects.filter(contract=contract).count()
+    contract_info = contract_info or result.get("contract_info", {})
+    data_cross_check = data_cross_check or []
+
+    if review_type == "quick":
+        overall_risk_level = result.get("risk_level", "unknown")
+        overall_summary = result.get("brief_summary", "")
+        clause_reviews = []
+        review_conclusion = []
+        final_recommendation = "建议结合完整审查结果进一步确认逐条修改方案。"
+    else:
+        overall_assessment = result.get("overall_assessment", {})
+        overall_risk_level = overall_assessment.get("risk_level", "unknown")
+        overall_summary = overall_assessment.get("summary", "")
+        clause_reviews = result.get("clause_reviews", [])
+        review_conclusion = result.get("review_conclusion", [])
+        final_recommendation = overall_assessment.get("final_recommendation", "")
+
+    return ContractAIReview.objects.create(
+        contract=contract,
+        review_version=review_count + 1,
+        review_type=review_type,
+        contract_info=contract_info,
+        overall_risk_level=overall_risk_level,
+        overall_summary=overall_summary,
+        clause_reviews=clause_reviews,
+        review_conclusion=review_conclusion,
+        final_recommendation=final_recommendation,
+        data_cross_check=data_cross_check,
+        reviewed_by=reviewed_by,
+        raw_response=json.dumps(result, ensure_ascii=False),
+    )
 
 
 def _load_contract_text_from_attachment(contract):
@@ -137,22 +246,14 @@ def ai_contract_review_api(request, contract_id):
             system_data=system_data,
         )
 
-        # 标记旧记录为非最新
-        ContractAIReview.objects.filter(contract=contract, is_latest=True).update(is_latest=False)
-
         # 保存审查结果
-        review = ContractAIReview.objects.create(
+        review = _create_contract_review_record(
             contract=contract,
-            review_version=(ContractAIReview.objects.filter(contract=contract).count() + 1),
-            contract_info=result.get("contract_info", {}),
-            overall_risk_level=result.get("overall_assessment", {}).get("risk_level", "unknown"),
-            overall_summary=result.get("overall_assessment", {}).get("summary", ""),
-            clause_reviews=result.get("clause_reviews", []),
-            review_conclusion=result.get("review_conclusion", []),
-            final_recommendation=result.get("overall_assessment", {}).get("final_recommendation", ""),
-            data_cross_check=data_cross_check,
+            review_type="full",
+            result=result,
             reviewed_by=request.user,
-            raw_response=json.dumps(result, ensure_ascii=False),
+            contract_info=result.get("contract_info", {}),
+            data_cross_check=data_cross_check,
         )
 
         # 同步更新Contract模型的风险字段
@@ -167,17 +268,7 @@ def ai_contract_review_api(request, contract_id):
             "code": 0,
             "msg": "审查完成",
             "data": {
-                "review_id": review.id,
-                "contract_info": review.contract_info,
-                "overall_assessment": {
-                    "risk_level": review.overall_risk_level,
-                    "summary": review.overall_summary,
-                    "final_recommendation": review.final_recommendation,
-                },
-                "clause_reviews": review.clause_reviews,
-                "review_conclusion": review.review_conclusion,
-                "data_cross_check": data_cross_check,
-                "reviewed_at": review.reviewed_at.strftime("%Y-%m-%d %H:%M"),
+                **_serialize_review_detail(review),
             }
         })
     except Exception as e:
@@ -188,15 +279,10 @@ def ai_contract_review_api(request, contract_id):
 @login_required
 def ai_contract_review_history_api(request, contract_id):
     """获取合同审查历史"""
-    reviews = ContractAIReview.objects.filter(
-        contract_id=contract_id
-    ).order_by("-reviewed_at").values(
-        "id", "review_version", "overall_risk_level", "overall_summary",
-        "reviewed_at", "is_latest"
-    )
+    reviews = ContractAIReview.objects.filter(contract_id=contract_id).order_by("-reviewed_at", "-id")
     return JsonResponse({
         "code": 0,
-        "data": list(reviews),
+        "data": [_serialize_review_summary(review) for review in reviews],
     })
 
 
@@ -206,17 +292,7 @@ def ai_contract_review_detail_api(request, review_id):
     review = get_object_or_404(ContractAIReview, id=review_id)
     return JsonResponse({
         "code": 0,
-        "data": {
-            "review_id": review.id,
-            "contract_id": review.contract_id,
-            "contract_info": review.contract_info,
-            "overall_risk_level": review.overall_risk_level,
-            "overall_summary": review.overall_summary,
-            "clause_reviews": review.clause_reviews,
-            "review_conclusion": review.review_conclusion,
-            "final_recommendation": review.final_recommendation,
-            "reviewed_at": review.reviewed_at.strftime("%Y-%m-%d %H:%M"),
-        }
+        "data": _serialize_review_detail(review)
     })
 
 
@@ -442,12 +518,50 @@ def ai_contract_quick_review_api(request):
     try:
         body = json.loads(request.body.decode("utf-8")) if request.body else {}
         contract_text = body.get("contract_text", "").strip()
+        contract_id = body.get("contract_id")
+        contract_name = body.get("contract_name", "").strip()
+        our_role = body.get("our_role", "").strip()
+        core_demands = body.get("core_demands", "").strip()
 
         if not contract_text:
             return JsonResponse({"code": 400, "msg": "请提供合同文本"})
 
         result = contract_review_service.quick_review(contract_text)
-        return JsonResponse({"code": 0, "data": result})
+        review = None
+        if contract_id:
+            try:
+                contract = Contract.objects.get(id=int(contract_id), delete_time=0)
+                review = _create_contract_review_record(
+                    contract=contract,
+                    review_type="quick",
+                    result=result,
+                    reviewed_by=request.user,
+                    contract_info={
+                        "contract_name": contract_name or contract.name or "",
+                        "our_role": our_role,
+                        "core_demands": core_demands,
+                    },
+                )
+                contract.ai_risk_level = result.get("risk_level", "unknown")
+                contract.ai_risk_points = [
+                    {
+                        "clause": "快速评估",
+                        "title": f"风险点{i + 1}",
+                        "risk": risk,
+                    }
+                    for i, risk in enumerate(result.get("key_risks", [])[:5])
+                ]
+                contract.save(update_fields=["ai_risk_level", "ai_risk_points"])
+            except (Contract.DoesNotExist, TypeError, ValueError):
+                review = None
+
+        payload = dict(result)
+        if review:
+            payload["review_id"] = review.id
+            payload["review_type"] = review.review_type
+            payload["review_type_label"] = review.get_review_type_display()
+            payload["reviewed_at"] = review.reviewed_at.strftime("%Y-%m-%d %H:%M")
+        return JsonResponse({"code": 0, "data": payload})
     except Exception as e:
         logger.error(f"快速审查失败: {e}", exc_info=True)
         return JsonResponse({"code": 500, "msg": str(e)}, status=500)

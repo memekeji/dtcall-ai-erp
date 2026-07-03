@@ -4,7 +4,7 @@ from django.shortcuts import redirect, get_object_or_404
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView, TemplateView, View
 from django.urls import reverse_lazy
 from django.contrib import messages
-from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
+from django.http import JsonResponse, HttpResponse, HttpResponseRedirect, StreamingHttpResponse
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.paginator import Paginator
 from django.utils import timezone
@@ -95,10 +95,9 @@ class AIModelConfigListView(
                     {
                         "id": obj.id,
                         "name": obj.name,
-                        "provider": obj.provider,
-                        "model_type": obj.model_type,
-                        "api_key": "***",  # 脱敏处理，不返回实际API密钥
-                        "api_base": obj.api_base,
+                        "api_base": obj.base_url,
+                        "model_names": obj.model_names or [],
+                        "is_default": obj.is_default,
                         "is_active": obj.is_active,
                         "created_at": obj.created_at.strftime('%Y-%m-%d %H:%M:%S')
                     } for obj in objects
@@ -188,25 +187,26 @@ class AIModelConfigValidateView(
     def validate_connection(self):
         model_config = self.get_object()
         logger = logging.getLogger(__name__)
+        display_base_url = self._get_base_url(model_config)
         try:
             logger.info(f"测试AI模型连接 - 模型ID: {model_config.id}")
             logger.info(
-                f"模型配置 - 提供商: {model_config.provider}, 基础URL: {model_config.api_base}, 模型名称: {model_config.model_name}, 模型类型: {model_config.model_type}")
+                f"模型配置 - 基础URL: {display_base_url}")
             logger.info(f"API密钥: {'***' if model_config.api_key else '未配置'}")
 
             client = AIClient(model_config_id=model_config.id)
             result = self._run_model_validation(client, model_config)
             display_result = self._format_validation_result(result)
-            logger.info(f"AI模型连接成功 - 模型ID: {model_config.id}, 模型类型: {model_config.model_type}")
+            logger.info(f"AI模型连接成功 - 模型ID: {model_config.id}, 模型: {model_config.primary_model_name()}")
             return JsonResponse({
                 'status': 'success',
                 'message': '连接成功',
                 'result': display_result,
                 'details': {
                     'provider': model_config.provider,
-                    'base_url': model_config.api_base,
-                    'model_name': model_config.model_name,
-                    'model_type': model_config.model_type
+                    'base_url': display_base_url,
+                    'model_name': self._get_primary_model_name(model_config),
+                    'model_names': self._get_model_names(model_config),
                 }
             })
         except AIClientError as e:
@@ -216,7 +216,7 @@ class AIModelConfigValidateView(
             logger.error(f"错误详情: {str(e)}")
             logger.error(f"完整错误堆栈: {traceback.format_exc()}")
             logger.error(
-                f"模型配置 - 提供商: {model_config.provider}, 基础URL: {model_config.api_base}, 模型名称: {model_config.model_name}, 模型类型: {model_config.model_type}")
+                f"模型配置 - 基础URL: {display_base_url}")
 
             error_payload = self._build_validation_error_payload(model_config, e)
             return JsonResponse(error_payload)
@@ -227,19 +227,29 @@ class AIModelConfigValidateView(
             logger.error(f"错误详情: {str(e)}")
             logger.error(f"完整错误堆栈: {traceback.format_exc()}")
             logger.error(
-                f"模型配置 - 提供商: {model_config.provider}, 基础URL: {model_config.api_base}, 模型名称: {model_config.model_name}, 模型类型: {model_config.model_type}")
+                f"模型配置 - 基础URL: {display_base_url}")
             error_payload = self._build_validation_error_payload(model_config, e)
             return JsonResponse(error_payload)
 
+    def _get_base_url(self, model_config):
+        return getattr(model_config, 'base_url', None) or getattr(model_config, 'api_base', '')
+
     def _run_model_validation(self, client, model_config):
-        if model_config.model_type == 'embedding':
-            return client.embedding('这是一个嵌入模型连接测试。', model=model_config.model_name)
-        if model_config.model_type in ['chat', 'text']:
-            test_message = [{"role": "user", "content": "你好，这是一个连接测试。"}]
-            if model_config.model_type == 'text':
-                return client.text_completion('你好，这是一个连接测试。', model=model_config.model_name)
-            return client.chat_completion(test_message, model=model_config.model_name)
-        raise AIClientError(f"当前暂不支持验证{model_config.get_model_type_display()}接口")
+        test_message = [{"role": "user", "content": "你好，这是一个连接测试。"}]
+        return client.chat_completion(
+            test_message,
+            model=self._get_primary_model_name(model_config),
+        )
+
+    def _get_primary_model_name(self, model_config):
+        if hasattr(model_config, 'primary_model_name'):
+            return model_config.primary_model_name()
+        names = getattr(model_config, 'model_names', None) or []
+        return names[0] if names else getattr(model_config, 'model_name', 'gpt-4o-mini')
+
+    def _get_model_names(self, model_config):
+        names = getattr(model_config, 'model_names', None) or []
+        return list(names) if isinstance(names, (list, tuple)) else []
 
     def _format_validation_result(self, result):
         if isinstance(result, (list, tuple)):
@@ -258,9 +268,9 @@ class AIModelConfigValidateView(
             'message': message,
             'details': {
                 'provider': model_config.provider,
-                'base_url': model_config.api_base,
-                'model_name': model_config.model_name,
-                'model_type': model_config.model_type,
+                'base_url': self._get_base_url(model_config),
+                'model_name': self._get_primary_model_name(model_config),
+                'model_names': self._get_model_names(model_config),
                 'error_type': error_type,
                 'error_code': error_code,
                 'status_code': status_code,
@@ -297,7 +307,7 @@ class AIModelConfigValidateView(
         if status_code == 403:
             return '请确认当前密钥已开通目标模型权限，并检查服务商侧访问控制设置'
         if status_code == 404:
-            return f'请检查 API 地址或兼容路径是否正确。当前配置地址：{model_config.api_base}'
+            return f'请检查 API 地址或兼容路径是否正确。当前配置地址：{self._get_base_url(model_config)}'
         if status_code == 429:
             return '请检查调用频率限制、账户余额或套餐额度'
         if status_code in {500, 502, 503, 504}:
@@ -305,11 +315,11 @@ class AIModelConfigValidateView(
         if error_code == 'timeout':
             return '请求超时，请检查网络连通性、代理配置或服务响应速度'
         if error_code == 'connection_error':
-            return f'无法连接到模型服务，请检查网络、DNS、代理或服务地址。当前配置地址：{model_config.api_base}'
+            return f'无法连接到模型服务，请检查网络、DNS、代理或服务地址。当前配置地址：{self._get_base_url(model_config)}'
         suggestions = {
             'ConnectionError': '请检查网络连接是否正常，以及API地址是否正确',
             'TimeoutError': '请求超时，请检查网络连接或API地址是否正确',
-            'HTTPError': f'HTTP请求失败，请检查API地址是否正确。当前配置的地址是: {model_config.api_base}',
+            'HTTPError': f'HTTP请求失败，请检查API地址是否正确。当前配置的地址是: {self._get_base_url(model_config)}',
             'AIClientError': 'AI客户端错误，请检查API密钥和API地址是否正确',
             'KeyError': 'API响应格式错误，请检查API地址是否正确',
             'ValueError': '参数错误，请检查模型配置是否正确',
@@ -1774,55 +1784,84 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
                 return JsonResponse(self._build_intent_response_payload(
                     request.user, data.get('chat_id'), message, request))
 
-            from apps.ai.services.intent_recognition_service import intent_recognition_service
-            referrer = request.session.get('ai_last_referrer')
-            intent_input = f"当前页面URL: {referrer}\n用户请求: {message}" if referrer else message
-            intent_result = intent_recognition_service.process_request(
-                request.user, intent_input, chat_id=data.get('chat_id'))
-
-            # 2. 获取意图
-            intent_result.get('intent_type', 'ai_chat')
-
-            # 3. 处理响应
-            ai_response = self.get_response_text(intent_result)
-
-            try:
-                chat, user_message, ai_message = self.save_chat_record(
-                    request.user,
-                    data.get('chat_id'),
-                    message,
-                    ai_response,
-                )
-                if ai_message:
-                    ai_message.runtime_payload = dict(intent_result)
-                    ai_message.save(update_fields=['runtime_payload'])
-            except Exception as e:
-                logger.error(f'保存聊天记录失败: {str(e)}')
-
-            # 6. 返回流式响应
-            response = HttpResponse(
-                self.generate_streaming_response(ai_response),
-                content_type='text/event-stream')
+            response = StreamingHttpResponse(
+                self._stream_chat_events(
+                    user=request.user,
+                    chat_id=data.get('chat_id'),
+                    message=message,
+                    request=request,
+                ),
+                content_type='text/event-stream; charset=utf-8',
+            )
             response['Cache-Control'] = 'no-cache'
+            response['X-Accel-Buffering'] = 'no'
             return response
 
         except Exception as e:
             logger.error(f'流式聊天请求失败: {str(e)}')
             error_message = '抱歉，我暂时无法回答您的问题，请稍后再试。'
-            return HttpResponse(
-                self.generate_streaming_response(error_message),
-                content_type='text/event-stream')
+            return StreamingHttpResponse(
+                self.generate_streaming_response({
+                    'success': False,
+                    'status': 'error',
+                    'message': error_message,
+                    'ai_message': error_message,
+                    'options': [],
+                }),
+                content_type='text/event-stream; charset=utf-8',
+            )
+
+    def _stream_chat_events(self, user, chat_id, message, request=None):
+        yield self._serialize_stream_event('thinking', {'message': '正在思考....'})
+        try:
+            payload = self._build_intent_response_payload(
+                user,
+                chat_id,
+                message,
+                request,
+            )
+            payload['status'] = 'success' if payload.get('success') else 'error'
+            payload.setdefault('ai_message', payload.get('message', '抱歉，我无法处理您的请求'))
+            payload.setdefault('user_message', message)
+            payload.setdefault('intent', payload.get('intent_type') or payload.get('intent'))
+            payload.setdefault('confidence', payload.get('confidence', 0))
+
+            yield from self.generate_streaming_response(payload, include_thinking=False)
+        except Exception as e:
+            logger.error(f'流式聊天请求失败: {str(e)}')
+            error_payload = {
+                'success': False,
+                'status': 'error',
+                'message': '抱歉，我暂时无法回答您的问题，请稍后再试。',
+                'ai_message': '抱歉，我暂时无法回答您的问题，请稍后再试。',
+                'options': [],
+            }
+            yield self._serialize_stream_event('error', error_payload)
 
     def _build_intent_response_payload(self, user, chat_id, message, request=None):
         from apps.ai.services.intent_recognition_service import intent_recognition_service
         from apps.ai.services.confirmation_service import confirmation_service
         request_obj = request or getattr(self, 'request', None)
         referrer = request_obj.session.get('ai_last_referrer') if request_obj else None
+        page_context = None
+        if request_obj and hasattr(request_obj, 'POST'):
+            raw_page_context = request_obj.POST.get('page_context')
+            if raw_page_context:
+                try:
+                    page_context = json.loads(raw_page_context)
+                except (TypeError, ValueError):
+                    page_context = None
+        if request_obj and hasattr(request_obj, 'session'):
+            if page_context:
+                request_obj.session['ai_page_context'] = page_context
+            elif request_obj.session.get('ai_page_context'):
+                page_context = request_obj.session.get('ai_page_context')
         intent_input = f"当前页面URL: {referrer}\n用户请求: {message}" if referrer else message
         intent_result = intent_recognition_service.process_request(
             user,
             intent_input,
             chat_id=chat_id,
+            context={'page_context': page_context} if page_context else None,
         )
         ai_response = self.get_response_text(intent_result)
         chat, user_message, ai_message = self.save_chat_record(
@@ -1849,8 +1888,12 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
             payload['chat_id'] = chat.id
         if user_message:
             payload['user_message_id'] = user_message.id
+            if hasattr(user_message, 'created_at') and user_message.created_at:
+                payload['user_message_created_at'] = user_message.created_at.strftime('%Y-%m-%d %H:%M:%S')
         if ai_message:
             payload['ai_message_id'] = ai_message.id
+            if hasattr(ai_message, 'created_at') and ai_message.created_at:
+                payload['ai_message_created_at'] = ai_message.created_at.strftime('%Y-%m-%d %H:%M:%S')
             ai_message.runtime_payload = {
                 'task': task,
                 'options': options,
@@ -1920,13 +1963,42 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
             return f"{intent_result.get('message', '您没有权限执行此操作')}。{intent_result.get('suggestion', '请联系管理员获取相应权限')}"
         return intent_result.get('message', '抱歉，我无法处理您的请求')
 
-    def generate_streaming_response(self, response_text):
+    def generate_streaming_response(self, response_text, include_thinking=True):
         """生成流式响应"""
-        # 模拟流式输出，逐字符发送
-        for char in response_text:
-            yield char
-            import time
-            time.sleep(0.01)  # 添加小延迟，模拟真实的流式输出
+        payload = response_text if isinstance(response_text, dict) else {
+            'success': True,
+            'status': 'success',
+            'message': str(response_text or ''),
+            'ai_message': str(response_text or ''),
+            'options': [],
+        }
+
+        if payload.get('status') == 'error':
+            yield self._serialize_stream_event('error', payload)
+            return
+
+        if include_thinking:
+            yield self._serialize_stream_event('thinking', {
+                'message': payload.get('thinking_message') or '正在思考....'
+            })
+
+        assistant_text = payload.get('ai_message') or payload.get('message') or ''
+        for chunk in self._chunk_stream_text(assistant_text):
+            yield self._serialize_stream_event('chunk', {'content': chunk})
+
+        yield self._serialize_stream_event('done', payload)
+
+    def _serialize_stream_event(self, event_name, payload):
+        return f"event: {event_name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+    def _chunk_stream_text(self, text, chunk_size=12):
+        normalized = str(text or '')
+        if not normalized:
+            return []
+        return [
+            normalized[index:index + chunk_size]
+            for index in range(0, len(normalized), chunk_size)
+        ]
 
 
 class AIConfirmOperationView(LoginRequiredMixin, View):
@@ -2164,8 +2236,9 @@ class ModelConfigListAPIView(View):
             model_list = [{
                 'id': str(config['id']),
                 'name': config['name'],
-                'provider': config['provider'],
-                'model_name': config['model_name']
+                'api_base': config.get('api_base', ''),
+                'model_names': config.get('model_names', []),
+                'is_default': config.get('is_default', False),
             } for config in model_configs]
 
             return JsonResponse({
@@ -2234,7 +2307,7 @@ class NodeDynamicOptionsView(View):
                 model_configs = AIModelConfig.objects.filter(is_active=True)
                 options['model_id'] = [
                     {'value': str(config.id),
-                     'label': f"{config.name} ({config.provider})",
+                     'label': f"{config.name} ({config.primary_model_name()})",
                      'provider': config.provider}
                     for config in model_configs
                 ]
@@ -2444,12 +2517,12 @@ class AgentCenterView(LoginRequiredMixin, TemplateView):
                 'name': config.name,
                 'type': 'model',
                 'type_display': 'AI模型',
-                'description': f"{config.get_provider_display()}提供的{config.get_model_type_display()}模型",
+                'description': f"{config.get_provider_display()} 兼容接口，默认模型 {config.primary_model_name()}",
                 'icon': 'layui-icon-light',
                 'status': 'active',
                 'creator': '系统',
                 'created_at': config.created_at.strftime('%Y-%m-%d %H:%M'),
-                'tags': [config.get_provider_display(), config.get_model_type_display()],
+                'tags': [config.get_provider_display(), config.primary_model_name()],
                 'color': 'green'
             })
         

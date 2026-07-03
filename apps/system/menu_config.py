@@ -1136,17 +1136,9 @@ system_menus = {
     1230: {
         "id": 1230,
         "title": "风险预测",
-        "src": "/project/ai/risk-prediction/1/",
+        "src": "/project/ai/risk-prediction/",
         "pid_id": 1224,
         "sort": 107,
-        "status": 1
-    },
-    1231: {
-        "id": 1231,
-        "title": "进度分析",
-        "src": "/project/ai/progress-analysis/1/",
-        "pid_id": 1224,
-        "sort": 108,
         "status": 1
     },
     1232: {
@@ -1154,7 +1146,7 @@ system_menus = {
         "title": "项目阶段",
         "src": "/project/stage/",
         "pid_id": 1224,
-        "sort": 109,
+        "sort": 108,
         "status": 1
     },
     1233: {
@@ -1162,7 +1154,7 @@ system_menus = {
         "title": "项目分类旧入口",
         "src": "/project/category/",
         "pid_id": 1224,
-        "sort": 110,
+        "sort": 109,
         "status": 0
     },
     1234: {

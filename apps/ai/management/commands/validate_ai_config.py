@@ -10,6 +10,49 @@ from apps.ai.utils.ai_config_manager import validate_ai_configuration
 class Command(BaseCommand):
     help = '验证AI配置的有效性'
 
+    DEFAULT_CONFIGS = [
+        {
+            'name': '默认OpenAI配置',
+            'api_key': '',
+            'api_base': 'https://api.openai.com/v1',
+            'model_names': ['gpt-4o-mini'],
+            'is_default': True,
+            'is_active': True,
+        },
+        {
+            'name': '默认千问配置',
+            'api_key': '',
+            'api_base': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+            'model_names': ['qwen-turbo'],
+            'is_default': False,
+            'is_active': True,
+        },
+        {
+            'name': '默认文心一言配置',
+            'api_key': '',
+            'api_base': 'https://aip.baidubce.com/rpc/2.0/ai_custom/v1',
+            'model_names': ['ernie-4.0-turbo-8k'],
+            'is_default': False,
+            'is_active': True,
+        },
+        {
+            'name': '默认DeepSeek配置',
+            'api_key': '',
+            'api_base': 'https://api.deepseek.com/v1',
+            'model_names': ['deepseek-chat'],
+            'is_default': False,
+            'is_active': True,
+        },
+        {
+            'name': '默认豆包配置',
+            'api_key': '',
+            'api_base': 'https://ark.cn-beijing.volces.com/api/v3',
+            'model_names': ['doubao-seed-1-6-250615'],
+            'is_default': False,
+            'is_active': True,
+        },
+    ]
+
     def add_arguments(self, parser):
         parser.add_argument(
             '--fix',
@@ -69,70 +112,7 @@ class Command(BaseCommand):
         try:
             from apps.ai.models import AIModelConfig
 
-            default_configs = [
-                {
-                    'name': '默认OpenAI配置',
-                    'provider': 'openai',
-                    'model_type': 'chat',
-                    'model_name': 'gpt-4o-mini',
-                    'api_key': '',
-                    'api_base': 'https://api.openai.com/v1',
-                    'temperature': 0.7,
-                    'max_tokens': 2000,
-                    'top_p': 1.0,
-                    'is_active': True
-                },
-                {
-                    'name': '默认千问配置',
-                    'provider': 'alibaba',
-                    'model_type': 'chat',
-                    'model_name': 'qwen-turbo',
-                    'api_key': '',
-                    'api_base': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-                    'temperature': 0.7,
-                    'max_tokens': 2000,
-                    'top_p': 1.0,
-                    'is_active': True
-                },
-                {
-                    'name': '默认文心一言配置',
-                    'provider': 'baidu',
-                    'model_type': 'chat',
-                    'model_name': 'eb-instant',
-                    'api_key': '',
-                    'api_base': 'https://aip.baidubce.com/rpc/2.0/ai_custom/v1',
-                    'temperature': 0.7,
-                    'max_tokens': 2000,
-                    'top_p': 1.0,
-                    'is_active': True
-                },
-                {
-                    'name': '默认DeepSeek配置',
-                    'provider': 'deepseek',
-                    'model_type': 'chat',
-                    'model_name': 'deepseek-chat',
-                    'api_key': '',
-                    'api_base': 'https://api.deepseek.com/v1',
-                    'temperature': 0.7,
-                    'max_tokens': 2000,
-                    'top_p': 1.0,
-                    'is_active': True
-                },
-                {
-                    'name': '默认豆包配置',
-                    'provider': 'doubao',
-                    'model_type': 'chat',
-                    'model_name': 'doubao-seed-1-6-250615',
-                    'api_key': '',
-                    'api_base': 'https://ark.cn-beijing.volces.com/api/v3',
-                    'temperature': 0.7,
-                    'max_tokens': 2000,
-                    'top_p': 1.0,
-                    'is_active': True
-                }
-            ]
-
-            for config_data in default_configs:
+            for config_data in self.DEFAULT_CONFIGS:
                 config, created = AIModelConfig.objects.get_or_create(
                     name=config_data['name'],
                     defaults=config_data)
@@ -167,12 +147,7 @@ class Command(BaseCommand):
                                 f"警告: {config_id} 缺少API密钥，需要手动配置")
 
                         if '基础URL未配置' in errors:
-                            provider_aliases = {
-                                'qwen': 'alibaba',
-                                'wenxin': 'baidu'
-                            }
-                            provider = provider_aliases.get(config.provider, config.provider)
-                            default_urls = {
+                            provider_defaults = {
                                 'openai': 'https://api.openai.com/v1',
                                 'alibaba': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
                                 'baidu': 'https://aip.baidubce.com/rpc/2.0/ai_custom/v1',
@@ -180,13 +155,16 @@ class Command(BaseCommand):
                                 'doubao': 'https://ark.cn-beijing.volces.com/api/v3',
                                 'anthropic': 'https://api.anthropic.com/v1',
                                 'google': 'https://generativelanguage.googleapis.com/v1beta',
-                                'tencent': 'https://api.hunyuan.cloud.tencent.com/v1'
+                                'tencent': 'https://api.hunyuan.cloud.tencent.com/v1',
+                                'azure': 'https://YOUR-RESOURCE.openai.azure.com',
+                                'ollama': 'http://localhost:11434/v1',
+                                'local': 'http://localhost:8001/v1',
                             }
 
-                            if provider in default_urls:
-                                config.provider = provider
-                                config.api_base = default_urls[provider]
-                                config.save(update_fields=['provider', 'api_base', 'updated_at'])
+                            default_url = provider_defaults.get(config.provider)
+                            if default_url:
+                                config.api_base = default_url
+                                config.save(update_fields=['api_base', 'updated_at'])
                                 self.stdout.write(f"✓ 为 {config_id} 设置默认基础URL")
 
                         # 标记为不活跃

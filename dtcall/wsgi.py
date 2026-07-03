@@ -8,5 +8,11 @@ https://docs.djangoproject.com/en/5.2/howto/deployment/wsgi/
 """
 import os
 from django.core.wsgi import get_wsgi_application
+
+from dtcall.startup_tasks import start_project_risk_scheduler_subprocess
+
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dtcall.settings')
+
+start_project_risk_scheduler_subprocess(context='wsgi')
+
 application = get_wsgi_application()

@@ -301,7 +301,7 @@ urlpatterns = [
     path('project/task/', RedirectView.as_view(url='/task/', permanent=True)),
     path('project/time/', RedirectView.as_view(url='/task/workhour/', permanent=True)),
     path('project/ai_risk_prediction/', RedirectView.as_view(url='/project/ai/risk-prediction/', permanent=True)),
-    path('project/ai_progress_analysis/', RedirectView.as_view(url='/project/ai/progress-analysis/', permanent=True)),
+    path('project/ai_progress_analysis/', RedirectView.as_view(url='/project/ai/risk-prediction/', permanent=True)),
     # 生产模块重定向 - 修正为正确的路径格式，避免与production应用路由冲突
     path('adm/production/procedure/', RedirectView.as_view(url='/production/procedure/', permanent=False)),
     path('adm/production/bom/', RedirectView.as_view(url='/production/bom/', permanent=False)),
@@ -339,6 +339,7 @@ urlpatterns = [
     path('adm/project/task/datalist/', RedirectView.as_view(url='/project/task/', permanent=True)),
     path('adm/project/detail/<int:project_id>/', RedirectView.as_view(url='/project/detail/%(project_id)s/', permanent=True)),
     path('adm/project/edit/<int:project_id>/', RedirectView.as_view(url='/project/edit/%(project_id)s/', permanent=True)),
+    path('adm/project/delete/<int:project_id>/', project_views.ProjectDeleteView.as_view(), name='adm_project_delete'),
     path('adm/project/add/', RedirectView.as_view(url='/project/add/', permanent=True, query_string=True)),
     path('adm/project/document/', project_views.ProjectDocumentListView.as_view(), name='adm_project_document'),
     path('adm/project/document/datalist/', project_views.ProjectDocumentListView.as_view(), name='adm_project_document_datalist'),

@@ -257,10 +257,10 @@ class AIIntentClassifier:
         ('enterprise', ['企业信息', '公司信息', '公司', '企业']),
         ('position', ['岗位', '职称', '职位', '岗位信息']),
         ('work_record', ['工作记录', '工作日志', '履职记录']),
-        ('work_report',
-        'personal_task',
-        'personal_note',
-        'personal_contact', ['工作汇报', '日报', '周报', '月报', '工作总结', '工作报告']),
+        ('work_report', ['工作汇报', '日报', '周报', '月报', '工作总结', '工作报告']),
+        ('personal_task', ['个人任务', '我的待办', '待办']),
+        ('personal_note', ['个人笔记', '我的笔记', '笔记']),
+        ('personal_contact', ['个人通讯录', '我的联系人', '私人通讯录']),
     )
     CREATE_KEYWORDS = ('添加', '新增', '创建', '增加', '新建', '录入', '登记', '上传', '提交', '发起', '申请')
     UPDATE_KEYWORDS = ('修改', '更新', '更改', '调整', '编辑', '维护', '设置', '共享', '分享', '审批通过', '驳回', '同意', '拒绝')
@@ -273,6 +273,7 @@ class AIIntentClassifier:
         self._training_data_cache = None
         self._client_loaded_at = 0
         self._client_ttl_seconds = 60
+        self._last_ai_failure_reason = None
 
     def _get_latest_chat_config(self):
         return AIModelConfig.get_latest_chat_runtime_config()
@@ -353,6 +354,7 @@ class AIIntentClassifier:
             if not query:
                 return self._create_empty_result()
 
+            self._last_ai_failure_reason = None
             self._ensure_ai_client()
 
             ai_available = self.ai_client is not None
@@ -363,7 +365,10 @@ class AIIntentClassifier:
             ai_result = self._ai_classify_intent(query)
 
             if ai_result is None:
-                result = self._safe_fallback_result(query, 'AI 模型暂时不可用')
+                result = self._safe_fallback_result(
+                    query,
+                    self._last_ai_failure_reason or 'AI 模型暂时不可用'
+                )
                 return self._enhance_result(result, query)
 
             result = self._enhance_result(ai_result, query)
@@ -374,8 +379,14 @@ class AIIntentClassifier:
 
         except Exception as e:
             logger.error(f"意图分类失败：{str(e)}")
+            self._last_ai_failure_reason = self._summarize_ai_failure(e)
             return self._enhance_result(
-                self._safe_fallback_result(original_query, '意图识别服务异常'), original_query)
+                self._safe_fallback_result(
+                    original_query,
+                    self._last_ai_failure_reason or '意图识别服务异常'
+                ),
+                original_query
+            )
 
     def _ai_classify_intent(self, query: str) -> Dict[str, Any]:
         """使用 AI 模型进行意图分类"""
@@ -441,8 +452,40 @@ class AIIntentClassifier:
             return result
 
         except Exception as e:
+            self._last_ai_failure_reason = self._summarize_ai_failure(e)
             logger.error(f"AI 意图分类失败：{str(e)}")
             return None
+
+    def _summarize_ai_failure(self, error: Exception) -> str:
+        detail = getattr(error, 'detail', None) or str(error)
+        detail_text = str(detail or '').strip()
+        detail_lower = detail_text.lower()
+
+        model_name = self.ai_config.get('model_name') if self.ai_config else None
+        if not model_name:
+            model_match = re.search(r'no available channel for model\s+([^\s]+)', detail_text, re.IGNORECASE)
+            if model_match:
+                model_name = model_match.group(1).strip()
+
+        if 'no available channel for model' in detail_lower or 'model_not_found' in detail_lower:
+            if model_name:
+                return f'当前模型 {model_name} 在所选渠道中不可用，请更换为该渠道支持的模型名称。'
+            return '当前模型在所选渠道中不可用，请更换为该渠道支持的模型名称。'
+
+        status_code = getattr(error, 'status_code', None)
+        if status_code == 401:
+            return '当前 API 密钥无效或已过期，请检查后重试。'
+        if status_code == 403:
+            return '当前 API 密钥没有访问该模型的权限，请检查渠道授权配置。'
+        if status_code == 404:
+            return '当前接口地址不可用，请检查 OpenAI 兼容接口地址是否填写正确。'
+        if status_code == 429:
+            return '当前模型服务已触发频率或额度限制，请稍后再试。'
+        if status_code == 503:
+            return '当前模型服务暂时不可用，请稍后重试。'
+        if detail_text:
+            return detail_text[:120]
+        return 'AI 模型暂时不可用'
 
     def _parse_ai_response(self, response: str, query: str) -> Dict[str, Any]:
         """解析 AI 响应"""

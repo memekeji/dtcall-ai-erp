@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ project.name }} - 风险分析详情</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <style>
+        body {
+            background: #f6f8fb;
+        }
+        .detail-shell {
+            padding: 20px;
+        }
+        .header-card,
+        .panel {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 6px 24px rgba(15, 23, 42, 0.06);
+        }
+        .header-card {
+            padding: 22px 24px;
+            margin-bottom: 18px;
+        }
+        .panel {
+            padding: 20px;
+            margin-bottom: 18px;
+        }
+        .page-title {
+            margin: 0;
+            font-size: 24px;
+            color: #101828;
+        }
+        .page-meta {
+            margin-top: 10px;
+            color: #667085;
+        }
+        .overview-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 16px;
+        }
+        .overview-item {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .overview-item .label {
+            color: #667085;
+            font-size: 13px;
+        }
+        .overview-item .value {
+            margin-top: 8px;
+            font-size: 26px;
+            font-weight: 600;
+            color: #101828;
+        }
+        .risk-pill {
+            display: inline-flex;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .risk-high {
+            background: #fef3f2;
+            color: #d92d20;
+        }
+        .risk-medium {
+            background: #fffaeb;
+            color: #b54708;
+        }
+        .risk-low {
+            background: #ecfdf3;
+            color: #027a48;
+        }
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 18px;
+        }
+        .metric-list,
+        .text-list {
+            margin: 0;
+            padding-left: 18px;
+            color: #344054;
+            line-height: 1.8;
+        }
+        .section-title {
+            margin: 0 0 14px;
+            font-size: 18px;
+            color: #101828;
+        }
+        .summary-text {
+            color: #344054;
+            line-height: 1.8;
+            margin: 0;
+        }
+        @media (max-width: 960px) {
+            .overview-grid,
+            .metric-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="detail-shell">
+        <div class="header-card">
+            <h1 class="page-title">{{ project.name }}</h1>
+            <div class="page-meta">
+                {{ project.code }}{% if project.manager %} | 项目经理：{{ project.manager.name }}{% endif %} | 分析时间：{{ analysis.analyzed_at|date:"Y-m-d H:i" }}
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="overview-grid">
+                <div class="overview-item">
+                    <div class="label">风险等级</div>
+                    <div class="value">
+                        <span class="risk-pill risk-{{ analysis.risk_level }}">{{ risk_level_display }}</span>
+                    </div>
+                </div>
+                <div class="overview-item">
+                    <div class="label">风险得分</div>
+                    <div class="value">{{ analysis.risk_score }}</div>
+                </div>
+                <div class="overview-item">
+                    <div class="label">预警数量</div>
+                    <div class="value">{{ analysis.warning_count }}</div>
+                </div>
+                <div class="overview-item">
+                    <div class="label">触发方式</div>
+                    <div class="value" style="font-size: 18px;">{{ analysis.get_trigger_source_display }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2 class="section-title">总体结论</h2>
+            <p class="summary-text">{{ analysis.summary }}</p>
+        </div>
+
+        <div class="metric-grid">
+            <div class="panel">
+                <h2 class="section-title">关键风险点</h2>
+                <ul class="text-list">
+                    {% for item in analysis.key_risks %}
+                    <li>{{ item }}</li>
+                    {% empty %}
+                    <li>暂无关键风险点</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="panel">
+                <h2 class="section-title">建议措施</h2>
+                <ul class="text-list">
+                    {% for item in analysis.suggestions %}
+                    <li>{{ item }}</li>
+                    {% empty %}
+                    <li>暂无建议措施</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <div class="metric-grid">
+            <div class="panel">
+                <h2 class="section-title">排期与任务指标</h2>
+                <ul class="metric-list">
+                    <li>项目当前进度：{{ analysis.metrics.project.progress }}%</li>
+                    <li>计划应达进度：{{ analysis.metrics.schedule.expected_progress }}%</li>
+                    <li>进度差值：{{ analysis.metrics.schedule.progress_gap }}%</li>
+                    <li>任务总数：{{ analysis.metrics.tasks.total }}</li>
+                    <li>逾期任务：{{ analysis.metrics.tasks.overdue }}</li>
+                    <li>未分配任务：{{ analysis.metrics.tasks.unassigned }}</li>
+                </ul>
+            </div>
+            <div class="panel">
+                <h2 class="section-title">成本与协同指标</h2>
+                <ul class="metric-list">
+                    <li>项目预算：{{ analysis.metrics.cost.budget }}</li>
+                    <li>实际成本：{{ analysis.metrics.cost.actual_cost }}</li>
+                    <li>采购承诺：{{ analysis.metrics.cost.purchase_cost }}</li>
+                    <li>预算占用率：{{ analysis.metrics.cost.budget_usage_ratio }}</li>
+                    <li>项目文档数：{{ analysis.metrics.collaboration.documents_count }}</li>
+                    <li>近 7 天评论数：{{ analysis.metrics.collaboration.recent_comment_count }}</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2 class="section-title">AI 解释</h2>
+            <div id="business-ai-result"></div>
+        </div>
+    </div>
+
+    {{ analysis_payload|json_script:"analysis-payload" }}
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script src="{% static 'js/ai-agent-sdk.js' %}"></script>
+    <script>
+        (function () {
+            var payloadNode = document.getElementById('analysis-payload');
+            if (!payloadNode) {
+                return;
+            }
+            var payload = JSON.parse(payloadNode.textContent || '{}');
+            if (window.aiAgent && typeof window.aiAgent.mountBusinessAIResult === 'function') {
+                window.aiAgent.mountBusinessAIResult('#business-ai-result', payload);
+            } else {
+                $('#business-ai-result').text(payload.summary || '暂无 AI 解释');
+            }
+        })();
+    </script>
+</body>
+</html>

@@ -30,8 +30,8 @@ class BaseAIClient:
             model_config=None):
         self.provider = provider or 'openai'
         self.api_key = api_key or ''
-        self.base_url = base_url or ''
-        self.api_base = base_url or ''
+        self.base_url = AIModelConfig.normalize_api_base(base_url or '')
+        self.api_base = self.base_url
         self.model_config = model_config or {}
         self.provider_specific_config = {}
         if isinstance(model_config, dict):
@@ -60,22 +60,31 @@ class BaseAIClient:
                     model_config,
                     'api_base'):
                 self.api_key = model_config.api_key or self.api_key
-                self.base_url = model_config.api_base or self.base_url
-                self.api_base = model_config.api_base or self.api_base
-                self.model_name = model_config.model_name or ''
+                self.base_url = model_config.base_url or self.base_url
+                self.api_base = self.base_url
+                primary_model = model_config.primary_model_name() if hasattr(
+                    model_config, 'primary_model_name') else ''
+                self.model_name = primary_model or ''
                 if isinstance(self.model_config, dict):
-                    self.model_config['chat'] = model_config.model_name or ''
+                    self.model_config['chat'] = primary_model or ''
+                    self.model_config['model_name'] = primary_model or ''
             elif isinstance(model_config, dict):
                 self.api_key = model_config.get('api_key') or self.api_key
-                self.base_url = model_config.get(
-                    'api_base') or model_config.get('base_url') or self.base_url
-                self.api_base = model_config.get(
-                    'api_base') or model_config.get('base_url') or self.api_base
-                self.model_name = model_config.get('model_name') or ''
+                self.base_url = AIModelConfig.normalize_api_base(
+                    model_config.get('api_base') or model_config.get('base_url') or self.base_url
+                )
+                self.api_base = self.base_url
+                primary_model = (
+                    model_config.get('model_name')
+                    or model_config.get('chat')
+                    or (model_config.get('model_names') or [''])[0]
+                )
+                self.model_name = primary_model or ''
                 if isinstance(self.model_config,
                               dict) and 'chat' not in self.model_config:
-                    self.model_config['chat'] = model_config.get(
-                        'model_name') or ''
+                    self.model_config['chat'] = primary_model or ''
+                if isinstance(self.model_config, dict):
+                    self.model_config['model_name'] = primary_model or ''
 
         self.timeout = 30
         self.max_retries = 1
@@ -1118,101 +1127,34 @@ class AIClient:
         self.client = self._create_client()
 
     def _create_client(self):
-        """根据提供商创建客户端实例"""
+        """创建 OpenAI 兼容客户端实例 — 全站统一。"""
         if hasattr(self.model_config, 'api_base'):
-            base_url = self.model_config.api_base
+            base_url = self.model_config.base_url
             api_key = self.model_config.api_key
-            model_name = self.model_config.model_name
-            temperature = self.model_config.temperature
-            max_tokens = self.model_config.max_tokens
-            top_p = self.model_config.top_p
+            model_name = self.model_config.primary_model_name()
+        elif isinstance(self.model_config, dict):
+            base_url = AIModelConfig.normalize_api_base(
+                self.model_config.get('api_base') or self.model_config.get('base_url')
+            )
+            api_key = self.model_config.get('api_key')
+            model_name = self.model_config.get('model_name') or 'gpt-4o-mini'
         else:
-            base_url = self.model_config.get(
-                'api_base') if self.model_config else None
-            api_key = self.model_config.get(
-                'api_key') if self.model_config else None
-            model_name = self.model_config.get(
-                'model_name') if self.model_config else 'gpt-3.5-turbo'
-            temperature = self.model_config.get(
-                'temperature') if self.model_config else 0.7
-            max_tokens = self.model_config.get(
-                'max_tokens') if self.model_config else 2000
-            top_p = self.model_config.get(
-                'top_p') if self.model_config else 1.0
+            base_url = None
+            api_key = None
+            model_name = 'gpt-4o-mini'
 
         model_config = {
             'chat': model_name,
             'model_name': model_name,
-            'temperature': temperature,
-            'max_tokens': max_tokens,
-            'top_p': top_p
+            'temperature': 0.7,
+            'max_tokens': 2000,
+            'top_p': 1.0,
         }
 
-        if hasattr(self.model_config, 'provider_specific_config'):
-            model_config['provider_specific_config'] = getattr(
-                self.model_config, 'provider_specific_config') or {}
-        elif isinstance(self.model_config, dict):
-            model_config['provider_specific_config'] = self.model_config.get(
-                'provider_specific_config') or {}
-
-        if self.provider == 'openai':
-            client = OpenAIClient(
-                base_url=base_url,
-                api_key=api_key,
-                model_config=model_config)
-        elif self.provider == 'qwen' or self.provider == 'alibaba':
-            client = QwenClient(
-                base_url=base_url,
-                api_key=api_key,
-                model_config=model_config)
-        elif self.provider == 'deepseek':
-            client = DeepSeekClient(
-                base_url=base_url,
-                api_key=api_key,
-                model_config=model_config)
-        elif self.provider == 'doubao':
-            client = DoubaoClient(
-                base_url=base_url,
-                api_key=api_key,
-                model_config=model_config)
-        elif self.provider == 'wenxin' or self.provider == 'baidu':
-            client = WenxinClient(
-                base_url=base_url,
-                api_key=api_key,
-                model_config=model_config)
-        elif self.provider == 'local':
-            client = LocalModelClient(
-                base_url=base_url,
-                api_key=api_key,
-                model_config=model_config)
-        elif self.provider == 'ollama':
-            client = OllamaClient(
-                base_url=base_url,
-                api_key=api_key,
-                model_config=model_config)
-        elif self.provider == 'azure':
-            client = AzureOpenAIClient(
-                base_url=base_url,
-                api_key=api_key,
-                model_config=model_config)
-        elif self.provider == 'anthropic':
-            client = AnthropicClient(
-                base_url=base_url,
-                api_key=api_key,
-                model_config=model_config)
-        elif self.provider == 'google':
-            client = GoogleGeminiClient(
-                base_url=base_url,
-                api_key=api_key,
-                model_config=model_config)
-        elif self.provider == 'tencent':
-            client = TencentHunyuanClient(
-                base_url=base_url,
-                api_key=api_key,
-                model_config=model_config)
-        else:
-            logger.error(f"不支持的AI提供商: {self.provider}")
-            raise AIClientError("不支持的AI提供商，请检查模型配置后重试")
+        client = OpenAIClient(
+            base_url=base_url,
+            api_key=api_key,
+            model_config=model_config)
 
         if self.model_config:
             self._apply_model_config_to_client(client)
@@ -1220,36 +1162,23 @@ class AIClient:
         return client
 
     def _apply_model_config_to_client(self, client):
-        """将模型配置应用到客户端实例"""
+        """将模型配置应用到客户端实例 — 全站 OpenAI 兼容。"""
         if not self.model_config:
             return
 
         if hasattr(self.model_config, 'api_base') and self.model_config.api_base:
-            api_base = self.model_config.api_base
-            if client.provider in ['qwen', 'alibaba'] and 'dashscope.aliyuncs.com' in api_base and '/compatible-mode' not in api_base:
-                client.base_url = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
-            else:
-                client.base_url = api_base
+            client.base_url = self.model_config.base_url
             client.api_base = client.base_url
 
-        for key in ['organization', 'project', 'api_version', 'anthropic_version']:
-            if hasattr(self.model_config, key) and getattr(self.model_config, key):
-                client.provider_specific_config[key] = getattr(self.model_config, key)
-
-        if client.provider == 'azure' and hasattr(client, 'api_version'):
-            client.api_version = client.provider_specific_config.get(
-                'api_version', getattr(client, 'api_version', '2024-02-15-preview'))
-        if client.provider == 'anthropic' and hasattr(client, 'anthropic_version'):
-            client.anthropic_version = client.provider_specific_config.get(
-                'anthropic_version', getattr(client, 'anthropic_version', '2023-06-01'))
         if hasattr(self.model_config, 'api_key') and self.model_config.api_key:
             client.api_key = self.model_config.api_key
 
-        client.model_config['chat'] = self.model_config.model_name
-        client.model_config['model_name'] = self.model_config.model_name
-        client.model_config['temperature'] = self.model_config.temperature
-        client.model_config['max_tokens'] = self.model_config.max_tokens
-        client.model_config['top_p'] = self.model_config.top_p
+        if hasattr(self.model_config, 'primary_model_name'):
+            model_name = self.model_config.primary_model_name()
+        else:
+            model_name = self.model_config.get('model_name', 'gpt-4o-mini') if isinstance(self.model_config, dict) else 'gpt-4o-mini'
+        client.model_config['chat'] = model_name
+        client.model_config['model_name'] = model_name
 
     def chat_completion(self, messages, **kwargs):
         return self.client.chat_completion(messages, **kwargs)
@@ -1274,77 +1203,10 @@ class AIClient:
 
     @classmethod
     def from_config(cls, config):
-        """
-        从配置字典创建AIClient实例
-
-        Args:
-            config: 配置字典，包含provider, api_key, base_url等字段
-
-        Returns:
-            AIClient: AIClient实例
-        """
+        """从配置字典创建 AIClient 实例 — 全站 OpenAI 兼容。"""
         if not config:
             raise AIClientError("配置不能为空")
 
-        provider = config.get('provider')
         api_key = config.get('api_key')
-        base_url = config.get('base_url') or config.get('api_base')
-
-        if provider == 'openai':
-            return OpenAIClient(
-                base_url=base_url,
-                api_key=api_key,
-                model_config=config)
-        elif provider == 'qwen' or provider == 'alibaba':
-            return QwenClient(
-                base_url=base_url,
-                api_key=api_key,
-                model_config=config)
-        elif provider == 'deepseek':
-            return DeepSeekClient(
-                base_url=base_url,
-                api_key=api_key,
-                model_config=config)
-        elif provider == 'doubao':
-            return DoubaoClient(
-                base_url=base_url,
-                api_key=api_key,
-                model_config=config)
-        elif provider == 'wenxin' or provider == 'baidu':
-            return WenxinClient(
-                base_url=base_url,
-                api_key=api_key,
-                model_config=config)
-        elif provider == 'local':
-            return LocalModelClient(
-                base_url=base_url,
-                api_key=api_key,
-                model_config=config)
-        elif provider == 'ollama':
-            return OllamaClient(
-                base_url=base_url,
-                api_key=api_key,
-                model_config=config)
-        elif provider == 'azure':
-            return AzureOpenAIClient(
-                base_url=base_url,
-                api_key=api_key,
-                model_config=config)
-        elif provider == 'anthropic':
-            return AnthropicClient(
-                base_url=base_url,
-                api_key=api_key,
-                model_config=config)
-        elif provider == 'google':
-            return GoogleGeminiClient(
-                base_url=base_url,
-                api_key=api_key,
-                model_config=config)
-        elif provider == 'tencent':
-            return TencentHunyuanClient(
-                base_url=base_url,
-                api_key=api_key,
-                model_config=config)
-        else:
-            logger.error(f"不支持的AI提供商: {provider}")
-            raise AIClientError("不支持的AI提供商，请检查模型配置后重试")
+        base_url = AIModelConfig.normalize_api_base(config.get('base_url') or config.get('api_base'))
+        return OpenAIClient(base_url=base_url, api_key=api_key, model_config=config)

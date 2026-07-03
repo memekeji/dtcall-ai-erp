@@ -71,6 +71,7 @@ class PermissionMiddleware:
             '/user/login/', '/user/logout/', '/user/login-submit/',
             '/static/', '/media/', '/favicon.ico', '/captcha/',
             '/admin/', '/home/main/', '/home/dashboard/',
+            '/home/quick-menus/', '/home/menu-usage/',
             '/get-new-captcha/', '/api/common/', '/setup/database/',
             '/disk/share/view/', '/disk/share/download/',
             '/disk/share/folder/', '/disk/share/preview/',

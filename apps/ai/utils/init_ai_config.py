@@ -1,8 +1,9 @@
-from apps.ai.models import AIModelConfig
-from apps.user.models import SystemConfiguration as SystemConfig
 import os
 import django
 import logging
+
+from apps.ai.models import AIModelConfig
+from apps.user.models import SystemConfiguration as SystemConfig
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dtcall.settings')
 django.setup()
@@ -125,112 +126,45 @@ def init_ai_system_config():
 
 
 def init_ai_model_config():
-    """初始化AI模型配置"""
-    models_to_create = [
+    """初始化默认AI模型配置（简化版）。"""
+    default_configs = [
         {
-            'name': 'OpenAI GPT-4o Mini',
-            'provider': 'openai',
-            'model_type': 'chat',
-            'api_key': '',
+            'name': '默认OpenAI配置',
             'api_base': 'https://api.openai.com/v1',
-            'model_name': 'gpt-4o-mini',
+            'api_key': '',
+            'model_names': ['gpt-4o-mini'],
+            'is_default': True,
             'is_active': True,
-            'is_active': False,
-            'max_tokens': 2000,
-            'temperature': 0.7,
-            'top_p': 1.0,
         },
         {
-            'name': 'OpenAI Embedding',
-            'provider': 'openai',
-            'model_type': 'embedding',
-            'api_key': '',
-            'api_base': 'https://api.openai.com/v1',
-            'model_name': 'text-embedding-3-small',
-            'is_active': True,
-            'is_active': False,
-            'max_tokens': 2048,
-            'temperature': 0.7,
-            'top_p': 1.0,
-        },
-        {
-            'name': '通义千问 Turbo',
-            'provider': 'alibaba',
-            'model_type': 'chat',
-            'api_key': '',
-            'api_base': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-            'model_name': 'qwen-turbo',
-            'is_active': False,
-            'is_active': False,
-            'max_tokens': 2000,
-            'temperature': 0.7,
-            'top_p': 1.0,
-        },
-        {
-            'name': 'DeepSeek Chat',
-            'provider': 'deepseek',
-            'model_type': 'chat',
-            'api_key': '',
+            'name': '默认DeepSeek配置',
             'api_base': 'https://api.deepseek.com/v1',
-            'model_name': 'deepseek-chat',
-            'is_active': False,
-            'is_active': False,
-            'max_tokens': 2000,
-            'temperature': 0.7,
-            'top_p': 1.0,
+            'api_key': '',
+            'model_names': ['deepseek-chat'],
+            'is_default': False,
+            'is_active': True,
         },
         {
-            'name': '豆包 Seed',
-            'provider': 'doubao',
-            'model_type': 'chat',
+            'name': '默认千问配置',
+            'api_base': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
             'api_key': '',
-            'api_base': 'https://ark.cn-beijing.volces.com/api/v3',
-            'model_name': 'doubao-seed-1-6-250615',
-            'is_active': False,
-            'is_active': False,
-            'max_tokens': 2000,
-            'temperature': 0.7,
-            'top_p': 1.0,
+            'model_names': ['qwen-turbo'],
+            'is_default': False,
+            'is_active': True,
         },
-        {
-            'name': '本地大模型',
-            'provider': 'local',
-            'model_type': 'chat',
-            'api_key': '',
-            'api_base': 'http://localhost:8001',
-            'model_name': 'local-model',
-            'is_active': False,
-            'is_active': False,
-            'max_tokens': 2000,
-            'temperature': 0.7,
-            'top_p': 1.0,
-        }
     ]
 
     created_count = 0
-    for model_data in models_to_create:
-        existing_model = AIModelConfig.objects.filter(
-            name=model_data['name'],
-            provider=model_data['provider'],
-            model_name=model_data['model_name'],
-            model_type=model_data['model_type']
-        ).first()
-
-        if existing_model:
-            updated = False
-            for field, value in model_data.items():
-                if getattr(existing_model, field) != value:
-                    setattr(existing_model, field, value)
-                    updated = True
-            if updated:
-                existing_model.save()
-                logger.info(f"更新模型配置: {model_data['name']}")
-        else:
-            AIModelConfig.objects.create(**model_data)
-            logger.info(f"创建模型配置: {model_data['name']}")
+    for config_data in default_configs:
+        _, created = AIModelConfig.objects.get_or_create(
+            name=config_data['name'],
+            defaults=config_data
+        )
+        if created:
             created_count += 1
+            logger.info(f"创建AI模型配置: {config_data['name']}")
 
-    logger.info(f"AI模型配置初始化完成，共创建 {created_count} 个模型配置")
+    logger.info(f"AI模型配置初始化完成，共创建 {created_count} 个配置项")
 
 
 def main():
@@ -243,3 +177,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

@@ -1,16 +1,18 @@
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import FieldDoesNotExist
+from django.core.management import call_command
 from django.test import TestCase, override_settings
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from django.urls import reverse
+from unittest.mock import patch
 
 from apps.contract.models import ContractCate, Purchase
 from apps.customer.models import Customer, CustomerContract, CustomerOrder
 from apps.message.models import MessageUserRelation
 from apps.message.services import MessageService
-from apps.project.models import Comment, Project, Task
+from apps.project.models import Comment, Project, ProjectRiskAnalysis, Task
 from apps.user.models import Admin
 
 
@@ -257,6 +259,52 @@ class ProjectPurchaseIntegrationTests(TestCase):
 
 
 @override_settings(MIDDLEWARE=TEST_MIDDLEWARE)
+class ProjectDeletionTests(TestCase):
+    def setUp(self):
+        self.creator = Admin.objects.create_user(
+            username='project_creator',
+            password='secret123',
+            email='creator@example.com',
+            thumb='',
+            name='项目创建人',
+        )
+        self.manager = Admin.objects.create_user(
+            username='project_delete_manager',
+            password='secret123',
+            email='manager@example.com',
+            thumb='',
+            name='项目经理',
+        )
+        self.client.force_login(self.manager)
+
+    def test_project_list_template_wires_real_delete_endpoint(self):
+        response = self.client.get(reverse('project:project_list'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '/adm/project/delete/')
+        self.assertNotContains(response, '删除功能开发中...')
+
+    def test_adm_project_delete_soft_deletes_project_for_manager(self):
+        project = Project.objects.create(
+            name='待删除项目',
+            code='PRJ-DELETE-001',
+            creator=self.creator,
+            manager=self.manager,
+            budget=Decimal('1000.00'),
+        )
+
+        response = self.client.post(f'/adm/project/delete/{project.id}/')
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['code'], 0)
+
+        project.refresh_from_db()
+        self.assertIsNotNone(project.delete_time)
+        self.assertFalse(Project.objects.filter(id=project.id, delete_time__isnull=True).exists())
+
+
+@override_settings(MIDDLEWARE=TEST_MIDDLEWARE)
 class ProjectCommentMentionTests(TestCase):
     def setUp(self):
         self.author = Admin.objects.create_user(
@@ -490,3 +538,179 @@ class ProjectCommentMentionTests(TestCase):
         self.assertEqual(len(payload[0]['replies']), 1)
         self.assertEqual(payload[0]['replies'][0]['id'], reply_comment.id)
         self.assertEqual(payload[0]['replies'][0]['content'], '这是一个回复')
+
+
+@override_settings(MIDDLEWARE=TEST_MIDDLEWARE)
+class ProjectRiskAnalysisTests(TestCase):
+    def setUp(self):
+        self.user = Admin.objects.create_user(
+            username='risk-owner',
+            password='secret123',
+            email='risk-owner@example.com',
+            thumb='',
+            name='风险负责人',
+        )
+        self.client.force_login(self.user)
+        self.project = Project.objects.create(
+            name='智慧工厂升级项目',
+            code='RISK-001',
+            creator=self.user,
+            manager=self.user,
+            start_date=date(2026, 6, 1),
+            end_date=date(2026, 7, 31),
+            budget=Decimal('200000.00'),
+            actual_cost=Decimal('180000.00'),
+            progress=42,
+            priority=3,
+        )
+        Task.objects.create(
+            project=self.project,
+            title='核心网络改造',
+            creator=self.user,
+            assignee=self.user,
+            status=2,
+            priority=4,
+            progress=30,
+            estimated_hours=40,
+            actual_hours=52,
+            start_date=date(2026, 6, 5),
+            end_date=date(2026, 6, 20),
+        )
+        Task.objects.create(
+            project=self.project,
+            title='机房收尾',
+            creator=self.user,
+            status=1,
+            priority=2,
+            progress=0,
+            estimated_hours=24,
+            start_date=date(2026, 7, 1),
+            end_date=date(2026, 7, 10),
+        )
+
+    def test_risk_prediction_page_lists_projects_and_key_columns(self):
+        response = self.client.get(reverse('project:ai_risk_prediction_page_default'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '项目风险分析')
+        self.assertContains(response, '风险等级')
+        self.assertContains(response, self.project.name)
+        self.assertContains(response, '重新分析')
+        self.assertContains(response, '暂无详情')
+
+    def test_manual_risk_prediction_creates_persisted_analysis(self):
+        with patch('apps.project.risk_analysis.default_project_analysis_tool._call_ai') as call_ai:
+            call_ai.return_value = {
+                'summary': '项目存在成本与进度双重风险，需要重点盯控采购与延期任务。',
+                'risk_level': 'high',
+                'risk_points': ['采购成本逼近预算上限', '存在逾期任务'],
+                'suggestions': ['压缩非关键采购支出', '按周跟踪高优先级任务'],
+                'confidence': 0.86,
+            }
+
+            response = self.client.post(
+                reverse('project:ai_risk_prediction_api', kwargs={'project_id': self.project.id})
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['code'], 0)
+        self.assertEqual(payload['data']['risk_level'], 'high')
+
+        analysis = ProjectRiskAnalysis.objects.get(project=self.project)
+        self.assertEqual(analysis.risk_level, 'high')
+        self.assertGreaterEqual(analysis.risk_score, 1)
+        self.assertIn('逾期任务', ''.join(analysis.key_risks))
+
+    def test_risk_prediction_detail_page_renders_analysis_content(self):
+        analysis = ProjectRiskAnalysis.objects.create(
+            project=self.project,
+            risk_level='medium',
+            risk_score=67,
+            warning_count=3,
+            summary='项目整体可控，但存在进度滑坡风险。',
+            key_risks=['里程碑偏慢', '工时超预估'],
+            suggestions=['收敛关键路径任务', '追加阶段复盘'],
+            recommended_action='manual_review',
+            confidence=0.75,
+            metrics={'schedule': {'progress_gap': 18}},
+            analysis_payload={'summary': '项目整体可控，但存在进度滑坡风险。'},
+            trigger_source='manual',
+        )
+
+        response = self.client.get(
+            reverse('project:ai_risk_prediction_detail', kwargs={'analysis_id': analysis.id})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.project.name)
+        self.assertContains(response, '项目整体可控，但存在进度滑坡风险。')
+        self.assertContains(response, '里程碑偏慢')
+
+    def test_daily_risk_refresh_command_generates_analysis_for_all_projects(self):
+        other_project = Project.objects.create(
+            name='数据中台二期',
+            code='RISK-002',
+            creator=self.user,
+            manager=self.user,
+            budget=Decimal('80000.00'),
+        )
+
+        with patch('apps.project.risk_analysis.default_project_analysis_tool._call_ai') as call_ai:
+            call_ai.return_value = {
+                'summary': '建议持续关注任务排期。',
+                'risk_level': 'medium',
+                'risk_points': ['部分任务尚未开始'],
+                'suggestions': ['每日同步进展'],
+                'confidence': 0.62,
+            }
+            call_command('refresh_project_risk_analyses')
+
+        analyses = ProjectRiskAnalysis.objects.filter(project__in=[self.project, other_project])
+        self.assertEqual(analyses.count(), 2)
+        self.assertTrue(
+            analyses.filter(trigger_source='scheduled').exclude(summary='').exists()
+        )
+
+    def test_old_progress_analysis_url_redirects_to_risk_prediction(self):
+        response = self.client.get('/project/ai/progress-analysis/', follow=False)
+
+        self.assertIn(response.status_code, (301, 302))
+        self.assertIn('/project/ai/risk-prediction/', response['Location'])
+
+
+class ProjectRiskRefreshSchedulerCommandTests(TestCase):
+    def test_next_run_time_rolls_to_next_day_after_noon(self):
+        from apps.project.management.commands.run_project_risk_refresh_scheduler import (
+            get_next_run_time,
+        )
+
+        self.assertEqual(
+            get_next_run_time(datetime(2026, 7, 2, 11, 30), hour=12, minute=0),
+            datetime(2026, 7, 2, 12, 0),
+        )
+        self.assertEqual(
+            get_next_run_time(datetime(2026, 7, 2, 12, 30), hour=12, minute=0),
+            datetime(2026, 7, 3, 12, 0),
+        )
+
+    def test_scheduler_once_mode_delegates_to_refresh_command(self):
+        with patch(
+            'apps.project.management.commands.run_project_risk_refresh_scheduler.call_command'
+        ) as call_refresh:
+            call_command('run_project_risk_refresh_scheduler', '--once')
+
+        call_refresh.assert_called_once_with('refresh_project_risk_analyses', verbosity=1)
+
+    def test_scheduler_lock_prevents_duplicate_process(self):
+        from apps.project.management.commands import run_project_risk_refresh_scheduler as scheduler_command
+
+        with self.subTest('duplicate lock blocks startup'):
+            with patch.object(scheduler_command, '_is_process_running', return_value=True):
+                with patch.object(scheduler_command, 'PID_FILE', settings.BASE_DIR / 'runtime' / 'test_project_risk_scheduler.pid'):
+                    scheduler_command.PID_FILE.write_text('999999', encoding='utf-8')
+                    try:
+                        self.assertFalse(scheduler_command.acquire_scheduler_lock())
+                    finally:
+                        if scheduler_command.PID_FILE.exists():
+                            scheduler_command.PID_FILE.unlink()

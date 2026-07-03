@@ -99,6 +99,7 @@ layui.use(['layer', 'jquery'], function() {
     var voiceMediaRecorder = null;
     var voiceAudioChunks = [];
     var voiceRecordingStream = null;
+    var activeChatStreamController = null;
 
     var escapeHtml = (window.DTCallCommon && window.DTCallCommon.escapeHtml) || function(text) {
         return String(text || '').replace(/[&<>"']/g, function(m) {
@@ -391,6 +392,189 @@ layui.use(['layer', 'jquery'], function() {
             '</div>';
     }
 
+    function appendRenderedMessage(html) {
+        $('#chatMessages').append(html);
+        scrollMessagesToBottom();
+    }
+
+    function appendUserMessage(content) {
+        appendRenderedMessage(renderMessage('user', content));
+    }
+
+    function appendAssistantStreamMessage() {
+        var $message = $(
+            '<div class="ai-stream-message" style="margin-bottom:12px;text-align:left;">' +
+                '<div style="display:inline-block;max-width:80%;text-align:left;background:#fff;border:1px solid #eee;border-radius:8px;padding:10px 12px;">' +
+                    '<div style="font-size:12px;color:#666;margin-bottom:6px;">AI</div>' +
+                    '<div class="ai-stream-message-content" style="word-break:break-word;white-space:pre-wrap;">正在思考....</div>' +
+                    '<div class="ai-stream-message-task"></div>' +
+                    '<div class="ai-stream-message-time" style="font-size:12px;color:#999;margin-top:6px;"></div>' +
+                '</div>' +
+            '</div>'
+        );
+        $('#chatMessages').append($message);
+        scrollMessagesToBottom();
+        return $message;
+    }
+
+    function setAssistantStreamMessage($message, text) {
+        if (!$message || !$message.length) return;
+        $message.find('.ai-stream-message-content').text(text || '');
+        scrollMessagesToBottom();
+    }
+
+    function setAssistantStreamTask($message, task, options) {
+        if (!$message || !$message.length) return;
+        var $task = $message.find('.ai-stream-message-task');
+        $task.empty();
+        if (task && task.type === 'business_handoff') {
+            $task.append(renderTaskCard(task, options || task.options || []));
+            bindRenderedTaskCards();
+        }
+    }
+
+    function setAssistantStreamTime($message, createdAt) {
+        if (!$message || !$message.length) return;
+        $message.find('.ai-stream-message-time').text(createdAt ? String(createdAt) : '');
+    }
+
+    function parseSSEFrame(frame) {
+        var eventName = 'message';
+        var dataLines = [];
+        frame.split('\n').forEach(function(line) {
+            if (line.indexOf('event:') === 0) {
+                eventName = line.slice(6).trim();
+            } else if (line.indexOf('data:') === 0) {
+                dataLines.push(line.slice(5).trim());
+            }
+        });
+        var payloadText = dataLines.join('\n');
+        var payload = {};
+        if (payloadText) {
+            try {
+                payload = JSON.parse(payloadText);
+            } catch (e) {
+                payload = {message: payloadText};
+            }
+        }
+        return {event: eventName, data: payload};
+    }
+
+    function consumeSSEBuffer(buffer, onEvent) {
+        buffer = String(buffer || '').replace(/\r\n/g, '\n');
+        var frames = buffer.split('\n\n');
+        var remainder = frames.pop();
+        frames.forEach(function(frame) {
+            if (frame && frame.trim()) {
+                onEvent(parseSSEFrame(frame));
+            }
+        });
+        return remainder;
+    }
+
+    function abortActiveChatStream() {
+        if (activeChatStreamController) {
+            try {
+                activeChatStreamController.abort();
+            } catch (e) {}
+            activeChatStreamController = null;
+        }
+    }
+
+    function startChatStream(text) {
+        var chatId = currentChatId;
+        var assistantText = '';
+        var assistantMessage = appendAssistantStreamMessage();
+        var streamController = new AbortController();
+        activeChatStreamController = streamController;
+
+        return fetch('/ai/chat/stream/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'text/event-stream'
+            },
+            body: new URLSearchParams({
+                chat_id: chatId,
+                message: text,
+                page_context: JSON.stringify(getStoredPageContext() || {})
+            }),
+            signal: streamController.signal
+        }).then(function(response) {
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status);
+            }
+            if (!response.body || !response.body.getReader) {
+                throw new Error('当前浏览器不支持流式响应');
+            }
+            var reader = response.body.getReader();
+            var decoder = new TextDecoder('utf-8');
+            var buffer = '';
+
+            function processBuffer(finalChunk) {
+                buffer += finalChunk || '';
+                buffer = consumeSSEBuffer(buffer, function(frame) {
+                    if (frame.event === 'thinking') {
+                        setAssistantStreamMessage(assistantMessage, (frame.data && frame.data.message) || '正在思考....');
+                        return;
+                    }
+                    if (frame.event === 'chunk') {
+                        assistantText += (frame.data && frame.data.content) || '';
+                        setAssistantStreamMessage(assistantMessage, assistantText || '正在思考....');
+                        return;
+                    }
+                    if (frame.event === 'done') {
+                        var payload = frame.data || {};
+                        assistantText = payload.ai_message || payload.message || assistantText;
+                        setAssistantStreamMessage(assistantMessage, assistantText || '已完成处理');
+                        var options = payload.options || (payload.task && payload.task.options) || [];
+                        setAssistantStreamTask(assistantMessage, payload.task, options);
+                        setAssistantStreamTime(assistantMessage, payload.ai_message_created_at || '');
+                        bindRenderedTaskCards();
+                        if (payload.chat_id) currentChatId = payload.chat_id;
+                        scrollMessagesToBottom();
+                        loadChats();
+                        if (window.parent && window.parent !== window) {
+                            window.parent.postMessage({
+                                type: 'digital_human_speak',
+                                text: assistantText || payload.message || ''
+                            }, '*');
+                        }
+                        return;
+                    }
+                    if (frame.event === 'error') {
+                        var message = (frame.data && (frame.data.ai_message || frame.data.message)) || 'AI生成失败';
+                        setAssistantStreamMessage(assistantMessage, message);
+                        layer.msg(message);
+                    }
+                });
+            }
+
+            function readChunk() {
+                return reader.read().then(function(result) {
+                    if (result.done) {
+                        processBuffer(decoder.decode());
+                        activeChatStreamController = null;
+                        return;
+                    }
+                    processBuffer(decoder.decode(result.value, {stream: true}));
+                    return readChunk();
+                });
+            }
+
+            return readChunk();
+        }).catch(function(error) {
+            if (error && error.name === 'AbortError') return;
+            setAssistantStreamMessage(assistantMessage, '抱歉，我暂时无法回答您的问题，请稍后再试。');
+            layer.msg('发送失败');
+        }).finally(function() {
+            if (activeChatStreamController === streamController) {
+                activeChatStreamController = null;
+            }
+        });
+    }
+
     function renderTaskCard(task, options) {
         var safeOptions = Array.isArray(options) ? options : [];
         var taskPayload = escapeHtml(JSON.stringify(task || {}));
@@ -457,7 +641,7 @@ layui.use(['layer', 'jquery'], function() {
         if (url.indexOf('/') !== 0 || url.indexOf('//') === 0) return false;
         var allowedPrefixes = [
             '/customer/', '/contract/', '/project/', '/finance/',
-            '/user/employee/', '/system/department/', '/production/', '/inventory/'
+            '/user/employee/', '/system/department/', '/production/', '/inventory/', '/approval/'
         ];
         return allowedPrefixes.some(function(prefix) {
             return url.indexOf(prefix) === 0;
@@ -500,6 +684,17 @@ layui.use(['layer', 'jquery'], function() {
         try {
             window.sessionStorage.removeItem('dtcall_ai_pending_message');
         } catch (e) {}
+    }
+
+    function getStoredPageContext() {
+        try {
+            var raw = window.sessionStorage.getItem('dtcall_ai_page_context');
+            if (!raw) return null;
+            var parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' ? parsed : null;
+        } catch (e) {
+            return null;
+        }
     }
 
     function sendPendingMessageIfNeeded() {
@@ -633,40 +828,9 @@ layui.use(['layer', 'jquery'], function() {
         if (!text || !text.trim()) return;
         $('#chatInput').val('');
 
-        var html = $('#chatMessages').html();
-        html += renderMessage('user', text);
-        $('#chatMessages').html(html);
-        scrollMessagesToBottom();
-
-        $.ajax({
-            url: '/ai/chat/message/create/',
-            type: 'POST',
-            data: {chat_id: currentChatId, content: text, csrfmiddlewaretoken: csrfToken},
-            success: function(res) {
-                if (res && res.status === 'success') {
-                    var options = res.options || (res.task && res.task.options) || [];
-                    var assistantText = res.ai_message || res.message || '已完成处理';
-                    var html2 = $('#chatMessages').html();
-                    html2 += renderMessage('assistant', assistantText, null, res.task, options);
-                    $('#chatMessages').html(html2);
-                    bindRenderedTaskCards();
-                    scrollMessagesToBottom();
-                    if (window.parent && window.parent !== window) {
-                        window.parent.postMessage({
-                            type: 'digital_human_speak',
-                            text: assistantText
-                        }, '*');
-                    }
-                    if (res.chat_id) currentChatId = res.chat_id;
-                    loadChats(currentChatId);
-                } else {
-                    layer.msg(res && res.message ? res.message : 'AI生成失败');
-                }
-            },
-            error: function() {
-                layer.msg('发送失败');
-            }
-        });
+        abortActiveChatStream();
+        appendUserMessage(text);
+        startChatStream(text);
     }
 
     $('#chatList').on('click', '.layui-menu-item', function() {

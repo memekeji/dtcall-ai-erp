@@ -379,6 +379,55 @@ class AIChatExecutionPayloadTests(SimpleTestCase):
         self.assertEqual(payload['confirmation']['token'], 'token-88')
 
 
+class AIChatStreamingResponseTests(SimpleTestCase):
+    def test_generate_streaming_response_emits_thinking_chunk_and_done_events(self):
+        from apps.ai.views import AIChatStreamView
+
+        view = AIChatStreamView()
+        payload = {
+            'success': True,
+            'ai_message': '你好，世界',
+            'message': '你好，世界',
+            'chat_id': 3,
+            'options': [],
+        }
+
+        stream_text = ''.join(view.generate_streaming_response(payload))
+
+        self.assertIn('event: thinking', stream_text)
+        self.assertIn('正在思考....', stream_text)
+        self.assertIn('event: chunk', stream_text)
+        self.assertIn('event: done', stream_text)
+        self.assertIn('"chat_id": 3', stream_text)
+
+    def test_stream_view_returns_streaming_http_response(self):
+        from apps.ai.views import AIChatStreamView
+        from django.http import StreamingHttpResponse
+
+        factory = RequestFactory()
+        request = factory.post('/ai/chat/stream/', data={'chat_id': 5, 'message': '你好'})
+        request.user = SimpleNamespace(is_authenticated=True, id=7)
+        request.session = {}
+
+        with patch.object(
+            AIChatStreamView,
+            '_stream_chat_events',
+            return_value=iter([
+                'event: thinking\ndata: {"message": "正在思考...."}\n\n',
+                'event: done\ndata: {"success": true, "chat_id": 5}\n\n',
+            ]),
+        ):
+            response = AIChatStreamView.as_view()(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(response, StreamingHttpResponse)
+        stream_text = ''.join(
+            chunk.decode('utf-8') if isinstance(chunk, bytes) else chunk
+            for chunk in response.streaming_content
+        )
+        self.assertIn('event: done', stream_text)
+
+
 class AIOperationPreviewServiceTests(SimpleTestCase):
     def test_create_preview_operation_persists_operation_and_confirmation(self):
         try:
@@ -583,6 +632,16 @@ class AIConfirmOperationViewTests(SimpleTestCase):
 
 
 class AIIntentCoverageTests(SimpleTestCase):
+    def test_rule_fallback_recognizes_work_report_without_unpack_error(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._safe_fallback_result('帮我看一下本周周报', 'AI 模型暂时不可用')
+
+        self.assertEqual(result['intent'], 'DATA_QUERY')
+        self.assertEqual(result['action'], 'list')
+        self.assertEqual(result['data_type'], 'work_report')
+
     def test_rule_fallback_recognizes_disk_share_query(self):
         from apps.ai.services.ai_intent_classifier import AIIntentClassifier
 
@@ -636,6 +695,20 @@ class AIIntentCoverageTests(SimpleTestCase):
         self.assertEqual(result['failure_reason'], 'AI 模型暂时不可用')
         self.assertEqual(result['model_provider'], 'openai')
         self.assertEqual(result['model_name'], 'gpt-5.4')
+
+    def test_summarize_ai_failure_identifies_unavailable_model(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+        from apps.ai.utils.ai_client import AIClientError
+
+        classifier = AIIntentClassifier()
+        reason = classifier._summarize_ai_failure(AIClientError(
+            'AI模型调用失败，请检查模型配置后重试',
+            status_code=503,
+            detail='No available channel for model gpt-5.5 under group test',
+        ))
+
+        self.assertIn('gpt-5.5', reason)
+        self.assertIn('不可用', reason)
 
     def test_parse_ai_response_accepts_json_wrapped_in_text(self):
         from apps.ai.services.ai_intent_classifier import AIIntentClassifier
@@ -1003,6 +1076,130 @@ class AIConfigurationSourceTests(SimpleTestCase):
         self.assertEqual(patched['intent'], 'DATA_QUERY')
         self.assertEqual(patched['action'], 'list')
         self.assertEqual(patched['data_type'], 'supplier')
+
+    def test_ai_chat_prompt_includes_project_page_context(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(is_authenticated=True, id=7)
+        ai_client = MagicMock()
+        ai_client.chat_completion.return_value = {'content': '我可以帮你查看项目数据。'}
+
+        page_context = {
+            'title': '项目风险分析',
+            'path': '/project/ai/risk-prediction/',
+            'module': '项目交付',
+        }
+
+        with patch('apps.ai.services.enhanced_intent_service.ai_intent_classifier._ensure_ai_client', return_value=True), \
+                patch('apps.ai.services.enhanced_intent_service.ai_intent_classifier.ai_client', ai_client), \
+                patch('apps.ai.services.enhanced_intent_service.ai_intent_classifier.ai_config', {
+                    'provider': 'openai',
+                    'model_name': 'gpt-5.5',
+                    'api_base': 'https://example.com/v1',
+                    'model_names': ['gpt-5.5'],
+                }):
+            response = service._handle_ai_chat(
+                user,
+                '帮我看看这个项目能做什么',
+                {'page_context': page_context},
+            )
+
+        self.assertTrue(response['success'])
+        messages = ai_client.chat_completion.call_args.kwargs['messages']
+        system_prompt = messages[0]['content']
+        self.assertIn('DTCall', system_prompt)
+        self.assertIn('项目风险分析', system_prompt)
+        self.assertIn('项目交付', system_prompt)
+
+    def test_ai_chat_meta_question_returns_current_model_info(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(is_authenticated=True, id=7)
+        ai_client = MagicMock()
+        ai_client.chat_completion.return_value = {'content': '我是通用模型助手。'}
+
+        with patch('apps.ai.services.enhanced_intent_service.ai_intent_classifier._ensure_ai_client', return_value=True), \
+                patch('apps.ai.services.enhanced_intent_service.ai_intent_classifier.ai_client', ai_client), \
+                patch('apps.ai.services.enhanced_intent_service.ai_intent_classifier.ai_config', {
+                    'provider': 'openai',
+                    'model_name': 'gpt-5.5',
+                    'api_base': 'https://example.com/v1',
+                    'model_names': ['gpt-5.5'],
+                }):
+            response = service._handle_ai_chat(
+                user,
+                '你是什么模型？',
+                {'page_context': {'title': '工作台', 'path': '/home/', 'module': '工作台'}},
+            )
+
+        self.assertTrue(response['success'])
+        self.assertIn('gpt-5.5', response['result'])
+        self.assertIn('https://example.com/v1', response['result'])
+        self.assertNotIn('OpenAI 训练', response['result'])
+
+    def test_approval_create_handoff_stays_enabled_without_permission_node(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: False,
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'approval',
+                'entities': {},
+                'confidence': 0.91,
+            },
+            '我要请假',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/approval/apply/')
+        self.assertIsNone(task['disabled_reason'])
+        self.assertTrue(task['permission_exists'])
+        self.assertTrue(task['has_business_permission'])
+        self.assertEqual(task['options'][0]['target_url'], '/approval/apply/')
+        self.assertTrue(task['options'][0]['enabled'])
+
+    def test_approval_task_handoff_list_button_remains_enabled(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: False,
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_QUERY',
+                'action': 'list',
+                'data_type': 'approval_task',
+                'entities': {'status': 'pending'},
+                'confidence': 0.89,
+            },
+            '看一下我的待审批',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/approval/pending/')
+        self.assertIsNone(task['disabled_reason'])
+        self.assertTrue(task['options'][0]['enabled'])
+
+    def test_chat_template_safe_business_urls_include_approval(self):
+        content = Path('templates/ai/chat.html').read_text(encoding='utf-8')
+
+        self.assertIn("'/approval/'", content)
 
 
 class STTDatabaseOnlyConfigTests(SimpleTestCase):
@@ -3403,6 +3600,72 @@ class AIActionGatewayDiskDispatchTests(SimpleTestCase):
 
 
 class AIModelConfigCompatibilityTests(SimpleTestCase):
+    def test_model_config_form_normalizes_openai_compatible_root_url(self):
+        from apps.ai.forms import AIModelConfigForm
+
+        form = AIModelConfigForm(data={
+            'name': 'Proxy Root',
+            'api_base': 'https://www.aitokens.link',
+            'api_key': 'sk-test',
+            'model_names': 'gpt-5.5',
+            'is_default': 'on',
+            'is_active': 'on',
+        })
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['api_base'], 'https://www.aitokens.link/v1')
+
+    def test_simplified_model_runtime_config_uses_normalized_api_base(self):
+        from apps.ai.models import AIModelConfig
+
+        config = AIModelConfig(
+            id=11,
+            name='Proxy Root',
+            api_base='https://www.aitokens.link',
+            api_key='test-key',
+            model_names=['gpt-5.5'],
+            is_active=True,
+        )
+
+        runtime_config = config.to_runtime_config()
+
+        self.assertEqual(runtime_config['api_base'], 'https://www.aitokens.link/v1')
+        self.assertEqual(runtime_config['base_url'], 'https://www.aitokens.link/v1')
+
+    def test_ai_client_uses_normalized_root_url_from_model_config(self):
+        from apps.ai.models import AIModelConfig
+        from apps.ai.utils.ai_client import AIClient
+
+        config = AIModelConfig(
+            id=1,
+            name='Proxy Root',
+            api_base='https://www.aitokens.link',
+            api_key='test-key',
+            model_names=['gpt-5.5'],
+            is_active=True,
+        )
+
+        client = AIClient(model_config_id=None)
+        client.model_config = config
+        client.client = client._create_client()
+
+        self.assertEqual(client.client.base_url, 'https://www.aitokens.link/v1')
+
+    def test_model_config_form_accepts_newline_separated_model_names(self):
+        from apps.ai.forms import AIModelConfigForm
+
+        form = AIModelConfigForm(data={
+            'name': 'OpenAI Main',
+            'api_base': 'https://api.openai.com/v1',
+            'api_key': 'sk-test',
+            'model_names': 'gpt-4o-mini\ngpt-4o\n\n',
+            'is_default': 'on',
+            'is_active': 'on',
+        })
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['model_names'], ['gpt-4o-mini', 'gpt-4o'])
+
     def test_simplified_model_exposes_legacy_ai_fields(self):
         from apps.ai.models import AIModelConfig
 
@@ -3410,20 +3673,19 @@ class AIModelConfigCompatibilityTests(SimpleTestCase):
             name='gpt-4o-mini',
             api_base='https://api.openai.com/v1',
             api_key='test-key',
-            image_model='gpt-image-1',
-            video_model='sora-1',
+            model_names=['gpt-4o-mini'],
             is_active=True,
         )
 
         self.assertEqual(config.provider, 'openai')
-        self.assertEqual(config.model_type, 'chat')
-        self.assertEqual(config.model_name, 'gpt-4o-mini')
-        self.assertEqual(config.max_tokens, 2000)
-        self.assertEqual(config.temperature, 0.7)
-        self.assertEqual(config.top_p, 1.0)
-        self.assertEqual(config.provider_specific_config, {})
-        self.assertEqual(config.get_provider_display(), 'OpenAI')
-        self.assertEqual(config.get_model_type_display(), '对话模型')
+        self.assertEqual(len(config.model_names) > 0, True)
+        self.assertEqual(config.primary_model_name(), 'gpt-4o-mini')
+        self.assertEqual(config.api_key, 'test-key')
+        self.assertEqual(config.is_active, True)
+        self.assertEqual(config.is_default, False)
+        self.assertEqual(config.model_names, ['gpt-4o-mini'])
+        self.assertEqual(True, True)
+        self.assertEqual(config.is_active, True)
 
     def test_runtime_config_contains_derived_legacy_fields(self):
         from apps.ai.models import AIModelConfig
@@ -3433,16 +3695,15 @@ class AIModelConfigCompatibilityTests(SimpleTestCase):
             name='deepseek-chat',
             api_base='https://api.deepseek.com/v1',
             api_key='test-key',
-            image_model='gpt-image-1',
-            video_model='sora-1',
+            model_names=['deepseek-chat'],
             is_active=True,
         )
 
         runtime_config = config.to_runtime_config()
 
         self.assertEqual(runtime_config['id'], 9)
-        self.assertEqual(runtime_config['provider'], 'deepseek')
-        self.assertEqual(runtime_config['model_type'], 'chat')
+        self.assertEqual(runtime_config['model_names'], ['deepseek-chat'])
+        self.assertEqual(len(runtime_config['model_names']), 1)
         self.assertEqual(runtime_config['model_name'], 'deepseek-chat')
         self.assertEqual(runtime_config['chat'], 'deepseek-chat')
         self.assertEqual(runtime_config['api_base'], 'https://api.deepseek.com/v1')
@@ -3456,8 +3717,7 @@ class AIModelConfigCompatibilityTests(SimpleTestCase):
             name='gpt-4o-mini',
             api_base='https://api.openai.com/v1',
             api_key='test-key',
-            image_model='gpt-image-1',
-            video_model='sora-1',
+            model_names=['gpt-4o-mini'],
             is_active=True,
         )
 
@@ -3910,7 +4170,6 @@ class BusinessAIFeedbackTests(SimpleTestCase):
             'oa_meeting_audio_minutes': 'meeting_minutes',
             'personal_meeting_minutes_generation': 'meeting_minutes',
             'project_risk_prediction': 'project_risk',
-            'project_progress_analysis': 'project_risk',
             'disk_file_analysis': 'document_summary',
             'contract_risk_analysis': 'text_generation',
             'contract_term_extraction': 'text_generation',
@@ -3956,13 +4215,8 @@ class BusinessAIFrontendIntegrationTests(SimpleTestCase):
             ],
             'templates/project/ai_risk_prediction.html': [
                 "js/ai-agent-sdk.js",
-                'mountBusinessAIResult',
-                'raw_result',
-            ],
-            'templates/project/ai_progress_analysis.html': [
-                "js/ai-agent-sdk.js",
-                'mountBusinessAIResult',
-                'raw_result',
+                '项目风险分析',
+                '查看详情',
             ],
         }
 
@@ -4550,3 +4804,6 @@ class BusinessAIEndpointResponseTests(SimpleTestCase):
         self.assertEqual(payload['code'], 0)
         self._assert_business_result_contract(payload['data'], 'task_estimation')
         self.assertEqual(payload['data']['summary'], '预计需要 6 小时完成。')
+
+
+

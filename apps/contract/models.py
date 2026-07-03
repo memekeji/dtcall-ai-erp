@@ -562,12 +562,23 @@ class Purchase(models.Model):
 
 class ContractAIReview(models.Model):
     """AI合同审查结果 - 存储逐条审查意见和总体评估"""
+
+    REVIEW_TYPE_CHOICES = (
+        ("full", "完整审查"),
+        ("quick", "快速评估"),
+    )
+
     contract = models.ForeignKey(
         "Contract",
         on_delete=models.CASCADE,
         related_name="ai_reviews",
         verbose_name="关联合同")
     review_version = models.IntegerField(default=1, verbose_name="审查版本")
+    review_type = models.CharField(
+        max_length=20,
+        choices=REVIEW_TYPE_CHOICES,
+        default="full",
+        verbose_name="审查类型")
     contract_info = models.JSONField(default=dict, blank=True, verbose_name="合同信息摘要")
     overall_risk_level = models.CharField(max_length=20, default="unknown", verbose_name="总体风险评级")
     overall_summary = models.TextField(default="", verbose_name="总体评估意见")
@@ -592,7 +603,7 @@ class ContractAIReview(models.Model):
         ordering = ["-reviewed_at"]
 
     def __str__(self):
-        return f"{self.contract.name} - 第{self.review_version}次审查"
+        return f"{self.contract.name} - {self.get_review_type_display()}第{self.review_version}次"
 
 
 class ContractDiffRecord(models.Model):
