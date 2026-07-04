@@ -93,8 +93,7 @@ else:
         'www.dtcall.cn',
         'dtcall.cn',
         'erp.dtcall.cn',
-        '192.168.1.152',
-        'testserver',
+        'erp.51mimu.com'
     ]
     if DEBUG:
         ALLOWED_HOSTS.append('*')
@@ -121,7 +120,7 @@ _default_csrf_trusted_origins = [
     'https://www.dtcall.cn',  # 主域名
     'https://dtcall.cn',      # 裸域名
     'https://erp.dtcall.cn',  # ERP生产域名
-    'http://192.168.1.152',   # 内网IP（开发环境）
+    'https://erp.51mimu.com',   # 正式环境
 ]
 CSRF_TRUSTED_ORIGINS = _env_list(
     'CSRF_TRUSTED_ORIGINS',
@@ -135,6 +134,16 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 X_FRAME_OPTIONS = os.environ.get('X_FRAME_OPTIONS', 'SAMEORIGIN' if DEBUG else 'DENY')
+
+# ONLYOFFICE integration
+ONLYOFFICE_ENABLED = _env_bool('ONLYOFFICE_ENABLED', False)
+ONLYOFFICE_SERVER_URL = os.environ.get('ONLYOFFICE_SERVER_URL', '').strip()
+ONLYOFFICE_PUBLIC_PATH = os.environ.get('ONLYOFFICE_PUBLIC_PATH', '/office/').strip() or '/office/'
+ONLYOFFICE_JWT_SECRET = os.environ.get('ONLYOFFICE_JWT_SECRET', '').strip()
+ONLYOFFICE_JWT_HEADER = os.environ.get('ONLYOFFICE_JWT_HEADER', 'Authorization').strip() or 'Authorization'
+ONLYOFFICE_VERIFY_SSL = _env_bool('ONLYOFFICE_VERIFY_SSL', not DEBUG)
+ONLYOFFICE_CALLBACK_BASE_URL = os.environ.get('ONLYOFFICE_CALLBACK_BASE_URL', '').strip()
+ONLYOFFICE_DOCUMENT_TITLE_MAX_LENGTH = _env_int('ONLYOFFICE_DOCUMENT_TITLE_MAX_LENGTH', 120)
 
 # Application definition
 AUTH_USER_MODEL = 'user.Admin'
@@ -174,6 +183,7 @@ INSTALLED_APPS = [
     'apps.ai_orchestrator',
     'apps.inventory',
     'apps.hrbp',
+    'apps.supply_chain.apps.SupplyChainConfig',
 ]
 
 # 验证码配置
@@ -369,6 +379,10 @@ def _database_from_url(database_url):
     }
     options = _database_options(engine)
     options.update(query_options)
+    if engine == 'django.db.backends.mysql':
+        options['init_command'] = normalize_mysql_init_command(
+            options.get('init_command') or os.environ.get('MYSQL_INIT_COMMAND'),
+        )
     if options:
         config['OPTIONS'] = options
     return config

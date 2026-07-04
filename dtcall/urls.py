@@ -83,6 +83,7 @@ urlpatterns = [
     path('common/', include('apps.common.urls', namespace='web_common')),
     # AI-HRBP人力资源
     path('hrbp/', include('apps.hrbp.urls', namespace='hrbp')),
+    path('supply-chain/', include('apps.supply_chain.urls', namespace='supply_chain')),
     
     # 修复dashboard路径重定向
     path('dashboard/', RedirectView.as_view(url='/home/dashboard/', permanent=True)),
