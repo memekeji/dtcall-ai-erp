@@ -23,6 +23,8 @@
         .status-tag.approved { color:#27ae60; }
         .status-tag.pending { color:#f39c12; }
         .status-tag.reviewing { color:#3498db; }
+        .action-group { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+        .action-group .layui-btn { margin:0; }
         #pagination { padding:15px; text-align:center; border-top:1px solid #f6f6f6; }
         .diff-upload-area { border:2px dashed #d2d2d2; border-radius:6px; padding:40px; text-align:center; cursor:pointer; transition:.2s; }
         .diff-upload-area:hover { border-color:#5fb878; background:#f8fdf9; }
@@ -73,7 +75,7 @@
                 </div>
                 <div class="table-container">
                     <table class="layui-table" lay-size="sm" lay-skin="line">
-                        <thead><tr><th width="140">合同编号</th><th>合同名称</th><th width="120">客户</th><th width="110">合同金额</th><th width="90">风险评级</th><th width="80">状态</th><th width="90">操作</th></tr></thead>
+                        <thead><tr><th width="140">合同编号</th><th>合同名称</th><th width="120">客户</th><th width="110">合同金额</th><th width="90">风险评级</th><th width="80">状态</th><th width="150">操作</th></tr></thead>
                         <tbody id="tableBody"></tbody>
                     </table>
                     <div id="emptyTip" style="text-align:center;padding:60px 0;color:#999;display:none;">没有找到合同记录</div>
@@ -129,6 +131,7 @@
 </div>
 
 <script src="/static/layui/layui.js"></script>
+<script src="/static/js/common.js"></script>
 <script>
 var currentPage = 1, currentSearch = "";
 var diffFile = null;
@@ -151,7 +154,7 @@ layui.use(["element","layer"],function(){
                     var rl=r.ai_risk_level||"unknown",amt=r.cost?parseFloat(r.cost).toLocaleString():"-";
                     var st=r.check_status===2?"已审核":(r.check_status===0?"待审核":"审核中");
                     var sc=r.check_status===2?"approved":(r.check_status===0?"pending":"reviewing");
-                    h+="<tr><td>"+(r.code||"-")+"</td><td><b>"+(r.name||"-")+"</b></td><td>"+(r.customer||"-")+"</td><td class='amount-cell'>&yen;"+amt+"</td><td><span class='risk-badge "+rl+"'>"+(rlbl[rl]||"")+"</span></td><td><span class='status-tag "+sc+"'>"+st+"</span></td><td><button class='layui-btn layui-btn-xs layui-btn-normal' onclick='openReview("+r.id+")'>审查</button></td></tr>";
+                    h+="<tr><td>"+(r.code||"-")+"</td><td><b>"+escapeHtml(r.name||"-")+"</b></td><td>"+escapeHtml(r.customer||"-")+"</td><td class='amount-cell'>&yen;"+amt+"</td><td><span class='risk-badge "+rl+"'>"+(rlbl[rl]||"")+"</span></td><td><span class='status-tag "+sc+"'>"+st+"</span></td><td><div class='action-group'><button class='layui-btn layui-btn-xs layui-btn-normal' onclick='openReview("+r.id+")'>审查</button><button class='layui-btn layui-btn-xs layui-btn-primary' onclick='openReviewHistory("+r.id+", \""+jsEscape(r.name||r.code||"合同")+"\")'>记录</button></div></td></tr>";
                 });
                 $("#tableBody").html(h); $("#emptyTip").hide(); $("#resultCount").text("共 "+res.count+" 条");
                 var tp=Math.ceil(res.count/20);
@@ -199,6 +202,25 @@ layui.use(["element","layer"],function(){
             return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m];
         });
     }
+    function jsEscape(str){
+        return String(str || "").replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r/g, "").replace(/\n/g, "\\n");
+    }
+    function openReviewHistoryPopup(contractId, contractName){
+        var common = window.DTCallCommon || (window.parent && window.parent.DTCallCommon);
+        if(!common || !common.openRightPopup){
+            layer.msg("右侧弹窗组件加载失败");
+            return;
+        }
+        common.openRightPopup(layer, "合同审查记录 - " + (contractName || "当前合同"), "/contract/ai/review/history/page/" + contractId + "/", {
+            width: "86%",
+            height: "100%",
+            maxmin: true,
+            shadeClose: false
+        });
+    }
+    window.openReviewHistory = function(contractId, contractName){
+        openReviewHistoryPopup(contractId, contractName);
+    };
     function appendQaMessage(type, content){
         $("#qaChat").append("<div class='qa-msg "+type+"'>"+String(content || "").replace(/\n/g,"<br>")+"</div>");
         $("#qaChat").scrollTop($("#qaChat")[0].scrollHeight);
@@ -300,3 +322,7 @@ layui.use(["element","layer"],function(){
 </script>
 </body>
 </html>
+
+
+
+

@@ -17,9 +17,11 @@ MODULE_CODE_MAP = {
     '个人办公': 'personal',
     '财务管理': 'finance',
     '客户管理': 'customer',
+    '产品与采购': 'basedata',
     '合同管理': 'contract',
     '项目管理': 'project',
     '生产管理': 'production',
+    '供应链管理': 'supply_chain',
     'AI智能中心': 'ai',
     '企业网盘': 'disk',
 }
@@ -32,9 +34,11 @@ MODULE_ICON_MAP = {
     'personal': 'layui-icon-username',
     'finance': 'layui-icon-rmb',
     'customer': 'layui-icon-group',
+    'basedata': 'layui-icon-tabs',
     'contract': 'layui-icon-file-b',
     'project': 'layui-icon-component',
     'production': 'layui-icon-engine',
+    'supply_chain': 'layui-icon-chart-screen',
     'ai': 'layui-icon-light',
     'disk': 'layui-icon-file',
 }

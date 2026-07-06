@@ -1,0 +1,79 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/supply_chain.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>{{ page_title }}</h3>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form sc-form-grid" method="post">
+            {% csrf_token %}
+            <div class="sc-form-section">
+                <div class="sc-form-section-title">打样申请信息</div>
+                <div class="layui-row layui-col-space15">
+                    <div class="layui-col-md6">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">物料名称</label>
+                            <div class="layui-input-block">{{ form.material_name }}</div>
+                        </div>
+                    </div>
+                    <div class="layui-col-md6">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">规格型号</label>
+                            <div class="layui-input-block">{{ form.specification }}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-row layui-col-space15">
+                    <div class="layui-col-md4">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">供应商</label>
+                            <div class="layui-input-block">{{ form.supplier }}</div>
+                        </div>
+                    </div>
+                    <div class="layui-col-md4">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">研发工程师</label>
+                            <div class="layui-input-block">{{ form.engineer }}</div>
+                        </div>
+                    </div>
+                    <div class="layui-col-md4">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">要求交期</label>
+                            <div class="layui-input-block">{{ form.required_date }}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-row layui-col-space15">
+                    <div class="layui-col-md4">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">打样数量</label>
+                            <div class="layui-input-block">{{ form.quantity }}</div>
+                        </div>
+                    </div>
+                    <div class="layui-col-md8">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">申请备注</label>
+                            <div class="layui-input-block">{{ form.remark }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" type="submit">保存申请</button>
+                    <a href="{% url 'supply_chain:sample_list' %}" class="layui-btn layui-btn-primary">返回列表</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

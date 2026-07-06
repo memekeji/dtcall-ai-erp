@@ -13,6 +13,10 @@ urlpatterns = [
         'list/data/',
         views.CustomerListDataView.as_view(),
         name='customer_list_data'),
+    path(
+        'list/column-settings/save/',
+        views.save_customer_list_column_settings,
+        name='customer_list_column_settings_save'),
     path('create/', views.CustomerCreateView.as_view(), name='customer_create'),
     path(
         'edit/<int:pk>/',

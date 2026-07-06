@@ -701,6 +701,8 @@
             overflow: hidden;
             position: relative;
             min-height: 0;
+            padding: 0 !important;
+            box-sizing: border-box;
         }
 
         .main-tab-actions {
@@ -754,6 +756,17 @@
             box-sizing: border-box;
             scrollbar-width: none;
             -ms-overflow-style: none;
+        }
+
+        .main-tab-content .layui-tab-item {
+            overflow: hidden;
+        }
+
+        .main-tab-content .layui-tab-item iframe {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border: 0;
         }
 
         .layui-tab-item::-webkit-scrollbar {
@@ -1847,6 +1860,7 @@
                 { keywords: ['设备监控'], icon: '设备监控.png' },
                 { keywords: ['设备'], icon: '设备管理.png' },
                 { keywords: ['数据采集', '采集'], icon: '数据采集.png' },
+                { keywords: ['产品与采购', '基础资料'], icon: '基础数据.png' },
                 { keywords: ['数据源', '数据映射'], icon: '基础数据.png' },
                 { keywords: ['生产计划'], icon: '生产计划.png' },
                 { keywords: ['生产任务'], icon: '生产任务.png' },

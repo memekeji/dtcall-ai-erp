@@ -2,21 +2,21 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 import os
+import logging
 from django.conf import settings
 from django.contrib import messages
+from django.core import signing
 from django.core.paginator import Paginator
 from django.db.models import Q
-from django.http import JsonResponse, HttpResponse
+from django.http import FileResponse, JsonResponse, HttpResponse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 from datetime import datetime, timedelta
 from docx import Document
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-import tempfile
 
-# 导入网盘中的Office文档预览处理器
-from apps.disk.utils.office_preview import OfficePreviewHandler
+from apps.disk.services import onlyoffice as onlyoffice_service
 from apps.ai.services.business_result import build_business_ai_result
 
 from .models import (
@@ -28,6 +28,9 @@ from .forms import (
     WorkRecordForm, WorkReportForm,
     PersonalNoteForm, PersonalTaskForm, PersonalContactForm, MeetingMinutesForm
 )
+
+logger = logging.getLogger(__name__)
+PERSONAL_MINUTES_ONLYOFFICE_DOCUMENT_SALT = 'personal.minutes.onlyoffice.document'
 
 
 @login_required
@@ -1000,6 +1003,172 @@ def minutes_delete(request, pk):
     return render(request, 'personal/minutes/delete.html', {'minute': minute})
 
 
+def _user_can_access_minutes(user, minutes):
+    return minutes.user == user or minutes.is_public
+
+
+def _get_minutes_preview_relative_path(minutes):
+    return os.path.join(
+        'generated',
+        'meeting_minutes',
+        str(minutes.id),
+        'minutes_preview.docx',
+    )
+
+
+def _resolve_minutes_preview_path(minutes):
+    relative_path = _get_minutes_preview_relative_path(minutes)
+    absolute_path = os.path.realpath(os.path.join(settings.MEDIA_ROOT, relative_path))
+    media_root = os.path.realpath(settings.MEDIA_ROOT)
+    if not absolute_path.startswith(media_root):
+        raise ValueError('会议纪要预览路径非法')
+    return relative_path.replace('\\', '/'), absolute_path
+
+
+def _build_minutes_document(minutes):
+    """构建会议纪要 Word 文档。"""
+    doc = Document()
+
+    sections = doc.sections
+    for section in sections:
+        section.top_margin = Inches(1.0)
+        section.bottom_margin = Inches(1.0)
+        section.left_margin = Inches(1.25)
+        section.right_margin = Inches(1.25)
+
+    header = doc.add_paragraph()
+    header.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    logo_path = os.path.join(settings.STATIC_ROOT, 'img', 'rdf.png')
+    if os.path.exists(logo_path):
+        try:
+            logo_run = header.add_run()
+            logo_run.add_picture(logo_path, width=Inches(1.5))
+        except BaseException:
+            pass
+
+    company_name = header.add_run('江苏瑞德丰精密技术股份有限公司')
+    company_name.font.name = '微软雅黑'
+    company_name.font.size = Pt(16)
+    company_name.bold = True
+
+    subtitle = doc.add_paragraph('会议纪要')
+    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    subtitle_run = subtitle.runs[0]
+    subtitle_run.font.name = '微软雅黑'
+    subtitle_run.font.size = Pt(14)
+    subtitle_run.bold = True
+
+    info_table = doc.add_table(rows=4, cols=4)
+    info_table.style = 'Table Grid'
+    info_table.cell(0, 0).text = '会议议题'
+    info_table.cell(0, 1).text = minutes.title
+    info_table.cell(0, 1).merge(info_table.cell(0, 2))
+    info_table.cell(0, 3).text = '会议时间'
+
+    meeting_date_str = minutes.meeting_date.strftime('%Y年%m月%d日 %H:%M')
+    info_table.cell(1, 3).text = meeting_date_str
+    info_table.cell(1, 0).text = '会议类型'
+    meeting_type_dict = dict(MeetingTypeChoices.choices)
+    info_table.cell(1, 1).text = meeting_type_dict.get(
+        minutes.meeting_type,
+        minutes.meeting_type,
+    )
+    info_table.cell(1, 1).merge(info_table.cell(1, 2))
+
+    info_table.cell(2, 0).text = '参会人员'
+    info_table.cell(2, 1).text = minutes.attendees or ''
+    info_table.cell(2, 1).merge(info_table.cell(2, 2))
+    info_table.cell(2, 3).text = '会议主持'
+    info_table.cell(3, 3).text = minutes.host or ''
+
+    for i in range(4):
+        for col in [0, 3]:
+            if info_table.cell(i, col).paragraphs and info_table.cell(i, col).paragraphs[0].runs:
+                info_table.cell(i, col).paragraphs[0].runs[0].bold = True
+
+    recorder_table = doc.add_table(rows=1, cols=4)
+    recorder_table.style = 'Table Grid'
+    recorder_table.cell(0, 0).text = '记录人：'
+    recorder_table.cell(0, 1).text = minutes.recorder.name or minutes.recorder.username
+    recorder_table.cell(0, 2).text = '审核人：'
+    recorder_table.cell(0, 3).text = ''
+
+    for col in [0, 2]:
+        if recorder_table.cell(0, col).paragraphs and recorder_table.cell(0, col).paragraphs[0].runs:
+            recorder_table.cell(0, col).paragraphs[0].runs[0].bold = True
+
+    doc.add_paragraph()
+    doc.add_paragraph('会议事项：')
+    tasks_table = doc.add_table(rows=1, cols=5)
+    tasks_table.style = 'Table Grid'
+    tasks_table.cell(0, 0).text = 'No.'
+    tasks_table.cell(0, 1).text = '会议事项（措施）'
+    tasks_table.cell(0, 2).text = '责任人'
+    tasks_table.cell(0, 3).text = '计划完成时间'
+    tasks_table.cell(0, 4).text = '实际完成时间'
+
+    for cell in tasks_table.rows[0].cells:
+        if cell.paragraphs and cell.paragraphs[0].runs:
+            cell.paragraphs[0].runs[0].bold = True
+
+    items_source = minutes.decisions or getattr(minutes, 'action_items', None)
+    if items_source:
+        import re
+
+        resolution_patterns = [
+            r'(\d+)\.\s*(.+?)\s*-\s*决策内容\s*：\s*(.+?)\s*-\s*执行对象\s*：\s*(.+?)\s*-\s*目标\s*：\s*(.+?)(?=\n\d+\.|\Z)',
+            r'(\d+)\.\s*(.+?)\s*\n-\s*决策内容\s*：\s*(.+?)\s*\n-\s*执行对象\s*：\s*(.+?)\s*\n-\s*目标\s*：\s*(.+?)(?=\n\d+\.|\Z)',
+        ]
+
+        resolutions = []
+        for pattern in resolution_patterns:
+            resolutions = re.findall(pattern, items_source, re.DOTALL)
+            if resolutions:
+                logger.info('会议纪要下载/预览使用结构化决议匹配，命中 %s 项', len(resolutions))
+                break
+
+        if resolutions:
+            for _, title, decision_content, executor, target in resolutions:
+                combined_item = f"{title.strip()}。{decision_content.strip().rstrip('。')}。{target.strip().rstrip('。')}"
+                row_cells = tasks_table.add_row().cells
+                row_cells[0].text = str(len(tasks_table.rows) - 1)
+                row_cells[1].text = combined_item
+                row_cells[2].text = executor.strip()
+                row_cells[3].text = ''
+                row_cells[4].text = ''
+        else:
+            for index, item in enumerate(items_source.split('\n'), 1):
+                if item.strip():
+                    row_cells = tasks_table.add_row().cells
+                    row_cells[0].text = str(index)
+                    row_cells[1].text = item.strip()
+                    row_cells[2].text = ''
+                    row_cells[3].text = ''
+                    row_cells[4].text = ''
+    else:
+        row_cells = tasks_table.add_row().cells
+        row_cells[0].text = '1'
+        row_cells[1].text = ''
+        row_cells[2].text = ''
+        row_cells[3].text = ''
+        row_cells[4].text = ''
+
+    tasks_table.columns[0].width = Inches(0.5)
+    tasks_table.columns[1].width = Inches(2.5)
+    tasks_table.columns[2].width = Inches(1.0)
+    tasks_table.columns[3].width = Inches(1.25)
+    tasks_table.columns[4].width = Inches(1.25)
+    return doc
+
+
+def _save_minutes_preview_document(minutes):
+    relative_path, absolute_path = _resolve_minutes_preview_path(minutes)
+    os.makedirs(os.path.dirname(absolute_path), exist_ok=True)
+    _build_minutes_document(minutes).save(absolute_path)
+    return relative_path, absolute_path
+
+
 @login_required
 def generate_minutes_word(request, pk):
     """
@@ -1008,498 +1177,108 @@ def generate_minutes_word(request, pk):
     """
     minutes = get_object_or_404(MeetingMinutes, pk=pk)
 
-    # 权限检查
-    if minutes.user != request.user and not minutes.is_public:
+    if not _user_can_access_minutes(request.user, minutes):
         return HttpResponse('没有权限访问此会议纪要')
 
-    # 创建Word文档
-    doc = Document()
-
-    # 设置页面边距
-    sections = doc.sections
-    for section in sections:
-        section.top_margin = Inches(1.0)
-        section.bottom_margin = Inches(1.0)
-        section.left_margin = Inches(1.25)
-        section.right_margin = Inches(1.25)
-
-    # 添加标题行（公司标志和名称）
-    header = doc.add_paragraph()
-    header.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-    # 尝试添加公司标志（如果存在）
-    logo_path = os.path.join(settings.STATIC_ROOT, 'img', 'rdf.png')
-    if os.path.exists(logo_path):
-        try:
-            # 先尝试在标题行中添加图片
-            logo_run = header.add_run()
-            logo_run.add_picture(logo_path, width=Inches(1.5))
-        except BaseException:
-            # 如果添加图片失败，继续执行
-            pass
-
-    # 添加公司名称
-    company_name = header.add_run('江苏瑞德丰精密技术股份有限公司')
-    company_name.font.name = '微软雅黑'
-    company_name.font.size = Pt(16)
-    company_name.bold = True
-
-    # 添加副标题
-    subtitle = doc.add_paragraph('会议纪要')
-    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    subtitle_run = subtitle.runs[0]
-    subtitle_run.font.name = '微软雅黑'
-    subtitle_run.font.size = Pt(14)
-    subtitle_run.bold = True
-
-    # 添加基本信息表格（按照固定格式要求）
-    info_table = doc.add_table(rows=4, cols=4)
-    info_table.style = 'Table Grid'
-
-    # 设置表格内容，严格按照固定格式要求
-    info_table.cell(0, 0).text = '会议议题'
-    info_table.cell(0, 1).text = minutes.title
-    info_table.cell(0, 1).merge(info_table.cell(0, 2))  # 合并单元格使议题占两列
-    info_table.cell(0, 3).text = '会议时间'
-
-    # 格式化会议时间
-    meeting_date_str = minutes.meeting_date.strftime('%Y年%m月%d日 %H:%M')
-    info_table.cell(1, 3).text = meeting_date_str
-
-    info_table.cell(1, 0).text = '会议类型'
-    # 获取会议类型的中文名称
-    meeting_type_dict = dict(MeetingTypeChoices.choices)
-    info_table.cell(
-        1,
-        1).text = meeting_type_dict.get(
-        minutes.meeting_type,
-        minutes.meeting_type)
-    info_table.cell(1, 1).merge(info_table.cell(1, 2))  # 合并单元格使类型占两列
-
-    info_table.cell(2, 0).text = '参会人员'
-    info_table.cell(2, 1).text = minutes.attendees or ''
-    info_table.cell(2, 1).merge(info_table.cell(2, 2))  # 合并单元格使参会人员占两列
-    info_table.cell(2, 3).text = '会议主持'
-    info_table.cell(3, 3).text = minutes.host or ''
-
-    # 设置表格中第一列的样式为粗体
-    for i in range(4):
-        # 安全地设置粗体样式，避免索引错误
-        for col in [0, 3]:
-            if info_table.cell(
-                    i, col).paragraphs and info_table.cell(
-                    i, col).paragraphs[0].runs:
-                info_table.cell(i, col).paragraphs[0].runs[0].bold = True
-
-    # 添加会议记录人和审核人信息
-    recorder_table = doc.add_table(rows=1, cols=4)
-    recorder_table.style = 'Table Grid'
-    recorder_table.cell(0, 0).text = '记录人：'
-    recorder_table.cell(
-        0, 1).text = minutes.recorder.name or minutes.recorder.username
-    recorder_table.cell(0, 2).text = '审核人：'
-    recorder_table.cell(0, 3).text = ''
-
-    # 设置记录人表格中标签的样式为粗体
-    for col in [0, 2]:
-        if recorder_table.cell(
-                0, col).paragraphs and recorder_table.cell(
-                0, col).paragraphs[0].runs:
-            recorder_table.cell(0, col).paragraphs[0].runs[0].bold = True
-
-    # 添加空行
-    doc.add_paragraph()
-
-    # 添加会议事项表格（包含实际完成时间列）
-    doc.add_paragraph('会议事项：')
-    # 5列：No.、会议事项、责任人、计划完成时间、实际完成时间
-    tasks_table = doc.add_table(rows=1, cols=5)
-    tasks_table.style = 'Table Grid'
-
-    # 设置表头
-    tasks_table.cell(0, 0).text = 'No.'
-    tasks_table.cell(0, 1).text = '会议事项（措施）'
-    tasks_table.cell(0, 2).text = '责任人'
-    tasks_table.cell(0, 3).text = '计划完成时间'
-    tasks_table.cell(0, 4).text = '实际完成时间'
-
-    # 设置表头样式为粗体
-    for cell in tasks_table.rows[0].cells:
-        if cell.paragraphs and cell.paragraphs[0].runs:
-            cell.paragraphs[0].runs[0].bold = True
-
-    # 处理会议决议和行动项
-    # 优先使用decisions字段，如果为空则使用action_items
-    items_source = minutes.decisions or getattr(minutes, 'action_items', None)
-
-    if items_source:
-        # 新的处理逻辑：解析会议决议格式，将标题、决策内容、目标合并为会议事项
-
-        import re
-        import logging
-        logger = logging.getLogger(__name__)
-
-        # 更加灵活的正则表达式，考虑各种可能的空格和换行变化
-        # 使用re.DOTALL让.匹配换行符，并使用非贪婪匹配
-        resolution_patterns = [
-            # 主要模式：标准格式
-            r'(\d+)\.\s*(.+?)\s*-\s*决策内容\s*：\s*(.+?)\s*-\s*执行对象\s*：\s*(.+?)\s*-\s*目标\s*：\s*(.+?)(?=\n\d+\.|\Z)',
-            # 备用模式：处理格式可能的变化
-            r'(\d+)\.\s*(.+?)\s*\n-\s*决策内容\s*：\s*(.+?)\s*\n-\s*执行对象\s*：\s*(.+?)\s*\n-\s*目标\s*：\s*(.+?)(?=\n\d+\.|\Z)'
-        ]
-
-        found_resolutions = False
-        for pattern in resolution_patterns:
-            # 使用re.DOTALL标志让.可以匹配换行符
-            resolutions = re.findall(pattern, items_source, re.DOTALL)
-            if resolutions:
-                found_resolutions = True
-                logger.info(f"使用正则表达式模式匹配到{len(resolutions)}个会议决议项")
-                break
-
-        if found_resolutions and resolutions:
-            # 如果匹配到格式化的会议决议
-            for res in resolutions:
-                if len(res) >= 5:
-                    _, title, decision_content, executor, target = res[:5]
-
-                    # 清理提取的内容，去除多余的空白字符
-                    title = title.strip()
-                    decision_content = decision_content.strip().rstrip('。')
-                    executor = executor.strip()
-                    target = target.strip().rstrip('。')
-
-                    # 合并标题、决策内容和目标到会议事项列
-                    combined_item = f"{title}。{decision_content}。{target}"
-
-                    row_cells = tasks_table.add_row().cells
-                    row_cells[0].text = str(
-                        len(tasks_table.rows) - 1)  # 动态计算序号
-                    row_cells[1].text = combined_item
-                    row_cells[2].text = executor  # 执行对象作为责任人
-                    row_cells[3].text = ''
-                    row_cells[4].text = ''
-        else:
-            # 旧格式兼容：按换行符分割文本
-            logger.info("未匹配到格式化的会议决议，使用旧格式处理")
-            items = items_source.split('\n')
-            for i, item in enumerate(items, 1):
-                if item.strip():
-                    row_cells = tasks_table.add_row().cells
-                    row_cells[0].text = str(i)
-                    row_cells[1].text = item.strip()
-                    row_cells[2].text = ''
-                    row_cells[3].text = ''
-                    row_cells[4].text = ''
-    else:
-        # 如果没有决议和行动项，添加一行空数据
-        row_cells = tasks_table.add_row().cells
-        row_cells[0].text = '1'
-        row_cells[1].text = ''
-        row_cells[2].text = ''
-        row_cells[3].text = ''
-        row_cells[4].text = ''
-
-    # 设置列宽
-    tasks_table.columns[0].width = Inches(0.5)
-    tasks_table.columns[1].width = Inches(2.5)
-    tasks_table.columns[2].width = Inches(1.0)
-    tasks_table.columns[3].width = Inches(1.25)
-    tasks_table.columns[4].width = Inches(1.25)
-
-    # 创建响应
+    doc = _build_minutes_document(minutes)
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     response['Content-Disposition'] = f'attachment; filename="{minutes.title}_会议纪要.docx"'
-
-    # 保存文档到响应
     doc.save(response)
-
     return response
 
 
 @login_required
 def generate_minutes_preview(request, pk):
     """
-    预览会议纪要Word文档
-    使用网盘中的OfficePreviewHandler实现在线预览功能
+    使用 ONLYOFFICE 预览会议纪要 Word 文档。
     """
     minutes = get_object_or_404(MeetingMinutes, pk=pk)
 
-    # 检查权限
-    if minutes.user != request.user and not minutes.is_public:
+    if not _user_can_access_minutes(request.user, minutes):
         return HttpResponse('没有权限预览此会议纪要')
 
-    # 生成临时Word文档
-    temp_doc_path = None
+    _save_minutes_preview_document(minutes)
+    response = render(request, 'disk/onlyoffice_editor.html', {
+        'editor_title': f'{minutes.title}_会议纪要.docx',
+        'onlyoffice_enabled': settings.ONLYOFFICE_ENABLED,
+        'onlyoffice_config_url': reverse('personal:minutes_preview_config', args=[minutes.id]),
+        'onlyoffice_editor_id': f'personal-minutes-editor-{minutes.id}',
+        'onlyoffice_api_script_url': onlyoffice_service.get_editor_api_script_url(request),
+    })
+    response['X-Frame-Options'] = 'SAMEORIGIN'
+    return response
+
+
+@login_required
+def minutes_preview_config(request, pk):
+    minutes = get_object_or_404(MeetingMinutes, pk=pk)
+    if not _user_can_access_minutes(request.user, minutes):
+        return JsonResponse({'detail': 'forbidden'}, status=403)
+    if not settings.ONLYOFFICE_ENABLED:
+        return JsonResponse({'detail': 'ONLYOFFICE is disabled'}, status=503)
+
+    relative_path, absolute_path = _save_minutes_preview_document(minutes)
+    document_token = signing.dumps(
+        {
+            'minutes_id': minutes.id,
+            'path': relative_path,
+            'action': 'document',
+            'updated_at': minutes.updated_at.isoformat() if minutes.updated_at else '',
+        },
+        salt=PERSONAL_MINUTES_ONLYOFFICE_DOCUMENT_SALT,
+    )
+    payload = onlyoffice_service.build_editor_config_from_urls(
+        title=f'{minutes.title}_会议纪要.docx',
+        file_ext=os.path.splitext(absolute_path)[1].lower(),
+        document_url=request.build_absolute_uri(
+            reverse('personal:minutes_preview_document', args=[minutes.id]))
+        + f'?token={document_token}',
+        document_key=onlyoffice_service.build_document_key_from_values(
+            minutes.id,
+            minutes.updated_at.isoformat() if minutes.updated_at else '',
+            relative_path,
+        ),
+        user=request.user,
+        can_edit=False,
+        allow_download=True,
+        allow_copy=True,
+    )
+    return JsonResponse(payload, json_dumps_params={'ensure_ascii': False})
+
+
+def minutes_preview_document(request, pk):
+    token = request.GET.get('token', '').strip()
+    if not token:
+        return JsonResponse({'code': 1, 'msg': '缺少访问令牌'}, status=403)
+
     try:
-        # 创建临时文件，确保使用正确的.docx扩展名
-        fd, temp_doc_path = tempfile.mkstemp(suffix='.docx')
-        os.close(fd)  # 关闭文件描述符，让python-docx来处理文件
+        payload = onlyoffice_service.load_signed_payload(
+            token, PERSONAL_MINUTES_ONLYOFFICE_DOCUMENT_SALT)
+    except signing.SignatureExpired:
+        return JsonResponse({'code': 1, 'msg': '访问令牌已过期'}, status=403)
+    except signing.BadSignature:
+        return JsonResponse({'code': 1, 'msg': '访问令牌无效'}, status=403)
 
-        # 使用与下载功能相同的文档生成逻辑
-        doc = Document()
+    minutes = get_object_or_404(MeetingMinutes, pk=pk)
+    if (
+        payload.get('action') != 'document' or
+        int(payload.get('minutes_id', 0)) != minutes.id or
+        payload.get('updated_at') != (minutes.updated_at.isoformat() if minutes.updated_at else '')
+    ):
+        return JsonResponse({'code': 1, 'msg': '访问令牌无效'}, status=403)
 
-        # 设置页面边距
-        sections = doc.sections
-        for section in sections:
-            section.top_margin = Inches(1.0)
-            section.bottom_margin = Inches(1.0)
-            section.left_margin = Inches(1.25)
-            section.right_margin = Inches(1.25)
-
-        # 添加标题行（公司标志和名称）
-        header = doc.add_paragraph()
-        header.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-        # 尝试添加公司标志（如果存在）
-        logo_path = os.path.join(settings.STATIC_ROOT, 'img', 'rdf.png')
-        if os.path.exists(logo_path):
-            try:
-                # 先尝试在标题行中添加图片
-                logo_run = header.add_run()
-                logo_run.add_picture(logo_path, width=Inches(1.5))
-            except BaseException:
-                # 如果添加图片失败，继续执行
-                pass
-
-        # 添加公司名称
-        company_name = header.add_run('江苏瑞德丰精密技术股份有限公司')
-        company_name.font.name = '微软雅黑'
-        company_name.font.size = Pt(16)
-        company_name.bold = True
-
-        # 添加副标题
-        subtitle = doc.add_paragraph('会议纪要')
-        subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        subtitle_run = subtitle.runs[0]
-        subtitle_run.font.name = '微软雅黑'
-        subtitle_run.font.size = Pt(14)
-        subtitle_run.bold = True
-
-        # 添加基本信息表格（按照固定格式要求）
-        info_table = doc.add_table(rows=4, cols=4)
-        info_table.style = 'Table Grid'
-
-        # 设置表格内容，严格按照固定格式要求
-        info_table.cell(0, 0).text = '会议议题'
-        info_table.cell(0, 1).text = minutes.title
-        info_table.cell(0, 1).merge(info_table.cell(0, 2))  # 合并单元格使议题占两列
-        info_table.cell(0, 3).text = '会议时间'
-
-        # 格式化会议时间
-        meeting_date_str = minutes.meeting_date.strftime('%Y年%m月%d日 %H:%M')
-        info_table.cell(1, 3).text = meeting_date_str
-
-        info_table.cell(1, 0).text = '会议类型'
-        # 获取会议类型的中文名称
-        meeting_type_dict = dict(MeetingTypeChoices.choices)
-        info_table.cell(
-            1, 1).text = meeting_type_dict.get(
-            minutes.meeting_type, minutes.meeting_type)
-        info_table.cell(1, 1).merge(info_table.cell(1, 2))  # 合并单元格使类型占两列
-
-        info_table.cell(2, 0).text = '参会人员'
-        info_table.cell(2, 1).text = minutes.attendees or ''
-        info_table.cell(2, 1).merge(info_table.cell(2, 2))  # 合并单元格使参会人员占两列
-        info_table.cell(2, 3).text = '会议主持'
-        info_table.cell(3, 3).text = minutes.host or ''
-
-        # 设置表格中第一列的样式为粗体
-        for i in range(4):
-            # 安全地设置粗体样式，避免索引错误
-            for col in [0, 3]:
-                if info_table.cell(
-                        i, col).paragraphs and info_table.cell(
-                        i, col).paragraphs[0].runs:
-                    info_table.cell(i, col).paragraphs[0].runs[0].bold = True
-
-        # 添加会议记录人和审核人信息
-        recorder_table = doc.add_table(rows=1, cols=4)
-        recorder_table.style = 'Table Grid'
-        recorder_table.cell(0, 0).text = '记录人：'
-        recorder_table.cell(
-            0, 1).text = minutes.recorder.name or minutes.recorder.username
-        recorder_table.cell(0, 2).text = '审核人：'
-        recorder_table.cell(0, 3).text = ''
-
-        # 设置记录人表格中标签的样式为粗体
-        for col in [0, 2]:
-            if recorder_table.cell(
-                    0, col).paragraphs and recorder_table.cell(
-                    0, col).paragraphs[0].runs:
-                recorder_table.cell(0, col).paragraphs[0].runs[0].bold = True
-
-        # 添加空行
-        doc.add_paragraph()
-
-        # 添加会议事项表格（包含实际完成时间列）
-        doc.add_paragraph('会议事项：')
-        # 5列：No.、会议事项、责任人、计划完成时间、实际完成时间
-        tasks_table = doc.add_table(rows=1, cols=5)
-        tasks_table.style = 'Table Grid'
-
-        # 设置表头
-        tasks_table.cell(0, 0).text = 'No.'
-        tasks_table.cell(0, 1).text = '会议事项（措施）'
-        tasks_table.cell(0, 2).text = '责任人'
-        tasks_table.cell(0, 3).text = '计划完成时间'
-        tasks_table.cell(0, 4).text = '实际完成时间'
-
-        # 设置表头样式为粗体
-        for cell in tasks_table.rows[0].cells:
-            if cell.paragraphs and cell.paragraphs[0].runs:
-                cell.paragraphs[0].runs[0].bold = True
-
-        # 处理会议决议和行动项
-        import re
-        import logging
-
-        # 优先使用decisions字段，如果为空则使用action_items
-        items_source = minutes.decisions or getattr(
-            minutes, 'action_items', None)
-
-        if items_source:
-            # 定义多种正则表达式模式以增强匹配灵活性
-            patterns = [
-                # 主要模式：完整格式
-                r'标题\s*[:：]\s*(.+?)\s*决策内容\s*[:：]\s*(.+?)\s*执行对象\s*[:：]\s*(.+?)\s*目标\s*[:：]\s*(.+)',
-                # 备用模式1：可能有缺失字段
-                r'标题\s*[:：]\s*(.+?)\s*决策内容\s*[:：]\s*(.+?)\s*(?:执行对象\s*[:：]\s*(.+?))?\s*(?:目标\s*[:：]\s*(.+?))?',
-                # 备用模式2：简化格式
-                r'标题\s*[:：]\s*(.+?)\s*(决策内容|内容)\s*[:：]\s*(.+?)(?:\n|$)',
-            ]
-
-            # 初始化计数器
-            item_count = 0
-
-            # 尝试使用正则表达式解析结构化数据
-            match_found = False
-
-            for pattern in patterns:
-                matches = re.finditer(pattern, items_source, re.DOTALL)
-                for match in matches:
-                    match_found = True
-                    item_count += 1
-
-                    # 提取匹配的内容组
-                    groups = match.groups()
-
-                    # 初始化变量
-                    title = ''
-                    content = ''
-                    executor = ''
-                    target = ''
-
-                    # 根据匹配的组数分配值
-                    if len(groups) >= 1:
-                        title = groups[0].strip()
-                    if len(groups) >= 2:
-                        # 如果第二组是'决策内容'或'内容'标签，则实际内容在第三组
-                        if groups[1] in ['决策内容', '内容'] and len(groups) >= 3:
-                            content = groups[2].strip()
-                            if len(groups) >= 4:
-                                executor = groups[3].strip()
-                            if len(groups) >= 5:
-                                target = groups[4].strip()
-                        else:
-                            content = groups[1].strip()
-                            if len(groups) >= 3:
-                                executor = groups[2].strip()
-                            if len(groups) >= 4:
-                                target = groups[3].strip()
-
-                    # 合并标题、决策内容和目标为会议事项
-                    combined_item = title
-                    if content:
-                        combined_item += ' ' + content
-                    if target:
-                        combined_item += ' ' + target
-
-                    # 清理多余的空白字符
-                    combined_item = ' '.join(combined_item.split())
-
-                    # 添加到表格
-                    row_cells = tasks_table.add_row().cells
-                    row_cells[0].text = str(item_count)
-                    row_cells[1].text = combined_item
-                    row_cells[2].text = executor
-                    row_cells[3].text = ''
-                    row_cells[4].text = ''
-
-                    logging.info(
-                        f"预览生成 - 解析到会议决议项: {combined_item}, 责任人: {executor}")
-
-                # 如果找到匹配项，不再尝试其他模式
-                if match_found:
-                    break
-
-            # 如果没有找到结构化数据，回退到按行分割的旧方式
-            if not match_found:
-                logging.info("预览生成 - 未找到结构化会议决议，使用按行分割方式")
-                items = items_source.split('\n')
-                for i, item in enumerate(items, 1):
-                    if item.strip():
-                        row_cells = tasks_table.add_row().cells
-                        row_cells[0].text = str(i)
-                        row_cells[1].text = item.strip()
-                        row_cells[2].text = ''
-                        row_cells[3].text = ''
-                        row_cells[4].text = ''
-        else:
-            # 如果没有决议和行动项，添加一行空数据
-            row_cells = tasks_table.add_row().cells
-            row_cells[0].text = '1'
-            row_cells[1].text = ''
-            row_cells[2].text = ''
-            row_cells[3].text = ''
-            row_cells[4].text = ''
-
-        # 设置列宽
-        tasks_table.columns[0].width = Inches(0.5)
-        tasks_table.columns[1].width = Inches(2.5)
-        tasks_table.columns[2].width = Inches(1.0)
-        tasks_table.columns[3].width = Inches(1.25)
-        tasks_table.columns[4].width = Inches(1.25)
-
-        # 保存文档到临时文件
-        doc.save(temp_doc_path)
-
-        # 使用网盘中的OfficePreviewHandler处理预览
-        # 不指定conversion_format，让处理器自动选择合适的预览方式
-        preview_result = OfficePreviewHandler.preview_office_file(
-            temp_doc_path)
-
-        # 添加文件ID和下载URL信息，与disk应用保持一致
-        preview_result['file_id'] = pk
-        preview_result['download_url'] = request.build_absolute_uri(
-            reverse('personal:minutes_download', kwargs={'pk': pk})
-        )
-
-        # 构建预览页面的响应
-        context = {
-            'preview_data': preview_result,
-            'filename': f"{minutes.title}_会议纪要预览.docx",
-            'minute': minutes
-        }
-
-        # 返回渲染的预览页面
-        return render(request, 'personal/minutes/preview.html', context)
-    except Exception as e:
-        # 处理异常情况
-        import logging
-        logger = logging.getLogger('personal')
-        logger.error(f'会议纪要预览失败: {str(e)}', exc_info=True)
-        return HttpResponse(f'预览出错: {str(e)}')
-    finally:
-        # 清理临时文件
-        try:
-            if temp_doc_path and os.path.exists(temp_doc_path):
-                os.remove(temp_doc_path)
-        except Exception as e:
-            import logging
-            logger = logging.getLogger('personal')
-            logger.warning(f'清理临时文件失败: {str(e)}')
+    _, absolute_path = _save_minutes_preview_document(minutes)
+    response = FileResponse(
+        open(absolute_path, 'rb'),
+        as_attachment=False,
+        filename=f'{minutes.title}_会议纪要.docx',
+    )
+    response['Content-Type'] = (
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    )
+    response['X-Frame-Options'] = 'SAMEORIGIN'
+    return response
 
 
 @login_required

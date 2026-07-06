@@ -10,6 +10,7 @@
         .layui-container {
             width: 100% !important;
             max-width: none !important;
+            height: 100%;
             padding: 0;
         }
         body, html {
@@ -17,56 +18,298 @@
             padding: 0;
             height: 100%;
             overflow-x: hidden;
+            overflow-y: hidden;
+            background: #f4f7fb;
         }
+        .layui-row,
         .layui-col-md12 {
+            height: 100%;
+        }
+        .department-layout {
             display: flex;
-            position: relative;
+            gap: 12px;
+            height: calc(100vh - 138px);
+            padding: 12px 16px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        .department-sidebar {
+            width: 188px;
+            flex: 0 0 188px;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            border: 1px solid #e5edf7;
+            border-radius: 16px;
+            background: #ffffff;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+            overflow: hidden;
+        }
+        .department-sidebar-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px 12px;
+            border-bottom: 1px solid #eef3f8;
+            background: #fbfdff;
+        }
+        .department-sidebar-head strong {
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .department-sidebar-head span {
+            font-size: 12px;
+            color: #64748b;
         }
         .tree-box {
-            width: 160px;
-            height: calc(100vh - 120px);
-            border-right: 1px solid #eee;
+            flex: 1 1 auto;
+            min-height: 0;
+            padding: 10px 8px 12px 12px;
             overflow-y: auto;
-            flex-shrink: 0;
         }
         .content-box {
-            flex-grow: 1;
-            padding: 20px;
-            margin-left: 20px;
-            width: calc(100% - 280px);
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            min-height: 0;
+            padding: 12px;
             box-sizing: border-box;
-            overflow-y: auto;
-            height: calc(100vh - 120px);
+            border: 1px solid #e5edf7;
+            border-radius: 18px;
+            background: #ffffff;
+            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.05);
+            overflow: hidden;
         }
-        .search-bar {
-            background: #f5f5f5;
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 20px;
+        .department-toolbar {
+            flex: 0 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 2px 2px 10px;
+        }
+        .department-toolbar-main {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 14px;
+        }
+        .department-toolbar-copy {
+            min-width: 0;
+        }
+        .department-toolbar-eyebrow {
+            margin-bottom: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #2563eb;
+            letter-spacing: 0;
+        }
+        .department-toolbar-copy h2 {
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            font-size: 18px;
+            line-height: 1.2;
+            color: #0f172a;
+        }
+        .department-toolbar-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 6px;
+        }
+        .department-meta-chip {
+            display: inline-flex;
+            align-items: center;
+            min-height: 28px;
+            padding: 0 12px;
+            border-radius: 14px;
+            background: #f7f9fc;
+            border: 1px solid #e5edf7;
+            font-size: 12px;
+            color: #64748b;
+        }
+        .department-title-scope {
+            min-height: 26px;
+            padding: 0 10px;
+            border-radius: 999px;
+            border: 1px solid #dbe7fb;
+            background: #f4f8ff;
+            color: #2563eb;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .department-meta-chip.is-focus {
+            border-color: #dbe7fb;
+            background: #f4f8ff;
+            color: #2563eb;
+            font-weight: 600;
+        }
+        .department-toolbar-stats {
+            flex: 0 0 auto;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .department-stat-inline {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 30px;
+            padding: 0 12px;
+            border-radius: 14px;
+            border: 1px solid #e5edf7;
+            background: #f7f9fc;
+            color: #475569;
+        }
+        .department-stat-inline em {
+            font-style: normal;
+            font-size: 12px;
+            color: #64748b;
+        }
+        .department-stat-inline strong {
+            font-size: 15px;
+            line-height: 1;
+            color: #0f172a;
+        }
+        .department-toolbar-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            border: 1px solid #e6edf7;
+            border-radius: 16px;
+            background: #fbfdff;
+            flex-wrap: wrap;
+        }
+        .toolbar-filter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 12px;
+            border-radius: 12px;
+            border: 1px solid #e0e8f3;
+            background: #fff;
+        }
+        .toolbar-filter-chip label {
+            margin: 0;
+            font-size: 12px;
+            font-weight: 700;
+            color: #334155;
+            white-space: nowrap;
+        }
+        .toolbar-filter-chip .layui-input-inline {
+            width: 138px !important;
+            margin: 0;
+        }
+        .toolbar-search {
+            flex: 1 1 260px;
+            min-width: 220px;
+            max-width: 940px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            height: 40px;
+            padding: 0 14px;
+            border-radius: 12px;
+            border: 1px solid #e0e8f3;
+            background: #fff;
+        }
+        .toolbar-search i {
+            color: #94a3b8;
+            font-size: 16px;
+        }
+        .toolbar-search input {
+            flex: 1 1 auto;
+            border: none;
+            background: transparent;
+            outline: none;
+            font-size: 13px;
+            color: #0f172a;
+        }
+        .toolbar-actions {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .toolbar-btn {
+            height: 38px;
+            padding: 0 16px;
+            border-radius: 12px;
+            font-weight: 600;
+            line-height: 38px;
+        }
+        .toolbar-btn.layui-btn-primary {
+            color: #475569;
+            border-color: #d6dfeb;
+            background: #fff;
+        }
+        .toolbar-btn.layui-btn-normal {
+            background: #1677ff;
+            box-shadow: none;
+        }
+        .department-table-shell {
+            flex: 1 1 auto;
+            min-height: 0;
+            padding: 0 4px 4px;
+            overflow: hidden;
+        }
+        .department-table-shell .layui-table-view {
+            margin: 0;
+            border-radius: 16px 16px 14px 14px;
+            overflow: hidden;
+            border-color: #e5edf7;
+        }
+        .department-table-shell .layui-table-header th {
+            background: #f9fbff;
+            color: #334155;
+            font-weight: 700;
+        }
+        .department-table-shell .layui-table-body tr:hover,
+        .department-table-shell .layui-table-hover {
+            background: #f8fbff;
+        }
+        .department-table-shell .layui-table-cell {
+            height: auto !important;
+            padding: 5px 10px;
+            line-height: 1.45;
+            white-space: normal;
+        }
+        .department-table-shell .layui-table-page {
+            height: 50px;
+            padding-top: 8px;
+            border-top: 1px solid #edf2f7;
         }
         .status-active { background-color: #52c41a; }
         .status-inactive { background-color: #ff4d4f; }
-        .layui-table-cell {
-            height: auto !important;
-            white-space: normal;
+        .table-inline-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
         }
-        .department-item {
-            display: flex; align-items: center; padding: 8px 0;
-            border-bottom: 1px solid #f0f0f0;
-            transition: background-color 0.2s;
+        .table-inline-actions .layui-btn {
+            margin: 0;
+            border-radius: 4px;
         }
-        .department-item:hover {
-            background-color: #f8f9fa;
-        }
-        .department-item:last-child {
-            border-bottom: none;
+        .department-name {
+            display: flex;
+            align-items: center;
+            color: #0f172a;
         }
         .department-title {
-            font-weight: 600; color: #333; flex: 1;
+            font-weight: 600;
+            color: #333;
+            flex: 1;
             display: flex;
             align-items: center;
         }
-        /* 层级缩进样式 */
         .department-level-1 {
             padding-left: 0px;
         }
@@ -85,7 +328,6 @@
         .department-level-6 {
             padding-left: 100px;
         }
-        /* 层级指示器 */
         .level-indicator {
             display: inline-block;
             width: 16px;
@@ -109,24 +351,6 @@
             width: 6px;
             height: 6px;
         }
-        .department-status {
-            padding: 3px 10px; border-radius: 20px; font-size: 12px; margin-right: 15px;
-        }
-        .department-actions {
-            display: flex; gap: 5px;
-        }
-        .btn-action { padding: 5px 10px; border-radius: 6px; font-size: 13px; }
-        .btn-add {
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-            border: none; color: white; padding: 8px 20px; border-radius: 8px;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .btn-add:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,123,255,0.3);
-        }
-        
-        /* 右侧弹出层样式 */
         .slide-panel-overlay {
             position: fixed;
             top: 0;
@@ -226,41 +450,147 @@
         body.slide-panel-open {
             overflow: hidden;
         }
+        #departmentTree .layui-tree-entry {
+            min-height: 30px;
+            border-radius: 8px;
+        }
+        #departmentTree .layui-tree-txt {
+            font-size: 13px;
+            color: #334155;
+        }
+        #departmentTree .layui-tree-pack {
+            padding-left: 18px;
+        }
+        @media (max-width: 1360px) {
+            .department-toolbar-main {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .department-toolbar-stats,
+            .toolbar-actions {
+                margin-left: 0;
+                justify-content: flex-start;
+            }
+        }
+        @media (max-width: 1080px) {
+            .department-layout {
+                gap: 12px;
+                padding: 12px;
+            }
+            .department-sidebar {
+                width: 168px;
+                flex-basis: 168px;
+            }
+            .toolbar-search {
+                flex-basis: 200px;
+                min-width: 200px;
+            }
+        }
+        @media (max-width: 768px) {
+            html,
+            body {
+                overflow-y: auto;
+            }
+            .layui-container,
+            .layui-row,
+            .layui-col-md12 {
+                height: auto;
+            }
+            .department-layout {
+                flex-direction: column;
+                height: auto;
+                min-height: calc(100vh - 138px);
+                overflow: visible;
+            }
+            .department-sidebar {
+                width: 100%;
+                flex-basis: auto;
+                max-height: 220px;
+            }
+            .content-box {
+                min-height: 520px;
+            }
+            .department-toolbar-main {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .department-toolbar-copy h2 {
+                align-items: flex-start;
+            }
+            .department-toolbar-stats {
+                justify-content: flex-start;
+            }
+            .toolbar-search {
+                min-width: 100%;
+                flex-basis: 100%;
+            }
+            .toolbar-actions {
+                margin-left: 0;
+                width: 100%;
+                justify-content: flex-start;
+            }
+        }
     </style>
 </head>
 <body>
+    {% csrf_token %}
     <div class="layui-container">
         <div class="layui-row">
             <div class="layui-col-md12">
-                <div class="tree-box" id="departmentTree"></div>
-                <div class="content-box">  
-                    <div class="search-bar">
-                        <div class="layui-form layui-form-item">
-                            <div class="layui-form-item">
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">部门状态</label>
+                <div class="department-layout">
+                    <aside class="department-sidebar">
+                        <div class="department-sidebar-head">
+                            <strong>组织树</strong>
+                            <span>层级导航</span>
+                        </div>
+                        <div class="tree-box" id="departmentTree"></div>
+                    </aside>
+
+                    <section class="content-box">
+                        <div class="department-toolbar">
+                            <div class="department-toolbar-main">
+                                <div class="department-toolbar-copy">
+                                    <div class="department-toolbar-eyebrow">人事管理</div>
+                                    <h2>
+                                        部门管理
+                                        <span class="department-meta-chip department-title-scope" id="departmentScopeLabel">当前范围：全部部门</span>
+                                    </h2>
+                                </div>
+                                <div class="department-toolbar-stats">
+                                    <span class="department-stat-inline"><em>本页</em><strong id="departmentVisibleCount">0</strong></span>
+                                    <span class="department-stat-inline"><em>结果</em><strong id="departmentTotalCount">0</strong></span>
+                                </div>
+                            </div>
+
+                            <div class="department-toolbar-controls layui-form">
+                                <div class="toolbar-filter-chip">
+                                    <label for="departmentStatusFilter">部门状态</label>
                                     <div class="layui-input-inline">
-                                        <select name="status" lay-filter="status">
+                                        <select id="departmentStatusFilter" name="status" lay-filter="status">
                                             <option value="">全部状态</option>
                                             <option value="1">启用</option>
                                             <option value="0">禁用</option>
                                         </select>
                                     </div>
                                 </div>
-                                <div class="layui-inline">
-                                    <div class="layui-input-inline" style="width: 200px;">
-                                        <input type="text" name="keyword" placeholder="关键字、部门名称、负责人" class="layui-input">
-                                    </div>
-                                    <button class="layui-btn" id="searchBtn">搜索</button>
-                                    <div style="display: inline-block; margin-left: 200px;">
-                                    <button class="layui-btn" id="addBtn">添加部门</button>
-                                    </div>
+
+                                <div class="toolbar-search">
+                                    <i class="layui-icon layui-icon-search"></i>
+                                    <input type="text" id="departmentKeywordFilter" name="keyword" placeholder="搜索部门名称、负责人或上级部门">
+                                </div>
+
+                                <div class="toolbar-actions">
+                                    <button type="button" class="layui-btn layui-btn-primary toolbar-btn" id="resetBtn">重置</button>
+                                    <button type="button" class="layui-btn layui-btn-primary toolbar-btn" id="searchBtn">搜索</button>
+                                    <button type="button" class="layui-btn layui-btn-normal toolbar-btn" id="addBtn">添加部门</button>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <table class="layui-table" id="departmentTable" lay-filter="departmentTable"></table>
+                        <div class="department-table-shell">
+                            <table class="layui-table" id="departmentTable" lay-filter="departmentTable"></table>
+                        </div>
+                    </section>
                 </div>
             </div>
         </div>
@@ -292,15 +622,17 @@
 
     <script type="text/html" id="barTpl">
     {% verbatim %}
-        <a class="layui-btn layui-btn-xs" lay-event="detail">查看</a>
-        <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
-        <a class="layui-btn layui-btn-xs layui-btn-primary" lay-event="role_management">角色管理</a>
-        {{#  if(d.is_active == 1) { }}
-            <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="disable">禁用</a>
-        {{#  } else { }}
-            <a class="layui-btn layui-btn-xs layui-btn-success" lay-event="enable">启用</a>
-        {{#  } }}
-        <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
+        <div class="table-inline-actions">
+            <a class="layui-btn layui-btn-xs layui-btn-primary" lay-event="detail">查看</a>
+            <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
+            <a class="layui-btn layui-btn-xs layui-btn-warm" lay-event="role_management">角色管理</a>
+            {{#  if(Number(d.status) === 1 || d.is_active === true || d.is_active === 1 || d.is_active === '1'){ }}
+            <a class="layui-btn layui-btn-xs" lay-event="disable">禁用</a>
+            {{#  } else { }}
+            <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="enable">启用</a>
+            {{#  } }}
+            <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
+        </div>
     {% endverbatim %}
     </script>
 
@@ -309,12 +641,23 @@
     <script src="{% static 'js/common.js' %}"></script>
     <script>
         function closeSlidePanel() {
-            const panel = document.getElementById('slidePanelWrapper');
-            const overlay = document.getElementById('slidePanelOverlay');
-            if (panel && overlay) {
-                panel.classList.remove('active');
-                overlay.classList.remove('active');
-                document.body.classList.remove('slide-panel-open');
+            var $overlay = $('#slidePanelOverlay');
+            var $panel = $('#slidePanelWrapper');
+            var $content = $('#slidePanelContent');
+            var $body = $('body');
+
+            $overlay.removeClass('active');
+            $panel.removeClass('active');
+            $body.removeClass('slide-panel-open');
+
+            if ($content.length) {
+                $content.empty();
+            }
+
+            var scrollPos = $body.data('scroll-pos');
+            if (scrollPos !== undefined) {
+                $(window).scrollTop(scrollPos);
+                $body.removeData('scroll-pos');
             }
         }
 
@@ -334,10 +677,20 @@
             return cookieValue;
         };
 
+        // 从DOM或cookie获取CSRF令牌
+        function getCsrfToken() {
+            var input = document.querySelector('input[name=csrfmiddlewaretoken]');
+            if (input) {
+                return input.value;
+            }
+            return getCookie('csrftoken');
+        }
+
+
         // 设置全局AJAX请求头，包含CSRF令牌
         $.ajaxSetup({
             beforeSend: function(xhr) {
-                xhr.setRequestHeader('X-CSRFToken', getCookie('csrftoken'));
+                xhr.setRequestHeader('X-CSRFToken', getCsrfToken());
             }
         });
 
@@ -346,6 +699,74 @@
             var table = layui.table;
             var form = layui.form;
             var layer = layui.layer;
+            var currentFilters = {
+                parentId: null,
+                parentName: '全部部门',
+                status: '',
+                keyword: ''
+            };
+            var resizeTimer = null;
+
+            function syncWorkspaceHeight() {
+                var layout = document.querySelector('.department-layout');
+                if (!layout) {
+                    return;
+                }
+                if (window.innerWidth <= 768) {
+                    layout.style.height = 'auto';
+                    return;
+                }
+
+                var rect = layout.getBoundingClientRect();
+                var bottomOffset = 12;
+                var availableHeight = window.innerHeight - rect.top - bottomOffset;
+                layout.style.height = Math.max(520, Math.floor(availableHeight)) + 'px';
+            }
+
+            function getTableHeight() {
+                var shell = document.querySelector('.department-table-shell');
+                if (!shell) {
+                    return 420;
+                }
+                return Math.max(320, shell.clientHeight - 2);
+            }
+
+            function updateToolbarStats(visibleCount, totalCount) {
+                $('#departmentVisibleCount').text(visibleCount || 0);
+                $('#departmentTotalCount').text(totalCount || 0);
+            }
+
+            function updateScopeLabel() {
+                $('#departmentScopeLabel').text('当前范围：' + (currentFilters.parentName || '全部部门'));
+            }
+
+            function applyFilters(data) {
+                return (data || []).filter(function(dept) {
+                    var matchParent = true;
+                    if (currentFilters.parentId) {
+                        matchParent = String(dept.parent_id || 0) === String(currentFilters.parentId) || String(dept.id) === String(currentFilters.parentId);
+                    }
+
+                    var matchStatus = true;
+                    if (currentFilters.status !== '') {
+                        matchStatus = String(dept.status) === String(currentFilters.status);
+                    }
+
+                    var matchKeyword = true;
+                    if (currentFilters.keyword) {
+                        var keyword = currentFilters.keyword.toLowerCase();
+                        var haystack = [
+                            dept.name,
+                            dept.parent_name,
+                            dept.leader_name,
+                            dept.code
+                        ].join(' ').toLowerCase();
+                        matchKeyword = haystack.indexOf(keyword) >= 0;
+                    }
+
+                    return matchParent && matchStatus && matchKeyword;
+                });
+            }
 
             // 渲染部门树形结构
             var departmentData = JSON.parse('{{ department_tree_json|safe|default:"[]" }}');
@@ -357,8 +778,11 @@
                     showCheckbox: false,
                     id: 'departmentTreeId',
                     click: function(obj){
+                        currentFilters.parentId = obj.data.id;
+                        currentFilters.parentName = obj.data.title || '已选部门';
+                        updateScopeLabel();
                         table.reload('departmentTable', {
-                            where: { parent_id: obj.data.id },
+                            height: getTableHeight(),
                             page: { curr: 1 }
                         });
                     }
@@ -367,21 +791,18 @@
                 $('#departmentTree').html('<div style="padding: 20px; text-align: center; color: #999;">暂无部门数据</div>');
             }
 
-            // 渲染部门表格
-            
-            // 构建树形结构的数据
+            updateScopeLabel();
+            syncWorkspaceHeight();
+
             function buildTreeData(data) {
-                // 创建部门ID到部门对象的映射
                 var deptMap = {};
                 var rootDepts = [];
-                
-                // 首先构建映射并收集所有部门
+
                 data.forEach(function(dept) {
                     deptMap[dept.id] = dept;
                     dept.children = [];
                 });
-                
-                // 构建树形结构
+
                 data.forEach(function(dept) {
                     if (dept.parent_id && dept.parent_id !== 0 && deptMap[dept.parent_id]) {
                         deptMap[dept.parent_id].children.push(dept);
@@ -389,10 +810,9 @@
                         rootDepts.push(dept);
                     }
                 });
-                
-                // 扁平化树形结构，同时保持层级关系
+
                 var flatData = [];
-                
+
                 function flattenTree(depts, level = 0) {
                     depts.forEach(function(dept) {
                         dept.level = level;
@@ -402,42 +822,108 @@
                         }
                     });
                 }
-                
-                // 先按sort排序根部门，再递归处理子部门
+
                 rootDepts.sort(function(a, b) {
                     if (a.sort !== b.sort) {
                         return a.sort - b.sort;
                     }
                     return a.id - b.id;
                 });
-                
+
                 flattenTree(rootDepts);
                 return flatData;
             }
-            
+
+            function refreshDepartmentTableAfterMutation() {
+                table.reload('departmentTable', {
+                    height: getTableHeight()
+                });
+            }
+
+            function changeDepartmentStatus(data, nextStatus, successText) {
+                var confirmText = nextStatus === 1 ? '确定要启用该部门吗？' : '确定要禁用该部门吗？';
+                layer.confirm(confirmText, function(index) {
+                    $.ajax({
+                        url: '/system/department/' + data.id + '/change_status/',
+                        type: 'POST',
+                        data: {status: nextStatus},
+                        headers: {
+                            'X-CSRFToken': getCsrfToken()
+                        },
+                        success: function(res) {
+                            if (res.code === 0) {
+                                layer.msg(successText, {icon: 1});
+                                refreshDepartmentTableAfterMutation();
+                                layer.close(index);
+                            } else {
+                                layer.msg(res.msg || '操作失败', {icon: 5});
+                            }
+                        },
+                        error: function() {
+                            layer.msg('网络错误', {icon: 5});
+                        }
+                    });
+                });
+            }
+
+            function deleteDepartmentRow(data) {
+                layer.confirm('确定要删除该部门吗？删除后无法恢复，且该部门下的所有子部门和员工也会受到影响。', function(index) {
+                    $.ajax({
+                        url: '/system/department/' + data.id + '/delete/',
+                        type: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCsrfToken()
+                        },
+                        success: function(res) {
+                            if (res.code === 0) {
+                                layer.msg('删除成功', {icon: 1});
+                                refreshDepartmentTableAfterMutation();
+                                layer.close(index);
+                            } else {
+                                layer.msg(res.msg || '删除失败', {icon: 5});
+                            }
+                        },
+                        error: function() {
+                            layer.msg('网络错误', {icon: 5});
+                        }
+                    });
+                });
+            }
+
+            function handleTableAction(action, data) {
+                if (action === 'detail') {
+                    openSlidePanel('部门详情', '/system/department/' + data.id + '/detail/');
+                } else if (action === 'edit') {
+                    openSlidePanel('编辑部门', '/system/department/' + data.id + '/update/');
+                } else if (action === 'role_management') {
+                    openSlidePanel('部门角色管理', '/user/department/' + data.id + '/roles/');
+                } else if (action === 'disable') {
+                    changeDepartmentStatus(data, 0, '部门已禁用');
+                } else if (action === 'enable') {
+                    changeDepartmentStatus(data, 1, '部门已启用');
+                } else if (action === 'delete') {
+                    deleteDepartmentRow(data);
+                }
+            }
+
             table.render({
                 elem: '#departmentTable',
                 url: '/system/department/department-list-api/',
+                height: getTableHeight(),
                 page: true,
+                limit: 10,
+                limits: [10, 15, 20, 30],
                 cols: [[
                     { field: 'id', title: 'ID', width: 80 },
                     { field: 'name', title: '部门名称', width: 280, templet: function(d) {
-                        // 根据level字段添加CSS类实现层级缩进
                         var level = d.level || 0;
-                        var levelClass = 'department-level-' + Math.min(level + 1, 6); // 最多支持6级缩进
-                        
-                        // 检查是否有子部门
+                        var levelClass = 'department-level-' + Math.min(level + 1, 6);
                         var hasChildren = d.children && d.children.length > 0;
-                        
-                        // 添加部门图标
                         var icon = '<i class="layui-icon layui-icon-organization" style="margin-right:5px;color:#4e89ae;"></i>';
-                        
-                        // 顶级部门（level=0）不显示层级指示器
+
                         if (level === 0) {
-                            // 使用CSS类实现缩进
                             return '<div class="department-name ' + levelClass + '">' + icon + d.name + '</div>';
                         } else {
-                            // 非顶级部门显示层级指示器
                             var indicatorClass = hasChildren ? 'level-indicator has-children' : 'level-indicator';
                             var indicator = '<span class="' + indicatorClass + '"></span>';
                             return '<div class="department-name ' + levelClass + '">' + indicator + icon + d.name + '</div>';
@@ -451,18 +937,14 @@
                     { field: 'sort', title: '排序', width: 80 },
                     { field: 'status', title: '状态', width: 100, templet: '#statusTpl' },
                     { field: 'roles', title: '已分配角色', width: 200, templet: function(d) {
-                        if (d.roles && d.roles.length > 0) {
-                            return d.roles.join(', ');
-                        } else {
-                            return '<span style="color: #999;">未分配</span>';
-                        }
+                        return d.roles && d.roles.length > 0 ? d.roles.join(', ') : '<span style="color: #999;">未分配</span>';
                     }},
-                    { title: '操作', width: 320,toolbar: '#barTpl' }
+                    { title: '操作', width: 360, toolbar: '#barTpl' }
                 ]],
                 parseData: function(res) {
                     if (res.code === 0) {
-                        // 构建树形结构数据
-                        var treeData = buildTreeData(res.data);
+                        var filteredData = applyFilters(res.data || []);
+                        var treeData = buildTreeData(filteredData);
                         return {
                             "code": 0,
                             "msg": "",
@@ -477,108 +959,24 @@
                             "data": []
                         };
                     }
+                },
+                done: function(res, curr, count) {
+                    updateToolbarStats((res.data || []).length, count);
                 }
             });
 
-            // 监听工具条
+            function reloadDepartmentTable() {
+                table.reload('departmentTable', {
+                    height: getTableHeight(),
+                    page: { curr: 1 }
+                });
+            }
+
             table.on('tool(departmentTable)', function(obj) {
                 var data = obj.data;
-                if (obj.event === 'detail') {
-                    // 打开详情页面（右侧弹出层）
-                    openSlidePanel('部门详情', '/system/department/' + data.id + '/detail/');
-                } else if (obj.event === 'edit') {
-                    // 打开编辑页面（右侧弹出层）
-                    openSlidePanel('编辑部门', '/system/department/' + data.id + '/update/');
-                } else if (obj.event === 'disable') {
-                    layer.confirm('确定要禁用该部门吗？', function(index) {
-                        $.ajax({
-                            url: '/system/department/' + data.id + '/change_status/',
-                            type: 'POST',
-                            data: {status: 0},
-                            headers: {
-                                'X-CSRFToken': getCookie('csrftoken')
-                            },
-                            success: function(res) {
-                                if (res.code === 0) {
-                    layer.msg('操作成功', {icon: 1});
-                    // 更新状态字段，确保与模板字段一致
-                    obj.update({
-                        status: 0,
-                        is_active: 0
-                    });
-                    // 重新渲染工具栏，确保按钮正确转换
-                    obj.del();
-                    table.reload('departmentTable');
-                    layer.close(index);
-                                } else {
-                                    layer.msg(res.msg || '操作失败', {icon: 5});
-                                }
-                            },
-                            error: function() {
-                                layer.msg('网络错误', {icon: 5});
-                            }
-                        });
-                    });
-                } else if (obj.event === 'enable') {
-                    layer.confirm('确定要启用该部门吗？', function(index) {
-                        $.ajax({
-                            url: '/system/department/' + data.id + '/change_status/',
-                            type: 'POST',
-                            data: {status: 1},
-                            headers: {
-                                'X-CSRFToken': getCookie('csrftoken')
-                            },
-                            success: function(res) {
-                                if (res.code === 0) {
-                    layer.msg('操作成功', {icon: 1});
-                    // 更新状态字段，确保与模板字段一致
-                    obj.update({
-                        status: 1,
-                        is_active: 1
-                    });
-                    // 重新渲染工具栏，确保按钮正确转换
-                    obj.del();
-                    table.reload('departmentTable');
-                    layer.close(index);
-                                } else {
-                                    layer.msg(res.msg || '操作失败', {icon: 5});
-                                }
-                            },
-                            error: function() {
-                                layer.msg('网络错误', {icon: 5});
-                            }
-                        });
-                    });
-                } else if (obj.event === 'role_management') {
-                    // 打开右侧弹出层显示部门角色管理
-                    openSlidePanel('部门角色管理', '/system/permission/departments/' + data.id + '/roles/');
-                } else if (obj.event === 'delete') {
-                    layer.confirm('确定要删除该部门吗？删除后无法恢复，且该部门下的所有子部门和员工也会受到影响。', function(index) {
-                        $.ajax({
-                            url: '/system/department/' + data.id + '/delete/',
-                            type: 'POST',
-                            headers: {
-                                'X-CSRFToken': getCookie('csrftoken')
-                            },
-                            success: function(res) {
-                                if (res.code === 0) {
-                                    layer.msg('删除成功', {icon: 1});
-                                    // 删除成功后从表格中移除该行
-                                    obj.del();
-                                    layer.close(index);
-                                } else {
-                                    layer.msg(res.msg || '删除失败', {icon: 5});
-                                }
-                            },
-                            error: function() {
-                                layer.msg('网络错误', {icon: 5});
-                            }
-                        });
-                    });
-                }
+                handleTableAction(obj.event, data);
             });
 
-            // 打开右侧弹出层函数
             function openSlidePanel(title, url) {
                 $('#panelTitle').text(title);
                 $('#slidePanelContent').load(url, function() {
@@ -593,39 +991,57 @@
                 });
             }
 
-            // 关闭右侧弹出层函数
-            function closeSlidePanel() {
-                $('#slidePanelOverlay').removeClass('active');
-                $('#slidePanelWrapper').removeClass('active');
-                $('body').removeClass('slide-panel-open');
-                $('#slidePanelContent').empty();
-                // 恢复滚动位置
-                var scrollPos = $('body').data('scroll-pos');
-                if (scrollPos !== undefined) {
-                    $(window).scrollTop(scrollPos);
-                }
-            }
-
-            // 添加部门按钮
             $('#addBtn').click(function() {
                 openSlidePanel('添加部门', '/system/department/add/');
             });
 
-            // 关闭按钮点击事件
+            $('#searchBtn').on('click', function() {
+                currentFilters.status = $('#departmentStatusFilter').val() || '';
+                currentFilters.keyword = $.trim($('#departmentKeywordFilter').val());
+                reloadDepartmentTable();
+            });
+
+            $('#resetBtn').on('click', function() {
+                currentFilters.parentId = null;
+                currentFilters.parentName = '全部部门';
+                currentFilters.status = '';
+                currentFilters.keyword = '';
+                $('#departmentStatusFilter').val('');
+                $('#departmentKeywordFilter').val('');
+                form.render('select');
+                updateScopeLabel();
+                reloadDepartmentTable();
+            });
+
+            $('#departmentKeywordFilter').on('keydown', function(event) {
+                if (event.keyCode === 13) {
+                    event.preventDefault();
+                    $('#searchBtn').trigger('click');
+                }
+            });
+
             $('#slidePanelClose').on('click', function() {
                 closeSlidePanel();
             });
 
-            // 遮罩层点击事件
             $('#slidePanelOverlay').on('click', function() {
                 closeSlidePanel();
             });
 
-            // ESC键关闭事件
             $(document).on('keydown', function(e) {
                 if (e.keyCode === 27 && $('body').hasClass('slide-panel-open')) {
                     closeSlidePanel();
                 }
+            });
+
+            $(window).on('resize', function() {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(function() {
+                    syncWorkspaceHeight();
+                    table.reload('departmentTable', {
+                        height: getTableHeight()
+                    });
+                }, 80);
             });
         });
     </script>

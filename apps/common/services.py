@@ -44,6 +44,23 @@ except ImportError as e:
 class DataSyncService:
     """数据同步服务 - 实现合同、订单、财务及项目模块的深度集成"""
 
+    @staticmethod
+    def _resolve_contract_module_status(contract_module):
+        """兼容合同模块不同状态字段，统一映射到同步流程。"""
+        if hasattr(contract_module, 'status'):
+            return getattr(contract_module, 'status')
+
+        check_status = getattr(contract_module, 'check_status', 0)
+        if check_status == 2:
+            return 1
+        if getattr(contract_module, 'void_time', 0):
+            return 4
+        if getattr(contract_module, 'archive_time', 0):
+            return 3
+        if getattr(contract_module, 'stop_time', 0):
+            return 4
+        return 0
+
     @classmethod
     def sync_user_profile(cls, user_id=None):
         """同步用户档案数据"""
@@ -341,6 +358,8 @@ class DataSyncService:
             # 获取合同管理模块的合同
             contract_module = ContractModule.objects.get(id=contract_module_id)
 
+            contract_status = cls._resolve_contract_module_status(contract_module)
+
             # 确保客户存在
             if not contract_module.customer_id:
                 logger.warning(f"合同管理模块合同 {contract_module_id} 没有关联客户，无法同步")
@@ -365,13 +384,13 @@ class DataSyncService:
                         contract_module.end_time).date()
 
                 # 更新状态
-                if contract_module.status == 1:
+                if contract_status == 1:
                     customer_contract.status = 'signed'
-                elif contract_module.status == 2:
+                elif contract_status == 2:
                     customer_contract.status = 'executing'
-                elif contract_module.status == 3:
+                elif contract_status == 3:
                     customer_contract.status = 'completed'
-                elif contract_module.status == 4:
+                elif contract_status == 4:
                     customer_contract.status = 'terminated'
 
                 customer_contract.save()
@@ -388,6 +407,7 @@ class DataSyncService:
                         'name': contract_module.name,
                         'contract_number': contract_module.code,
                         'amount': contract_module.cost,
+                        'create_user_id': getattr(contract_module, 'admin_id', 0) or 1,
                         'delete_time': 0  # 确保不被标记为删除
                     }
 
@@ -407,7 +427,7 @@ class DataSyncService:
                         4: 'terminated'
                     }
                     contract_data['status'] = status_map.get(
-                        contract_module.status, 'draft')
+                        contract_status, 'draft')
 
                     # 创建客户合同
                     customer_contract = CustomerContract.objects.create(

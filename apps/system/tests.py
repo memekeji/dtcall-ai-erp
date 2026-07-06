@@ -11,10 +11,11 @@ from apps.system.middleware.database_setup_middleware import DatabaseSetupMiddle
 from apps.system.database_setup import build_database_config, test_database_config
 from apps.system.views.database_setup_views import database_setup_view
 from apps.system.models import ServiceCategory, ServiceProvider
+from apps.system.menu_config import system_menus
 from apps.system.context_processors import system_version, get_permission_from_src
 from apps.system.update_center_service import perform_online_update
 from apps.system.views.service_config_views import ServiceConfigFormView
-from apps.user.config.permission_nodes import get_all_permission_codenames
+from apps.user.config.permission_nodes import PERMISSION_NODES, get_all_permission_codenames
 
 urlpatterns = [
     path(
@@ -288,6 +289,12 @@ class MenuPermissionMappingTests(TestCase):
             '/production/data/source/': 'view_datacollection',
             '/production/equipment/monitor/': 'view_equipment_monitor',
             '/production/task/plan/': 'view_production_plan',
+            '/supply-chain/': 'view_supply_chain_dashboard',
+            '/supply-chain/forecast/': 'view_supply_chain_forecast',
+            '/supply-chain/outsource/': 'view_supply_chain_outsource',
+            '/supply-chain/pr-review/': 'view_supply_chain_pr_review',
+            '/supply-chain/price-review/': 'view_supply_chain_price_review',
+            '/supply-chain/sample/': 'view_supply_chain_sample',
         }
 
         for src, expected in cases.items():
@@ -296,9 +303,37 @@ class MenuPermissionMappingTests(TestCase):
 
     def test_root_permissions_exist_in_permission_config(self):
         permission_codes = set(get_all_permission_codenames())
+        self.assertIn('view_product', permission_codes)
         self.assertIn('view_finance', permission_codes)
         self.assertIn('view_customer', permission_codes)
         self.assertIn('view_production', permission_codes)
+        self.assertIn('view_supply_chain_dashboard', permission_codes)
+        self.assertIn('view_supply_chain_forecast', permission_codes)
+
+    def test_contract_basedata_menus_are_split_to_top_level_basedata(self):
+        self.assertEqual(system_menus[1690]['title'], '产品与采购')
+        self.assertEqual(system_menus[1690]['pid_id'], 0)
+        self.assertEqual(system_menus[1218]['pid_id'], 1690)
+        self.assertEqual(system_menus[1219]['pid_id'], 1690)
+        self.assertEqual(system_menus[1220]['pid_id'], 1690)
+        self.assertEqual(system_menus[1221]['pid_id'], 1690)
+        self.assertEqual(system_menus[1222]['pid_id'], 1690)
+        self.assertEqual(system_menus[1223]['pid_id'], 1690)
+
+    def test_permission_nodes_move_contract_basedata_under_basedata_module(self):
+        basedata_children = PERMISSION_NODES['basedata']['children']
+        contract_children = PERMISSION_NODES['contract']['children']
+
+        self.assertIn('product', basedata_children)
+        self.assertIn('service', basedata_children)
+        self.assertIn('supplier', basedata_children)
+        self.assertIn('purchase_category', basedata_children)
+        self.assertIn('purchase_item', basedata_children)
+        self.assertNotIn('product', contract_children)
+        self.assertNotIn('service', contract_children)
+        self.assertNotIn('supplier', contract_children)
+        self.assertNotIn('purchase_category', contract_children)
+        self.assertNotIn('purchase_item', contract_children)
 
 
 class UpdateCenterServiceTests(TestCase):

@@ -287,7 +287,6 @@
 
     <script src="{% static 'js/jquery.min.js' %}"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
-    <script src="{% static 'js/office_preview.js' %}"></script>
     <script>
         // 使用立即执行函数表达式(IIFE)封装预览功能，避免与父页面的同名函数冲突
         (function() {
@@ -596,7 +595,7 @@
                     case 'pdf_enhanced':
                         showPdfPreview(data);
                         break;
-                    case 'office_enhanced':
+                    case 'onlyoffice':
                         showOfficePreview(data);
                         break;
                     case 'audio':
@@ -1176,321 +1175,42 @@
                 container.innerHTML = '';
 
                 hideLoading();
+                if (data.editor_url) {
+                    var wrapper = document.createElement('div');
+                    wrapper.style.cssText = 'width:100%;height:100%;display:flex;flex-direction:column;background:#fff;';
 
-                var previewContent = document.createElement('div');
-                previewContent.style.cssText = 'padding: 20px; overflow: auto; max-height: 600px;';
+                    var toolbar = document.createElement('div');
+                    toolbar.style.cssText = 'padding:10px;background:#f0f0f0;border-bottom:1px solid #ddd;display:flex;gap:10px;align-items:center;';
 
-                var title = document.createElement('h2');
-                title.textContent = data.name || 'Office文档';
-                title.style.cssText = 'margin: 0 0 15px 0; color: #333; font-size: 18px;';
-                previewContent.appendChild(title);
+                    var openNewBtn = document.createElement('a');
+                    openNewBtn.href = data.editor_url;
+                    openNewBtn.target = '_blank';
+                    openNewBtn.textContent = '在新窗口打开';
+                    openNewBtn.style.cssText = 'padding: 6px 12px; background: #409eff; color: #fff; text-decoration: none; border-radius: 4px; font-size: 14px;';
+                    toolbar.appendChild(openNewBtn);
 
-                var officeType = data.office_type || '';
-                var fileFormat = data.file_format || '';
-
-                var formatInfo = document.createElement('div');
-                formatInfo.style.cssText = 'margin-bottom: 15px; padding: 10px; background: #f0f9eb; border: 1px solid #c2e7b0; border-radius: 4px; color: #67c23a; font-size: 14px;';
-                var formatText = '';
-                if (officeType === 'word') formatText = 'Word文档';
-                else if (officeType === 'excel') formatText = 'Excel表格';
-                else if (officeType === 'powerpoint') formatText = 'PowerPoint演示文稿';
-                formatInfo.textContent = '格式: ' + formatText + ' (' + (fileFormat || officeType) + ')';
-                previewContent.appendChild(formatInfo);
-
-                var options = data.preview_options;
-                if (options && Array.isArray(options) && options.length > 0) {
-                    options.forEach(function(option, index) {
-                        var section = document.createElement('div');
-                        section.style.cssText = 'margin-bottom: 20px;';
-
-                        var optTitle = document.createElement('h3');
-                        optTitle.style.cssText = 'margin: 15px 0 10px 0; color: #606266; font-size: 16px; border-bottom: 1px solid #e4e7ed; padding-bottom: 8px;';
-                        optTitle.textContent = option.name || '内容 ' + (index + 1);
-                        section.appendChild(optTitle);
-
-                        if (option.type === 'table' && option.content) {
-                            var tableWrapper = document.createElement('div');
-                            tableWrapper.style.overflow = 'auto';
-
-                            var table = document.createElement('table');
-                            table.style.cssText = 'border-collapse: collapse; width: 100%; min-width: 400px;';
-
-                            var content = option.content;
-                            if (content.headers && Array.isArray(content.headers)) {
-                                var thead = document.createElement('thead');
-                                var headerRow = document.createElement('tr');
-                                headerRow.style.cssText = 'background: #409eff; color: #fff;';
-
-                                content.headers.forEach(function(h) {
-                                    var th = document.createElement('th');
-                                    th.textContent = h || '';
-                                    th.style.cssText = 'padding: 12px 8px; border: 1px solid #dcdfe6; text-align: left; font-weight: 500; white-space: nowrap;';
-                                    headerRow.appendChild(th);
-                                });
-                                thead.appendChild(headerRow);
-                                table.appendChild(thead);
-                            }
-
-                            if (content.data && Array.isArray(content.data)) {
-                                var tbody = document.createElement('tbody');
-                                content.data.forEach(function(row, rowIndex) {
-                                    var tr = document.createElement('tr');
-                                    tr.style.cssText = rowIndex % 2 === 0 ? 'background: #fff;' : 'background: #fafafa;';
-                                    tr.style.borderBottom = '1px solid #ebeef5';
-
-                                    row.forEach(function(cell) {
-                                        var td = document.createElement('td');
-                                        td.textContent = cell === null || cell === undefined ? '' : String(cell);
-                                        td.style.cssText = 'padding: 10px 8px; border: 1px solid #dcdfe6; white-space: nowrap;';
-                                        tr.appendChild(td);
-                                    });
-                                    tbody.appendChild(tr);
-                                });
-                                table.appendChild(tbody);
-                            }
-
-                            tableWrapper.appendChild(table);
-                            section.appendChild(tableWrapper);
-                        }
-                        else if (option.type === 'text' && option.content) {
-                            var textDiv = document.createElement('div');
-                            textDiv.style.cssText = 'padding: 15px; background: #fafafa; border: 1px solid #e4e7ed; border-radius: 4px; line-height: 1.6; color: #606266; white-space: pre-wrap; word-break: break-all;';
-                            textDiv.textContent = option.content;
-                            section.appendChild(textDiv);
-                        }
-                        else if (option.type === 'formatted_text' && Array.isArray(option.content)) {
-                            var formattedDiv = document.createElement('div');
-                            formattedDiv.style.cssText = 'padding: 15px; background: #fff; border: 1px solid #e4e7ed; border-radius: 4px;';
-
-                            option.content.forEach(function(block) {
-                                var paraDiv = document.createElement('div');
-                                paraDiv.style.marginBottom = '12px';
-                                paraDiv.style.lineHeight = '1.8';
-
-                                if (block.is_heading) {
-                                    var headingSizes = {1: '24px', 2: '20px', 3: '16px'};
-                                    paraDiv.style.fontSize = headingSizes[block.level] || '18px';
-                                    paraDiv.style.fontWeight = 'bold';
-                                    paraDiv.style.color = '#303133';
-                                    paraDiv.style.marginTop = '16px';
-                                    paraDiv.style.marginBottom = '10px';
-                                    paraDiv.style.borderBottom = '1px solid #e4e7ed';
-                                    paraDiv.style.paddingBottom = '8px';
-                                } else {
-                                    paraDiv.style.color = '#606266';
-                                }
-
-                                if (block.runs && Array.isArray(block.runs) && block.runs.length > 0) {
-                                    block.runs.forEach(function(run) {
-                                        var span = document.createElement('span');
-                                        span.textContent = run.text;
-                                        if (run.bold) span.style.fontWeight = 'bold';
-                                        if (run.italic) span.style.fontStyle = 'italic';
-                                        if (run.underline) span.style.textDecoration = 'underline';
-                                        if (run.font_size) span.style.fontSize = run.font_size + 'px';
-                                        paraDiv.appendChild(span);
-                                    });
-                                } else {
-                                    paraDiv.textContent = block.text;
-                                }
-
-                                formattedDiv.appendChild(paraDiv);
-                            });
-
-                            section.appendChild(formattedDiv);
-                        }
-                        else if (option.type === 'slide' && option.content) {
-                            var slideDiv = document.createElement('div');
-                            slideDiv.style.cssText = 'margin-bottom: 20px; padding: 15px; background: #fff; border: 1px solid #e4e7ed; border-radius: 4px;';
-
-                            if (option.content.background && option.content.background.color) {
-                                slideDiv.style.background = option.content.background.color;
-                            }
-
-                            var slideHeader = document.createElement('div');
-                            slideHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #e4e7ed;';
-                            slideHeader.innerHTML = '<span style="font-size: 16px; font-weight: bold; color: #409eff;">' + option.name + '</span><span style="font-size: 12px; color: #909399;">共 ' + (option.content.total_slides || '?') + ' 张</span>';
-                            slideDiv.appendChild(slideHeader);
-
-                            if (option.content.title) {
-                                var titleEl = document.createElement('h4');
-                                titleEl.textContent = option.content.title;
-                                titleEl.style.cssText = 'margin: 0 0 10px 0; color: #303133; font-size: 16px; font-weight: bold;';
-                                slideDiv.appendChild(titleEl);
-                            }
-
-                            if (option.content.content_blocks && Array.isArray(option.content.content_blocks)) {
-                                option.content.content_blocks.forEach(function(block) {
-                                    if (block.type === 'text' || block.type === 'shape') {
-                                        var blockDiv = document.createElement('div');
-                                        blockDiv.textContent = block.text;
-                                        blockDiv.style.cssText = 'padding: 8px 12px; margin: 5px 0; background: rgba(255,255,255,0.9); border-radius: 4px; color: #606266; line-height: 1.6;';
-
-                                        if (block.position) {
-                                            blockDiv.style.position = 'relative';
-                                            if (block.position.left) blockDiv.style.marginLeft = block.position.left + 'px';
-                                        }
-
-                                        slideDiv.appendChild(blockDiv);
-                                    } else if (block.type === 'table' && block.rows) {
-                                        var table = document.createElement('table');
-                                        table.style.cssText = 'border-collapse: collapse; width: 100%; margin: 10px 0;';
-                                        block.rows.forEach(function(row, rIdx) {
-                                            var tr = document.createElement('tr');
-                                            tr.style.cssText = rIdx === 0 ? 'background: #409eff; color: #fff;' : (rIdx % 2 === 0 ? 'background: #fff;' : 'background: #fafafa;');
-                                            row.forEach(function(cell) {
-                                                var td = document.createElement(rIdx === 0 ? 'th' : 'td');
-                                                td.textContent = cell;
-                                                td.style.cssText = 'padding: 8px; border: 1px solid #dcdfe6; text-align: left;';
-                                                tr.appendChild(td);
-                                            });
-                                            table.appendChild(tr);
-                                        });
-                                        slideDiv.appendChild(table);
-                                    }
-                                    else if (block.type === 'image') {
-                                        var imgContainer = document.createElement('div');
-                                        imgContainer.style.cssText = 'margin: 10px 0; padding: 10px; background: #fafafa; border-radius: 4px; text-align: center;';
-
-                                        if (block.data && !block.is_placeholder) {
-                                            var imgEl = document.createElement('img');
-                                            imgEl.src = block.data;
-                                            imgEl.style.cssText = 'max-width: 100%; max-height: 200px; border-radius: 4px;';
-                                            if (block.width && block.height) {
-                                                imgEl.style.width = Math.min(block.width, 400) + 'px';
-                                            }
-                                            imgContainer.appendChild(imgEl);
-
-                                            var imgLabel = document.createElement('div');
-                                            imgLabel.textContent = block.name || '图片';
-                                            imgLabel.style.cssText = 'margin-top: 8px; font-size: 12px; color: #606266;';
-                                            imgContainer.appendChild(imgLabel);
-                                        } else {
-                                            var imgPlaceholder = document.createElement('div');
-                                            imgPlaceholder.style.cssText = 'width: 100%; height: 150px; background: linear-gradient(135deg, #f0f0f0 25%, #e8e8e8 25%, #e8e8e8 50%, #f0f0f0 50%, #f0f0f0 75%, #e8e8e8 75%, #e8e8e8 100%); background-size: 20px 20px; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px;';
-
-                                            var imgIcon = document.createElement('span');
-                                            imgIcon.innerHTML = '&#128247;';
-                                            imgIcon.style.cssText = 'font-size: 48px; color: #909399;';
-                                            imgPlaceholder.appendChild(imgIcon);
-
-                                            var imgLabel = document.createElement('div');
-                                            imgLabel.textContent = block.name || '图片';
-                                            imgLabel.style.cssText = 'margin-top: 8px; font-size: 12px; color: #606266;';
-
-                                            if (block.width && block.height) {
-                                                imgLabel.textContent += ' (' + Math.round(block.width) + 'x' + Math.round(block.height) + 'px)';
-                                            }
-
-                                            if (block.description) {
-                                                var imgDesc = document.createElement('div');
-                                                imgDesc.textContent = block.description;
-                                                imgDesc.style.cssText = 'font-size: 11px; color: #909399; margin-top: 4px;';
-                                                imgContainer.appendChild(imgDesc);
-                                            }
-
-                                            imgContainer.appendChild(imgPlaceholder);
-                                            imgContainer.appendChild(imgLabel);
-                                        }
-
-                                        slideDiv.appendChild(imgContainer);
-                                    }
-                                });
-                            }
-
-                            section.appendChild(slideDiv);
-                        }
-                        else if (option.type === 'images' && Array.isArray(option.content)) {
-                            var galleryDiv = document.createElement('div');
-                            galleryDiv.style.cssText = 'margin: 15px 0;';
-
-                            var galleryTitle = document.createElement('h4');
-                            galleryTitle.textContent = option.name || '图片';
-                            galleryTitle.style.cssText = 'margin: 10px 0; color: #606266; font-size: 16px;';
-                            galleryDiv.appendChild(galleryTitle);
-
-                            var galleryGrid = document.createElement('div');
-                            galleryGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; padding: 10px; background: #fafafa; border-radius: 4px;';
-
-                            option.content.forEach(function(img, imgIdx) {
-                                var imgContainer = document.createElement('div');
-                                imgContainer.style.cssText = 'text-align: center; padding: 10px; background: #fff; border-radius: 4px; border: 1px solid #e4e7ed;';
-
-                                var imgPlaceholder = document.createElement('div');
-                                imgPlaceholder.style.cssText = 'width: 100%; height: 120px; background: linear-gradient(135deg, #f0f0f0 25%, #e8e8e8 25%, #e8e8e8 50%, #f0f0f0 50%, #f0f0f0 75%, #e8e8e8 75%, #e8e8e8 100%); background-size: 20px 20px; display: flex; align-items: center; justify-content: center; border-radius: 4px; margin-bottom: 8px;';
-
-                                var imgIcon = document.createElement('span');
-                                imgIcon.innerHTML = '&#128247;';
-                                imgIcon.style.cssText = 'font-size: 40px; color: #909399;';
-                                imgPlaceholder.appendChild(imgIcon);
-
-                                var imgLabel = document.createElement('div');
-                                imgLabel.textContent = '图片 ' + (img.index || imgIdx + 1);
-                                imgLabel.style.cssText = 'font-size: 12px; color: #606266; margin-top: 5px;';
-
-                                if (img.width && img.height) {
-                                    imgLabel.textContent += '\n' + Math.round(img.width) + 'x' + Math.round(img.height) + 'px';
-                                    imgLabel.style.whiteSpace = 'pre-line';
-                                }
-
-                                if (img.alt_text || img.description) {
-                                    var imgDesc = document.createElement('div');
-                                    imgDesc.textContent = (img.alt_text || img.description).substring(0, 30);
-                                    imgDesc.style.cssText = 'font-size: 11px; color: #909399; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
-                                    imgContainer.appendChild(imgDesc);
-                                }
-
-                                imgContainer.appendChild(imgPlaceholder);
-                                imgContainer.appendChild(imgLabel);
-                                galleryGrid.appendChild(imgContainer);
-                            });
-
-                            galleryDiv.appendChild(galleryGrid);
-                            section.appendChild(galleryDiv);
-                        }
-                        else if (option.content) {
-                            var contentDiv = document.createElement('div');
-                            contentDiv.style.cssText = 'padding: 15px; background: #fafafa; border: 1px solid #e4e7ed; border-radius: 4px; font-family: monospace; font-size: 13px; overflow-x: auto;';
-
-                            if (typeof option.content === 'string') {
-                                contentDiv.textContent = option.content;
-                            } else {
-                                contentDiv.textContent = JSON.stringify(option.content, null, 2);
-                            }
-                            section.appendChild(contentDiv);
-                        }
-
-                        previewContent.appendChild(section);
-                    });
-                }
-                else if (data.content) {
-                    var contentDiv = document.createElement('div');
-                    contentDiv.style.cssText = 'padding: 15px; background: #fafafa; border: 1px solid #e4e7ed; border-radius: 4px;';
-                    if (typeof data.content === 'string') {
-                        contentDiv.textContent = data.content;
-                    } else {
-                        contentDiv.textContent = JSON.stringify(data.content, null, 2);
+                    if (data.download_url) {
+                        var downloadBtn = document.createElement('a');
+                        downloadBtn.href = data.download_url;
+                        downloadBtn.textContent = '下载原文件';
+                        downloadBtn.style.cssText = 'padding: 6px 12px; background: #67c23a; color: #fff; text-decoration: none; border-radius: 4px; font-size: 14px;';
+                        toolbar.appendChild(downloadBtn);
                     }
-                    previewContent.appendChild(contentDiv);
-                }
-                else {
-                    var emptyMsg = document.createElement('div');
-                    emptyMsg.style.cssText = 'padding: 40px; text-align: center; color: #909399; font-size: 14px;';
-                    emptyMsg.textContent = '无法预览此Office文件的内容，请下载后查看';
-                    previewContent.appendChild(emptyMsg);
+
+                    wrapper.appendChild(toolbar);
+
+                    var iframe = document.createElement('iframe');
+                    iframe.src = data.editor_url;
+                    iframe.title = data.name || 'Office文档';
+                    iframe.style.cssText = 'width:100%;flex:1;border:none;background:#fff;';
+                    wrapper.appendChild(iframe);
+
+                    container.appendChild(wrapper);
+                    container.style.display = 'block';
+                    return;
                 }
 
-                if (data.conversion_available && Array.isArray(data.conversion_available)) {
-                    var convertDiv = document.createElement('div');
-                    convertDiv.style.cssText = 'margin-top: 20px; padding: 15px; background: #ecf5ff; border: 1px solid #b3d8ff; border-radius: 4px;';
-                    convertDiv.innerHTML = '<strong style="color: #409eff;">可转换为:</strong> ' + data.conversion_available.map(function(f) {
-                        return '<span style="display: inline-block; padding: 2px 8px; margin: 0 5px; background: #409eff; color: #fff; border-radius: 3px; font-size: 12px;">' + f.toUpperCase() + '</span>';
-                    }).join('');
-                    previewContent.appendChild(convertDiv);
-                }
-
-                container.appendChild(previewContent);
-                container.style.display = 'block';
+                showError('当前 Office 文档预览链接不可用，请刷新后重试或下载原文件。');
             }
 
             // 下载文件

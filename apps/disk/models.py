@@ -82,6 +82,8 @@ class DiskFolder(models.Model):
 
 class DiskFile(models.Model):
     """网盘文件模型"""
+    PERMISSION_LEVELS = DiskFolder.PERMISSION_LEVELS
+
     FILE_TYPES = (
         ('document', '文档'),
         ('image', '图片'),
@@ -139,6 +141,8 @@ class DiskFile(models.Model):
         blank=True,
         related_name='shared_files',
         verbose_name='共享部门')
+    permission_level = models.IntegerField(
+        default=1, choices=PERMISSION_LEVELS, verbose_name='权限级别')
 
     is_starred = models.BooleanField(default=False, verbose_name='是否收藏')
     download_count = models.IntegerField(default=0, verbose_name='下载次数')

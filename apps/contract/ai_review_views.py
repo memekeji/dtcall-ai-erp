@@ -2,6 +2,7 @@
 """AI合同审查 - API视图"""
 import json
 import logging
+import threading
 
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
@@ -18,6 +19,17 @@ from .contract_review_service import (
 )
 
 logger = logging.getLogger(__name__)
+
+OCR_FOCUS_FIELD_ORDER = [
+    "合同编号",
+    "合同名称",
+    "合同金额",
+    "客户名称",
+    "签约主体",
+    "签订时间",
+    "合同开始时间",
+    "合同结束时间",
+]
 
 
 def _safe_json_loads(raw_text, default=None):
@@ -48,12 +60,93 @@ def _serialize_legal_record(record):
     }
 
 
+def _build_contract_system_data(contract):
+    from apps.common.utils import timestamp_to_date
+
+    return {
+        "合同编号": contract.code or "",
+        "合同名称": contract.name or "",
+        "合同金额": f"{contract.cost}元" if contract.cost else "",
+        "客户名称": contract.customer or "",
+        "签约主体": contract.subject_id or "",
+        "合同开始时间": timestamp_to_date(contract.start_time, "%Y-%m-%d") if contract.start_time else "",
+        "合同结束时间": timestamp_to_date(contract.end_time, "%Y-%m-%d") if contract.end_time else "",
+        "签订时间": timestamp_to_date(contract.sign_time, "%Y-%m-%d") if contract.sign_time else "",
+    }
+
+
+def _build_focus_review_fields(contract, contract_text):
+    text = str(contract_text or "").strip()
+    if not text:
+        return []
+
+    if contract:
+        items = contract_review_service.cross_reference_check(
+            contract_text=text,
+            system_data=_build_contract_system_data(contract),
+        )
+        item_map = {item.get("field"): item for item in items}
+        return [item_map[field] for field in OCR_FOCUS_FIELD_ORDER if field in item_map]
+
+    extracted = contract_review_service._extract_contract_structured_fields(text)
+    extracted_field_map = {
+        "合同编号": "合同编号",
+        "合同名称": "合同名称",
+        "合同金额": "合同金额",
+        "客户名称": "签约对方名称",
+        "签约主体": "我方签约主体名称",
+        "签订时间": "签订时间",
+        "合同开始时间": "合同开始日期",
+        "合同结束时间": "合同结束日期",
+    }
+    results = []
+    for field in OCR_FOCUS_FIELD_ORDER:
+        extracted_value = extracted.get(extracted_field_map.get(field, field), "")
+        results.append(
+            contract_review_service._build_cross_check_item(
+                field=field,
+                extracted_value=extracted_value,
+                system_value="",
+            )
+        )
+    return results
+
+
 def _build_review_overall_assessment(review):
     return {
         "risk_level": review.overall_risk_level,
         "summary": review.overall_summary,
         "final_recommendation": review.final_recommendation,
     }
+
+
+def _summarize_focus_review_fields(fields):
+    fields = fields or []
+    summary = {
+        "total_count": len(fields),
+        "matched_count": 0,
+        "attention_count": 0,
+        "missing_count": 0,
+    }
+    for item in fields:
+        if item.get("match"):
+            summary["matched_count"] += 1
+            continue
+        status = str(item.get("status", ""))
+        if "未" in status:
+            summary["missing_count"] += 1
+        else:
+            summary["attention_count"] += 1
+    return summary
+
+
+def _extract_focus_review_fields_from_review(review):
+    raw_payload = _safe_json_loads(review.raw_response, default={})
+    if isinstance(raw_payload, dict):
+        fields = raw_payload.get("focus_review_fields", [])
+        if isinstance(fields, list):
+            return fields
+    return []
 
 
 def _extract_quick_review_result(review):
@@ -73,6 +166,8 @@ def _extract_quick_review_result(review):
 
 
 def _serialize_review_summary(review):
+    raw_payload = _safe_json_loads(review.raw_response, default={})
+    task_status = raw_payload.get("task_status", "completed") if isinstance(raw_payload, dict) else "completed"
     return {
         "id": review.id,
         "review_version": review.review_version,
@@ -82,10 +177,15 @@ def _serialize_review_summary(review):
         "overall_summary": review.overall_summary,
         "reviewed_at": review.reviewed_at.strftime("%Y-%m-%d %H:%M"),
         "is_latest": review.is_latest,
+        "task_status": task_status,
+        "task_error": raw_payload.get("task_error", "") if isinstance(raw_payload, dict) else "",
     }
 
 
 def _serialize_review_detail(review):
+    focus_review_fields = _extract_focus_review_fields_from_review(review)
+    raw_payload = _safe_json_loads(review.raw_response, default={})
+    task_status = raw_payload.get("task_status", "completed") if isinstance(raw_payload, dict) else "completed"
     payload = {
         "review_id": review.id,
         "contract_id": review.contract_id,
@@ -100,8 +200,14 @@ def _serialize_review_detail(review):
         "review_conclusion": review.review_conclusion,
         "final_recommendation": review.final_recommendation,
         "data_cross_check": review.data_cross_check,
+        "focus_review_fields": focus_review_fields,
+        "focus_review_summary": _summarize_focus_review_fields(focus_review_fields),
         "reviewed_at": review.reviewed_at.strftime("%Y-%m-%d %H:%M"),
         "is_latest": review.is_latest,
+        "status": task_status,
+        "pending": task_status in {"queued", "running"},
+        "failed": task_status == "failed",
+        "task_error": raw_payload.get("task_error", "") if isinstance(raw_payload, dict) else "",
     }
     if review.review_type == "quick":
         payload["quick_review_result"] = _extract_quick_review_result(review)
@@ -144,6 +250,113 @@ def _create_contract_review_record(contract, review_type, result, reviewed_by=No
     )
 
 
+def _create_pending_full_review_record(contract, contract_info=None, data_cross_check=None, focus_review_fields=None):
+    ContractAIReview.objects.filter(contract=contract, is_latest=True).update(is_latest=False)
+    review_count = ContractAIReview.objects.filter(contract=contract).count()
+    payload = {
+        "task_status": "queued",
+        "focus_review_fields": focus_review_fields or [],
+    }
+    return ContractAIReview.objects.create(
+        contract=contract,
+        review_version=review_count + 1,
+        review_type="full",
+        contract_info=contract_info or {},
+        overall_risk_level="unknown",
+        overall_summary="AI正在生成逐条审查意见，请稍候刷新查看。",
+        clause_reviews=[],
+        review_conclusion=[],
+        final_recommendation="",
+        data_cross_check=data_cross_check or [],
+        raw_response=json.dumps(payload, ensure_ascii=False),
+        is_latest=True,
+    )
+
+
+def _update_review_task_status(review, status, result_payload=None):
+    payload = _safe_json_loads(review.raw_response, default={})
+    if not isinstance(payload, dict):
+        payload = {}
+    payload["task_status"] = status
+    if result_payload:
+        payload.update(result_payload)
+    review.raw_response = json.dumps(payload, ensure_ascii=False)
+    review.save(update_fields=["raw_response", "update_time"] if hasattr(review, "update_time") else ["raw_response"])
+
+
+def _run_contract_full_review_job(review_id, contract_id, contract_text, contract_name, our_role, core_demands, extra_context, reviewed_by_id=None):
+    try:
+        review = ContractAIReview.objects.get(id=review_id)
+        contract = Contract.objects.get(id=contract_id, delete_time=0)
+        _update_review_task_status(review, "running")
+
+        result = contract_review_service.review_contract(
+            contract_text=contract_text,
+            contract_name=contract_name,
+            our_role=our_role,
+            core_demands=core_demands,
+            extra_context=extra_context,
+        )
+        data_cross_check = contract_review_service.cross_reference_check(
+            contract_text=contract_text,
+            system_data=_build_contract_system_data(contract),
+        )
+        focus_review_fields = _build_focus_review_fields(contract, contract_text)
+        result["focus_review_fields"] = focus_review_fields
+        result["focus_review_summary"] = _summarize_focus_review_fields(focus_review_fields)
+        result["task_status"] = "completed"
+
+        overall_assessment = result.get("overall_assessment", {})
+        review.contract_info = result.get("contract_info", {})
+        review.overall_risk_level = overall_assessment.get("risk_level", "unknown")
+        review.overall_summary = overall_assessment.get("summary", "")
+        review.clause_reviews = result.get("clause_reviews", [])
+        review.review_conclusion = result.get("review_conclusion", [])
+        review.final_recommendation = overall_assessment.get("final_recommendation", "")
+        review.data_cross_check = data_cross_check
+        review.raw_response = json.dumps(result, ensure_ascii=False)
+        review.save(update_fields=[
+            "contract_info",
+            "overall_risk_level",
+            "overall_summary",
+            "clause_reviews",
+            "review_conclusion",
+            "final_recommendation",
+            "data_cross_check",
+            "raw_response",
+        ])
+
+        contract.ai_risk_level = review.overall_risk_level
+        high_risks = [c for c in review.clause_reviews if c.get("risk_level") == "high"]
+        contract.ai_risk_points = [{"clause": c.get("clause_no", ""), "title": c.get("title", ""), "risk": c.get("risk_analysis", "")} for c in high_risks]
+        contract.ai_key_terms = [c.get("title", "") for c in review.clause_reviews]
+        contract.save(update_fields=["ai_risk_level", "ai_risk_points", "ai_key_terms"])
+    except Exception as exc:
+        logger.error("后台执行AI合同完整审查失败(review_id=%s): %s", review_id, exc, exc_info=True)
+        try:
+            review = ContractAIReview.objects.get(id=review_id)
+            payload = _safe_json_loads(review.raw_response, default={})
+            if not isinstance(payload, dict):
+                payload = {}
+            payload["task_status"] = "failed"
+            payload["task_error"] = str(exc)
+            review.raw_response = json.dumps(payload, ensure_ascii=False)
+            review.overall_summary = "详细审查生成失败，请重试。"
+            review.save(update_fields=["raw_response", "overall_summary"])
+        except Exception:
+            logger.exception("更新AI合同审查失败状态时再次出错(review_id=%s)", review_id)
+
+
+def _start_contract_full_review_job(review_id, contract_id, contract_text, contract_name, our_role, core_demands, extra_context, reviewed_by_id=None):
+    thread = threading.Thread(
+        target=_run_contract_full_review_job,
+        args=(review_id, contract_id, contract_text, contract_name, our_role, core_demands, extra_context, reviewed_by_id),
+        daemon=True,
+    )
+    thread.start()
+    return thread
+
+
 def _load_contract_text_from_attachment(contract):
     """优先从合同已有附件中解析文本，并回填到合同内容字段。"""
     fallback_content = (contract.content or "").strip()
@@ -153,6 +366,10 @@ def _load_contract_text_from_attachment(contract):
         "attachment_used": False,
         "attachment_name": contract.scan_file_name,
         "attachment_error": "",
+        "attachment_ocr_used": False,
+        "attachment_parse_method": "",
+        "attachment_accuracy_notice": "",
+        "focus_review_fields": [],
     }
 
     if not contract.scan_file:
@@ -161,12 +378,13 @@ def _load_contract_text_from_attachment(contract):
     if fallback_content:
         result["contract_text"] = fallback_content
         result["attachment_used"] = True
+        result["focus_review_fields"] = _build_focus_review_fields(contract, fallback_content)
         return result
 
     try:
         contract.scan_file.open("rb")
         contract.scan_file.seek(0)
-        parsed_text = parse_contract_file(contract.scan_file)
+        parsed = parse_contract_file(contract.scan_file, include_meta=True)
     except Exception as exc:
         logger.warning("解析合同已有附件失败(contract_id=%s): %s", contract.id, exc)
         result["attachment_error"] = str(exc)
@@ -181,13 +399,18 @@ def _load_contract_text_from_attachment(contract):
         except Exception:
             pass
 
-    parsed_text = parsed_text.strip()
+    parsed_text = (parsed.get("text") or "").strip()
+    result["attachment_ocr_used"] = bool(parsed.get("ocr_used"))
+    result["attachment_parse_method"] = parsed.get("parse_method", "") or ""
+    result["attachment_accuracy_notice"] = parsed.get("accuracy_notice", "") or ""
+
     if parsed_text:
         if contract.content != parsed_text:
             contract.content = parsed_text
             contract.save(update_fields=["content", "update_time"])
         result["contract_text"] = parsed_text
         result["attachment_used"] = True
+        result["focus_review_fields"] = _build_focus_review_fields(contract, parsed_text)
     elif fallback_remark:
         result["contract_text"] = fallback_remark
 
@@ -198,7 +421,7 @@ def _load_contract_text_from_attachment(contract):
 
 @login_required
 def ai_contract_review_api(request, contract_id):
-    """AI合同逐条审查 - 主审查接口"""
+    """AI合同逐条审查 - 启动后台审查任务并立即返回状态"""
     if request.method != "POST":
         return JsonResponse({"code": 405, "msg": "仅支持POST"}, status=405)
 
@@ -218,62 +441,103 @@ def ai_contract_review_api(request, contract_id):
         if not contract_text.strip():
             return JsonResponse({"code": 400, "msg": "合同文本为空，请先上传合同文件或填写合同内容"})
 
-        # 构建系统录入数据用于交叉校验
-        from apps.common.utils import timestamp_to_date
-        system_data = {
-            "合同编号": contract.code or "",
-            "合同名称": contract.name or "",
-            "合同金额": f"{contract.cost}元" if contract.cost else "",
-            "客户名称": contract.customer or "",
-            "签约主体": contract.subject_id or "",
-            "合同开始时间": timestamp_to_date(contract.start_time, "%Y-%m-%d") if contract.start_time else "",
-            "合同结束时间": timestamp_to_date(contract.end_time, "%Y-%m-%d") if contract.end_time else "",
-            "签订时间": timestamp_to_date(contract.sign_time, "%Y-%m-%d") if contract.sign_time else "",
-        }
-
-        # 调用AI审查（主审查）
-        result = contract_review_service.review_contract(
+        data_cross_check = contract_review_service.cross_reference_check(
+            contract_text=contract_text,
+            system_data=_build_contract_system_data(contract),
+        )
+        focus_review_fields = _build_focus_review_fields(contract, contract_text)
+        review = _create_pending_full_review_record(
+            contract=contract,
+            contract_info={
+                "contract_name": contract_name or contract.name or "",
+                "our_role": our_role,
+                "core_demands": core_demands,
+            },
+            data_cross_check=data_cross_check,
+            focus_review_fields=focus_review_fields,
+        )
+        _start_contract_full_review_job(
+            review_id=review.id,
+            contract_id=contract.id,
             contract_text=contract_text,
             contract_name=contract_name,
             our_role=our_role,
             core_demands=core_demands,
             extra_context=extra_context,
+            reviewed_by_id=getattr(request.user, "id", None),
         )
-
-        # 交叉校验：合同原文 vs 系统录入数据
-        data_cross_check = contract_review_service.cross_reference_check(
-            contract_text=contract_text,
-            system_data=system_data,
-        )
-
-        # 保存审查结果
-        review = _create_contract_review_record(
-            contract=contract,
-            review_type="full",
-            result=result,
-            reviewed_by=request.user,
-            contract_info=result.get("contract_info", {}),
-            data_cross_check=data_cross_check,
-        )
-
-        # 同步更新Contract模型的风险字段
-        contract.ai_risk_level = result.get("overall_assessment", {}).get("risk_level", "unknown")
-        high_risks = [c for c in result.get("clause_reviews", []) if c.get("risk_level") == "high"]
-        contract.ai_risk_points = [{"clause": c.get("clause_no", ""), "title": c.get("title", ""),
-                                    "risk": c.get("risk_analysis", "")} for c in high_risks]
-        contract.ai_key_terms = [c.get("title", "") for c in result.get("clause_reviews", [])]
-        contract.save(update_fields=["ai_risk_level", "ai_risk_points", "ai_key_terms"])
 
         return JsonResponse({
             "code": 0,
-            "msg": "审查完成",
+            "msg": "审查任务已启动",
             "data": {
-                **_serialize_review_detail(review),
+                "review_id": review.id,
+                "contract_id": contract.id,
+                "status": "queued",
+                "pending": True,
+                "overall_summary": review.overall_summary,
             }
         })
     except Exception as e:
         logger.error(f"AI合同审查失败: {e}", exc_info=True)
         return JsonResponse({"code": 500, "msg": f"审查失败: {str(e)}"}, status=500)
+
+
+@login_required
+def ai_contract_review_preview_api(request, contract_id):
+    """AI合同审查预评估 - 快速返回首屏风险结论，不落历史记录"""
+    if request.method != "POST":
+        return JsonResponse({"code": 405, "msg": "仅支持POST"}, status=405)
+
+    try:
+        contract = get_object_or_404(Contract, id=contract_id, delete_time=0)
+        body = json.loads(request.body.decode("utf-8")) if request.body else {}
+        contract_text = body.get("contract_text", "")
+        contract_name = body.get("contract_name", contract.name or "")
+        our_role = body.get("our_role", "")
+        core_demands = body.get("core_demands", "")
+
+        if not contract_text:
+            contract_text = contract.content or contract.remark or ""
+        if not contract_text.strip():
+            return JsonResponse({"code": 400, "msg": "合同文本为空，请先上传合同文件或填写合同内容"})
+
+        quick_result = contract_review_service.quick_review(contract_text)
+        data_cross_check = contract_review_service.cross_reference_check(
+            contract_text=contract_text,
+            system_data=_build_contract_system_data(contract),
+        )
+        focus_review_fields = _build_focus_review_fields(contract, contract_text)
+
+        overall_summary = quick_result.get("brief_summary", "")
+        overall_risk_level = quick_result.get("risk_level", "unknown")
+        overall_assessment = {
+            "risk_level": overall_risk_level,
+            "summary": overall_summary or "已完成预评估，建议先核对关键字段与高风险提示，再继续逐条审查。",
+            "final_recommendation": "已生成预评估结果，详细修改建议正在准备中。",
+        }
+
+        return JsonResponse({
+            "code": 0,
+            "msg": "预评估完成",
+            "data": {
+                "contract_id": contract.id,
+                "contract_info": {
+                    "contract_name": contract_name or contract.name or "",
+                    "our_role": our_role,
+                    "core_demands": core_demands,
+                },
+                "quick_review_result": quick_result,
+                "overall_assessment": overall_assessment,
+                "data_cross_check": data_cross_check,
+                "focus_review_fields": focus_review_fields,
+                "focus_review_summary": _summarize_focus_review_fields(focus_review_fields),
+                "pending_full_review": True,
+            }
+        })
+    except Exception as e:
+        logger.error(f"AI合同预评估失败: {e}", exc_info=True)
+        return JsonResponse({"code": 500, "msg": f"预评估失败: {str(e)}"}, status=500)
 
 
 @login_required
@@ -296,6 +560,27 @@ def ai_contract_review_detail_api(request, review_id):
     })
 
 
+@login_required
+def ai_contract_review_status_api(request, review_id):
+    """获取完整审查任务状态"""
+    review = get_object_or_404(ContractAIReview, id=review_id)
+    raw_payload = _safe_json_loads(review.raw_response, default={})
+    status = raw_payload.get("task_status", "completed") if isinstance(raw_payload, dict) else "completed"
+    return JsonResponse({
+        "code": 0,
+        "data": {
+            "review_id": review.id,
+            "contract_id": review.contract_id,
+            "status": status,
+            "pending": status in {"queued", "running"},
+            "failed": status == "failed",
+            "detail_ready": status == "completed",
+            "overall_summary": review.overall_summary,
+            "task_error": raw_payload.get("task_error", "") if isinstance(raw_payload, dict) else "",
+        }
+    })
+
+
 # ── 文件上传解析 ──────────────────────────────────
 
 @login_required
@@ -308,11 +593,13 @@ def ai_contract_file_parse_api(request):
     try:
         uploaded = request.FILES.get("file")
         contract_id = request.POST.get("contract_id", "")
+        contract = None
 
         if not uploaded:
             return JsonResponse({"code": 400, "msg": "请选择要上传的合同文件"})
 
-        text = parse_contract_file(uploaded)
+        parsed = parse_contract_file(uploaded, include_meta=True)
+        text = parsed["text"]
 
         # 如果提供了contract_id，更新合同扫描件和内容
         if contract_id:
@@ -322,7 +609,9 @@ def ai_contract_file_parse_api(request):
                 contract.content = text
                 contract.save(update_fields=["scan_file", "content"])
             except Contract.DoesNotExist:
-                pass
+                contract = None
+
+        focus_review_fields = _build_focus_review_fields(contract, text)
 
         return JsonResponse({
             "code": 0,
@@ -332,6 +621,11 @@ def ai_contract_file_parse_api(request):
                 "text_length": len(text),
                 "text_preview": text[:500],
                 "full_text": text,
+                "ocr_used": parsed.get("ocr_used", False),
+                "parse_method": parsed.get("parse_method", ""),
+                "accuracy_notice": parsed.get("accuracy_notice", ""),
+                "focus_review_fields": focus_review_fields,
+                "focus_review_summary": _summarize_focus_review_fields(focus_review_fields),
             }
         })
     except ValueError as e:
@@ -527,10 +821,14 @@ def ai_contract_quick_review_api(request):
             return JsonResponse({"code": 400, "msg": "请提供合同文本"})
 
         result = contract_review_service.quick_review(contract_text)
+        focus_review_fields = []
         review = None
         if contract_id:
             try:
                 contract = Contract.objects.get(id=int(contract_id), delete_time=0)
+                focus_review_fields = _build_focus_review_fields(contract, contract_text)
+                result["focus_review_fields"] = focus_review_fields
+                result["focus_review_summary"] = _summarize_focus_review_fields(focus_review_fields)
                 review = _create_contract_review_record(
                     contract=contract,
                     review_type="quick",
@@ -556,6 +854,9 @@ def ai_contract_quick_review_api(request):
                 review = None
 
         payload = dict(result)
+        if focus_review_fields and "focus_review_fields" not in payload:
+            payload["focus_review_fields"] = focus_review_fields
+            payload["focus_review_summary"] = _summarize_focus_review_fields(focus_review_fields)
         if review:
             payload["review_id"] = review.id
             payload["review_type"] = review.review_type
@@ -595,6 +896,10 @@ def ai_review_page(request, contract_id):
         "attachment_used": attachment_info["attachment_used"],
         "attachment_name": attachment_info["attachment_name"],
         "attachment_error": attachment_info["attachment_error"],
+        "attachment_ocr_used": attachment_info["attachment_ocr_used"],
+        "attachment_parse_method": attachment_info["attachment_parse_method"],
+        "attachment_accuracy_notice": attachment_info["attachment_accuracy_notice"],
+        "attachment_focus_review_fields_json": json.dumps(attachment_info["focus_review_fields"], ensure_ascii=False),
         "our_role_default": our_role_default,
         "core_demands_default": core_demands_default,
     }
@@ -605,3 +910,15 @@ def ai_review_page(request, contract_id):
 def ai_review_list_page(request):
     """AI合同审查 - 合同选择列表页面"""
     return render(request, "contract/ai_review_list.html")
+
+
+@login_required
+def ai_review_history_page(request, contract_id):
+    """AI合同审查记录页 - 右侧弹出查看历史"""
+    contract = get_object_or_404(Contract, id=contract_id, delete_time=0)
+    latest_review = ContractAIReview.objects.filter(contract=contract, is_latest=True).first()
+    context = {
+        "contract": contract,
+        "latest_review": latest_review,
+    }
+    return render(request, "contract/ai_review_history.html", context)

@@ -1,0 +1,161 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/supply_chain.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="sc-page-shell">
+    <div class="layui-card">
+        <div class="layui-card-header">
+            <div class="sc-toolbar">
+                <div class="sc-toolbar-left">
+                    <div>
+                        <h3>{{ page_title }}</h3>
+                        <div class="sc-summary-line">
+                            <span>当前单据 {{ total_count }} 条</span>
+                            <span>缺料 {{ shortage_count }} 条</span>
+                            <span>齐套待备料 {{ ready_count }} 条</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="sc-toolbar-right">
+                    <a href="{% url 'supply_chain:outsource_generate_from_plan' %}" class="layui-btn layui-btn-sm layui-btn-primary"><i class="layui-icon layui-icon-transfer"></i> 从计划生成</a>
+                    <a href="{% url 'supply_chain:outsource_create' %}" class="layui-btn layui-btn-sm">
+                        <i class="layui-icon layui-icon-add-1"></i> 新建委外发料单
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="layui-card-body">
+            <div class="sc-stat-grid">
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">委外发料单</div>
+                    <div class="sc-stat-value">{{ total_count }}</div>
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">缺料待跟进</div>
+                    <div class="sc-stat-value">{{ shortage_count }}</div>
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">齐套待备料</div>
+                    <div class="sc-stat-value">{{ ready_count }}</div>
+                </div>
+            </div>
+
+            <form class="layui-form sc-inline-form" method="get">
+                <div class="layui-row layui-col-space10">
+                    <div class="layui-col-md4">
+                        <input type="text" name="search" value="{{ search }}" placeholder="搜索单号、产品、供应商、计划" class="layui-input">
+                    </div>
+                    <div class="layui-col-md3">
+                        <select name="status" class="layui-input">
+                            <option value="">全部状态</option>
+                            {% for value, label in status_choices %}
+                            <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="layui-col-md5">
+                        <button class="layui-btn" type="submit"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+                        <a href="{% url 'supply_chain:outsource_list' %}" class="layui-btn layui-btn-primary">重置</a>
+                    </div>
+                </div>
+            </form>
+
+            <table class="layui-table sc-table-compact" lay-skin="line">
+                <thead>
+                    <tr>
+                        <th>单号</th>
+                        <th>产品 / 供应商</th>
+                        <th>生产计划</th>
+                        <th>委外数量</th>
+                        <th>状态</th>
+                        <th>齐套明细</th>
+                        <th width="260">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td>{{ order.code }}</td>
+                        <td>
+                            <div>{{ order.product|default:'-' }}</div>
+                            <div class="sc-note">{{ order.supplier|default:'-' }}</div>
+                        </td>
+                        <td>{{ order.production_plan|default:'-' }}</td>
+                        <td>{{ order.quantity }}</td>
+                        <td>
+                            <span class="sc-pill {% if order.status == 'shortage' %}danger{% elif order.status == 'ready' or order.status == 'notified' or order.status == 'closed' %}success{% elif order.status == 'picking' or order.status == 'issued' %}warning{% endif %}">
+                                {{ order.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="sc-note">明细 {{ order.items.count }} 条</div>
+                            {% if order.items.all %}
+                                {% for item in order.items.all|slice:":2" %}
+                                <div class="sc-note">{{ item.material_code }} / {{ item.get_status_display }} / 缺口 {{ item.shortage_quantity }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </td>
+                        <td class="sc-list-actions">
+                            <form method="post" action="{% url 'supply_chain:outsource_check' order.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="layui-btn layui-btn-xs">齐套校验</button>
+                            </form>
+                            <div class="sc-action-group">
+                                <form method="post" action="{% url 'supply_chain:outsource_status_update' order.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="start_picking">
+                                    <button type="submit" class="layui-btn layui-btn-xs layui-btn-normal">开始备料</button>
+                                </form>
+                                <form method="post" action="{% url 'supply_chain:outsource_status_update' order.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="mark_issued">
+                                    <button type="submit" class="layui-btn layui-btn-xs layui-btn-warm">确认发料</button>
+                                </form>
+                            </div>
+                            <div class="sc-action-group">
+                                <form method="post" action="{% url 'supply_chain:outsource_status_update' order.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="notify_pickup">
+                                    <button type="submit" class="layui-btn layui-btn-xs layui-btn-primary">内部通知</button>
+                                </form>
+                                <form method="post" action="{% url 'supply_chain:outsource_status_update' order.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="close_order">
+                                    <button type="submit" class="layui-btn layui-btn-xs layui-btn-danger">关闭订单</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="sc-empty">暂无委外发料单</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {% if page_obj.has_other_pages %}
+            <div class="layui-box layui-laypage layui-laypage-default">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}&status={{ status }}" class="layui-laypage-prev">上一页</a>
+                {% endif %}
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <span class="layui-laypage-curr"><em>{{ num }}</em></span>
+                    {% else %}
+                        <a href="?page={{ num }}&search={{ search }}&status={{ status }}">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}&search={{ search }}&status={{ status }}" class="layui-laypage-next">下一页</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

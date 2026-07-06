@@ -146,6 +146,22 @@ urlpatterns = [
     # 文件预览功能
     path('preview/', views.PreviewView.as_view(), name='preview'),
     path(
+        'onlyoffice/editor/<int:file_id>/',
+        views.OnlyOfficeEditorView.as_view(),
+        name='onlyoffice_editor'),
+    path(
+        'onlyoffice/config/<int:file_id>/',
+        views.OnlyOfficeConfigView.as_view(),
+        name='onlyoffice_config'),
+    path(
+        'onlyoffice/document/<int:file_id>/',
+        views.OnlyOfficeDocumentView.as_view(),
+        name='onlyoffice_document'),
+    path(
+        'onlyoffice/callback/<int:file_id>/',
+        views.OnlyOfficeCallbackView.as_view(),
+        name='onlyoffice_callback'),
+    path(
         'file/preview/<int:file_id>/',
         views.FilePreviewView.as_view(),
         name='file_preview'),

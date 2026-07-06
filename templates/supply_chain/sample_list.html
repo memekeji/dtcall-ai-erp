@@ -1,0 +1,146 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/supply_chain.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="sc-page-shell">
+    <div class="layui-card">
+        <div class="layui-card-header">
+            <div class="sc-toolbar">
+                <div class="sc-toolbar-left">
+                    <div>
+                        <h3>{{ page_title }}</h3>
+                        <div class="sc-summary-line">
+                            <span>当前申请 {{ total_count }} 条</span>
+                            <span>待领样 {{ pickup_pending_count }} 条</span>
+                            <span>已领样 {{ picked_up_count }} 条</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="sc-toolbar-right">
+                    <a href="{% url 'supply_chain:sample_statistics' %}" class="layui-btn layui-btn-sm layui-btn-primary"><i class="layui-icon layui-icon-chart"></i> 台账统计</a>
+                    <a href="{% url 'supply_chain:sample_create' %}" class="layui-btn layui-btn-sm">
+                        <i class="layui-icon layui-icon-add-1"></i> 新建打样申请
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="layui-card-body">
+            <div class="sc-stat-grid">
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">打样申请总数</div>
+                    <div class="sc-stat-value">{{ total_count }}</div>
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">待领样 / 超期未催</div>
+                    <div class="sc-stat-value">{{ pickup_pending_count }} / {{ overdue_pickup_count }}</div>
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">已领样</div>
+                    <div class="sc-stat-value">{{ picked_up_count }}</div>
+                </div>
+            </div>
+
+            <form class="layui-form sc-inline-form" method="get">
+                <div class="layui-row layui-col-space10">
+                    <div class="layui-col-md4">
+                        <input type="text" name="search" value="{{ search }}" placeholder="搜索编号、物料、规格、工程师" class="layui-input">
+                    </div>
+                    <div class="layui-col-md3">
+                        <select name="status" class="layui-input">
+                            <option value="">全部状态</option>
+                            {% for value, label in status_choices %}
+                            <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="layui-col-md5">
+                        <button class="layui-btn" type="submit"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+                        <a href="{% url 'supply_chain:sample_list' %}" class="layui-btn layui-btn-primary">重置</a>
+                    </div>
+                </div>
+            </form>
+
+            <table class="layui-table sc-table-compact" lay-skin="line">
+                <thead>
+                    <tr>
+                        <th>编号</th>
+                        <th>物料 / 规格</th>
+                        <th>工程师 / 供应商</th>
+                        <th>交期</th>
+                        <th>数量</th>
+                        <th>状态</th>
+                        <th width="260">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for request_obj in requests %}
+                    <tr>
+                        <td>{{ request_obj.code }}</td>
+                        <td>
+                            <div>{{ request_obj.material_name }}</div>
+                            <div class="sc-note">{{ request_obj.specification|default:'-' }}</div>
+                        </td>
+                        <td>
+                            <div>{{ request_obj.engineer|default:'-' }}</div>
+                            <div class="sc-note">{{ request_obj.supplier|default:'-' }}</div>
+                        </td>
+                        <td>{{ request_obj.required_date }}</td>
+                        <td>{{ request_obj.quantity }}</td>
+                        <td>
+                            <span class="sc-pill {% if request_obj.status == 'draft' %}primary{% elif request_obj.status == 'ordered' %}warning{% elif request_obj.status == 'received' or request_obj.status == 'pickup_pending' %}warning{% elif request_obj.status == 'picked_up' or request_obj.status == 'closed' %}success{% endif %}">
+                                {{ request_obj.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="sc-list-actions">
+                            <form method="post" action="{% url 'supply_chain:sample_receive' request_obj.id %}">
+                                {% csrf_token %}
+                                <input type="number" step="0.01" name="received_quantity" placeholder="到货数量" class="layui-input">
+                                <input type="text" name="location" placeholder="到货地点" class="layui-input">
+                                <button type="submit" class="layui-btn layui-btn-xs layui-btn-normal">登记到货</button>
+                            </form>
+                            <form method="post" action="{% url 'supply_chain:sample_pickup' request_obj.id %}">
+                                {% csrf_token %}
+                                <input type="text" name="note" placeholder="领样备注" class="layui-input">
+                                <button type="submit" class="layui-btn layui-btn-xs">确认领样</button>
+                            </form>
+                            {% if request_obj.status == 'pickup_pending' %}
+                            <form method="post" action="{% url 'supply_chain:sample_remind' request_obj.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="layui-btn layui-btn-xs layui-btn-warm">超期二次提醒</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="7" class="sc-empty">暂无打样申请</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+
+            {% if page_obj.has_other_pages %}
+            <div class="layui-box layui-laypage layui-laypage-default">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}&status={{ status }}" class="layui-laypage-prev">上一页</a>
+                {% endif %}
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <span class="layui-laypage-curr"><em>{{ num }}</em></span>
+                    {% else %}
+                        <a href="?page={{ num }}&search={{ search }}&status={{ status }}">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}&search={{ search }}&status={{ status }}" class="layui-laypage-next">下一页</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

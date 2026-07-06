@@ -48,6 +48,7 @@ from .serializers import CustomerFieldSerializer
 
 logger = logging.getLogger(__name__)
 CUSTOMER_FORMULA_TOKEN_PATTERN = re.compile(r'\{([a-zA-Z0-9_]+)\}')
+CUSTOMER_LIST_COLUMN_CONFIG_KEY_TEMPLATE = 'customer_list_columns_user_{user_id}'
 CUSTOMER_SAFE_FORMULA_OPERATORS = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,
@@ -169,6 +170,115 @@ def _get_customer_request_field_value_map(request):
         values = _get_customer_request_field_values(request, field)
         value_map[field.field_name] = values
     return value_map
+
+
+def _get_customer_list_column_config_key(user_id):
+    return CUSTOMER_LIST_COLUMN_CONFIG_KEY_TEMPLATE.format(user_id=user_id)
+
+
+def _build_customer_list_column_options(custom_fields, is_superuser=False):
+    options = [
+        {'key': 'id', 'title': 'ID', 'default': True, 'locked': True},
+        {'key': 'name', 'title': '客户名称', 'default': True, 'locked': True},
+        {'key': 'contact_name', 'title': '联系人', 'default': True, 'locked': False},
+        {'key': 'phone', 'title': '联系电话', 'default': True, 'locked': False},
+        {'key': 'email', 'title': '邮箱', 'default': True, 'locked': False},
+        {'key': 'customer_source', 'title': '客户来源', 'default': True, 'locked': False},
+        {'key': 'customer_grade', 'title': '客户等级', 'default': True, 'locked': False},
+        {'key': 'customer_intent', 'title': '客户意向', 'default': True, 'locked': False},
+        {'key': 'address', 'title': '地址', 'default': True, 'locked': False},
+        {'key': 'create_time', 'title': '创建时间', 'default': True, 'locked': False},
+    ]
+    if is_superuser:
+        options.append({'key': 'customer_owner', 'title': '客户归属', 'default': True, 'locked': False})
+
+    for field in custom_fields:
+        options.append({
+            'key': f'custom_{field.id}',
+            'title': field.name,
+            'default': True,
+            'locked': False,
+            'field_id': field.id,
+            'is_custom': True,
+        })
+    return options
+
+
+def _get_customer_list_column_settings(user, custom_fields, is_superuser=False):
+    options = _build_customer_list_column_options(custom_fields, is_superuser=is_superuser)
+    default_keys = [item['key'] for item in options if item.get('default')]
+    config_key = _get_customer_list_column_config_key(user.id)
+    saved_value = SystemConfiguration.objects.filter(
+        key=config_key,
+        is_active=True,
+    ).values_list('value', flat=True).first()
+
+    visible_keys = list(default_keys)
+    if saved_value:
+        try:
+            parsed_value = json.loads(saved_value)
+        except (TypeError, ValueError):
+            parsed_value = []
+        if isinstance(parsed_value, list):
+            allowed_keys = {item['key'] for item in options}
+            visible_keys = [key for key in parsed_value if key in allowed_keys]
+
+    locked_keys = [item['key'] for item in options if item.get('locked')]
+    for key in locked_keys:
+        if key not in visible_keys:
+            visible_keys.insert(0, key)
+
+    return {
+        'options': options,
+        'visible_keys': visible_keys,
+    }
+
+
+@login_required
+@require_POST
+def save_customer_list_column_settings(request):
+    try:
+        custom_fields = list(CustomerField.objects.filter(
+            status=True,
+            delete_time=0,
+            is_list_display=True,
+        ).order_by('sort', 'id'))
+        is_superuser = hasattr(request.user, 'is_superuser') and request.user.is_superuser
+        column_settings = _get_customer_list_column_settings(
+            request.user,
+            custom_fields,
+            is_superuser=is_superuser,
+        )
+        allowed_keys = {item['key'] for item in column_settings['options']}
+        locked_keys = {item['key'] for item in column_settings['options'] if item.get('locked')}
+
+        raw_keys = request.POST.get('visible_columns', '[]')
+        visible_keys = json.loads(raw_keys)
+        if not isinstance(visible_keys, list):
+            raise ValueError('visible_columns 格式不正确')
+
+        normalized_keys = []
+        for key in visible_keys:
+            key_text = str(key).strip()
+            if key_text and key_text in allowed_keys and key_text not in normalized_keys:
+                normalized_keys.append(key_text)
+
+        for key in locked_keys:
+            if key not in normalized_keys:
+                normalized_keys.insert(0, key)
+
+        SystemConfiguration.objects.update_or_create(
+            key=_get_customer_list_column_config_key(request.user.id),
+            defaults={
+                'value': json.dumps(normalized_keys, ensure_ascii=False),
+                'description': f'客户列表列显示配置(User:{request.user.id})',
+                'is_active': True,
+            }
+        )
+        return JsonResponse({'code': 0, 'msg': '列表列设置已保存'})
+    except Exception as e:
+        logger.error(f'保存客户列表列设置失败: {str(e)}', exc_info=True)
+        return JsonResponse({'code': 1, 'msg': f'保存失败: {str(e)}'})
 
 
 def _get_customer_formula_tokens(expression):
@@ -476,15 +586,28 @@ class CustomerListView(LoginRequiredMixin, ListView):
             context['cities'] = province_city_map
         
         # 获取启用的客户字段，用于动态生成表格列
-        custom_fields = CustomerField.objects.filter(
+        custom_fields = list(CustomerField.objects.filter(
             status=True, 
             delete_time=0, 
             is_list_display=True
-        ).order_by('sort', 'id')
+        ).order_by('sort', 'id'))
         context['custom_fields'] = custom_fields
         
         # 添加用户权限信息
         context['is_superuser'] = hasattr(self.request.user, 'is_superuser') and self.request.user.is_superuser
+        context['customer_column_settings'] = _get_customer_list_column_settings(
+            self.request.user,
+            custom_fields,
+            is_superuser=context['is_superuser'],
+        )
+        context['customer_column_settings_options_json'] = json.dumps(
+            context['customer_column_settings']['options'],
+            ensure_ascii=False,
+        )
+        context['customer_visible_column_keys_json'] = json.dumps(
+            context['customer_column_settings']['visible_keys'],
+            ensure_ascii=False,
+        )
         
         return context
 

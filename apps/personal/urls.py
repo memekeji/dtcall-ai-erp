@@ -87,4 +87,12 @@ urlpatterns = [
         'minutes/preview/<int:pk>/',
         views.generate_minutes_preview,
         name='minutes_preview'),
+    path(
+        'minutes/preview/config/<int:pk>/',
+        views.minutes_preview_config,
+        name='minutes_preview_config'),
+    path(
+        'minutes/preview/document/<int:pk>/',
+        views.minutes_preview_document,
+        name='minutes_preview_document'),
 ]

@@ -53,20 +53,31 @@ class DepartmentForm(forms.ModelForm):
         widgets = {
             'name': forms.TextInput(
                 attrs={
-                    'class': 'form-control'}),
+                    'class': 'layui-input',
+                    'placeholder': '请输入部门名称',
+                    'autocomplete': 'off'}),
             'code': forms.TextInput(
                 attrs={
-                    'class': 'form-control'}),
+                    'class': 'layui-input',
+                    'id': 'departmentCodeField',
+                    'placeholder': '系统将根据层级自动生成',
+                    'readonly': 'readonly',
+                    'data-auto-generate': 'true'}),
             'phone': forms.TextInput(
                 attrs={
-                    'class': 'form-control'}),
+                    'class': 'layui-input',
+                    'placeholder': '负责人联系电话将自动带出',
+                    'autocomplete': 'off'}),
             'sort': forms.NumberInput(
                 attrs={
-                    'class': 'form-control'}),
+                    'class': 'layui-input',
+                    'placeholder': '数字越小越靠前',
+                    'min': '0'}),
             'remark': forms.Textarea(
                 attrs={
-                    'class': 'form-control',
-                    'rows': 3}),
+                    'class': 'layui-textarea',
+                    'rows': 4,
+                    'placeholder': '补充部门职责、协作范围或管理说明'}),
         }
 
     def clean_pid(self):
@@ -116,6 +127,18 @@ class DepartmentForm(forms.ModelForm):
                 continue
             pid_choices.append((dept.id, dept.name))
         self.fields['pid'].choices = pid_choices
+        self.fields['pid'].widget.attrs.update({
+            'class': 'layui-select',
+            'id': 'departmentParentField',
+        })
+        self.fields['manager'].widget.attrs.update({
+            'class': 'layui-select',
+            'id': 'departmentManagerField',
+        })
+        self.fields['status'].widget.attrs.update({
+            'class': 'layui-select',
+            'id': 'departmentStatusField',
+        })
 
         # 编辑时设置负责人初始值
         if self.instance and self.instance.leader_ids:
@@ -177,19 +200,19 @@ class DepartmentForm(forms.ModelForm):
         1. 顶级部门：D001, D002, D003...
         2. 子部门：父部门代码 + 序号（如D001001, D001002...）
         """
+        import re
+
         if department.pid == 0:
-            # 顶级部门：D001, D002, D003...
-            last_dept = Department.objects.filter(
-                pid=0).order_by('-id').first()
-            if last_dept and last_dept.code:
-                # 提取数字部分并递增
-                import re
-                match = re.search(r'D(\d+)', last_dept.code)
+            top_level_departments = Department.objects.filter(pid=0)
+            if department.id:
+                top_level_departments = top_level_departments.exclude(id=department.id)
+
+            max_top_level = 0
+            for existing_department in top_level_departments:
+                match = re.fullmatch(r'D(\d{3})', (existing_department.code or '').strip())
                 if match:
-                    next_num = int(match.group(1)) + 1
-                    return f"D{next_num:03d}"
-            # 如果没有找到现有部门或无法解析代码，从D001开始
-            return "D001"
+                    max_top_level = max(max_top_level, int(match.group(1)))
+            return f"D{max_top_level + 1:03d}"
         else:
             # 子部门：父部门代码 + 序号
             try:
@@ -204,7 +227,7 @@ class DepartmentForm(forms.ModelForm):
                         if sibling.code and sibling.code.startswith(
                                 parent_dept.code):
                             suffix = sibling.code[len(parent_dept.code):]
-                            if suffix.isdigit():
+                            if re.fullmatch(r'\d{3}', suffix):
                                 max_suffix = max(max_suffix, int(suffix))
 
                     next_suffix = max_suffix + 1

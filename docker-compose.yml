@@ -42,13 +42,36 @@ services:
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY is required}
       - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,testserver,erp.dtcall.cn,www.dtcall.cn,dtcall.cn}
       - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-https://erp.dtcall.cn,https://www.dtcall.cn,https://dtcall.cn}
+      - X_FRAME_OPTIONS=${X_FRAME_OPTIONS:-SAMEORIGIN}
       - DEBUG=False
+      - ONLYOFFICE_ENABLED=${ONLYOFFICE_ENABLED:-true}
+      - ONLYOFFICE_SERVER_URL=${ONLYOFFICE_SERVER_URL:-http://onlyoffice}
+      - ONLYOFFICE_PUBLIC_PATH=${ONLYOFFICE_PUBLIC_PATH:-/office/}
+      - ONLYOFFICE_JWT_SECRET=${ONLYOFFICE_JWT_SECRET:-change-me-in-production}
+      - ONLYOFFICE_JWT_HEADER=${ONLYOFFICE_JWT_HEADER:-Authorization}
+      - ONLYOFFICE_VERIFY_SSL=${ONLYOFFICE_VERIFY_SSL:-false}
+      - ONLYOFFICE_CALLBACK_BASE_URL=${ONLYOFFICE_CALLBACK_BASE_URL:-}
     depends_on:
       - db
       - redis
+      - onlyoffice
     volumes:
       - ./media:/app/media
       - ./static:/app/static
+    restart: unless-stopped
+
+  onlyoffice:
+    image: onlyoffice/documentserver:latest
+    ports:
+      - "${ONLYOFFICE_PORT:-8082}:80"
+    environment:
+      - JWT_ENABLED=true
+      - JWT_SECRET=${ONLYOFFICE_JWT_SECRET:-change-me-in-production}
+      - JWT_HEADER=${ONLYOFFICE_JWT_HEADER:-Authorization}
+    volumes:
+      - onlyoffice_data:/var/www/onlyoffice/Data
+      - onlyoffice_logs:/var/log/onlyoffice
+      - onlyoffice_lib:/var/lib/onlyoffice
     restart: unless-stopped
 
   # AI Orchestrator Sidecar (Independent process)
@@ -97,3 +120,6 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  onlyoffice_data:
+  onlyoffice_logs:
+  onlyoffice_lib:

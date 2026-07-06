@@ -1027,11 +1027,19 @@ system_menus = {
         "sort": 94,
         "status": 1
     },
+    1690: {
+        "id": 1690,
+        "title": "产品与采购",
+        "src": "javascript:;",
+        "pid_id": 0,
+        "sort": 95,
+        "status": 1
+    },
     1218: {
         "id": 1218,
         "title": "产品分类",
         "src": "/contract/productcategory/",
-        "pid_id": 1207,
+        "pid_id": 1690,
         "sort": 95,
         "status": 1
     },
@@ -1039,7 +1047,7 @@ system_menus = {
         "id": 1219,
         "title": "产品管理",
         "src": "/contract/product/",
-        "pid_id": 1207,
+        "pid_id": 1690,
         "sort": 96,
         "status": 1
     },
@@ -1047,7 +1055,7 @@ system_menus = {
         "id": 1220,
         "title": "服务管理",
         "src": "/contract/service/",
-        "pid_id": 1207,
+        "pid_id": 1690,
         "sort": 97,
         "status": 1
     },
@@ -1055,7 +1063,7 @@ system_menus = {
         "id": 1221,
         "title": "供应商管理",
         "src": "/contract/supplier/",
-        "pid_id": 1207,
+        "pid_id": 1690,
         "sort": 98,
         "status": 1
     },
@@ -1063,7 +1071,7 @@ system_menus = {
         "id": 1222,
         "title": "采购分类",
         "src": "/contract/purchasecategory/",
-        "pid_id": 1207,
+        "pid_id": 1690,
         "sort": 99,
         "status": 1
     },
@@ -1071,7 +1079,7 @@ system_menus = {
         "id": 1223,
         "title": "采购项目",
         "src": "/contract/purchaseitem/",
-        "pid_id": 1207,
+        "pid_id": 1690,
         "sort": 100,
         "status": 1
     },
@@ -1395,6 +1403,70 @@ system_menus = {
         "src": "/production/product/receipt/",
         "pid_id": 1253,
         "sort": 1283,
+        "status": 1
+    },
+    1700: {
+        "id": 1700,
+        "title": "供应链管理",
+        "src": "javascript:;",
+        "pid_id": 0,
+        "sort": 128,
+        "status": 1
+    },
+    1701: {
+        "id": 1701,
+        "title": "供应链驾驶舱",
+        "src": "/supply-chain/",
+        "pid_id": 1700,
+        "sort": 1,
+        "status": 1
+    },
+    1702: {
+        "id": 1702,
+        "title": "库存智能分析",
+        "src": "/supply-chain/inventory-analysis/",
+        "pid_id": 1700,
+        "sort": 2,
+        "status": 1
+    },
+    1703: {
+        "id": 1703,
+        "title": "需求预测与备料评审",
+        "src": "/supply-chain/forecast/",
+        "pid_id": 1700,
+        "sort": 3,
+        "status": 1
+    },
+    1704: {
+        "id": 1704,
+        "title": "委外发料齐套",
+        "src": "/supply-chain/outsource/",
+        "pid_id": 1700,
+        "sort": 4,
+        "status": 1
+    },
+    1705: {
+        "id": 1705,
+        "title": "PR智能审核",
+        "src": "/supply-chain/pr-review/",
+        "pid_id": 1700,
+        "sort": 5,
+        "status": 1
+    },
+    1706: {
+        "id": 1706,
+        "title": "单价智能复核",
+        "src": "/supply-chain/price-review/",
+        "pid_id": 1700,
+        "sort": 6,
+        "status": 1
+    },
+    1707: {
+        "id": 1707,
+        "title": "打样管理",
+        "src": "/supply-chain/sample/",
+        "pid_id": 1700,
+        "sort": 7,
         "status": 1
     },
     1271: {

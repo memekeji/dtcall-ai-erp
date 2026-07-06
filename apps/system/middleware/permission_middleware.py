@@ -77,6 +77,10 @@ class PermissionMiddleware:
             '/disk/share/folder/', '/disk/share/preview/',
             '/disk/share/action/',
             '/disk/preview/',
+            '/disk/onlyoffice/editor/',
+            '/disk/onlyoffice/config/',
+            '/disk/onlyoffice/document/',
+            '/disk/onlyoffice/callback/',
         ]
         return any(path.startswith(url) for url in skip_urls)
 

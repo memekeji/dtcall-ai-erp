@@ -1,0 +1,298 @@
+{% extends "home/iframe_base.html" %}
+
+{% block title %}合同审查记录{% endblock %}
+
+{% block css %}
+<style>
+    body { background:#f4f7fb; }
+    .page-wrap { padding:16px; }
+    .page-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:14px; }
+    .page-title { font-size:18px; font-weight:600; color:#1f2d3d; margin:0 0 6px; }
+    .page-subtitle { font-size:13px; color:#8a94a6; line-height:1.7; }
+    .summary-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px; margin-bottom:14px; }
+    .summary-card { background:#fff; border:1px solid #e8edf5; border-radius:6px; padding:12px 14px; }
+    .summary-label { color:#8a94a6; font-size:12px; margin-bottom:4px; }
+    .summary-value { color:#2f3542; font-size:13px; line-height:1.7; word-break:break-word; }
+    .history-layout { display:grid; grid-template-columns:280px minmax(0, 1fr); gap:14px; min-height:560px; }
+    .history-list-panel, .history-detail-panel { background:#fff; border:1px solid #e8edf5; border-radius:6px; }
+    .history-list-head { padding:12px 14px; border-bottom:1px solid #eef2f7; font-size:13px; font-weight:600; color:#333; }
+    .history-list { max-height:520px; overflow-y:auto; }
+    .history-card { padding:12px 14px; border-bottom:1px solid #f1f4f8; cursor:pointer; transition:.2s; }
+    .history-card:last-child { border-bottom:none; }
+    .history-card:hover { background:#f7fbff; }
+    .history-card.active { background:#eef6ff; }
+    .history-card-tags { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+    .history-badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; line-height:1.5; }
+    .history-badge.type { background:#eef5ff; color:#1e549f; }
+    .history-badge.latest { background:#f0faf4; color:#2e7d32; }
+    .history-badge.queued { background:#eef5ff; color:#1e549f; }
+    .history-badge.running { background:#fff8e1; color:#b26a00; }
+    .history-badge.completed { background:#f0faf4; color:#2e7d32; }
+    .history-badge.failed { background:#fef0f0; color:#c0392b; }
+    .history-time { color:#8a94a6; font-size:12px; margin-bottom:6px; }
+    .history-summary { color:#4a5568; font-size:12px; line-height:1.7; }
+    .history-empty, .detail-empty { display:flex; align-items:center; justify-content:center; min-height:220px; color:#8a94a6; font-size:13px; text-align:center; padding:20px; }
+    .history-detail-panel { padding:14px; overflow:auto; }
+    .detail-meta { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px; margin-bottom:14px; }
+    .detail-meta-item { background:#fbfcfe; border:1px solid #eef2f7; border-radius:6px; padding:10px 12px; }
+    .detail-meta-label { color:#8a94a6; font-size:12px; margin-bottom:4px; }
+    .detail-meta-value { color:#2f3542; font-size:13px; line-height:1.7; word-break:break-word; }
+    .detail-section { margin-bottom:14px; }
+    .detail-section:last-child { margin-bottom:0; }
+    .detail-title { color:#1e549f; font-size:13px; font-weight:600; margin-bottom:8px; }
+    .risk-box { padding:14px 16px; border-left:4px solid #dbe3ef; border-radius:6px; background:#fbfcfe; }
+    .risk-box.high { background:#fef0f0; border-color:#e74c3c; }
+    .risk-box.medium { background:#fef9e7; border-color:#f39c12; }
+    .risk-box.low { background:#f0faf4; border-color:#27ae60; }
+    .risk-tag { display:inline-block; margin-bottom:8px; padding:3px 10px; border-radius:999px; font-size:12px; color:#fff; }
+    .risk-tag.high { background:#e74c3c; }
+    .risk-tag.medium { background:#f39c12; }
+    .risk-tag.low { background:#27ae60; }
+    .risk-tag.unknown { background:#8c8c8c; }
+    .quick-card { border:1px solid #eef2f7; border-radius:6px; background:#fff; padding:14px 16px; }
+    .quick-list { margin:8px 0 0; padding-left:18px; color:#475569; line-height:1.8; }
+    .data-table { width:100%; border-collapse:collapse; font-size:12px; background:#fff; }
+    .data-table th { background:#f8f8f8; padding:8px 10px; text-align:left; border-bottom:2px solid #eef1f6; }
+    .data-table td { padding:8px 10px; border-bottom:1px solid #eef1f6; vertical-align:top; }
+    .clause-item { border:1px solid #eef1f6; border-radius:6px; background:#fff; margin-bottom:10px; overflow:hidden; }
+    .clause-head { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 12px; background:#fafbfc; font-size:13px; font-weight:600; }
+    .clause-body { padding:12px; font-size:13px; color:#333; line-height:1.8; }
+    .clause-field { margin-bottom:10px; }
+    .clause-field:last-child { margin-bottom:0; }
+    .clause-label { font-size:12px; color:#8a94a6; margin-bottom:4px; }
+    @media (max-width: 1100px) {
+        .history-layout { grid-template-columns:1fr; }
+        .history-list { max-height:220px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrap">
+    <div class="page-head">
+        <div>
+            <h1 class="page-title">合同审查记录</h1>
+            <div class="page-subtitle">查看当前合同的快速评估、完整审查及历史详细结果。</div>
+        </div>
+        <button class="layui-btn layui-btn-sm layui-btn-primary" onclick="closeCurrentLayer()">关闭</button>
+    </div>
+
+    <div class="summary-grid">
+        <div class="summary-card">
+            <div class="summary-label">合同编号</div>
+            <div class="summary-value">{{ contract.code|default:"-" }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">合同名称</div>
+            <div class="summary-value">{{ contract.name|default:"-" }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">客户</div>
+            <div class="summary-value">{{ contract.customer|default:"-" }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">当前风险评级</div>
+            <div class="summary-value">{{ contract.ai_risk_level|default:"unknown" }}</div>
+        </div>
+    </div>
+
+    <div class="history-layout">
+        <div class="history-list-panel">
+            <div class="history-list-head">审查记录列表</div>
+            <div id="historyList" class="history-list">
+                <div class="history-empty">正在加载审查记录...</div>
+            </div>
+        </div>
+        <div class="history-detail-panel">
+            <div id="historyDetail" class="detail-empty">请选择左侧记录查看详情</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+var CONTRACT_ID = {{ contract.id }};
+var currentReviewId = null;
+var RISK_LABELS = {high:"高风险", medium:"中风险", low:"低风险", unknown:"待确认"};
+var TASK_LABELS = {queued:"排队中", running:"审查中", completed:"已完成", failed:"失败"};
+
+function closeCurrentLayer(){
+    if (window.parent && window.parent.layer) {
+        var index = window.parent.layer.getFrameIndex(window.name);
+        window.parent.layer.close(index);
+        return;
+    }
+    window.close();
+}
+
+function escapeHtml(text){
+    return String(text || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+function renderOverallAssessment(assessment){
+    assessment = assessment || {};
+    var level = assessment.risk_level || "unknown";
+    return "<div class='risk-box " + level + "'>"
+        + "<div class='risk-tag " + level + "'>" + (RISK_LABELS[level] || "待确认") + "</div>"
+        + "<div style='font-size:13px;color:#2f3542;line-height:1.8;'>" + escapeHtml(assessment.summary || "暂无总体评估").replace(/\n/g, "<br>") + "</div>"
+        + (assessment.final_recommendation ? "<div style='margin-top:10px;padding:8px 10px;border-radius:4px;background:#fff;font-weight:600;color:#2f3542;'>" + escapeHtml(assessment.final_recommendation).replace(/\n/g, "<br>") + "</div>" : "")
+        + "</div>";
+}
+
+function renderQuickReview(data){
+    data = data || {};
+    var level = data.risk_level || "unknown";
+    var risks = Array.isArray(data.key_risks) ? data.key_risks.filter(function(item){ return item; }) : [];
+    return "<div class='quick-card'>"
+        + "<div><span class='risk-tag " + level + "'>" + (RISK_LABELS[level] || "待确认") + "</span></div>"
+        + (data.brief_summary ? "<div style='font-size:13px;color:#2f3542;line-height:1.8;'>" + escapeHtml(data.brief_summary).replace(/\n/g, "<br>") + "</div>" : "")
+        + (risks.length ? "<ul class='quick-list'>" + risks.map(function(item){ return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>" : "")
+        + "</div>";
+}
+
+function renderCrossCheck(items){
+    items = items || [];
+    if(!items.length){
+        return "<div class='detail-empty'>本次记录未留存数据匹配校验结果。</div>";
+    }
+    var html = "<table class='data-table'><thead><tr><th>字段</th><th>原文提取值</th><th>系统录入值</th><th>状态</th><th>说明</th></tr></thead><tbody>";
+    items.forEach(function(item){
+        html += "<tr><td>" + escapeHtml(item.field || "-") + "</td><td>" + escapeHtml(item.extracted_value || "-") + "</td><td>" + escapeHtml(item.system_value || "-") + "</td><td>" + escapeHtml(item.status || "-") + "</td><td>" + escapeHtml(item.detail || "-") + "</td></tr>";
+    });
+    html += "</tbody></table>";
+    return html;
+}
+
+function renderClauses(items){
+    items = items || [];
+    if(!items.length){
+        return "<div class='detail-empty'>本次记录暂无逐条审查内容。</div>";
+    }
+    var html = "";
+    items.forEach(function(item, index){
+        html += "<div class='clause-item'>"
+            + "<div class='clause-head'><span>" + escapeHtml(item.clause_no || ("第" + (index + 1) + "条")) + " [" + escapeHtml(item.title || "未命名条款") + "]</span><span class='history-badge " + (item.risk_level || "unknown") + "'>" + (RISK_LABELS[item.risk_level || "unknown"] || "待确认") + "</span></div>"
+            + "<div class='clause-body'>"
+            + (item.original_summary ? "<div class='clause-field'><div class='clause-label'>原文摘要</div><div>" + escapeHtml(item.original_summary).replace(/\n/g, "<br>") + "</div></div>" : "")
+            + (item.risk_analysis ? "<div class='clause-field'><div class='clause-label'>风险分析</div><div>" + escapeHtml(item.risk_analysis).replace(/\n/g, "<br>") + "</div></div>" : "")
+            + (item.suggestion ? "<div class='clause-field'><div class='clause-label'>修改建议</div><div>" + escapeHtml(item.suggestion).replace(/\n/g, "<br>") + "</div></div>" : "")
+            + "</div></div>";
+    });
+    return html;
+}
+
+function renderConclusion(items){
+    items = items || [];
+    if(!items.length){
+        return "<div class='detail-empty'>本次记录暂无结论汇总。</div>";
+    }
+    var html = "<table class='data-table'><thead><tr><th>条款</th><th>名称</th><th>风险</th><th>建议动作</th></tr></thead><tbody>";
+    items.forEach(function(item){
+        html += "<tr><td>" + escapeHtml(item.clause_no || "-") + "</td><td>" + escapeHtml(item.title || "-") + "</td><td>" + escapeHtml(RISK_LABELS[item.risk_level || "unknown"] || "待确认") + "</td><td>" + escapeHtml(item.action || "-") + "</td></tr>";
+    });
+    html += "</tbody></table>";
+    return html;
+}
+
+function renderHistoryList(records){
+    var box = document.getElementById("historyList");
+    if(!records.length){
+        box.innerHTML = "<div class='history-empty'>当前合同还没有审查记录</div>";
+        document.getElementById("historyDetail").innerHTML = "<div class='detail-empty'>完成一次快速评估或完整审查后，记录会显示在这里。</div>";
+        return;
+    }
+    if(!currentReviewId){
+        currentReviewId = records[0].id;
+    }
+    box.innerHTML = records.map(function(item){
+        var status = item.task_status || "completed";
+        var active = item.id === currentReviewId ? " active" : "";
+        return "<div class='history-card" + active + "' data-id='" + item.id + "'>"
+            + "<div class='history-card-tags'>"
+            + "<span class='history-badge type'>" + escapeHtml(item.review_type_label || "审查记录") + "</span>"
+            + (item.is_latest ? "<span class='history-badge latest'>最新</span>" : "")
+            + "<span class='history-badge " + status + "'>" + escapeHtml(TASK_LABELS[status] || "已完成") + "</span>"
+            + "</div>"
+            + "<div class='history-time'>" + escapeHtml(item.reviewed_at || "") + "</div>"
+            + "<div class='history-summary'>" + escapeHtml(item.overall_summary || "本次记录暂无摘要").replace(/\n/g, "<br>") + "</div>"
+            + "</div>";
+    }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll(".history-card"), function(card){
+        card.addEventListener("click", function(){
+            currentReviewId = Number(card.getAttribute("data-id"));
+            renderHistoryList(records);
+            loadReviewDetail(currentReviewId);
+        });
+    });
+    loadReviewDetail(currentReviewId);
+}
+
+function renderDetail(detail){
+    var info = detail.contract_info || {};
+    var html = "<div class='detail-meta'>"
+        + "<div class='detail-meta-item'><div class='detail-meta-label'>审查类型</div><div class='detail-meta-value'>" + escapeHtml(detail.review_type_label || "-") + "</div></div>"
+        + "<div class='detail-meta-item'><div class='detail-meta-label'>任务状态</div><div class='detail-meta-value'>" + escapeHtml(TASK_LABELS[detail.status || "completed"] || "已完成") + "</div></div>"
+        + "<div class='detail-meta-item'><div class='detail-meta-label'>审查时间</div><div class='detail-meta-value'>" + escapeHtml(detail.reviewed_at || "-") + "</div></div>"
+        + "<div class='detail-meta-item'><div class='detail-meta-label'>风险等级</div><div class='detail-meta-value'>" + escapeHtml(RISK_LABELS[detail.overall_risk_level || "unknown"] || "待确认") + "</div></div>"
+        + "<div class='detail-meta-item'><div class='detail-meta-label'>合同名称</div><div class='detail-meta-value'>" + escapeHtml(info.contract_name || "{{ contract.name|escapejs }}") + "</div></div>"
+        + "<div class='detail-meta-item'><div class='detail-meta-label'>我方角色</div><div class='detail-meta-value'>" + escapeHtml(info.our_role || "-") + "</div></div>"
+        + "</div>";
+
+    if(detail.failed){
+        html += "<div class='detail-section'><div class='detail-title'>失败信息</div><div class='detail-empty'>" + escapeHtml(detail.task_error || "详细审查失败，请重试。") + "</div></div>";
+    }
+
+    if(detail.review_type === "quick"){
+        html += "<div class='detail-section'><div class='detail-title'>快速评估结果</div>" + renderQuickReview(detail.quick_review_result || {}) + "</div>";
+    } else {
+        html += "<div class='detail-section'><div class='detail-title'>总体评估</div>" + renderOverallAssessment(detail.overall_assessment || {}) + "</div>";
+        html += "<div class='detail-section'><div class='detail-title'>数据匹配校验</div>" + renderCrossCheck(detail.data_cross_check || []) + "</div>";
+        html += "<div class='detail-section'><div class='detail-title'>逐条审查意见</div>" + renderClauses(detail.clause_reviews || []) + "</div>";
+        html += "<div class='detail-section'><div class='detail-title'>结论汇总</div>" + renderConclusion(detail.review_conclusion || []) + "</div>";
+    }
+
+    document.getElementById("historyDetail").innerHTML = html;
+}
+
+function loadReviewDetail(reviewId){
+    document.getElementById("historyDetail").innerHTML = "<div class='detail-empty'>正在加载详情...</div>";
+    fetch("/contract/ai/review/detail/" + reviewId + "/", {headers: {"X-Requested-With":"XMLHttpRequest"}})
+        .then(function(r){ return r.json(); })
+        .then(function(res){
+            if(res.code === 0){
+                renderDetail(res.data || {});
+            } else {
+                document.getElementById("historyDetail").innerHTML = "<div class='detail-empty'>记录详情加载失败</div>";
+            }
+        })
+        .catch(function(){
+            document.getElementById("historyDetail").innerHTML = "<div class='detail-empty'>记录详情加载失败</div>";
+        });
+}
+
+function loadReviewHistory(){
+    fetch("/contract/ai/review/history/" + CONTRACT_ID + "/", {headers: {"X-Requested-With":"XMLHttpRequest"}})
+        .then(function(r){ return r.json(); })
+        .then(function(res){
+            if(res.code === 0){
+                renderHistoryList(res.data || []);
+            } else {
+                document.getElementById("historyList").innerHTML = "<div class='history-empty'>审查记录加载失败</div>";
+            }
+        })
+        .catch(function(){
+            document.getElementById("historyList").innerHTML = "<div class='history-empty'>审查记录加载失败</div>";
+        });
+}
+
+document.addEventListener("DOMContentLoaded", function(){
+    loadReviewHistory();
+});
+</script>
+{% endblock %}

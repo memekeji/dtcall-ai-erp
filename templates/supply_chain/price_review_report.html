@@ -1,0 +1,91 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/supply_chain.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="sc-page-shell">
+    <div class="layui-card">
+        <div class="layui-card-header">
+            <div class="sc-toolbar">
+                <div class="sc-toolbar-left">
+                    <div>
+                        <h3>{{ page_title }}</h3>
+                        <div class="sc-summary-line">
+                            <span>共 {{ total_orders }} 份复核单</span>
+                            <span>异常率 {{ exception_rate }}%</span>
+                            <span>高/中风险 {{ high_risk_count }}/{{ medium_risk_count }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="sc-toolbar-right">
+                    <a href="{% url 'supply_chain:price_review_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">
+                        <i class="layui-icon layui-icon-list"></i> 返回列表
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="layui-card-body">
+            <div class="sc-stat-grid">
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">复核单总数</div>
+                    <div class="sc-stat-value">{{ total_orders }}</div>
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">异常率</div>
+                    <div class="sc-stat-value">{{ exception_rate }}%</div>
+                    <div class="sc-stat-footnote">{{ exception_orders }} 条异常 / {{ approved_orders }} 条通过</div>
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">异常金额合计</div>
+                    <div class="sc-stat-value">{{ total_abnormal_amount }}</div>
+                    <div class="sc-stat-footnote">{{ abnormal_component_count }} 个异常成本项</div>
+                </div>
+            </div>
+
+            <div class="sc-form-section">
+                <div class="sc-form-section-title">成本项汇总拆解</div>
+                <table class="layui-table sc-table-compact" lay-skin="line">
+                    <thead>
+                        <tr>
+                            <th>成本项</th>
+                            <th>项数</th>
+                            <th>总金额</th>
+                            <th>均价</th>
+                            <th>异常金额</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for c in cost_breakdown %}
+                        <tr>
+                            <td>{{ c.component_type }}</td>
+                            <td>{{ c.item_count }}</td>
+                            <td>{{ c.total_amount }}</td>
+                            <td>{{ c.avg_amount }}</td>
+                            <td><span class="sc-pill {% if c.abnormal_amount != '0.0000' %}danger{% else %}success{% endif %}">{{ c.abnormal_amount }}</span></td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="5" class="sc-empty">暂无数据</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if negotiation_items %}
+            <div class="sc-form-section">
+                <div class="sc-form-section-title">可议价事项（{{ negotiation_items|length }} 条）</div>
+                <ul style="margin:0;padding:0 0 0 20px;color:var(--dt-text-secondary);line-height:2;">
+                {% for item in negotiation_items %}
+                    <li>{{ item }}</li>
+                {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

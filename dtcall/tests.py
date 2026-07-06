@@ -62,6 +62,29 @@ class DatabaseConfigurationTests(SimpleTestCase):
             "SET SESSION sql_mode='STRICT_TRANS_TABLES,NO_ZERO_DATE'",
         )
 
+    def test_mysql_database_options_normalize_double_quoted_init_command(self):
+        from dtcall import settings as dtcall_settings
+
+        with patch.dict(os.environ, {'MYSQL_INIT_COMMAND': "''STRICT_TRANS_TABLES'';"}):
+            options = dtcall_settings._database_options('django.db.backends.mysql')
+
+        self.assertEqual(
+            options['init_command'],
+            "SET sql_mode='STRICT_TRANS_TABLES'",
+        )
+
+    def test_database_url_normalizes_mysql_init_command_query_param(self):
+        from dtcall import settings as dtcall_settings
+
+        config = dtcall_settings._database_from_url(
+            "mysql://root:secret@127.0.0.1:3306/dtcall?init_command=%27STRICT_TRANS_TABLES%27"
+        )
+
+        self.assertEqual(
+            config['OPTIONS']['init_command'],
+            "SET sql_mode='STRICT_TRANS_TABLES'",
+        )
+
     def test_database_setup_build_config_normalizes_mysql_init_command(self):
         from apps.system.database_setup import build_database_config
 

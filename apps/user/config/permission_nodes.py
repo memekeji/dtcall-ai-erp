@@ -878,48 +878,11 @@ PERMISSION_NODES = {
         }
     },
 
-    # 8. 合同管理
-    'contract': {
-        'name': '合同管理',
-        'icon': 'layui-icon-template-1',
+    # 8. 产品与采购
+    'basedata': {
+        'name': '产品与采购',
+        'icon': 'layui-icon-tabs',
         'children': {
-            'contract_list': {
-                'name': '合同列表',
-                'permissions': [
-                    {'codename': 'view_contract', 'name': '菜单查看'},
-                    {'codename': 'view_contract_detail', 'name': '查看合同'},
-                    {'codename': 'add_contract', 'name': '新增合同'},
-                    {'codename': 'change_contract', 'name': '编辑合同'},
-                    {'codename': 'delete_contract', 'name': '删除合同'},
-                    {'codename': 'approve_contract', 'name': '审核合同'},
-                ]
-            },
-            'contract_template': {
-                'name': '合同模板',
-                'permissions': [
-                    {'codename': 'view_contract_template', 'name': '菜单查看'},
-                    {'codename': 'add_contract_template', 'name': '新增模板'},
-                    {'codename': 'change_contract_template', 'name': '编辑模板'},
-                    {'codename': 'delete_contract_template', 'name': '删除模板'},
-                    {'codename': 'approve_contract_template', 'name': '审核模板'},
-                ]
-            },
-            'contract_archive': {
-                'name': '合同归档',
-                'permissions': [
-                    {'codename': 'view_contract_archive', 'name': '菜单查看'},
-                    {'codename': 'archive_contract', 'name': '归档合同'},
-                ]
-            },
-            'contract_category': {
-                'name': '合同分类',
-                'permissions': [
-                    {'codename': 'view_contract_category', 'name': '菜单查看'},
-                    {'codename': 'add_contract_category', 'name': '新增分类'},
-                    {'codename': 'change_contract_category', 'name': '编辑分类'},
-                    {'codename': 'delete_contract_category', 'name': '删除分类'},
-                ]
-            },
             'product': {
                 'name': '产品管理',
                 'permissions': [
@@ -968,7 +931,52 @@ PERMISSION_NODES = {
         }
     },
 
-    # 9. 项目管理
+    # 9. 合同管理
+    'contract': {
+        'name': '合同管理',
+        'icon': 'layui-icon-template-1',
+        'children': {
+            'contract_list': {
+                'name': '合同列表',
+                'permissions': [
+                    {'codename': 'view_contract', 'name': '菜单查看'},
+                    {'codename': 'view_contract_detail', 'name': '查看合同'},
+                    {'codename': 'add_contract', 'name': '新增合同'},
+                    {'codename': 'change_contract', 'name': '编辑合同'},
+                    {'codename': 'delete_contract', 'name': '删除合同'},
+                    {'codename': 'approve_contract', 'name': '审核合同'},
+                ]
+            },
+            'contract_template': {
+                'name': '合同模板',
+                'permissions': [
+                    {'codename': 'view_contract_template', 'name': '菜单查看'},
+                    {'codename': 'add_contract_template', 'name': '新增模板'},
+                    {'codename': 'change_contract_template', 'name': '编辑模板'},
+                    {'codename': 'delete_contract_template', 'name': '删除模板'},
+                    {'codename': 'approve_contract_template', 'name': '审核模板'},
+                ]
+            },
+            'contract_archive': {
+                'name': '合同归档',
+                'permissions': [
+                    {'codename': 'view_contract_archive', 'name': '菜单查看'},
+                    {'codename': 'archive_contract', 'name': '归档合同'},
+                ]
+            },
+            'contract_category': {
+                'name': '合同分类',
+                'permissions': [
+                    {'codename': 'view_contract_category', 'name': '菜单查看'},
+                    {'codename': 'add_contract_category', 'name': '新增分类'},
+                    {'codename': 'change_contract_category', 'name': '编辑分类'},
+                    {'codename': 'delete_contract_category', 'name': '删除分类'},
+                ]
+            },
+        }
+    },
+
+    # 10. 项目管理
     'project': {
         'name': '项目管理',
         'icon': 'layui-icon-project',
@@ -1201,7 +1209,68 @@ PERMISSION_NODES = {
         }
     },
 
-    # 11. AI智能中心
+    # 11. 供应链管理
+    'supply_chain': {
+        'name': '供应链管理',
+        'icon': 'layui-icon-chart-screen',
+        'children': {
+            'supply_chain_dashboard': {
+                'name': '供应链驾驶舱',
+                'permissions': [
+                    {'codename': 'view_supply_chain_dashboard', 'name': '菜单查看'},
+                ]
+            },
+            'supply_chain_inventory_analysis': {
+                'name': '库存智能分析',
+                'permissions': [
+                    {'codename': 'view_supply_chain_inventory_analysis', 'name': '菜单查看'},
+                ]
+            },
+            'supply_chain_forecast': {
+                'name': '需求预测与备料评审',
+                'permissions': [
+                    {'codename': 'view_supply_chain_forecast', 'name': '菜单查看'},
+                    {'codename': 'add_supply_chain_forecast', 'name': '新建预测计划'},
+                    {'codename': 'approve_supply_chain_forecast', 'name': '备料评审'},
+                ]
+            },
+            'supply_chain_outsource': {
+                'name': '委外发料齐套',
+                'permissions': [
+                    {'codename': 'view_supply_chain_outsource', 'name': '菜单查看'},
+                    {'codename': 'add_supply_chain_outsource', 'name': '新建委外发料单'},
+                    {'codename': 'change_supply_chain_outsource', 'name': '齐套与发料流转'},
+                ]
+            },
+            'supply_chain_pr_review': {
+                'name': 'PR智能审核',
+                'permissions': [
+                    {'codename': 'view_supply_chain_pr_review', 'name': '菜单查看'},
+                    {'codename': 'add_supply_chain_pr_review', 'name': '新建审核任务'},
+                    {'codename': 'approve_supply_chain_pr_review', 'name': '审核与一键审批'},
+                ]
+            },
+            'supply_chain_price_review': {
+                'name': '单价智能复核',
+                'permissions': [
+                    {'codename': 'view_supply_chain_price_review', 'name': '菜单查看'},
+                    {'codename': 'add_supply_chain_price_review', 'name': '新建复核单'},
+                    {'codename': 'change_supply_chain_price_review', 'name': '规格书解析'},
+                    {'codename': 'approve_supply_chain_price_review', 'name': '复核结论确认'},
+                ]
+            },
+            'supply_chain_sample': {
+                'name': '打样管理',
+                'permissions': [
+                    {'codename': 'view_supply_chain_sample', 'name': '菜单查看'},
+                    {'codename': 'add_supply_chain_sample', 'name': '新建打样申请'},
+                    {'codename': 'change_supply_chain_sample', 'name': '到货与领样处理'},
+                ]
+            },
+        }
+    },
+
+    # 12. AI智能中心
     'ai': {
         'name': 'AI智能中心',
         'icon': 'layui-icon-app',
@@ -1243,7 +1312,7 @@ PERMISSION_NODES = {
         }
     },
 
-    # 12. 企业网盘
+    # 13. 企业网盘
     'disk': {
         'name': '企业网盘',
         'icon': 'layui-icon-cloud',

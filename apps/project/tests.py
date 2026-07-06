@@ -2,17 +2,21 @@ from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import FieldDoesNotExist
 from django.core.management import call_command
+from django.core import signing
 from django.test import TestCase, override_settings
 from datetime import date, datetime
 from decimal import Decimal
+import os
+import shutil
+import tempfile
 from django.urls import reverse
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from apps.contract.models import ContractCate, Purchase
 from apps.customer.models import Customer, CustomerContract, CustomerOrder
 from apps.message.models import MessageUserRelation
 from apps.message.services import MessageService
-from apps.project.models import Comment, Project, ProjectRiskAnalysis, Task
+from apps.project.models import Comment, Project, ProjectDocument, ProjectRiskAnalysis, Task
 from apps.user.models import Admin
 
 
@@ -714,3 +718,95 @@ class ProjectRiskRefreshSchedulerCommandTests(TestCase):
                     finally:
                         if scheduler_command.PID_FILE.exists():
                             scheduler_command.PID_FILE.unlink()
+
+
+@override_settings(
+    MIDDLEWARE=TEST_MIDDLEWARE,
+    ONLYOFFICE_ENABLED=True,
+    ONLYOFFICE_SERVER_URL='http://127.0.0.1:8082',
+    ONLYOFFICE_PUBLIC_PATH='/office/',
+    ONLYOFFICE_CALLBACK_BASE_URL='http://testserver',
+    ONLYOFFICE_JWT_SECRET='',
+)
+class ProjectDocumentOnlyOfficeTests(TestCase):
+    def setUp(self):
+        self.media_root = tempfile.mkdtemp(prefix='project-onlyoffice-')
+        self.addCleanup(shutil.rmtree, self.media_root, ignore_errors=True)
+        self.override_media = override_settings(MEDIA_ROOT=self.media_root)
+        self.override_media.enable()
+        self.addCleanup(self.override_media.disable)
+
+        self.user = Admin.objects.create_user(
+            username='project_doc_user',
+            password='secret123',
+            email='project-doc@example.com',
+            name='项目文档测试员',
+        )
+        self.client.force_login(self.user)
+        self.project = Project.objects.create(
+            name='ONLYOFFICE项目',
+            code='PRJ-OO-001',
+            creator=self.user,
+            manager=self.user,
+            budget=Decimal('1000.00'),
+            actual_cost=Decimal('0'),
+        )
+        relative_path = os.path.join('documents', 'spec.docx')
+        absolute_path = os.path.join(self.media_root, relative_path)
+        os.makedirs(os.path.dirname(absolute_path), exist_ok=True)
+        with open(absolute_path, 'wb') as handle:
+            handle.write(b'project-doc-v1')
+        self.document = ProjectDocument.objects.create(
+            project=self.project,
+            title='实施方案',
+            content='',
+            file_path=relative_path.replace('\\', '/'),
+            creator=self.user,
+        )
+
+    def test_saved_project_document_onlyoffice_config_is_editable(self):
+        response = self.client.get(
+            reverse('project:project_document_onlyoffice_config', args=[self.document.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['editorConfig']['mode'], 'edit')
+        self.assertTrue(payload['document']['permissions']['edit'])
+
+    def test_temp_uploaded_project_document_onlyoffice_config_is_read_only(self):
+        session = self.client.session
+        session['project_uploaded_documents'] = [self.document.file_path]
+        session.save()
+
+        response = self.client.get(
+            reverse('project:project_document_temp_onlyoffice_config'),
+            {'path': self.document.file_path, 'title': '临时方案.docx'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['editorConfig']['mode'], 'view')
+        self.assertFalse(payload['document']['permissions']['edit'])
+
+    @patch('apps.disk.services.onlyoffice.requests.get')
+    def test_saved_project_document_onlyoffice_callback_persists_file(self, mock_get):
+        token = signing.dumps(
+            {'doc_id': self.document.id, 'action': 'callback', 'can_edit': True},
+            salt='project.onlyoffice.callback',
+        )
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.content = b'project-doc-v2'
+        mock_get.return_value = mock_response
+
+        response = self.client.post(
+            reverse('project:project_document_onlyoffice_callback', args=[self.document.id]) + f'?token={token}',
+            data='{"status": 2, "url": "http://document-server/cache/result.docx"}',
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {'error': 0})
+        with open(os.path.join(self.media_root, self.document.file_path), 'rb') as handle:
+            self.assertEqual(handle.read(), b'project-doc-v2')

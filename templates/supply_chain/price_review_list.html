@@ -1,0 +1,170 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/supply_chain.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="sc-page-shell">
+    <div class="layui-card">
+        <div class="layui-card-header">
+            <div class="sc-toolbar">
+                <div class="sc-toolbar-left">
+                    <div>
+                        <h3>{{ page_title }}</h3>
+                        <div class="sc-summary-line">
+                            <span>当前单据 {{ total_count }} 条</span>
+                            <span>异常待处理 {{ exception_count }} 条</span>
+                            <span>已通过 {{ approved_count }} 条</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="sc-toolbar-right">
+                    <a href="{% url 'supply_chain:price_review_report' %}" class="layui-btn layui-btn-sm layui-btn-primary"><i class="layui-icon layui-icon-chart"></i> 成本报表</a>
+                    <a href="{% url 'supply_chain:price_review_create' %}" class="layui-btn layui-btn-sm">
+                        <i class="layui-icon layui-icon-add-1"></i> 新建单价复核单
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="layui-card-body">
+            <div class="sc-stat-grid">
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">复核单总数</div>
+                    <div class="sc-stat-value">{{ total_count }}</div>
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">异常待处理</div>
+                    <div class="sc-stat-value">{{ exception_count }}</div>
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">已通过</div>
+                    <div class="sc-stat-value">{{ approved_count }}</div>
+                </div>
+            </div>
+
+            <form class="layui-form sc-inline-form" method="get">
+                <div class="layui-row layui-col-space10">
+                    <div class="layui-col-md4">
+                        <input type="text" name="search" value="{{ search }}" placeholder="搜索编号、物料、供应商" class="layui-input">
+                    </div>
+                    <div class="layui-col-md3">
+                        <select name="status" class="layui-input">
+                            <option value="">全部状态</option>
+                            {% for value, label in status_choices %}
+                            <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="layui-col-md5">
+                        <button class="layui-btn" type="submit"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+                        <a href="{% url 'supply_chain:price_review_list' %}" class="layui-btn layui-btn-primary">重置</a>
+                    </div>
+                </div>
+            </form>
+
+            <table class="layui-table sc-table-compact" lay-skin="line">
+                <thead>
+                    <tr>
+                        <th>编号</th>
+                        <th>物料 / 供应商</th>
+                        <th>报价</th>
+                        <th>状态</th>
+                        <th width="260">解析规格书</th>
+                        <th width="340">成本复核分析</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for order in orders %}
+                    <tr>
+                        <td>{{ order.code }}</td>
+                        <td>
+                            <div>{{ order.inventory_item|default:'-' }}</div>
+                            <div class="sc-note">{{ order.supplier|default:'-' }}</div>
+                        </td>
+                        <td>{{ order.quoted_price }}</td>
+                        <td>
+                            <span class="sc-pill {% if order.status == 'exception' %}danger{% elif order.status == 'approved' %}success{% elif order.status == 'reviewing' or order.status == 'breakdown' %}warning{% endif %}">
+                                {{ order.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="sc-list-actions">
+                            <form method="post" action="{% url 'supply_chain:price_review_parse_document' order.id %}" enctype="multipart/form-data">
+                                {% csrf_token %}
+                                <input type="file" name="document_file" class="layui-input">
+                                <textarea name="raw_text" rows="2" placeholder="或直接粘贴规格文本" class="layui-textarea"></textarea>
+                                <button type="submit" class="layui-btn layui-btn-xs">解析规格书</button>
+                            </form>
+                        </td>
+                        <td class="sc-list-actions">
+                            <form method="post" action="{% url 'supply_chain:price_review_analyze' order.id %}">
+                                {% csrf_token %}
+                                <div class="layui-row layui-col-space5">
+                                    <div class="layui-col-md6">
+                                        <input type="number" step="0.0001" name="material_cost" placeholder="原材料" class="layui-input">
+                                    </div>
+                                    <div class="layui-col-md6">
+                                        <input type="number" step="0.0001" name="process_cost" placeholder="工艺" class="layui-input">
+                                    </div>
+                                    <div class="layui-col-md6">
+                                        <input type="number" step="0.0001" name="labor_cost" placeholder="人工" class="layui-input">
+                                    </div>
+                                    <div class="layui-col-md6">
+                                        <input type="number" step="0.0001" name="loss_cost" placeholder="损耗" class="layui-input">
+                                    </div>
+                                    <div class="layui-col-md6">
+                                        <input type="number" step="0.0001" name="package_cost" placeholder="包装" class="layui-input">
+                                    </div>
+                                    <div class="layui-col-md6">
+                                        <input type="number" step="0.0001" name="logistics_cost" placeholder="物流" class="layui-input">
+                                    </div>
+                                    <div class="layui-col-md6">
+                                        <input type="number" step="0.0001" name="profit_cost" placeholder="利润" class="layui-input">
+                                    </div>
+                                    <div class="layui-col-md6">
+                                        <input type="text" name="historical_prices" placeholder="历史价 如11,12" class="layui-input">
+                                    </div>
+                                    <div class="layui-col-md6">
+                                        <input type="number" step="0.0001" name="market_price" placeholder="市场价" class="layui-input">
+                                    </div>
+                                    <div class="layui-col-md6">
+                                        <input type="number" step="0.0001" name="target_price" placeholder="目标价" class="layui-input">
+                                    </div>
+                                </div>
+                                <button type="submit" class="layui-btn layui-btn-xs layui-btn-normal">生成复核报告</button>
+                                {% if order.conclusion and order.conclusion.summary %}
+                                <div class="sc-note" style="margin-top:6px;">{{ order.conclusion.summary|truncatewords:24 }}</div>
+                                {% endif %}
+                            </form>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="6" class="sc-empty">暂无复核单</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+
+            {% if page_obj.has_other_pages %}
+            <div class="layui-box layui-laypage layui-laypage-default">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}&status={{ status }}" class="layui-laypage-prev">上一页</a>
+                {% endif %}
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <span class="layui-laypage-curr"><em>{{ num }}</em></span>
+                    {% else %}
+                        <a href="?page={{ num }}&search={{ search }}&status={{ status }}">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}&search={{ search }}&status={{ status }}" class="layui-laypage-next">下一页</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

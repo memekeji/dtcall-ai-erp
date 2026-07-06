@@ -1,21 +1,88 @@
 from apps.common.views_utils import generic_list_view, generic_form_view
 from .forms import ProjectStageForm, ProjectCategoryForm, WorkTypeForm
 from .models import ProjectStage, ProjectCategory, WorkType
+import json
+import logging
+import mimetypes
+import os
 from django.db.models import Q
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, get_object_or_404
 from django.views import View
-from django.http import JsonResponse
+from django.http import FileResponse, Http404, JsonResponse
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core import signing
 from django.db.models import Q, Count
 from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from django.urls import reverse
 from .models import Project, Task, ProjectDocument, ProjectCategory
 from .comment_mentions import get_project_comment_candidate_users
+from apps.disk.services import onlyoffice as onlyoffice_service
 from django.contrib.auth import get_user_model
 from apps.user.models import Admin
 from datetime import datetime
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
+
+PROJECT_ONLYOFFICE_DOCUMENT_SALT = 'project.onlyoffice.document'
+PROJECT_ONLYOFFICE_CALLBACK_SALT = 'project.onlyoffice.callback'
+PROJECT_UPLOADED_FILES_SESSION_KEY = 'project_uploaded_documents'
+
+
+def _project_user_can_access_document(user, document):
+    if user.is_superuser:
+        return True
+    return (
+        document.creator == user or
+        document.project.creator == user or
+        document.project.manager == user or
+        user in document.project.members.all()
+    )
+
+
+def _normalize_project_relative_path(relative_path):
+    return str(relative_path or '').strip().replace('\\', '/').lstrip('/')
+
+
+def _resolve_project_file_path(relative_path):
+    normalized_path = _normalize_project_relative_path(relative_path)
+    if not normalized_path:
+        raise Http404('文件不存在')
+
+    absolute_path = os.path.realpath(os.path.join(settings.MEDIA_ROOT, normalized_path))
+    media_root = os.path.realpath(settings.MEDIA_ROOT)
+    if not absolute_path.startswith(media_root):
+        raise Http404('文件不存在')
+    if not os.path.exists(absolute_path):
+        raise Http404('文件不存在')
+    return normalized_path, absolute_path
+
+
+def _get_project_file_extension(relative_path):
+    return os.path.splitext(_normalize_project_relative_path(relative_path))[1].lower()
+
+
+def _get_project_download_url(request, relative_path):
+    normalized_path = _normalize_project_relative_path(relative_path)
+    return request.build_absolute_uri(settings.MEDIA_URL + normalized_path)
+
+
+def _append_uploaded_project_file(request, relative_path):
+    normalized_path = _normalize_project_relative_path(relative_path)
+    uploaded_paths = list(request.session.get(PROJECT_UPLOADED_FILES_SESSION_KEY, []))
+    uploaded_paths = [path for path in uploaded_paths if path != normalized_path]
+    uploaded_paths.append(normalized_path)
+    request.session[PROJECT_UPLOADED_FILES_SESSION_KEY] = uploaded_paths[-20:]
+    request.session.modified = True
+
+
+def _project_uploaded_file_allowed(request, relative_path):
+    normalized_path = _normalize_project_relative_path(relative_path)
+    return normalized_path in set(request.session.get(PROJECT_UPLOADED_FILES_SESSION_KEY, []))
 
 
 def _is_checked_post_flag(request, field_name):
@@ -1127,10 +1194,19 @@ class ProjectDocumentEditView(LoginRequiredMixin, View):
             if not self.has_permission(request.user, document):
                 return JsonResponse({'code': 1, 'msg': '没有权限编辑此文档'})
 
+            file_ext = _get_project_file_extension(document.file_path)
             return render(request, 'project/document_form.html', {
                 'document': document,
                 'projects': projects,
-                'is_edit': True
+                'is_edit': True,
+                'document_file_url': _get_project_download_url(request, document.file_path)
+                if document.file_path else '',
+                'document_file_ext': file_ext,
+                'document_onlyoffice_url': (
+                    reverse('project:project_document_onlyoffice', args=[document.id])
+                    if onlyoffice_service.is_supported_extension(file_ext)
+                    else ''
+                ),
             })
         except Exception as e:
             return JsonResponse({'code': 1, 'msg': f'获取文档信息失败: {str(e)}'})
@@ -1172,14 +1248,7 @@ class ProjectDocumentEditView(LoginRequiredMixin, View):
 
     def has_permission(self, user, document):
         """检查用户是否有权限编辑文档"""
-        if user.is_superuser:
-            return True
-        return (
-            document.creator == user or
-            document.project.creator == user or
-            document.project.manager == user or
-            user in document.project.members.all()
-        )
+        return _project_user_can_access_document(user, document)
 
 
 class ProjectDocumentDeleteView(LoginRequiredMixin, View):
@@ -1207,13 +1276,7 @@ class ProjectDocumentDeleteView(LoginRequiredMixin, View):
 
     def has_permission(self, user, document):
         """检查用户是否有权限删除文档"""
-        if user.is_superuser:
-            return True
-        return (
-            document.creator == user or
-            document.project.creator == user or
-            document.project.manager == user
-        )
+        return _project_user_can_access_document(user, document)
 
 
 class ProjectDocumentDetailView(LoginRequiredMixin, View):
@@ -1229,21 +1292,243 @@ class ProjectDocumentDetailView(LoginRequiredMixin, View):
             if not self.has_permission(request.user, document):
                 return JsonResponse({'code': 1, 'msg': '没有权限查看此文档'})
 
-            return render(request, 'project/document_detail.html',
-                          {'document': document})
+            file_ext = _get_project_file_extension(document.file_path)
+            context = {
+                'document': document,
+                'document_file_url': _get_project_download_url(request, document.file_path)
+                if document.file_path else '',
+                'document_file_ext': file_ext,
+                'document_onlyoffice_url': (
+                    reverse('project:project_document_onlyoffice', args=[document.id])
+                    if onlyoffice_service.is_supported_extension(file_ext)
+                    else ''
+                ),
+            }
+            return render(request, 'project/document_detail.html', context)
         except Exception as e:
             return JsonResponse({'code': 1, 'msg': f'获取文档详情失败: {str(e)}'})
 
     def has_permission(self, user, document):
         """检查用户是否有权限查看文档"""
-        if user.is_superuser:
-            return True
-        return (
-            document.creator == user or
-            document.project.creator == user or
-            document.project.manager == user or
-            user in document.project.members.all()
+        return _project_user_can_access_document(user, document)
+
+
+class ProjectDocumentOnlyOfficeEditorView(LoginRequiredMixin, View):
+    login_url = '/user/login/'
+
+    def get(self, request, doc_id):
+        document = get_object_or_404(
+            ProjectDocument, id=doc_id, delete_time__isnull=True)
+        if not _project_user_can_access_document(request.user, document):
+            raise Http404('文档不存在或无权访问')
+
+        response = render(request, 'disk/onlyoffice_editor.html', {
+            'editor_title': document.title,
+            'onlyoffice_enabled': settings.ONLYOFFICE_ENABLED,
+            'onlyoffice_config_url': reverse(
+                'project:project_document_onlyoffice_config', args=[document.id]),
+            'onlyoffice_editor_id': f'project-onlyoffice-editor-{document.id}',
+            'onlyoffice_api_script_url': onlyoffice_service.get_editor_api_script_url(request),
+        })
+        response['X-Frame-Options'] = 'SAMEORIGIN'
+        return response
+
+
+class ProjectDocumentOnlyOfficeConfigView(LoginRequiredMixin, View):
+    login_url = '/user/login/'
+
+    def get(self, request, doc_id):
+        document = get_object_or_404(
+            ProjectDocument, id=doc_id, delete_time__isnull=True)
+        if not _project_user_can_access_document(request.user, document):
+            return JsonResponse({'detail': 'forbidden'}, status=403)
+        if not settings.ONLYOFFICE_ENABLED:
+            return JsonResponse({'detail': 'ONLYOFFICE is disabled'}, status=503)
+
+        file_ext = _get_project_file_extension(document.file_path)
+        if not onlyoffice_service.is_supported_extension(file_ext):
+            return JsonResponse({'detail': 'unsupported file type'}, status=400)
+        _resolve_project_file_path(document.file_path)
+
+        document_url = reverse('project:project_document_onlyoffice_file')
+        document_token = signing.dumps(
+            {'doc_id': document.id, 'action': 'document'},
+            salt=PROJECT_ONLYOFFICE_DOCUMENT_SALT,
         )
+        callback_token = signing.dumps(
+            {'doc_id': document.id, 'action': 'callback', 'can_edit': True},
+            salt=PROJECT_ONLYOFFICE_CALLBACK_SALT,
+        )
+        payload = onlyoffice_service.build_editor_config_from_urls(
+            title=document.title or os.path.basename(document.file_path),
+            file_ext=file_ext,
+            document_url=request.build_absolute_uri(
+                f'{document_url}?token={document_token}'),
+            document_key=onlyoffice_service.build_document_key_from_values(
+                document.id,
+                document.update_time.isoformat() if document.update_time else '',
+                document.file_path,
+            ),
+            user=request.user,
+            can_edit=True,
+            allow_download=True,
+            allow_copy=True,
+            callback_url=request.build_absolute_uri(
+                reverse('project:project_document_onlyoffice_callback', args=[document.id]))
+            + f'?token={callback_token}',
+        )
+        return JsonResponse(payload, json_dumps_params={'ensure_ascii': False})
+
+
+class ProjectDocumentTempOnlyOfficeEditorView(LoginRequiredMixin, View):
+    login_url = '/user/login/'
+
+    def get(self, request):
+        relative_path = _normalize_project_relative_path(request.GET.get('path'))
+        title = (request.GET.get('title') or os.path.basename(relative_path or '')).strip()
+        if not relative_path or not _project_uploaded_file_allowed(request, relative_path):
+            raise Http404('文件不存在或无权访问')
+        file_ext = _get_project_file_extension(relative_path)
+        if not onlyoffice_service.is_supported_extension(file_ext):
+            raise Http404('文件格式不支持')
+        _resolve_project_file_path(relative_path)
+
+        config_url = reverse('project:project_document_temp_onlyoffice_config')
+        config_url += f'?path={relative_path}&title={title}'
+        response = render(request, 'disk/onlyoffice_editor.html', {
+            'editor_title': title,
+            'onlyoffice_enabled': settings.ONLYOFFICE_ENABLED,
+            'onlyoffice_config_url': config_url,
+            'onlyoffice_editor_id': 'project-onlyoffice-temp-editor',
+            'onlyoffice_api_script_url': onlyoffice_service.get_editor_api_script_url(request),
+        })
+        response['X-Frame-Options'] = 'SAMEORIGIN'
+        return response
+
+
+class ProjectDocumentTempOnlyOfficeConfigView(LoginRequiredMixin, View):
+    login_url = '/user/login/'
+
+    def get(self, request):
+        relative_path = _normalize_project_relative_path(request.GET.get('path'))
+        title = (request.GET.get('title') or os.path.basename(relative_path or '')).strip()
+        if not relative_path or not _project_uploaded_file_allowed(request, relative_path):
+            return JsonResponse({'detail': 'forbidden'}, status=403)
+        if not settings.ONLYOFFICE_ENABLED:
+            return JsonResponse({'detail': 'ONLYOFFICE is disabled'}, status=503)
+
+        file_ext = _get_project_file_extension(relative_path)
+        if not onlyoffice_service.is_supported_extension(file_ext):
+            return JsonResponse({'detail': 'unsupported file type'}, status=400)
+        _resolve_project_file_path(relative_path)
+
+        document_token = signing.dumps(
+            {'path': relative_path, 'title': title, 'action': 'document', 'temp': True},
+            salt=PROJECT_ONLYOFFICE_DOCUMENT_SALT,
+        )
+        payload = onlyoffice_service.build_editor_config_from_urls(
+            title=title,
+            file_ext=file_ext,
+            document_url=request.build_absolute_uri(
+                reverse('project:project_document_onlyoffice_file')) + f'?token={document_token}',
+            document_key=onlyoffice_service.build_document_key_from_values(
+                'temp',
+                relative_path,
+                title,
+            ),
+            user=request.user,
+            can_edit=False,
+            allow_download=True,
+            allow_copy=True,
+        )
+        return JsonResponse(payload, json_dumps_params={'ensure_ascii': False})
+
+
+class ProjectDocumentOnlyOfficeFileView(View):
+    def get(self, request):
+        token = request.GET.get('token', '').strip()
+        if not token:
+            return JsonResponse({'code': 1, 'msg': '缺少访问令牌'}, status=403)
+
+        try:
+            payload = onlyoffice_service.load_signed_payload(
+                token, PROJECT_ONLYOFFICE_DOCUMENT_SALT)
+        except signing.SignatureExpired:
+            return JsonResponse({'code': 1, 'msg': '访问令牌已过期'}, status=403)
+        except signing.BadSignature:
+            return JsonResponse({'code': 1, 'msg': '访问令牌无效'}, status=403)
+
+        if payload.get('temp'):
+            relative_path = payload.get('path')
+            title = payload.get('title') or os.path.basename(relative_path or '')
+        else:
+            document = get_object_or_404(
+                ProjectDocument,
+                id=int(payload.get('doc_id', 0)),
+                delete_time__isnull=True,
+            )
+            relative_path = document.file_path
+            title = document.title or os.path.basename(relative_path or '')
+
+        _, absolute_path = _resolve_project_file_path(relative_path)
+        response = FileResponse(open(absolute_path, 'rb'), as_attachment=False, filename=title)
+        content_type, _ = mimetypes.guess_type(absolute_path)
+        if content_type:
+            response['Content-Type'] = content_type
+        response['X-Frame-Options'] = 'SAMEORIGIN'
+        return response
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class ProjectDocumentOnlyOfficeCallbackView(View):
+    def post(self, request, doc_id):
+        token = request.GET.get('token', '').strip()
+        if not token:
+            return JsonResponse({'error': 1}, status=403)
+
+        try:
+            payload = onlyoffice_service.load_signed_payload(
+                token, PROJECT_ONLYOFFICE_CALLBACK_SALT)
+        except signing.SignatureExpired:
+            return JsonResponse({'error': 1}, status=403)
+        except signing.BadSignature:
+            return JsonResponse({'error': 1}, status=403)
+
+        if (
+            payload.get('action') != 'callback' or
+            int(payload.get('doc_id', 0)) != doc_id or
+            not payload.get('can_edit')
+        ):
+            return JsonResponse({'error': 1}, status=403)
+
+        try:
+            body = json.loads(request.body.decode('utf-8') or '{}')
+        except (TypeError, ValueError):
+            return JsonResponse({'error': 1}, status=400)
+
+        if not onlyoffice_service.validate_callback_token(request, body):
+            return JsonResponse({'error': 1}, status=403)
+        if not onlyoffice_service.should_persist_status(body.get('status')):
+            return JsonResponse({'error': 0})
+
+        file_url = (body.get('url') or '').strip()
+        if not file_url:
+            return JsonResponse({'error': 1}, status=400)
+
+        document = get_object_or_404(
+            ProjectDocument, id=doc_id, delete_time__isnull=True)
+        _, absolute_path = _resolve_project_file_path(document.file_path)
+
+        try:
+            content = onlyoffice_service.fetch_saved_document(file_url)
+            with open(absolute_path, 'wb') as handle:
+                handle.write(content)
+            document.save(update_fields=['update_time'])
+        except Exception:
+            logger.exception('项目文档 ONLYOFFICE 回调保存失败: doc_id=%s', doc_id)
+            return JsonResponse({'error': 1}, status=500)
+
+        return JsonResponse({'error': 0})
 
 
 class ProjectDocumentUploadView(LoginRequiredMixin, View):
@@ -1300,6 +1585,7 @@ class ProjectDocumentUploadView(LoginRequiredMixin, View):
             file_path = os.path.join(upload_dir, unique_filename)
             saved_path = default_storage.save(
                 file_path, ContentFile(file.read()))
+            _append_uploaded_project_file(request, saved_path)
 
             # 生成访问URL
             file_url = request.build_absolute_uri(

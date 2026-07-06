@@ -1,0 +1,135 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/supply_chain.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="sc-page-shell">
+    <div class="layui-card">
+        <div class="layui-card-header">
+            <div class="sc-toolbar">
+                <div class="sc-toolbar-left">
+                    <div>
+                        <h3>{{ page_title }}</h3>
+                        <div class="sc-summary-line">
+                            <span>按安全库存、再订货点和当前可用库存自动识别风险</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="sc-toolbar-right">
+                    <a href="{% url 'supply_chain:dashboard' %}" class="layui-btn layui-btn-sm layui-btn-primary">返回驾驶舱</a>
+                </div>
+            </div>
+        </div>
+        <div class="layui-card-body">
+            <div class="sc-stat-grid">
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">物料总数</div>
+                    <div class="sc-stat-value">{{ total_items }}</div>
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">高风险</div>
+                    <div class="sc-stat-value">{{ high_risk_count }}</div>
+                    <div class="sc-stat-footnote">低于安全库存</div>
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">中风险</div>
+                    <div class="sc-stat-value">{{ medium_risk_count }}</div>
+                    <div class="sc-stat-footnote">接近再订货点</div>
+                </div>
+            </div>
+
+            <div class="sc-table-caption">物料风险按库存实时聚合结果展示，便于计划与采购快速锁定补货对象。</div>
+            <table class="layui-table sc-table-compact" lay-skin="line">
+                <thead>
+                    <tr>
+                        <th>物料</th>
+                        <th>可用库存</th>
+                        <th>总库存</th>
+                        <th>安全库存</th>
+                        <th>再订货点</th>
+                        <th>缺口</th>
+                        <th>状态</th>
+                        <th>风险等级</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr>
+                        <td>{{ row.item.code }} / {{ row.item.name }}</td>
+                        <td>{{ row.available_quantity }}</td>
+                        <td>{{ row.total_quantity }}</td>
+                        <td>{{ row.safety_stock }}</td>
+                        <td>{{ row.reorder_point|default:'-' }}</td>
+                        <td>{{ row.coverage_gap }}</td>
+                        <td>{{ row.status }}</td>
+                        <td>
+                            <span class="sc-pill {% if row.risk_level == 'high' %}danger{% elif row.risk_level == 'medium' %}warning{% else %}success{% endif %}">
+                                {{ row.risk_level }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" class="sc-empty">暂无库存数据</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <div class="sc-form-section">
+                <div class="sc-form-section-title">库存深度分析</div>
+                <div class="sc-stat-grid">
+                    <div class="sc-stat-card">
+                        <div class="sc-stat-label">库存总价值</div>
+                        <div class="sc-stat-value">{{ total_value }}</div>
+                    </div>
+                    <div class="sc-stat-card">
+                        <div class="sc-stat-label">呆滞物料</div>
+                        <div class="sc-stat-value">{{ dead_stock_count }}</div>
+                        <div class="sc-stat-footnote">90天无变动，金额 {{ dead_stock_value }}</div>
+                    </div>
+                    <div class="sc-stat-card">
+                        <div class="sc-stat-label">低于安全库存</div>
+                        <div class="sc-stat-value">{{ safety_breach_count }}</div>
+                    </div>
+                </div>
+                <div class="sc-note" style="margin-bottom:12px;">ABC分类：A类 {{ class_a_count }} 项 / B类 {{ class_b_count }} 项 / C类 {{ class_c_count }} 项</div>
+                <table class="layui-table sc-table-compact" lay-skin="line">
+                    <thead>
+                        <tr>
+                            <th>物料</th>
+                            <th>可用量</th>
+                            <th>单价</th>
+                            <th>库存价值</th>
+                            <th>ABC</th>
+                            <th>累计占比</th>
+                            <th>状态</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for r in rows|slice:":20" %}
+                        <tr>
+                            <td>{{ r.item }}</td>
+                            <td>{{ r.avail_qty }}</td>
+                            <td>{{ r.unit_price }}</td>
+                            <td>{{ r.item_value }}</td>
+                            <td><span class="sc-pill {% if r.abc_class == 'A' %}danger{% elif r.abc_class == 'B' %}warning{% else %}success{% endif %}">{{ r.abc_class }}</span></td>
+                            <td>{{ r.cumulative_pct }}%</td>
+                            <td>{% if r.is_dead_stock %}<span class="sc-pill danger">呆滞</span>{% else %}<span class="sc-note">活跃</span>{% endif %}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="7" class="sc-empty">暂无数据</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% if rows|length > 20 %}
+                <div class="sc-note">仅显示前20项，共 {{ rows|length }} 项</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

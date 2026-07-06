@@ -1,0 +1,163 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/supply_chain.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="sc-page-shell">
+    <div class="layui-card">
+        <div class="layui-card-header">
+            <div class="sc-toolbar">
+                <div class="sc-toolbar-left">
+                    <div>
+                        <h3>{{ page_title }}</h3>
+                        <div class="sc-summary-line">
+                            <span>当前任务 {{ total_count }} 条</span>
+                            <span>人工复核 {{ manual_review_count }} 条</span>
+                            <span>周期可批量审批 {{ batch_ready_count }} 条</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="sc-toolbar-right">
+                    <a href="{% url 'supply_chain:pr_review_create' %}" class="layui-btn layui-btn-sm">
+                        <i class="layui-icon layui-icon-add-1"></i> 新建 PR 审核任务
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="layui-card-body">
+            <div class="sc-stat-grid">
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">审核任务总数</div>
+                    <div class="sc-stat-value">{{ total_count }}</div>
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">待人工复核</div>
+                    <div class="sc-stat-value">{{ manual_review_count }}</div>
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">周期审批池</div>
+                    <div class="sc-stat-value">{{ batch_ready_count }}</div>
+                </div>
+            </div>
+
+            <form class="layui-form sc-inline-form" method="get">
+                <div class="layui-row layui-col-space10">
+                    <div class="layui-col-md4">
+                        <input type="text" name="search" value="{{ search }}" placeholder="搜索编号、标题、来源单号" class="layui-input">
+                    </div>
+                    <div class="layui-col-md3">
+                        <select name="status" class="layui-input">
+                            <option value="">全部状态</option>
+                            {% for value, label in status_choices %}
+                            <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="layui-col-md2">
+                        <select name="abnormal" class="layui-input">
+                            <option value="">全部类型</option>
+                            <option value="1" {% if abnormal == '1' %}selected{% endif %}>仅异常</option>
+                            <option value="0" {% if abnormal == '0' %}selected{% endif %}>仅常规</option>
+                        </select>
+                    </div>
+                    <div class="layui-col-md3">
+                        <button class="layui-btn" type="submit"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+                        <a href="{% url 'supply_chain:pr_review_list' %}" class="layui-btn layui-btn-primary">重置</a>
+                    </div>
+                </div>
+            </form>
+
+            <div class="sc-form-section">
+                <div class="sc-form-section-title">周期批量审批</div>
+                <form class="layui-form" method="post" action="{% url 'supply_chain:pr_review_batch_approve' %}">
+                    {% csrf_token %}
+                    <div class="layui-row layui-col-space10">
+                        <div class="layui-col-md8">
+                            <input type="text" name="note" placeholder="输入本轮周期审批备注，例如：周一 MRP 批量放行" class="layui-input">
+                        </div>
+                        <div class="layui-col-md4">
+                            <button type="submit" class="layui-btn">执行周期批量审批</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <table class="layui-table sc-table-compact" lay-skin="line">
+                <thead>
+                    <tr>
+                        <th>编号</th>
+                        <th>标题</th>
+                        <th>状态</th>
+                        <th>建议动作</th>
+                        <th>异常</th>
+                        <th>命中规则</th>
+                        <th width="340">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for task in tasks %}
+                    <tr>
+                        <td>{{ task.code }}</td>
+                        <td>
+                            <div>{{ task.title }}</div>
+                            <div class="sc-note">{{ task.source_type|default:'未设置来源类型' }} / {{ task.source_code|default:'-' }}</div>
+                        </td>
+                        <td><span class="sc-pill {% if task.status == 'manual_review' %}warning{% elif task.status == 'done' or task.status == 'auto_approved' %}success{% elif task.status == 'rejected' %}danger{% endif %}">{{ task.get_status_display }}</span></td>
+                        <td>{{ task.recommended_action|default:'-' }}</td>
+                        <td>
+                            <span class="sc-pill {% if task.is_abnormal %}danger{% else %}success{% endif %}">
+                                {% if task.is_abnormal %}异常{% else %}常规{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            {% for rule in task.matched_rules.all %}
+                                <div class="sc-note">{{ rule.code }} / {{ rule.name }}</div>
+                            {% empty %}
+                                <span class="sc-note">未命中规则</span>
+                            {% endfor %}
+                        </td>
+                        <td class="sc-list-actions">
+                            <form method="post" action="{% url 'supply_chain:pr_review_evaluate' task.id %}">
+                                {% csrf_token %}
+                                <textarea name="payload_json" rows="3" class="layui-textarea" placeholder='{"tail_order": true, "lt_shortage": false}'></textarea>
+                                <button type="submit" class="layui-btn layui-btn-xs">规则识别</button>
+                            </form>
+                            <form method="post" action="{% url 'supply_chain:pr_review_approve' task.id %}">
+                                {% csrf_token %}
+                                <input type="text" name="note" placeholder="审批备注" class="layui-input">
+                                <button type="submit" class="layui-btn layui-btn-xs layui-btn-normal">一键审批</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="7" class="sc-empty">暂无审核任务</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+
+            {% if page_obj.has_other_pages %}
+            <div class="layui-box layui-laypage layui-laypage-default">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}&status={{ status }}&abnormal={{ abnormal }}" class="layui-laypage-prev">上一页</a>
+                {% endif %}
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <span class="layui-laypage-curr"><em>{{ num }}</em></span>
+                    {% else %}
+                        <a href="?page={{ num }}&search={{ search }}&status={{ status }}&abnormal={{ abnormal }}">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}&search={{ search }}&status={{ status }}&abnormal={{ abnormal }}" class="layui-laypage-next">下一页</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

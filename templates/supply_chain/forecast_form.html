@@ -1,0 +1,73 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/supply_chain.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>{{ page_title }}</h3>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form sc-form-grid" method="post">
+            {% csrf_token %}
+            <div class="sc-form-section">
+                <div class="sc-form-section-title">计划基础信息</div>
+                <div class="layui-row layui-col-space15">
+                    <div class="layui-col-md6">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">计划名称</label>
+                            <div class="layui-input-block">{{ form.name }}</div>
+                        </div>
+                    </div>
+                    <div class="layui-col-md6">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">关联产品</label>
+                            <div class="layui-input-block">{{ form.product }}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-row layui-col-space15">
+                    <div class="layui-col-md6">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">周期开始</label>
+                            <div class="layui-input-block">{{ form.period_start }}</div>
+                        </div>
+                    </div>
+                    <div class="layui-col-md6">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">周期结束</label>
+                            <div class="layui-input-block">{{ form.period_end }}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-row layui-col-space15">
+                    <div class="layui-col-md4">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">版本</label>
+                            <div class="layui-input-block">{{ form.version }}</div>
+                        </div>
+                    </div>
+                    <div class="layui-col-md8">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">计划摘要</label>
+                            <div class="layui-input-block">{{ form.summary }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" type="submit">保存计划</button>
+                    <a href="{% url 'supply_chain:forecast_list' %}" class="layui-btn layui-btn-primary">返回列表</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

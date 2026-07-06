@@ -194,6 +194,7 @@ export DATABASE_PORT=''              # 留空时 PostgreSQL 默认 5432，MySQL 
 export DATABASE_NAME='dtcall'
 export DATABASE_USER='dtcall_user'
 export DATABASE_PASSWORD='<your-database-password>'
+export MYSQL_INIT_COMMAND='STRICT_TRANS_TABLES'  # 仅 MySQL/MariaDB 使用；不要再额外包单引号
 ```
 
 也可以使用 `DATABASE_URL` 统一配置数据库连接：
@@ -202,6 +203,8 @@ export DATABASE_PASSWORD='<your-database-password>'
 export DATABASE_URL='postgresql://dtcall_user:password@127.0.0.1:5432/dtcall'
 # 或
 export DATABASE_URL='mysql://dtcall_user:password@127.0.0.1:3306/dtcall'
+# 如需指定 MySQL SQL_MODE，可额外设置：
+# export MYSQL_INIT_COMMAND='STRICT_TRANS_TABLES'
 ```
 
 Redis缓存环境变量配置如下：
@@ -281,6 +284,50 @@ server {
     }
 }
 ```
+
+### Office 在线预览与协同编辑
+
+项目现在将 Office 文档预览/协同编辑接入为 **Django + ONLYOFFICE Document Server** 的一体化方案：
+
+- Django 继续管理登录、权限、文件存储、分享、审计
+- ONLYOFFICE 作为同机配套文档服务运行
+- 浏览器通过同域名下的 `/office/` 访问编辑器资源
+
+最关键的环境变量如下：
+
+```bash
+X_FRAME_OPTIONS=SAMEORIGIN
+ONLYOFFICE_ENABLED=True
+ONLYOFFICE_PUBLIC_PATH=/office/
+ONLYOFFICE_JWT_SECRET=<long-random-secret>
+ONLYOFFICE_JWT_HEADER=Authorization
+ONLYOFFICE_VERIFY_SSL=False
+ONLYOFFICE_CALLBACK_BASE_URL=https://erp.example.com
+```
+
+`ONLYOFFICE_CALLBACK_BASE_URL` 可以留空，此时运行时会回退到当前请求域名；前提是本机 ONLYOFFICE 服务也能解析并访问这个同域地址。
+
+`docker-compose.yml` 已包含 `onlyoffice` 服务；手工 Linux 部署请参考：
+
+- [ONLYOFFICE Manual Linux Deployment](</E:/研发/dtcall/docs/deployment/onlyoffice-manual-linux.md>)
+- [Nginx Example](</E:/研发/dtcall/docs/deployment/onlyoffice-nginx.conf.example>)
+
+仓库还提供了一个手工 Linux 部署辅助脚本，可以在无 Docker 环境下生成 dtcall 所需 env 片段和同域 Nginx 配置，并支持直接安装本地 ONLYOFFICE `.deb` 包：
+
+```bash
+sudo bash ./scripts/setup_onlyoffice_linux.sh \
+  --domain erp.example.com \
+  --jwt-secret <long-random-secret> \
+  --package /path/to/onlyoffice-documentserver_amd64.deb
+```
+
+部署完成后可运行：
+
+```bash
+python manage.py check_onlyoffice
+```
+
+它会检查 iframe、回调域名、公共代理路径，以及可选的 ONLYOFFICE 服务连通性。
 
 生产环境必须启用HTTPS以确保数据传输安全，建议使用Let's Encrypt获取免费的SSL证书。还需要配置定期数据库备份策略，建议每日全量备份并保留最近30天的备份文件。此外，建议部署监控系统监控服务器资源使用情况和应用运行状态，及时发现和处理异常情况。
 

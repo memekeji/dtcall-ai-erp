@@ -607,6 +607,8 @@ class SampleReceipt(models.Model):
         verbose_name='登记人',
     )
     create_time = models.DateTimeField(default=timezone.now, verbose_name='创建时间')
+    pickup_reminded_at = models.DateTimeField(null=True, blank=True, verbose_name='上次提醒时间')
+    reminder_count = models.IntegerField(default=0, verbose_name='提醒次数')
 
     class Meta:
         db_table = 'supply_chain_sample_receipt'
@@ -662,3 +664,4 @@ class SupplyChainEventLog(models.Model):
         verbose_name = '供应链事件日志'
         verbose_name_plural = verbose_name
         ordering = ['-create_time']
+

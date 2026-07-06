@@ -1,0 +1,159 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/supply_chain.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="sc-page-shell">
+    <div class="layui-card">
+        <div class="layui-card-header">
+            <div class="sc-toolbar">
+                <div class="sc-toolbar-left">
+                    <div>
+                        <h3>{{ page_title }}</h3>
+                        <div class="sc-summary-line">
+                            <span>计划、采购、仓库、研发协同统一入口</span>
+                            <span>核心单据与提醒均留痕在系统内闭环</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="sc-toolbar-right">
+                    <a href="{% url 'supply_chain:forecast_list' %}" class="layui-btn layui-btn-sm">
+                        <i class="layui-icon layui-icon-chart-screen"></i> 进入业务台账
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="layui-card-body">
+            <div class="sc-stat-grid">
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">预测计划</div>
+                    <div class="sc-stat-value">{{ forecast_count }}</div>
+                    <div class="sc-stat-footnote">待评审 {{ forecast_pending_reviews }} 条</div>
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">委外缺料单</div>
+                    <div class="sc-stat-value">{{ outsource_shortage_count }}</div>
+                    <div class="sc-stat-footnote">优先跟进齐套风险</div>
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">PR 人工复核</div>
+                    <div class="sc-stat-value">{{ pr_manual_review_count }}</div>
+                    <div class="sc-stat-footnote">异常与紧急申请集中处理</div>
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">单价异常</div>
+                    <div class="sc-stat-value">{{ price_exception_count }}</div>
+                    <div class="sc-stat-footnote">待议价或结论确认</div>
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">待领样</div>
+                    <div class="sc-stat-value">{{ sample_pending_pickup_count }}</div>
+                    <div class="sc-stat-footnote">研发样品到货待闭环</div>
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">库存高风险</div>
+                    <div class="sc-stat-value">{{ inventory_summary.high_risk_count }}</div>
+                    <div class="sc-stat-footnote">中风险 {{ inventory_summary.medium_risk_count }} 项</div>
+                </div>
+            </div>
+
+            <div class="sc-grid-two">
+                <div class="sc-metric-panel">
+                    <h4>业务入口</h4>
+                    <div class="sc-action-group">
+                        <a href="{% url 'supply_chain:forecast_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">需求预测</a>
+                        <a href="{% url 'supply_chain:outsource_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">委外齐套</a>
+                        <a href="{% url 'supply_chain:pr_review_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">PR 审核</a>
+                        <a href="{% url 'supply_chain:price_review_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">单价复核</a>
+                        <a href="{% url 'supply_chain:sample_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">打样管理</a>
+                        <a href="{% url 'supply_chain:forecast_trend' %}" class="layui-btn layui-btn-sm layui-btn-primary">预测趋势</a>
+                        <a href="{% url 'supply_chain:price_review_report' %}" class="layui-btn layui-btn-sm layui-btn-primary">成本报表</a>
+                        <a href="{% url 'supply_chain:inventory_analysis' %}" class="layui-btn layui-btn-sm layui-btn-primary">库存分析</a>
+                    </div>
+                </div>
+                <div class="sc-metric-panel">
+                    <h4>库存概览</h4>
+                    <p>当前纳入分析物料 {{ inventory_summary.total_items }} 项，高风险 {{ inventory_summary.high_risk_count }} 项，中风险 {{ inventory_summary.medium_risk_count }} 项。页面会直接按安全库存与再订货点标出风险等级。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="sc-metric-list">
+        <div class="sc-metric-panel">
+            <h4>最新预测计划</h4>
+            <table class="layui-table sc-table-compact" lay-skin="line">
+                <thead>
+                    <tr>
+                        <th>编号</th>
+                        <th>计划</th>
+                        <th>状态</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for plan in recent_forecasts %}
+                    <tr>
+                        <td>{{ plan.code }}</td>
+                        <td>{{ plan.name }}</td>
+                        <td><span class="sc-pill">{{ plan.get_status_display }}</span></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="sc-empty">暂无预测计划</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="sc-metric-panel">
+            <h4>最新 PR 任务</h4>
+            <table class="layui-table sc-table-compact" lay-skin="line">
+                <thead>
+                    <tr>
+                        <th>编号</th>
+                        <th>标题</th>
+                        <th>状态</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in recent_pr_tasks %}
+                    <tr>
+                        <td>{{ task.code }}</td>
+                        <td>{{ task.title }}</td>
+                        <td><span class="sc-pill {% if task.is_abnormal %}warning{% endif %}">{{ task.get_status_display }}</span></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="sc-empty">暂无 PR 审核任务</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="sc-metric-panel">
+            <h4>最新打样申请</h4>
+            <table class="layui-table sc-table-compact" lay-skin="line">
+                <thead>
+                    <tr>
+                        <th>编号</th>
+                        <th>物料</th>
+                        <th>状态</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sample in recent_samples %}
+                    <tr>
+                        <td>{{ sample.code }}</td>
+                        <td>{{ sample.material_name }}</td>
+                        <td><span class="sc-pill {% if sample.status == 'pickup_pending' %}warning{% elif sample.status == 'picked_up' %}success{% endif %}">{{ sample.get_status_display }}</span></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="sc-empty">暂无打样申请</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

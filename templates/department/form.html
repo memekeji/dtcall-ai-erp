@@ -4,124 +4,451 @@
 {% load static %}
 <link rel="stylesheet" href="{% static 'css/common.css' %}">
 <style>
-    .form-container { max-width: 1000px; margin: 0 auto; padding: 20px; }
-    .layui-card-header { background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; border-radius: 12px 12px 0 0; padding: 15px 20px; }
-    .layui-form-label { font-weight: 600; color: #333; width: 120px; }
-    .layui-input, .layui-textarea, .layui-select { border-radius: 8px; border: 1px solid #ddd; padding: 10px 15px; transition: all 0.3s ease; }
-    .layui-input:focus, .layui-textarea: ['80%', '100%'],0.1); }
-    .layui-btn-primary { background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); border: none; padding: 0px 20px; border-radius: 8px; transition: transform 0.2s; color: white; }
-    .layui-btn-primary:hover { transform: translateY(-2px); }
-    .layui-btn-normal { border-radius: 8px; padding: 0px 20px; }
-    html, body { height: 100%; margin: 0; }
-    .layui-card { height: 100%; }
-    .form-container { flex: 1; }
-    .layui-form-item .errorlist { color: #ff4d4f; font-size: 0.875rem; margin-top: 5px; list-style: none; padding-left: 0; display: flex; align-items: center; }
-    .layui-form-item .errorlist::before { content: '\f071'; font-family: 'layui-icon'; margin-right: 5px; }
-    .layui-card-body { display: flex; flex-direction: column; height: 100%; }
-    .form-loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.8); z-index: 9999; display: none; justify-content: center; align-items: center; }
-    #departmentForm { display: flex; flex-direction: column; min-height: 80vh; flex: 1; }
-    .button-container { margin-top: auto; padding-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
+    html, body {
+        height: 100%;
+        margin: 0;
+        background: #f7f9fc;
+    }
+    .dept-drawer-shell {
+        min-height: 100%;
+        padding: 12px;
+        background: #f7f9fc;
+    }
+    .dept-drawer-card {
+        max-width: none;
+        margin: 0 auto;
+        border-radius: 16px;
+        overflow: hidden;
+        background: #fff;
+        border: 1px solid #e5edf7;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+    }
+    .dept-compact-head {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 18px 20px 16px;
+        border-bottom: 1px solid #edf2f7;
+        background: linear-gradient(180deg, #fbfdff 0%, #f7faff 100%);
+    }
+    .dept-compact-title-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+    }
+    .dept-kicker {
+        margin-bottom: 4px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0;
+        color: #2563eb;
+    }
+    .dept-compact-head h1 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .dept-compact-head p {
+        margin: 2px 0 0;
+        font-size: 13px;
+        line-height: 1.55;
+        color: #64748b;
+    }
+    .dept-head-badges {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .dept-head-pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 12px;
+        border-radius: 999px;
+        border: 1px solid #dbe7fb;
+        background: #eef5ff;
+        color: #2563eb;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .dept-live-strip {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+    .dept-live-item {
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid #e4edf7;
+        background: #fff;
+    }
+    .dept-live-item span {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 11px;
+        color: #64748b;
+    }
+    .dept-live-item strong {
+        display: block;
+        font-size: 13px;
+        color: #0f172a;
+        word-break: break-word;
+    }
+    .dept-form-layout {
+        padding: 16px 20px 20px;
+    }
+    .dept-section {
+        padding: 18px;
+        border: 1px solid #e5edf7;
+        border-radius: 14px;
+        background: #fff;
+    }
+    .dept-section + .dept-section {
+        margin-top: 12px;
+    }
+    .dept-section-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 14px;
+    }
+    .dept-section-head h3 {
+        margin: 0;
+        font-size: 17px;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .dept-section-head p {
+        margin: 4px 0 0;
+        color: #64748b;
+        font-size: 12px;
+        line-height: 1.5;
+    }
+    .dept-autocode-pill {
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: #eff6ff;
+        color: #1d4ed8;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    .dept-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px 16px;
+    }
+    .dept-field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+    }
+    .dept-field-full {
+        grid-column: 1 / -1;
+    }
+    .dept-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #334155;
+    }
+    .dept-required {
+        color: #ef4444;
+    }
+    .dept-hint {
+        font-size: 12px;
+        color: #94a3b8;
+        line-height: 1.45;
+    }
+    .dept-input-wrap {
+        position: relative;
+    }
+    .dept-input-wrap .layui-input,
+    .dept-input-wrap .layui-textarea,
+    .dept-input-wrap .layui-select {
+        width: 100%;
+        height: 40px;
+        border-radius: 10px;
+        border: 1px solid #dbe4f0;
+        background: #fff;
+        box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.02);
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+    .dept-input-wrap .layui-textarea {
+        min-height: 92px;
+        height: auto;
+        padding-top: 10px;
+    }
+    .dept-input-wrap .layui-input:focus,
+    .dept-input-wrap .layui-textarea:focus,
+    .dept-input-wrap select:focus {
+        border-color: #60a5fa;
+        box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.16);
+    }
+    .dept-input-wrap.is-readonly .layui-input {
+        background: #f8fafc;
+        color: #1e3a8a;
+        font-weight: 600;
+        padding-right: 80px;
+    }
+    .dept-input-badge {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: #dbeafe;
+        color: #1d4ed8;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0;
+    }
+    .dept-inline-preview {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 6px;
+    }
+    .dept-inline-preview .dept-live-item {
+        background: #f8fbff;
+    }
+    .dept-form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        padding-top: 16px;
+    }
+    .dept-form-actions .layui-btn {
+        height: 40px;
+        line-height: 40px;
+        padding: 0 18px;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+    .dept-btn-secondary {
+        border: 1px solid #d7e0eb;
+        background: #fff;
+        color: #334155;
+    }
+    .dept-btn-primary {
+        border: none;
+        color: #fff;
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
+    }
+    .dept-btn-primary[disabled] {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+    .dept-field .errorlist {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        color: #ef4444;
+        font-size: 12px;
+    }
+    .layui-form-danger,
+    .dept-error .layui-input,
+    .dept-error .layui-textarea,
+    .dept-error .layui-select {
+        border-color: #f87171 !important;
+        box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.12) !important;
+    }
+    .form-loading {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.72);
+        backdrop-filter: blur(2px);
+    }
+    .form-loading .loading-card {
+        padding: 18px 20px;
+        border-radius: 16px;
+        background: rgba(15, 23, 42, 0.88);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.2);
+    }
+    .form-loading .layui-icon {
+        font-size: 24px;
+    }
+    @media (max-width: 960px) {
+        .dept-live-strip,
+        .dept-inline-preview,
+        .dept-grid {
+            grid-template-columns: 1fr;
+        }
+        .dept-compact-title-row {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .dept-form-layout,
+        .dept-compact-head {
+            padding: 16px;
+        }
+    }
 </style>
-<div class="form-container">
-    <div class="layui-card">
-        <div class="layui-card-body">
-            <form id="departmentForm" class="layui-form" method="post">
+
+<div class="dept-drawer-shell">
+    <div class="dept-drawer-card">
+        <div class="dept-compact-head">
+            <div class="dept-compact-title-row">
+                <div>
+                    <div class="dept-kicker">人事管理</div>
+                    <h1>{% if object %}编辑部门{% else %}添加部门{% endif %}</h1>
+                    <p>自动编号，直接完成必要信息录入。</p>
+                </div>
+                <div class="dept-head-badges">
+                    <span class="dept-head-pill">{% if object %}编辑模式{% else %}新建模式{% endif %}</span>
+                    <span class="dept-head-pill">系统自动编号</span>
+                </div>
+            </div>
+            <div class="dept-live-strip">
+                <div class="dept-live-item">
+                    <span>层级预览</span>
+                    <strong id="departmentPathPreview">顶级部门 / 无上级部门</strong>
+                </div>
+                <div class="dept-live-item">
+                    <span>预计编码</span>
+                    <strong id="departmentCodePreview">{% if form.code.value %}{{ form.code.value }}{% else %}等待系统生成{% endif %}</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="dept-form-layout">
+            <form id="departmentForm" class="layui-form" method="post" novalidate>
                 {% csrf_token %}
-                <div class="layui-form-item">
-                    <h3 class="layui-bg-gray layui-padding layui-margin-0">基本信息</h3>
-                    <div class="layui-row layui-col-space15">
-                        <div class="layui-col-md6 layui-col-sm12">
-                            <div class="layui-form-item">
-                                <label class="layui-form-label">{{ form.name.label }} <span style="color: red;">*</span></label>
-                                <div class="layui-input-block">
-                                    {{ form.name }}
-                                    {{ form.name.errors }}
-                                </div>
-                            </div>
+                {{ form.leader_ids }}
+
+                <section class="dept-section">
+                    <div class="dept-section-head">
+                        <div>
+                            <h3>基础信息</h3>
+                            <p>先确定名称、层级和排序。</p>
                         </div>
-                        <div class="layui-col-md6 layui-col-sm12">
-                            <div class="layui-form-item">
-                                <label class="layui-form-label">{{ form.code.label }}</label>
-                                <div class="layui-input-block">
-                                    {{ form.code }}
-                                    {{ form.code.errors }}
-                                </div>
-                            </div>
-                        </div>
+                        <div class="dept-autocode-pill">自动编号</div>
                     </div>
-                    
-                    <div class="layui-row layui-col-space15">
-                        <div class="layui-col-md6 layui-col-sm12">
-                            <div class="layui-form-item">
-                                <label class="layui-form-label">{{ form.pid.label }}</label>
-                                <div class="layui-input-block">
-                                    {{ form.pid }}
-                                    {{ form.pid.errors }}
-                                </div>
+
+                    <div class="dept-grid">
+                        <div class="dept-field">
+                            <label class="dept-label" for="{{ form.name.id_for_label }}">
+                                {{ form.name.label }} <span class="dept-required">*</span>
+                            </label>
+                            <div class="dept-input-wrap">
+                                {{ form.name }}
                             </div>
+                            <div class="dept-hint">建议使用正式部门名称。</div>
+                            {{ form.name.errors }}
+                        </div>
+
+                        <div class="dept-field">
+                            <label class="dept-label" for="{{ form.code.id_for_label }}">{{ form.code.label }}</label>
+                            <div class="dept-input-wrap is-readonly">
+                                {{ form.code }}
+                                <span class="dept-input-badge" id="codeModeBadge">AUTO</span>
+                            </div>
+                            <div class="dept-hint">系统根据层级自动保存。</div>
+                            {{ form.code.errors }}
+                        </div>
+
+                        <div class="dept-field">
+                            <label class="dept-label" for="{{ form.pid.id_for_label }}">{{ form.pid.label }}</label>
+                            <div class="dept-input-wrap">
+                                {{ form.pid }}
+                            </div>
+                            <div class="dept-hint">子部门会继承上级编码前缀。</div>
+                            {{ form.pid.errors }}
+                        </div>
+
+                        <div class="dept-field">
+                            <label class="dept-label" for="{{ form.sort.id_for_label }}">{{ form.sort.label }}</label>
+                            <div class="dept-input-wrap">
+                                {{ form.sort }}
+                            </div>
+                            <div class="dept-hint">数值越小展示越靠前。</div>
+                            {{ form.sort.errors }}
                         </div>
                     </div>
 
-                    <div class="layui-row layui-col-space15">
-                        <div class="layui-col-md6 layui-col-sm12">
-                            <div class="layui-form-item">
-                                <label class="layui-form-label">{{ form.manager.label }}</label>
-                                <div class="layui-input-block">
-                                    {{ form.manager }}
-                                    {{ form.manager.errors }}
-                                </div>
-                            </div>
+                    <div class="dept-inline-preview">
+                        <div class="dept-live-item">
+                            <span>当前层级</span>
+                            <strong id="departmentPathInlinePreview">顶级部门 / 无上级部门</strong>
                         </div>
-                        <div class="layui-col-md6 layui-col-sm12">
-                            <div class="layui-form-item">
-                                <label class="layui-form-label">{{ form.phone.label }}</label>
-                                <div class="layui-input-block">
-                                    {{ form.phone }}
-                                    {{ form.phone.errors }}
-                                </div>
-                            </div>
+                        <div class="dept-live-item">
+                            <span>编码结果</span>
+                            <strong id="departmentCodeInlinePreview">{% if form.code.value %}{{ form.code.value }}{% else %}等待系统生成{% endif %}</strong>
                         </div>
                     </div>
-                    
-                    <!-- 隐藏的leader_ids字段，用于向后兼容 -->
-                    {{ form.leader_ids }}
+                </section>
 
-                    <div class="layui-row layui-col-space15">
-                        <div class="layui-col-md6 layui-col-sm12">
-                            <div class="layui-form-item">
-                                <label class="layui-form-label">{{ form.sort.label }}</label>
-                                <div class="layui-input-block">
-                                    {{ form.sort }}
-                                    {{ form.sort.errors }}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="layui-col-md6 layui-col-sm12">
-                            <div class="layui-form-item">
-                                <label class="layui-form-label">{{ form.status.label }} <span style="color: red;">*</span></label>
-                                <div class="layui-input-block">
-                                    {{ form.status }}
-                                    {{ form.status.errors }}
-                                </div>
-                            </div>
+                <section class="dept-section">
+                    <div class="dept-section-head">
+                        <div>
+                            <h3>负责人与状态</h3>
+                            <p>同步负责人、电话和状态。</p>
                         </div>
                     </div>
 
-                    <div class="layui-form-item">
-                        <label class="layui-form-label">{{ form.remark.label }}</label>
-                        <div class="layui-input-block">
-                            {{ form.remark }}
+                    <div class="dept-grid">
+                        <div class="dept-field">
+                            <label class="dept-label" for="{{ form.manager.id_for_label }}">{{ form.manager.label }}</label>
+                            <div class="dept-input-wrap">
+                                {{ form.manager }}
+                            </div>
+                            <div class="dept-hint">切换上级后会同步可选负责人。</div>
+                            {{ form.manager.errors }}
+                        </div>
+
+                        <div class="dept-field">
+                            <label class="dept-label" for="{{ form.phone.id_for_label }}">{{ form.phone.label }}</label>
+                            <div class="dept-input-wrap">
+                                {{ form.phone }}
+                            </div>
+                            <div class="dept-hint">选择负责人后自动带出电话。</div>
+                            {{ form.phone.errors }}
+                        </div>
+
+                        <div class="dept-field">
+                            <label class="dept-label" for="{{ form.status.id_for_label }}">
+                                {{ form.status.label }} <span class="dept-required">*</span>
+                            </label>
+                            <div class="dept-input-wrap">
+                                {{ form.status }}
+                            </div>
+                            <div class="dept-hint">禁用后保留历史数据。</div>
+                            {{ form.status.errors }}
+                        </div>
+                        <div class="dept-field dept-field-full">
+                            <label class="dept-label" for="{{ form.remark.id_for_label }}">{{ form.remark.label }}</label>
+                            <div class="dept-input-wrap">
+                                {{ form.remark }}
+                            </div>
+                            <div class="dept-hint">补充职责边界、协作备注等信息。</div>
                             {{ form.remark.errors }}
                         </div>
-                        {{ form.remark.errors }}
                     </div>
-                </div>
-                <div class="layui-form-item button-container">
-                    <button type="button" class="layui-btn layui-btn-normal" onclick="window.location.href='/system/department/'">
+                </section>
+
+                <div class="dept-form-actions">
+                    <button type="button" class="layui-btn dept-btn-secondary" id="departmentCancelBtn">
                         <i class="layui-icon layui-icon-return"></i> 取消
                     </button>
-                    <button type="submit" class="layui-btn layui-btn-primary" lay-submit lay-filter="submitBtn">
-                        <i class="layui-icon layui-icon-ok"></i> 保存
+                    <button type="button" class="layui-btn dept-btn-primary" id="departmentSubmitBtn">
+                        <i class="layui-icon layui-icon-ok"></i> 保存部门
                     </button>
                 </div>
             </form>
@@ -130,7 +457,10 @@
 </div>
 
 <div class="form-loading" id="formLoading">
-    <div class="layui-spinner layui-icon layui-icon-loading layui-anim-spin" style="font-size: 50px;"></div>
+    <div class="loading-card">
+        <i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i>
+        <span>正在保存部门信息...</span>
+    </div>
 </div>
 
 <script>
@@ -138,92 +468,127 @@ layui.use(['form', 'layer'], function() {
     var form = layui.form;
     var layer = layui.layer;
     var $ = layui.$;
-    
-    // 核心函数：同步manager和leader_ids字段
-    function syncManagerAndLeaderIds() {
-        var managerId = $('select[name="manager"]').val();
-        var currentLeaderIds = $('#id_leader_ids').val();
-        
-        if (managerId) {
-            // 如果当前leader_ids为空或与managerId不同，则设置
-            if (!currentLeaderIds || currentLeaderIds === '' || currentLeaderIds === '[]') {
-                $('#id_leader_ids').val(managerId);
-            } else if (currentLeaderIds && currentLeaderIds !== managerId) {
-                // 如果当前有值但不同，检查是否包含managerId
-                var leaderIdsArray = currentLeaderIds.split(',').map(id => id.trim()).filter(id => id);
-                if (!leaderIdsArray.includes(managerId)) {
-                    leaderIdsArray.push(managerId);
-                    $('#id_leader_ids').val(leaderIdsArray.join(','));
+    var generateCodeRequest = null;
+    var generateCodeTimer = null;
+    var submitLocked = false;
+    var initialManagerId = $('select[name="manager"]').val() || '';
+    var phoneTouched = $.trim($('input[name="phone"]').val()).length > 0;
+    var hasPersistedCode = {% if object and object.code %}true{% else %}false{% endif %};
+
+    function showLoading(show) {
+        $('#formLoading').css('display', show ? 'flex' : 'none');
+    }
+
+    function normalizeLeaderIds(rawValue) {
+        if (!rawValue) {
+            return '';
+        }
+        if (Array.isArray(rawValue)) {
+            return rawValue.join(',');
+        }
+        if (typeof rawValue === 'string') {
+            if (rawValue.startsWith('[') && rawValue.endsWith(']')) {
+                try {
+                    var parsed = JSON.parse(rawValue);
+                    if (Array.isArray(parsed)) {
+                        return parsed.join(',');
+                    }
+                } catch (error) {
+                    return rawValue.replace(/[\[\]\s]/g, '').replace(/,+/g, ',').replace(/^,|,$/g, '');
                 }
             }
-            // console.log('同步负责人ID:', managerId, 'leader_ids值:', $('#id_leader_ids').val());
-        } else {
-            // 如果没有选择负责人，清空leader_ids
-            $('#id_leader_ids').val('');
-            // console.log('清空负责人ID', 'leader_ids值:', $('#id_leader_ids').val());
+            return rawValue.replace(/[\[\]\s]/g, '').replace(/,+/g, ',').replace(/^,|,$/g, '');
         }
+        return String(rawValue);
     }
-    
-    // 根据上级部门筛选负责人
-    function filterManagersByDepartment() {
-        var pid = $('select[name="pid"]').val();
-        // console.log('上级部门变更:', pid);
-        
-        if (pid && pid !== '0') {
-            // 显示加载中状态
-            var managerSelect = $('select[name="manager"]');
-            managerSelect.empty().append('<option value="">加载中..</option>');
-            form.render('select');
-            
-            // 发送AJAX请求获取用户列表
-            $.ajax({
-                url: '/system/department/get_managers/',
-                type: 'GET',
-                data: {pid: pid},
-                dataType: 'json',
-                timeout: 5000,
-                success: function(data) {
-                    // console.log('获取用户列表成功:', data);
-                    managerSelect.empty().append('<option value="">请选择负责人</option>');
-                    
-                    if (data && data.code === 0 && data.data && data.data.length > 0) {
-                        $.each(data.data, function(index, user) {
-                            var option = $('<option></option>')
-                                .val(user.id)
-                                .text(user.name);
-                            managerSelect.append(option);
-                        });
-                    } else {
-                        managerSelect.append('<option value="">该部门暂无可用人员</option>');
-                    }
-                    
-                    form.render('select');
-                    syncManagerAndLeaderIds();
-                    updateManagerPhone();
-                },
-                error: function(xhr, status, error) {
-                    console.error('获取用户列表失败:', error);
-                    managerSelect.empty().append('<option value="">获取失败，请重试</option>');
-                    form.render('select');
-                }
-            });
-        } else {
-            $('select[name="manager"]').val('');
-            $('#id_leader_ids').val('');
-            $('input[name="phone"]').val('');
-            form.render('select');
-        }
-    }
-    
-    // 更新负责人电话信息
-    function updateManagerPhone() {
+
+    function syncManagerAndLeaderIds() {
         var managerId = $('select[name="manager"]').val();
         if (!managerId) {
-            $('input[name="phone"]').val('');
+            $('#id_leader_ids').val('');
             return;
         }
-        
-        // 发送AJAX请求获取负责人电话信息
+        $('#id_leader_ids').val(managerId);
+    }
+
+    function updatePathPreview() {
+        var parentText = $('select[name="pid"] option:selected').text() || '无上级部门（顶级部门）';
+        var departmentName = $.trim($('input[name="name"]').val()) || '待填写部门名称';
+        var normalizedParentText = parentText === '无上级部门（顶级部门）' ? '顶级部门 / 无上级部门' : parentText;
+        $('#departmentPathPreview').text(normalizedParentText + ' / ' + departmentName);
+        $('#departmentPathInlinePreview').text(normalizedParentText + ' / ' + departmentName);
+    }
+
+    function applyGeneratedCode(code) {
+        var displayValue = code || '等待系统生成';
+        $('#departmentCodeField').val(code || '');
+        $('#departmentCodePreview').text(displayValue);
+        $('#departmentCodeInlinePreview').text(displayValue);
+    }
+
+    function requestGeneratedCode(immediate) {
+        if (hasPersistedCode) {
+            var existingCode = $('#departmentCodeField').val();
+            $('#departmentCodePreview').text(existingCode || '等待系统生成');
+            return;
+        }
+
+        clearTimeout(generateCodeTimer);
+        var runRequest = function() {
+            var departmentName = $.trim($('input[name="name"]').val());
+            var pid = $('select[name="pid"]').val() || '0';
+            if (!departmentName) {
+                applyGeneratedCode('');
+                return;
+            }
+
+            if (generateCodeRequest && generateCodeRequest.readyState !== 4) {
+                generateCodeRequest.abort();
+            }
+
+            generateCodeRequest = $.ajax({
+                url: '/system/department/generate_code/',
+                type: 'POST',
+                contentType: 'application/json',
+                dataType: 'json',
+                headers: {
+                    'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
+                },
+                data: JSON.stringify({
+                    name: departmentName,
+                    pid: pid
+                }),
+                success: function(res) {
+                    if (res && res.code === 0 && res.data) {
+                        applyGeneratedCode(res.data.code || '');
+                    } else {
+                        applyGeneratedCode('');
+                    }
+                },
+                error: function(xhr, status) {
+                    if (status !== 'abort') {
+                        applyGeneratedCode('');
+                    }
+                }
+            });
+        };
+
+        if (immediate) {
+            runRequest();
+        } else {
+            generateCodeTimer = setTimeout(runRequest, 240);
+        }
+    }
+
+    function updateManagerPhone(forceOverwrite) {
+        var managerId = $('select[name="manager"]').val();
+        if (!managerId) {
+            if (!phoneTouched || forceOverwrite) {
+                $('input[name="phone"]').val('');
+            }
+            return;
+        }
+
         $.ajax({
             url: '/system/department/get_manager_phone/',
             type: 'GET',
@@ -231,205 +596,214 @@ layui.use(['form', 'layer'], function() {
             dataType: 'json',
             timeout: 5000,
             success: function(data) {
-                    if (data && data.code === 0 && data.data) {
-                        $('input[name="phone"]').val(data.data);
-                        // console.log('更新负责人电话:', data.data);
-                    }
-            },
-            error: function(xhr, status, error) {
-                console.error('获取负责人电话失败:', error);
+                if (data && data.code === 0 && (!phoneTouched || forceOverwrite)) {
+                    $('input[name="phone"]').val(data.data || '');
+                }
             }
         });
     }
-    
-    // 表单验证
-    form.verify({
-        name: function(value) {
-            if (value.length === 0) {
-                return '部门名称不能为空';
-            }
-        },
-        sort: function(value) {
-            if (value.length > 0 && !/^\d+$/.test(value)) {
-                return '排序必须是数字';
-            }
+
+    function rebuildManagerOptions(users, preferredManagerId) {
+        var managerSelect = $('select[name="manager"]');
+        managerSelect.empty().append('<option value="">请选择负责人</option>');
+
+        if (users && users.length) {
+            $.each(users, function(_, user) {
+                managerSelect.append($('<option></option>').val(user.id).text(user.name));
+            });
         }
-    });
-    
-    // 添加表单验证属性
-    $('input[name="name"]').attr({'lay-verify': 'required', 'lay-reqtext': '请输入部门名称'});
-    $('select[name="status"]').attr({'lay-verify': 'required', 'lay-reqtext': '请选择状态'});
-    $('input[name="phone"]').attr('lay-verify', 'phone');
-    $('input[name="sort"]').attr('lay-verify', 'number');
-    $('select[name="manager"]').attr('lay-verify', 'required');
-    
-    // 初始化表单
-    form.render();
-    
-    // 页面加载完成后初始化
-    $(function() {
-        // console.log('页面初始化开始，leader_ids初始值:', $('#id_leader_ids').val());
-        
-        // 立即执行一次同步
-        syncManagerAndLeaderIds();
-        
-        // 初始化负责人列表
-        filterManagersByDepartment();
-        
-        // 更新负责人电话
-        updateManagerPhone();
-        
-        // 初始化上级部门选择（如果有初始值）
-        {% if form.pid.value %}
-        var initialPid = '{{ form.pid.value }}';
-        if (initialPid && initialPid !== '0' && initialPid !== '') {
-            $('select[name="pid"]').val(initialPid);
+
+        if (preferredManagerId) {
+            managerSelect.val(String(preferredManagerId));
         }
-        {% endif %}
-        
-        // 重新渲染表单，确保下拉框正确显示
         form.render('select');
-        
-        // console.log('页面初始化完成，leader_ids最终值:', $('#id_leader_ids').val());
-    });
-    
-    // 上级部门变更事件
-    $(document).on('change', 'select[name="pid"]', function() {
-        // console.log('上级部门变更:', $(this).val());
-        $('select[name="manager"]').val('');
-        $('#id_leader_ids').val('');
-        $('input[name="phone"]').val('');
-        form.render('select');
-        filterManagersByDepartment();
-    });
-    
-    // 负责人变更事件
-    $(document).on('change', 'select[name="manager"]', function() {
-        // console.log('负责人变更:', $(this).val());
         syncManagerAndLeaderIds();
-        updateManagerPhone();
-    });
-    
-    // 选择负责人函数 - 定义为全局函数
-    window.selectManager = function() {
-        layer.open({
-            type: 2,
-            title: '选择负责人',
-            content: '/system/department/manager_select/',
-            area: ['80%', '100%'],
-            btn: ['确定', '取消'],
-            yes: function(index, layero) {
-                var iframeWin = window[layero.find('iframe')[0]['name']];
-                var selectedData = iframeWin.getSelectedData();
-                if (selectedData && selectedData.id) {
-                    // 设置负责人ID到隐藏字段
-                    $('#id_leader_ids').val(selectedData.id);
-                    // 更新负责人显示名称
-                    $('input[name="manager"]').val(selectedData.name);
-                    // 获取并设置负责人电话
-                    $.get('/system/department/get_manager_phone/', {manager_id: selectedData.id}, function(res) {
-                        if (res && res.code === 0) {
-                            $('input[name="phone"]').val(res.data || '');
-                        }
-                    });
-                    layer.close(index);
+        updateManagerPhone(false);
+    }
+
+    function filterManagersByDepartment(preferredManagerId) {
+        var pid = $('select[name="pid"]').val() || '0';
+        var managerSelect = $('select[name="manager"]');
+        managerSelect.empty().append('<option value="">加载中...</option>');
+        form.render('select');
+
+        $.ajax({
+            url: '/system/department/get_managers/',
+            type: 'GET',
+            data: {pid: pid},
+            dataType: 'json',
+            timeout: 5000,
+            success: function(data) {
+                if (data && data.code === 0) {
+                    rebuildManagerOptions(data.data || [], preferredManagerId);
                 } else {
-                    layer.msg('请选择负责人', {icon: 2});
+                    rebuildManagerOptions([], '');
                 }
+            },
+            error: function() {
+                managerSelect.empty().append('<option value="">获取负责人失败，请重试</option>');
+                form.render('select');
             }
         });
-    };
-    
-    // 表单提交事件
-    form.on('submit(submitBtn)', function(data) {
-        // console.log('表单提交前，leader_ids值:', $('#id_leader_ids').val());
-        
-        // 确保在提交前同步leader_ids
-        syncManagerAndLeaderIds();
-        
-        // console.log('表单提交同步后，leader_ids值:', $('#id_leader_ids').val());
-        
-        // 确保leader_ids字段的值是字符串格式，而不是数组
-        var leaderIdsValue = $('#id_leader_ids').val();
-        var processedLeaderIds = '';
-        
-        if (leaderIdsValue === '' || leaderIdsValue === null || leaderIdsValue === undefined) {
-            // 如果为空，设置为空字符串
-            processedLeaderIds = '';
-        } else if (Array.isArray(leaderIdsValue)) {
-            // 如果是数组，转换为逗号分隔的字符串
-            processedLeaderIds = leaderIdsValue.join(',');
-        } else if (typeof leaderIdsValue === 'string' && leaderIdsValue.startsWith('[') && leaderIdsValue.endsWith(']')) {
-            // 如果是字符串形式的数组，解析并转换为逗号分隔的字符串
-            try {
-                var parsedArray = JSON.parse(leaderIdsValue);
-                if (Array.isArray(parsedArray)) {
-                    processedLeaderIds = parsedArray.join(',');
-                }
-            } catch (e) {
-                // 解析失败，保持原值
-                processedLeaderIds = leaderIdsValue;
-            }
-        } else if (typeof leaderIdsValue === 'string') {
-            // 如果是字符串，确保是逗号分隔的格式
-            // 清理可能的无效字符
-            processedLeaderIds = leaderIdsValue.replace(/[\[\]\s]/g, '').replace(/,+/g, ',').replace(/^,|,$/g, '');
-        } else {
-            // 其他情况，直接使用原值
-            processedLeaderIds = leaderIdsValue;
-        }
-        
-        // 更新实际的表单字段值
-        $('#id_leader_ids').val(processedLeaderIds);
-        data.field.leader_ids = processedLeaderIds;
-        
-        // console.log('表单提交处理后的leader_ids值:', processedLeaderIds);
-        
-        // 清除之前的错误提示
+    }
+
+    function clearFieldErrors() {
+        $('.dept-field').removeClass('dept-error');
         $('.layui-form-danger').removeClass('layui-form-danger');
         layer.closeAll('tips');
+    }
 
-        // 显示加载状态
-        $('#formLoading').css('display', 'flex');
+    function showFieldError(fieldName, message) {
+        var $field = $('[name="' + fieldName + '"]');
+        if (!$field.length) {
+            return;
+        }
+        $field.addClass('layui-form-danger');
+        $field.closest('.dept-field').addClass('dept-error');
+        layer.tips(message, $field, {
+            tips: [1, '#ef4444'],
+            time: 3000
+        });
+    }
 
-        // 提交表单
+    function validateForm() {
+        clearFieldErrors();
+
+        var departmentName = $.trim($('input[name="name"]').val());
+        var sortValue = $.trim($('input[name="sort"]').val());
+        var statusValue = $('select[name="status"]').val();
+
+        if (!departmentName) {
+            showFieldError('name', '请输入部门名称');
+            return false;
+        }
+        if (!statusValue) {
+            showFieldError('status', '请选择部门状态');
+            return false;
+        }
+        if (sortValue && !/^\d+$/.test(sortValue)) {
+            showFieldError('sort', '排序必须是非负整数');
+            return false;
+        }
+        return true;
+    }
+
+    function handleSave() {
+        if (submitLocked) {
+            return;
+        }
+        syncManagerAndLeaderIds();
+
+        if (!validateForm()) {
+            return;
+        }
+
+        submitLocked = true;
+        $('#departmentSubmitBtn').prop('disabled', true).html('<i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 保存中');
+        showLoading(true);
+
+        var formData = $('#departmentForm').serializeArray();
+        var payload = {};
+        $.each(formData, function(_, item) {
+            payload[item.name] = item.value;
+        });
+        payload.leader_ids = normalizeLeaderIds($('#id_leader_ids').val());
+        payload.code = $('#departmentCodeField').val();
+
         $.ajax({
-            url: '{% if object %}{% url 'department_update' object.id %}{% else %}{% url 'department_add' %}{% endif %}',  // 使用正确的URL
+            url: '{% if object %}{% url 'department_update' object.id %}{% else %}{% url 'department_add' %}{% endif %}',
             type: 'POST',
-            data: data.field,
+            data: payload,
             dataType: 'json',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'
             },
             success: function(res) {
-                $('#formLoading').css('display', 'none');
+                showLoading(false);
+                submitLocked = false;
+                $('#departmentSubmitBtn').prop('disabled', false).html('<i class="layui-icon layui-icon-ok"></i> 保存部门');
                 if (res && res.code === 0) {
                     layer.msg('保存成功', {icon: 1}, function() {
-                        window.location.href = '{% url 'department_list' %}';
-                    });
-                } else {
-                    layer.msg(res && res.msg || '保存失败', {icon: 2});
-                    // 显示表单错误
-                    if (res && res.errors) {
-                        for (var field in res.errors) {
-                            var $elem = $('[name="' + field + '"]');
-                            $elem.addClass('layui-form-danger');
-                            layer.tips(res.errors[field][0], $elem, {
-                                tips: [1, '#ff4d4f'],
-                                time: 3000
-                            });
+                        if (typeof closeSlidePanel === 'function') {
+                            closeSlidePanel();
                         }
-                    }
+                        if (window.layui && layui.table) {
+                            layui.table.reload('departmentTable');
+                        } else {
+                            window.location.href = '{% url 'department_list' %}';
+                        }
+                    });
+                    return;
+                }
+
+                layer.msg((res && res.msg) || '保存失败', {icon: 2});
+                if (res && res.errors) {
+                    Object.keys(res.errors).forEach(function(field) {
+                        var fieldErrors = res.errors[field];
+                        if (fieldErrors && fieldErrors.length) {
+                            showFieldError(field, fieldErrors[0]);
+                        }
+                    });
                 }
             },
             error: function(xhr, status, error) {
-                $('#formLoading').css('display', 'none');
-                console.error('AJAX请求错误:', error, '状态:', status, '响应:', xhr.responseText);
-                layer.msg('网络错误，请重试', {icon: 2});
+                showLoading(false);
+                submitLocked = false;
+                $('#departmentSubmitBtn').prop('disabled', false).html('<i class="layui-icon layui-icon-ok"></i> 保存部门');
+                console.error('Department form submit failed:', status, error, xhr.responseText);
+                layer.msg('网络错误，请稍后重试', {icon: 2});
             }
         });
+    }
+
+    $('#departmentForm').on('submit', function(event) {
+        event.preventDefault();
         return false;
     });
+
+    $(document).off('click.departmentSubmit', '#departmentSubmitBtn').on('click.departmentSubmit', '#departmentSubmitBtn', function(event) {
+        event.preventDefault();
+        handleSave();
+    });
+
+    $(document).off('click.departmentCancel', '#departmentCancelBtn').on('click.departmentCancel', '#departmentCancelBtn', function() {
+        if (typeof closeSlidePanel === 'function') {
+            closeSlidePanel();
+        } else {
+            window.location.href = '{% url 'department_list' %}';
+        }
+    });
+
+    $(document).off('input.departmentName', 'input[name="name"]').on('input.departmentName', 'input[name="name"]', function() {
+        updatePathPreview();
+        requestGeneratedCode(false);
+    });
+
+    $(document).off('change.departmentParent', 'select[name="pid"]').on('change.departmentParent', 'select[name="pid"]', function() {
+        initialManagerId = '';
+        $('select[name="manager"]').val('');
+        $('#id_leader_ids').val('');
+        if (!phoneTouched) {
+            $('input[name="phone"]').val('');
+        }
+        updatePathPreview();
+        filterManagersByDepartment(initialManagerId);
+        requestGeneratedCode(true);
+    });
+
+    $(document).off('change.departmentManager', 'select[name="manager"]').on('change.departmentManager', 'select[name="manager"]', function() {
+        syncManagerAndLeaderIds();
+        updateManagerPhone(false);
+    });
+
+    $(document).off('input.departmentPhone', 'input[name="phone"]').on('input.departmentPhone', 'input[name="phone"]', function() {
+        phoneTouched = $.trim($(this).val()).length > 0;
+    });
+
+    form.render();
+    updatePathPreview();
+    filterManagersByDepartment(initialManagerId);
+    requestGeneratedCode(true);
 });
 </script>
 {% endblock %}

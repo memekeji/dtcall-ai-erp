@@ -1,0 +1,94 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/supply_chain.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="sc-page-shell">
+    <div class="layui-card">
+        <div class="layui-card-header">
+            <div class="sc-toolbar">
+                <div class="sc-toolbar-left">
+                    <div>
+                        <h3>{{ page_title }}</h3>
+                        <div class="sc-summary-line">
+                            <span>本月新增 {{ this_month_total }} 单</span>
+                            <span>成功率 {{ success_rate }}%</span>
+                            <span>当前超期 {{ overdue_count }} 单</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="sc-toolbar-right">
+                    <a href="{% url 'supply_chain:sample_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">
+                        <i class="layui-icon layui-icon-list"></i> 返回列表
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="layui-card-body">
+            <div class="sc-stat-grid">
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">打样申请总数</div>
+                    <div class="sc-stat-value">{{ total_all }}</div>
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">打样成功率</div>
+                    <div class="sc-stat-value">{{ success_rate }}%</div>
+                    <div class="sc-stat-footnote">已完成 {{ success_count }} / {{ total_all }}</div>
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">平均到货时效</div>
+                    <div class="sc-stat-value">{{ avg_delivery_hours }}h</div>
+                    <div class="sc-stat-footnote">近3个月平均</div>
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">平均领样时效</div>
+                    <div class="sc-stat-value">{{ avg_pickup_hours }}h</div>
+                    <div class="sc-stat-footnote">到货后至领样</div>
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">当前超期待领</div>
+                    <div class="sc-stat-value">{{ overdue_count }}</div>
+                    <div class="sc-stat-footnote">需发送提醒</div>
+                </div>
+            </div>
+
+            <div class="sc-form-section">
+                <div class="sc-form-section-title">近6个月趋势</div>
+                <table class="layui-table sc-table-compact" lay-skin="line">
+                    <thead>
+                        <tr>
+                            <th>月份</th>
+                            <th>申请数</th>
+                            <th>完成数</th>
+                            <th>成功率</th>
+                            <th>进度</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for m in monthly_data %}
+                        <tr>
+                            <td>{{ m.label }}</td>
+                            <td>{{ m.total }}</td>
+                            <td>{{ m.done }}</td>
+                            <td>{{ m.rate }}%</td>
+                            <td>
+                                <div style="background:#eef5ff;height:16px;border-radius:8px;overflow:hidden;">
+                                    <div style="background:var(--dt-primary);height:100%;width:{{ m.rate }}%;min-width:2px;"></div>
+                                </div>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="5" class="sc-empty">暂无数据</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -36,6 +36,40 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    function shouldForceRefreshTab(url) {
+        if (!url) {
+            return false;
+        }
+
+        try {
+            const parsed = new URL(url, window.location.origin);
+            const normalizedPath = parsed.pathname.replace(/\/+$/g, '') || '/';
+            return normalizedPath === '/contract/ai/review/list';
+        } catch (error) {
+            return String(url).replace(/\/+$/g, '') === '/contract/ai/review/list';
+        }
+    }
+
+    function buildIframeSrc(url) {
+        if (!url) {
+            return url;
+        }
+
+        try {
+            const parsed = new URL(url, window.location.origin);
+            if (shouldForceRefreshTab(parsed.pathname + parsed.search + parsed.hash)) {
+                parsed.searchParams.set('_ts', Date.now().toString());
+            }
+            return parsed.pathname + parsed.search + parsed.hash;
+        } catch (error) {
+            if (!shouldForceRefreshTab(url)) {
+                return url;
+            }
+            const separator = String(url).indexOf('?') >= 0 ? '&' : '?';
+            return `${url}${separator}_ts=${Date.now()}`;
+        }
+    }
+
     function getTabIframe(tabId) {
         if (!tabId) {
             return null;
@@ -566,11 +600,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 const tabContent = document.createElement('div');
                 tabContent.className = 'layui-tab-item';
                 tabContent.setAttribute('lay-id', id);
-                tabContent.innerHTML = `<iframe src="${url}" style="width:100%;height:100%;border:none;"></iframe>`;
+                tabContent.innerHTML = `<iframe src="${buildIframeSrc(url)}" style="width:100%;height:100%;border:none;"></iframe>`;
                 tabContentContainer.appendChild(tabContent);
                 
                 // 渲染标签页
                 element.render('tab');
+            } else if (shouldForceRefreshTab(url)) {
+                const existingIframe = getTabIframe(id);
+                if (existingIframe) {
+                    existingIframe.setAttribute('src', buildIframeSrc(url));
+                }
             }
             
             // 切换到对应的标签页
@@ -669,7 +708,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         const tabContent = document.createElement('div');
                         tabContent.className = 'layui-tab-item';
                         tabContent.setAttribute('lay-id', tab.id);
-                        tabContent.innerHTML = `<iframe src="${normalizedUrl}" style="width:100%;height:100%;border:none;"></iframe>`;
+                        tabContent.innerHTML = `<iframe src="${buildIframeSrc(normalizedUrl)}" style="width:100%;height:100%;border:none;"></iframe>`;
                         tabContentContainer.appendChild(tabContent);
                     });
                     

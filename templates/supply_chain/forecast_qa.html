@@ -1,0 +1,78 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/supply_chain.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="sc-page-shell">
+    <div class="layui-card">
+        <div class="layui-card-header">
+            <div class="sc-toolbar">
+                <div class="sc-toolbar-left">
+                    <div>
+                        <h3>{{ page_title }}</h3>
+                        <div class="sc-summary-line">
+                            <span>计划编号 {{ plan.code }}</span>
+                            <span>预测量 {{ predicted }}</span>
+                            <span>建议备料 {{ recommended }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="sc-toolbar-right">
+                    <a href="{% url 'supply_chain:forecast_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">返回列表</a>
+                    <a href="{% url 'supply_chain:forecast_trend' %}" class="layui-btn layui-btn-sm">趋势分析</a>
+                </div>
+            </div>
+        </div>
+        <div class="layui-card-body">
+            <div class="sc-stat-grid">
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">预测置信度</div>
+                    <div class="sc-stat-value">{{ confidence }}%</div>
+                    {% if history_confidence %}
+                    <div class="sc-stat-footnote">历史均值 {{ history_confidence }}%</div>
+                    {% endif %}
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">风险等级</div>
+                    <div class="sc-stat-value">{{ risk_level }}</div>
+                </div>
+                <div class="sc-stat-card">
+                    <div class="sc-stat-label">历史预测</div>
+                    <div class="sc-stat-value">{{ history_count }}</div>
+                </div>
+            </div>
+
+            <div class="sc-form-section">
+                <div class="sc-form-section-title">智能问答</div>
+                <form class="layui-form sc-inline-form" method="post">
+                    {% csrf_token %}
+                    <div class="layui-row layui-col-space10">
+                        <div class="layui-col-md9">
+                            <input type="text" name="question" value="{{ question }}" placeholder="输入问题，如：当前建议备料量是多少？置信度如何？风险大吗？" class="layui-input">
+                        </div>
+                        <div class="layui-col-md3">
+                            <button class="layui-btn" type="submit"><i class="layui-icon layui-icon-dialogue"></i> 提问</button>
+                        </div>
+                    </div>
+                </form>
+
+                {% if answer %}
+                <div style="margin-top:16px;padding:16px;background:#f0f7ff;border-radius:8px;border:1px solid #d6e4f0;">
+                    <div style="font-weight:700;margin-bottom:8px;color:var(--dt-text);">回答</div>
+                    <div style="color:var(--dt-text-secondary);line-height:1.8;">{{ answer }}</div>
+                </div>
+                {% endif %}
+
+                <div style="margin-top:12px;" class="sc-note">
+                    可以询问：建议备料量、准确度/置信度、风险评估、库存情况等
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

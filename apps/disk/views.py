@@ -10,12 +10,14 @@ from django.utils import timezone
 from django.conf import settings
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
+from django.core import signing
 from django.urls import reverse
 from django.core.cache import cache
 from .models import DiskFile, DiskFolder, DiskShare, DiskOperation
 from .utils.image_utils import ImageUtils
 from .constants import FileTypeConstants
 from .utils.archive_preview import ArchivePreviewHandler
+from .services import onlyoffice as onlyoffice_service
 from apps.user.models import Admin as User
 from apps.department.models import Department
 
@@ -115,6 +117,45 @@ def get_client_ip(request):
 def get_user_department_id(user):
     """Return the department id used by the legacy disk sharing fields."""
     return getattr(user, 'did', None) or getattr(user, 'department_id', None)
+
+
+def normalize_permission_level(value, default=1):
+    try:
+        level = int(value)
+    except (TypeError, ValueError):
+        return default
+    return level if level in {1, 2, 3} else default
+
+
+def get_item_permission_level(item):
+    return normalize_permission_level(getattr(item, 'permission_level', 1))
+
+
+def get_user_shared_permission_level(user, item):
+    if not user or not getattr(user, 'is_authenticated', False):
+        return 1
+
+    if getattr(item, 'owner_id', None) == user.id:
+        return 3
+
+    matched_levels = []
+    user_dept_id = get_user_department_id(user)
+    current = item
+
+    while current:
+        if getattr(current, 'is_public', False):
+            matched_levels.append(1)
+        if getattr(current, 'shared_users', None) and current.shared_users.filter(id=user.id).exists():
+            matched_levels.append(get_item_permission_level(current))
+        if (
+            getattr(current, 'shared_departments', None) and
+            user_dept_id and
+            current.shared_departments.filter(id=user_dept_id).exists()
+        ):
+            matched_levels.append(get_item_permission_level(current))
+        current = getattr(current, 'parent', None)
+
+    return max(matched_levels) if matched_levels else 0
 
 
 def add_no_cache_headers(response):
@@ -239,39 +280,24 @@ def annotate_shared_items(user, items):
 
 
 def user_can_access_shared_folder(user, folder):
-    if folder.owner_id == user.id or folder.is_public:
-        return True
-    if folder.shared_users.filter(id=user.id).exists():
-        return True
-
-    user_dept_id = get_user_department_id(user)
-    if user_dept_id and folder.shared_departments.filter(id=user_dept_id).exists():
-        return True
-
-    current = folder.parent
-    while current:
-        if current.owner_id == user.id or current.is_public:
-            return True
-        if current.shared_users.filter(id=user.id).exists():
-            return True
-        if user_dept_id and current.shared_departments.filter(id=user_dept_id).exists():
-            return True
-        current = current.parent
-
-    return False
+    return get_user_shared_permission_level(user, folder) > 0
 
 
 def user_can_access_shared_file(user, disk_file):
     if disk_file.owner_id == user.id or disk_file.is_public:
         return True
-    if disk_file.shared_users.filter(id=user.id).exists():
+    if get_user_shared_permission_level(user, disk_file) > 0:
         return True
-
-    user_dept_id = get_user_department_id(user)
-    if user_dept_id and disk_file.shared_departments.filter(id=user_dept_id).exists():
-        return True
-
     return bool(disk_file.folder and user_can_access_shared_folder(user, disk_file.folder))
+
+
+def user_can_edit_shared_file(user, disk_file):
+    if disk_file.owner_id == getattr(user, 'id', None):
+        return True
+    direct_level = get_user_shared_permission_level(user, disk_file)
+    if direct_level >= 2:
+        return True
+    return bool(disk_file.folder and get_user_shared_permission_level(user, disk_file.folder) >= 2)
 
 
 def filter_accessible_shared_folders(user, folders):
@@ -290,20 +316,86 @@ def filter_accessible_shared_files(user, files):
     return files.filter(id__in=file_ids)
 
 
-def get_preview_cache_key(file_id, update_timestamp):
+def validate_share_preview_access(share, disk_file, request, *, strict_limit=True):
+    if not share or not share.is_active or share.is_expired():
+        raise PermissionError('分享不存在或已过期')
+    if not share.contains_file(disk_file.id):
+        raise PermissionError('文件不属于此分享')
+    if strict_limit and not share.can_preview(get_client_ip(request)):
+        raise PermissionError('没有预览权限或访问次数已达上限')
+    if share.password and not request.session.get(f'share_auth_{share.share_code}'):
+        raise PermissionError('请先验证密码')
+
+
+def resolve_onlyoffice_access(request, disk_file, share_code=''):
+    share_code = (share_code or request.GET.get('share_code') or request.POST.get('share_code') or '').strip()
+    if share_code:
+        share = get_object_or_404(DiskShare, share_code=share_code, is_active=True)
+        validate_share_preview_access(share, disk_file, request)
+        return {
+            'share': share,
+            'share_code': share.share_code,
+            'can_edit': False,
+            'allow_download': share.allow_download,
+            'allow_copy': share.allow_copy,
+        }
+
+    user = getattr(request, 'user', None)
+    if not user or not user.is_authenticated or not user_can_access_shared_file(user, disk_file):
+        raise PermissionError('没有权限访问文件')
+
+    return {
+        'share': None,
+        'share_code': '',
+        'can_edit': user_can_edit_shared_file(user, disk_file),
+        'allow_download': True,
+        'allow_copy': True,
+    }
+
+
+def get_preview_cache_key(file_obj):
     """生成预览缓存键"""
-    return f'disk_preview_{file_id}_{int(update_timestamp)}'
+    update_marker = (
+        file_obj.update_time.isoformat()
+        if file_obj.update_time else ''
+    )
+    version_seed = '|'.join([
+        str(file_obj.id),
+        update_marker,
+        str(file_obj.file_size),
+        file_obj.file_path or '',
+        file_obj.file_ext or '',
+        file_obj.original_name or '',
+    ])
+    version_hash = hashlib.md5(version_seed.encode('utf-8')).hexdigest()
+    return f'disk_preview_{file_obj.id}_{version_hash}'
 
-
-def get_preview_from_cache(file_id, update_timestamp):
+def get_preview_from_cache(file_obj):
     """从缓存获取预览数据"""
-    cache_key = get_preview_cache_key(file_id, update_timestamp)
-    return cache.get(cache_key)
+    cache_key = get_preview_cache_key(file_obj)
+    cached_data = cache.get(cache_key)
+    if not isinstance(cached_data, dict):
+        return cached_data
 
+    preview_type = cached_data.get('type')
+    is_legacy_office_payload = preview_type == 'office_enhanced'
+    is_broken_onlyoffice_payload = (
+        preview_type == 'onlyoffice' and not cached_data.get('editor_url')
+    )
+    if is_legacy_office_payload or is_broken_onlyoffice_payload:
+        cache.delete(cache_key)
+        logger.info(
+            '丢弃过期Office预览缓存: file_id=%s, preview_type=%s',
+            file_obj.id,
+            preview_type,
+        )
+        return None
 
-def set_preview_to_cache(file_id, update_timestamp, data, timeout=3600):
+    return cached_data
+
+def set_preview_to_cache(file_obj, data, timeout=3600):
     """设置预览数据到缓存"""
-    cache_key = get_preview_cache_key(file_id, update_timestamp)
+    cache_key = get_preview_cache_key(file_obj)
     cache.set(cache_key, data, timeout)
 
 
@@ -968,6 +1060,7 @@ class SharePreviewView(View):
             if not share.contains_file(disk_file.id):
                 return JsonResponse({'code': 1, 'msg': '文件不属于此分享'})
 
+            share.record_access(client_ip)
             share.record_preview()
 
             file_obj = disk_file
@@ -993,6 +1086,9 @@ class SharePreviewView(View):
                     request, share_code, file_obj.id, preview=True)
                 preview_data['url'] = share_file_url
                 preview_data['download_url'] = share_file_url
+                if preview_data.get('type') == 'onlyoffice':
+                    preview_data['editor_url'] = onlyoffice_service.build_editor_page_url(
+                        request, file_obj, share_code=share_code)
                 if preview_data.get('thumbnail_url'):
                     preview_data['thumbnail_url'] = share_file_url
                     preview_data['use_thumbnail'] = False
@@ -1044,6 +1140,176 @@ class PreviewView(View):
         }
 
         return render(request, 'disk/preview.html', context)
+
+
+class OnlyOfficeEditorView(View):
+    """ONLYOFFICE 编辑器壳页面。"""
+
+    def get(self, request, file_id):
+        disk_file = get_object_or_404(
+            DiskFile, id=file_id, delete_time__isnull=True)
+        try:
+            access = resolve_onlyoffice_access(request, disk_file)
+        except PermissionError:
+            raise Http404('文件不存在或无权访问')
+
+        config_url = reverse('disk:onlyoffice_config', args=[disk_file.id])
+        if access['share_code']:
+            config_url = f'{config_url}?share_code={access["share_code"]}'
+
+        response = render(request, 'disk/onlyoffice_editor.html', {
+            'disk_file': disk_file,
+            'onlyoffice_enabled': settings.ONLYOFFICE_ENABLED,
+            'onlyoffice_config_url': config_url,
+            'onlyoffice_editor_id': f'onlyoffice-editor-{disk_file.id}',
+            'onlyoffice_api_script_url': onlyoffice_service.get_editor_api_script_url(request),
+        })
+        response['X-Frame-Options'] = 'SAMEORIGIN'
+        return add_no_cache_headers(response)
+
+
+class OnlyOfficeConfigView(View):
+    """返回 ONLYOFFICE 编辑配置。"""
+
+    def get(self, request, file_id):
+        disk_file = get_object_or_404(
+            DiskFile, id=file_id, delete_time__isnull=True)
+        try:
+            access = resolve_onlyoffice_access(request, disk_file)
+        except PermissionError:
+            return JsonResponse({'detail': 'forbidden'}, status=403)
+
+        if not settings.ONLYOFFICE_ENABLED:
+            return JsonResponse({'detail': 'ONLYOFFICE is disabled'}, status=503)
+
+        acting_user = request.user if getattr(request.user, 'is_authenticated', False) else disk_file.owner
+        payload = onlyoffice_service.build_editor_config(
+            request,
+            disk_file,
+            user=acting_user,
+            can_edit=access['can_edit'],
+            share_code=access['share_code'],
+            share=access['share'],
+            allow_download=access['allow_download'],
+            allow_copy=access['allow_copy'],
+        )
+        return JsonResponse(payload, json_dumps_params={'ensure_ascii': False})
+
+
+class OnlyOfficeDocumentView(View):
+    """向 ONLYOFFICE 返回受签名保护的文件流。"""
+
+    def get(self, request, file_id):
+        token = request.GET.get('token', '').strip()
+        if not token:
+            return JsonResponse({'code': 1, 'msg': '缺少访问令牌'}, status=403)
+
+        try:
+            payload = onlyoffice_service.load_signed_payload(
+                token, onlyoffice_service.DOCUMENT_TOKEN_SALT)
+        except signing.SignatureExpired:
+            return JsonResponse({'code': 1, 'msg': '访问令牌已过期'}, status=403)
+        except signing.BadSignature:
+            return JsonResponse({'code': 1, 'msg': '访问令牌无效'}, status=403)
+
+        if payload.get('action') != 'document' or int(payload.get('file_id', 0)) != file_id:
+            return JsonResponse({'code': 1, 'msg': '访问令牌无效'}, status=403)
+
+        disk_file = get_object_or_404(
+            DiskFile, id=file_id, delete_time__isnull=True)
+        share_code = (payload.get('share_code') or '').strip()
+        if share_code:
+            share = get_object_or_404(DiskShare, share_code=share_code, is_active=True)
+            if (
+                share.is_expired() or
+                not share.allow_preview or
+                not share.contains_file(disk_file.id) or
+                payload.get('share_version') != onlyoffice_service.get_share_version(share)
+            ):
+                return JsonResponse({'code': 1, 'msg': '分享不可预览'}, status=403)
+
+        file_path = os.path.join(settings.MEDIA_ROOT, disk_file.file_path)
+        is_valid, _ = validate_file_path_security(file_path, settings.MEDIA_ROOT)
+        if not is_valid or not os.path.exists(file_path):
+            raise Http404('文件不存在')
+
+        response = FileResponse(
+            open(file_path, 'rb'),
+            as_attachment=False,
+            filename=disk_file.original_name,
+        )
+        if disk_file.mime_type:
+            response['Content-Type'] = disk_file.mime_type
+        response['X-Frame-Options'] = 'SAMEORIGIN'
+        return response
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class OnlyOfficeCallbackView(View):
+    """接收 ONLYOFFICE 保存回调。"""
+
+    def post(self, request, file_id):
+        token = request.GET.get('token', '').strip()
+        if not token:
+            return JsonResponse({'error': 1}, status=403)
+
+        try:
+            signed_payload = onlyoffice_service.load_signed_payload(
+                token, onlyoffice_service.CALLBACK_TOKEN_SALT)
+        except signing.SignatureExpired:
+            return JsonResponse({'error': 1}, status=403)
+        except signing.BadSignature:
+            return JsonResponse({'error': 1}, status=403)
+
+        if (
+            signed_payload.get('action') != 'callback' or
+            int(signed_payload.get('file_id', 0)) != file_id or
+            not signed_payload.get('can_edit')
+        ):
+            return JsonResponse({'error': 1}, status=403)
+
+        try:
+            payload = json.loads(request.body.decode('utf-8') or '{}')
+        except (TypeError, ValueError):
+            return JsonResponse({'error': 1}, status=400)
+
+        if not onlyoffice_service.validate_callback_token(request, payload):
+            return JsonResponse({'error': 1}, status=403)
+
+        status = payload.get('status')
+        if not onlyoffice_service.should_persist_status(status):
+            return JsonResponse({'error': 0})
+
+        file_url = (payload.get('url') or '').strip()
+        if not file_url:
+            return JsonResponse({'error': 1}, status=400)
+
+        disk_file = get_object_or_404(
+            DiskFile, id=file_id, delete_time__isnull=True)
+
+        try:
+            content = onlyoffice_service.fetch_saved_document(file_url)
+            storage_path = os.path.join(settings.MEDIA_ROOT, disk_file.file_path)
+            os.makedirs(os.path.dirname(storage_path), exist_ok=True)
+            with open(storage_path, 'wb') as handle:
+                handle.write(content)
+
+            disk_file.file_size = len(content)
+            disk_file.save(update_fields=['file_size', 'update_time'])
+            invalidate_preview_cache(disk_file.id)
+            DiskOperation.objects.create(
+                user=disk_file.owner,
+                operation_type='overwrite',
+                file=disk_file,
+                description=f'ONLYOFFICE协同保存: {disk_file.name}',
+                ip_address=get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+            )
+        except Exception:
+            logger.exception('ONLYOFFICE 回调保存失败: file_id=%s', file_id)
+            return JsonResponse({'error': 1}, status=500)
+
+        return JsonResponse({'error': 0})
 
 
 class FilePreviewView(LoginRequiredMixin, View):
@@ -1101,8 +1367,7 @@ class FilePreviewView(LoginRequiredMixin, View):
                     'msg': '文件不存在'
                 }, json_dumps_params={'ensure_ascii': False})
 
-            update_timestamp = file_obj.update_time.timestamp()
-            cached_data = get_preview_from_cache(file_id, update_timestamp)
+            cached_data = get_preview_from_cache(file_obj)
 
             if cached_data is not None:
                 return JsonResponse({
@@ -1114,7 +1379,7 @@ class FilePreviewView(LoginRequiredMixin, View):
             preview_data = self._get_preview_content(file_obj, request)
 
             if preview_data:
-                set_preview_to_cache(file_id, update_timestamp, preview_data)
+                set_preview_to_cache(file_obj, preview_data)
 
                 return JsonResponse({
                     'code': 0,
@@ -1341,21 +1606,16 @@ class FilePreviewView(LoginRequiredMixin, View):
 
     def _preview_office_file(self, file_obj, request):
         try:
-            from .utils.office_preview import OfficePreviewHandler
-
-            full_file_path = os.path.join(
-                settings.MEDIA_ROOT, file_obj.file_path)
-            conversion_format = request.GET.get('format')
-
-            result = OfficePreviewHandler.preview_office_file(
-                full_file_path, conversion_format)
-
-            result['file_id'] = file_obj.id
-            result['download_url'] = request.build_absolute_uri(
-                reverse('disk:file_download', kwargs={'file_id': file_obj.id})
-            )
-
-            return result
+            return {
+                'type': 'onlyoffice',
+                'name': file_obj.name,
+                'file_id': file_obj.id,
+                'editor_url': onlyoffice_service.build_editor_page_url(
+                    request, file_obj),
+                'download_url': request.build_absolute_uri(
+                    reverse('disk:file_download', kwargs={'file_id': file_obj.id})
+                ),
+            }
 
         except Exception as e:
             logger.error(f'Office文件预览失败: {str(e)}')
@@ -1592,6 +1852,7 @@ class ShareDownloadView(View):
             if not share.contains_file(disk_file.id):
                 return JsonResponse({'code': 1, 'msg': '文件不属于此分享'})
 
+            share.record_access(client_ip)
             file_path = os.path.join(settings.MEDIA_ROOT, disk_file.file_path)
             if not os.path.exists(file_path):
                 return JsonResponse({'code': 1, 'msg': '文件不存在'})
@@ -2569,6 +2830,11 @@ class PermissionManageView(BaseDiskView):
             'shared_user_count': shared_users.count(),
             'shared_dept_count': shared_departments.count(),
         }
+        permission_level = get_item_permission_level(item)
+        for user in shared_users:
+            setattr(user, 'permission_level', permission_level)
+        for department in shared_departments:
+            setattr(department, 'permission_level', permission_level)
         response = render(request, 'disk/permission_manage.html', context)
         response['X-Disk-UI-Version'] = 'modern-permission-v2'
         return add_no_cache_headers(response)
@@ -2604,23 +2870,30 @@ class UserPermissionView(BaseDiskView):
 
                 for perm in permission_list:
                     user_id = perm.get('user_id')
-                    perm.get('permission_level', 1)
+                    permission_level = normalize_permission_level(
+                        perm.get('permission_level', get_item_permission_level(item))
+                    )
 
                     if user_id:
                         user = get_object_or_404(User, id=user_id)
 
                         if user not in item.shared_users.all():
                             item.shared_users.add(user)
+                        if get_item_permission_level(item) != permission_level:
+                            item.permission_level = permission_level
+                            item.save(update_fields=['permission_level', 'update_time'])
 
                         self.log_operation(
                             request,
                             'permission',
                             file=item if item_type == 'file' else None,
                             folder=item if item_type == 'folder' else None,
-                            description=f'设置用户权限: {user.username}')
+                            description=f'设置用户权限: {user.username} ({permission_level})')
             else:
                 user_id = request.POST.get('user_id')
-                int(request.POST.get('permission_level', 1))
+                permission_level = normalize_permission_level(
+                    request.POST.get('permission_level', get_item_permission_level(item))
+                )
 
                 if not user_id:
                     return JsonResponse({'code': 1, 'msg': '参数错误'})
@@ -2629,13 +2902,16 @@ class UserPermissionView(BaseDiskView):
 
                 if user not in item.shared_users.all():
                     item.shared_users.add(user)
+                if get_item_permission_level(item) != permission_level:
+                    item.permission_level = permission_level
+                    item.save(update_fields=['permission_level', 'update_time'])
 
                 self.log_operation(
                     request,
                     'permission',
                     file=item if item_type == 'file' else None,
                     folder=item if item_type == 'folder' else None,
-                    description=f'设置用户权限: {user.username}')
+                    description=f'设置用户权限: {user.username} ({permission_level})')
 
             return JsonResponse({'code': 0, 'msg': '权限设置成功'})
 
@@ -2804,23 +3080,30 @@ class DeptPermissionView(BaseDiskView):
 
                 for perm in permission_list:
                     dept_id = perm.get('dept_id')
-                    perm.get('permission_level', 1)
+                    permission_level = normalize_permission_level(
+                        perm.get('permission_level', get_item_permission_level(item))
+                    )
 
                     if dept_id:
                         dept = get_object_or_404(Department, id=dept_id)
 
                         if dept not in item.shared_departments.all():
                             item.shared_departments.add(dept)
+                        if get_item_permission_level(item) != permission_level:
+                            item.permission_level = permission_level
+                            item.save(update_fields=['permission_level', 'update_time'])
 
                         self.log_operation(
                             request,
                             'permission',
                             file=item if item_type == 'file' else None,
                             folder=item if item_type == 'folder' else None,
-                            description=f'设置部门权限: {dept.name}')
+                            description=f'设置部门权限: {dept.name} ({permission_level})')
             else:
                 dept_id = request.POST.get('dept_id')
-                int(request.POST.get('permission_level', 1))
+                permission_level = normalize_permission_level(
+                    request.POST.get('permission_level', get_item_permission_level(item))
+                )
 
                 if not dept_id:
                     return JsonResponse({'code': 1, 'msg': '参数错误'})
@@ -2829,13 +3112,16 @@ class DeptPermissionView(BaseDiskView):
 
                 if dept not in item.shared_departments.all():
                     item.shared_departments.add(dept)
+                if get_item_permission_level(item) != permission_level:
+                    item.permission_level = permission_level
+                    item.save(update_fields=['permission_level', 'update_time'])
 
                 self.log_operation(
                     request,
                     'permission',
                     file=item if item_type == 'file' else None,
                     folder=item if item_type == 'folder' else None,
-                    description=f'设置部门权限: {dept.name}')
+                    description=f'设置部门权限: {dept.name} ({permission_level})')
 
             return JsonResponse({'code': 0, 'msg': '权限设置成功'})
 

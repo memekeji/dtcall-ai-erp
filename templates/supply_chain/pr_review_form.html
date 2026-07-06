@@ -1,0 +1,51 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/supply_chain.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="layui-card">
+    <div class="layui-card-header">
+        <h3>{{ page_title }}</h3>
+    </div>
+    <div class="layui-card-body">
+        <form class="layui-form sc-form-grid" method="post">
+            {% csrf_token %}
+            <div class="sc-form-section">
+                <div class="sc-form-section-title">审核任务基础信息</div>
+                <div class="layui-row layui-col-space15">
+                    <div class="layui-col-md6">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">任务标题</label>
+                            <div class="layui-input-block">{{ form.title }}</div>
+                        </div>
+                    </div>
+                    <div class="layui-col-md3">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">来源类型</label>
+                            <div class="layui-input-block">{{ form.source_type }}</div>
+                        </div>
+                    </div>
+                    <div class="layui-col-md3">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">来源单号</label>
+                            <div class="layui-input-block">{{ form.source_code }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" type="submit">保存任务</button>
+                    <a href="{% url 'supply_chain:pr_review_list' %}" class="layui-btn layui-btn-primary">返回列表</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

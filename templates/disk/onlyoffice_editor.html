@@ -1,0 +1,72 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if editor_title %}{{ editor_title }}{% else %}{{ disk_file.original_name|default:disk_file.name }}{% endif %}</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #f5f7fa;
+            font-family: "Microsoft YaHei", sans-serif;
+        }
+        #{{ onlyoffice_editor_id }} {
+            width: 100%;
+            height: 100vh;
+        }
+        .onlyoffice-state {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            color: #666;
+            background: #f5f7fa;
+            text-align: center;
+            padding: 24px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <div id="{{ onlyoffice_editor_id }}" class="onlyoffice-state">正在加载文档编辑器...</div>
+    {% if onlyoffice_enabled %}
+    <script src="{{ onlyoffice_api_script_url }}"></script>
+    <script>
+        (function () {
+            var containerId = '{{ onlyoffice_editor_id }}';
+            var container = document.getElementById(containerId);
+
+            function showMessage(message) {
+                container.className = 'onlyoffice-state';
+                container.textContent = message;
+            }
+
+            fetch('{{ onlyoffice_config_url|escapejs }}', {
+                credentials: 'same-origin'
+            }).then(function (response) {
+                if (!response.ok) {
+                    throw new Error('配置获取失败');
+                }
+                return response.json();
+            }).then(function (config) {
+                if (!window.DocsAPI || !window.DocsAPI.DocEditor) {
+                    throw new Error('ONLYOFFICE 客户端脚本未加载');
+                }
+                new window.DocsAPI.DocEditor(containerId, config);
+            }).catch(function (error) {
+                showMessage(error && error.message ? error.message : '文档编辑器加载失败');
+            });
+        })();
+    </script>
+    {% else %}
+    <script>
+        document.getElementById('{{ onlyoffice_editor_id }}').textContent = 'ONLYOFFICE 未启用，请联系管理员完成文档服务配置。';
+    </script>
+    {% endif %}
+</body>
+</html>

@@ -30,28 +30,58 @@
         }
         
         /* 筛选区域样式 */
-        .layui-card:nth-child(2) {
+        .customer-filter-card {
             background: white;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             margin: 0 -15px 15px -15px;
         }
         
-        /* 使用flex布局确保整个页面铺满 */
+        /* 使用flex布局确保客户列表工作区铺满屏幕 */
         html, body {
-            min-height: 100%;
+            height: 100%;
             margin: 0;
             padding: 0;
         }
-        
-        /* 调整卡片视图的外层容器，确保内容自然流动 */
-        .layui-card-body {
+
+        .customer-list-fluid {
+            height: 100vh;
+            max-height: 100vh;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .customer-list-fluid > .layui-row,
+        .customer-list-fluid > .layui-row > .layui-col-md12,
+        .customer-list-card {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .customer-list-card {
+            margin-bottom: 0;
+        }
+
+        .toolbar-container,
+        .customer-filter-card {
+            flex-shrink: 0;
+        }
+
+        /* 调整客户列表主卡片内容区，避免影响内部筛选卡片 */
+        .customer-list-body {
             display: flex;
             flex-direction: column;
             padding: 0 15px !important;
             margin: 0 !important;
             box-sizing: border-box;
-            min-height: 120px;
+            flex: 1;
+            min-height: 0;
             min-width: 0;
+            overflow: hidden;
         }
         
         /* 调整视图容器，确保内容自然流动 */
@@ -69,40 +99,87 @@
         #tableView {
             margin-top: 0 !important;
             padding: 0 !important;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
         }
-        
-        /* 确保表格内容区域滚动时表头固定 */
-        .layui-table-view {
+
+        #tableView .layui-table-view {
             margin-top: 0 !important;
             padding: 0 !important;
-        }
-        
-        /* 表格容器设置 */
-        .layui-table-view {
             position: relative;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            border: 1px solid #eef2f8;
+            border-radius: 10px;
+            background: #fff;
+            overflow: hidden;
         }
-        
-        /* 表格表头固定 */
-        .layui-table-header {
+
+        #tableView .layui-table-box {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            height: 100% !important;
+        }
+
+        #tableView .layui-table-header {
             position: sticky;
             top: 0;
             z-index: 10;
             background: white;
+            flex-shrink: 0;
         }
-        
-        /* 确保表格主体内容正常滚动 */
-        .layui-table-body {
-            overflow: auto;
+
+        #tableView .layui-table-body {
+            flex: 1;
+            min-height: 0;
+            overflow: auto !important;
         }
-        
-        /* 确保表格容器自适应内容高度 */
-        .layui-table-box {
-            height: auto !important;
+
+        #tableView .layui-table-page {
+            position: sticky;
+            bottom: 0;
+            z-index: 11;
+            flex-shrink: 0;
+            border-top: 1px solid #eef2f8;
+            background: #fff;
+            box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.04);
         }
-        
-        /* 确保表格内容正常显示 */
-        .layui-table-view .layui-table {
+
+        #tableView .layui-table-view .layui-table {
             margin-bottom: 0 !important;
+        }
+
+        .column-setting-panel {
+            padding: 8px 6px 0;
+        }
+
+        .column-setting-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 10px 14px;
+            max-height: 320px;
+            overflow-y: auto;
+            padding-right: 6px;
+        }
+
+        .column-setting-item {
+            margin: 0;
+            padding: 10px 12px;
+            border: 1px solid #edf1f7;
+            border-radius: 8px;
+            background: #fafcff;
+        }
+
+        .column-setting-item.locked {
+            background: #f5f7fa;
+            border-color: #e4e7ed;
         }
         
         /* 调整卡片视图样式，确保铺满整个工作区 */
@@ -284,11 +361,11 @@
     </style>
 </head>
 <body>
-    <div class="layui-fluid">
+    <div class="layui-fluid customer-list-fluid">
         <div class="layui-row layui-col-space15">
             <div class="layui-col-md12">
-                <div class="layui-card">
-                    <div class="layui-card-body">
+                <div class="layui-card customer-list-card">
+                    <div class="layui-card-body customer-list-body">
                         <!-- 操作按钮和搜索表单 -->
                         <div class="toolbar-container">
                             <!-- 操作按钮区域 -->
@@ -322,6 +399,9 @@
                                         <button type="button" class="layui-btn layui-btn-sm layui-btn-primary search-btn" id="toggleView" title="切换视图">
                                             <i class="layui-icon layui-icon-table"></i>
                                         </button>
+                                        <button type="button" class="layui-btn layui-btn-sm layui-btn-primary search-btn" id="columnSettingsBtn" title="列表列设置">
+                                            <i class="layui-icon layui-icon-cols"></i>
+                                        </button>
                                         <button type="button" class="layui-btn layui-btn-sm layui-btn-primary search-btn" id="toggleFilter" title="高级筛选">
                                             <i class="layui-icon layui-icon-down"></i>
                                         </button>
@@ -331,7 +411,7 @@
                         </div>
                         
                         <!-- 筛选区域 -->
-                        <div class="layui-card" style="margin-bottom:15px; display: none;">
+                        <div class="layui-card customer-filter-card" style="margin-bottom:15px; display: none;">
                             <div class="layui-card-body" id="filterContainer">
                                 <form class="layui-form" id="filterForm" lay-filter="filterForm">
                                     <div class="layui-form-item">
@@ -426,6 +506,23 @@
                             <div id="tableView" class="view-section">
                                 <table class="layui-hide" id="customerTable" lay-filter="customerTable"></table>
                             </div>
+
+                            <script type="text/html" id="columnSettingsTemplate">
+                                <div class="column-setting-panel">
+                                    <div class="column-setting-group">
+                                        {% for item in customer_column_settings.options %}
+                                        <label class="column-setting-item {% if item.locked %}locked{% endif %}">
+                                            <input type="checkbox"
+                                                   name="visible_columns"
+                                                   value="{{ item.key }}"
+                                                   title="{{ item.title }}"
+                                                   {% if item.key in customer_column_settings.visible_keys %}checked{% endif %}
+                                                   {% if item.locked %}checked disabled{% endif %}>
+                                        </label>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </script>
                             
                             <!-- 卡片视图容器 -->
                         <div id="cardView" class="view-section card-view-container" style="display: none;">
@@ -523,6 +620,45 @@
                 form.render('select');
             });
             
+            var columnSettingsOptions = {{ customer_column_settings_options_json|default:'[]'|safe }};
+            var visibleColumnKeys = {{ customer_visible_column_keys_json|default:'[]'|safe }};
+            var visibleColumnKeyMap = {};
+            visibleColumnKeys.forEach(function(key) {
+                visibleColumnKeyMap[key] = true;
+            });
+
+            function isColumnVisible(column) {
+                if (!column || !column.field) return true;
+                return !!visibleColumnKeyMap[column.field];
+            }
+
+            function buildVisibleColumns() {
+                var visibleColumns = [];
+                baseColumns.forEach(function(column) {
+                    if (isColumnVisible(column)) {
+                        visibleColumns.push(column);
+                    }
+                });
+                customFieldColumns.forEach(function(column) {
+                    if (isColumnVisible(column)) {
+                        visibleColumns.push(column);
+                    }
+                });
+                visibleColumns.push(actionColumn);
+                return visibleColumns;
+            }
+
+            function getCustomerTableHeight() {
+                var tableView = document.getElementById('tableView');
+                if (!tableView) return 'full-220';
+                var height = tableView.clientHeight;
+                if (!height || height < 360) {
+                    var rect = tableView.getBoundingClientRect();
+                    height = window.innerHeight - rect.top - 8;
+                }
+                return Math.max(360, height);
+            }
+
             // 基础列配置
             var baseColumns = [
                 {type: 'checkbox', fixed: 'left'},
@@ -592,17 +728,16 @@
                 });
             {% endif %}
             
-            // 合并所有列
-            var columns = baseColumns.concat(customFieldColumns);
-            
-            // 添加操作列
-            columns.push({
-                title: '操作', 
-                width: 200, 
-                fixed: 'right', 
-                align: 'center', 
+            var actionColumn = {
+                title: '操作',
+                width: 200,
+                fixed: 'right',
+                align: 'center',
                 toolbar: '#barDemo'
-            });
+            };
+
+            // 合并所有列
+            var columns = buildVisibleColumns();
             
             // 初始化表格
             function initTable() {
@@ -616,7 +751,9 @@
                 elem: '#customerTable',
                 url: '/customer/list/data/',
                 method: 'get',
+                id: 'customerTable',
                 cols: [columns],
+                height: getCustomerTableHeight(),
                 page: true,
                 limits: [10, 20, 50, 100],
                 limit: 20,
@@ -625,8 +762,6 @@
                 text: {
                     none: '暂无相关数据'
                 },
-                // 移除固定高度，让表格自适应内容
-                page: true,
                     // 添加请求前回调，动态构建URL
                     request: {
                         pageName: 'page',
@@ -638,9 +773,31 @@
                         'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
                     },
                     // 初始化时不带搜索参数
-                    where: {}
+                    where: {},
+                    done: function() {
+                        fixCustomerTableLayout();
+                    }
                 });
             }
+
+            function fixCustomerTableLayout() {
+                var tableView = document.getElementById('tableView');
+                var tableViewBox = tableView ? tableView.querySelector('.layui-table-view') : null;
+                var tableBox = tableView ? tableView.querySelector('.layui-table-box') : null;
+                var tablePage = tableView ? tableView.querySelector('.layui-table-page') : null;
+                if (tableViewBox) {
+                    tableViewBox.style.height = getCustomerTableHeight() + 'px';
+                }
+                if (tableBox && tablePage) {
+                    tableBox.style.paddingBottom = '0';
+                }
+            }
+
+            window.addEventListener('resize', function() {
+                if (currentView === 'table' && table && typeof table.reload === 'function') {
+                    table.reload('customerTable', {height: getCustomerTableHeight()});
+                }
+            });
             
             // 初始化表格
             initTable();
@@ -672,6 +829,97 @@
             if (typeof $ === 'function') {
                 $('#toggleView').click(function() {
                     toggleView();
+                });
+
+                $('#columnSettingsBtn').click(function() {
+                    openColumnSettings();
+                });
+            }
+
+            function normalizeVisibleColumnKeys(keys) {
+                var normalizedKeys = [];
+                var allowedKeyMap = {};
+                columnSettingsOptions.forEach(function(item) {
+                    allowedKeyMap[item.key] = true;
+                });
+                (keys || []).forEach(function(key) {
+                    if (allowedKeyMap[key] && normalizedKeys.indexOf(key) === -1) {
+                        normalizedKeys.push(key);
+                    }
+                });
+                columnSettingsOptions.forEach(function(item) {
+                    if (item.locked && normalizedKeys.indexOf(item.key) === -1) {
+                        normalizedKeys.unshift(item.key);
+                    }
+                });
+                return normalizedKeys;
+            }
+
+            function syncVisibleColumnMap(keys) {
+                visibleColumnKeyMap = {};
+                keys.forEach(function(key) {
+                    visibleColumnKeyMap[key] = true;
+                });
+            }
+
+            function openColumnSettings() {
+                var template = document.getElementById('columnSettingsTemplate');
+                if (!template) return;
+
+                layer.open({
+                    type: 1,
+                    title: '列表列显示设置',
+                    area: ['620px', '520px'],
+                    shadeClose: true,
+                    btn: ['保存', '恢复默认', '取消'],
+                    content: '<form class="layui-form" lay-filter="columnSettingsForm">' + template.innerHTML + '</form>',
+                    success: function(layero) {
+                        layero.find('input[name="visible_columns"]').each(function() {
+                            this.checked = !!visibleColumnKeyMap[this.value];
+                            if (this.disabled) {
+                                this.checked = true;
+                            }
+                        });
+                        form.render('checkbox');
+                    },
+                    yes: function(index, layero) {
+                        var selectedKeys = [];
+                        layero.find('input[name="visible_columns"]:checked').each(function() {
+                            selectedKeys.push(this.value);
+                        });
+                        saveColumnSettings(selectedKeys, index);
+                    },
+                    btn2: function(index) {
+                        var defaultKeys = columnSettingsOptions
+                            .filter(function(item) { return item.default || item.locked; })
+                            .map(function(item) { return item.key; });
+                        saveColumnSettings(defaultKeys, index);
+                        return false;
+                    }
+                });
+            }
+
+            function saveColumnSettings(selectedKeys, layerIndex) {
+                $.post('{% url "customer:customer_list_column_settings_save" %}', {
+                    csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val(),
+                    visible_columns: JSON.stringify(selectedKeys)
+                }, function(res) {
+                    if (res.code === 0) {
+                        visibleColumnKeys = normalizeVisibleColumnKeys(selectedKeys);
+                        syncVisibleColumnMap(visibleColumnKeys);
+                        columns = buildVisibleColumns();
+                        layer.msg(res.msg || '保存成功', {icon: 1});
+                        layer.close(layerIndex);
+                        table.reload('customerTable', {
+                            cols: [columns],
+                            height: getCustomerTableHeight(),
+                            page: {curr: 1}
+                        });
+                    } else {
+                        layer.msg(res.msg || '保存失败', {icon: 2});
+                    }
+                }).fail(function() {
+                    layer.msg('保存失败，请稍后重试', {icon: 2});
                 });
             }
             
@@ -2529,12 +2777,12 @@
             padding: 12px !important;
         }
 
-        .layui-card-body {
+        .customer-list-body {
             padding: 0 10px !important;
         }
 
         .toolbar-container,
-        .layui-card:nth-child(2) {
+        .customer-filter-card {
             margin-left: 0;
             margin-right: 0;
         }

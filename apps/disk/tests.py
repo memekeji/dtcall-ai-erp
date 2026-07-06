@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+from django.test import Client
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
@@ -153,6 +154,38 @@ class DiskShareFlowTests(TestCase):
         self.assertEqual(response.context['user_department_map'][self.recipient.id], '研发部')
         self.assertEqual(response['X-Disk-UI-Version'], 'modern-permission-v2')
 
+    def test_permission_manage_view_exposes_item_permission_level(self):
+        disk_file = self._create_disk_file()
+        disk_file.permission_level = 2
+        disk_file.save(update_fields=['permission_level'])
+        disk_file.shared_users.add(self.recipient)
+        self.client.force_login(self.owner)
+
+        response = self.client.get(reverse('disk:permission_manage'), {
+            'type': 'file',
+            'id': disk_file.id,
+        }, follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        shared_user = next(iter(response.context['shared_users']))
+        self.assertEqual(shared_user.permission_level, 2)
+
+    def test_user_permission_view_persists_file_permission_level(self):
+        disk_file = self._create_disk_file()
+        self.client.force_login(self.owner)
+
+        response = self.client.post(reverse('disk:user_permission'), {
+            'type': 'file',
+            'id': str(disk_file.id),
+            'user_id': str(self.recipient.id),
+            'permission_level': '2',
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['code'], 0)
+        disk_file.refresh_from_db()
+        self.assertEqual(disk_file.permission_level, 2)
+
     def test_permission_add_pages_use_local_static_assets(self):
         disk_file = self._create_disk_file()
         self.client.force_login(self.owner)
@@ -253,6 +286,40 @@ class DiskShareFlowTests(TestCase):
         share.refresh_from_db()
         self.assertEqual(share.copy_blocked_count, 1)
         self.assertEqual(share.screenshot_blocked_count, 1)
+
+    def test_share_preview_records_access_count_for_new_ip(self):
+        disk_file = self._create_disk_file()
+        share = DiskShare.objects.create(
+            share_type='file',
+            file=disk_file,
+            share_code='LIMIT1',
+            creator=self.owner,
+            allow_download=True,
+            allow_preview=True,
+            access_limit=1,
+        )
+
+        first_response = self.client.get(
+            reverse('disk:share_preview', args=[disk_file.id]),
+            {'share_code': share.share_code},
+            REMOTE_ADDR='10.0.0.1',
+        )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(first_response.json()['code'], 0)
+        share.refresh_from_db()
+        self.assertEqual(share.access_count, 1)
+        self.assertIn('10.0.0.1', share.visitor_ips)
+
+        second_client = Client()
+        second_response = second_client.get(
+            reverse('disk:share_preview', args=[disk_file.id]),
+            {'share_code': share.share_code},
+            REMOTE_ADDR='10.0.0.2',
+        )
+
+        self.assertEqual(second_response.status_code, 200)
+        self.assertEqual(second_response.json()['code'], 1)
 
     def test_legacy_permission_manage_path_redirects_to_current_route(self):
         disk_file = self._create_disk_file()

@@ -11,12 +11,15 @@ from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import login_required
 from django.views import View
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.middleware.csrf import get_token
 from apps.common.views_utils import generic_form_view
 
 logger = logging.getLogger(__name__)
 
 
 @method_decorator(login_required, name='dispatch')
+@method_decorator(ensure_csrf_cookie, name='dispatch')
 class DepartmentListView(PermissionRequiredMixin, ListView):
     model = Department
     template_name = 'department/list.html'
@@ -51,6 +54,7 @@ class DepartmentListView(PermissionRequiredMixin, ListView):
 
     def get_context_data(self, ** kwargs):
         context = super().get_context_data(**kwargs)
+        get_token(self.request)
         # 获取顶级部门并构建树形结构字典
         top_departments = Department.objects.filter(pid=0).order_by('sort')
         department_tree = self.build_hierarchy(top_departments)
@@ -320,7 +324,16 @@ def department_employees_api(request, department_id):
 @method_decorator(login_required, name='dispatch')
 class DepartmentCodeGenerateView(PermissionRequiredMixin, View):
     """部门编号生成"""
-    permission_required = 'department.change_department'
+    permission_required = 'department.view_department'
+
+    def has_permission(self):
+        user = self.request.user
+        if not user or not user.is_authenticated:
+            return False
+        if getattr(user, 'is_superuser', False):
+            return True
+        return user.has_perm('department.add_department') or user.has_perm(
+            'department.change_department')
 
     def post(self, request):
         try:

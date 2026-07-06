@@ -418,6 +418,7 @@ class MenuPermissionsAPIView(LoginRequiredMixin, PermissionRequiredMixin, View):
         '客户意向': 'customer_intent',
         '跟进字段': 'follow_field',
         '订单字段': 'order_field',
+        '产品与采购': 'basedata',
         '合同管理': 'contract',
         '合同列表': 'contract_list',
         '合同模板': 'contract_template',
@@ -738,6 +739,14 @@ class MenuPermissionsAPIView(LoginRequiredMixin, PermissionRequiredMixin, View):
             return '财务管理'
         elif any(x in codename for x in ['customer', 'order', 'follow']):
             return '客户管理'
+        elif any(codename.startswith(prefix) for prefix in [
+            'view_product', 'add_product', 'change_product', 'delete_product',
+            'view_service', 'add_service', 'change_service', 'delete_service',
+            'view_supplier', 'add_supplier', 'change_supplier', 'delete_supplier',
+            'view_purchase_category', 'add_purchase_category', 'change_purchase_category', 'delete_purchase_category',
+            'view_purchase_item', 'add_purchase_item', 'change_purchase_item', 'delete_purchase_item',
+        ]):
+            return '基础数据'
         elif 'contract' in codename:
             return '合同管理'
         elif 'project' in codename or 'task' in codename:

@@ -63,7 +63,7 @@
                             <div class="layui-card" style="margin-top: 10px;">
                                 <div class="layui-card-body">
                                     <p><strong>当前文件：</strong></p>
-                                    <p><button class="layui-btn layui-btn-xs layui-btn-normal" onclick="previewAttachment('{{ document.file_path }}', '{{ document.file_path|slice:"-4:"|lower }}')">预览文件</button></p>
+                                    <p><button class="layui-btn layui-btn-xs layui-btn-normal" onclick="previewAttachment('{{ document_file_url|escapejs }}', '{{ document_file_ext|escapejs }}', '{{ document_onlyoffice_url|escapejs }}')">预览文件</button></p>
                                 </div>
                             </div>
                             {% endif %}
@@ -130,7 +130,7 @@
                             '<div class="layui-card-body">' +
                             '<p><strong>上传成功：</strong>' + uploadedFile.original_name + '</p>' +
                             '<p><strong>文件路径：</strong>' + uploadedFile.file_path + '</p>' +
-                            '<p><button class="layui-btn layui-btn-xs layui-btn-normal" onclick="previewAttachment(\'' + uploadedFile.file_url + '\', getFileExtension(\'' + uploadedFile.original_name + '\'))">预览文件</button></p>' +
+                            '<p><button class="layui-btn layui-btn-xs layui-btn-normal" onclick="previewAttachment(\'' + uploadedFile.file_url + '\', getFileExtension(\'' + uploadedFile.original_name + '\'), buildTempOnlyOfficePreviewUrl(uploadedFile.file_path, uploadedFile.original_name))">预览文件</button></p>' +
                             '</div></div>'
                         );
                         layer.msg('文件上传成功', { icon: 1 });
@@ -195,12 +195,32 @@
             parent.layer.close(index);
         }
         
-        // 引入统一预览组件
-        $.getScript("{% static 'js/office_preview.js' %}", function() {
-        });
-        
+        function buildTempOnlyOfficePreviewUrl(filePath, title) {
+            return '/project/document/onlyoffice/temp/?path='
+                + encodeURIComponent(filePath || '')
+                + '&title=' + encodeURIComponent(title || '');
+        }
+
+        function getFileExtension(fileName) {
+            var lastDotIndex = String(fileName || '').lastIndexOf('.');
+            return lastDotIndex === -1 ? '' : String(fileName).substring(lastDotIndex).toLowerCase();
+        }
+
+        function getMimeType(extension) {
+            var mimeTypes = {
+                '.mp3': 'audio/mpeg',
+                '.wav': 'audio/wav',
+                '.ogg': 'audio/ogg',
+                '.flac': 'audio/flac',
+                '.mp4': 'video/mp4',
+                '.webm': 'video/webm',
+                '.avi': 'video/avi'
+            };
+            return mimeTypes[String(extension || '').toLowerCase()] || 'application/octet-stream';
+        }
+
         // 预览附件文件
-        function previewAttachment(filePath, extension) {
+        function previewAttachment(filePath, extension, officePreviewUrl) {
             layui.use(['layer'], function () {
                 var layer = layui.layer;
                 var fileName = filePath.split('/').pop();
@@ -237,16 +257,26 @@
                 } else if (['.mp3', '.wav', '.ogg', '.flac'].includes(extension)) {
                     // 音频文件预览
                     layer.close(loadingIndex);
-                    showAudioPreview(fileName, filePath, OfficePreviewUtils.getMimeType(extension));
+                    showAudioPreview(fileName, filePath, getMimeType(extension));
                 } else if (['.mp4', '.webm', '.ogg', '.avi'].includes(extension)) {
                     // 视频文件预览
                     layer.close(loadingIndex);
-                    showVideoPreview(fileName, filePath, OfficePreviewUtils.getMimeType(extension));
+                    showVideoPreview(fileName, filePath, getMimeType(extension));
                 } else {
                     // 不支持的文件类型或已知文档类型
                     if (['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'].includes(extension)) {
-                          layer.close(loadingIndex);
-                          standardOfficePreview(OfficePreviewUtils.buildOfficePreviewData(fileName, filePath, extension));
+                        layer.close(loadingIndex);
+                        if (!officePreviewUrl) {
+                            layer.msg('当前文档暂不支持在线预览', {icon: 2});
+                            return;
+                        }
+                        layer.open({
+                            type: 2,
+                            title: '文档预览 - ' + fileName,
+                            area: ['80%', '100%'],
+                            content: officePreviewUrl,
+                            maxmin: true
+                        });
                     } else {
                         layer.close(loadingIndex);
                         layer.msg('不支持此文件类型的预览', {icon: 0});

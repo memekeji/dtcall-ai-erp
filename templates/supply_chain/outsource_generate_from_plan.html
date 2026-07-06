@@ -1,0 +1,83 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/supply_chain.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="sc-page-shell">
+    <div class="layui-card">
+        <div class="layui-card-header">
+            <div class="sc-toolbar">
+                <div class="sc-toolbar-left">
+                    <div>
+                        <h3>{{ page_title }}</h3>
+                        <div class="sc-summary-line">
+                            <span>共 {{ plan_data|length }} 个可选生产计划</span>
+                            <span>勾选后一键生成委外发料单</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="sc-toolbar-right">
+                    <a href="{% url 'supply_chain:outsource_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">返回委外列表</a>
+                </div>
+            </div>
+        </div>
+        <div class="layui-card-body">
+            <form method="post">
+                {% csrf_token %}
+                <table class="layui-table sc-table-compact" lay-skin="line">
+                    <thead>
+                        <tr>
+                            <th width="50"><input type="checkbox" id="select-all"></th>
+                            <th>计划编号</th>
+                            <th>产品</th>
+                            <th>计划数量</th>
+                            <th>BOM</th>
+                            <th>已有委外单</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for pd in plan_data %}
+                        <tr>
+                            <td>
+                                {% if not pd.has_existing and pd.bom_count > 0 %}
+                                <input type="checkbox" name="plan_ids" value="{{ pd.plan.id }}">
+                                {% endif %}
+                            </td>
+                            <td>{{ pd.plan.code }}</td>
+                            <td>{{ pd.plan.product|default:'-' }}</td>
+                            <td>{{ pd.plan.quantity }}</td>
+                            <td><span class="sc-pill {% if pd.bom_count > 0 %}success{% else %}danger{% endif %}">{{ pd.bom_count }} 个BOM</span></td>
+                            <td>
+                                {% if pd.has_existing %}
+                                <span class="sc-pill warning">已有</span>
+                                {% else %}
+                                <span class="sc-note">无</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="6" class="sc-empty">暂无可用生产计划</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                <button type="submit" class="layui-btn">一键生成委外发料单</button>
+            </form>
+        </div>
+
+<script>
+document.getElementById('select-all').addEventListener('change', function() {
+    var checks = document.querySelectorAll('input[name="plan_ids"]');
+    for (var i = 0; i < checks.length; i++) {
+        if (!checks[i].disabled) checks[i].checked = this.checked;
+    }
+});
+</script>
+        </div>
+    </div>
+</div>
+{% endblock %}

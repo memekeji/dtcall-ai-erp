@@ -1,0 +1,69 @@
+{% extends 'include/common.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/supply_chain.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="sc-page-shell">
+    <div class="layui-card">
+        <div class="layui-card-header">
+            <div class="sc-toolbar">
+                <div class="sc-toolbar-left">
+                    <div>
+                        <h3>{{ page_title }}{% if product %} - {{ product.name }}{% endif %}</h3>
+                        <div class="sc-summary-line">
+                            <span>共 {{ total_results }} 条预测记录</span>
+                            <span>历史平均置信度 {{ average_confidence }}%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="sc-toolbar-right">
+                    <form class="layui-form" method="get" style="display:inline-flex;gap:8px;align-items:center;">
+                        <input type="text" name="product_id" value="{{ product_id }}" placeholder="产品ID筛选" class="layui-input">
+                        <button class="layui-btn layui-btn-sm" type="submit"><i class="layui-icon layui-icon-search"></i></button>
+                        <a href="{% url 'supply_chain:forecast_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">返回列表</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="layui-card-body">
+            <table class="layui-table sc-table-compact" lay-skin="line">
+                <thead>
+                    <tr>
+                        <th>计划编号</th>
+                        <th>名称</th>
+                        <th>创建日</th>
+                        <th>预测量</th>
+                        <th>建议备料</th>
+                        <th>置信度</th>
+                        <th>风险</th>
+                        <th>评审</th>
+                        <th>摘要</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for row in trend_rows %}
+                    <tr>
+                        <td>{{ row.plan_code }}</td>
+                        <td>{{ row.plan_name }}</td>
+                        <td>{{ row.created }}</td>
+                        <td>{{ row.predicted }}</td>
+                        <td>{{ row.recommended }}</td>
+                        <td>{{ row.confidence }}%</td>
+                        <td><span class="sc-pill {% if row.risk_level == 'high' %}danger{% elif row.risk_level == 'medium' %}warning{% else %}success{% endif %}">{{ row.risk_level }}</span></td>
+                        <td><span class="sc-pill {% if row.review_status == 'approved' %}success{% elif row.review_status == 'rejected' %}danger{% else %}warning{% endif %}">{{ row.review_status }}</span></td>
+                        <td><div class="sc-note">{{ row.summary|truncatewords:20 }}</div></td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="9" class="sc-empty">暂无预测历史数据</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

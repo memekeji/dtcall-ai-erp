@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """AI合同审查核心服务层 - 文件解析、分条款审查、差异比对、法律咨询"""
 import ast
+import base64
 import json
 import logging
 import difflib
@@ -28,6 +29,9 @@ REVIEW_SINGLE_PASS_LIMIT = 6000
 REVIEW_CHUNK_TARGET = 4500
 REVIEW_MAX_CHUNKS = 4
 QUICK_REVIEW_TEXT_LIMIT = 5000
+PDF_DIRECT_TEXT_MIN_CHARS = 20
+PDF_OCR_RENDER_SCALE = 2.0
+PDF_OCR_NOTICE = "当前文件疑似扫描件，已启用 OCR 识别。请人工复核金额、日期、签署主体等关键信息。"
 
 # ── 文档解析 ────────────────────────────────────
 
@@ -114,28 +118,49 @@ def _extract_office_package_text(file_bytes: bytes) -> str:
 
     return "\n\n".join(candidates).strip()
 
-def parse_contract_file(file: UploadedFile) -> str:
+def _build_parse_result(
+    text: str,
+    parse_method: str,
+    ocr_used: bool = False,
+    accuracy_notice: str = "",
+) -> dict:
+    return {
+        "text": str(text or "").strip(),
+        "parse_method": parse_method,
+        "ocr_used": bool(ocr_used),
+        "accuracy_notice": accuracy_notice or "",
+    }
+
+
+def parse_contract_file(file: UploadedFile, include_meta: bool = False):
     """解析上传的合同文件，返回纯文本内容"""
     ext = file.name.rsplit(".", 1)[-1].lower() if "." in file.name else ""
     try:
         if ext in ("docx", "doc"):
-            return _parse_docx(file)
+            result = _parse_docx(file)
         elif ext == "pdf":
-            return _parse_pdf(file)
+            result = _parse_pdf(file)
         elif ext in ("txt", "md", ""):
-            return _read_file_bytes(file).decode("utf-8", errors="replace")
+            result = _build_parse_result(
+                _read_file_bytes(file).decode("utf-8", errors="replace"),
+                parse_method="text",
+            )
         else:
             # 尝试当文本读取
             try:
-                return _read_file_bytes(file).decode("utf-8", errors="replace")
+                result = _build_parse_result(
+                    _read_file_bytes(file).decode("utf-8", errors="replace"),
+                    parse_method="text_fallback",
+                )
             except Exception:
                 raise ValueError(f"不支持的文件格式: .{ext}")
+        return result if include_meta else result["text"]
     except Exception as e:
         logger.error(f"文件解析失败: {e}")
         raise ValueError(f"文件解析失败: {str(e)}")
 
 
-def _parse_docx(file: UploadedFile) -> str:
+def _parse_docx(file: UploadedFile) -> dict:
     from docx import Document
     file_bytes = _read_file_bytes(file)
 
@@ -145,7 +170,7 @@ def _parse_docx(file: UploadedFile) -> str:
         fallback_text = _extract_office_package_text(file_bytes)
         if fallback_text.strip():
             logger.warning("标准 docx 解析失败，已启用 OOXML 兜底抽取: %s", exc)
-            return fallback_text
+            return _build_parse_result(fallback_text, parse_method="docx_ooxml_fallback")
         raise ValueError(
             "Word 文档解析失败，请确认文件是标准 .docx/.doc 格式，"
             "并且没有损坏或误传成其他 Office 文件。"
@@ -163,18 +188,142 @@ def _parse_docx(file: UploadedFile) -> str:
                 text = cell.text.strip()
                 if text:
                     paragraphs.append(text)
-    return "\n".join(paragraphs)
+    return _build_parse_result("\n".join(paragraphs), parse_method="docx")
 
 
-def _parse_pdf(file: UploadedFile) -> str:
+def _needs_pdf_ocr(page_text: str) -> bool:
+    compact = re.sub(r"\s+", "", str(page_text or ""))
+    return len(compact) < PDF_DIRECT_TEXT_MIN_CHARS
+
+
+def _build_openai_vision_message(prompt: str, image_base64: str) -> list[dict]:
+    return [
+        {"role": "system", "content": "你是一名严谨的 OCR 助手。请逐行转写图片中的中文合同内容，只输出识别出的纯文本，不要总结，不要解释，不要补充。"},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/png;base64,{image_base64}",
+                        "detail": "high",
+                    },
+                },
+            ],
+        },
+    ]
+
+
+def _build_anthropic_vision_message(prompt: str, image_base64: str) -> list[dict]:
+    return [
+        {"role": "system", "content": "你是一名严谨的 OCR 助手。请逐行转写图片中的中文合同内容，只输出识别出的纯文本，不要总结，不要解释，不要补充。"},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": image_base64,
+                    },
+                },
+            ],
+        },
+    ]
+
+
+def _extract_ai_text_content(ai_response) -> str:
+    if isinstance(ai_response, str):
+        return ai_response.strip()
+
+    if isinstance(ai_response, dict):
+        for key in ("content", "analysis", "text", "response", "output", "result"):
+            value = ai_response.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        choices = ai_response.get("choices") or []
+        if choices:
+            message = choices[0].get("message", {})
+            content = message.get("content", "")
+            if isinstance(content, str):
+                return content.strip()
+    return str(ai_response or "").strip()
+
+
+def _ocr_pdf_page_with_ai(page, page_number: int) -> str:
+    import fitz  # PyMuPDF
+
+    tool = AIAnalysisTool()
+    matrix = fitz.Matrix(PDF_OCR_RENDER_SCALE, PDF_OCR_RENDER_SCALE)
+    pix = page.get_pixmap(matrix=matrix, alpha=False)
+    image_base64 = base64.b64encode(pix.tobytes("png")).decode("ascii")
+    prompt = (
+        f"这是合同扫描件的第 {page_number} 页。"
+        "请严格按原文顺序逐行转写可见文字，只输出合同正文纯文本。"
+        "金额、日期、编号、主体名称、印章附近文字都不要遗漏。"
+    )
+
+    provider = str(getattr(tool.ai_client, "provider", "") or "").lower()
+    if provider == "anthropic":
+        messages = _build_anthropic_vision_message(prompt, image_base64)
+    else:
+        messages = _build_openai_vision_message(prompt, image_base64)
+
+    try:
+        ai_response = tool.ai_client.chat_completion(
+            messages=messages,
+            max_tokens=2000,
+            temperature=0.0,
+        )
+        content = _extract_ai_text_content(ai_response)
+        if content.startswith("```"):
+            content = re.sub(r"^```(?:text|plaintext)?\s*", "", content).rstrip("`").strip()
+        return content
+    except Exception as exc:
+        logger.warning("PDF 第 %s 页 OCR 识别失败: %s", page_number, exc)
+        return ""
+
+
+def _parse_pdf(file: UploadedFile) -> dict:
     import fitz  # PyMuPDF
     doc = fitz.open(stream=_read_file_bytes(file), filetype="pdf")
     pages = []
-    for page in doc:
-        text = page.get_text()
-        if text.strip():
-            pages.append(text.strip())
-    return "\n\n".join(pages)
+    ocr_used = False
+    has_direct_text_page = False
+    try:
+        for index, page in enumerate(doc, start=1):
+            text = (page.get_text() or "").strip()
+            if _needs_pdf_ocr(text):
+                ocr_text = _ocr_pdf_page_with_ai(page, index)
+                if ocr_text.strip():
+                    pages.append(ocr_text.strip())
+                    ocr_used = True
+                    continue
+            if text:
+                pages.append(text)
+                has_direct_text_page = True
+
+        joined = "\n\n".join(part for part in pages if str(part or "").strip()).strip()
+        if not joined:
+            raise ValueError("未识别到可用文本，请检查PDF是否损坏，或确认AI视觉识别配置可用。")
+
+        if ocr_used and has_direct_text_page:
+            parse_method = "pdf_mixed"
+        elif ocr_used:
+            parse_method = "pdf_ocr"
+        else:
+            parse_method = "pdf_text"
+        return _build_parse_result(
+            joined,
+            parse_method=parse_method,
+            ocr_used=ocr_used,
+            accuracy_notice=PDF_OCR_NOTICE if ocr_used else "",
+        )
+    finally:
+        doc.close()
 
 
 # ── AI 合同审查核心 ──────────────────────────────
@@ -254,6 +403,13 @@ class ContractReviewService:
                         temperature=0.2,
                     )
                     last_raw = raw_result
+                    if self._response_looks_terminal_failure(raw_result):
+                        logger.warning(
+                            "AI合同审查分段结果第%s段第%s次返回明显失败提示，跳过后续重试并转兜底。",
+                            idx,
+                            attempt,
+                        )
+                        break
                     parsed = self._parse_review_result(raw_result)
                     if self._is_valid_review_result(parsed):
                         partial_results.append(
@@ -385,15 +541,73 @@ class ContractReviewService:
         if not chunks:
             chunks = [text]
 
+        normalized_chunks = []
+        for chunk in chunks:
+            normalized_chunks.extend(self._split_large_chunk(chunk))
+        chunks = normalized_chunks or chunks
+
         if len(chunks) > REVIEW_MAX_CHUNKS:
-            total = len(chunks)
-            merged_chunks = []
-            group_size = (total + REVIEW_MAX_CHUNKS - 1) // REVIEW_MAX_CHUNKS
-            for start in range(0, total, group_size):
-                merged_chunks.append("\n\n".join(chunks[start:start + group_size]))
-            chunks = merged_chunks[:REVIEW_MAX_CHUNKS]
+            chunks = self._rebalance_chunks(chunks, REVIEW_MAX_CHUNKS)
 
         return [{"text": chunk, "index": idx + 1} for idx, chunk in enumerate(chunks)]
+
+    def _split_large_chunk(self, text: str) -> list[str]:
+        chunk_text = str(text or "").strip()
+        if not chunk_text:
+            return []
+        if len(chunk_text) <= REVIEW_CHUNK_TARGET:
+            return [chunk_text]
+
+        paragraphs = [part.strip() for part in re.split(r"\n\s*\n", chunk_text) if part.strip()]
+        if len(paragraphs) <= 1:
+            paragraphs = [part.strip() for part in re.split(r"(?<=[。；;!?！？])", chunk_text) if part.strip()]
+        if len(paragraphs) <= 1:
+            return [chunk_text[i:i + REVIEW_CHUNK_TARGET] for i in range(0, len(chunk_text), REVIEW_CHUNK_TARGET)]
+
+        parts = []
+        current = []
+        current_len = 0
+        for paragraph in paragraphs:
+            paragraph_len = len(paragraph) + (2 if current else 0)
+            if current and current_len + paragraph_len > REVIEW_CHUNK_TARGET:
+                parts.append("\n\n".join(current))
+                current = [paragraph]
+                current_len = len(paragraph)
+            else:
+                current.append(paragraph)
+                current_len += paragraph_len
+        if current:
+            parts.append("\n\n".join(current))
+        return parts or [chunk_text]
+
+    def _rebalance_chunks(self, chunks: list[str], max_chunks: int) -> list[str]:
+        cleaned = [str(chunk or "").strip() for chunk in chunks if str(chunk or "").strip()]
+        if len(cleaned) <= max_chunks:
+            return cleaned
+
+        total_length = sum(len(chunk) for chunk in cleaned)
+        target_length = max(REVIEW_CHUNK_TARGET, (total_length + max_chunks - 1) // max_chunks)
+        rebalanced = []
+        current = []
+        current_len = 0
+
+        for chunk in cleaned:
+            addition_len = len(chunk) + (2 if current else 0)
+            remaining_items = len(cleaned) - len(rebalanced) - len(current)
+            remaining_slots = max_chunks - len(rebalanced)
+            must_flush = current and current_len + addition_len > target_length and remaining_slots < remaining_items
+            if must_flush:
+                rebalanced.append("\n\n".join(current))
+                current = [chunk]
+                current_len = len(chunk)
+            else:
+                current.append(chunk)
+                current_len += addition_len
+
+        if current:
+            rebalanced.append("\n\n".join(current))
+
+        return rebalanced[:max_chunks]
 
     def _parse_review_result(self, raw: dict) -> Optional[dict]:
         """解析AI返回的审查结果"""
@@ -412,6 +626,22 @@ class ContractReviewService:
             if normalized:
                 return normalized
         return None
+
+    def _response_looks_terminal_failure(self, raw) -> bool:
+        candidates = []
+        if isinstance(raw, dict):
+            candidates.append(raw)
+            for key in ("analysis", "data", "result", "output", "response", "content"):
+                value = raw.get(key)
+                if value:
+                    candidates.append(value)
+        elif raw:
+            candidates.append(raw)
+
+        for candidate in candidates:
+            if isinstance(candidate, str) and _looks_like_ai_failure(candidate):
+                return True
+        return False
 
     def _normalize_review_payload(self, payload) -> Optional[dict]:
         if isinstance(payload, dict):

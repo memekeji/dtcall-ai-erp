@@ -5,10 +5,11 @@ from .ai_views import ai_contract_risk_analysis, ai_contract_term_extraction
 from .ai_review_views import (
     ai_review_list_page,
     ai_contract_review_api, ai_contract_review_history_api,
-    ai_contract_review_detail_api, ai_contract_file_parse_api,
+    ai_contract_review_preview_api,
+    ai_contract_review_detail_api, ai_contract_review_status_api, ai_contract_file_parse_api,
     ai_contract_diff_api, ai_legal_consultation_api,
     ai_legal_knowledge_api, ai_legal_consultation_history_api, ai_contract_quick_review_api,
-    ai_review_page,
+    ai_review_page, ai_review_history_page,
 )
 
 from .views import (
@@ -68,7 +69,9 @@ urlpatterns = [
     path('api/ai/term-extraction/<int:contract_id>/', ai_contract_term_extraction, name='ai_contract_term_extraction'),
 
     # ── AI 合同审查路由 (新增) ──
+    path('ai/review/preview/<int:contract_id>/', ai_contract_review_preview_api, name='ai_contract_review_preview'),
     path('ai/review/<int:contract_id>/', ai_contract_review_api, name='ai_contract_review'),
+    path('ai/review/status/<int:review_id>/', ai_contract_review_status_api, name='ai_contract_review_status'),
     path('ai/review/history/<int:contract_id>/', ai_contract_review_history_api, name='ai_contract_review_history'),
     path('ai/review/detail/<int:review_id>/', ai_contract_review_detail_api, name='ai_contract_review_detail'),
     path('ai/file-parse/', ai_contract_file_parse_api, name='ai_contract_file_parse'),
@@ -79,6 +82,7 @@ urlpatterns = [
     path('ai/quick-review/', ai_contract_quick_review_api, name='ai_contract_quick_review'),
     path('ai/review/list/', ai_review_list_page, name='ai_review_list_page'),
     path('ai/review/page/<int:contract_id>/', ai_review_page, name='ai_review_page'),
+    path('ai/review/history/page/<int:contract_id>/', ai_review_history_page, name='ai_review_history_page'),
 
     # 原有路由保持兼容 - 移除会导致循环的重定向
     # 产品相关路由
