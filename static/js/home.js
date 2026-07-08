@@ -276,13 +276,58 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    function getQuickMenuIconCandidates(menu) {
+        const title = menu && menu.title ? menu.title : '';
+        const iconBase = '/static/img/icon/';
+        const encodeFilename = name => name.split('/').map(part => encodeURIComponent(part)).join('/');
+        const buildUrl = fileName => iconBase + encodeFilename(fileName);
+        const defaultIcon = (typeof window._quickMenuDefaultIcon === 'string' && window._quickMenuDefaultIcon)
+            ? window._quickMenuDefaultIcon
+            : '功能节点.png';
+
+        const rules = Array.isArray(window._quickMenuIconRules) ? window._quickMenuIconRules : [];
+        const resolveFallbackIcon = t => {
+            const matchedRule = rules.find(rule => rule.keywords.some(keyword => t.includes(keyword)));
+            return matchedRule ? matchedRule.icon : defaultIcon;
+        };
+
+        const directPng = title ? buildUrl(`${title}.png`) : '';
+        const directSvg = title ? buildUrl(`${title}.svg`) : '';
+        const fallbackIcon = buildUrl(resolveFallbackIcon(title));
+        const defaultIconUrl = buildUrl(defaultIcon);
+
+        return [...new Set([directPng, directSvg, fallbackIcon, defaultIconUrl].filter(Boolean))];
+    }
+
     function getQuickMenuIconSrc(menu) {
-        if (menu && menu.icon) {
-            return menu.icon;
+        const candidates = getQuickMenuIconCandidates(menu);
+        return candidates[0] || '/static/img/icon/' + encodeURIComponent('功能节点.png');
+    }
+
+    function applyQuickMenuIconFallback(icon, menu) {
+        if (!icon) {
+            return;
         }
 
-        const title = menu && menu.title ? menu.title : '';
-        return `/static/img/icon/${encodeURI(title)}.png`;
+        const candidates = getQuickMenuIconCandidates(menu);
+        const defaultIconUrl = candidates[candidates.length - 1] || '/static/img/icon/' + encodeURIComponent('功能节点.png');
+
+        icon.dataset.iconIndex = '0';
+        icon.dataset.iconCandidates = JSON.stringify(candidates);
+        icon.onerror = function() {
+            const candidateList = JSON.parse(this.dataset.iconCandidates || '[]');
+            const nextIndex = Number(this.dataset.iconIndex || 0) + 1;
+
+            if (nextIndex < candidateList.length) {
+                this.dataset.iconIndex = String(nextIndex);
+                this.src = candidateList[nextIndex];
+                return;
+            }
+
+            this.onerror = null;
+            this.src = defaultIconUrl;
+        };
+        icon.src = candidates[0] || defaultIconUrl;
     }
 
     function recordQuickMenuUsage(menuId) {
@@ -352,9 +397,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const icon = document.createElement('img');
         icon.className = 'quick-menu-icon';
-        icon.src = getQuickMenuIconSrc(menu);
         icon.alt = '';
         icon.loading = 'lazy';
+        applyQuickMenuIconFallback(icon, menu);
 
         const title = document.createElement('span');
         title.className = 'quick-menu-title';
@@ -400,12 +445,27 @@ document.addEventListener('DOMContentLoaded', function() {
             empty.className = 'quick-menu-empty';
             empty.textContent = options && options.emptyText ? options.emptyText : '暂无';
             container.appendChild(empty);
+            _syncQuickMenuOverflowFade(container);
             return;
         }
 
         safeMenus.forEach(menu => {
             container.appendChild(buildQuickMenuItem(menu, options));
         });
+
+        _syncQuickMenuOverflowFade(container);
+    }
+
+    function _syncQuickMenuOverflowFade(listEl) {
+        if (!listEl) return;
+        var group = listEl.closest('.quick-menu-group');
+        if (!group) return;
+        var hasOverflow = listEl.scrollWidth > listEl.clientWidth + 1;
+        if (hasOverflow) {
+            group.classList.add('has-overflow-fade');
+        } else {
+            group.classList.remove('has-overflow-fade');
+        }
     }
 
     function renderQuickMenus() {
@@ -436,6 +496,85 @@ document.addEventListener('DOMContentLoaded', function() {
             renderQuickMenuList(frequentContainer, [], { pinned: false, emptyText: '暂无常用菜单' });
         });
     }
+
+    function openQuickMenuManager() {
+        if (typeof layui === 'undefined') return;
+        layui.use(['layer'], function() {
+            const layer = layui.layer;
+            const loadIndex = layer.load(1);
+
+            fetch('/home/quick-menus/', {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            }).then(response => response.json()).then(payload => {
+                layer.close(loadIndex);
+                var pinnedMenus = payload.pinned_menus || [];
+                var frequentMenus = payload.frequent_menus || [];
+                var pinnedIds = {};
+                pinnedMenus.forEach(function(m) { pinnedIds[m.id] = true; });
+
+                var allMenus = pinnedMenus.slice();
+                frequentMenus.forEach(function(m) {
+                    if (!pinnedIds[m.id]) {
+                        allMenus.push(m);
+                        pinnedIds[m.id] = true;
+                    }
+                });
+
+                if (allMenus.length === 0) {
+                    layer.msg('当前没有可管理的菜单', { icon: 0 });
+                    return;
+                }
+
+                var rows = [];
+                allMenus.forEach(function(menu) {
+                    var isPinned = pinnedMenus.some(function(p) { return p.id === menu.id; });
+                    var iconSrc = getQuickMenuIconSrc(menu);
+                    rows.push(
+                        '<div class="qm-manager-row" style="display:flex;align-items:center;gap:10px;padding:8px 16px;">',
+                        '<img src="' + iconSrc + '" style="width:20px;height:20px;object-fit:contain;" alt="" onerror="this.src=\'/static/img/icon/' + encodeURIComponent('功能节点.png') + '\'">',
+                        '<span style="flex:1;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (menu.title || '') + '</span>',
+                        '<button type="button" class="qm-manager-pin-btn" data-menu-id="' + menu.id + '" data-pinned="' + isPinned + '" style="flex:0 0 auto;border:1px solid #e2e8f0;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;background:' + (isPinned ? '#fef3c7' : '#f8fafc') + ';color:' + (isPinned ? '#92400e' : '#475569') + ';">' + (isPinned ? '已固定' : '固定') + '</button>',
+                        '</div>'
+                    );
+                });
+
+                layer.open({
+                    type: 1,
+                    title: '管理固定菜单',
+                    area: ['440px', '480px'],
+                    content: '<div style="max-height:420px;overflow-y:auto;padding:8px 0;">' + rows.join('') + '</div>',
+                    btn: ['关闭'],
+                    yes: function(index) { layer.close(index); },
+                    success: function(layero) {
+                        var root = layero && layero[0] ? layero[0] : layero;
+                        if (!root || typeof root.querySelectorAll !== 'function') {
+                            return;
+                        }
+                        root.querySelectorAll('.qm-manager-pin-btn').forEach(function(btn) {
+                            btn.addEventListener('click', function(e) {
+                                e.stopPropagation();
+                                var menuId = this.getAttribute('data-menu-id');
+                                var currentlyPinned = this.getAttribute('data-pinned') === 'true';
+                                toggleQuickMenuPin(menuId, !currentlyPinned);
+                                this.setAttribute('data-pinned', String(!currentlyPinned));
+                                this.textContent = !currentlyPinned ? '已固定' : '固定';
+                                this.style.background = !currentlyPinned ? '#fef3c7' : '#f8fafc';
+                                this.style.color = !currentlyPinned ? '#92400e' : '#475569';
+                            });
+                        });
+                    }
+                });
+            }).catch(function(error) {
+                layer.close(loadIndex);
+                console.warn('加载菜单管理失败:', error);
+                layer.msg('加载失败，请重试', { icon: 2 });
+            });
+        });
+    }
+
+    window.openQuickMenuManager = openQuickMenuManager;
     
     // 菜单点击事件处理 - 使用原生JavaScript实现，避免jQuery和LayUI的冲突
     function handleMenuClick(e) {
@@ -915,6 +1054,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化当前标签页前进/后退按钮
     initTabNavigationButtons();
     renderQuickMenus();
+
+    const quickMenuManageBtn = document.getElementById('quickMenuManageBtn');
+    if (quickMenuManageBtn) {
+        quickMenuManageBtn.addEventListener('click', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            openQuickMenuManager();
+        });
+    }
     
     // 监听LayUI标签页切换事件，保存当前激活标签页
     if (typeof layui !== 'undefined') {

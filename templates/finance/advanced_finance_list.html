@@ -7,132 +7,331 @@
     <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{{ title }}</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/finance-module.css' %}">
 </head>
 <body>
-    <div class="layui-fluid">
-        <div class="layui-card">
-            <div class="layui-card-header">
-                <div class="layui-row">
-                    <div class="layui-col-md6">
-                        <button class="layui-btn layui-btn-sm" onclick="openAdvancedForm('add')">
-                            <i class="layui-icon layui-icon-add-1"></i> 新增{{ title }}
-                        </button>
-                    </div>
-                    <div class="layui-col-md6" style="text-align: right;">
-                        <div class="layui-inline">
-                            <input type="text" id="keyword" class="layui-input" placeholder="请输入关键字">
-                        </div>
-                        <button class="layui-btn layui-btn-sm layui-btn-normal" onclick="reloadTable()">查询</button>
-                    </div>
-                </div>
-            </div>
-            <div class="layui-card-body">
-                <table id="advancedTable" class="layui-table" lay-filter="advancedTable"></table>
-            </div>
+<div class="layui-fluid finance-shell">
+    <div class="finance-page-header">
+        <div>
+            <h1 class="finance-page-title">{{ title }}</h1>
+            <p class="finance-page-subtitle">统一维护{{ title }}数据，保留增删改入口，并和财务模块其他工作台页保持一致的紧凑布局。</p>
         </div>
     </div>
 
-    <script src="{% static 'js/jquery.min.js' %}"></script>
-    <script src="{% static 'layui/layui.js' %}"></script>
-    <script>
-        var moduleName = '{{ module }}';
-        var titleName = '{{ title }}';
-        var fieldTitles = {
-            id: 'ID', name: '名称', account_type_display: '账户类型', bank_name: '开户银行', account_no: '账号', currency: '币种',
-            opening_balance: '期初余额', current_balance: '当前余额', status_display: '状态', create_time: '创建时间', department_id: '部门ID',
-            project_id: '项目ID', period_type_display: '预算周期', budget_amount: '预算金额', used_amount: '已用金额', remaining_amount: '剩余金额',
-            usage_rate: '使用率', start_date: '开始日期', end_date: '结束日期', code: '编号', customer_id: '客户ID', order_id: '订单ID',
-            invoice_id: '发票ID', amount: '金额', received_amount: '已收金额', due_date: '到期日期', supplier_id: '供应商ID', expense_id: '报销ID',
-            paid_amount: '已付金额', account_name: '资金账户', transaction_date: '交易时间', direction_display: '收支方向', counterparty: '交易对方',
-            transaction_no: '流水号', purpose: '用途', match_status_display: '匹配状态', related_type: '关联类型', related_id: '关联ID', period: '对账期间',
-            book_balance: '账面余额', bank_balance: '银行余额', difference_amount: '差异金额', reconciled_by: '对账人ID', reconciled_time: '对账时间',
-            voucher_no: '凭证号', voucher_date: '凭证日期', summary: '摘要', debit_amount: '借方金额', credit_amount: '贷方金额', source_type: '来源类型',
-            source_id: '来源ID', posted_by: '过账人ID', posted_time: '过账时间', account_type_display: '科目类型', level: '科目级次',
-            is_leaf: '是否末级', balance_direction_display: '余额方向', voucher_no: '凭证号', account_code: '科目编码', account_name: '科目名称',
-            auxiliary_type: '辅助核算类型', auxiliary_id: '辅助核算ID', tax_type_display: '税种', taxable_amount: '计税金额',
-            tax_rate: '税率', tax_amount: '税额', asset_code: '资产编号', category: '资产类别', original_value: '原值',
-            accumulated_depreciation: '累计折旧', net_value: '净值', monthly_depreciation: '月折旧额', allocation_no: '分摊编号',
-            allocation_basis: '分摊依据', income_amount: '收入金额', expense_amount: '费用金额', profit_amount: '利润金额', closed_by: '结账人ID',
-            plan_no: '计划编号', flow_type_display: '流向', expected_date: '预计日期', expected_amount: '预计金额', actual_amount: '实际金额',
-            variance_amount: '差异金额', ratio_type_display: '指标类型', value: '指标值', target_value: '目标值', warning_value: '预警值', unit: '单位',
-            accrual_no: '计提编号', expense_type: '费用类型', accrued_by: '计提人ID', accrued_time: '计提时间', closed_time: '结账时间', report_no: '报表编号', report_type_display: '报表类型', total_assets: '资产总额', total_liabilities: '负债总额',
-            total_equity: '权益总额', revenue_amount: '收入金额', cost_amount: '成本费用'
-        };
-        var fields = [{% for field in fields %}'{{ field }}'{% if not forloop.last %}, {% endif %}{% endfor %}];
+    <div class="finance-summary-grid">
+        <div class="finance-summary-card">
+            <div class="finance-summary-label">记录总数</div>
+            <div class="finance-summary-value" id="recordCount">0</div>
+            <div class="finance-summary-note">当前筛选结果</div>
+        </div>
+        <div class="finance-summary-card">
+            <div class="finance-summary-label">展示字段</div>
+            <div class="finance-summary-value">{{ fields|length }}</div>
+            <div class="finance-summary-note">当前模块已配置列</div>
+        </div>
+        <div class="finance-summary-card">
+            <div class="finance-summary-label">模块标识</div>
+            <div class="finance-summary-value finance-mono">{{ module }}</div>
+            <div class="finance-summary-note">路由与配置映射</div>
+        </div>
+        <div class="finance-summary-card">
+            <div class="finance-summary-label">搜索状态</div>
+            <div class="finance-summary-value" id="keywordState">全部</div>
+            <div class="finance-summary-note">按关键字过滤</div>
+        </div>
+    </div>
 
-        layui.use(['table', 'layer'], function() {
-            var table = layui.table;
-            window.layer = layui.layer;
-            var cols = fields.map(function(field) {
-                return {field: field, title: fieldTitles[field] || field, minWidth: field === 'summary' || field === 'purpose' ? 180 : 120};
-            });
-            cols.push({title: '操作', width: 130, fixed: 'right', toolbar: '#advancedToolBar'});
+    <div class="layui-card finance-card-shell">
+        <div class="layui-card-header">
+            <div class="finance-toolbar">
+                <div class="finance-toolbar-left">
+                    <button class="layui-btn layui-btn-sm layui-btn-normal" id="addBtn">
+                        <i class="layui-icon layui-icon-add-1"></i> 新增{{ title }}
+                    </button>
+                    {% if module == "bank-transaction" %}
+                    <button class="layui-btn layui-btn-sm layui-btn-warm" id="importBtn">
+                        <i class="layui-icon layui-icon-upload"></i> 导入流水
+                    </button>
+                    {% elif module == "bank-reconciliation" %}
+                    <button class="layui-btn layui-btn-sm layui-btn-warm" id="importBtn">
+                        <i class="layui-icon layui-icon-upload"></i> 导入对账
+                    </button>
+                    {% endif %}
+                    <button class="layui-btn layui-btn-sm layui-btn-primary" id="refreshBtn">
+                        <i class="layui-icon layui-icon-refresh"></i> 刷新
+                    </button>
+                </div>
+                <div class="finance-toolbar-right">
+                    <div class="finance-filter-row">
+                        <input type="text" id="keywordInput" class="layui-input" placeholder="请输入{{ title }}关键字" style="width: 260px;">
+                        <button class="layui-btn layui-btn-sm" id="searchBtn">
+                            <i class="layui-icon layui-icon-search"></i> 搜索
+                        </button>
+                        <button class="layui-btn layui-btn-sm layui-btn-primary" id="resetBtn">
+                            <i class="layui-icon layui-icon-refresh-3"></i> 重置
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="layui-card-body">
+            <table id="advancedTable" lay-filter="advancedTable"></table>
+        </div>
+    </div>
+</div>
 
-            table.render({
-                elem: '#advancedTable',
-                url: '/adm/finance/advanced/' + moduleName + '/datalist/',
-                cols: [cols],
-                page: true,
-                limit: 20,
-                height: 'full-170'
-            });
+<script src="{% static 'js/jquery.min.js' %}"></script>
+<script src="{% static 'layui/layui.js' %}"></script>
+<script type="text/html" id="advancedToolBar">
+    {% if module == "bank-reconciliation" %}
+    <a class="layui-btn layui-btn-xs" lay-event="compare">对比</a>
+    {% endif %}
+    <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
+    <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
+</script>
+<script>
+    const moduleName = "{{ module }}";
+    const titleName = "{{ title }}";
+    const fields = [{% for field in fields %}"{{ field }}"{% if not forloop.last %}, {% endif %}{% endfor %}];
+    const fieldTitles = {
+        id: "ID", name: "名称", account_type_display: "账户类型", bank_name: "开户银行", account_no: "账号", currency: "币种",
+        opening_balance: "期初余额", current_balance: "当前余额", status_display: "状态", create_time: "创建时间", department_id: "部门ID",
+        project_id: "项目ID", period_type_display: "预算周期", budget_amount: "预算金额", used_amount: "已用金额", remaining_amount: "剩余金额",
+        usage_rate: "使用率", start_date: "开始日期", end_date: "结束日期", code: "编号", customer_id: "客户ID", order_id: "订单ID",
+        invoice_id: "发票ID", amount: "金额", received_amount: "已收金额", due_date: "到期日期", supplier_id: "供应商ID", expense_id: "报销ID",
+        paid_amount: "已付金额", account_name: "资金账户", transaction_date: "交易时间", direction_display: "收支方向", counterparty: "交易对方",
+        transaction_no: "流水号", purpose: "用途", match_status_display: "匹配状态", related_type: "关联类型", related_id: "关联ID", period: "对账期间",
+        book_balance: "账面余额", bank_balance: "银行余额", difference_amount: "差异金额", reconciled_by: "对账人ID", reconciled_time: "对账时间",
+        voucher_no: "凭证号", voucher_date: "凭证日期", summary: "摘要", debit_amount: "借方金额", credit_amount: "贷方金额", source_type: "来源类型",
+        source_id: "来源ID", posted_by: "过账人ID", posted_time: "过账时间", level: "科目级次", is_leaf: "是否末级",
+        balance_direction_display: "余额方向", account_code: "科目编码", auxiliary_type: "辅助核算类型", auxiliary_id: "辅助核算ID",
+        tax_type_display: "税种", taxable_amount: "计税金额", tax_rate: "税率", tax_amount: "税额", asset_code: "资产编号", category: "资产类别",
+        original_value: "原值", accumulated_depreciation: "累计折旧", net_value: "净值", monthly_depreciation: "月折旧额",
+        allocation_no: "分摊编号", allocation_basis: "分摊依据", income_amount: "收入金额", expense_amount: "费用金额", profit_amount: "利润金额",
+        closed_by: "结账人ID", plan_no: "计划编号", flow_type_display: "流向", expected_date: "预计日期", expected_amount: "预计金额",
+        actual_amount: "实际金额", ratio_type_display: "指标类型", value: "指标值", target_value: "目标值", warning_value: "预警值", unit: "单位",
+        accrual_no: "计提编号", expense_type: "费用类型", accrued_by: "计提人ID", accrued_time: "计提时间", closed_time: "结账时间",
+        report_no: "报表编号", report_type_display: "报表类型", total_assets: "资产总额", total_liabilities: "负债总额", total_equity: "权益总额",
+        revenue_amount: "收入金额", cost_amount: "成本费用", category_display: "分类"
+    };
 
-            table.on('tool(advancedTable)', function(obj) {
-                if (obj.event === 'edit') {
-                    openAdvancedForm('edit', obj.data.id);
-                    return;
-                }
-                if (obj.event === 'delete') {
-                    layer.confirm('确定删除该' + titleName + '记录吗？', function(index) {
-                        $.ajax({
-                            url: '/adm/finance/advanced/' + moduleName + '/del/',
-                            type: 'POST',
-                            data: JSON.stringify({id: obj.data.id}),
-                            contentType: 'application/json',
-                            headers: {'X-CSRFToken': $('meta[name="csrf-token"]').attr('content')},
-                            success: function(response) {
-                                if (response.code === 0) {
-                                    layer.msg('删除成功', {icon: 1});
-                                    table.reload('advancedTable');
-                                } else {
-                                    layer.msg(response.msg || '删除失败', {icon: 2});
-                                }
-                            }
-                        });
-                        layer.close(index);
-                    });
-                }
-            });
-        });
+    layui.use(["table", "layer"], function () {
+        const table = layui.table;
+        const layer = layui.layer;
+        const financeBase = window.location.pathname.startsWith("/adm/") ? "/adm/finance" : "/finance";
 
-        function reloadTable() {
-            layui.table.reload('advancedTable', {where: {keyword: $('#keyword').val()}, page: {curr: 1}});
-        }
-
-        function openAdvancedForm(type, id) {
-            var url = '/adm/finance/advanced/' + moduleName + '/' + (type === 'add' ? 'add/' : 'edit/' + id + '/');
+        function openDrawer(url, title, endCallback) {
             layer.open({
                 type: 2,
-                title: (type === 'add' ? '新增' : '编辑') + titleName,
+                title: title,
                 shadeClose: false,
-                shade: 0.3,
+                shade: 0.28,
                 maxmin: true,
-                area: ['80%', '100%'],
-                offset: 'r',
+                area: ["82%", "100%"],
+                offset: "r",
                 anim: 2,
-                content: url,
-                success: function(layero) {
-                    layero.css({'right': '0', 'top': '0', 'height': '100%'});
+                content: financeBase + url,
+                success: function (layero) {
+                    layero.css({ right: "0", top: "0", height: "100%" });
                 },
-                end: function() {
-                    layui.table.reload('advancedTable');
+                end: function () {
+                    if (typeof endCallback === "function") {
+                        endCallback();
+                    }
                 }
             });
         }
-    </script>
-    <script type="text/html" id="advancedToolBar">
-        <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
-        <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
-    </script>
+
+        function formatCell(field, value, row) {
+            if (field === "id") {
+                return '<div class="finance-table-title"><strong>#' + value + '</strong><span>' + titleName + "</span></div>";
+            }
+            if (field.indexOf("amount") >= 0 || field === "opening_balance" || field === "current_balance" || field === "net_value") {
+                return value === "" || value === null || value === undefined ? "-" : ("¥" + Number(value).toFixed(2));
+            }
+            if (field.endsWith("_display") && value) {
+                return '<span class="finance-tag finance-tag-blue">' + value + "</span>";
+            }
+            return value || '<span class="finance-empty-text">-</span>';
+        }
+
+        function getColumns() {
+            const cols = fields.map(function (field, index) {
+                return {
+                    field: field,
+                    title: fieldTitles[field] || field,
+                    minWidth: field === "summary" || field === "purpose" ? 220 : 130,
+                    width: field === "id" ? 90 : undefined,
+                    fixed: index === 0 ? "left" : undefined,
+                    templet: function (row) {
+                        return formatCell(field, row[field], row);
+                    }
+                };
+            });
+            cols.push({ title: "操作", width: 130, fixed: "right", toolbar: "#advancedToolBar" });
+            return [cols];
+        }
+
+        function updateSummary(totalCount) {
+            const keyword = $("#keywordInput").val().trim();
+            $("#recordCount").text(totalCount || 0);
+            $("#keywordState").text(keyword || "全部");
+        }
+
+        function renderTable(resetPage) {
+            table.render({
+                elem: "#advancedTable",
+                id: "advancedTable",
+                url: financeBase + "/advanced/" + moduleName + "/datalist/",
+                where: { keyword: $("#keywordInput").val().trim() },
+                cols: getColumns(),
+                limit: 20,
+                height: "full-320",
+                page: resetPage ? { curr: 1 } : true,
+                done: function (res) {
+                    updateSummary(res.count);
+                }
+            });
+        }
+
+        function getImportPath() {
+            if (moduleName === "bank-transaction") {
+                return "/advanced/bank-transaction/import/";
+            }
+            if (moduleName === "bank-reconciliation") {
+                return "/advanced/bank-reconciliation/import/";
+            }
+            return "";
+        }
+
+        function renderCompareRecords(items) {
+            if (!items.length) {
+                return '<div class="finance-empty-text">没有保存的对比明细</div>';
+            }
+            return items.map(function (item) {
+                const imported = item.imported || {};
+                const candidates = (item.system_records || []).map(function (record) {
+                    const parts = [
+                        record.record_type || "",
+                        record.code || record.transaction_no || ("#" + record.id),
+                        record.amount !== undefined ? ("¥" + Number(record.amount || 0).toFixed(2)) : ""
+                    ].filter(Boolean);
+                    return '<div class="finance-compare-candidate">' + parts.join(" / ") + "</div>";
+                }).join("") || '<div class="finance-empty-text">未找到候选系统记录</div>';
+                const statusClass = item.status === "matched" ? "finance-tag-green" : "finance-tag-red";
+                const statusText = item.status === "matched" ? "已匹配" : "不匹配";
+                return '<div class="finance-compare-item">' +
+                    '<div class="finance-compare-head">' +
+                    '<div><strong>' + (item.transaction_no || "未识别流水号") + '</strong></div>' +
+                    '<span class="finance-tag ' + statusClass + '">' + statusText + '</span>' +
+                    '</div>' +
+                    '<div class="finance-compare-grid">' +
+                    '<div class="finance-compare-block">' +
+                    '<div class="finance-compare-title">导入流水</div>' +
+                    '<div>时间：' + (imported.transaction_date || "-") + '</div>' +
+                    '<div>方向：' + (imported.direction || "-") + '</div>' +
+                    '<div>金额：¥' + Number(imported.amount || 0).toFixed(2) + '</div>' +
+                    '<div>对方：' + (imported.counterparty || "-") + '</div>' +
+                    '</div>' +
+                    '<div class="finance-compare-block">' +
+                    '<div class="finance-compare-title">系统候选记录</div>' +
+                    candidates +
+                    '</div>' +
+                    '</div>' +
+                    '</div>';
+            }).join("");
+        }
+
+        function openCompareDialog(id) {
+            $.get(financeBase + "/advanced/bank-reconciliation/" + id + "/compare/", function (response) {
+                if (response.code !== 0) {
+                    layer.msg(response.msg || "读取对比记录失败", { icon: 2 });
+                    return;
+                }
+                const data = response.data || {};
+                const summary = data.summary || {};
+                layer.open({
+                    type: 1,
+                    title: "对账差异对比",
+                    area: ["960px", "80vh"],
+                    shadeClose: true,
+                    content:
+                        '<div class="finance-compare-shell">' +
+                        '<div class="finance-summary-grid finance-summary-grid-compact">' +
+                        '<div class="finance-summary-card"><div class="finance-summary-label">总条目</div><div class="finance-summary-value">' + (summary.total_count || 0) + '</div></div>' +
+                        '<div class="finance-summary-card"><div class="finance-summary-label">已匹配</div><div class="finance-summary-value">' + (summary.matched_count || 0) + '</div></div>' +
+                        '<div class="finance-summary-card"><div class="finance-summary-label">不匹配</div><div class="finance-summary-value">' + (summary.mismatch_count || 0) + '</div></div>' +
+                        '</div>' +
+                        '<div class="finance-compare-list">' + renderCompareRecords(data.items || []) + '</div>' +
+                        '</div>'
+                });
+            });
+        }
+
+        function reloadTable(resetPage) {
+            table.reload("advancedTable", {
+                where: { keyword: $("#keywordInput").val().trim() },
+                page: resetPage ? { curr: 1 } : undefined
+            });
+        }
+
+        $("#addBtn").on("click", function () {
+            openDrawer("/advanced/" + moduleName + "/add/", "新增" + titleName, function () {
+                reloadTable();
+            });
+        });
+        $("#importBtn").on("click", function () {
+            const importPath = getImportPath();
+            if (!importPath) {
+                return;
+            }
+            openDrawer(importPath, moduleName === "bank-transaction" ? "导入银行流水" : "导入银行对账", function () {
+                reloadTable();
+            });
+        });
+        $("#refreshBtn").on("click", function () { reloadTable(); });
+        $("#searchBtn").on("click", function () { reloadTable(true); });
+        $("#resetBtn").on("click", function () {
+            $("#keywordInput").val("");
+            reloadTable(true);
+        });
+
+        table.on("tool(advancedTable)", function (obj) {
+            if (obj.event === "compare") {
+                openCompareDialog(obj.data.id);
+                return;
+            }
+            if (obj.event === "edit") {
+                openDrawer("/advanced/" + moduleName + "/edit/" + obj.data.id + "/", "编辑" + titleName, function () {
+                    reloadTable();
+                });
+                return;
+            }
+            if (obj.event === "delete") {
+                layer.confirm("确定删除该" + titleName + "记录吗？", function (index) {
+                    $.ajax({
+                        url: financeBase + "/advanced/" + moduleName + "/del/",
+                        type: "POST",
+                        data: JSON.stringify({ id: obj.data.id }),
+                        contentType: "application/json",
+                        headers: { "X-CSRFToken": $('meta[name="csrf-token"]').attr("content") },
+                        success: function (response) {
+                            if (response.code === 0) {
+                                layer.msg("删除成功", { icon: 1 });
+                                reloadTable();
+                            } else {
+                                layer.msg(response.msg || "删除失败", { icon: 2 });
+                            }
+                        }
+                    });
+                    layer.close(index);
+                });
+            }
+        });
+
+        renderTable();
+    });
+</script>
 </body>
 </html>

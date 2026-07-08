@@ -41,6 +41,40 @@
     .ai-voice-status.listening {
         color: #ff5722;
     }
+
+    .ai-recognition-meta {
+        margin-top: 8px;
+        padding: 8px 10px;
+        border-radius: 6px;
+        background: #f7f8fa;
+        border: 1px solid #edf0f2;
+        font-size: 12px;
+        color: #666;
+        line-height: 1.6;
+    }
+
+    .ai-recognition-meta-badges {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .ai-recognition-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: #e8f3ff;
+        color: #1e6fff;
+        border: 1px solid #cfe2ff;
+    }
+
+    .ai-recognition-badge--status {
+        background: #fff7e8;
+        color: #ad6800;
+        border-color: #ffe7ba;
+    }
 </style>
 {% endblock %}
 
@@ -106,6 +140,42 @@ layui.use(['layer', 'jquery'], function() {
             return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]);
         });
     };
+
+    function normalizeRecognitionMeta(recognitionMeta) {
+        if (!recognitionMeta || typeof recognitionMeta !== 'object') return null;
+        var source = recognitionMeta.source || '';
+        var sourceLabel = recognitionMeta.source_label || (source === 'ai' ? 'AI识别' : '规则降级');
+        var statusLabel = recognitionMeta.status_label || (
+            source === 'ai'
+                ? '模型可用'
+                : (recognitionMeta.ai_configured === false ? '未配置模型' : '模型不可用')
+        );
+        return {
+            source: source,
+            sourceLabel: sourceLabel,
+            statusLabel: statusLabel,
+            failureReason: recognitionMeta.failure_reason || '',
+            modelProvider: recognitionMeta.model_provider || '',
+            modelName: recognitionMeta.model_name || ''
+        };
+    }
+
+    function renderRecognitionMeta(recognitionMeta) {
+        var meta = normalizeRecognitionMeta(recognitionMeta);
+        if (!meta) return '';
+        var modelParts = [meta.modelProvider, meta.modelName].filter(Boolean);
+        var modelText = modelParts.length ? ('<div style="margin-top:4px;">' + escapeHtml(modelParts.join(' / ')) + '</div>') : '';
+        var failureText = meta.failureReason ? ('<div style="margin-top:4px;color:#8c8c8c;">' + escapeHtml(meta.failureReason) + '</div>') : '';
+        return '' +
+            '<div class="ai-recognition-meta">' +
+                '<div class="ai-recognition-meta-badges">' +
+                    '<span class="ai-recognition-badge">' + escapeHtml(meta.sourceLabel) + '</span>' +
+                    '<span class="ai-recognition-badge ai-recognition-badge--status">' + escapeHtml(meta.statusLabel) + '</span>' +
+                '</div>' +
+                modelText +
+                failureText +
+            '</div>';
+    }
 
     function joinVoiceText() {
         return [voiceBaseText, voiceFinalText, voiceInterimText]
@@ -371,7 +441,7 @@ layui.use(['layer', 'jquery'], function() {
         }
     }
 
-    function renderMessage(role, content, createdAt, task, options) {
+    function renderMessage(role, content, createdAt, task, options, recognitionMeta) {
         var isUser = role === 'user';
         var align = isUser ? 'right' : 'left';
         var bg = isUser ? '#e6f4ff' : '#fff';
@@ -379,6 +449,7 @@ layui.use(['layer', 'jquery'], function() {
         var timeText = createdAt ? ('<div style="font-size:12px;color:#999;margin-top:6px;">' + escapeHtml(createdAt) + '</div>') : '';
 
         var displayContent = isUser ? escapeHtml(content) : escapeHtml(content).replace(/\n/g, '<br>');
+        var recognitionHtml = !isUser ? renderRecognitionMeta(recognitionMeta) : '';
         var taskHtml = !isUser && task && task.type === 'business_handoff' ? renderTaskCard(task, options || task.options || []) : '';
 
         return '' +
@@ -386,6 +457,7 @@ layui.use(['layer', 'jquery'], function() {
                 '<div style="display:inline-block;max-width:80%;text-align:left;background:' + bg + ';border:1px solid #eee;border-radius:8px;padding:10px 12px;">' +
                     '<div style="font-size:12px;color:#666;margin-bottom:6px;">' + title + '</div>' +
                     '<div style="word-break:break-word;">' + displayContent + '</div>' +
+                    recognitionHtml +
                     taskHtml +
                     timeText +
                 '</div>' +
@@ -407,6 +479,7 @@ layui.use(['layer', 'jquery'], function() {
                 '<div style="display:inline-block;max-width:80%;text-align:left;background:#fff;border:1px solid #eee;border-radius:8px;padding:10px 12px;">' +
                     '<div style="font-size:12px;color:#666;margin-bottom:6px;">AI</div>' +
                     '<div class="ai-stream-message-content" style="word-break:break-word;white-space:pre-wrap;">正在思考....</div>' +
+                    '<div class="ai-stream-message-meta"></div>' +
                     '<div class="ai-stream-message-task"></div>' +
                     '<div class="ai-stream-message-time" style="font-size:12px;color:#999;margin-top:6px;"></div>' +
                 '</div>' +
@@ -430,6 +503,16 @@ layui.use(['layer', 'jquery'], function() {
         if (task && task.type === 'business_handoff') {
             $task.append(renderTaskCard(task, options || task.options || []));
             bindRenderedTaskCards();
+        }
+    }
+
+    function setAssistantStreamRecognitionMeta($message, recognitionMeta) {
+        if (!$message || !$message.length) return;
+        var $meta = $message.find('.ai-stream-message-meta');
+        $meta.empty();
+        var html = renderRecognitionMeta(recognitionMeta);
+        if (html) {
+            $meta.append(html);
         }
     }
 
@@ -529,6 +612,7 @@ layui.use(['layer', 'jquery'], function() {
                         assistantText = payload.ai_message || payload.message || assistantText;
                         setAssistantStreamMessage(assistantMessage, assistantText || '已完成处理');
                         var options = payload.options || (payload.task && payload.task.options) || [];
+                        setAssistantStreamRecognitionMeta(assistantMessage, payload.recognition_meta);
                         setAssistantStreamTask(assistantMessage, payload.task, options);
                         setAssistantStreamTime(assistantMessage, payload.ai_message_created_at || '');
                         bindRenderedTaskCards();
@@ -613,6 +697,10 @@ layui.use(['layer', 'jquery'], function() {
         }
         if (option.action === 'clarify') {
             $('#chatInput').val('请补充业务类型：').focus();
+            return;
+        }
+        if (option.action === 'clarify_business_type') {
+            $('#chatInput').val(option.rewrite_prompt || ('请按' + (option.text || '当前业务类型') + '处理：')).focus();
             return;
         }
         if (option.action === 'open_business_page') {
@@ -759,7 +847,7 @@ layui.use(['layer', 'jquery'], function() {
                 setHeader(res.title || ('会话 #' + res.id));
                 var html = '';
                 (res.messages || []).forEach(function(m) {
-                    html += renderMessage(m.role, m.content, m.created_at, m.task, m.options);
+                    html += renderMessage(m.role, m.content, m.created_at, m.task, m.options, m.recognition_meta);
                 });
                 $('#chatMessages').html(html);
                 bindRenderedTaskCards();

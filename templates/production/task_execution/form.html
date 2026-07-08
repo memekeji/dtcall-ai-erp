@@ -1,200 +1,117 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ action }}生产任务</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
-
 <body>
-    <div class="layui-fluid" style="padding: 20px;">
-        <!-- 页面标题 -->
-        <div class="layui-row">
-            <div class="layui-col-md12">
-                <h2 style="margin-bottom: 20px;">
-                    {{ action }}生产任务
-                </h2>
-            </div>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>{{ action }}生产任务</h2></div>
+
+        <div class="production-note">
+            生产任务是生产计划的执行单元，后续完工申报、资源消耗、设备监控和材料确认都会挂在任务上。
         </div>
 
-        <!-- 表单 -->
-        <div class="layui-row">
-            <div class="layui-col-md10">
-                <div class="layui-card">
-                    <div class="layui-card-body">
-                        <form class="layui-form" method="post">
-                            {% csrf_token %}
+        <div class="layui-card production-form-card" style="margin-top: 16px;">
+            <div class="layui-card-body">
+                <form method="post" class="layui-form">
+                    {% csrf_token %}
 
+                    <div class="production-form-section-title">任务基础信息</div>
+                    <div class="layui-row layui-col-space16">
+                        <div class="layui-col-md6">
                             <div class="layui-form-item">
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">任务名称 <span style="color: red;">*</span></label>
-                                    <div class="layui-input-inline" style="width: 250px;">
-                                        {{ form.name }}
-                                        {% if form.name.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.name.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">任务编号 <span style="color: red;">*</span></label>
-                                    <div class="layui-input-inline" style="width: 150px;">
-                                        {{ form.code }}
-                                        {% if form.code.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.code.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
+                                <label class="layui-form-label">任务名称</label>
+                                <div class="layui-input-block">{{ form.name }}</div>
                             </div>
-
+                        </div>
+                        <div class="layui-col-md6">
                             <div class="layui-form-item">
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">所属计划</label>
-                                    <div class="layui-input-inline" style="width: 200px;">
-                                        {{ form.plan }}
-                                        {% if form.plan.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.plan.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">执行工序 <span style="color: red;">*</span></label>
-                                    <div class="layui-input-inline" style="width: 150px;">
-                                        {{ form.procedure }}
-                                        {% if form.procedure.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.procedure.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">使用设备</label>
-                                    <div class="layui-input-inline" style="width: 150px;">
-                                        {{ form.equipment }}
-                                        {% if form.equipment.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.equipment.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
+                                <label class="layui-form-label">任务编号</label>
+                                <div class="layui-input-block">{{ form.code }}</div>
                             </div>
-
+                        </div>
+                        <div class="layui-col-md6">
                             <div class="layui-form-item">
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">任务数量 <span style="color: red;">*</span></label>
-                                    <div class="layui-input-inline" style="width: 120px;">
-                                        {{ form.quantity }}
-                                        {% if form.quantity.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.quantity.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">执行人</label>
-                                    <div class="layui-input-inline" style="width: 150px;">
-                                        {{ form.assignee }}
-                                        {% if form.assignee.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.assignee.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
+                                <label class="layui-form-label">所属计划</label>
+                                <div class="layui-input-block">{{ form.plan }}</div>
                             </div>
-
+                        </div>
+                        <div class="layui-col-md6">
                             <div class="layui-form-item">
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">计划开始时间 <span style="color: red;">*</span></label>
-                                    <div class="layui-input-inline" style="width: 180px;">
-                                        {{ form.plan_start_time }}
-                                        {% if form.plan_start_time.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.plan_start_time.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">计划结束时间 <span style="color: red;">*</span></label>
-                                    <div class="layui-input-inline" style="width: 180px;">
-                                        {{ form.plan_end_time }}
-                                        {% if form.plan_end_time.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.plan_end_time.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
+                                <label class="layui-form-label">执行工序</label>
+                                <div class="layui-input-block">{{ form.procedure }}</div>
                             </div>
-
-                            <div class="layui-form-item layui-form-text">
-                                <label class="layui-form-label">任务描述</label>
-                                <div class="layui-input-block">
-                                    {{ form.description }}
-                                    {% if form.description.errors %}
-                                        <div style="color: red; margin-top: 5px;">{{ form.description.errors.0 }}</div>
-                                    {% endif %}
-                                </div>
-                            </div>
-
+                        </div>
+                        <div class="layui-col-md6">
                             <div class="layui-form-item">
-                                <div class="layui-input-block">
-                                    <button class="layui-btn" lay-submit lay-filter="formSubmit">
-                                        {{ action }}
-                                    </button>
-                                    <button type="button" class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:production_task_list' %}'">
-                                        取消
-                                    </button>
-                                </div>
+                                <label class="layui-form-label">执行设备</label>
+                                <div class="layui-input-block">{{ form.equipment }}</div>
                             </div>
-                        </form>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">执行人</label>
+                                <div class="layui-input-block">{{ form.assignee }}</div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">任务数量</label>
+                                <div class="layui-input-block">{{ form.quantity }}</div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">任务状态</label>
+                                <div class="layui-input-block">{{ form.status }}</div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">计划开始时间</label>
+                                <div class="layui-input-block">{{ form.plan_start_time }}</div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">计划结束时间</label>
+                                <div class="layui-input-block">{{ form.plan_end_time }}</div>
+                            </div>
+                        </div>
                     </div>
-                </div>
+
+                    <div class="layui-form-item layui-form-text">
+                        <label class="layui-form-label">任务描述</label>
+                        <div class="layui-input-block">{{ form.description }}</div>
+                    </div>
+
+                    <div class="layui-form-item">
+                        <div class="layui-input-block">
+                            <button class="layui-btn" type="submit">{{ action }}</button>
+                            <a href="{% url 'production:production_task_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                        </div>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        layui.use(['form', 'layer', 'laydate'], function () {
-            var form = layui.form;
-            var layer = layui.layer;
-            var laydate = layui.laydate;
-
-            // 日期时间选择器
-            laydate.render({
-                elem: '#id_plan_start_time',
-                type: 'datetime'
-            });
-
-            laydate.render({
-                elem: '#id_plan_end_time',
-                type: 'datetime'
-            });
-
-            // 监听提交
-            form.on('submit(formSubmit)', function(data) {
-                return true; // 允许表单提交
-            });
+        layui.use(['form', 'laydate'], function () {
+            layui.form.render();
+            layui.laydate.render({ elem: '#id_plan_start_time', type: 'datetime' });
+            layui.laydate.render({ elem: '#id_plan_end_time', type: 'datetime' });
         });
 
         {% include "production/_right_popup_function.html" %}
-</script>
-
-    <!-- 注入的消息提示脚本 -->
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
-        });
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
-
 </html>

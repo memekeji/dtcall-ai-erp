@@ -6,36 +6,87 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>生产数据点</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
 <body>
-    <div class="layui-fluid" style="padding: 20px;">
-        <div class="layui-card">
-            <div class="layui-card-header">生产数据点</div>
-            <div class="layui-card-body" style="padding: 0;">
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>生产数据点</h2></div>
+
+        <div class="production-nav-strip">
+            <a class="production-nav-link" href="{% url 'production:data_collection_list' %}">现场采集</a>
+            <a class="production-nav-link" href="{% url 'production:data_source_list' %}">数据源</a>
+            <a class="production-nav-link" href="{% url 'production:data_mapping_list' %}">字段映射</a>
+            <a class="production-nav-link" href="{% url 'production:data_collection_task_list' %}">采集任务</a>
+            <a class="production-nav-link" href="{% url 'production:data_collection_record_list' %}">采集记录</a>
+            <a class="production-nav-link active" href="{% url 'production:data_point_list' %}">生产数据点</a>
+        </div>
+
+        <div class="production-summary-strip">
+            <div class="production-summary-item"><div class="production-summary-value">{{ summary.total|default:0 }}</div><div class="production-summary-label">数据点总数</div></div>
+            <div class="production-summary-item"><div class="production-summary-value">{{ summary.equipment_count|default:0 }}</div><div class="production-summary-label">覆盖设备数</div></div>
+            <div class="production-summary-item"><div class="production-summary-value">{{ summary.metric_count|default:0 }}</div><div class="production-summary-label">指标种类数</div></div>
+            <div class="production-summary-item accent"><div class="production-summary-value">{{ summary.latest_timestamp|date:"m-d H:i"|default:"-" }}</div><div class="production-summary-label">最新采样时间</div></div>
+        </div>
+
+        <div class="production-note">
+            只有当采集记录经过映射并能识别到设备后，这里才会生成真正可分析的数据点。如果当前为空，请先检查数据源映射中是否至少给出了 `equipment_id` 或 `equipment_code`。
+        </div>
+
+        <div class="production-list-toolbar" style="margin-top: 16px;">
+            <div class="production-inline-actions">
+                <a href="{% url 'production:data_source_list' %}" class="layui-btn layui-btn-primary">返回数据源</a>
+            </div>
+            <form method="get" class="layui-form production-inline-actions compact">
+                <input type="text" name="search" value="{{ search }}" class="layui-input" style="width: 180px;" placeholder="搜索指标或设备">
+                <select name="equipment" class="layui-input" style="width: 180px;">
+                    <option value="">全部设备</option>
+                    {% for equipment in equipments %}
+                    <option value="{{ equipment.id }}" {% if selected_equipment == equipment.id|stringformat:"s" %}selected{% endif %}>{{ equipment.name }}</option>
+                    {% endfor %}
+                </select>
+                <select name="data_source" class="layui-input" style="width: 220px;">
+                    <option value="">全部数据源</option>
+                    {% for source in data_sources %}
+                    <option value="{{ source.id }}" {% if selected_source == source.id|stringformat:"s" %}selected{% endif %}>{{ source.name }}</option>
+                    {% endfor %}
+                </select>
+                <button class="layui-btn layui-btn-normal" type="submit">筛选</button>
+            </form>
+        </div>
+
+        <div class="layui-card production-list-card">
+            <div class="layui-card-body production-table-wrap">
                 <table class="layui-table" lay-skin="line">
                     <thead>
                         <tr>
                             <th>设备</th>
                             <th>指标名称</th>
                             <th>指标值</th>
-                            <th>单位</th>
-                            <th>质量</th>
-                            <th>采集时间</th>
+                            <th>来源</th>
+                            <th>关联任务 / 工序</th>
+                            <th>采样时间</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for point in page_obj %}
                         <tr>
-                            <td>{{ point.equipment.name|default:'-' }}</td>
-                            <td>{{ point.metric_name|default:'-' }}</td>
-                            <td>{{ point.metric_value|default:'-' }}</td>
-                            <td>{{ point.metric_unit|default:'-' }}</td>
-                            <td>{{ point.quality|default:'-' }}</td>
-                            <td>{{ point.timestamp|date:"Y-m-d H:i:s"|default:'-' }}</td>
+                            <td>
+                                <div>{{ point.equipment.name|default:"-" }}</div>
+                                <div class="production-mini-note">{{ point.equipment.code|default:"-" }}</div>
+                            </td>
+                            <td>{{ point.metric_name|default:"-" }}</td>
+                            <td>{{ point.metric_value|default:"-" }} {{ point.metric_unit|default:"" }}</td>
+                            <td>{{ point.data_source.name|default:"手工/内部" }}</td>
+                            <td>
+                                <div>{{ point.task.name|default:"-" }}</div>
+                                <div class="production-mini-note">{{ point.procedure.name|default:"-" }}</div>
+                            </td>
+                            <td>{{ point.timestamp|date:"Y-m-d H:i:s"|default:"-" }}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="6" style="text-align: center; color: #999; padding: 40px;">暂无生产数据点</td>
+                            <td colspan="6" class="production-empty">暂无生产数据点。</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -43,59 +94,14 @@
             </div>
         </div>
     </div>
-<script>
-        {% include "production/_right_popup_function.html" %}
-</script>
 
-    <!-- 注入的 iframe 自动关闭及消息提示脚本 -->
+    <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            var flashMsg = sessionStorage.getItem('flash_msg');
-            if (flashMsg) {
-                sessionStorage.removeItem('flash_msg');
-                try {
-                    var parsedMsgs = JSON.parse(flashMsg);
-                    msgs = msgs.concat(parsedMsgs);
-                } catch(e) {}
-            }
-
-            var isLayerFrame = false;
-            if (window !== window.parent) {
-                if (window.frameElement && window.frameElement.closest) {
-                    isLayerFrame = !!window.frameElement.closest('.layui-layer-iframe');
-                }
-                if (!isLayerFrame && window.name && window.parent.layer && typeof window.parent.layer.getFrameIndex === 'function') {
-                    try {
-                        var frameIndex = window.parent.layer.getFrameIndex(window.name);
-                        isLayerFrame = frameIndex !== undefined && frameIndex !== null && frameIndex !== '';
-                    } catch(e) {}
-                }
-            }
-
-            if (isLayerFrame) {
-                if (msgs.length > 0) {
-                    sessionStorage.setItem('flash_msg', JSON.stringify(msgs));
-                }
-                parent.location.reload();
-                return;
-            }
-
-            // 正常独立访问 list 页面
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
+        layui.use(['form'], function () {
+            layui.form.render();
         });
+        {% include "production/_right_popup_function.html" %}
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
 </html>

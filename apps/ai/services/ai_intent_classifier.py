@@ -128,6 +128,12 @@ class AIIntentClassifier:
         'create',
         'update',
         'delete',
+        'approve',
+        'reject',
+        'submit',
+        'publish',
+        'withdraw',
+        'stock',
         'chat',
         'knowledge_search',
         'ui_refresh',
@@ -206,7 +212,7 @@ class AIIntentClassifier:
         'last_year',
         'recent'
     })
-    MUTATING_ACTIONS = frozenset({'create', 'update', 'delete'})
+    MUTATING_ACTIONS = frozenset({'create', 'update', 'delete', 'approve', 'reject', 'submit', 'publish', 'withdraw', 'stock'})
     UI_ACTIONS = frozenset({
         'ui_refresh',
         'ui_back',
@@ -232,20 +238,24 @@ class AIIntentClassifier:
         ('project_stage', ['项目阶段', '阶段管理', '阶段列表']),
         ('project_category', ['项目分类', '分类管理', '分类列表']),
         ('work_type', ['工作类型', '工作类别', '工时类型']),
-        ('document', ['业务文档', '文档']),
-        ('customer', ['客户', '客资', '线索']),
-        ('contact', ['联系人']),
+        ('document', ['业务文档', '文档', '公文', '发文', '公函']),
         ('order', ['订单', '销售单']),
+        ('customer', ['客户', '客资', '线索']),
+        ('contact', ['客户联系人', '对接人', '联系人']),
         ('contract', ['合同', '协议']),
         ('project', ['项目']),
         ('invoice', ['发票', '开票']),
         ('employee', ['员工', '人事', '人员', '同事']),
         ('department', ['部门', '组织', '组织架构']),
-        ('finance', ['财务', '报销', '回款', '打款']),
-        ('expense', ['费用', '报销单', '支出']),
-        ('income', ['收入', '回款']),
-        ('payment', ['付款', '收款']),
-        ('production', ['生产', '生产计划', '生产任务', '设备', '工序']),
+        ('expense', ['报销单', '费用单', '费用', '支出']),
+        ('income', ['回款记录', '到账记录', '收入', '回款']),
+        ('payment', ['付款单', '打款记录', '付款', '打款', '收款']),
+        ('finance', ['财务', '财务记录', '财务数据']),
+        ('production_plan', ['生产计划', '排产计划']),
+        ('production_task', ['生产任务', '生产工单', '派工单']),
+        ('production_equipment', ['生产设备', '机台', '机器设备', '设备']),
+        ('production_procedure', ['生产工序', '工艺工序', '工序']),
+        ('production', ['生产', '生产管理']),
         ('supplier', ['供应商']),
         ('product', ['产品', '商品']),
         ('inventory', ['库存', '存货', '物料']),
@@ -260,12 +270,18 @@ class AIIntentClassifier:
         ('work_report', ['工作汇报', '日报', '周报', '月报', '工作总结', '工作报告']),
         ('personal_task', ['个人任务', '我的待办', '待办']),
         ('personal_note', ['个人笔记', '我的笔记', '笔记']),
-        ('personal_contact', ['个人通讯录', '我的联系人', '私人通讯录']),
+        ('personal_contact', ['个人通讯录', '我的联系人', '私人通讯录', '私人联系人']),
     )
-    CREATE_KEYWORDS = ('添加', '新增', '创建', '增加', '新建', '录入', '登记', '上传', '提交', '发起', '申请')
+    CREATE_KEYWORDS = ('添加', '新增', '创建', '增加', '新建', '录入', '登记', '上传', '提交', '发起', '申请', '起草')
     UPDATE_KEYWORDS = ('修改', '更新', '更改', '调整', '编辑', '维护', '设置', '共享', '分享', '审批通过', '驳回', '同意', '拒绝')
+    APPROVE_KEYWORDS = ('帮我审批', '请审批', '审批这', '审批一下', '帮我审核', '请审核', '审核这', '审核一下', '批准这', '通过这', '同意这', '审批通过', '审核通过', '批准通过', '过审')
+    REJECT_KEYWORDS = ('驳回', '拒绝', '退回')
+    SUBMIT_KEYWORDS = ('提交', '提审', '送审', '上报')
+    PUBLISH_KEYWORDS = ('发布', '下发', '发文')
+    WITHDRAW_KEYWORDS = ('撤回审批', '撤回流程', '撤回申请', '撤销审批')
+    STOCK_KEYWORDS = ('入库确认', '出库确认', '执行入库', '执行出库', '完成入库', '完成出库')
     DELETE_KEYWORDS = ('删除', '移除', '作废', '撤销', '取消', '停用')
-    QUERY_KEYWORDS = ('查询', '查看', '查', '看一下', '看下', '找', '搜索', '统计', '多少', '数量', '列表', '有哪些', '列出', '显示', '汇总', '进度')
+    QUERY_KEYWORDS = ('查询', '查看', '查', '查下', '看一下', '看下', '看看', '看一看', '找', '搜索', '统计', '多少', '数量', '列表', '有哪些', '列出', '显示', '汇总', '进度')
 
     def __init__(self):
         self.ai_client = None
@@ -392,6 +408,7 @@ class AIIntentClassifier:
         """使用 AI 模型进行意图分类"""
         try:
             self._get_training_data()
+            from apps.ai.services.project_mcp_service import project_mcp_service
 
             intent_categories_str = "\n".join([
                 f"- {cat_id}: {info['name']} - {info['description']}"
@@ -400,6 +417,7 @@ class AIIntentClassifier:
             action_values = ', '.join(sorted(self.ALLOWED_ACTIONS))
             data_type_values = ', '.join(sorted(self.ALLOWED_DATA_TYPES))
             time_range_values = ', '.join(sorted(self.ALLOWED_TIME_RANGES))
+            project_mcp_context = project_mcp_service.build_prompt_context()
 
             system_prompt = f"""你是企业系统中的意图识别引擎，只负责把用户输入分类为结构化 JSON，不执行任何业务动作。
 必须遵守：
@@ -409,10 +427,12 @@ class AIIntentClassifier:
 4. action 只能取：{action_values}。
 5. data_type 只能取：{data_type_values}，无法确定则返回 null。
 6. time_range 只能取：{time_range_values}，无法确定则返回 null。
-7. 删除、作废、移除归类为 DATA_DELETE/delete；新增归类为 DATA_CREATE/create；修改归类为 DATA_UPDATE/update。
+7. 删除、作废、移除归类为 DATA_DELETE/delete；新增归类为 DATA_CREATE/create；修改归类为 DATA_UPDATE/update；审批/审核归类为 DATA_UPDATE/approve；驳回归类为 DATA_UPDATE/reject；提交归类为 DATA_UPDATE/submit；发布归类为 DATA_UPDATE/publish。
 8. 界面操作仅限刷新、返回、打开助手、切换主题、总结页面，归类为 UI_ACTION。
 9. 不能确定时 intent 返回 AI_CHAT，action 返回 chat，confidence 不得超过 0.55。
-10. create/update/delete 的 requires_confirmation 必须为 true。"""
+10. create/update/delete 的 requires_confirmation 必须为 true。
+
+{project_mcp_context}"""
 
             user_prompt = f"""可选意图类别：
 {intent_categories_str}
@@ -421,7 +441,7 @@ class AIIntentClassifier:
 {{
   "intent": "DATA_QUERY|DATA_CREATE|DATA_UPDATE|DATA_DELETE|KNOWLEDGE_BASE|AI_CHAT|UI_ACTION",
   "confidence": 0.0,
-  "action": "query|count|list|detail|summary|create|update|delete|chat|knowledge_search|ui_refresh|ui_back|ui_open_assistant|ui_theme_dark|ui_theme_light|ui_summarize_page|unknown",
+  "action": "query|count|list|detail|summary|create|update|delete|approve|reject|submit|publish|withdraw|stock|chat|knowledge_search|ui_refresh|ui_back|ui_open_assistant|ui_theme_dark|ui_theme_light|ui_summarize_page|unknown",
   "data_type": null,
   "entities": {{}},
   "time_range": null,
@@ -689,7 +709,8 @@ class AIIntentClassifier:
         return fallback
 
     def _build_rule_based_business_result(self, query: str, reason: str) -> Dict[str, Any] | None:
-        data_type = self._infer_data_type_from_query(query)
+        candidate_data_types = self._infer_candidate_data_types_from_query(query)
+        data_type = candidate_data_types[0] if candidate_data_types else None
         action = self._infer_action_from_query(query)
         if not data_type and action == 'chat':
             return None
@@ -700,11 +721,16 @@ class AIIntentClassifier:
         if intent == 'DATA_QUERY':
             requires_confirmation = confidence < self.CONFIDENCE_THRESHOLDS['MEDIUM']
 
+        entities = {}
+        if len(candidate_data_types) > 1:
+            entities['candidate_data_types'] = candidate_data_types
+
         return {
             'intent': intent,
             'confidence': confidence,
             'action': action,
             'data_type': data_type,
+            'entities': entities,
             'requires_confirmation': requires_confirmation,
             'reasoning': f'{reason}，已按业务关键词安全识别',
             'fallback_options': [
@@ -715,16 +741,52 @@ class AIIntentClassifier:
         }
 
     def _infer_data_type_from_query(self, query: str) -> str | None:
+        candidate_data_types = self._infer_candidate_data_types_from_query(query)
+        return candidate_data_types[0] if candidate_data_types else None
+
+    def _infer_candidate_data_types_from_query(self, query: str) -> list[str]:
         query_lower = (query or '').lower()
-        if '生产' in query_lower:
-            return 'production'
+        candidate_data_types = []
+        scored_matches = []
         for data_type, keywords in self.DATA_TYPE_KEYWORDS:
-            if any(keyword.lower() in query_lower for keyword in keywords):
-                return data_type
-        return None
+            matched_keywords = [keyword for keyword in keywords if keyword.lower() in query_lower]
+            if not matched_keywords:
+                continue
+            score = max(len(keyword) for keyword in matched_keywords)
+            if data_type in {'finance', 'production', 'customer', 'project', 'disk'}:
+                score -= 30
+            if data_type == 'customer' and '联系人' in query:
+                score -= 20
+            if data_type == 'personal_contact' and any(keyword in query for keyword in ['我的联系人', '个人通讯录', '私人通讯录', '私人联系人']):
+                score += 40
+            if data_type == 'approval_task' and any(keyword in query for keyword in ['待审批', '待办审批', '待办流程']):
+                score += 40
+            if data_type in {'production_plan', 'production_task', 'production_equipment', 'production_procedure'}:
+                score += 20
+            if data_type in {'expense', 'income', 'payment'}:
+                score += 15
+            scored_matches.append((score, data_type))
+        for _, data_type in sorted(scored_matches, key=lambda item: item[0], reverse=True):
+            if data_type not in candidate_data_types:
+                candidate_data_types.append(data_type)
+        if '生产' in query_lower and not any(item in candidate_data_types for item in {'production_plan', 'production_task', 'production_equipment', 'production_procedure', 'production'}):
+            candidate_data_types.append('production')
+        if ('财务' in query_lower or '报销' in query_lower or '回款' in query_lower or '付款' in query_lower) and 'finance' not in candidate_data_types:
+            candidate_data_types.append('finance')
+        return candidate_data_types
 
     def _infer_action_from_query(self, query: str) -> str:
         query_lower = (query or '').lower()
+        if any(keyword.lower() in query_lower for keyword in self.WITHDRAW_KEYWORDS):
+            return 'withdraw'
+        if any(keyword.lower() in query_lower for keyword in self.REJECT_KEYWORDS):
+            return 'reject'
+        if any(keyword.lower() in query_lower for keyword in self.PUBLISH_KEYWORDS):
+            return 'publish'
+        if any(keyword.lower() in query_lower for keyword in self.SUBMIT_KEYWORDS):
+            return 'submit'
+        if any(keyword.lower() in query_lower for keyword in self.STOCK_KEYWORDS):
+            return 'stock'
         if any(keyword.lower() in query_lower for keyword in self.DELETE_KEYWORDS):
             return 'delete'
         if any(keyword.lower() in query_lower for keyword in self.CREATE_KEYWORDS):
@@ -733,6 +795,8 @@ class AIIntentClassifier:
             if any(keyword in query_lower for keyword in ['多少', '数量', '总数', '统计', '合计']):
                 return 'count'
             return 'list'
+        if any(keyword.lower() in query_lower for keyword in self.APPROVE_KEYWORDS):
+            return 'approve'
         if any(keyword.lower() in query_lower for keyword in self.UPDATE_KEYWORDS):
             return 'update'
         return 'chat'
@@ -740,7 +804,7 @@ class AIIntentClassifier:
     def _intent_for_action(self, action: str) -> str:
         if action == 'create':
             return 'DATA_CREATE'
-        if action == 'update':
+        if action in {'update', 'approve', 'reject', 'submit', 'publish', 'withdraw', 'stock'}:
             return 'DATA_UPDATE'
         if action == 'delete':
             return 'DATA_DELETE'
@@ -784,8 +848,15 @@ class AIIntentClassifier:
         if result.get('data_type') not in self.ALLOWED_DATA_TYPES:
             result['data_type'] = None
 
+        candidate_data_types = self._infer_candidate_data_types_from_query(query)
         if not result.get('data_type'):
-            result['data_type'] = self._infer_data_type_from_query(query)
+            result['data_type'] = candidate_data_types[0] if candidate_data_types else None
+        elif result.get('data_type') in {'finance', 'production', 'customer'}:
+            preferred = candidate_data_types[0] if candidate_data_types else None
+            if preferred and preferred != result.get('data_type'):
+                result['data_type'] = preferred
+        if len(candidate_data_types) > 1:
+            result['entities'].setdefault('candidate_data_types', candidate_data_types)
 
         rule_action = self._infer_action_from_query(query)
         if (

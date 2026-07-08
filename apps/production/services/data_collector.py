@@ -13,6 +13,8 @@ from ..models import (
     DataSource,
     Equipment,
     ProductionDataPoint,
+    ProductionProcedure,
+    ProductionTask,
 )
 
 logger = logging.getLogger(__name__)
@@ -807,22 +809,13 @@ class DataCollectorService:
             collection: DataCollectionRecord):
         """保存单个数据点"""
         try:
-            # 这里需要根据实际业务逻辑来确定如何保存数据点
-            # 示例：假设数据中包含设备ID和指标信息
-
-            equipment_id = data.get('equipment_id')
-            if not equipment_id:
-                return
-
-            try:
-                equipment = Equipment.objects.get(id=equipment_id)
-            except Equipment.DoesNotExist:
-                logger.warning(f'设备不存在: {equipment_id}')
+            equipment = self._resolve_equipment(data)
+            if equipment is None:
                 return
 
             # 保存每个指标作为数据点
             for key, value in data.items():
-                if key in ['equipment_id', 'timestamp']:
+                if key in ['equipment_id', 'equipment_code', 'equipment_name', 'timestamp', 'task_code', 'procedure_code']:
                     continue
 
                 # 解析时间戳
@@ -842,8 +835,56 @@ class DataCollectorService:
                     metric_name=key,
                     metric_value=str(value),
                     timestamp=timestamp,
-                    collection_time=collection.collection_time
+                    collection_time=collection.collection_time,
+                    task=self._resolve_task(data),
+                    procedure=self._resolve_procedure(data),
                 )
 
         except Exception as e:
             logger.error(f'保存单个数据点失败: {str(e)}')
+
+    def _resolve_equipment(self, data: dict):
+        """按设备ID / 编码 / 名称解析设备，避免只能依赖数据库主键。"""
+        equipment_id = data.get('equipment_id')
+        equipment_code = data.get('equipment_code')
+        equipment_name = data.get('equipment_name')
+
+        if equipment_id:
+            try:
+                return Equipment.objects.get(id=equipment_id)
+            except Equipment.DoesNotExist:
+                logger.warning(f'设备不存在: {equipment_id}')
+
+        if equipment_code:
+            try:
+                return Equipment.objects.get(code=equipment_code)
+            except Equipment.DoesNotExist:
+                logger.warning(f'设备编码不存在: {equipment_code}')
+
+        if equipment_name:
+            try:
+                return Equipment.objects.get(name=equipment_name)
+            except Equipment.DoesNotExist:
+                logger.warning(f'设备名称不存在: {equipment_name}')
+
+        return None
+
+    def _resolve_task(self, data: dict):
+        task_code = data.get('task_code')
+        if not task_code:
+            return None
+        try:
+            return ProductionTask.objects.get(code=task_code)
+        except ProductionTask.DoesNotExist:
+            logger.warning(f'任务编码不存在: {task_code}')
+            return None
+
+    def _resolve_procedure(self, data: dict):
+        procedure_code = data.get('procedure_code')
+        if not procedure_code:
+            return None
+        try:
+            return ProductionProcedure.objects.get(code=procedure_code)
+        except ProductionProcedure.DoesNotExist:
+            logger.warning(f'工序编码不存在: {procedure_code}')
+            return None

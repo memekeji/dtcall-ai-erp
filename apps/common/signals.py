@@ -12,6 +12,7 @@ from django.utils import timezone
 from apps.customer.models import CustomerContract, CustomerOrder
 from apps.project.models import Project
 from apps.finance.models import OrderFinanceRecord, InvoiceRequest, Invoice
+from apps.finance.services import FinanceLinkageService
 
 logger = logging.getLogger(__name__)
 logger.info("数据集成信号处理器已加载")
@@ -67,26 +68,8 @@ class DataIntegrationService:
 
             # 创建财务记录 - 检查是否已存在
             try:
-                # 先尝试查找现有财务记录
-                finance_record = OrderFinanceRecord.objects.filter(
-                    order=order).first()
-                if finance_record:
-                    # 更新现有记录
-                    finance_record.total_amount = contract.amount
-                    finance_record.payment_status = 'pending'
-                    finance_record.due_date = contract.end_date
-                    finance_record.save()
-                    logger.info(f"更新订单 {order.id} 的财务记录 {finance_record.id}")
-                else:
-                    # 创建新记录
-                    finance_record = OrderFinanceRecord.objects.create(
-                        order=order,
-                        total_amount=contract.amount,
-                        paid_amount=0,
-                        payment_status='pending',
-                        due_date=contract.end_date
-                    )
-                    logger.info(f"为订单 {order.id} 创建财务记录 {finance_record.id}")
+                finance_record = FinanceLinkageService.ensure_order_finance_record(order)
+                logger.info(f"为订单 {order.id} 创建或更新财务记录 {finance_record.id}")
             except Exception as e:
                 logger.error(f"创建或更新财务记录失败: {str(e)}")
                 raise
@@ -106,8 +89,8 @@ class DataIntegrationService:
 
             # 创建开票申请
             invoice_request = InvoiceRequest.objects.create(
-                order=order,
-                applicant=admin_user if admin_user else None,
+                order_id=order.id,
+                applicant_id=admin_user.id if admin_user else 0,
                 department_id=0,
                 amount=order.amount,
                 invoice_type=2,  # 默认普通发票
@@ -122,10 +105,8 @@ class DataIntegrationService:
             if customer:
                 invoice = Invoice.objects.create(
                     code=f"INV-{invoice_request.id}",
-                    customer=customer,
-                    contract=order.contract,
-                    project=Project.objects.filter(
-                        contract_id=order.contract_id).first(),
+                    customer_id=customer.id,
+                    contract_id=order.contract_id or 0,
                     amount=order.amount,
                     did=0,
                     admin_id=admin_user.id if admin_user else 0,
@@ -133,9 +114,7 @@ class DataIntegrationService:
                     types=1,
                     invoice_type=2,
                     invoice_title=customer.name,
-                    invoice_tax=customer.tax_number if hasattr(
-                        customer,
-                        'tax_number') else '',
+                    invoice_tax=customer.tax_num if hasattr(customer, 'tax_num') else '',
                     enter_amount=0,
                     enter_status=0,
                     check_status=0,
@@ -145,8 +124,9 @@ class DataIntegrationService:
                 logger.info(f"为订单 {order.id} 创建发票草稿 {invoice.id}")
 
                 # 关联开票申请和发票
-                invoice_request.invoice = invoice
-                invoice_request.save()
+                invoice_request.invoice_id = invoice.id
+                invoice_request.invoice_time = int(timezone.now().timestamp())
+                invoice_request.save(update_fields=["invoice_id", "invoice_time"])
 
             return invoice_request
         except Exception as e:
@@ -206,19 +186,13 @@ def sync_contract_to_project(sender, instance, created, **kwargs):
                 logger.info(f"订单 {order.id} 已存在，跳过创建")
 
                 # 检查是否有财务记录
-                if not OrderFinanceRecord.objects.filter(order=order).exists():
-                    finance_record = OrderFinanceRecord.objects.create(
-                        order=order,
-                        total_amount=instance.amount,
-                        paid_amount=0,
-                        payment_status='pending',
-                        due_date=instance.end_date
-                    )
+                if not OrderFinanceRecord.objects.filter(order_id=order.id).exists():
+                    finance_record = FinanceLinkageService.ensure_order_finance_record(order)
                     logger.info(f"为订单 {order.id} 创建财务记录 {finance_record.id}")
 
                 # 检查是否有待开票记录
                 if not InvoiceRequest.objects.filter(
-                        order=order).exists() and not Invoice.objects.filter(
+                        order_id=order.id).exists() and not Invoice.objects.filter(
                         contract_id=instance.id).exists():
                     data_integration_service.create_invoice_request(order)
         else:
@@ -244,18 +218,19 @@ def sync_order_to_finance(sender, instance, created, **kwargs):
     try:
         if created:
             # 新订单创建时，自动创建财务记录
-            if not OrderFinanceRecord.objects.filter(order=instance).exists():
+            if not OrderFinanceRecord.objects.filter(order_id=instance.id).exists():
                 OrderFinanceRecord.objects.create(
-                    order=instance,
+                    order_id=instance.id,
                     total_amount=instance.amount,
                     paid_amount=0,
-                    payment_status='pending'
+                    payment_status='pending',
+                    create_time=int(timezone.now().timestamp()),
                 )
                 logger.info(f"为订单{instance.order_number}自动创建财务记录")
         else:
             # 订单更新时，如果金额变化，同步更新财务记录
             try:
-                finance_record = OrderFinanceRecord.objects.get(order=instance)
+                finance_record = OrderFinanceRecord.objects.get(order_id=instance.id)
                 if finance_record.total_amount != instance.amount:
                     old_amount = finance_record.total_amount
                     finance_record.total_amount = instance.amount
@@ -265,10 +240,11 @@ def sync_order_to_finance(sender, instance, created, **kwargs):
             except OrderFinanceRecord.DoesNotExist:
                 # 如果财务记录不存在，创建它
                 OrderFinanceRecord.objects.create(
-                    order=instance,
+                    order_id=instance.id,
                     total_amount=instance.amount,
                     paid_amount=0,
-                    payment_status='pending'
+                    payment_status='pending',
+                    create_time=int(timezone.now().timestamp()),
                 )
                 logger.info(f"订单{instance.order_number}存在但无财务记录，已创建")
 
@@ -284,7 +260,9 @@ def sync_finance_to_order(sender, instance, created, **kwargs):
     """
     try:
         # 更新订单的财务状态
-        order = instance.order
+        order = CustomerOrder.objects.filter(id=instance.order_id).first()
+        if not order:
+            return
 
         # 根据付款状态更新订单
         if instance.payment_status == 'paid':
@@ -309,11 +287,12 @@ def sync_invoice_to_related(sender, instance, created, **kwargs):
     """
     try:
         # 如果发票关联了订单，更新订单的开票状态
-        if hasattr(instance, 'invoice_request') and instance.invoice_request:
-            order = instance.invoice_request.order
-            if order.invoice_request_status == 'approved':
-                order.invoice_request_status = 'requested'
-                order.save()
+        invoice_request = InvoiceRequest.objects.filter(invoice_id=instance.id).first()
+        if invoice_request:
+            order = CustomerOrder.objects.filter(id=invoice_request.order_id).first()
+            if order and order.invoice_request_status != 'approved':
+                order.invoice_request_status = 'approved'
+                order.save(update_fields=['invoice_request_status'])
                 logger.info(
                     f"发票{instance.code}已创建，更新订单{order.order_number}开票状态")
 
@@ -340,8 +319,8 @@ def prevent_delete_used_contract(sender, instance, **kwargs):
             f"无法删除合同 {instance.contract_number}，该合同已关联 {orders_count} 个订单")
 
     # 检查是否有发票关联此合同
-    if Invoice.objects.filter(contract=instance).exists():
-        invoices_count = Invoice.objects.filter(contract=instance).count()
+    if Invoice.objects.filter(contract_id=instance.id).exists():
+        invoices_count = Invoice.objects.filter(contract_id=instance.id).count()
         raise ValueError(
             f"无法删除合同 {instance.contract_number}，该合同已关联 {invoices_count} 张发票")
 

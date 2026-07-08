@@ -290,6 +290,13 @@ class Payment(models.Model):
     """付款记录"""
 
     expense_id = models.BigIntegerField(default=0, verbose_name="关联报销ID")
+    customer_id = models.BigIntegerField(default=0, verbose_name="关联客户ID")
+    order_id = models.BigIntegerField(default=0, verbose_name="关联订单ID")
+    purchase_order_id = models.BigIntegerField(default=0, verbose_name="关联采购订单ID")
+    purchase_contract_id = models.BigIntegerField(
+        default=0, verbose_name="关联采购合同ID"
+    )
+    project_id = models.BigIntegerField(default=0, verbose_name="关联项目ID")
     amount = models.DecimalField(
         max_digits=15, decimal_places=2, verbose_name="打款金额"
     )

@@ -6,92 +6,90 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SOP详情</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
 <body>
-    <div class="layui-fluid" style="padding: 20px;">
-        <div class="layui-card">
-            <div class="layui-card-header">
-                <div class="layui-row">
-                    <div class="layui-col-md8">
-                        <h2>{{ sop.name }}</h2>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>SOP详情</h2></div>
+
+        <div class="production-section-card">
+            <div class="production-section-header">
+                <span>{{ sop.name }} / {{ sop.code }}</span>
+                <span class="production-tag {% if sop.status %}ok{% else %}danger{% endif %}">
+                    {% if sop.status %}启用中{% else %}已停用{% endif %}
+                </span>
+            </div>
+            <div class="production-section-body">
+                <div class="production-detail-grid">
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">关联工序</div>
+                        <div class="production-detail-value">{{ sop.procedure.name|default:"-" }}</div>
                     </div>
-                    <div class="layui-col-md4" style="text-align: right;">
-                        <a href="{% url 'production:sop_edit' sop.pk %}" class="layui-btn layui-btn-sm">编辑</a>
-                        <a href="{% url 'production:sop_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">返回列表</a>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">工序编码</div>
+                        <div class="production-detail-value">{{ sop.procedure.code|default:"-" }}</div>
+                    </div>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">版本号</div>
+                        <div class="production-detail-value">{{ sop.version }}</div>
+                    </div>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">创建人</div>
+                        <div class="production-detail-value">{{ sop.creator.username|default:"-" }}</div>
+                    </div>
+                </div>
+                <div class="production-detail-grid" style="margin-top: 14px;">
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">创建时间</div>
+                        <div class="production-detail-value">{{ sop.create_time|date:"Y-m-d H:i:s" }}</div>
+                    </div>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">最近更新</div>
+                        <div class="production-detail-value">{{ sop.update_time|date:"Y-m-d H:i:s" }}</div>
+                    </div>
+                    <div class="production-detail-item" style="grid-column: span 2;">
+                        <div class="production-detail-label">附件路径</div>
+                        <div class="production-detail-value">{{ sop.file_path|default:"-" }}</div>
                     </div>
                 </div>
             </div>
-            <div class="layui-card-body">
-                <div class="layui-row layui-col-space15" style="margin-bottom: 16px;">
-                    <div class="layui-col-md3"><strong>SOP编号：</strong>{{ sop.code }}</div>
-                    <div class="layui-col-md3"><strong>关联工序：</strong>{{ sop.procedure.name|default:'-' }}</div>
-                    <div class="layui-col-md3"><strong>版本号：</strong>{{ sop.version }}</div>
-                    <div class="layui-col-md3">
-                        <strong>状态：</strong>
-                        {% if sop.status %}
-                        <span class="layui-badge layui-bg-green">启用</span>
-                        {% else %}
-                        <span class="layui-badge">禁用</span>
-                        {% endif %}
+        </div>
+
+        <div class="production-split-grid" style="margin-top: 16px;">
+            <div class="production-section-card">
+                <div class="production-section-header">SOP内容</div>
+                <div class="production-section-body">
+                    <div class="production-detail-value">{{ sop.content|linebreaksbr }}</div>
+                </div>
+            </div>
+            <div class="production-detail-stack">
+                <div class="production-section-card">
+                    <div class="production-section-header">安全要求</div>
+                    <div class="production-section-body">
+                        <div class="production-detail-value">{{ sop.safety_requirements|default:"-"|linebreaksbr }}</div>
                     </div>
                 </div>
-
-                <div class="layui-row layui-col-space15" style="margin-bottom: 16px;">
-                    <div class="layui-col-md6"><strong>创建人：</strong>{{ sop.creator.username|default:'-' }}</div>
-                    <div class="layui-col-md6"><strong>创建时间：</strong>{{ sop.create_time|date:"Y-m-d H:i:s" }}</div>
+                <div class="production-section-card">
+                    <div class="production-section-header">质量标准</div>
+                    <div class="production-section-body">
+                        <div class="production-detail-value">{{ sop.quality_standards|default:"-"|linebreaksbr }}</div>
+                    </div>
                 </div>
-
-                <fieldset class="layui-elem-field layui-field-title">
-                    <legend>SOP内容</legend>
-                </fieldset>
-                <div class="layui-text" style="line-height: 1.8;">{{ sop.content|linebreaks }}</div>
-
-                <fieldset class="layui-elem-field layui-field-title">
-                    <legend>安全要求</legend>
-                </fieldset>
-                <div class="layui-text" style="line-height: 1.8;">{{ sop.safety_requirements|default:'-'|linebreaks }}</div>
-
-                <fieldset class="layui-elem-field layui-field-title">
-                    <legend>质量标准</legend>
-                </fieldset>
-                <div class="layui-text" style="line-height: 1.8;">{{ sop.quality_standards|default:'-'|linebreaks }}</div>
-
-                <fieldset class="layui-elem-field layui-field-title">
-                    <legend>所需工具</legend>
-                </fieldset>
-                <div class="layui-text" style="line-height: 1.8;">{{ sop.tools_required|default:'-'|linebreaks }}</div>
-
-                {% if sop.file_path %}
-                <fieldset class="layui-elem-field layui-field-title">
-                    <legend>附件路径</legend>
-                </fieldset>
-                <div class="layui-text">{{ sop.file_path }}</div>
-                {% endif %}
+                <div class="production-section-card">
+                    <div class="production-section-header">所需工具</div>
+                    <div class="production-section-body">
+                        <div class="production-detail-value">{{ sop.tools_required|default:"-"|linebreaksbr }}</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-<script>
-        {% include "production/_right_popup_function.html" %}
-</script>
 
-    <!-- 注入的消息提示脚本 -->
+    <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
-        });
+        {% include "production/_right_popup_function.html" %}
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
 </html>

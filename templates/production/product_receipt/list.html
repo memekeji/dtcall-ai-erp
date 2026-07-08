@@ -4,26 +4,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>成品入库</title>
+    <title>成品入库管理</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
 <body>
-    <div class="layui-fluid" style="padding: 20px;">
-        <div style="margin-bottom: 15px;">
-            <a href="{% url 'production:product_receipt_add' %}" class="layui-btn">新增入库</a>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>成品入库管理</h2></div>
+        <div class="production-toolbar">
+            <div>
+                <button class="layui-btn layui-btn-warm" onclick="openRightPopup('新建成品入库', '{% url 'production:product_receipt_add' %}')">新建入库单</button>
+                <a class="layui-btn layui-btn-primary" href="{% url 'production:material_management_dashboard' %}">返回物料管理</a>
+            </div>
+            <div class="production-help">审核后可执行入库，执行时会将成品写入库存模块的生产入库台账。</div>
         </div>
-        <div class="layui-card">
-            <div class="layui-card-header">成品入库列表</div>
-            <div class="layui-card-body" style="padding: 0;">
+        <div class="production-section-card">
+            <div class="production-section-body" style="padding: 0;">
                 <table class="layui-table" lay-skin="line">
                     <thead>
                         <tr>
-                            <th>入库单号</th>
-                            <th>生产计划</th>
-                            <th>完工申报</th>
+                            <th>入库单</th>
+                            <th>来源计划/完工申报</th>
                             <th>入库日期</th>
                             <th>数量</th>
-                            <th>库位</th>
+                            <th>存储位置</th>
                             <th>状态</th>
                             <th>操作</th>
                         </tr>
@@ -32,83 +36,56 @@
                         {% for receipt in page_obj %}
                         <tr>
                             <td>{{ receipt.code }}</td>
-                            <td>{{ receipt.production_plan.name|default:'-' }}</td>
-                            <td>{{ receipt.completion_report.code|default:'-' }}</td>
+                            <td>
+                                <div>{{ receipt.production_plan.name|default:"-" }}</div>
+                                <div class="production-help">{{ receipt.completion_report.code|default:"未绑定完工申报" }}</div>
+                            </td>
                             <td>{{ receipt.receipt_date|date:"Y-m-d" }}</td>
                             <td>{{ receipt.receipt_quantity }}</td>
-                            <td>{{ receipt.storage_location|default:'-' }}</td>
-                            <td>{{ receipt.get_status_display }}</td>
-                            <td>
-                                <a href="{% url 'production:product_receipt_edit' receipt.pk %}" class="layui-btn layui-btn-xs">编辑</a>
+                            <td>{{ receipt.storage_location|default:"-" }}</td>
+                            <td><span class="production-tag {% if receipt.status == 3 %}ok{% elif receipt.status == 2 %}warn{% elif receipt.status == 4 %}danger{% else %}warn{% endif %}">{{ receipt.get_status_display }}</span></td>
+                            <td class="production-table-actions">
+                                <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="openRightPopup('入库详情', '{% url 'production:product_receipt_detail' receipt.pk %}')">详情</button>
                                 {% if receipt.status == 1 %}
-                                <a href="{% url 'production:product_receipt_approve' receipt.pk %}" class="layui-btn layui-btn-xs layui-btn-normal">审核</a>
-                                <a href="{% url 'production:product_receipt_cancel' receipt.pk %}" class="layui-btn layui-btn-xs layui-btn-danger">取消</a>
+                                <button class="layui-btn layui-btn-xs" onclick="openRightPopup('编辑入库单', '{% url 'production:product_receipt_edit' receipt.pk %}')">编辑</button>
+                                <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="approveReceipt({{ receipt.pk }})">审核</button>
+                                <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="cancelReceipt({{ receipt.pk }})">取消</button>
+                                {% elif receipt.status == 2 %}
+                                <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="executeReceipt({{ receipt.pk }})">执行入库</button>
                                 {% endif %}
                             </td>
                         </tr>
                         {% empty %}
-                        <tr>
-                            <td colspan="8" style="text-align: center; color: #999; padding: 40px;">暂无成品入库记录</td>
-                        </tr>
+                        <tr><td colspan="7" class="production-empty">暂无成品入库单</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
-<script>
-        {% include "production/_right_popup_function.html" %}
-</script>
 
-    <!-- 注入的 iframe 自动关闭及消息提示脚本 -->
+    <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            var flashMsg = sessionStorage.getItem('flash_msg');
-            if (flashMsg) {
-                sessionStorage.removeItem('flash_msg');
-                try {
-                    var parsedMsgs = JSON.parse(flashMsg);
-                    msgs = msgs.concat(parsedMsgs);
-                } catch(e) {}
-            }
-
-            var isLayerFrame = false;
-            if (window !== window.parent) {
-                if (window.frameElement && window.frameElement.closest) {
-                    isLayerFrame = !!window.frameElement.closest('.layui-layer-iframe');
-                }
-                if (!isLayerFrame && window.name && window.parent.layer && typeof window.parent.layer.getFrameIndex === 'function') {
-                    try {
-                        var frameIndex = window.parent.layer.getFrameIndex(window.name);
-                        isLayerFrame = frameIndex !== undefined && frameIndex !== null && frameIndex !== '';
-                    } catch(e) {}
-                }
-            }
-
-            if (isLayerFrame) {
-                if (msgs.length > 0) {
-                    sessionStorage.setItem('flash_msg', JSON.stringify(msgs));
-                }
-                parent.location.reload();
-                return;
-            }
-
-            // 正常独立访问 list 页面
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
-        });
+        function approveReceipt(id) {
+            layui.layer.confirm('确认审核该成品入库单吗？', function(index) {
+                window.location.href = '{% url "production:product_receipt_approve" 0 %}'.replace('0', id);
+                layui.layer.close(index);
+            });
+        }
+        function executeReceipt(id) {
+            layui.layer.confirm('执行后会写入库存生产入库台账，确认继续吗？', function(index) {
+                window.location.href = '{% url "production:product_receipt_execute" 0 %}'.replace('0', id);
+                layui.layer.close(index);
+            });
+        }
+        function cancelReceipt(id) {
+            layui.layer.confirm('确认取消该成品入库单吗？', function(index) {
+                window.location.href = '{% url "production:product_receipt_cancel" 0 %}'.replace('0', id);
+                layui.layer.close(index);
+            });
+        }
+        {% include "production/_right_popup_function.html" %}
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
 </html>

@@ -13,6 +13,8 @@ import json
 from .services.workflow_service import WorkflowService
 from .services.business_feedback import record_business_ai_feedback
 from .services.operation_service import operation_service
+from .services.rollback_service import rollback_service
+from .services.enterprise_agents import enterprise_agent_service
 
 from .models import (
     AIModelConfig,
@@ -770,6 +772,10 @@ class AIChatDetailView(
                 data['task'] = task
             if isinstance(options, list):
                 data['options'] = options
+            if isinstance(payload.get('recognition_meta'), dict):
+                data['recognition_meta'] = payload.get('recognition_meta')
+            if isinstance(payload.get('mcp_context'), dict):
+                data['mcp_context'] = payload.get('mcp_context')
         return data
 
 
@@ -1841,6 +1847,7 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
     def _build_intent_response_payload(self, user, chat_id, message, request=None):
         from apps.ai.services.intent_recognition_service import intent_recognition_service
         from apps.ai.services.confirmation_service import confirmation_service
+        from apps.ai.services.enhanced_intent_service import enhanced_intent_service
         request_obj = request or getattr(self, 'request', None)
         referrer = request_obj.session.get('ai_last_referrer') if request_obj else None
         page_context = None
@@ -1864,9 +1871,10 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
             context={'page_context': page_context} if page_context else None,
         )
         ai_response = self.get_response_text(intent_result)
+        payload = dict(intent_result)
+        payload = enhanced_intent_service._decorate_response_with_recognition_meta(payload, payload)
         chat, user_message, ai_message = self.save_chat_record(
             user, chat_id, message, ai_response)
-        payload = dict(intent_result)
         payload['ai_message'] = ai_response
         payload['user_message'] = message
         payload.update(confirmation_service.build_confirmation_payload(payload))
@@ -1903,6 +1911,20 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
                 'action_plan': payload.get('action_plan'),
                 'confirmation': payload.get('confirmation'),
                 'operation_id': payload.get('operation_id'),
+                'specific_intent': payload.get('specific_intent'),
+                'action': payload.get('action'),
+                'data_type': payload.get('data_type'),
+                'entities': payload.get('entities') or {},
+                'status': payload.get('status'),
+                'time_range': payload.get('time_range'),
+                'source': payload.get('source'),
+                'ai_available': payload.get('ai_available'),
+                'ai_configured': payload.get('ai_configured'),
+                'failure_reason': payload.get('failure_reason'),
+                'model_provider': payload.get('model_provider'),
+                'model_name': payload.get('model_name'),
+                'recognition_meta': payload.get('recognition_meta'),
+                'mcp_context': payload.get('mcp_context'),
             }
             ai_message.save(update_fields=['runtime_payload'])
         return payload
@@ -2288,6 +2310,27 @@ class WorkflowModuleListAPIView(View):
             }, status=500)
 
 
+class ProjectMCPCapabilityAPIView(LoginRequiredMixin, View):
+    """项目 MCP 能力目录 API。"""
+
+    def get(self, request):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        query = request.GET.get('q', '')
+        capabilities = project_mcp_service.get_capability_catalog()
+        matched_capabilities = project_mcp_service.match_capabilities(
+            query,
+            {'intent': 'DATA_QUERY'} if query else {},
+        ) if query else []
+        return JsonResponse({
+            'success': True,
+            'protocol': 'project-mcp',
+            'total': len(capabilities),
+            'capabilities': capabilities,
+            'matched_capabilities': matched_capabilities,
+        })
+
+
 class NodeDynamicOptionsView(View):
     """节点动态选项API - 根据节点类型获取动态下拉选项"""
 
@@ -2362,188 +2405,65 @@ class NodeDynamicOptionsView(View):
 class AgentCenterView(LoginRequiredMixin, TemplateView):
     """智能体中心视图"""
     template_name = 'ai/agent_center.html'
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
-        # 获取所有可用的智能体数据
-        context['agents'] = self.get_agents_data()
-        
+        context['center_payload'] = enterprise_agent_service.get_center_payload(self.request.user)
         return context
-    
-    def get_agents_data(self):
-        """获取智能体数据，包括工作流、模型配置等"""
-        agents = []
-        
-        # 预定义的企业智能体（演示卡片）
-        predefined_agents = [
-            {
-                'id': 'agent_smart_production',
-                'name': '智能排产助手',
-                'type': 'enterprise',
-                'type_display': '企业智能体',
-                'description': '基于AI算法的智能生产排程系统，自动优化生产计划，提高产能利用率',
-                'icon': 'layui-icon-chart',
-                'status': 'active',
-                'creator': '系统',
-                'created_at': '2024-01-15 10:00',
-                'tags': ['生产管理', '智能排程', '优化算法'],
-                'color': 'purple'
-            },
-            {
-                'id': 'agent_customer_service',
-                'name': '智能客服',
-                'type': 'enterprise',
-                'type_display': '企业智能体',
-                'description': '7×24小时在线智能客服系统，支持多轮对话、意图识别、知识库问答',
-                'icon': 'layui-icon-dialogue',
-                'status': 'active',
-                'creator': '系统',
-                'created_at': '2024-01-20 14:30',
-                'tags': ['客户服务', '自然语言', '智能问答'],
-                'color': 'purple'
-            },
-            {
-                'id': 'agent_contract_review',
-                'name': '合同智能审核',
-                'type': 'enterprise',
-                'type_display': '企业智能体',
-                'description': '自动审核合同条款，识别风险点，提供合规性建议和修改意见',
-                'icon': 'layui-icon-file-b',
-                'status': 'active',
-                'creator': '系统',
-                'created_at': '2024-02-05 09:15',
-                'tags': ['合同管理', '风险识别', '智能审核'],
-                'color': 'purple'
-            },
-            {
-                'id': 'agent_financial_analysis',
-                'name': '财务智能分析',
-                'type': 'enterprise',
-                'type_display': '企业智能体',
-                'description': '自动分析财务数据，生成财务报表，预测资金流向和经营风险',
-                'icon': 'layui-icon-chart-screen',
-                'status': 'active',
-                'creator': '系统',
-                'created_at': '2024-02-10 16:00',
-                'tags': ['财务分析', '数据洞察', '风险预警'],
-                'color': 'purple'
-            },
-            {
-                'id': 'agent_hr_assistant',
-                'name': '人事智能助手',
-                'type': 'enterprise',
-                'type_display': '企业智能体',
-                'description': '智能简历筛选、面试评估、员工培训推荐，提升HR工作效率',
-                'icon': 'layui-icon-user',
-                'status': 'active',
-                'creator': '系统',
-                'created_at': '2024-02-15 11:20',
-                'tags': ['人事管理', '智能招聘', '员工培训'],
-                'color': 'purple'
-            },
-            {
-                'id': 'agent_sales_forecast',
-                'name': '销售预测分析',
-                'type': 'enterprise',
-                'type_display': '企业智能体',
-                'description': '基于历史数据和市场趋势，智能预测销售业绩，辅助决策',
-                'icon': 'layui-icon-dollar',
-                'status': 'active',
-                'creator': '系统',
-                'created_at': '2024-02-20 13:45',
-                'tags': ['销售管理', '预测分析', '数据挖掘'],
-                'color': 'purple'
-            },
-            {
-                'id': 'agent_inventory_optimization',
-                'name': '库存优化智能体',
-                'type': 'enterprise',
-                'type_display': '企业智能体',
-                'description': '智能分析库存数据，优化库存水平，降低库存成本和缺货风险',
-                'icon': 'layui-icon-component',
-                'status': 'active',
-                'creator': '系统',
-                'created_at': '2024-02-25 10:30',
-                'tags': ['库存管理', '智能优化', '成本控制'],
-                'color': 'purple'
-            },
-            {
-                'id': 'agent_quality_inspection',
-                'name': '质检智能助手',
-                'type': 'enterprise',
-                'type_display': '企业智能体',
-                'description': '自动化质量检测，识别产品缺陷，生成质检报告和改进建议',
-                'icon': 'layui-icon-star',
-                'status': 'active',
-                'creator': '系统',
-                'created_at': '2024-03-01 15:00',
-                'tags': ['质量管理', '缺陷检测', '智能报告'],
-                'color': 'purple'
-            }
-        ]
-        
-        # 添加预定义智能体
-        agents.extend(predefined_agents)
-        
-        # 1. 工作流类智能体
-        workflows = AIWorkflow.objects.filter(
-            status='published'
-        ).select_related('owner').order_by('-created_at')[:20]
-        
-        for workflow in workflows:
-            agents.append({
-                'id': str(workflow.id),
-                'name': workflow.name,
-                'type': 'workflow',
-                'type_display': '工作流智能体',
-                'description': workflow.description or '智能工作流处理',
-                'icon': 'layui-icon-engine',
-                'status': 'active',
-                'creator': workflow.owner.username if workflow.owner else '系统',
-                'created_at': workflow.created_at.strftime('%Y-%m-%d %H:%M'),
-                'tags': ['工作流', '自动化'],
-                'color': 'blue'
-            })
-        
-        # 2. AI模型类智能体
-        model_configs = AIModelConfig.objects.filter(
-            is_active=True
-        ).order_by('-created_at')[:10]
-        
-        for config in model_configs:
-            agents.append({
-                'id': str(config.id),
-                'name': config.name,
-                'type': 'model',
-                'type_display': 'AI模型',
-                'description': f"{config.get_provider_display()} 兼容接口，默认模型 {config.primary_model_name()}",
-                'icon': 'layui-icon-light',
-                'status': 'active',
-                'creator': '系统',
-                'created_at': config.created_at.strftime('%Y-%m-%d %H:%M'),
-                'tags': [config.get_provider_display(), config.primary_model_name()],
-                'color': 'green'
-            })
-        
-        # 3. 知识库类智能体
-        knowledge_bases = AIKnowledgeBase.objects.filter(
-            status='published'
-        ).select_related('creator').order_by('-created_at')[:10]
-        
-        for kb in knowledge_bases:
-            agents.append({
-                'id': str(kb.id),
-                'name': kb.name,
-                'type': 'knowledge',
-                'type_display': '知识库智能体',
-                'description': kb.description or '智能知识检索与问答',
-                'icon': 'layui-icon-read',
-                'status': 'active',
-                'creator': kb.creator.username if kb.creator else '系统',
-                'created_at': kb.created_at.strftime('%Y-%m-%d %H:%M'),
-                'tags': ['知识库', '问答'],
-                'color': 'orange'
-            })
-        
-        return agents
+
+
+class AgentCenterDataView(LoginRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        return JsonResponse({
+            'success': True,
+            'data': enterprise_agent_service.get_center_payload(request.user),
+        })
+
+
+class AgentCenterDetailView(LoginRequiredMixin, View):
+    def get(self, request, agent_id, *args, **kwargs):
+        try:
+            data = enterprise_agent_service.get_agent_detail(agent_id, request.user)
+            return JsonResponse({'success': True, 'data': data})
+        except KeyError as exc:
+            return JsonResponse({'success': False, 'message': str(exc)}, status=404)
+
+
+class AgentCenterExecuteView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        try:
+            data = json.loads(request.body or '{}')
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'message': '无效的JSON格式'}, status=400)
+
+        try:
+            result = enterprise_agent_service.execute(
+                user=request.user,
+                agent_id=data.get('agent_id', ''),
+                action_id=data.get('action_id', ''),
+                params=data.get('params') or {},
+            )
+        except KeyError as exc:
+            return JsonResponse({'success': False, 'message': str(exc)}, status=404)
+        except Exception as exc:
+            logger.exception('企业智能体执行失败')
+            return JsonResponse({'success': False, 'message': str(exc)}, status=500)
+
+        status = 200 if result.get('success') else 400
+        return JsonResponse({'success': bool(result.get('success')), 'data': result}, status=status)
+
+
+class AgentCenterRollbackView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        try:
+            data = json.loads(request.body or '{}')
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'message': '无效的JSON格式'}, status=400)
+
+        operation_id = data.get('operation_id')
+        if not operation_id:
+            return JsonResponse({'success': False, 'message': '缺少 operation_id'}, status=400)
+
+        result = rollback_service.rollback_operation(operation_id, request.user)
+        status = 200 if result.get('success') else 400
+        return JsonResponse({'success': bool(result.get('success')), 'data': result}, status=status)

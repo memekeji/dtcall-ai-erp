@@ -23,6 +23,13 @@
                     </div>
                 </div>
                 <div class="sc-toolbar-right">
+                    <form method="post" action="{% url 'supply_chain:bootstrap_workspace' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="target" value="sample_list">
+                        <button type="submit" class="layui-btn layui-btn-sm layui-btn-primary">
+                            <i class="layui-icon layui-icon-refresh-3"></i> 从产品初始化
+                        </button>
+                    </form>
                     <a href="{% url 'supply_chain:sample_statistics' %}" class="layui-btn layui-btn-sm layui-btn-primary"><i class="layui-icon layui-icon-chart"></i> 台账统计</a>
                     <a href="{% url 'supply_chain:sample_create' %}" class="layui-btn layui-btn-sm">
                         <i class="layui-icon layui-icon-add-1"></i> 新建打样申请
@@ -45,6 +52,8 @@
                     <div class="sc-stat-value">{{ picked_up_count }}</div>
                 </div>
             </div>
+
+            <div class="sc-table-caption">合法来源：产品主数据 {{ source_product_count }} 项。若暂无打样申请，可从现有产品快速初始化打样草稿。</div>
 
             <form class="layui-form sc-inline-form" method="get">
                 <div class="layui-row layui-col-space10">
@@ -75,7 +84,7 @@
                         <th>交期</th>
                         <th>数量</th>
                         <th>状态</th>
-                        <th width="260">操作</th>
+                        <th width="340">操作</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -96,25 +105,42 @@
                             <span class="sc-pill {% if request_obj.status == 'draft' %}primary{% elif request_obj.status == 'ordered' %}warning{% elif request_obj.status == 'received' or request_obj.status == 'pickup_pending' %}warning{% elif request_obj.status == 'picked_up' or request_obj.status == 'closed' %}success{% endif %}">
                                 {{ request_obj.get_status_display }}
                             </span>
+                            {% if request_obj.receipts.first and request_obj.receipts.first.photo_path %}
+                            <div class="sc-note" style="margin-top:6px;">到货照片已归档</div>
+                            {% endif %}
                         </td>
                         <td class="sc-list-actions">
-                            <form method="post" action="{% url 'supply_chain:sample_receive' request_obj.id %}">
-                                {% csrf_token %}
-                                <input type="number" step="0.01" name="received_quantity" placeholder="到货数量" class="layui-input">
-                                <input type="text" name="location" placeholder="到货地点" class="layui-input">
-                                <button type="submit" class="layui-btn layui-btn-xs layui-btn-normal">登记到货</button>
-                            </form>
-                            <form method="post" action="{% url 'supply_chain:sample_pickup' request_obj.id %}">
-                                {% csrf_token %}
-                                <input type="text" name="note" placeholder="领样备注" class="layui-input">
-                                <button type="submit" class="layui-btn layui-btn-xs">确认领样</button>
-                            </form>
-                            {% if request_obj.status == 'pickup_pending' %}
-                            <form method="post" action="{% url 'supply_chain:sample_remind' request_obj.id %}">
-                                {% csrf_token %}
-                                <button type="submit" class="layui-btn layui-btn-xs layui-btn-warm">超期二次提醒</button>
-                            </form>
-                            {% endif %}
+                            <div class="sc-action-panel">
+                                <div class="sc-action-panel-title">到货登记</div>
+                                <div class="sc-action-panel-note">样品到仓后填写数量、地点，可附实物照片留档。</div>
+                                <form method="post" action="{% url 'supply_chain:sample_receive' request_obj.id %}" enctype="multipart/form-data">
+                                    {% csrf_token %}
+                                    <label class="sc-field-label" for="received-qty-{{ request_obj.id }}">到货数量</label>
+                                    <input id="received-qty-{{ request_obj.id }}" type="number" step="0.01" name="received_quantity" placeholder="例如：3" class="layui-input">
+                                    <label class="sc-field-label" for="received-location-{{ request_obj.id }}">到货地点</label>
+                                    <input id="received-location-{{ request_obj.id }}" type="text" name="location" placeholder="例如：研发样品柜" class="layui-input">
+                                    <label class="sc-field-label" for="received-photo-{{ request_obj.id }}">到货照片（可选）</label>
+                                    <input id="received-photo-{{ request_obj.id }}" type="file" name="photo_file" class="layui-input">
+                                    <button type="submit" class="layui-btn layui-btn-xs layui-btn-normal">登记到货</button>
+                                </form>
+                            </div>
+
+                            <div class="sc-action-panel secondary">
+                                <div class="sc-action-panel-title">领样闭环</div>
+                                <div class="sc-action-panel-note">工程师领样后填写备注并确认，系统自动记录领样时间。</div>
+                                <form method="post" action="{% url 'supply_chain:sample_pickup' request_obj.id %}">
+                                    {% csrf_token %}
+                                    <label class="sc-field-label" for="pickup-note-{{ request_obj.id }}">领样备注</label>
+                                    <input id="pickup-note-{{ request_obj.id }}" type="text" name="note" placeholder="例如：已交张工试测" class="layui-input">
+                                    <button type="submit" class="layui-btn layui-btn-xs">确认领样</button>
+                                </form>
+                                {% if request_obj.status == 'pickup_pending' %}
+                                <form method="post" action="{% url 'supply_chain:sample_remind' request_obj.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="layui-btn layui-btn-xs layui-btn-warm">发送超期提醒</button>
+                                </form>
+                                {% endif %}
+                            </div>
                         </td>
                     </tr>
                 {% empty %}

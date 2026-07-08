@@ -2,7 +2,7 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from django.db.models import Sum
 
-from apps.inventory.models import Inventory, InventoryItem
+from apps.inventory.models import Inventory, InventoryItem, StockTransaction
 
 
 def _to_decimal(value):
@@ -47,7 +47,7 @@ def build_inventory_analysis_rows():
 def build_inventory_analysis_summary():
     rows = build_inventory_analysis_rows()
     return {
-        'rows': rows,
+        'risk_rows': rows,
         'high_risk_count': sum(1 for row in rows if row['risk_level'] == 'high'),
         'medium_risk_count': sum(1 for row in rows if row['risk_level'] == 'medium'),
         'total_items': len(rows),
@@ -56,11 +56,8 @@ def build_inventory_analysis_summary():
 
 def build_inventory_deep_analysis():
     """Deep inventory analysis: turnover rate, dead stock, ABC classification."""
-    from apps.inventory.models import Inventory, InventoryItem
-    from apps.supply_chain.models import OutsourceIssueItem
     from django.db.models import Sum, Q
     from django.utils import timezone
-    from decimal import Decimal
     import datetime
 
     rows = []
@@ -104,9 +101,9 @@ def build_inventory_deep_analysis():
 
     ninety_days_ago = timezone.now() - datetime.timedelta(days=90)
     moved_items = set(
-        OutsourceIssueItem.objects.filter(
-            issue_order__create_time__gte=ninety_days_ago,
-        ).values_list("material_code", flat=True)
+        StockTransaction.objects.filter(
+            create_time__gte=ninety_days_ago,
+        ).values_list("item__code", flat=True)
     )
     for r in abc_rows:
         code = getattr(r["item"], "code", "")
@@ -118,7 +115,7 @@ def build_inventory_deep_analysis():
     safety_breach = sum(1 for r in abc_rows if r["avail_qty"] <= _to_decimal(getattr(r["item"], "safety_stock", 0) or 0))
 
     return {
-        "rows": abc_rows,
+        "value_rows": abc_rows,
         "total_value": str(total_value),
         "dead_stock_count": dead_stock_count,
         "dead_stock_value": str(dead_stock_value),

@@ -5,440 +5,653 @@
 
 {% block css %}
 <style>
-    html, body {
-        overflow: auto !important;
-    }
-    
-    .agent-center-container {
-        padding: 20px;
-        background: #f5f5f5;
+    .agent-page {
         min-height: 100vh;
+        padding: 24px;
+        box-sizing: border-box;
     }
-    
-    .toolbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 25px;
-        background: #fff;
-        padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    }
-    
-    .toolbar-left h2 {
-        font-size: 20px;
-        font-weight: bold;
-        color: #333;
-        margin: 0;
-    }
-    
-    .toolbar-right {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-    }
-    
-    .filter-group {
-        display: flex;
-        gap: 10px;
-        align-items: center;
-    }
-    
-    .filter-select {
-        width: 150px;
-    }
-    
-    .search-input {
-        width: 250px;
-    }
-    
-    /* 智能体卡片布局 */
-    .agent-cards-container {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-        gap: 20px;
-        margin-bottom: 30px;
-        width: 100%;
-    }
-    
-    .agent-card {
-        background: #fff;
-        border-radius: 10px;
-        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-        border: 1px solid #e8e8e8;
-        transition: all 0.3s ease;
-        overflow: hidden;
-        cursor: pointer;
-    }
-    
-    .agent-card:hover {
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-        transform: translateY(-4px);
-        border-color: #00f2fe;
-    }
-    
-    .agent-card-header {
-        padding: 20px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+    .agent-hero {
+        padding: 24px 28px;
+        border-radius: 18px;
+        border: 1px solid rgba(22, 119, 255, 0.12);
+        background:
+            linear-gradient(135deg, rgba(22, 119, 255, 0.96), rgba(6, 182, 212, 0.88)),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04));
         color: #fff;
-        position: relative;
+        box-shadow: 0 20px 40px rgba(22, 119, 255, 0.16);
     }
-    
-    .agent-card-header.workflow {
-        background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+
+    .agent-hero-copy {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 18px;
     }
-    
-    .agent-card-header.model {
-        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+
+    .agent-hero-copy h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+        line-height: 1.2;
+        color: #fff;
     }
-    
-    .agent-card-header.knowledge {
-        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+
+    .agent-hero-copy p {
+        margin: 0;
+        max-width: 760px;
+        line-height: 1.7;
+        color: rgba(255, 255, 255, 0.86);
     }
-    
-    .agent-card-header.enterprise {
-        background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);
+
+    .agent-hero-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: flex-end;
     }
-    
-    .agent-icon {
-        font-size: 48px;
-        opacity: 0.3;
-        position: absolute;
-        right: 20px;
-        top: 50%;
-        transform: translateY(-50%);
+
+    .agent-hero-badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 34px;
+        padding: 0 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.16);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        color: #fff;
+        font-size: 13px;
     }
-    
-    .agent-type-badge {
-        display: inline-block;
-        padding: 4px 12px;
-        border-radius: 12px;
-        font-size: 12px;
-        background: rgba(255, 255, 255, 0.25);
+
+    .agent-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .agent-summary-card {
+        min-height: 108px;
+        padding: 18px 18px 16px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        backdrop-filter: blur(8px);
+    }
+
+    .agent-summary-label {
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.74);
         margin-bottom: 10px;
     }
-    
-    .agent-card-title {
-        font-size: 18px;
-        font-weight: 600;
+
+    .agent-summary-value {
+        font-size: 30px;
+        line-height: 1;
+        font-weight: 700;
+        margin-bottom: 10px;
+        color: #fff;
+    }
+
+    .agent-summary-note {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.72);
+    }
+
+    .agent-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.55fr) minmax(360px, 0.95fr);
+        gap: 20px;
+        margin-top: 20px;
+        align-items: start;
+    }
+
+    .agent-main {
+        min-width: 0;
+    }
+
+    .agent-block {
+        margin-bottom: 18px;
+        padding: 18px;
+        border: 1px solid var(--dt-border);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: var(--dt-shadow-card);
+    }
+
+    .agent-block-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    .agent-block-title {
         margin: 0;
-        position: relative;
-        z-index: 1;
+        font-size: 18px;
+        color: var(--dt-text);
     }
-    
-    .agent-card-body {
-        padding: 20px;
+
+    .agent-block-subtitle {
+        font-size: 13px;
+        color: var(--dt-text-secondary);
     }
-    
-    .agent-description {
-        color: #666;
-        font-size: 14px;
-        line-height: 1.6;
-        margin-bottom: 15px;
-        min-height: 42px;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
+
+    .agent-workbench-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
     }
-    
-    .agent-tags {
+
+    .agent-card {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-height: 260px;
+        padding: 18px;
+        border-radius: 16px;
+        border: 1px solid rgba(22, 119, 255, 0.12);
+        background: linear-gradient(180deg, #ffffff, #f7fbff);
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .agent-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(22, 119, 255, 0.26);
+        box-shadow: 0 20px 32px rgba(15, 23, 42, 0.08);
+    }
+
+    .agent-card-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .agent-card-icon {
+        width: 46px;
+        height: 46px;
+        border-radius: 14px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, rgba(22, 119, 255, 0.14), rgba(6, 182, 212, 0.16));
+        color: var(--dt-primary);
+        font-size: 20px;
+        flex: 0 0 auto;
+    }
+
+    .agent-card-meta {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .agent-card-meta h3 {
+        margin: 0 0 6px;
+        font-size: 17px;
+        color: var(--dt-text);
+    }
+
+    .agent-card-domain {
+        font-size: 12px;
+        color: var(--dt-primary);
+    }
+
+    .agent-card-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 28px;
+        padding: 0 10px;
+        border-radius: 999px;
+        background: rgba(43, 164, 113, 0.12);
+        color: #167d48;
+        font-size: 12px;
+        white-space: nowrap;
+    }
+
+    .agent-card-description {
+        min-height: 66px;
+        margin: 0;
+        color: var(--dt-text-secondary);
+        line-height: 1.7;
+    }
+
+    .agent-highlight-list {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
-        margin-bottom: 15px;
     }
-    
-    .agent-tag {
-        padding: 4px 10px;
-        background: #f0f0f0;
-        color: #666;
-        border-radius: 4px;
+
+    .agent-highlight {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 10px;
+        border-radius: 999px;
+        background: #eef6ff;
+        color: #1f6fd1;
         font-size: 12px;
     }
-    
-    .agent-meta {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding-top: 15px;
-        border-top: 1px solid #f0f0f0;
-        font-size: 12px;
-        color: #999;
-    }
-    
-    .agent-creator {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-    }
-    
-    .agent-time {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-    }
-    
-    .agent-card-footer {
-        padding: 15px 20px;
-        background: #fafafa;
-        border-top: 1px solid #f0f0f0;
-        display: flex;
+
+    .agent-card-stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 10px;
     }
-    
-    .agent-action-btn {
-        flex: 1;
-        text-align: center;
-        border-radius: 6px;
+
+    .agent-card-stat {
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: #f6f9fe;
     }
-    
-    .status-indicator {
-        display: inline-block;
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: #52c41a;
-        margin-right: 5px;
-        animation: pulse 2s infinite;
+
+    .agent-card-stat strong {
+        display: block;
+        font-size: 18px;
+        color: var(--dt-text);
+        margin-bottom: 6px;
     }
-    
-    @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
+
+    .agent-card-stat span {
+        font-size: 12px;
+        color: var(--dt-text-secondary);
     }
-    
-    .empty-state {
-        text-align: center;
-        padding: 80px 20px;
-        background: #fff;
-        border-radius: 10px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+    .agent-card-footer {
+        margin-top: auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
     }
-    
-    .empty-state-icon {
-        font-size: 64px;
-        color: #d9d9d9;
-        margin-bottom: 20px;
+
+    .agent-card-audience {
+        font-size: 12px;
+        color: var(--dt-text-secondary);
     }
-    
-    .empty-state-text {
-        font-size: 16px;
-        color: #999;
-        margin-bottom: 20px;
-    }
-    
-    /* 统计卡片 */
-    .stats-container {
+
+    .foundation-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 15px;
-        margin-bottom: 25px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
     }
-    
-    .stat-card {
-        background: #fff;
-        padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+    .foundation-card {
+        padding: 16px;
+        border-radius: 14px;
+        border: 1px solid var(--dt-border);
+        background: #f9fbfe;
+    }
+
+    .foundation-card-type {
+        font-size: 12px;
+        color: var(--dt-primary);
+        margin-bottom: 6px;
+    }
+
+    .foundation-card h4 {
+        margin: 0 0 8px;
+        font-size: 15px;
+        color: var(--dt-text);
+    }
+
+    .foundation-card p {
+        margin: 0 0 12px;
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--dt-text-secondary);
+        min-height: 42px;
+    }
+
+    .foundation-card-meta {
+        font-size: 12px;
+        color: #8ba1bd;
+        margin-bottom: 12px;
+    }
+
+    .agent-log-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .agent-log-item {
         display: flex;
         align-items: center;
-        gap: 15px;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: #f8fbff;
+        border: 1px solid rgba(22, 119, 255, 0.08);
     }
-    
-    .stat-icon {
-        font-size: 36px;
-        width: 60px;
-        height: 60px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
+
+    .agent-log-main {
+        min-width: 0;
     }
-    
-    .stat-icon.blue {
-        background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
-        color: #fff;
-    }
-    
-    .stat-icon.green {
-        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-        color: #fff;
-    }
-    
-    .stat-icon.orange {
-        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-        color: #fff;
-    }
-    
-    .stat-icon.purple {
-        background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);
-        color: #fff;
-    }
-    
-    .stat-content {
-        flex: 1;
-    }
-    
-    .stat-label {
+
+    .agent-log-title {
         font-size: 14px;
-        color: #999;
-        margin-bottom: 5px;
+        color: var(--dt-text);
+        margin-bottom: 4px;
     }
-    
-    .stat-value {
-        font-size: 24px;
-        font-weight: bold;
-        color: #333;
+
+    .agent-log-meta {
+        font-size: 12px;
+        color: var(--dt-text-secondary);
     }
-    
-    @media (max-width: 768px) {
-        .agent-cards-container {
+
+    .agent-log-status {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        background: #eef5ff;
+        color: #1e64b7;
+        white-space: nowrap;
+    }
+
+    .agent-detail-panel {
+        position: sticky;
+        top: 24px;
+        min-height: 760px;
+        padding: 0;
+        overflow: hidden;
+    }
+
+    .agent-detail-shell {
+        display: flex;
+        flex-direction: column;
+        min-height: 760px;
+    }
+
+    .agent-detail-empty {
+        padding: 32px 28px;
+        color: var(--dt-text-secondary);
+        line-height: 1.8;
+    }
+
+    .agent-detail-header {
+        padding: 24px 24px 18px;
+        border-bottom: 1px solid var(--dt-border);
+        background: linear-gradient(180deg, #fbfdff, #f4f9ff);
+    }
+
+    .agent-detail-header h3 {
+        margin: 0 0 8px;
+        color: var(--dt-text);
+        font-size: 22px;
+    }
+
+    .agent-detail-domain {
+        font-size: 12px;
+        color: var(--dt-primary);
+        margin-bottom: 10px;
+    }
+
+    .agent-detail-description {
+        margin: 0;
+        color: var(--dt-text-secondary);
+        line-height: 1.7;
+    }
+
+    .agent-action-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 16px 24px 0;
+    }
+
+    .agent-action-tab {
+        border: 1px solid var(--dt-border);
+        background: #fff;
+        color: var(--dt-text-secondary);
+        border-radius: 999px;
+        padding: 8px 14px;
+        cursor: pointer;
+        font-size: 13px;
+    }
+
+    .agent-action-tab.is-active {
+        border-color: rgba(22, 119, 255, 0.28);
+        background: #edf5ff;
+        color: var(--dt-primary);
+    }
+
+    .agent-detail-body {
+        flex: 1;
+        padding: 20px 24px 24px;
+        overflow: auto;
+    }
+
+    .agent-action-intro {
+        margin-bottom: 14px;
+        padding: 14px 16px;
+        border-radius: 14px;
+        background: #f7fbff;
+        border: 1px solid var(--dt-border);
+    }
+
+    .agent-action-intro strong {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--dt-text);
+    }
+
+    .agent-action-intro p {
+        margin: 0 0 8px;
+        color: var(--dt-text-secondary);
+        line-height: 1.6;
+    }
+
+    .agent-risk-pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 26px;
+        padding: 0 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        color: #fff;
+    }
+
+    .risk-low { background: #2ba471; }
+    .risk-medium { background: #ed7b2f; }
+    .risk-high { background: #e34d59; }
+
+    .agent-action-form {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .agent-form-row {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .agent-form-row label {
+        font-size: 13px;
+        color: var(--dt-text);
+    }
+
+    .agent-form-row textarea {
+        min-height: 88px;
+        resize: vertical;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--dt-border);
+        background: #fff;
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--dt-text);
+        box-sizing: border-box;
+    }
+
+    .agent-form-row .layui-input,
+    .agent-form-row .layui-select-title input {
+        border-radius: 10px;
+    }
+
+    .agent-form-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 4px;
+    }
+
+    .agent-result-shell,
+    .agent-preview-shell {
+        margin-top: 18px;
+        padding: 16px;
+        border-radius: 14px;
+        border: 1px solid var(--dt-border);
+        background: #fbfdff;
+    }
+
+    .agent-preview-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 12px;
+    }
+
+    .agent-preview-item {
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: #fff;
+        border: 1px solid rgba(22, 119, 255, 0.08);
+    }
+
+    .agent-preview-item strong {
+        display: block;
+        color: var(--dt-text);
+        margin-bottom: 6px;
+    }
+
+    .agent-preview-item div {
+        font-size: 13px;
+        color: var(--dt-text-secondary);
+        line-height: 1.6;
+    }
+
+    .agent-history-head {
+        margin-top: 20px;
+        margin-bottom: 10px;
+        font-size: 14px;
+        color: var(--dt-text);
+    }
+
+    .agent-history-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .agent-empty-line {
+        padding: 14px;
+        border-radius: 12px;
+        background: #f8fbff;
+        color: var(--dt-text-secondary);
+        font-size: 13px;
+    }
+
+    @media (max-width: 1320px) {
+        .agent-layout {
             grid-template-columns: 1fr;
         }
-        
-        .toolbar {
+
+        .agent-detail-panel {
+            position: static;
+            min-height: auto;
+        }
+    }
+
+    @media (max-width: 980px) {
+        .agent-summary-grid,
+        .agent-workbench-grid,
+        .foundation-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .agent-hero-copy {
             flex-direction: column;
-            gap: 15px;
         }
-        
-        .toolbar-right {
-            width: 100%;
-            flex-direction: column;
-        }
-        
-        .filter-group {
-            width: 100%;
-        }
-        
-        .filter-select, .search-input {
-            width: 100%;
+
+        .agent-hero-badges {
+            justify-content: flex-start;
         }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="agent-center-container">
-    <!-- 工具栏 -->
-    <div class="toolbar">
-        <div class="toolbar-left">
-            <h2><i class="layui-icon layui-icon-app"></i> 智能体中心</h2>
-        </div>
-        <div class="toolbar-right">
-            <div class="filter-group">
-                <div class="layui-input-inline filter-select">
-                    <select id="type-filter" lay-filter="type-filter">
-                        <option value="">全部类型</option>
-                        <option value="enterprise">企业智能体</option>
-                        <option value="workflow">工作流智能体</option>
-                        <option value="model">AI模型</option>
-                        <option value="knowledge">知识库智能体</option>
-                    </select>
-                </div>
-                <div class="layui-input-inline search-input">
-                    <input type="text" id="search-input" placeholder="搜索智能体名称" class="layui-input">
-                </div>
-                <button id="search-btn" class="layui-btn layui-btn-primary">
-                    <i class="layui-icon layui-icon-search"></i> 搜索
-                </button>
+<div class="agent-page dt-page-shell">
+    <section class="agent-hero">
+        <div class="agent-hero-copy">
+            <div>
+                <h1>企业智能体工作台</h1>
+                <p>统一承接客户、项目、生产、库存、合同、财务六类企业智能体。分析能力、低风险直执、高风险确认、执行回退都在同一工作台内完成。</p>
+            </div>
+            <div class="agent-hero-badges">
+                <span class="agent-hero-badge">管理视角</span>
+                <span class="agent-hero-badge">执行视角</span>
+                <span class="agent-hero-badge">统一审计</span>
+                <span class="agent-hero-badge">回退支持</span>
             </div>
         </div>
-    </div>
-    
-    <!-- 统计卡片 -->
-    <div class="stats-container">
-        <div class="stat-card">
-            <div class="stat-icon purple">
-                <i class="layui-icon layui-icon-app"></i>
-            </div>
-            <div class="stat-content">
-                <div class="stat-label">企业智能体</div>
-                <div class="stat-value" id="enterprise-count">0</div>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon blue">
-                <i class="layui-icon layui-icon-engine"></i>
-            </div>
-            <div class="stat-content">
-                <div class="stat-label">工作流智能体</div>
-                <div class="stat-value" id="workflow-count">0</div>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon green">
-                <i class="layui-icon layui-icon-light"></i>
-            </div>
-            <div class="stat-content">
-                <div class="stat-label">AI模型</div>
-                <div class="stat-value" id="model-count">0</div>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon orange">
-                <i class="layui-icon layui-icon-read"></i>
-            </div>
-            <div class="stat-content">
-                <div class="stat-label">知识库智能体</div>
-                <div class="stat-value" id="knowledge-count">0</div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- 智能体卡片网格 -->
-    <div class="agent-cards-container" id="agent-cards-container">
-        {% if agents %}
-            {% for agent in agents %}
-            <div class="agent-card" data-type="{{ agent.type }}" data-name="{{ agent.name }}" data-id="{{ agent.id }}">
-                <div class="agent-card-header {{ agent.type }}">
-                    <div class="agent-icon">
-                        <i class="layui-icon {{ agent.icon }}"></i>
+        <div class="agent-summary-grid" id="summaryGrid"></div>
+    </section>
+
+    <div class="agent-layout">
+        <div class="agent-main">
+            <section class="agent-block">
+                <div class="agent-block-head">
+                    <div>
+                        <h2 class="agent-block-title">企业智能体</h2>
+                        <div class="agent-block-subtitle">按业务域沉淀固定入口，避免把企业执行动作埋进零散弹窗。</div>
                     </div>
-                    <div class="agent-type-badge">{{ agent.type_display }}</div>
-                    <div class="agent-card-title">{{ agent.name }}</div>
-                </div>
-                <div class="agent-card-body">
-                    <div class="agent-description">{{ agent.description }}</div>
-                    <div class="agent-tags">
-                        {% for tag in agent.tags %}
-                        <span class="agent-tag">{{ tag }}</span>
-                        {% endfor %}
-                    </div>
-                    <div class="agent-meta">
-                        <div class="agent-creator">
-                            <i class="layui-icon layui-icon-username"></i>
-                            <span>{{ agent.creator }}</span>
-                        </div>
-                        <div class="agent-time">
-                            <i class="layui-icon layui-icon-time"></i>
-                            <span>{{ agent.created_at }}</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="agent-card-footer">
-                    <span class="status-indicator"></span>
-                    <button class="layui-btn layui-btn-sm layui-btn-normal agent-action-btn run-agent-btn" data-id="{{ agent.id }}" data-type="{{ agent.type }}" data-name="{{ agent.name }}">
-                        <i class="layui-icon layui-icon-play"></i> 运行
-                    </button>
-                    <button class="layui-btn layui-btn-sm layui-btn-primary agent-action-btn detail-agent-btn" data-id="{{ agent.id }}" data-type="{{ agent.type }}">
-                        <i class="layui-icon layui-icon-list"></i> 详情
+                    <button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="refreshWorkbenchBtn">
+                        <i class="layui-icon layui-icon-refresh"></i> 刷新
                     </button>
                 </div>
-            </div>
-            {% endfor %}
-        {% else %}
-        <div class="empty-state">
-            <div class="empty-state-icon">
-                <i class="layui-icon layui-icon-app"></i>
-            </div>
-            <div class="empty-state-text">暂无可用的智能体</div>
-            <p style="color: #999; font-size: 14px;">请先创建工作流、配置AI模型或添加知识库</p>
+                <div class="agent-workbench-grid" id="agentWorkbenchGrid"></div>
+            </section>
+
+            <section class="agent-block">
+                <div class="agent-block-head">
+                    <div>
+                        <h2 class="agent-block-title">AI 底层资源</h2>
+                        <div class="agent-block-subtitle">工作流、模型和知识库继续作为企业智能体的底座存在。</div>
+                    </div>
+                </div>
+                <div class="foundation-grid" id="foundationGrid"></div>
+            </section>
+
+            <section class="agent-block">
+                <div class="agent-block-head">
+                    <div>
+                        <h2 class="agent-block-title">最近执行</h2>
+                        <div class="agent-block-subtitle">统一查看工作台内最近的分析、直执和确认执行记录。</div>
+                    </div>
+                </div>
+                <div class="agent-log-list" id="recentOperations"></div>
+            </section>
         </div>
-        {% endif %}
+
+        <aside class="agent-block agent-detail-panel">
+            <div class="agent-detail-shell" id="agentDetailPanel">
+                <div class="agent-detail-empty">
+                    从左侧选择一个企业智能体，查看可用动作、输入参数、执行预览和最近记录。
+                </div>
+            </div>
+        </aside>
     </div>
 </div>
+
+{{ center_payload|json_script:"agent-center-bootstrap" }}
 {% endblock %}
 
 {% block script %}
@@ -447,196 +660,547 @@
         var layer = layui.layer;
         var form = layui.form;
         var $ = layui.jquery;
-        
-        // 统计各类型智能体数量
-        function updateStats() {
-            var enterpriseCount = $('.agent-card[data-type="enterprise"]').length;
-            var workflowCount = $('.agent-card[data-type="workflow"]').length;
-            var modelCount = $('.agent-card[data-type="model"]').length;
-            var knowledgeCount = $('.agent-card[data-type="knowledge"]').length;
-            
-            $('#enterprise-count').text(enterpriseCount);
-            $('#workflow-count').text(workflowCount);
-            $('#model-count').text(modelCount);
-            $('#knowledge-count').text(knowledgeCount);
-        }
-        
-        // 初始化统计
-        updateStats();
-        
-        // 搜索和筛选功能
-        function filterAgents() {
-            var searchText = $('#search-input').val().toLowerCase();
-            var typeFilter = $('#type-filter').val();
-            
-            $('.agent-card').each(function() {
-                var $card = $(this);
-                var name = $card.data('name').toLowerCase();
-                var type = $card.data('type');
-                
-                var matchSearch = searchText === '' || name.indexOf(searchText) !== -1;
-                var matchType = typeFilter === '' || type === typeFilter;
-                
-                if (matchSearch && matchType) {
-                    $card.show();
-                } else {
-                    $card.hide();
+        var bootstrapNode = document.getElementById('agent-center-bootstrap');
+        var bootstrapPayload = bootstrapNode ? JSON.parse(bootstrapNode.textContent || '{}') : {};
+        var endpoints = {
+            data: '/ai/agent-center/data/',
+            execute: '/ai/agent-center/execute/',
+            confirm: '/ai/operation/confirm/',
+            rollback: '/ai/agent-center/rollback/'
+        };
+        var state = {
+            payload: bootstrapPayload || {},
+            activeAgent: null,
+            activeActionId: null
+        };
+
+        renderCenter(state.payload);
+
+        $('#refreshWorkbenchBtn').on('click', function() {
+            loadCenterData();
+        });
+
+        function loadCenterData() {
+            $.getJSON(endpoints.data, function(response) {
+                if (!response.success) {
+                    layer.msg(response.message || '刷新失败', {icon: 2});
+                    return;
+                }
+                state.payload = response.data || {};
+                renderCenter(state.payload);
+                if (state.activeAgent && state.activeAgent.id) {
+                    loadAgentDetail(state.activeAgent.id);
                 }
             });
-            
-            // 检查是否有显示的卡片
-            var visibleCards = $('.agent-card:visible').length;
-            if (visibleCards === 0) {
-                if ($('#no-results').length === 0) {
-                    $('#agent-cards-container').append(
-                        '<div id="no-results" class="empty-state">' +
-                        '<div class="empty-state-icon"><i class="layui-icon layui-icon-search"></i></div>' +
-                        '<div class="empty-state-text">未找到匹配的智能体</div>' +
+        }
+
+        function renderCenter(payload) {
+            renderSummary(payload.summary || {});
+            renderWorkbench(payload.enterprise_agents || []);
+            renderFoundation(payload.foundation_resources || []);
+            renderRecentOperations(payload.recent_operations || []);
+        }
+
+        function renderSummary(summary) {
+            var cards = [
+                {label: '企业智能体', value: summary.enterprise_agent_count || 0, note: '首批上线工作台'},
+                {label: '分析动作', value: summary.analysis_action_count || 0, note: '支持结构化分析'},
+                {label: '直执动作', value: summary.direct_action_count || 0, note: '低风险直接执行'},
+                {label: '确认动作', value: summary.confirm_action_count || 0, note: '预览后确认执行'},
+                {label: '近期待执行', value: summary.pending_confirmation_count || 0, note: '等待人工确认'}
+            ];
+            $('#summaryGrid').html(cards.map(function(card) {
+                return (
+                    '<div class="agent-summary-card">' +
+                        '<div class="agent-summary-label">' + escapeHtml(card.label) + '</div>' +
+                        '<div class="agent-summary-value">' + escapeHtml(card.value) + '</div>' +
+                        '<div class="agent-summary-note">' + escapeHtml(card.note) + '</div>' +
+                    '</div>'
+                );
+            }).join(''));
+        }
+
+        function renderWorkbench(agents) {
+            if (!agents.length) {
+                $('#agentWorkbenchGrid').html('<div class="agent-empty-line">暂无可用企业智能体。</div>');
+                return;
+            }
+
+            $('#agentWorkbenchGrid').html(agents.map(function(agent) {
+                return (
+                    '<article class="agent-card">' +
+                        '<div class="agent-card-head">' +
+                            '<div class="agent-card-icon"><i class="layui-icon ' + escapeHtml(agent.icon) + '"></i></div>' +
+                            '<div class="agent-card-meta">' +
+                                '<h3>' + escapeHtml(agent.name) + '</h3>' +
+                                '<div class="agent-card-domain">' + escapeHtml(agent.domain) + '</div>' +
+                            '</div>' +
+                            '<div class="agent-card-status"><span class="layui-icon layui-icon-ok-circle"></span> 已上线</div>' +
+                        '</div>' +
+                        '<p class="agent-card-description">' + escapeHtml(agent.description) + '</p>' +
+                        '<div class="agent-highlight-list">' + (agent.highlights || []).map(function(tag) {
+                            return '<span class="agent-highlight">' + escapeHtml(tag) + '</span>';
+                        }).join('') + '</div>' +
+                        '<div class="agent-card-stats">' +
+                            '<div class="agent-card-stat"><strong>' + escapeHtml(agent.analysis_count || 0) + '</strong><span>分析</span></div>' +
+                            '<div class="agent-card-stat"><strong>' + escapeHtml(agent.direct_count || 0) + '</strong><span>直执</span></div>' +
+                            '<div class="agent-card-stat"><strong>' + escapeHtml(agent.confirm_count || 0) + '</strong><span>确认</span></div>' +
+                        '</div>' +
+                        '<div class="agent-card-footer">' +
+                            '<div class="agent-card-audience">' + escapeHtml(agent.audience || '') + '</div>' +
+                            '<button type="button" class="layui-btn layui-btn-normal layui-btn-sm open-agent-btn" data-agent-id="' + escapeHtml(agent.id) + '">打开</button>' +
+                        '</div>' +
+                    '</article>'
+                );
+            }).join(''));
+
+            $('.open-agent-btn').off('click').on('click', function() {
+                loadAgentDetail($(this).data('agent-id'));
+            });
+        }
+
+        function renderFoundation(resources) {
+            if (!resources.length) {
+                $('#foundationGrid').html('<div class="agent-empty-line">当前没有已发布的工作流、模型或知识库。</div>');
+                return;
+            }
+            $('#foundationGrid').html(resources.map(function(item) {
+                return (
+                    '<div class="foundation-card">' +
+                        '<div class="foundation-card-type">' + escapeHtml(formatFoundationType(item.type)) + '</div>' +
+                        '<h4>' + escapeHtml(item.name) + '</h4>' +
+                        '<p>' + escapeHtml(item.description || '') + '</p>' +
+                        '<div class="foundation-card-meta">' + escapeHtml(item.meta || '') + '</div>' +
+                        '<a class="layui-btn layui-btn-primary layui-btn-sm" href="' + escapeHtml(item.link) + '">查看</a>' +
+                    '</div>'
+                );
+            }).join(''));
+        }
+
+        function renderRecentOperations(items) {
+            if (!items.length) {
+                $('#recentOperations').html('<div class="agent-empty-line">最近还没有来自工作台的执行记录。</div>');
+                return;
+            }
+            $('#recentOperations').html(items.map(function(item) {
+                return renderOperationRow(item, true);
+            }).join(''));
+            bindRollbackButtons();
+        }
+
+        function loadAgentDetail(agentId) {
+            $.getJSON('/ai/agent-center/' + encodeURIComponent(agentId) + '/detail/', function(response) {
+                if (!response.success) {
+                    layer.msg(response.message || '加载详情失败', {icon: 2});
+                    return;
+                }
+                state.activeAgent = response.data.agent;
+                state.activeActionId = (state.activeAgent.actions || [])[0] ? state.activeAgent.actions[0].id : null;
+                renderAgentDetail();
+            });
+        }
+
+        function renderAgentDetail() {
+            var agent = state.activeAgent;
+            if (!agent) {
+                return;
+            }
+
+            var actions = agent.actions || [];
+            $('#agentDetailPanel').html(
+                '<div class="agent-detail-header">' +
+                    '<div class="agent-detail-domain">' + escapeHtml(agent.domain || '') + '</div>' +
+                    '<h3>' + escapeHtml(agent.name) + '</h3>' +
+                    '<p class="agent-detail-description">' + escapeHtml(agent.description || '') + '</p>' +
+                '</div>' +
+                '<div class="agent-action-tabs">' + actions.map(function(action) {
+                    var activeClass = action.id === state.activeActionId ? ' is-active' : '';
+                    return '<button type="button" class="agent-action-tab' + activeClass + '" data-action-id="' + escapeHtml(action.id) + '">' + escapeHtml(action.label) + '</button>';
+                }).join('') + '</div>' +
+                '<div class="agent-detail-body">' +
+                    '<div id="agentActionShell"></div>' +
+                    '<div class="agent-history-head">最近记录</div>' +
+                    '<div class="agent-history-list" id="agentHistoryList"></div>' +
+                '</div>'
+            );
+
+            $('.agent-action-tab').on('click', function() {
+                state.activeActionId = $(this).data('action-id');
+                renderAgentDetail();
+            });
+
+            renderActionShell();
+            renderAgentHistory(agent.recent_operations || []);
+        }
+
+        function renderActionShell() {
+            var agent = state.activeAgent;
+            var action = getActiveAction();
+            if (!agent || !action) {
+                $('#agentActionShell').html('<div class="agent-empty-line">当前没有可执行动作。</div>');
+                return;
+            }
+
+            $('#agentActionShell').html(
+                '<div class="agent-action-intro">' +
+                    '<strong>' + escapeHtml(action.label) + '</strong>' +
+                    '<p>' + escapeHtml(action.description || '') + '</p>' +
+                    '<span class="agent-risk-pill risk-' + escapeHtml(action.risk_level || 'medium') + '">' + escapeHtml(formatActionMode(action.execution_mode, action.risk_level)) + '</span>' +
+                '</div>' +
+                '<form class="layui-form agent-action-form" id="agentActionForm">' +
+                    renderActionFields(action.fields || []) +
+                    '<div class="agent-form-actions">' +
+                        '<button type="button" class="layui-btn layui-btn-normal" id="submitAgentActionBtn">运行</button>' +
+                        '<button type="button" class="layui-btn layui-btn-primary" id="resetAgentActionBtn">清空</button>' +
+                    '</div>' +
+                '</form>' +
+                '<div id="agentResultShell"></div>'
+            );
+
+            form.render();
+
+            $('#submitAgentActionBtn').on('click', function() {
+                submitAgentAction();
+            });
+
+            $('#resetAgentActionBtn').on('click', function() {
+                $('#agentActionForm')[0].reset();
+                form.render();
+            });
+        }
+
+        function renderActionFields(fields) {
+            if (!fields.length) {
+                return '<div class="agent-empty-line">该动作不需要额外输入参数。</div>';
+            }
+            return fields.map(function(field) {
+                var requiredMark = field.required ? ' <span style="color:#e34d59;">*</span>' : '';
+                if (field.type === 'textarea') {
+                    return (
+                        '<div class="agent-form-row">' +
+                            '<label>' + escapeHtml(field.label) + requiredMark + '</label>' +
+                            '<textarea name="' + escapeHtml(field.name) + '" placeholder="请输入' + escapeHtml(field.label) + '"></textarea>' +
                         '</div>'
                     );
                 }
-            } else {
-                $('#no-results').remove();
-            }
+                if (field.type === 'select') {
+                    return (
+                        '<div class="agent-form-row">' +
+                            '<label>' + escapeHtml(field.label) + requiredMark + '</label>' +
+                            '<select name="' + escapeHtml(field.name) + '">' +
+                                '<option value="">请选择</option>' +
+                                (field.options || []).map(function(option) {
+                                    return '<option value="' + escapeHtml(option.value) + '">' + escapeHtml(option.label) + '</option>';
+                                }).join('') +
+                            '</select>' +
+                        '</div>'
+                    );
+                }
+                var inputType = field.type === 'date' ? 'date' : field.type === 'number' ? 'number' : 'text';
+                return (
+                    '<div class="agent-form-row">' +
+                        '<label>' + escapeHtml(field.label) + requiredMark + '</label>' +
+                        '<input class="layui-input" type="' + escapeHtml(inputType) + '" name="' + escapeHtml(field.name) + '" placeholder="请输入' + escapeHtml(field.label) + '">' +
+                    '</div>'
+                );
+            }).join('');
         }
-        
-        // 搜索按钮点击
-        $('#search-btn').on('click', filterAgents);
-        
-        // 回车搜索
-        $('#search-input').on('keypress', function(e) {
-            if (e.which === 13) {
-                filterAgents();
-            }
-        });
-        
-        // 类型筛选
-        form.on('select(type-filter)', function() {
-            filterAgents();
-        });
-        
-        // 运行智能体
-        $('.run-agent-btn').on('click', function(e) {
-            e.stopPropagation();
-            var id = $(this).data('id');
-            var type = $(this).data('type');
-            var name = $(this).data('name');
-            
-            if (type === 'workflow') {
-                runWorkflow(id, name);
-            } else if (type === 'model') {
-                useModel(id, name);
-            } else if (type === 'knowledge') {
-                useKnowledge(id, name);
-            } else if (type === 'enterprise') {
-                layer.msg('企业智能体演示版，功能开发中...', { icon: 0, time: 2000 });
-            }
-        });
-        
-        // 查看详情
-        $('.detail-agent-btn').on('click', function(e) {
-            e.stopPropagation();
-            var id = $(this).data('id');
-            var type = $(this).data('type');
-            
-            var url = '';
-            var title = '';
-            
-            if (type === 'workflow') {
-                url = '/ai/workflow/html/' + id + '/';
-                title = '工作流详情';
-            } else if (type === 'model') {
-                url = '/ai/model-config/detail/' + id + '/';
-                title = 'AI模型详情';
-            } else if (type === 'knowledge') {
-                url = '/ai/knowledge-base/detail/' + id + '/';
-                title = '知识库详情';
-            } else if (type === 'enterprise') {
-                layer.msg('企业智能体演示版，详情功能开发中...', { icon: 0, time: 2000 });
+
+        function submitAgentAction() {
+            var action = getActiveAction();
+            if (!action || !state.activeAgent) {
                 return;
             }
-            
-            layer.open({
-                type: 2,
-                title: title,
-                area: ['80%', '100%'],
-                offset: 'r',
-                anim: 2,
-                content: url,
-                shadeClose: false,
-                shade: 0.3
+            var params = collectFormParams(action.fields || []);
+            var loadingIndex = layer.load(1, {shade: [0.06, '#fff']});
+            $.ajax({
+                url: endpoints.execute,
+                method: 'POST',
+                contentType: 'application/json',
+                dataType: 'json',
+                headers: {'X-CSRFToken': '{{ csrf_token }}'},
+                data: JSON.stringify({
+                    agent_id: state.activeAgent.id,
+                    action_id: action.id,
+                    params: params
+                }),
+                success: function(response) {
+                    layer.close(loadingIndex);
+                    if (!response.success) {
+                        layer.msg(response.message || '执行失败', {icon: 2});
+                        return;
+                    }
+                    renderExecutionResult(response.data || {});
+                    loadCenterData();
+                    loadAgentDetail(state.activeAgent.id);
+                },
+                error: function(xhr) {
+                    layer.close(loadingIndex);
+                    var message = '执行失败';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        message = xhr.responseJSON.message;
+                    }
+                    layer.msg(message, {icon: 2});
+                }
             });
-        });
-        
-        // 卡片点击查看详情
-        $('.agent-card').on('click', function() {
-            $(this).find('.detail-agent-btn').click();
-        });
-        
-        // 运行工作流
-        function runWorkflow(id, name) {
-            layer.confirm('确定要运行工作流 "' + name + '" 吗？', {
-                title: '运行确认',
-                btn: ['确定运行', '取消'],
-                btnAlign: 'c'
-            }, function(index) {
+        }
+
+        function renderExecutionResult(result) {
+            var shell = $('#agentResultShell');
+            if (result.result_type === 'business_result') {
+                shell.html('<div class="agent-result-shell"><div id="businessResultMount"></div></div>');
+                if (window.AIAgentSDK && typeof window.AIAgentSDK.mountBusinessAIResult === 'function') {
+                    window.AIAgentSDK.mountBusinessAIResult(document.getElementById('businessResultMount'), result.data || {});
+                } else {
+                    $('#businessResultMount').text((result.data || {}).summary || '分析已完成');
+                }
+                return;
+            }
+
+            if (result.result_type === 'confirmation_required') {
+                shell.html(renderConfirmationShell(result));
+                $('#confirmAgentActionBtn').on('click', function() {
+                    confirmOperation(result.operation.id, result.operation.token);
+                });
+                return;
+            }
+
+            if (result.result_type === 'operation') {
+                shell.html(renderOperationShell(result.operation || {}, result.change_set || [], result.message || '执行完成'));
+                bindRollbackButtons();
+            }
+        }
+
+        function renderConfirmationShell(result) {
+            return (
+                '<div class="agent-preview-shell">' +
+                    '<div style="font-size:15px;color:var(--dt-text);margin-bottom:6px;">执行预览</div>' +
+                    '<div style="font-size:13px;color:var(--dt-text-secondary);line-height:1.7;">' + escapeHtml(result.message || '') + '</div>' +
+                    '<div class="agent-preview-list">' + (result.preview_change_set || []).map(function(item) {
+                        return renderPreviewItem(item);
+                    }).join('') + '</div>' +
+                    '<div class="agent-form-actions" style="margin-top:16px;">' +
+                        '<button type="button" class="layui-btn layui-btn-normal" id="confirmAgentActionBtn">确认执行</button>' +
+                    '</div>' +
+                '</div>'
+            );
+        }
+
+        function confirmOperation(operationId, token) {
+            var loadingIndex = layer.load(1, {shade: [0.06, '#fff']});
+            $.ajax({
+                url: endpoints.confirm,
+                method: 'POST',
+                contentType: 'application/json',
+                dataType: 'json',
+                headers: {'X-CSRFToken': '{{ csrf_token }}'},
+                data: JSON.stringify({operation_id: operationId, token: token}),
+                success: function(response) {
+                    layer.close(loadingIndex);
+                    if (!response.success) {
+                        layer.msg(response.message || '确认执行失败', {icon: 2});
+                        return;
+                    }
+                    $('#agentResultShell').html(renderOperationShell(
+                        {id: response.operation_id, status: 'executed', can_rollback: true},
+                        response.gateway_result ? (response.gateway_result.change_set || []) : [],
+                        response.message || '执行完成'
+                    ));
+                    bindRollbackButtons();
+                    loadCenterData();
+                    if (state.activeAgent && state.activeAgent.id) {
+                        loadAgentDetail(state.activeAgent.id);
+                    }
+                },
+                error: function(xhr) {
+                    layer.close(loadingIndex);
+                    layer.msg((xhr.responseJSON && xhr.responseJSON.message) || '确认执行失败', {icon: 2});
+                }
+            });
+        }
+
+        function renderOperationShell(operation, changeSet, message) {
+            return (
+                '<div class="agent-result-shell">' +
+                    '<div style="font-size:15px;color:var(--dt-text);margin-bottom:6px;">执行结果</div>' +
+                    '<div style="font-size:13px;color:var(--dt-text-secondary);line-height:1.7;">' + escapeHtml(message || '') + '</div>' +
+                    '<div class="agent-preview-list">' + (changeSet || []).map(function(item) {
+                        return renderPreviewItem(item);
+                    }).join('') + '</div>' +
+                    ((operation.can_rollback && operation.id) ? (
+                        '<div class="agent-form-actions" style="margin-top:16px;">' +
+                            '<button type="button" class="layui-btn layui-btn-primary rollback-operation-btn" data-operation-id="' + escapeHtml(operation.id) + '">回退本次执行</button>' +
+                        '</div>'
+                    ) : '') +
+                '</div>'
+            );
+        }
+
+        function renderPreviewItem(item) {
+            return (
+                '<div class="agent-preview-item">' +
+                    '<strong>' + escapeHtml((item.model_name || '') + ' · ' + formatChangeType(item.change_type)) + '</strong>' +
+                    '<div>对象：' + escapeHtml(item.object_pk || '-') + '</div>' +
+                    '<div>字段：' + escapeHtml((item.changed_fields || []).join('、') || '-') + '</div>' +
+                '</div>'
+            );
+        }
+
+        function renderAgentHistory(items) {
+            if (!items.length) {
+                $('#agentHistoryList').html('<div class="agent-empty-line">该智能体暂无最近记录。</div>');
+                return;
+            }
+            $('#agentHistoryList').html(items.map(function(item) {
+                return renderOperationRow(item, false);
+            }).join(''));
+            bindRollbackButtons();
+        }
+
+        function renderOperationRow(item, compact) {
+            var title = [item.agent_id || '', item.action_id || ''].filter(Boolean).join(' / ');
+            return (
+                '<div class="agent-log-item">' +
+                    '<div class="agent-log-main">' +
+                        '<div class="agent-log-title">' + escapeHtml(title || '工作台执行记录') + '</div>' +
+                        '<div class="agent-log-meta">状态：' + escapeHtml(formatOperationStatus(item.status)) + ' · 类型：' + escapeHtml(item.operation_type || '-') + ' · 时间：' + escapeHtml(item.executed_at || item.created_at || '-') + '</div>' +
+                    '</div>' +
+                    '<div style="display:flex;align-items:center;gap:8px;">' +
+                        '<span class="agent-log-status">' + escapeHtml(formatOperationStatus(item.status)) + '</span>' +
+                        ((item.can_rollback && item.id) ? '<button type="button" class="layui-btn layui-btn-primary layui-btn-xs rollback-operation-btn" data-operation-id="' + escapeHtml(item.id) + '">回退</button>' : '') +
+                    '</div>' +
+                '</div>'
+            );
+        }
+
+        function bindRollbackButtons() {
+            $('.rollback-operation-btn').off('click').on('click', function() {
+                var operationId = $(this).data('operation-id');
+                rollbackOperation(operationId);
+            });
+        }
+
+        function rollbackOperation(operationId) {
+            layer.confirm('确认回退这次执行结果？', {title: '执行回退', btn: ['确认回退', '取消']}, function(index) {
                 layer.close(index);
-                var loadingIndex = layer.load(1, { shade: [0.1, '#fff'] });
-                
                 $.ajax({
-                    url: '/ai/workflow/' + id + '/run/',
-                    type: 'POST',
-                    dataType: 'json',
+                    url: endpoints.rollback,
+                    method: 'POST',
                     contentType: 'application/json',
-                    data: JSON.stringify({input_data: {}}),
-                    headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+                    dataType: 'json',
+                    headers: {'X-CSRFToken': '{{ csrf_token }}'},
+                    data: JSON.stringify({operation_id: operationId}),
                     success: function(response) {
-                        layer.close(loadingIndex);
-                        if (response.success) {
-                            layer.msg('工作流运行成功！执行ID：' + response.execution_id, {
-                                icon: 1, time: 3000
-                            });
-                        } else {
-                            layer.msg('工作流运行失败：' + response.message, {
-                                icon: 2, time: 5000
-                            });
+                        if (!response.success) {
+                            layer.msg(response.message || '回退失败', {icon: 2});
+                            return;
+                        }
+                        layer.msg('回退完成', {icon: 1});
+                        loadCenterData();
+                        if (state.activeAgent && state.activeAgent.id) {
+                            loadAgentDetail(state.activeAgent.id);
                         }
                     },
-                    error: function(xhr, status, error) {
-                        layer.close(loadingIndex);
-                        layer.msg('请求失败：' + error, { icon: 2, time: 5000 });
+                    error: function(xhr) {
+                        layer.msg((xhr.responseJSON && xhr.responseJSON.message) || '回退失败', {icon: 2});
                     }
                 });
             });
         }
-        
-        // 使用AI模型
-        function useModel(id, name) {
-            layer.open({
-                type: 2,
-                title: '使用AI模型 - ' + name,
-                area: ['80%', '100%'],
-                offset: 'r',
-                anim: 2,
-                content: '/ai/chat/?model_id=' + id,
-                shadeClose: false,
-                shade: 0.3
+
+        function collectFormParams(fields) {
+            var params = {};
+            (fields || []).forEach(function(field) {
+                var value = $('[name="' + field.name + '"]').val();
+                if (field.required && (value === null || value === undefined || value === '')) {
+                    throw new Error(field.label + '不能为空');
+                }
+                if (value !== null && value !== undefined && value !== '') {
+                    params[field.name] = value;
+                }
+            });
+            return params;
+        }
+
+        function getActiveAction() {
+            var actions = (state.activeAgent && state.activeAgent.actions) || [];
+            for (var i = 0; i < actions.length; i++) {
+                if (actions[i].id === state.activeActionId) {
+                    return actions[i];
+                }
+            }
+            return actions[0] || null;
+        }
+
+        function formatActionMode(mode, riskLevel) {
+            var labels = {
+                analysis: '分析动作',
+                direct: '低风险直执',
+                confirm: '预览后确认'
+            };
+            var riskText = {
+                low: '低风险',
+                medium: '中风险',
+                high: '高风险'
+            };
+            return (labels[mode] || mode) + ' · ' + (riskText[riskLevel] || riskLevel);
+        }
+
+        function formatChangeType(changeType) {
+            return {
+                create: '创建',
+                update: '更新',
+                delete: '删除'
+            }[changeType] || '变更';
+        }
+
+        function formatOperationStatus(status) {
+            return {
+                preview: '待确认',
+                confirmed: '已确认',
+                executed: '已执行',
+                failed: '失败',
+                rolled_back: '已回退'
+            }[status] || status || '未知';
+        }
+
+        function formatFoundationType(type) {
+            return {
+                workflow: '工作流',
+                model: '模型',
+                knowledge: '知识库'
+            }[type] || type || '资源';
+        }
+
+        function escapeHtml(value) {
+            return String(value === null || value === undefined ? '' : value).replace(/[&<>'"]/g, function(char) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[char];
             });
         }
-        
-        // 使用知识库
-        function useKnowledge(id, name) {
-            layer.open({
-                type: 2,
-                title: '知识库问答 - ' + name,
-                area: ['80%', '100%'],
-                offset: 'r',
-                anim: 2,
-                content: '/ai/knowledge-item/search/?knowledge_base=' + id,
-                shadeClose: false,
-                shade: 0.3
-            });
-        }
+
+        window.addEventListener('error', function() {
+            layer.closeAll('loading');
+        });
+
+        $(document).on('submit', '#agentActionForm', function(event) {
+            event.preventDefault();
+        });
+
+        var originalCollectFormParams = collectFormParams;
+        collectFormParams = function(fields) {
+            try {
+                return originalCollectFormParams(fields);
+            } catch (error) {
+                layer.msg(error.message, {icon: 0});
+                throw error;
+            }
+        };
     });
 </script>
 {% endblock %}

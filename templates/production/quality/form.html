@@ -6,37 +6,105 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ action }}质量检查</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
-    <style>
-        .page-wrap { padding: 20px; }
-        .field-error { margin-top: 6px; color: #ff5722; font-size: 12px; }
-    </style>
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
 <body>
-    <div class="layui-fluid page-wrap">
-        <div class="layui-card">
-            <div class="layui-card-header">{{ action }}质量检查</div>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>{{ action }}质量检查</h2></div>
+
+        <div class="production-note">
+            质量检查会自动关联生产任务，并由系统补齐检查员。合格数量、不合格数量之和不能超过检查数量，保存后会进入质量分析与任务追溯链路。
+        </div>
+
+        <div class="layui-card production-form-card" style="margin-top: 16px;">
             <div class="layui-card-body">
-                {% if form.non_field_errors %}
-                <div class="layui-bg-red" style="padding: 12px; margin-bottom: 15px; color: #fff;">{{ form.non_field_errors }}</div>
-                {% endif %}
                 <form class="layui-form" method="post">
                     {% csrf_token %}
-                    {% for field in form %}
-                    <div class="layui-form-item">
-                        <label class="layui-form-label" style="width: 120px;">{{ field.label }}</label>
-                        <div class="layui-input-block" style="margin-left: 150px;">
-                            {{ field }}
-                            {% if field.help_text %}
-                            <div class="layui-word-aux">{{ field.help_text }}</div>
-                            {% endif %}
-                            {% for error in field.errors %}
-                            <div class="field-error">{{ error }}</div>
-                            {% endfor %}
+                    {% if form.non_field_errors %}
+                    <div class="production-field-error" style="margin-bottom: 12px;">{{ form.non_field_errors }}</div>
+                    {% endif %}
+
+                    <div class="layui-row layui-col-space16">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">生产任务</label>
+                                <div class="layui-input-block">
+                                    {{ form.task }}
+                                    {% if form.task.errors %}<div class="production-field-error">{{ form.task.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">检查时间</label>
+                                <div class="layui-input-block">
+                                    {{ form.check_time }}
+                                    {% if form.check_time.errors %}<div class="production-field-error">{{ form.check_time.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    {% endfor %}
+
+                    {{ form.created_by }}
+
+                    <div class="layui-row layui-col-space16">
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">检查数量</label>
+                                <div class="layui-input-block">
+                                    {{ form.check_quantity }}
+                                    {% if form.check_quantity.errors %}<div class="production-field-error">{{ form.check_quantity.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">合格数量</label>
+                                <div class="layui-input-block">
+                                    {{ form.qualified_quantity }}
+                                    {% if form.qualified_quantity.errors %}<div class="production-field-error">{{ form.qualified_quantity.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">不合格数量</label>
+                                <div class="layui-input-block">
+                                    {{ form.defective_quantity }}
+                                    {% if form.defective_quantity.errors %}<div class="production-field-error">{{ form.defective_quantity.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="layui-form-item">
-                        <div class="layui-input-block" style="margin-left: 150px;">
+                        <label class="layui-form-label">检查结果</label>
+                        <div class="layui-input-block">
+                            {{ form.result }}
+                            {% if form.result.errors %}<div class="production-field-error">{{ form.result.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item layui-form-text">
+                        <label class="layui-form-label">缺陷描述</label>
+                        <div class="layui-input-block">
+                            {{ form.defect_description }}
+                            <div class="production-help">记录发现的问题现象、批次范围、工位位置等，方便后续复盘。</div>
+                            {% if form.defect_description.errors %}<div class="production-field-error">{{ form.defect_description.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item layui-form-text">
+                        <label class="layui-form-label">改进建议</label>
+                        <div class="layui-input-block">
+                            {{ form.improvement_suggestion }}
+                            {% if form.improvement_suggestion.errors %}<div class="production-field-error">{{ form.improvement_suggestion.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item">
+                        <div class="layui-input-block">
                             <button type="submit" class="layui-btn">{{ action }}</button>
                             <a href="{% url 'production:quality_check_list' %}" class="layui-btn layui-btn-primary">返回</a>
                         </div>
@@ -48,31 +116,11 @@
 
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        layui.use(['form'], function() {
+        layui.use(['form'], function () {
             layui.form.render();
         });
-
         {% include "production/_right_popup_function.html" %}
-</script>
-
-    <!-- 注入的消息提示脚本 -->
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
-        });
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
 </html>

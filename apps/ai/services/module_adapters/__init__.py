@@ -4,5 +4,31 @@ from .approval import ApprovalModuleAdapter
 from .disk import DiskModuleAdapter
 from .project import ProjectModuleAdapter
 from .finance import FinanceModuleAdapter
+from .order import OrderModuleAdapter
+from .contract import ContractModuleAdapter
+from .supplier import SupplierModuleAdapter
+from .product import ProductModuleAdapter
+from .task import TaskModuleAdapter
+from .workhour import WorkHourModuleAdapter
+from .notice import NoticeModuleAdapter
+from .schedule import ScheduleModuleAdapter
+from .message import MessageModuleAdapter
+from .meeting import MeetingModuleAdapter
+from .approval_flow import ApprovalFlowModuleAdapter
+from .production import ProductionModuleAdapter
+from .followup import FollowupModuleAdapter
+from .employee import EmployeeModuleAdapter
+from .department import DepartmentModuleAdapter
+from .inventory import InventoryModuleAdapter
+from .document import DocumentModuleAdapter
+from .stock import StockDocumentModuleAdapter
+from .warehouse import WarehouseModuleAdapter
+from .project_metadata import ProjectMetadataModuleAdapter
+from .position import PositionModuleAdapter
+from .enterprise import EnterpriseModuleAdapter
+from .personal_workspace import PersonalWorkspaceModuleAdapter
+from .approval_task import ApprovalTaskModuleAdapter
+from .contact import ContactModuleAdapter
+from .production_resource import ProductionResourceModuleAdapter
 
-__all__ = ['AIBaseModuleAdapter', 'CustomerModuleAdapter', 'ApprovalModuleAdapter', 'DiskModuleAdapter', 'ProjectModuleAdapter', 'FinanceModuleAdapter']
+__all__ = ['AIBaseModuleAdapter', 'CustomerModuleAdapter', 'ApprovalModuleAdapter', 'DiskModuleAdapter', 'ProjectModuleAdapter', 'FinanceModuleAdapter', 'OrderModuleAdapter', 'ContractModuleAdapter', 'SupplierModuleAdapter', 'ProductModuleAdapter', 'TaskModuleAdapter', 'WorkHourModuleAdapter', 'NoticeModuleAdapter', 'ScheduleModuleAdapter', 'MessageModuleAdapter', 'MeetingModuleAdapter', 'ApprovalFlowModuleAdapter', 'ProductionModuleAdapter', 'FollowupModuleAdapter', 'EmployeeModuleAdapter', 'DepartmentModuleAdapter', 'InventoryModuleAdapter', 'DocumentModuleAdapter', 'StockDocumentModuleAdapter', 'WarehouseModuleAdapter', 'ProjectMetadataModuleAdapter', 'PositionModuleAdapter', 'EnterpriseModuleAdapter', 'PersonalWorkspaceModuleAdapter', 'ApprovalTaskModuleAdapter', 'ContactModuleAdapter', 'ProductionResourceModuleAdapter']

@@ -1,0 +1,278 @@
+{% extends "include/popup.html" %}
+{% load static %}
+
+{% block title %}导入银行对账{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{% static 'css/finance-module.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="finance-detail-shell">
+    <div class="finance-detail-card finance-import-card">
+        <div class="finance-detail-header">
+            <div>
+                <h1 class="finance-detail-title">导入银行对账</h1>
+                <p class="finance-detail-subtitle">上传银行账单后，系统会逐条分析与内部流水、发票、回款和付款记录是否匹配。</p>
+            </div>
+        </div>
+        <div class="finance-detail-body">
+            <form class="layui-form" id="bankReconciliationImportForm">
+                <div class="finance-detail-grid">
+                    <div class="finance-detail-section">
+                        <div class="finance-section-title"><i class="layui-icon layui-icon-form"></i>对账参数</div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">资金账户</label>
+                            <div class="layui-input-block">
+                                <select name="account_id" lay-verify="required">
+                                    <option value="">请选择银行账户</option>
+                                    {% for account in accounts %}
+                                    <option value="{{ account.id }}">{{ account.name }}{% if account.bank_name %} / {{ account.bank_name }}{% endif %}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">对账期间</label>
+                            <div class="layui-input-block">
+                                <input type="text" name="period" placeholder="例如 2026-07" autocomplete="off" class="layui-input" required>
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">银行余额</label>
+                            <div class="layui-input-block">
+                                <input type="number" step="0.01" name="bank_balance" placeholder="请输入银行账单余额" autocomplete="off" class="layui-input">
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">对账文件</label>
+                            <div class="layui-input-block">
+                                <div class="finance-uploader finance-uploader-left">
+                                    <i class="layui-icon layui-icon-upload-drag"></i>
+                                    <div class="finance-upload-copy">支持 `.csv`、`.xlsx`、`.xls`</div>
+                                    <input type="file" name="file" accept=".csv,.xlsx,.xls" class="finance-native-file" required>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="finance-detail-section">
+                        <div class="finance-section-title"><i class="layui-icon layui-icon-search"></i>对账输出</div>
+                        <div class="finance-detail-block finance-import-note">
+                            系统会返回匹配数、不匹配数，并把每条异常流水对应的系统候选记录一并列出，便于继续复核。
+                        </div>
+                        <div class="finance-detail-block finance-import-note">
+                            导入完成后，可回到银行对账列表点击“对比”查看保留的对账快照。
+                        </div>
+                    </div>
+                </div>
+                <div class="finance-detail-section">
+                    <div class="finance-section-title"><i class="layui-icon layui-icon-set"></i>字段模板</div>
+                    <div class="finance-hint">对账文件与流水文件共用同一套字段别名模板，保存后立即生效。</div>
+                    <textarea id="aliasConfigInput" class="layui-textarea finance-json-editor">{{ field_aliases_json }}</textarea>
+                    <div class="finance-import-actions" style="margin-top:12px;">
+                        <button type="button" class="layui-btn layui-btn-primary" id="reloadAliasBtn">读取当前模板</button>
+                        <button type="button" class="layui-btn layui-btn-normal" id="saveAliasBtn">保存字段模板</button>
+                    </div>
+                </div>
+                <div class="finance-detail-actions">
+                    <button type="submit" class="layui-btn">
+                        <i class="layui-icon layui-icon-release"></i> 开始对账
+                    </button>
+                    <button type="button" class="layui-btn layui-btn-primary" onclick="closePopup()">关闭</button>
+                </div>
+            </form>
+
+            <div class="finance-import-result" id="reconciliationResult" style="display:none;">
+                <div class="finance-summary-grid finance-summary-grid-compact">
+                    <div class="finance-summary-card">
+                        <div class="finance-summary-label">已匹配</div>
+                        <div class="finance-summary-value" id="matchedCount">0</div>
+                    </div>
+                    <div class="finance-summary-card">
+                        <div class="finance-summary-label">不匹配</div>
+                        <div class="finance-summary-value" id="mismatchCount">0</div>
+                    </div>
+                    <div class="finance-summary-card">
+                        <div class="finance-summary-label">对账记录</div>
+                        <div class="finance-summary-value" id="reconciliationId">-</div>
+                    </div>
+                </div>
+                <div class="finance-detail-section">
+                    <div class="finance-section-title"><i class="layui-icon layui-icon-about"></i>后续操作</div>
+                    <div class="finance-import-actions">
+                        <a href="javascript:;" class="layui-btn layui-btn-primary" id="openCompareBtn" style="display:none;">查看差异明细</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+layui.use(["form", "layer"], function () {
+    const form = layui.form;
+    const layer = layui.layer;
+    let compareUrl = "";
+    const aliasConfigUrl = "/finance/advanced/bank-import-template/";
+
+    $("#bankReconciliationImportForm").on("submit", function (event) {
+        event.preventDefault();
+        const formData = new FormData(this);
+        if (!formData.get("account_id")) {
+            layer.msg("请选择资金账户", { icon: 2 });
+            return;
+        }
+        if (!formData.get("period")) {
+            layer.msg("请填写对账期间", { icon: 2 });
+            return;
+        }
+        if (!$('input[name="file"]').val()) {
+            layer.msg("请选择对账文件", { icon: 2 });
+            return;
+        }
+
+        const loadingIndex = layer.load(1, { shade: 0.18 });
+        $.ajax({
+            url: window.location.pathname,
+            type: "POST",
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function (response) {
+                layer.close(loadingIndex);
+                if (response.code !== 0) {
+                    layer.msg(response.msg || "对账失败", { icon: 2 });
+                    return;
+                }
+                renderResult(response.data || {});
+                layer.msg("银行对账已完成", { icon: 1 });
+                if (window.parent && window.parent.layui && window.parent.layui.table) {
+                    window.parent.layui.table.reload("advancedTable");
+                }
+            },
+            error: function () {
+                layer.close(loadingIndex);
+                layer.msg("对账请求失败，请稍后重试", { icon: 2 });
+            }
+        });
+    });
+
+    $("#openCompareBtn").on("click", function () {
+        if (!compareUrl) {
+            return;
+        }
+        $.get(compareUrl, function (response) {
+            if (response.code !== 0) {
+                layer.msg(response.msg || "读取差异明细失败", { icon: 2 });
+                return;
+            }
+            const data = response.data || {};
+            const summary = data.summary || {};
+            const items = (data.items || []).map(function (item) {
+                const imported = item.imported || {};
+                const candidates = (item.system_records || []).map(function (record) {
+                    const parts = [
+                        record.record_type || "",
+                        record.code || record.transaction_no || ("#" + record.id),
+                        record.amount !== undefined ? ("¥" + Number(record.amount || 0).toFixed(2)) : ""
+                    ].filter(Boolean);
+                    return '<div class="finance-compare-candidate">' + parts.join(" / ") + "</div>";
+                }).join("") || '<div class="finance-empty-text">未找到候选系统记录</div>';
+                const statusClass = item.status === "matched" ? "finance-tag-green" : "finance-tag-red";
+                const statusText = item.status === "matched" ? "已匹配" : "不匹配";
+                return '<div class="finance-compare-item">' +
+                    '<div class="finance-compare-head">' +
+                    '<div><strong>' + (item.transaction_no || "未识别流水号") + '</strong></div>' +
+                    '<span class="finance-tag ' + statusClass + '">' + statusText + '</span>' +
+                    '</div>' +
+                    '<div class="finance-compare-grid">' +
+                    '<div class="finance-compare-block">' +
+                    '<div class="finance-compare-title">导入流水</div>' +
+                    '<div>时间：' + (imported.transaction_date || "-") + '</div>' +
+                    '<div>方向：' + (imported.direction || "-") + '</div>' +
+                    '<div>金额：¥' + Number(imported.amount || 0).toFixed(2) + '</div>' +
+                    '<div>对方：' + (imported.counterparty || "-") + '</div>' +
+                    '</div>' +
+                    '<div class="finance-compare-block">' +
+                    '<div class="finance-compare-title">系统候选记录</div>' +
+                    candidates +
+                    '</div>' +
+                    '</div>' +
+                    '</div>';
+            }).join("") || '<div class="finance-empty-text">没有保存的差异明细</div>';
+
+            layer.open({
+                type: 1,
+                title: "对账差异明细",
+                area: ["960px", "80vh"],
+                shadeClose: true,
+                content:
+                    '<div class="finance-compare-shell">' +
+                    '<div class="finance-summary-grid finance-summary-grid-compact">' +
+                    '<div class="finance-summary-card"><div class="finance-summary-label">总条目</div><div class="finance-summary-value">' + (summary.total_count || 0) + '</div></div>' +
+                    '<div class="finance-summary-card"><div class="finance-summary-label">已匹配</div><div class="finance-summary-value">' + (summary.matched_count || 0) + '</div></div>' +
+                    '<div class="finance-summary-card"><div class="finance-summary-label">不匹配</div><div class="finance-summary-value">' + (summary.mismatch_count || 0) + '</div></div>' +
+                    '</div>' +
+                    '<div class="finance-compare-list">' + items + '</div>' +
+                    '</div>'
+            });
+        });
+    });
+
+    function loadAliasConfig() {
+        $.get(aliasConfigUrl, function (response) {
+            if (response.code !== 0) {
+                layer.msg(response.msg || "读取模板失败", { icon: 2 });
+                return;
+            }
+            $("#aliasConfigInput").val(JSON.stringify((response.data || {}).aliases || {}, null, 2));
+        });
+    }
+
+    $("#reloadAliasBtn").on("click", function () {
+        loadAliasConfig();
+    });
+
+    $("#saveAliasBtn").on("click", function () {
+        let aliases;
+        try {
+            aliases = JSON.parse($("#aliasConfigInput").val() || "{}");
+        } catch (error) {
+            layer.msg("字段模板必须是合法JSON", { icon: 2 });
+            return;
+        }
+        $.ajax({
+            url: aliasConfigUrl,
+            type: "POST",
+            data: JSON.stringify({ aliases: aliases }),
+            contentType: "application/json",
+            success: function (response) {
+                if (response.code !== 0) {
+                    layer.msg(response.msg || "保存失败", { icon: 2 });
+                    return;
+                }
+                $("#aliasConfigInput").val(JSON.stringify((response.data || {}).aliases || {}, null, 2));
+                layer.msg("字段模板已保存", { icon: 1 });
+            },
+            error: function () {
+                layer.msg("保存请求失败，请稍后重试", { icon: 2 });
+            }
+        });
+    });
+
+    function renderResult(data) {
+        const summary = data.summary || {};
+        $("#matchedCount").text(summary.matched_count || 0);
+        $("#mismatchCount").text(summary.mismatch_count || 0);
+        $("#reconciliationId").text(data.reconciliation_id || "-");
+        compareUrl = "/finance/advanced/bank-reconciliation/" + data.reconciliation_id + "/compare/";
+        $("#openCompareBtn").show();
+        $("#reconciliationResult").show();
+    }
+
+    form.render();
+});
+</script>
+{% endblock %}

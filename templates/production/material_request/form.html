@@ -6,108 +6,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ action }}领料申请</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
-    <style>
-        .form-container { padding: 20px; }
-        .layui-form-label { width: 120px; }
-        .layui-input-block { margin-left: 150px; }
-        .amount-display {
-            font-size: 24px;
-            color: #FF5722;
-            font-weight: bold;
-            margin-top: 10px;
-        }
-    </style>
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
 <body>
-    <div class="layui-fluid">
-        <div class="layui-row">
-            <div class="layui-col-md12">
-                <div class="layui-card">
-                    <div class="layui-card-header">{{ action }}领料申请</div>
-                    <div class="layui-card-body">
-                        <form class="layui-form" method="post">
-                            {% csrf_token %}
-                            <div class="layui-form-item">
-                                <label class="layui-form-label">生产计划</label>
-                                <div class="layui-input-block">
-                                    <select name="production_plan" lay-search lay-verify="required">
-                                        <option value="">请选择生产计划</option>
-                                        {% for plan in production_plans %}
-                                        <option value="{{ plan.pk }}" {% if form.production_plan.value == plan.pk %}selected{% endif %}>
-                                            {{ plan.name }} ({{ plan.code }})
-                                        </option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="layui-form-item">
-                                <label class="layui-form-label">申请单号</label>
-                                <div class="layui-input-block">
-                                    <input type="text" name="code" value="{{ form.code.value|default:'' }}"
-                                           class="layui-input" placeholder="自动生成或手动输入" lay-verify="required">
-                                </div>
-                            </div>
-                            <div class="layui-form-item">
-                                <label class="layui-form-label">申请日期</label>
-                                <div class="layui-input-block">
-                                    <input type="date" name="request_date" value="{{ form.request_date.value|default:'' }}"
-                                           class="layui-input">
-                                </div>
-                            </div>
-                            <div class="layui-form-item">
-                                <label class="layui-form-label">申请说明</label>
-                                <div class="layui-input-block">
-                                    <textarea name="description" class="layui-textarea" rows="3">{{ form.description.value|default:'' }}</textarea>
-                                </div>
-                            </div>
-                            <div class="layui-form-item">
-                                <div class="layui-input-block">
-                                    <button type="submit" class="layui-btn">
-                                        <i class="layui-icon layui-icon-ok"></i> 保存
-                                    </button>
-                                    <button type="button" class="layui-btn layui-btn-primary" onclick="history.back()">
-                                        <i class="layui-icon layui-icon-return"></i> 返回
-                                    </button>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>{{ action }}领料申请</h2></div>
+        <div class="production-note" style="margin-bottom: 16px;">
+            选择生产计划后，系统会按对应 BOM 自动生成领料明细并计算申请金额。
+        </div>
+        <div class="layui-card production-form-card">
+            <div class="layui-card-body">
+                <form class="layui-form" method="post">
+                    {% csrf_token %}
+                    {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+                    <div class="layui-form-item"><label class="layui-form-label">生产计划</label><div class="layui-input-block">{{ form.production_plan }}</div></div>
+                    <div class="layui-form-item"><label class="layui-form-label">生产任务</label><div class="layui-input-block">{{ form.production_task }}</div></div>
+                    <div class="layui-form-item"><label class="layui-form-label">申请单号</label><div class="layui-input-block">{{ form.code }}<div class="production-help">留空时系统会自动生成。</div></div></div>
+                    <div class="layui-form-item"><label class="layui-form-label">申请日期</label><div class="layui-input-block">{{ form.request_date }}</div></div>
+                    <div class="layui-form-item layui-form-text"><label class="layui-form-label">申请说明</label><div class="layui-input-block">{{ form.description }}</div></div>
+                    <div class="layui-form-item"><div class="layui-input-block"><button type="submit" class="layui-btn">{{ action }}</button><a href="{% url 'production:material_request_list' %}" class="layui-btn layui-btn-primary">返回</a></div></div>
+                </form>
             </div>
         </div>
     </div>
-
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        layui.use(['form', 'layer'], function () {
-            var form = layui.form;
-            var layer = layui.layer;
-
-            form.render();
+        layui.use(['form', 'laydate'], function () {
+            layui.form.render();
+            layui.laydate.render({ elem: '#id_request_date', type: 'date' });
         });
-
         {% include "production/_right_popup_function.html" %}
-</script>
-
-    <!-- 注入的消息提示脚本 -->
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
-        });
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
 </html>

@@ -1,0 +1,80 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ action }}物料报废</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
+</head>
+<body>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>{{ action }}物料报废</h2></div>
+        <div class="layui-card production-form-card">
+            <div class="layui-card-body">
+                <form class="layui-form" method="post">
+                    {% csrf_token %}
+                    {{ form.status }}{{ form.total_amount }}
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">报废单号</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="code" value="{{ form.code.value|default:'' }}" class="layui-input" placeholder="留空则自动生成">
+                            <div class="production-help">系统会按 SCR 前缀自动生成唯一编号。</div>
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">来源出库单</label>
+                        <div class="layui-input-block">
+                            <select name="material_issue" class="layui-input" lay-search>
+                                <option value="">请选择材料出库单</option>
+                                {% for issue in material_issues %}
+                                <option value="{{ issue.pk }}" {% if form.material_issue.value|stringformat:"s" == issue.pk|stringformat:"s" %}selected{% endif %}>{{ issue.code }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">生产计划</label>
+                        <div class="layui-input-block">
+                            <select name="production_plan" class="layui-input" lay-search>
+                                <option value="">请选择生产计划</option>
+                                {% for plan in production_plans %}
+                                <option value="{{ plan.pk }}" {% if form.production_plan.value|stringformat:"s" == plan.pk|stringformat:"s" %}selected{% endif %}>{{ plan.name }} ({{ plan.code }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">报废日期</label>
+                        <div class="layui-input-block">{{ form.scrap_date }}</div>
+                    </div>
+                    <div class="layui-form-item layui-form-text">
+                        <label class="layui-form-label">报废原因</label>
+                        <div class="layui-input-block">
+                            {{ form.scrap_reason }}
+                            <div class="production-help">例如批次异常、来料损伤、工艺污染、客户退回不可复用等。</div>
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <div class="layui-input-block">
+                            <button type="submit" class="layui-btn">{{ action }}</button>
+                            <a href="{% url 'production:material_scrap_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['form', 'laydate'], function () {
+            layui.form.render();
+            layui.laydate.render({ elem: '#id_scrap_date', type: 'date' });
+        });
+        {% include "production/_right_popup_function.html" %}
+    </script>
+    {% include "production/_popup_feedback.html" %}
+</body>
+</html>

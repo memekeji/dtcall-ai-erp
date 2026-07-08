@@ -4,112 +4,193 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>收入管理</title>
+    <title>回款管理</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/finance-module.css' %}">
 </head>
 <body>
-    <div class="layui-fluid">
-        <div class="layui-card">
-            <div class="layui-card-header">
-                <div class="layui-btn-group">
-                    <button class="layui-btn layui-btn-sm" onclick="addIncome()">
-                        <i class="layui-icon layui-icon-add-1"></i> 新增收入
-                    </button>
-                </div>
-            </div>
-            <div class="layui-card-body">
-                <table id="incomeTable" class="layui-table" lay-filter="incomeTable"></table>
-            </div>
+<div class="layui-fluid finance-shell">
+    <div class="finance-page-header">
+        <div>
+            <h1 class="finance-page-title">回款管理</h1>
+            <p class="finance-page-subtitle">把发票和回款进度放在同一张表里看，便于对账和收款闭环追踪。</p>
         </div>
     </div>
 
-    <script src="{% static 'js/jquery.min.js' %}"></script>
-    <script src="{% static 'layui/layui.js' %}"></script>
-    <script>
-        layui.use(['table', 'layer'], function() {
-            var table = layui.table;
-            var layer = layui.layer;
+    <div class="finance-summary-grid">
+        <div class="finance-summary-card">
+            <div class="finance-summary-label">回款记录</div>
+            <div class="finance-summary-value" id="incomeCount">0</div>
+            <div class="finance-summary-note">当前筛选结果</div>
+        </div>
+        <div class="finance-summary-card">
+            <div class="finance-summary-label">回款金额</div>
+            <div class="finance-summary-value" id="incomeAmount">¥0.00</div>
+            <div class="finance-summary-note">当前页汇总</div>
+        </div>
+        <div class="finance-summary-card">
+            <div class="finance-summary-label">已关联发票</div>
+            <div class="finance-summary-value" id="incomeLinked">0</div>
+            <div class="finance-summary-note">带发票编码的回款</div>
+        </div>
+        <div class="finance-summary-card">
+            <div class="finance-summary-label">无备注记录</div>
+            <div class="finance-summary-value" id="incomeNoRemark">0</div>
+            <div class="finance-summary-note">待补全业务说明</div>
+        </div>
+    </div>
 
-            // 初始化表格
+    <div class="layui-card finance-card-shell">
+        <div class="layui-card-header">
+            <div class="finance-toolbar">
+                <div class="finance-toolbar-left">
+                    <button type="button" class="layui-btn layui-btn-sm layui-btn-normal" id="addIncomeBtn">
+                        <i class="layui-icon layui-icon-add-1"></i> 新增回款
+                    </button>
+                    <button type="button" class="layui-btn layui-btn-sm layui-btn-primary" id="refreshBtn">
+                        <i class="layui-icon layui-icon-refresh"></i> 刷新
+                    </button>
+                </div>
+                <div class="finance-toolbar-right">
+                    <div class="finance-filter-row">
+                        <input type="text" id="keywordInput" placeholder="发票号码 / 抬头 / 备注" class="layui-input" style="width: 260px;">
+                        <button type="button" class="layui-btn layui-btn-sm" id="searchBtn">
+                            <i class="layui-icon layui-icon-search"></i> 搜索
+                        </button>
+                        <button type="button" class="layui-btn layui-btn-sm layui-btn-primary" id="resetBtn">
+                            <i class="layui-icon layui-icon-refresh-3"></i> 重置
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="layui-card-body">
+            <table id="incomeTable" lay-filter="incomeTable"></table>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'js/jquery.min.js' %}"></script>
+<script src="{% static 'layui/layui.js' %}"></script>
+<script type="text/html" id="incomeToolBar">
+    <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="view">详情</a>
+    <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
+</script>
+<script>
+    layui.use(["table", "layer"], function () {
+        const table = layui.table;
+        const layer = layui.layer;
+        const financeBase = window.location.pathname.startsWith("/adm/") ? "/adm/finance" : "/finance";
+
+        function updateSummary(rows, totalCount) {
+            const amount = rows.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+            $("#incomeCount").text(totalCount || 0);
+            $("#incomeAmount").text("¥" + amount.toFixed(2));
+            $("#incomeLinked").text(rows.filter(item => item.invoice_code).length);
+            $("#incomeNoRemark").text(rows.filter(item => !item.remark).length);
+        }
+
+        function renderTable(resetPage) {
             table.render({
-                elem: '#incomeTable',
-                url: '/adm/finance/income/datalist/',
-                cols: [[
-                    {field: 'id', title: 'ID', width: 80},
-                    {field: 'invoice_code', title: '关联发票', width: 180, templet: function(d) {
-                        return d.invoice_code || ('发票ID：' + d.invoice_id);
-                    }},
-                    {field: 'invoice_title', title: '开票抬头', minWidth: 180},
-                    {field: 'amount', title: '收入金额', width: 120},
-                    {field: 'income_date', title: '收入日期', width: 180},
-                    {field: 'remark', title: '备注', width: 200},
-                    {field: 'create_time', title: '创建时间', width: 180},
-                    {title: '操作', width: 100, toolbar: '#incomeToolBar'}
-                ]],
+                elem: "#incomeTable",
+                id: "incomeTable",
+                url: financeBase + "/income/datalist/",
+                where: { keywords: $("#keywordInput").val().trim() },
                 page: true,
                 limit: 20,
-                height: 'full-200'
-            });
-
-            // 监听工具条
-            table.on('tool(incomeTable)', function(obj) {
-                var data = obj.data;
-                var layEvent = obj.event;
-
-                if (layEvent === 'delete') {
-                    layer.confirm('确定删除这条收入记录吗？', function(index) {
-                        $.ajax({
-                            url: '/adm/finance/income/del/',
-                            type: 'POST',
-                            data: JSON.stringify({id: data.id}),
-                            contentType: 'application/json',
-                            success: function(response) {
-                                if (response.code === 0) {
-                                    layer.msg('删除成功', {icon: 1});
-                                    table.reload('incomeTable');
-                                } else {
-                                    layer.msg(response.msg, {icon: 2});
-                                }
-                            }
-                        });
-                        layer.close(index);
-                    });
-                }
-            });
-        });
-
-        // 新增收入
-        function addIncome() {
-            layer.open({
-                type: 2,
-                title: '新增收入',
-                shadeClose: false,
-                shade: 0.3,
-                maxmin: true,
-                area: ['80%', '100%'],
-                offset: 'r',
-                anim: 2,
-                content: '/adm/finance/income/add/',
-                success: function(layero, index) {
-                    if (layero && typeof layero.css === 'function') {
-                        layero.css({
-                            'right': '0',
-                            'top': '0',
-                            'height': '100%'
-                        });
-                    }
-                },
-                end: function() {
-                    layui.table.reload('incomeTable');
+                height: "full-320",
+                cols: [[
+                    { field: "id", title: "ID", width: 80, align: "center", fixed: "left" },
+                    { field: "invoice_code", title: "发票号码", width: 180, fixed: "left", templet: d => d.invoice_code || ("发票#" + d.invoice_id) },
+                    { field: "invoice_title", title: "开票抬头", minWidth: 220 },
+                    { field: "amount", title: "到账金额", width: 120, templet: d => "¥" + Number(d.amount || 0).toFixed(2) },
+                    { field: "income_date", title: "到账日期", width: 170, align: "center" },
+                    { field: "remark", title: "备注", minWidth: 220, templet: d => d.remark || '<span class="finance-empty-text">未填写</span>' },
+                    { field: "create_time", title: "创建时间", width: 160, align: "center" },
+                    { title: "操作", width: 140, toolbar: "#incomeToolBar", fixed: "right" }
+                ]],
+                page: resetPage ? { curr: 1 } : true,
+                done: function (res) {
+                    updateSummary(res.data || [], res.count);
                 }
             });
         }
 
-    </script>
+        function reloadTable(resetPage) {
+            table.reload("incomeTable", {
+                where: { keywords: $("#keywordInput").val().trim() },
+                page: resetPage ? { curr: 1 } : undefined
+            });
+        }
 
-    <!-- 工具栏模板 -->
-    <script type="text/html" id="incomeToolBar">
-        <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
-    </script>
+        $("#addIncomeBtn").on("click", function () {
+            layer.open({
+                type: 2,
+                title: "新增回款",
+                shadeClose: false,
+                shade: 0.28,
+                maxmin: true,
+                area: ["82%", "100%"],
+                offset: "r",
+                anim: 2,
+                content: financeBase + "/income/add/",
+                success: function (layero) {
+                    layero.css({ right: "0", top: "0", height: "100%" });
+                },
+                end: function () {
+                    reloadTable();
+                }
+            });
+        });
+        $("#refreshBtn").on("click", function () { reloadTable(); });
+        $("#searchBtn").on("click", function () { reloadTable(true); });
+        $("#resetBtn").on("click", function () {
+            $("#keywordInput").val("");
+            reloadTable(true);
+        });
+
+        table.on("tool(incomeTable)", function (obj) {
+            if (obj.event === "view") {
+                layer.open({
+                    type: 2,
+                    title: "回款详情",
+                    shadeClose: false,
+                    shade: 0.28,
+                    maxmin: true,
+                    area: ["82%", "100%"],
+                    offset: "r",
+                    anim: 2,
+                    content: financeBase + "/income/view/" + obj.data.id + "/",
+                    success: function (layero) {
+                        layero.css({ right: "0", top: "0", height: "100%" });
+                    }
+                });
+                return;
+            }
+            if (obj.event === "delete") {
+                layer.confirm("确定删除这条回款记录吗？", function (index) {
+                    $.ajax({
+                        url: financeBase + "/income/del/",
+                        type: "POST",
+                        contentType: "application/json",
+                        data: JSON.stringify({ id: obj.data.id }),
+                        success: function (res) {
+                            if (res.code === 0) {
+                                layer.msg("删除成功", { icon: 1 });
+                                reloadTable();
+                            } else {
+                                layer.msg(res.msg || "删除失败", { icon: 2 });
+                            }
+                        }
+                    });
+                    layer.close(index);
+                });
+            }
+        });
+
+        renderTable();
+    });
+</script>
 </body>
 </html>

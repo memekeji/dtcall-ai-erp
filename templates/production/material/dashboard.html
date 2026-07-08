@@ -1,0 +1,157 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>物料管理</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
+</head>
+<body>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title">
+            <h2>物料管理</h2>
+        </div>
+
+        <div class="production-grid cols-4">
+            <div class="production-stat-card" style="background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%);">
+                <div class="production-stat-number">{{ pending_requests }}</div>
+                <div class="production-stat-label">待处理领料申请</div>
+                <div class="production-stat-sub">来源：生产计划 + BOM 自动推导</div>
+            </div>
+            <div class="production-stat-card" style="background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);">
+                <div class="production-stat-number">{{ pending_issues }}</div>
+                <div class="production-stat-label">待执行出库</div>
+                <div class="production-stat-sub">执行后会同步库存出库台账</div>
+            </div>
+            <div class="production-stat-card" style="background: linear-gradient(135deg, #14b8a6 0%, #34d399 100%);">
+                <div class="production-stat-number">{{ pending_returns }}</div>
+                <div class="production-stat-label">待执行物料入库</div>
+                <div class="production-stat-sub">生产场景下由退料入库单回写库存</div>
+            </div>
+            <div class="production-stat-card" style="background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);">
+                <div class="production-stat-number">{{ pending_scraps }}</div>
+                <div class="production-stat-label">待执行废料/报废</div>
+                <div class="production-stat-sub">报废会同步库存报废台账</div>
+            </div>
+        </div>
+
+        <div class="production-note" style="margin-top: 16px;">
+            说明：这里的“物料入库”指生产退料回仓；采购来料入库仍由库存/仓储模块处理。生产端另有“成品入库”负责完工后的成品入库。
+        </div>
+
+        <div class="production-toolbar" style="margin-top: 16px;">
+            <div>
+                <button class="layui-btn" onclick="location.href='{% url 'production:material_request_add' %}'">新建领料申请</button>
+                <button class="layui-btn layui-btn-normal" onclick="location.href='{% url 'production:material_issue_add' %}'">新建材料出库</button>
+                <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:material_return_add' %}'">新建物料入库</button>
+                <button class="layui-btn layui-btn-danger" onclick="location.href='{% url 'production:material_scrap_add' %}'">新建废料/报废</button>
+                <button class="layui-btn layui-btn-warm" onclick="location.href='{% url 'production:product_receipt_add' %}'">新建成品入库</button>
+            </div>
+        </div>
+
+        <div class="production-grid cols-2">
+            <div class="production-section-card">
+                <div class="production-section-header">库存缺口预警</div>
+                <div class="production-section-body">
+                    <div class="production-kpi-list">
+                        {% for row in low_stock_items %}
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">{{ row.bom_item.material_name }} / {{ row.bom_item.material_code }}</div>
+                                <div class="production-kpi-meta">{{ row.plan.name }} · 需求 {{ row.required_quantity|floatformat:4 }} · 可用 {{ row.available_quantity|floatformat:4 }}</div>
+                            </div>
+                            <span class="production-tag danger">缺口 {{ row.shortage_quantity|floatformat:4 }}</span>
+                        </div>
+                        {% empty %}
+                        <div class="production-empty">当前没有待处理的物料缺口预警</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="production-section-card">
+                <div class="production-section-header">成品入库待办</div>
+                <div class="production-section-body">
+                    <div class="production-kpi-list">
+                        {% for receipt in recent_receipts %}
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">{{ receipt.code }}</div>
+                                <div class="production-kpi-meta">{{ receipt.production_plan.name|default:"-" }} · {{ receipt.receipt_date|date:"Y-m-d" }}</div>
+                            </div>
+                            <span class="production-tag {% if receipt.status == 3 %}ok{% elif receipt.status == 4 %}danger{% else %}warn{% endif %}">
+                                {{ receipt.get_status_display }}
+                            </span>
+                        </div>
+                        {% empty %}
+                        <div class="production-empty">暂无成品入库单据</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="production-grid cols-2" style="margin-top: 16px;">
+            <div class="production-section-card">
+                <div class="production-section-header">最近领料 / 出库</div>
+                <div class="production-section-body">
+                    <div class="production-kpi-list">
+                        {% for doc in recent_requests %}
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">申请 {{ doc.code }}</div>
+                                <div class="production-kpi-meta">{{ doc.production_plan.name|default:"-" }} · {{ doc.request_date|date:"Y-m-d" }}</div>
+                            </div>
+                            <span class="production-tag {% if doc.status == 2 %}ok{% elif doc.status == 1 %}warn{% else %}danger{% endif %}">{{ doc.get_status_display }}</span>
+                        </div>
+                        {% endfor %}
+                        {% for doc in recent_issues %}
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">出库 {{ doc.code }}</div>
+                                <div class="production-kpi-meta">{{ doc.production_plan.name|default:"-" }} · {{ doc.issue_date|date:"Y-m-d" }}</div>
+                            </div>
+                            <span class="production-tag {% if doc.status == 3 %}ok{% elif doc.status == 2 %}warn{% else %}danger{% endif %}">{{ doc.get_status_display }}</span>
+                        </div>
+                        {% empty %}
+                        <div class="production-empty">暂无领料与出库记录</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="production-section-card">
+                <div class="production-section-header">最近物料入库 / 废料报废</div>
+                <div class="production-section-body">
+                    <div class="production-kpi-list">
+                        {% for doc in recent_returns %}
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">退料 {{ doc.code }}</div>
+                                <div class="production-kpi-meta">{{ doc.production_plan.name|default:"-" }} · {{ doc.return_date|date:"Y-m-d" }}</div>
+                            </div>
+                            <span class="production-tag {% if doc.status == 3 %}ok{% elif doc.status == 2 %}warn{% else %}danger{% endif %}">{{ doc.get_status_display }}</span>
+                        </div>
+                        {% endfor %}
+                        {% for doc in recent_scraps %}
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">报废 {{ doc.code }}</div>
+                                <div class="production-kpi-meta">{{ doc.production_plan.name|default:"-" }} · {{ doc.scrap_date|date:"Y-m-d" }}</div>
+                            </div>
+                            <span class="production-tag {% if doc.status == 3 %}ok{% elif doc.status == 2 %}warn{% else %}danger{% endif %}">{{ doc.get_status_display }}</span>
+                        </div>
+                        {% empty %}
+                        <div class="production-empty">暂无退料与报废记录</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% include "production/_popup_feedback.html" %}
+</body>
+</html>

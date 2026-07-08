@@ -1,227 +1,201 @@
-{% extends 'include/common.html' %}
 {% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ action }}字段映射</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
+</head>
+<body>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>{{ action }}字段映射</h2></div>
 
-{% block title %}{% if form.instance.pk %}编辑数据映射{% else %}新增数据映射{% endif %}{% endblock %}
+        <div class="production-note">
+            这页是“把原始数据翻译成系统字段”的地方。最关键的不是会不会写 JSON，而是先想清楚这条数据要对应哪台设备、哪个时间点、什么指标。常见必备字段示例：`equipment_code`、`timestamp`、`temperature`。
+        </div>
 
-{% block content %}
-<div class="layui-fluid">
-    <div class="layui-row layui-col-space15">
-        <div class="layui-col-md12">
-            <div class="layui-card">
-                <div class="layui-card-header">
-                    <h3>{% if form.instance.pk %}编辑数据映射{% else %}新增数据映射{% endif %}</h3>
-                </div>
-                <div class="layui-card-body">
-                    <form class="layui-form" method="post">
-                        {% csrf_token %}
-                        
-                        <div class="layui-tab">
-                            <ul class="layui-tab-title">
-                                <li class="layui-this">基本信息</li>
-                                <li>转换规则</li>
-                                <li>校验规则</li>
-                            </ul>
-                            <div class="layui-tab-content">
-                                <!-- 基本信息 -->
-                                <div class="layui-tab-item layui-show">
-                                    <div class="layui-row layui-col-space15">
-                                        <div class="layui-col-md6">
-                                            <div class="layui-form-item">
-                                                <label class="layui-form-label">数据源 <span style="color: red;">*</span></label>
-                                                <div class="layui-input-block">
-                                                    <select name="data_source" lay-filter="dataSource" required>
-                                                        <option value="">请选择数据源</option>
-                                                        {% for value, label in form.data_source.field.choices %}
-                                                        <option value="{{ value }}" {% if form.data_source.value == value %}selected{% endif %}>{{ label }}</option>
-                                                        {% endfor %}
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="layui-col-md6">
-                                            <div class="layui-form-item">
-                                                <label class="layui-form-label">映射名称 <span style="color: red;">*</span></label>
-                                                <div class="layui-input-block">
-                                                    <input type="text" name="name" value="{{ form.name.value|default:'' }}" 
-                                                           placeholder="请输入映射名称" class="layui-input" required>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="layui-row layui-col-space15">
-                                        <div class="layui-col-md6">
-                                            <div class="layui-form-item">
-                                                <label class="layui-form-label">源路径 <span style="color: red;">*</span></label>
-                                                <div class="layui-input-block">
-                                                    <input type="text" name="source_path" value="{{ form.source_path.value|default:'' }}" 
-                                                           placeholder="如: data.sensor.temperature" class="layui-input" required>
-                                                    <div class="layui-form-mid layui-word-aux">JSON路径或数据库字段名</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="layui-col-md6">
-                                            <div class="layui-form-item">
-                                                <label class="layui-form-label">字段类型 <span style="color: red;">*</span></label>
-                                                <div class="layui-input-block">
-                                                    <select name="field_type" lay-filter="fieldType" required>
-                                                        <option value="">请选择字段类型</option>
-                                                        {% for value, label in form.field_type.field.choices %}
-                                                        <option value="{{ value }}" {% if form.field_type.value == value %}selected{% endif %}>{{ label }}</option>
-                                                        {% endfor %}
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="layui-row layui-col-space15">
-                                        <div class="layui-col-md6">
-                                            <div class="layui-form-item">
-                                                <label class="layui-form-label">目标表</label>
-                                                <div class="layui-input-block">
-                                                    <input type="text" name="target_table" value="{{ form.target_table.value|default:'' }}" 
-                                                           placeholder="如: production_order" class="layui-input">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="layui-col-md6">
-                                            <div class="layui-form-item">
-                                                <label class="layui-form-label">目标字段</label>
-                                                <div class="layui-input-block">
-                                                    <input type="text" name="target_field" value="{{ form.target_field.value|default:'' }}" 
-                                                           placeholder="如: product_name" class="layui-input">
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="layui-row layui-col-space15">
-                                        <div class="layui-col-md6">
-                                            <div class="layui-form-item">
-                                                <label class="layui-form-label">排序</label>
-                                                <div class="layui-input-block">
-                                                    <input type="number" name="sort" value="{{ form.sort.value|default:0 }}" 
-                                                           min="0" class="layui-input">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="layui-col-md6">
-                                            <div class="layui-form-item">
-                                                <label class="layui-form-label">启用状态</label>
-                                                <div class="layui-input-block">
-                                                    <input type="checkbox" name="is_active" lay-skin="switch" lay-text="启用|停用" 
-                                                           {% if form.is_active.value or not form.instance.pk %}checked{% endif %}>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- 转换规则 -->
-                                <div class="layui-tab-item">
-                                    <div class="layui-form-item">
-                                        <label class="layui-form-label">转换类型</label>
-                                        <div class="layui-input-block">
-                                            <select name="transform_type" lay-filter="transformType">
-                                                {% for value, label in form.transform_type.field.choices %}
-                                                <option value="{{ value }}" {% if form.transform_type.value == value %}selected{% endif %}>{{ label }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="layui-form-item">
-                                        <label class="layui-form-label">转换参数</label>
-                                        <div class="layui-input-block">
-                                            <textarea name="transform_params" placeholder='{"factor": 1000, "offset": 0}' 
-                                                      class="layui-textarea">{{ form.transform_params.value|default:'' }}</textarea>
-                                            <div class="layui-form-mid layui-word-aux">
-                                                JSON格式，不同转换类型参数不同：<br>
-                                                - scale: {"factor": 100} 乘法因子<br>
-                                                - offset: {"offset": 10} 偏移量<br>
-                                                - round: {"decimal": 2} 保留小数位数<br>
-                                                - map: {"mapping": {"old1": "new1"}} 值映射
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="layui-form-item">
-                                        <label class="layui-form-label">默认值</label>
-                                        <div class="layui-input-block">
-                                            <textarea name="default_value" placeholder="当源数据为空时使用的默认值" 
-                                                      class="layui-textarea">{{ form.default_value.value|default:'' }}</textarea>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="layui-form-item">
-                                        <label class="layui-form-label">是否必填</label>
-                                        <div class="layui-input-block">
-                                            <input type="checkbox" name="is_required" lay-skin="primary" title="必填" 
-                                                   {% if form.is_required.value %}checked{% endif %}>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- 校验规则 -->
-                                <div class="layui-tab-item">
-                                    <div class="layui-row layui-col-space15">
-                                        <div class="layui-col-md6">
-                                            <div class="layui-form-item">
-                                                <label class="layui-form-label">最小值</label>
-                                                <div class="layui-input-block">
-                                                    <input type="number" name="min_value" value="{{ form.min_value.value|default:'' }}" 
-                                                           class="layui-input" step="any">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="layui-col-md6">
-                                            <div class="layui-form-item">
-                                                <label class="layui-form-label">最大值</label>
-                                                <div class="layui-input-block">
-                                                    <input type="number" name="max_value" value="{{ form.max_value.value|default:'' }}" 
-                                                           class="layui-input" step="any">
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="layui-form-item">
-                                        <label class="layui-form-label">正则表达式</label>
-                                        <div class="layui-input-block">
-                                            <input type="text" name="regex_pattern" value="{{ form.regex_pattern.value|default:'' }}" 
-                                                   placeholder="如: ^[0-9]+$" class="layui-input">
-                                            <div class="layui-form-mid layui-word-aux">用于校验数据格式的Python正则表达式</div>
-                                        </div>
-                                    </div>
+        <div class="layui-card production-form-card" style="margin-top: 16px; max-width: 1180px;">
+            <div class="layui-card-body">
+                <form class="layui-form" method="post">
+                    {% csrf_token %}
+                    {% if form.non_field_errors %}
+                    <div class="production-field-error" style="margin-bottom: 12px;">{{ form.non_field_errors }}</div>
+                    {% endif %}
+
+                    <div class="production-form-section-title">基础定义</div>
+                    <div class="layui-row layui-col-space16">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">所属数据源</label>
+                                <div class="layui-input-block">
+                                    {{ form.data_source }}
+                                    {% if form.data_source.errors %}<div class="production-field-error">{{ form.data_source.errors.0 }}</div>{% endif %}
                                 </div>
                             </div>
                         </div>
-                        
-                        <div class="layui-form-item" style="margin-top: 30px;">
-                            <div class="layui-input-block">
-                                <button type="submit" class="layui-btn">
-                                    <i class="layui-icon layui-icon-ok"></i> 保存
-                                </button>
-                                <a href="{% url 'production:data_mapping_list' %}" class="layui-btn layui-btn-primary">
-                                    <i class="layui-icon layui-icon-return"></i> 返回
-                                </a>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">映射字段名</label>
+                                <div class="layui-input-block">
+                                    {{ form.name }}
+                                    <div class="production-help">例如 `equipment_code`、`timestamp`、`temperature`、`voltage`。</div>
+                                    {% if form.name.errors %}<div class="production-field-error">{{ form.name.errors.0 }}</div>{% endif %}
+                                </div>
                             </div>
                         </div>
-                    </form>
-                </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">源数据路径</label>
+                                <div class="layui-input-block">
+                                    {{ form.source_path }}
+                                    <div class="production-help">告诉系统去原始 JSON 哪个位置取值，例如 `device.id`、`items[0].temp`。</div>
+                                    {% if form.source_path.errors %}<div class="production-field-error">{{ form.source_path.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">字段类型</label>
+                                <div class="layui-input-block">
+                                    {{ form.field_type }}
+                                    {% if form.field_type.errors %}<div class="production-field-error">{{ form.field_type.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layui-row layui-col-space16">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">目标表说明</label>
+                                <div class="layui-input-block">
+                                    {{ form.target_table }}
+                                    <div class="production-help">可选，仅用于说明这条字段最终会服务哪个业务对象。</div>
+                                    {% if form.target_table.errors %}<div class="production-field-error">{{ form.target_table.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">目标字段说明</label>
+                                <div class="layui-input-block">
+                                    {{ form.target_field }}
+                                    {% if form.target_field.errors %}<div class="production-field-error">{{ form.target_field.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="production-form-section-title">转换与兜底</div>
+                    <div class="layui-row layui-col-space16">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">转换类型</label>
+                                <div class="layui-input-block">
+                                    {{ form.transform_type }}
+                                    {% if form.transform_type.errors %}<div class="production-field-error">{{ form.transform_type.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md3">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">排序</label>
+                                <div class="layui-input-block">
+                                    {{ form.sort }}
+                                    {% if form.sort.errors %}<div class="production-field-error">{{ form.sort.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md3">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">启用状态</label>
+                                <div class="layui-input-block">
+                                    {{ form.is_active }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item layui-form-text">
+                        <label class="layui-form-label">转换参数</label>
+                        <div class="layui-input-block">
+                            {{ form.transform_params }}
+                            <div class="production-help">
+                                只在需要时填写。示例：乘法 `{"factor": 1000}`，除法 `{"divisor": 60}`，四舍五入 `{"digits": 2}`，格式化 `{"format": "{:.2f}°C"}`。
+                            </div>
+                            {% if form.transform_params.errors %}<div class="production-field-error">{{ form.transform_params.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item layui-form-text">
+                        <label class="layui-form-label">默认值</label>
+                        <div class="layui-input-block">
+                            {{ form.default_value }}
+                            <div class="production-help">当源数据没取到值时使用，例如 `0`、`offline`、`[]`。</div>
+                            {% if form.default_value.errors %}<div class="production-field-error">{{ form.default_value.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="production-form-section-title">校验规则</div>
+                    <div class="layui-row layui-col-space16">
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">最小值</label>
+                                <div class="layui-input-block">
+                                    {{ form.min_value }}
+                                    {% if form.min_value.errors %}<div class="production-field-error">{{ form.min_value.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">最大值</label>
+                                <div class="layui-input-block">
+                                    {{ form.max_value }}
+                                    {% if form.max_value.errors %}<div class="production-field-error">{{ form.max_value.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">必填</label>
+                                <div class="layui-input-block">
+                                    {{ form.is_required }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">正则校验</label>
+                        <div class="layui-input-block">
+                            {{ form.regex_pattern }}
+                            <div class="production-help">仅在需要校验格式时填写，例如数字、编码前缀、时间格式。</div>
+                            {% if form.regex_pattern.errors %}<div class="production-field-error">{{ form.regex_pattern.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item">
+                        <div class="layui-input-block">
+                            <button type="submit" class="layui-btn">{{ action }}</button>
+                            <a href="{% url 'production:data_mapping_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                        </div>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
-</div>
 
-<script>
-layui.use(['form', 'element'], function(){
-    var form = layui.form;
-    var element = layui.element;
-    
-    element.render();
-    form.render();
-});
-</script>
-{% endblock %}
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['form'], function () {
+            layui.form.render();
+        });
+        {% include "production/_right_popup_function.html" %}
+    </script>
+    {% include "production/_popup_feedback.html" %}
+</body>
+</html>

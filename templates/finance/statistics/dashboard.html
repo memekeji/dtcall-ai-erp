@@ -1,0 +1,127 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }}</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/finance-module.css' %}">
+    <style>
+        .finance-stat-note {
+            font-size: 12px;
+            line-height: 20px;
+            color: #8090a6;
+        }
+
+        .finance-stat-period {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border: 1px solid #d5e3f2;
+            border-radius: 999px;
+            background: #fff;
+            color: #5b6b80;
+            font-size: 12px;
+            line-height: 18px;
+        }
+    </style>
+</head>
+<body>
+<div class="layui-fluid finance-shell">
+    <div class="finance-page-header">
+        <div>
+            <h1 class="finance-page-title">{{ page_title }}</h1>
+            <p class="finance-page-subtitle">{{ page_subtitle }}</p>
+        </div>
+    </div>
+
+    <div class="finance-summary-grid">
+        {% for card in summary_cards %}
+        <div class="finance-summary-card">
+            <div class="finance-summary-label">{{ card.label }}</div>
+            <div class="finance-summary-value">{{ card.value }}</div>
+            <div class="finance-summary-note">{{ card.note }}</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="layui-card finance-card-shell">
+        <div class="layui-card-header">
+            <div class="finance-toolbar">
+                <div class="finance-toolbar-left">
+                    <button type="button" class="layui-btn layui-btn-sm layui-btn-normal" id="manageBtn">
+                        <i class="layui-icon layui-icon-list"></i> {{ manage_label }}
+                    </button>
+                    <button type="button" class="layui-btn layui-btn-sm layui-btn-primary" id="refreshBtn">
+                        <i class="layui-icon layui-icon-refresh"></i> 刷新
+                    </button>
+                </div>
+                <div class="finance-toolbar-right">
+                    <span class="finance-stat-period">
+                        <i class="layui-icon layui-icon-date"></i> {{ period_text }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="layui-card-body">
+            <div class="finance-stat-note" style="margin-bottom: 12px;">明细表继续使用当前业务数据源，统计数字由页面渲染时直接计算，避免旧页面空请求或错请求。</div>
+            <table id="{{ table_id }}" lay-filter="{{ table_id }}"></table>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'js/jquery.min.js' %}"></script>
+<script src="{% static 'layui/layui.js' %}"></script>
+<script>
+    layui.use(["table"], function () {
+        const table = layui.table;
+        const financeBase = window.location.pathname.startsWith("/adm/") ? "/adm/finance" : "/finance";
+        const managePath = "{{ manage_path }}";
+        const dataPath = "{{ data_path }}";
+        const rawColumns = {{ table_columns_json|safe }};
+
+        function buildColumns() {
+            return rawColumns.map(function (column) {
+                const config = Object.assign({}, column);
+                if (column.kind === "currency") {
+                    config.templet = function (row) {
+                        return "¥" + Number(row[column.field] || 0).toFixed(2);
+                    };
+                }
+                if (column.kind === "text_or_empty") {
+                    config.templet = function (row) {
+                        const value = row[column.field];
+                        return value ? value : '<span class="finance-empty-text">未填写</span>';
+                    };
+                }
+                return config;
+            });
+        }
+
+        function renderTable() {
+            table.render({
+                elem: "#{{ table_id }}",
+                id: "{{ table_id }}",
+                url: financeBase + dataPath,
+                page: true,
+                limit: 20,
+                height: "full-320",
+                cols: [buildColumns()]
+            });
+        }
+
+        $("#manageBtn").on("click", function () {
+            window.location.href = financeBase + managePath;
+        });
+        $("#refreshBtn").on("click", function () {
+            table.reload("{{ table_id }}");
+        });
+
+        renderTable();
+    });
+</script>
+</body>
+</html>

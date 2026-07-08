@@ -6,135 +6,197 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>收票管理</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/finance-module.css' %}">
 </head>
 <body>
-    <div class="layui-fluid">
-        <div class="layui-card">
-            <div class="layui-card-header">
-                <div class="layui-btn-group">
-                    <button class="layui-btn layui-btn-sm" onclick="addReceiveInvoice()">
-                        <i class="layui-icon layui-icon-add-1"></i> 新增发票
-                    </button>
-                </div>
-            </div>
-            <div class="layui-card-body">
-                <table id="receiveInvoiceTable" class="layui-table" lay-filter="receiveInvoiceTable"></table>
-            </div>
+<div class="layui-fluid finance-shell">
+    <div class="finance-page-header">
+        <div>
+            <h1 class="finance-page-title">收票管理</h1>
+            <p class="finance-page-subtitle">兼容旧入口，但列表、筛选和侧滑操作统一收回当前财务模块的紧凑风格。</p>
         </div>
     </div>
 
-    <script src="{% static 'js/jquery.min.js' %}"></script>
-    <script src="{% static 'layui/layui.js' %}"></script>
-    <script>
-        layui.use(['table', 'layer'], function() {
-            var table = layui.table;
-            var layer = layui.layer;
+    <div class="finance-summary-grid">
+        <div class="finance-summary-card">
+            <div class="finance-summary-label">收票总数</div>
+            <div class="finance-summary-value" id="receiveInvoiceCount">0</div>
+            <div class="finance-summary-note">当前结果</div>
+        </div>
+        <div class="finance-summary-card">
+            <div class="finance-summary-label">收票金额</div>
+            <div class="finance-summary-value" id="receiveInvoiceAmount">¥0.00</div>
+            <div class="finance-summary-note">当前页汇总</div>
+        </div>
+        <div class="finance-summary-card">
+            <div class="finance-summary-label">待开票</div>
+            <div class="finance-summary-value" id="receiveInvoicePending">0</div>
+            <div class="finance-summary-note">开票状态未完成</div>
+        </div>
+        <div class="finance-summary-card">
+            <div class="finance-summary-label">已回款完成</div>
+            <div class="finance-summary-value" id="receiveInvoiceReceived">0</div>
+            <div class="finance-summary-note">回款闭环</div>
+        </div>
+    </div>
 
-            // 初始化表格
-            table.render({
-                elem: '#receiveInvoiceTable',
-                url: '/adm/finance/receiveinvoice/datalist/',
-                cols: [[
-                    {field: 'id', title: 'ID', width: 80},
-                    {field: 'code', title: '发票号码', width: 150},
-                    {field: 'invoice_title', title: '开票抬头', width: 200},
-                    {field: 'amount', title: '发票金额', width: 120},
-                    {field: 'open_time', title: '开票时间', width: 180},
-                    {field: 'enter_status', title: '回款状态', width: 100},
-                    {title: '操作', width: 200, toolbar: '#receiveInvoiceToolBar'}
-                ]],
-                page: true,
-                limit: 20,
-                height: 'full-200'
-            });
+    <div class="layui-card finance-card-shell">
+        <div class="layui-card-header">
+            <div class="finance-toolbar">
+                <div class="finance-toolbar-left">
+                    <button type="button" class="layui-btn layui-btn-sm layui-btn-normal" id="addReceiveInvoiceBtn">
+                        <i class="layui-icon layui-icon-add-1"></i> 新增发票
+                    </button>
+                    <button type="button" class="layui-btn layui-btn-sm layui-btn-primary" id="refreshBtn">
+                        <i class="layui-icon layui-icon-refresh"></i> 刷新
+                    </button>
+                </div>
+                <div class="finance-toolbar-right">
+                    <div class="finance-filter-row">
+                        <input type="text" id="searchReceiveInvoiceCode" placeholder="发票号码" class="layui-input" style="width: 180px;">
+                        <select id="searchReceiveInvoiceStatus">
+                            <option value="">全部开票状态</option>
+                            <option value="0">未开票</option>
+                            <option value="1">已开票</option>
+                            <option value="2">已作废</option>
+                        </select>
+                        <button type="button" class="layui-btn layui-btn-sm" id="searchBtn">
+                            <i class="layui-icon layui-icon-search"></i> 搜索
+                        </button>
+                        <button type="button" class="layui-btn layui-btn-sm layui-btn-primary" id="resetBtn">
+                            <i class="layui-icon layui-icon-refresh-3"></i> 重置
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="layui-card-body">
+            <table id="receiveInvoiceTable" lay-filter="receiveInvoiceTable"></table>
+        </div>
+    </div>
+</div>
 
-            // 监听工具条
-            table.on('tool(receiveInvoiceTable)', function(obj) {
-                var data = obj.data;
-                var layEvent = obj.event;
+<script src="{% static 'js/jquery.min.js' %}"></script>
+<script src="{% static 'layui/layui.js' %}"></script>
+<script type="text/html" id="receiveInvoiceToolBar">
+    <a class="layui-btn layui-btn-xs" lay-event="view">查看</a>
+    <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
+</script>
+<script>
+    layui.use(["table", "layer", "form"], function () {
+        const table = layui.table;
+        const layer = layui.layer;
+        const form = layui.form;
+        const financeBase = window.location.pathname.startsWith("/adm/") ? "/adm/finance" : "/finance";
 
-                if (layEvent === 'view') {
-                    layer.open({
-                        type: 2,
-                        title: '收票详情',
-                        shadeClose: false,
-                        shade: 0.3,
-                        maxmin: true,
-                        area: ['80%', '100%'],
-                        offset: 'r',
-                        anim: 2,
-                        content: '/adm/finance/invoice/view/' + data.id + '/',
-                        success: function(layero, index) {
-                            if (layero && typeof layero.css === 'function') {
-                                layero.css({
-                                    'right': '0',
-                                    'top': '0',
-                                    'height': '100%'
-                                });
-                            }
-                        }
-                    });
-                } else if (layEvent === 'edit') {
-                    layer.open({
-                        type: 2,
-                        title: '编辑收票',
-                        shadeClose: false,
-                        shade: 0.3,
-                        maxmin: true,
-                        area: ['80%', '100%'],
-                        offset: 'r',
-                        anim: 2,
-                        content: '/adm/finance/invoice/edit/' + data.id + '/',
-                        success: function(layero, index) {
-                            if (layero && typeof layero.css === 'function') {
-                                layero.css({
-                                    'right': '0',
-                                    'top': '0',
-                                    'height': '100%'
-                                });
-                            }
-                        },
-                        end: function() {
-                            table.reload('receiveInvoiceTable');
-                        }
-                    });
-                }
-            });
-        });
+        function tag(text, type) {
+            const classMap = {
+                blue: "finance-tag finance-tag-blue",
+                green: "finance-tag finance-tag-green",
+                orange: "finance-tag finance-tag-orange",
+                red: "finance-tag finance-tag-red",
+                slate: "finance-tag finance-tag-slate"
+            };
+            return '<span class="' + classMap[type] + '">' + (text || "-") + "</span>";
+        }
 
-        // 新增发票
-        function addReceiveInvoice() {
+        function openDrawer(url, title, endCallback) {
             layer.open({
                 type: 2,
-                title: '新增发票',
+                title: title,
                 shadeClose: false,
-                shade: 0.3,
+                shade: 0.28,
                 maxmin: true,
-                area: ['80%', '100%'],
-                offset: 'r',
+                area: ["82%", "100%"],
+                offset: "r",
                 anim: 2,
-                content: '/adm/finance/invoice/add/',
-                success: function(layero, index) {
-                    if (layero && typeof layero.css === 'function') {
-                        layero.css({
-                            'right': '0',
-                            'top': '0',
-                            'height': '100%'
-                        });
-                    }
+                content: financeBase + url,
+                success: function (layero) {
+                    layero.css({ right: "0", top: "0", height: "100%" });
                 },
-                end: function() {
-                    layui.table.reload('receiveInvoiceTable');
+                end: function () {
+                    if (typeof endCallback === "function") {
+                        endCallback();
+                    }
                 }
             });
         }
 
-    </script>
+        function getFilters() {
+            return {
+                code: $("#searchReceiveInvoiceCode").val().trim(),
+                status: $("#searchReceiveInvoiceStatus").val()
+            };
+        }
 
-    <!-- 工具栏模板 -->
-    <script type="text/html" id="receiveInvoiceToolBar">
-        <a class="layui-btn layui-btn-xs" lay-event="view">查看</a>
-        <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
-    </script>
+        function updateSummary(rows, totalCount) {
+            const amount = rows.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+            $("#receiveInvoiceCount").text(totalCount || 0);
+            $("#receiveInvoiceAmount").text("¥" + amount.toFixed(2));
+            $("#receiveInvoicePending").text(rows.filter(item => Number(item.open_status) === 0).length);
+            $("#receiveInvoiceReceived").text(rows.filter(item => Number(item.enter_status) === 2).length);
+        }
+
+        function renderTable(resetPage) {
+            table.render({
+                elem: "#receiveInvoiceTable",
+                id: "receiveInvoiceTable",
+                url: financeBase + "/receiveinvoice/datalist/",
+                where: getFilters(),
+                page: true,
+                limit: 20,
+                height: "full-320",
+                cols: [[
+                    { field: "id", title: "ID", width: 80, align: "center", fixed: "left" },
+                    { field: "code", title: "发票号码", width: 180, fixed: "left" },
+                    { field: "customer_name", title: "客户", width: 180, templet: d => d.customer_name || '<span class="finance-empty-text">未关联</span>' },
+                    { field: "invoice_title", title: "开票抬头", minWidth: 220 },
+                    { field: "amount", title: "金额", width: 120, templet: d => "¥" + Number(d.amount || 0).toFixed(2) },
+                    { field: "invoice_type_display", title: "发票类型", width: 120, align: "center" },
+                    { field: "open_status_display", title: "开票状态", width: 110, align: "center", templet: d => tag(d.open_status_display, Number(d.open_status) === 1 ? "green" : (Number(d.open_status) === 2 ? "red" : "orange")) },
+                    { field: "enter_status_display", title: "回款状态", width: 110, align: "center", templet: d => tag(d.enter_status_display, Number(d.enter_status) === 2 ? "green" : (Number(d.enter_status) === 1 ? "blue" : "slate")) },
+                    { field: "create_time", title: "创建时间", width: 160, align: "center" },
+                    { title: "操作", width: 140, toolbar: "#receiveInvoiceToolBar", fixed: "right" }
+                ]],
+                page: resetPage ? { curr: 1 } : true,
+                done: function (res) {
+                    updateSummary(res.data || [], res.count);
+                    form.render("select");
+                }
+            });
+        }
+
+        function reloadTable(resetPage) {
+            table.reload("receiveInvoiceTable", {
+                where: getFilters(),
+                page: resetPage ? { curr: 1 } : undefined
+            });
+        }
+
+        $("#addReceiveInvoiceBtn").on("click", function () {
+            openDrawer("/invoice/add/", "新增发票", () => reloadTable());
+        });
+        $("#refreshBtn").on("click", function () { reloadTable(); });
+        $("#searchBtn").on("click", function () { reloadTable(true); });
+        $("#resetBtn").on("click", function () {
+            $("#searchReceiveInvoiceCode").val("");
+            $("#searchReceiveInvoiceStatus").val("");
+            form.render("select");
+            reloadTable(true);
+        });
+
+        table.on("tool(receiveInvoiceTable)", function (obj) {
+            const data = obj.data;
+            if (obj.event === "view") {
+                openDrawer("/invoice/view/" + data.id + "/", "收票详情");
+            } else if (obj.event === "edit") {
+                openDrawer("/invoice/edit/" + data.id + "/", "编辑收票", () => reloadTable());
+            }
+        });
+
+        renderTable();
+    });
+</script>
 </body>
 </html>

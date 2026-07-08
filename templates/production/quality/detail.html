@@ -4,89 +4,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>质检详情</title>
+    <title>质量检查详情</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
 <body>
-    <div class="layui-fluid" style="padding: 20px;">
-        <div class="layui-card">
-            <div class="layui-card-header">
-                <div class="layui-row">
-                    <div class="layui-col-md8">
-                        <h2>质量检查详情</h2>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>质量检查详情</h2></div>
+
+        <div class="production-section-card">
+            <div class="production-section-header">
+                <span>{{ check.task.name }} / {{ check.task.code }}</span>
+                <span class="production-tag {% if check.result == 1 %}ok{% elif check.result == 2 %}danger{% else %}warn{% endif %}">
+                    {{ check.result_display }}
+                </span>
+            </div>
+            <div class="production-section-body">
+                <div class="production-detail-grid">
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">所属计划</div>
+                        <div class="production-detail-value">{{ check.task.plan.name|default:"-" }}</div>
                     </div>
-                    <div class="layui-col-md4" style="text-align: right;">
-                        <a href="{% url 'production:quality_check_edit' check.pk %}" class="layui-btn layui-btn-sm">编辑</a>
-                        <a href="{% url 'production:quality_check_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">返回列表</a>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">工序</div>
+                        <div class="production-detail-value">{{ check.task.procedure.name|default:"-" }}</div>
+                    </div>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">检查员</div>
+                        <div class="production-detail-value">{{ check.created_by.username|default:"-" }}</div>
+                    </div>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">检查时间</div>
+                        <div class="production-detail-value">{{ check.check_time|date:"Y-m-d H:i:s" }}</div>
+                    </div>
+                </div>
+
+                <div class="production-summary-strip" style="margin-top: 16px; margin-bottom: 0;">
+                    <div class="production-summary-item">
+                        <div class="production-summary-value">{{ check.check_quantity }}</div>
+                        <div class="production-summary-label">检查数量</div>
+                    </div>
+                    <div class="production-summary-item">
+                        <div class="production-summary-value">{{ check.qualified_quantity }}</div>
+                        <div class="production-summary-label">合格数量</div>
+                    </div>
+                    <div class="production-summary-item">
+                        <div class="production-summary-value">{{ check.defective_quantity }}</div>
+                        <div class="production-summary-label">不合格数量</div>
+                    </div>
+                    <div class="production-summary-item accent">
+                        <div class="production-summary-value">{{ check.qualified_rate }}%</div>
+                        <div class="production-summary-label">合格率</div>
                     </div>
                 </div>
             </div>
-            <div class="layui-card-body">
-                <div class="layui-row layui-col-space15">
-                    <div class="layui-col-md4"><strong>关联任务：</strong>{{ check.task.name }}</div>
-                    <div class="layui-col-md4"><strong>任务编号：</strong>{{ check.task.code }}</div>
-                    <div class="layui-col-md4"><strong>检查员：</strong>{{ check.created_by.username|default:'-' }}</div>
+        </div>
+
+        <div class="production-split-grid" style="margin-top: 16px;">
+            <div class="production-section-card">
+                <div class="production-section-header">缺陷描述</div>
+                <div class="production-section-body">
+                    {% if check.defect_description %}
+                    <div class="production-detail-value">{{ check.defect_description|linebreaksbr }}</div>
+                    {% else %}
+                    <div class="production-empty">当前未记录缺陷描述</div>
+                    {% endif %}
                 </div>
-
-                <hr>
-
-                <div class="layui-row layui-col-space15">
-                    <div class="layui-col-md3"><strong>检查数量：</strong>{{ check.check_quantity }}</div>
-                    <div class="layui-col-md3"><strong>合格数量：</strong>{{ check.qualified_quantity }}</div>
-                    <div class="layui-col-md3"><strong>不合格数量：</strong>{{ check.defective_quantity }}</div>
-                    <div class="layui-col-md3"><strong>合格率：</strong>{{ check.qualified_rate }}%</div>
+            </div>
+            <div class="production-section-card">
+                <div class="production-section-header">改进建议</div>
+                <div class="production-section-body">
+                    {% if check.improvement_suggestion %}
+                    <div class="production-detail-value">{{ check.improvement_suggestion|linebreaksbr }}</div>
+                    {% else %}
+                    <div class="production-empty">当前未记录改进建议</div>
+                    {% endif %}
                 </div>
-
-                <hr>
-
-                <div class="layui-row layui-col-space15">
-                    <div class="layui-col-md4">
-                        <strong>检查结果：</strong>
-                        {% if check.result == 1 %}
-                        <span class="layui-badge layui-bg-green">合格</span>
-                        {% elif check.result == 2 %}
-                        <span class="layui-badge layui-bg-red">不合格</span>
-                        {% else %}
-                        <span class="layui-badge layui-bg-orange">待检</span>
-                        {% endif %}
-                    </div>
-                    <div class="layui-col-md8"><strong>检查时间：</strong>{{ check.check_time|date:"Y-m-d H:i:s" }}</div>
-                </div>
-
-                <fieldset class="layui-elem-field layui-field-title">
-                    <legend>缺陷描述</legend>
-                </fieldset>
-                <div class="layui-text" style="line-height: 1.8;">{{ check.defect_description|default:'-'|linebreaks }}</div>
-
-                <fieldset class="layui-elem-field layui-field-title">
-                    <legend>改进建议</legend>
-                </fieldset>
-                <div class="layui-text" style="line-height: 1.8;">{{ check.improvement_suggestion|default:'-'|linebreaks }}</div>
             </div>
         </div>
     </div>
-<script>
-        {% include "production/_right_popup_function.html" %}
-</script>
 
-    <!-- 注入的消息提示脚本 -->
+    <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
-        });
+        {% include "production/_right_popup_function.html" %}
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
 </html>

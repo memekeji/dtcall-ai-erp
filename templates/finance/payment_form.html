@@ -4,429 +4,254 @@
 {% block title %}{% if object %}编辑付款{% else %}新增付款{% endif %}{% endblock %}
 
 {% block head %}
-    <style>
-        body {
-            background: #f5f7fb;
-            font-family: 'Microsoft YaHei', sans-serif;
-        }
-        .form-container {
-            max-width: 800px;
-            margin: 20px auto;
-            background: #fff;
-            border-radius: 8px;
-            border: 1px solid #e5edf8;
-            box-shadow: 0 10px 28px rgba(15, 35, 80, 0.08);
-            overflow: hidden;
-        }
-        .form-header {
-            background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%);
-            color: white;
-            padding: 20px 30px;
-            position: relative;
-        }
-        .form-header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
-            opacity: 0.3;
-        }
-        .form-header h2 {
-            margin: 0;
-            font-size: 20px;
-            font-weight: 600;
-            position: relative;
-            z-index: 1;
-        }
-        .form-header .subtitle {
-            margin: 5px 0 0 0;
-            opacity: 0.9;
-            font-size: 14px;
-            position: relative;
-            z-index: 1;
-        }
-        .form-body {
-            padding: 30px;
-        }
-        .layui-form-item {
-            margin-bottom: 25px;
-        }
-        .layui-form-label {
-            width: 120px;
-            font-weight: 500;
-            color: #333;
-            background: #f8f9fa;
-            border-radius: 4px 0 0 4px;
-        }
-        .layui-input-block {
-            margin-left: 120px;
-        }
-        .layui-input, .layui-textarea, .layui-select {
-            border: 1px solid #e1e5e9;
-            border-radius: 0 4px 4px 0;
-            transition: all 0.3s ease;
-        }
-        .layui-input:focus, .layui-textarea:focus {
-            border-color: #1677ff;
-            box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.10);
-        }
-        .required-field::after {
-            content: '*';
-            color: #ff5722;
-            margin-left: 4px;
-        }
-        .form-section {
-            margin-bottom: 30px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 6px;
-            border-left: 4px solid #1677ff;
-        }
-        .section-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-        }
-        .section-title i {
-            margin-right: 8px;
-            color: #1677ff;
-        }
-        .form-actions {
-            text-align: center;
-            padding: 20px 0;
-            border-top: 1px solid #e1e5e9;
-            background: #f8f9fa;
-            margin: 30px -30px -30px -30px;
-        }
-        .layui-btn {
-            padding: 10px 30px;
-            border-radius: 6px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-        .layui-btn-normal {
-            background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%);
-            border: none;
-        }
-        .layui-btn-normal:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(22, 119, 255, 0.22);
-        }
-        .layui-btn-primary {
-            background: #fff;
-            border: 1px solid #d9d9d9;
-            color: #666;
-        }
-        .layui-btn-primary:hover {
-            border-color: #1677ff;
-            color: #1677ff;
-        }
-        .amount-input {
-            position: relative;
-        }
-        .amount-input::before {
-            content: '¥';
-            position: absolute;
-            left: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #666;
-            font-weight: 500;
-            z-index: 10;
-        }
-        .amount-input .layui-input {
-            padding-left: 30px;
-            font-size: 16px;
-            font-weight: 500;
-        }
-        .expense-info {
-            background: #fff;
-            border: 1px solid #e1e5e9;
-            border-radius: 6px;
-            padding: 15px;
-            margin-top: 10px;
-        }
-        .expense-detail {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-        }
-        .expense-detail:last-child {
-            margin-bottom: 0;
-        }
-        .detail-label {
-            color: #666;
-            font-size: 14px;
-        }
-        .detail-value {
-            color: #333;
-            font-weight: 500;
-        }
-        .upload-area {
-            border: 2px dashed #d9d9d9;
-            border-radius: 6px;
-            padding: 20px;
-            text-align: center;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-        .upload-area:hover {
-            border-color: #1677ff;
-            background: rgba(22, 119, 255, 0.05);
-        }
-        .upload-icon {
-            font-size: 48px;
-            color: #d9d9d9;
-            margin-bottom: 10px;
-        }
-    </style>
+<link rel="stylesheet" href="{% static 'css/finance-module.css' %}">
 {% endblock %}
 
 {% block content %}
-    <div class="form-container">
-        <div class="form-header">
-            <h2>
-                <i class="layui-icon layui-icon-transfer" style="margin-right: 10px;"></i>
-                {% if object %}编辑付款记录{% else %}新增付款记录{% endif %}
-            </h2>
-            <p class="subtitle">请填写付款信息，确保付款数据准确无误</p>
-        </div>
-        
-        <div class="form-body">
-            <form class="layui-form" method="post" lay-filter="paymentForm">
-                {% csrf_token %}
-                
-                <!-- 关联信息 -->
-                <div class="form-section">
-                    <div class="section-title">
-                        <i class="layui-icon layui-icon-link"></i>
-                        关联报销信息
-                    </div>
-                    
+<div class="finance-form-shell">
+    <div class="finance-form-header">
+        <h2>{% if object %}编辑付款记录{% else %}新增付款记录{% endif %}</h2>
+        <p>付款可以关联报销、客户、订单、采购订单、采购合同、项目，非全部必填，但至少选择一项。</p>
+    </div>
+    <div class="finance-form-body">
+        <form class="layui-form" method="post">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+            <div class="layui-bg-red" style="padding:10px 12px;border-radius:6px;margin-bottom:16px;color:#fff;">
+                {{ form.non_field_errors|join:"；" }}
+            </div>
+            {% endif %}
+
+            <div class="finance-form-grid">
+                <div class="finance-section">
+                    <div class="finance-section-title"><i class="layui-icon layui-icon-link"></i>业务关联</div>
                     <div class="layui-form-item">
-                        <label class="layui-form-label required-field">关联报销</label>
+                        <label class="layui-form-label">关联报销</label>
                         <div class="layui-input-block">
-                            <select name="expense_id" class="layui-select" required lay-filter="expense">
-                                <option value="">请选择报销记录</option>
+                            <select name="expense_id" lay-filter="relationChange">
+                                <option value="0">不关联报销</option>
                                 {% for expense in expenses %}
-                                <option value="{{ expense.id }}" 
-                                        data-code="{{ expense.code }}" 
-                                        data-cost="{{ expense.cost }}"
-                                        data-admin="{{ expense.admin_id }}"
-                                        {% if form.expense_id.value == expense.id %}selected{% endif %}>
-                                    {{ expense.code }} - ¥{{ expense.cost }}
+                                <option value="{{ expense.id }}" {% if form.expense_id.value|stringformat:"s" == expense.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ expense.code }} / ¥{{ expense.cost }}
                                 </option>
                                 {% endfor %}
                             </select>
                         </div>
                     </div>
-                    
-                    <div id="expenseInfo" class="expense-info" style="display: none;">
-                        <div class="expense-detail">
-                            <span class="detail-label">报销编码：</span>
-                            <span class="detail-value" id="expenseCode">-</span>
-                        </div>
-                        <div class="expense-detail">
-                            <span class="detail-label">报销金额：</span>
-                            <span class="detail-value" id="expenseCost">¥0.00</span>
-                        </div>
-                        <div class="expense-detail">
-                            <span class="detail-label">报销人ID：</span>
-                            <span class="detail-value" id="expenseAdmin">-</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 付款信息 -->
-                <div class="form-section">
-                    <div class="section-title">
-                        <i class="layui-icon layui-icon-rmb"></i>
-                        付款信息
-                    </div>
-                    
-                    <div class="layui-row layui-col-space15">
-                        <div class="layui-col-md6">
-                            <div class="layui-form-item">
-                                <label class="layui-form-label required-field">付款金额</label>
-                                <div class="layui-input-block amount-input">
-                                    <input type="number" step="0.01" name="amount" value="{{ form.amount.value|default:'' }}" 
-                                           placeholder="0.00" class="layui-input" required>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="layui-col-md6">
-                            <div class="layui-form-item">
-                                <label class="layui-form-label required-field">付款日期</label>
-                                <div class="layui-input-block">
-                                    <input type="datetime-local" name="payment_date" value="{{ form.payment_date.value|default:'' }}" 
-                                           class="layui-input" required>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 附件上传 -->
-                <div class="form-section">
-                    <div class="section-title">
-                        <i class="layui-icon layui-icon-upload"></i>
-                        付款凭证
-                    </div>
-                    
                     <div class="layui-form-item">
-                        <label class="layui-form-label">相关附件</label>
+                        <label class="layui-form-label">客户</label>
                         <div class="layui-input-block">
-                            <div class="upload-area" id="uploadArea">
-                                <div class="upload-icon">
-                                    <i class="layui-icon layui-icon-upload-drag"></i>
-                                </div>
-                                <p>点击或拖拽文件到此处上传</p>
-                                <p style="color: #999; font-size: 12px;">支持银行回单、转账凭证等文件，单个文件不超过 10MB</p>
-                            </div>
-                            <input type="hidden" name="file_ids" value="{{ form.file_ids.value|default:'' }}">
+                            <select name="customer_id" lay-filter="relationChange">
+                                <option value="0">仅留空客户</option>
+                                {% for customer in customers %}
+                                <option value="{{ customer.id }}" {% if form.customer_id.value|stringformat:"s" == customer.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ customer.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="finance-hint">允许只选客户，作为独立业务付款。</div>
                         </div>
                     </div>
-                </div>
-
-                <!-- 备注信息 -->
-                <div class="form-section">
-                    <div class="section-title">
-                        <i class="layui-icon layui-icon-edit"></i>
-                        备注信息
-                    </div>
-                    
                     <div class="layui-form-item">
-                        <label class="layui-form-label">备注说明</label>
+                        <label class="layui-form-label">客户订单</label>
                         <div class="layui-input-block">
-                            <textarea name="remark" placeholder="请输入付款备注信息（选填）" 
-                                      class="layui-textarea" rows="4">{{ form.remark.value|default:'' }}</textarea>
+                            <select name="order_id" lay-filter="relationChange">
+                                <option value="0">不关联订单</option>
+                                {% for order in orders %}
+                                <option value="{{ order.id }}" data-customer-id="{{ order.customer_id }}" {% if form.order_id.value|stringformat:"s" == order.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ order.order_number }} / {{ order.customer.name|default:"未关联客户" }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">项目</label>
+                        <div class="layui-input-block">
+                            <select name="project_id" lay-filter="relationChange">
+                                <option value="0">不关联项目</option>
+                                {% for project in projects %}
+                                <option value="{{ project.id }}" data-customer-id="{{ project.customer_id|default:0 }}" {% if form.project_id.value|stringformat:"s" == project.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ project.name }}{% if project.code %} ({{ project.code }}){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
                         </div>
                     </div>
                 </div>
 
-                <!-- 提交按钮 -->
-                <div class="form-actions">
-                    <button class="layui-btn layui-btn-normal layui-btn-lg" lay-submit lay-filter="submit">
-                        <i class="layui-icon layui-icon-ok"></i>
-                        {% if object %}更新付款{% else %}确认付款{% endif %}
-                    </button>
-                    <button type="button" class="layui-btn layui-btn-primary layui-btn-lg" onclick="closePopup()" style="margin-left: 15px;">
-                        <i class="layui-icon layui-icon-close"></i>
-                        取消
-                    </button>
+                <div class="finance-section">
+                    <div class="finance-section-title"><i class="layui-icon layui-icon-cart-simple"></i>采购与资金</div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">采购订单</label>
+                        <div class="layui-input-block">
+                            <select name="purchase_order_id" lay-filter="relationChange">
+                                <option value="0">不关联采购订单</option>
+                                {% for item in purchase_orders %}
+                                <option value="{{ item.id }}" {% if form.purchase_order_id.value|stringformat:"s" == item.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ item.code }} / {{ item.supplier.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">采购合同</label>
+                        <div class="layui-input-block">
+                            <select name="purchase_contract_id" lay-filter="relationChange">
+                                <option value="0">不关联采购合同</option>
+                                {% for item in purchase_contracts %}
+                                <option value="{{ item.id }}" {% if form.purchase_contract_id.value|stringformat:"s" == item.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ item.code }} / {{ item.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">资金账户</label>
+                        <div class="layui-input-block">
+                            <select name="account_id">
+                                <option value="0">不登记账户流水</option>
+                                {% for account in accounts %}
+                                <option value="{{ account.id }}" {% if form.account_id.value|stringformat:"s" == account.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ account.name }}{% if account.bank_name %} / {{ account.bank_name }}{% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="finance-linkage-preview" id="relationPreview">
+                        <div class="finance-preview-row">
+                            <span class="finance-preview-label">当前校验</span>
+                            <span class="finance-preview-value" id="relationPreviewStatus">至少关联一项业务对象</span>
+                        </div>
+                    </div>
                 </div>
-            </form>
-        </div>
+            </div>
+
+            <div class="finance-form-grid">
+                <div class="finance-section">
+                    <div class="finance-section-title"><i class="layui-icon layui-icon-rmb"></i>付款信息</div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">付款金额</label>
+                        <div class="layui-input-block">
+                            {{ form.amount }}
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">付款日期</label>
+                        <div class="layui-input-block">
+                            {{ form.payment_date }}
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">备注</label>
+                        <div class="layui-input-block">
+                            {{ form.remark }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="finance-section">
+                    <div class="finance-section-title"><i class="layui-icon layui-icon-upload"></i>凭证附件</div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">附件</label>
+                        <div class="layui-input-block">
+                            <div id="uploadArea" class="finance-uploader">
+                                <i class="layui-icon layui-icon-upload-drag"></i>
+                                点击或拖拽上传付款凭证
+                            </div>
+                            <div class="finance-hint">支持银行回单、付款申请单等材料。</div>
+                            {{ form.file_ids }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="finance-form-actions">
+                <button class="layui-btn layui-btn-normal" type="submit">
+                    <i class="layui-icon layui-icon-ok"></i>{% if object %} 保存付款{% else %} 提交付款{% endif %}
+                </button>
+                <button class="layui-btn layui-btn-primary" type="button" onclick="closePopup()">取消</button>
+            </div>
+        </form>
     </div>
+</div>
 {% endblock %}
 
 {% block script %}
-    <script>
-        layui.use(['form', 'layer', 'upload', 'laydate'], function() {
-            var form = layui.form;
-            var layer = layui.layer;
-            var upload = layui.upload;
-            var laydate = layui.laydate;
-            var $ = layui.$;
-            
-            // 日期时间选择器
-            laydate.render({
-                elem: 'input[name="payment_date"]',
-                type: 'datetime',
-                value: new Date()
-            });
-            
-            // 文件上传
-            upload.render({
-                elem: '#uploadArea',
-                url: '/upload/',
-                multiple: true,
-                drag: true,
-                accept: 'file',
-                acceptMime: 'image/*,application/pdf,.doc,.docx,.xls,.xlsx',
-                before: function(obj) {
-                    layer.load();
-                },
-                done: function(res) {
-                    layer.closeAll('loading');
-                    if(res.code === 0) {
-                        layer.msg('上传成功');
-                        var currentIds = $('input[name="file_ids"]').val();
-                        var newIds = currentIds ? currentIds + ',' + res.data.id : res.data.id;
-                        $('input[name="file_ids"]').val(newIds);
-                    } else {
-                        layer.msg('上传失败：' + res.msg);
-                    }
-                },
-                error: function() {
-                    layer.closeAll('loading');
-                    layer.msg('上传异常');
-                }
-            });
-            
-            // 监听报销选择变化
-            form.on('select(expense)', function(data) {
-                if(data.value) {
-                    var option = $('option[value="' + data.value + '"]');
-                    $('#expenseCode').text(option.data('code'));
-                    $('#expenseCost').text('¥' + parseFloat(option.data('cost')).toFixed(2));
-                    $('#expenseAdmin').text(option.data('admin'));
-                    $('#expenseInfo').show();
-                    
-                    // 自动填充付款金额
-                    $('input[name="amount"]').val(option.data('cost'));
-                } else {
-                    $('#expenseInfo').hide();
-                    $('input[name="amount"]').val('');
-                }
-            });
-            
-            // 表单验证
-            form.verify({
-                amount: function(value) {
-                    if(!/^\d+(\.\d{1,2})?$/.test(value)) {
-                        return '金额格式不正确，最多保留两位小数';
-                    }
-                    if(parseFloat(value) <= 0) {
-                        return '付款金额必须大于0';
-                    }
-                    
-                    // 检查付款金额是否超过报销金额
-                    var expenseAmount = $('#expenseCost').text().replace('¥', '').replace(',', '');
-                    if(expenseAmount && parseFloat(value) > parseFloat(expenseAmount)) {
-                        return '付款金额不能超过报销金额';
-                    }
-                }
-            });
-            
-            // 监听提交
-            form.on('submit(submit)', function(data) {
-                return true;
-            });
-            
-            // 金额输入格式化
-            $('input[name="amount"]').on('blur', function() {
-                var value = $(this).val();
-                if(value && !isNaN(value)) {
-                    $(this).val(parseFloat(value).toFixed(2));
-                }
-            });
-            
-            // 初始化显示已选择的报销信息
-            var selectedExpense = $('select[name="expense_id"]').val();
-            if(selectedExpense) {
-                var option = $('select[name="expense_id"] option:selected');
-                $('#expenseCode').text(option.data('code'));
-                $('#expenseCost').text('¥' + parseFloat(option.data('cost')).toFixed(2));
-                $('#expenseAdmin').text(option.data('admin'));
-                $('#expenseInfo').show();
+<script>
+layui.use(["form", "upload", "layer"], function () {
+    const form = layui.form;
+    const upload = layui.upload;
+    const layer = layui.layer;
+    const $ = layui.$;
+
+    function updateRelationPreview() {
+        const fields = [
+            $('select[name="expense_id"]').val(),
+            $('select[name="customer_id"]').val(),
+            $('select[name="order_id"]').val(),
+            $('select[name="purchase_order_id"]').val(),
+            $('select[name="purchase_contract_id"]').val(),
+            $('select[name="project_id"]').val()
+        ];
+        const selectedCount = fields.filter(value => Number(value || 0) > 0).length;
+        const status = $("#relationPreviewStatus");
+        if (selectedCount > 0) {
+            status.text("已选择 " + selectedCount + " 项业务关联").css("color", "#15803d");
+        } else {
+            status.text("至少关联一项业务对象").css("color", "#b45309");
+        }
+    }
+
+    form.on("select(relationChange)", function (data) {
+        if (data.elem.name === "order_id") {
+            const customerId = $(data.elem).find("option:selected").data("customer-id");
+            if (Number(customerId || 0) > 0 && Number($('select[name="customer_id"]').val() || 0) === 0) {
+                $('select[name="customer_id"]').val(String(customerId));
+                form.render("select");
             }
-        });
-    </script>
+        }
+        if (data.elem.name === "project_id") {
+            const customerId = $(data.elem).find("option:selected").data("customer-id");
+            if (Number(customerId || 0) > 0 && Number($('select[name="customer_id"]').val() || 0) === 0) {
+                $('select[name="customer_id"]').val(String(customerId));
+                form.render("select");
+            }
+        }
+        updateRelationPreview();
+    });
+
+    upload.render({
+        elem: "#uploadArea",
+        url: "/upload/",
+        multiple: true,
+        drag: true,
+        accept: "file",
+        before: function () {
+            layer.load(1, { shade: 0.18 });
+        },
+        done: function (res) {
+            layer.closeAll("loading");
+            if (res.code === 0 && res.data && res.data.id) {
+                const input = $('input[name="file_ids"]');
+                const current = input.val().trim();
+                input.val(current ? current + "," + res.data.id : res.data.id);
+                layer.msg("附件上传成功", { icon: 1 });
+            } else {
+                layer.msg((res && res.msg) || "附件上传失败", { icon: 2 });
+            }
+        },
+        error: function () {
+            layer.closeAll("loading");
+            layer.msg("附件上传异常", { icon: 2 });
+        }
+    });
+
+    form.render();
+    updateRelationPreview();
+});
+</script>
 {% endblock %}

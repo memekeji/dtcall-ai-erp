@@ -43,7 +43,7 @@
                 </div>
             </div>
 
-            <div class="sc-table-caption">物料风险按库存实时聚合结果展示，便于计划与采购快速锁定补货对象。</div>
+            <div class="sc-table-caption">数据来源：库存物料主数据 + 库存台账实时汇总。物料风险按库存实时聚合结果展示，便于计划与采购快速锁定补货对象。</div>
             <table class="layui-table sc-table-compact" lay-skin="line">
                 <thead>
                     <tr>
@@ -58,7 +58,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for row in rows %}
+                    {% for row in risk_rows %}
                     <tr>
                         <td>{{ row.item.code }} / {{ row.item.name }}</td>
                         <td>{{ row.available_quantity }}</td>
@@ -110,11 +110,11 @@
                         </tr>
                     </thead>
                     <tbody>
-                    {% for r in rows|slice:":20" %}
+                    {% for r in value_rows|slice:":20" %}
                         <tr>
                             <td>{{ r.item }}</td>
                             <td>{{ r.avail_qty }}</td>
-                            <td>{{ r.unit_price }}</td>
+                            <td>{{ r.standard_cost }}</td>
                             <td>{{ r.item_value }}</td>
                             <td><span class="sc-pill {% if r.abc_class == 'A' %}danger{% elif r.abc_class == 'B' %}warning{% else %}success{% endif %}">{{ r.abc_class }}</span></td>
                             <td>{{ r.cumulative_pct }}%</td>
@@ -125,8 +125,8 @@
                     {% endfor %}
                     </tbody>
                 </table>
-                {% if rows|length > 20 %}
-                <div class="sc-note">仅显示前20项，共 {{ rows|length }} 项</div>
+                {% if value_rows|length > 20 %}
+                <div class="sc-note">仅显示前20项，共 {{ value_rows|length }} 项</div>
                 {% endif %}
             </div>
         </div>

@@ -31,6 +31,20 @@ OCR_FOCUS_FIELD_ORDER = [
     "合同结束时间",
 ]
 
+DISPLAY_REPORT_SECTION_TITLES = {
+    "contract_info": "📄 合同信息",
+    "overall_assessment": "📊 总体评估",
+    "clause_reviews": "🔍 逐条审查意见",
+    "review_conclusion": "📋 审查结论汇总",
+}
+
+DISPLAY_RISK_META = {
+    "high": ("🔴", "高风险"),
+    "medium": ("🟡", "中风险"),
+    "low": ("🟢", "低风险"),
+    "unknown": ("⚪", "待确认"),
+}
+
 
 def _safe_json_loads(raw_text, default=None):
     if default is None:
@@ -120,6 +134,92 @@ def _build_review_overall_assessment(review):
     }
 
 
+def _first_non_empty(*values):
+    for value in values:
+        text = str(value or "").strip()
+        if text:
+            return text
+    return ""
+
+
+def _format_risk_display(risk_level, spaced=False):
+    emoji, label = DISPLAY_RISK_META.get(risk_level or "unknown", DISPLAY_RISK_META["unknown"])
+    connector = " " if spaced else ""
+    return f"{emoji}{connector}{label}"
+
+
+def _build_contract_info_items(contract_info):
+    contract_info = contract_info or {}
+    contract_name = str(contract_info.get("contract_name") or "").strip()
+    contract_type = str(contract_info.get("contract_type") or "").strip()
+    if contract_name and contract_type and contract_type not in contract_name:
+        contract_name = f"{contract_name} / {contract_type}"
+    contract_name = contract_name or contract_type or "待确认"
+    our_role = _first_non_empty(contract_info.get("our_role"), "待确认")
+    core_demands = _first_non_empty(
+        contract_info.get("core_demands"),
+        "确保合同条款合法合规，并结合业务事实进一步复核后再签署。",
+    )
+    return [
+        {"label": "合同名称/类型", "value": contract_name},
+        {"label": "我方签约角色", "value": our_role},
+        {"label": "核心诉求", "value": core_demands},
+    ]
+
+
+def _build_display_report(contract_info, overall_assessment, clause_reviews=None, review_conclusion=None, final_recommendation=""):
+    overall_assessment = overall_assessment or {}
+    clause_reviews = clause_reviews or []
+    review_conclusion = review_conclusion or []
+    final_recommendation = _first_non_empty(
+        final_recommendation,
+        overall_assessment.get("final_recommendation"),
+        "建议结合合同原文及事实背景补充复核后再签署。",
+    )
+
+    display_clauses = []
+    for clause in clause_reviews:
+        clause_no = str(clause.get("clause_no") or "").strip() or "待确认条款"
+        title = str(clause.get("title") or "").strip()
+        heading = clause_no if not title else f"{clause_no} [{title}]"
+        display_clauses.append({
+            "heading": heading,
+            "clause_no": clause_no,
+            "title": title,
+            "original_summary": clause.get("original_summary", ""),
+            "risk_analysis": clause.get("risk_analysis", ""),
+            "risk_level": clause.get("risk_level", "unknown"),
+            "risk_display": _format_risk_display(clause.get("risk_level", "unknown")),
+            "suggestion": clause.get("suggestion", ""),
+        })
+
+    conclusion_rows = []
+    for item in review_conclusion:
+        conclusion_rows.append({
+            "clause_no": item.get("clause_no", ""),
+            "title": item.get("title", ""),
+            "risk_level": item.get("risk_level", "unknown"),
+            "risk_display": _format_risk_display(item.get("risk_level", "unknown"), spaced=True),
+            "action": item.get("action", ""),
+        })
+
+    return {
+        "section_titles": DISPLAY_REPORT_SECTION_TITLES,
+        "contract_info": _build_contract_info_items(contract_info),
+        "overall_assessment": {
+            "summary": overall_assessment.get("summary", ""),
+            "risk_level": overall_assessment.get("risk_level", "unknown"),
+            "risk_display": _format_risk_display(overall_assessment.get("risk_level", "unknown")),
+            "final_recommendation": final_recommendation,
+        },
+        "clause_reviews": display_clauses,
+        "review_conclusion": {
+            "rows": conclusion_rows,
+            "final_recommendation": final_recommendation,
+        },
+    }
+
+
 def _summarize_focus_review_fields(fields):
     fields = fields or []
     summary = {
@@ -186,6 +286,7 @@ def _serialize_review_detail(review):
     focus_review_fields = _extract_focus_review_fields_from_review(review)
     raw_payload = _safe_json_loads(review.raw_response, default={})
     task_status = raw_payload.get("task_status", "completed") if isinstance(raw_payload, dict) else "completed"
+    overall_assessment = _build_review_overall_assessment(review)
     payload = {
         "review_id": review.id,
         "contract_id": review.contract_id,
@@ -195,7 +296,7 @@ def _serialize_review_detail(review):
         "contract_info": review.contract_info,
         "overall_risk_level": review.overall_risk_level,
         "overall_summary": review.overall_summary,
-        "overall_assessment": _build_review_overall_assessment(review),
+        "overall_assessment": overall_assessment,
         "clause_reviews": review.clause_reviews,
         "review_conclusion": review.review_conclusion,
         "final_recommendation": review.final_recommendation,
@@ -209,6 +310,13 @@ def _serialize_review_detail(review):
         "failed": task_status == "failed",
         "task_error": raw_payload.get("task_error", "") if isinstance(raw_payload, dict) else "",
     }
+    payload["display_report"] = _build_display_report(
+        review.contract_info,
+        overall_assessment,
+        review.clause_reviews,
+        review.review_conclusion,
+        review.final_recommendation,
+    )
     if review.review_type == "quick":
         payload["quick_review_result"] = _extract_quick_review_result(review)
     return payload
@@ -516,19 +624,21 @@ def ai_contract_review_preview_api(request, contract_id):
             "summary": overall_summary or "已完成预评估，建议先核对关键字段与高风险提示，再继续逐条审查。",
             "final_recommendation": "已生成预评估结果，详细修改建议正在准备中。",
         }
+        contract_info = {
+            "contract_name": contract_name or contract.name or "",
+            "our_role": our_role,
+            "core_demands": core_demands,
+        }
 
         return JsonResponse({
             "code": 0,
             "msg": "预评估完成",
             "data": {
                 "contract_id": contract.id,
-                "contract_info": {
-                    "contract_name": contract_name or contract.name or "",
-                    "our_role": our_role,
-                    "core_demands": core_demands,
-                },
+                "contract_info": contract_info,
                 "quick_review_result": quick_result,
                 "overall_assessment": overall_assessment,
+                "display_report": _build_display_report(contract_info, overall_assessment),
                 "data_cross_check": data_cross_check,
                 "focus_review_fields": focus_review_fields,
                 "focus_review_summary": _summarize_focus_review_fields(focus_review_fields),

@@ -4,86 +4,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>完工红冲</title>
+    <title>完工红冲申请</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
-    <style>
-        .page-wrap { padding: 20px; }
-        .info-box { padding: 15px; background: #f8f8f8; border-radius: 6px; margin-bottom: 20px; }
-        .layui-input-block input,
-        .layui-input-block select,
-        .layui-input-block textarea {
-            width: 100%;
-            min-height: 38px;
-            padding: 8px 12px;
-            border: 1px solid #e6e6e6;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        .layui-input-block textarea { min-height: 120px; }
-        .field-error { margin-top: 6px; color: #ff5722; font-size: 12px; }
-    </style>
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
 <body>
-    <div class="layui-fluid page-wrap">
-        <div class="layui-card">
-            <div class="layui-card-header">完工红冲申请</div>
-            <div class="layui-card-body">
-                <div class="info-box layui-row layui-col-space10">
-                    <div class="layui-col-md4"><strong>完工单号：</strong>{{ report.code }}</div>
-                    <div class="layui-col-md4"><strong>生产任务：</strong>{{ report.production_task.name|default:'-' }}</div>
-                    <div class="layui-col-md4"><strong>状态：</strong>{{ report.get_status_display }}</div>
-                    <div class="layui-col-md4"><strong>申报数量：</strong>{{ report.reported_quantity }}</div>
-                    <div class="layui-col-md4"><strong>合格数量：</strong>{{ report.qualified_quantity }}</div>
-                    <div class="layui-col-md4"><strong>不合格数量：</strong>{{ report.defective_quantity }}</div>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title">
+            <h2>完工红冲申请</h2>
+        </div>
+
+        <div class="production-note">
+            红冲会冲减本次完工申报的业务结果。若对应成品入库已经执行，系统会阻止继续红冲，避免库存与任务进度回写冲突。
+        </div>
+
+        <div class="production-summary-strip" style="margin-top: 16px;">
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ report.code }}</div>
+                <div class="production-summary-label">完工申报单号</div>
+            </div>
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ report.reported_quantity }}</div>
+                <div class="production-summary-label">申报数量</div>
+            </div>
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ report.qualified_quantity }}</div>
+                <div class="production-summary-label">合格数量</div>
+            </div>
+            <div class="production-summary-item accent">
+                <div class="production-summary-value">{{ report.get_status_display }}</div>
+                <div class="production-summary-label">当前单据状态</div>
+            </div>
+        </div>
+
+        <div class="production-split-grid" style="margin-top: 16px;">
+            <div class="production-section-card">
+                <div class="production-section-header">原始完工信息</div>
+                <div class="production-section-body">
+                    <div class="production-detail-grid">
+                        <div class="production-detail-item">
+                            <div class="production-detail-label">生产任务</div>
+                            <div class="production-detail-value">{{ report.production_task.name|default:"-" }}</div>
+                        </div>
+                        <div class="production-detail-item">
+                            <div class="production-detail-label">所属计划</div>
+                            <div class="production-detail-value">{{ report.production_task.plan.name|default:"-" }}</div>
+                        </div>
+                        <div class="production-detail-item">
+                            <div class="production-detail-label">不合格数量</div>
+                            <div class="production-detail-value">{{ report.defective_quantity }}</div>
+                        </div>
+                        <div class="production-detail-item">
+                            <div class="production-detail-label">申报日期</div>
+                            <div class="production-detail-value">{{ report.report_date|date:"Y-m-d" }}</div>
+                        </div>
+                    </div>
                 </div>
+            </div>
+
+            <div class="production-section-card">
+                <div class="production-section-header">提交说明</div>
+                <div class="production-section-body">
+                    <div class="production-kpi-list">
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">影响范围</div>
+                                <div class="production-kpi-meta">会联动完工红冲单、任务进度和后续成品入库校验</div>
+                            </div>
+                        </div>
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">数量建议</div>
+                                <div class="production-kpi-meta">红冲数量默认带出原申报数量，可按实际需回退数量调整</div>
+                            </div>
+                        </div>
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">来源链路</div>
+                                <div class="production-kpi-meta">完工申报 -> 红冲申请 -> 审核/执行 -> 库存与任务闭环</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="layui-card production-panel-card production-form-card" style="margin-top: 16px;">
+            <div class="layui-card-body">
+                {% if form.non_field_errors %}
+                <div class="production-field-error" style="margin-bottom: 14px;">{{ form.non_field_errors }}</div>
+                {% endif %}
                 <form class="layui-form" method="post">
                     {% csrf_token %}
-                    {% if form.non_field_errors %}
-                    <div class="layui-bg-red" style="padding: 12px; margin-bottom: 15px; color: #fff;">{{ form.non_field_errors }}</div>
-                    {% endif %}
                     {% for field in form %}
                     <div class="layui-form-item">
                         <label class="layui-form-label">{{ field.label }}</label>
                         <div class="layui-input-block">
                             {{ field }}
+                            {% if field.help_text %}
+                            <div class="production-help">{{ field.help_text }}</div>
+                            {% endif %}
                             {% for error in field.errors %}
-                            <div class="field-error">{{ error }}</div>
+                            <div class="production-field-error">{{ error }}</div>
                             {% endfor %}
                         </div>
                     </div>
                     {% endfor %}
                     <div class="layui-form-item">
                         <div class="layui-input-block">
-                            <button type="submit" class="layui-btn layui-btn-danger">提交红冲</button>
-                            <a href="{% url 'production:work_completion_report_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                            <button type="submit" class="layui-btn layui-btn-danger">提交红冲申请</button>
+                            <a href="{% url 'production:work_completion_report_list' %}" class="layui-btn layui-btn-primary">返回完工申报</a>
                         </div>
                     </div>
                 </form>
             </div>
         </div>
     </div>
-<script>
-        {% include "production/_right_popup_function.html" %}
-</script>
 
-    <!-- 注入的消息提示脚本 -->
+    <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
-        });
+        {% include "production/_right_popup_function.html" %}
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
 </html>

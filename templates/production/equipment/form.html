@@ -1,245 +1,162 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ action }}设备</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
-
 <body>
-    <div class="layui-fluid" style="padding: 20px;">
-        <!-- 页面标题 -->
-        <div class="layui-row">
-            <div class="layui-col-md12">
-                <h2 style="margin-bottom: 20px;">
-                    {{ action }}设备
-                </h2>
-            </div>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title">
+            <h2>{{ action }}设备</h2>
         </div>
 
-        <!-- 表单 -->
-        <div class="layui-row">
-            <div class="layui-col-md10">
-                <div class="layui-card">
-                    <div class="layui-card-body">
-                        <form class="layui-form" method="post">
-                            {% csrf_token %}
+        <div class="layui-card production-form-card">
+            <div class="layui-card-body">
+                <form class="layui-form" method="post">
+                    {% csrf_token %}
 
+                    <div class="production-form-section-title">基础档案</div>
+                    <div class="layui-row layui-col-space16">
+                        <div class="layui-col-md6">
                             <div class="layui-form-item">
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">设备名称 <span style="color: red;">*</span></label>
-                                    <div class="layui-input-inline" style="width: 200px;">
-                                        {{ form.name }}
-                                        {% if form.name.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.name.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">设备编号 <span style="color: red;">*</span></label>
-                                    <div class="layui-input-inline" style="width: 150px;">
-                                        {{ form.code }}
-                                        {% if form.code.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.code.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">设备型号</label>
-                                    <div class="layui-input-inline" style="width: 150px;">
-                                        {{ form.model }}
-                                        {% if form.model.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.model.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="layui-form-item">
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">制造商</label>
-                                    <div class="layui-input-inline" style="width: 200px;">
-                                        {{ form.manufacturer }}
-                                        {% if form.manufacturer.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.manufacturer.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">采购日期</label>
-                                    <div class="layui-input-inline" style="width: 150px;">
-                                        {{ form.purchase_date }}
-                                        {% if form.purchase_date.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.purchase_date.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">采购成本</label>
-                                    <div class="layui-input-inline" style="width: 150px;">
-                                        {{ form.purchase_cost }}
-                                        {% if form.purchase_cost.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.purchase_cost.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="layui-form-item">
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">所属部门</label>
-                                    <div class="layui-input-inline" style="width: 150px;">
-                                        {{ form.department }}
-                                        {% if form.department.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.department.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">设备位置</label>
-                                    <div class="layui-input-inline" style="width: 200px;">
-                                        {{ form.location }}
-                                        {% if form.location.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.location.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">设备状态</label>
-                                    <div class="layui-input-inline" style="width: 120px;">
-                                        {{ form.status }}
-                                        {% if form.status.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.status.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="layui-form-item">
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">负责人</label>
-                                    <div class="layui-input-inline" style="width: 150px;">
-                                        {{ form.responsible_person }}
-                                        {% if form.responsible_person.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.responsible_person.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">维护周期</label>
-                                    <div class="layui-input-inline" style="width: 100px;">
-                                        {{ form.maintenance_cycle }}
-                                        {% if form.maintenance_cycle.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.maintenance_cycle.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                    <div class="layui-form-mid">天</div>
-                                </div>
-                            </div>
-
-                            <div class="layui-form-item">
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">上次维护</label>
-                                    <div class="layui-input-inline" style="width: 150px;">
-                                        {{ form.last_maintenance }}
-                                        {% if form.last_maintenance.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.last_maintenance.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">下次维护</label>
-                                    <div class="layui-input-inline" style="width: 150px;">
-                                        {{ form.next_maintenance }}
-                                        {% if form.next_maintenance.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.next_maintenance.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="layui-form-item layui-form-text">
-                                <label class="layui-form-label">设备描述</label>
+                                <label class="layui-form-label">设备名称</label>
                                 <div class="layui-input-block">
-                                    {{ form.description }}
-                                    {% if form.description.errors %}
-                                        <div style="color: red; margin-top: 5px;">{{ form.description.errors.0 }}</div>
-                                    {% endif %}
+                                    {{ form.name }}
+                                    {% if form.name.errors %}<div class="production-field-error">{{ form.name.errors.0 }}</div>{% endif %}
                                 </div>
                             </div>
-
+                        </div>
+                        <div class="layui-col-md6">
                             <div class="layui-form-item">
+                                <label class="layui-form-label">设备编号</label>
                                 <div class="layui-input-block">
-                                    <button class="layui-btn" lay-submit lay-filter="formSubmit">
-                                        {{ action }}
-                                    </button>
-                                    <button type="button" class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:equipment_list' %}'">
-                                        取消
-                                    </button>
+                                    {{ form.code }}
+                                    {% if form.code.errors %}<div class="production-field-error">{{ form.code.errors.0 }}</div>{% endif %}
                                 </div>
                             </div>
-                        </form>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">设备型号</label>
+                                <div class="layui-input-block">
+                                    {{ form.model }}
+                                    <div class="production-help">用于区分产线型号与维护配件。</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">制造商</label>
+                                <div class="layui-input-block">{{ form.manufacturer }}</div>
+                            </div>
+                        </div>
                     </div>
-                </div>
+
+                    <div class="production-form-section-title" style="margin-top: 8px;">归属与状态</div>
+                    <div class="layui-row layui-col-space16">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">所属部门</label>
+                                <div class="layui-input-block">{{ form.department }}</div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">负责人</label>
+                                <div class="layui-input-block">{{ form.responsible_person }}</div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">设备位置</label>
+                                <div class="layui-input-block">{{ form.location }}</div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">设备状态</label>
+                                <div class="layui-input-block">
+                                    {{ form.status }}
+                                    <div class="production-help">正常、维修中、停用、报废会直接影响设备监控与产能看板。</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="production-form-section-title" style="margin-top: 8px;">维护周期</div>
+                    <div class="layui-row layui-col-space16">
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">采购日期</label>
+                                <div class="layui-input-block">{{ form.purchase_date }}</div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">采购成本</label>
+                                <div class="layui-input-block">{{ form.purchase_cost }}</div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">维护周期</label>
+                                <div class="layui-input-block">
+                                    {{ form.maintenance_cycle }}
+                                    <div class="production-help">单位：天</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">上次维护</label>
+                                <div class="layui-input-block">{{ form.last_maintenance }}</div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">下次维护</label>
+                                <div class="layui-input-block">{{ form.next_maintenance }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item layui-form-text">
+                        <label class="layui-form-label">设备描述</label>
+                        <div class="layui-input-block">
+                            {{ form.description }}
+                            <div class="production-help">补充工位用途、维护风险、停机备注等，便于监控和排程联动。</div>
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item">
+                        <div class="layui-input-block">
+                            <button class="layui-btn" lay-submit lay-filter="equipmentSubmit">{{ action }}</button>
+                            <a href="{% url 'production:equipment_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                        </div>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        layui.use(['form', 'layer', 'laydate'], function () {
+        layui.use(['form', 'laydate'], function () {
             var form = layui.form;
-            var layer = layui.layer;
             var laydate = layui.laydate;
-
-            // 日期选择器
-            laydate.render({
-                elem: '#id_purchase_date',
-                type: 'date'
-            });
-
-            laydate.render({
-                elem: '#id_last_maintenance',
-                type: 'date'
-            });
-
-            laydate.render({
-                elem: '#id_next_maintenance',
-                type: 'date'
-            });
-
-            // 监听提交
-            form.on('submit(formSubmit)', function(data) {
-                return true; // 允许表单提交
-            });
+            laydate.render({ elem: '#id_purchase_date', type: 'date' });
+            laydate.render({ elem: '#id_last_maintenance', type: 'date' });
+            laydate.render({ elem: '#id_next_maintenance', type: 'date' });
+            form.render();
         });
 
         {% include "production/_right_popup_function.html" %}
-</script>
-
-    <!-- 注入的消息提示脚本 -->
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
-        });
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
-
 </html>

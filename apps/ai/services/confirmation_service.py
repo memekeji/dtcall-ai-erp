@@ -4,6 +4,18 @@ from apps.ai.services.action_contracts import AIActionRequest
 
 
 class AIConfirmationService:
+    RESOURCE_NORMALIZERS = {
+        'disk_share': ('disk', {'model': 'share'}),
+        'disk_folder': ('disk', {'model': 'folder'}),
+        'finance_invoice': ('finance', {'model': 'invoice'}),
+        'finance_expense': ('finance', {'model': 'expense'}),
+        'finance_income': ('finance', {'model': 'income'}),
+        'expense': ('finance', {'model': 'expense'}),
+        'income': ('finance', {'model': 'income'}),
+        'invoice': ('finance', {'model': 'invoice'}),
+        'payment': ('finance', {'model': 'payment'}),
+    }
+
     def build_action_request(self, intent_result: dict) -> AIActionRequest | None:
         action = intent_result.get('action')
         resource = intent_result.get('data_type')
@@ -11,17 +23,32 @@ class AIConfirmationService:
             return None
 
         entities = dict(intent_result.get('entities') or {})
+        normalized_resource, normalized_context = self._normalize_resource(
+            resource,
+            entities.get('context') or {},
+        )
         object_ids = entities.get('object_ids') or []
         changes = entities.get('changes') or {}
 
         return AIActionRequest(
-            resource=resource,
+            resource=normalized_resource,
             operation=action,
             object_ids=object_ids,
             changes=changes,
             filters=entities.get('filters') or {},
-            context=entities.get('context') or {},
+            context=normalized_context,
         )
+
+    def _normalize_resource(self, resource: str, context: dict) -> tuple[str, dict]:
+        merged_context = dict(context or {})
+        normalized = self.RESOURCE_NORMALIZERS.get(resource)
+        if not normalized:
+            return resource, merged_context
+
+        normalized_resource, inferred_context = normalized
+        for key, value in (inferred_context or {}).items():
+            merged_context.setdefault(key, value)
+        return normalized_resource, merged_context
 
     def build_confirmation_payload(self, intent_result: dict) -> dict:
         action_request = self.build_action_request(intent_result)

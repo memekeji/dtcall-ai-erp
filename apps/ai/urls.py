@@ -171,6 +171,10 @@ urlpatterns = [
 
     # 智能体中心
     path('agent-center/', views.AgentCenterView.as_view(), name='agent_center'),
+    path('agent-center/data/', views.AgentCenterDataView.as_view(), name='agent_center_data'),
+    path('agent-center/<str:agent_id>/detail/', views.AgentCenterDetailView.as_view(), name='agent_center_detail'),
+    path('agent-center/execute/', views.AgentCenterExecuteView.as_view(), name='agent_center_execute'),
+    path('agent-center/rollback/', views.AgentCenterRollbackView.as_view(), name='agent_center_rollback'),
 
     # AI聊天
     path('chat/', views.AIChatView.as_view(), name='chat'),
@@ -380,6 +384,10 @@ urlpatterns = [
         'workflow/list/api/',
         WorkflowModuleListAPIView.as_view(),
         name='workflow_list_api'),
+    path(
+        'project-mcp/capabilities/',
+        views.ProjectMCPCapabilityAPIView.as_view(),
+        name='project_mcp_capabilities'),
 
     # 工作流交互API
     path(

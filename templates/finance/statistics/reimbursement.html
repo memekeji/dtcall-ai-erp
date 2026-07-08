@@ -6,79 +6,72 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>报销统计</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/finance-module.css' %}">
     <style>
-        .stat-card {
-            background: #fff;
-            border-radius: 4px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
         .stat-item {
-            display: inline-block;
-            width: 24%;
+            min-width: 0;
             text-align: center;
-            padding: 15px 0;
+            padding: 16px;
         }
         .stat-value {
-            font-size: 28px;
+            font-size: 26px;
             font-weight: bold;
-            color: #009688;
+            color: #172033;
         }
         .stat-label {
-            font-size: 14px;
-            color: #666;
-            margin-top: 5px;
+            font-size: 13px;
+            color: #5b6b80;
+            margin-top: 6px;
         }
     </style>
 </head>
 <body>
-    <div class="layui-fluid">
-        <div class="layui-card">
+    <div class="layui-fluid finance-shell">
+        <div class="finance-page-header">
+            <div>
+                <h1 class="finance-page-title">报销统计</h1>
+                <p class="finance-page-subtitle">统一查看报销总额、审核待办和打款进度，减少付款前人工核对。</p>
+            </div>
+        </div>
+        <div class="layui-card finance-card-shell">
             <div class="layui-card-header">报销统计分析</div>
             <div class="layui-card-body">
-                <!-- 统计卡片 -->
-                <div class="stat-card">
-                    <div class="stat-item">
+                <div class="finance-stat-grid">
+                    <div class="finance-summary-card stat-item">
                         <div class="stat-value" id="totalReimbursement">0</div>
                         <div class="stat-label">总报销笔数</div>
                     </div>
-                    <div class="stat-item">
+                    <div class="finance-summary-card stat-item">
                         <div class="stat-value" id="totalAmount">¥0.00</div>
                         <div class="stat-label">总报销金额</div>
                     </div>
-                    <div class="stat-item">
+                    <div class="finance-summary-card stat-item">
                         <div class="stat-value" id="pendingAmount">¥0.00</div>
                         <div class="stat-label">待审核金额</div>
                     </div>
-                    <div class="stat-item">
+                    <div class="finance-summary-card stat-item">
                         <div class="stat-value" id="paidAmount">¥0.00</div>
                         <div class="stat-label">已打款金额</div>
                     </div>
                 </div>
 
-                <!-- 图表区域 -->
-                <div class="layui-row layui-col-space15">
-                    <div class="layui-col-md6">
-                        <div class="layui-card">
-                            <div class="layui-card-header">月度报销趋势</div>
-                            <div class="layui-card-body">
-                                <div id="monthlyChart" style="height: 300px;"></div>
-                            </div>
+                <div class="finance-chart-grid">
+                    <div class="layui-card finance-card-shell">
+                        <div class="layui-card-header">月度报销趋势</div>
+                        <div class="layui-card-body">
+                            <div id="monthlyChart" class="finance-chart-panel"></div>
                         </div>
                     </div>
-                    <div class="layui-col-md6">
-                        <div class="layui-card">
-                            <div class="layui-card-header">部门报销分布</div>
-                            <div class="layui-card-body">
-                                <div id="departmentChart" style="height: 300px;"></div>
-                            </div>
+                    <div class="layui-card finance-card-shell">
+                        <div class="layui-card-header">部门报销分布</div>
+                        <div class="layui-card-body">
+                            <div id="departmentChart" class="finance-chart-panel"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 详细数据表格 -->
-                <div class="layui-card">
+                <div class="layui-card finance-card-shell finance-stat-table">
                     <div class="layui-card-header">报销明细</div>
                     <div class="layui-card-body">
                         <table id="reimbursementDetailTable" class="layui-table" lay-filter="reimbursementDetailTable"></table>

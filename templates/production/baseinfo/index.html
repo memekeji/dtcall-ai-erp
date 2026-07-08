@@ -45,6 +45,24 @@
                     <div class="production-stat-label">设备管理</div>
                 </div>
             </div>
+            <div class="layui-col-md3">
+                <div class="production-stat-card" style="background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);">
+                    <div class="production-stat-number">{{ process_route_count }}</div>
+                    <div class="production-stat-label">工艺路线</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="production-stat-card" style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);">
+                    <div class="production-stat-number">{{ data_source_count }}</div>
+                    <div class="production-stat-label">数据源</div>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="production-stat-card" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+                    <div class="production-stat-number">{{ data_task_count }}</div>
+                    <div class="production-stat-label">采集任务</div>
+                </div>
+            </div>
         </div>
 
         <!-- 快捷操作 -->
@@ -68,8 +86,17 @@
                         <button class="layui-btn layui-btn-primary production-action-btn" onclick="location.href='{% url 'production:sop_list' %}'">
                             <i class="layui-icon layui-icon-file-b"></i> SOP管理
                         </button>
+                        <button class="layui-btn layui-btn-primary production-action-btn" onclick="location.href='{% url 'production:process_route_list' %}'">
+                            <i class="layui-icon layui-icon-util"></i> 工艺路线
+                        </button>
                         <button class="layui-btn layui-btn-primary production-action-btn" onclick="location.href='{% url 'production:data_collection_list' %}'">
                             <i class="layui-icon layui-icon-chart"></i> 数据采集
+                        </button>
+                        <button class="layui-btn layui-btn-primary production-action-btn" onclick="location.href='{% url 'production:data_source_list' %}'">
+                            <i class="layui-icon layui-icon-link"></i> 数据源
+                        </button>
+                        <button class="layui-btn layui-btn-primary production-action-btn" onclick="location.href='{% url 'production:data_collection_task_list' %}'">
+                            <i class="layui-icon layui-icon-time"></i> 采集任务
                         </button>
                         <button class="layui-btn layui-btn-primary production-action-btn" onclick="location.href='{% url 'production:performance_analysis' %}'">
                             <i class="layui-icon layui-icon-chart-screen"></i> 性能分析
@@ -166,6 +193,7 @@
             }
         });
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
 
 </html>

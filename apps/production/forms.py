@@ -1,14 +1,16 @@
 from django import forms
+from django.forms import inlineformset_factory
 from django.core.exceptions import ValidationError
+from django.utils.dateparse import parse_date
 from .models import (
-    ProductionProcedure, ProcedureSet, BOM, BOMItem, Equipment,
+    ProductionProcedure, ProcedureSet, ProcedureSetItem, BOM, BOMItem, Equipment,
     ProductionPlan, ProductionTask, QualityCheck, DataCollection,
     DataSource, DataCollectionRecord, SOP, DataMapping,
     ProductionDataPoint, DataCollectionTask, ProductionOrderChange,
     ProductionLineDayPlan, MaterialRequest,
     MaterialRequestItem, MaterialIssue, MaterialIssueItem, MaterialReturn,
     MaterialReturnItem, WorkCompletionReport, WorkCompletionRedFlush,
-    ProductReceipt, OrderMaterialConfirmation, ResourceConsumption,
+    ProductReceipt, MaterialScrap, MaterialScrapItem, OrderMaterialConfirmation, ResourceConsumption,
     ProcessRoute, ProcessRouteItem
 )
 
@@ -60,6 +62,54 @@ class ProcedureSetForm(forms.ModelForm):
         }
 
 
+class ProcedureSetItemForm(forms.ModelForm):
+    """工序集明细表单"""
+
+    class Meta:
+        model = ProcedureSetItem
+        fields = ['procedure', 'sequence', 'estimated_time']
+        widgets = {
+            'procedure': forms.Select(attrs={'class': 'form-control'}),
+            'sequence': forms.NumberInput(attrs={'class': 'form-control'}),
+            'estimated_time': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+        }
+
+
+class ProcedureSetItemFormSet(forms.BaseInlineFormSet):
+    """工序集明细内联表单集"""
+
+    def clean(self):
+        super().clean()
+        seen_procedures = set()
+        seen_sequences = set()
+        active_count = 0
+
+        for form in self.forms:
+            if not getattr(form, 'cleaned_data', None) or form.cleaned_data.get('DELETE', False):
+                continue
+
+            procedure = form.cleaned_data.get('procedure')
+            sequence = form.cleaned_data.get('sequence')
+            estimated_time = form.cleaned_data.get('estimated_time')
+            if not procedure:
+                continue
+
+            active_count += 1
+            if procedure.pk in seen_procedures:
+                raise ValidationError('同一个工序在工序集中只能出现一次')
+            seen_procedures.add(procedure.pk)
+
+            if sequence in seen_sequences:
+                raise ValidationError('工序集中的执行顺序不能重复')
+            seen_sequences.add(sequence)
+
+            if estimated_time is not None and estimated_time <= 0:
+                raise ValidationError('工序集明细的预估工时必须大于 0')
+
+        if active_count == 0:
+            raise ValidationError('请至少维护一条工序集明细')
+
+
 class BOMForm(forms.ModelForm):
     """BOM表单"""
     class Meta:
@@ -107,7 +157,7 @@ class BOMItemForm(forms.ModelForm):
             'unit': forms.TextInput(attrs={'class': 'form-control'}),
             'quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.0001'}),
             'unit_cost': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'total_cost': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'total_cost': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'readonly': 'readonly'}),
             'supplier': forms.TextInput(attrs={'class': 'form-control'}),
             'remark': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
@@ -118,16 +168,38 @@ class BOMItemFormSet(forms.BaseInlineFormSet):
 
     def clean(self):
         super().clean()
-        total_cost = 0
+        active_count = 0
+        seen_materials = set()
         for form in self.forms:
             if form.cleaned_data and not form.cleaned_data.get(
                     'DELETE', False):
+                active_count += 1
+                material_key = (
+                    form.cleaned_data.get('material_code'),
+                    form.cleaned_data.get('material_name'),
+                )
+                if material_key in seen_materials:
+                    raise ValidationError('同一个物料在 BOM 中只能维护一次')
+                seen_materials.add(material_key)
                 quantity = form.cleaned_data.get('quantity', 0)
                 unit_cost = form.cleaned_data.get('unit_cost', 0)
+                if quantity is not None and quantity <= 0:
+                    raise ValidationError('BOM 明细的单件用量必须大于 0')
                 if quantity and unit_cost:
                     form.instance.total_cost = float(
                         quantity) * float(unit_cost)
-                    total_cost += form.instance.total_cost
+        if active_count == 0:
+            raise ValidationError('请至少维护一条 BOM 物料明细')
+
+
+BOMItemInlineFormSet = inlineformset_factory(
+    BOM,
+    BOMItem,
+    form=BOMItemForm,
+    formset=BOMItemFormSet,
+    extra=1,
+    can_delete=True,
+)
 
 
 class EquipmentForm(forms.ModelForm):
@@ -234,7 +306,6 @@ class ProductionPlanForm(forms.ModelForm):
 
         return cleaned_data
 
-
 class ProductionTaskForm(forms.ModelForm):
     """生产任务表单"""
     class Meta:
@@ -283,7 +354,6 @@ class ProductionTaskForm(forms.ModelForm):
 
         return cleaned_data
 
-
 class QualityCheckForm(forms.ModelForm):
     """质量检查表单"""
     class Meta:
@@ -322,6 +392,11 @@ class QualityCheckForm(forms.ModelForm):
                 })
 
         return cleaned_data
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['created_by'].required = False
+        self.fields['created_by'].widget = forms.HiddenInput()
 
 
 class DataCollectionForm(forms.ModelForm):
@@ -369,6 +444,11 @@ class DataCollectionForm(forms.ModelForm):
                 })
 
         return cleaned_data
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['created_by'].required = False
+        self.fields['created_by'].widget = forms.HiddenInput()
 
 
 class DataSourceForm(forms.ModelForm):
@@ -532,6 +612,14 @@ class SOPForm(forms.ModelForm):
 
 class ProcessRouteForm(forms.ModelForm):
     """工艺路线表单"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['total_time'].required = False
+        self.fields['total_cost'].required = False
+        self.fields['total_time'].widget.attrs['readonly'] = 'readonly'
+        self.fields['total_cost'].widget.attrs['readonly'] = 'readonly'
+
     class Meta:
         model = ProcessRoute
         fields = ['name', 'code', 'description', 'product', 'total_time',
@@ -591,34 +679,90 @@ class ProcessRouteItemFormSet(forms.BaseInlineFormSet):
 
     def clean(self):
         super().clean()
+        seen_procedures = set()
+        seen_sequences = set()
+        active_count = 0
         for form in self.forms:
             if form.cleaned_data and not form.cleaned_data.get(
                     'DELETE', False):
-                pass
+                procedure = form.cleaned_data.get('procedure')
+                sequence = form.cleaned_data.get('sequence')
+                estimated_time = form.cleaned_data.get('estimated_time')
+                cycle_time = form.cleaned_data.get('cycle_time')
+                if not procedure:
+                    continue
+
+                active_count += 1
+                if procedure.pk in seen_procedures:
+                    raise ValidationError('同一个工序在工艺路线中只能出现一次')
+                seen_procedures.add(procedure.pk)
+
+                if sequence in seen_sequences:
+                    raise ValidationError('工艺路线中的执行顺序不能重复')
+                seen_sequences.add(sequence)
+
+                if estimated_time is not None and estimated_time <= 0:
+                    raise ValidationError('工艺路线明细的预估工时必须大于 0')
+                if cycle_time is not None and cycle_time < 0:
+                    raise ValidationError('节拍时间不能小于 0')
+
+        if active_count == 0:
+            raise ValidationError('请至少维护一条工艺路线明细')
+
+
+ProcedureSetItemInlineFormSet = inlineformset_factory(
+    ProcedureSet,
+    ProcedureSetItem,
+    form=ProcedureSetItemForm,
+    formset=ProcedureSetItemFormSet,
+    extra=1,
+    can_delete=True,
+)
+
+
+ProcessRouteItemInlineFormSet = inlineformset_factory(
+    ProcessRoute,
+    ProcessRouteItem,
+    form=ProcessRouteItemForm,
+    formset=ProcessRouteItemFormSet,
+    extra=1,
+    can_delete=True,
+)
+
+
+PRODUCTION_ORDER_CHANGE_TYPE_CHOICES = (
+    ('quantity', '数量变更'),
+    ('date', '日期变更'),
+    ('spec', '规格变更'),
+    ('other', '其他变更'),
+)
 
 
 class ProductionOrderChangeForm(forms.ModelForm):
     """生产订单变更单表单"""
+    old_display_value = forms.CharField(
+        label='变更前值',
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    new_display_value = forms.CharField(
+        label='变更后值',
+        required=True,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+
     class Meta:
         model = ProductionOrderChange
-        fields = ['production_plan', 'change_type', 'change_reason',
-                  'old_value', 'new_value', 'status']
+        fields = ['production_plan', 'change_type', 'change_reason', 'status']
         widgets = {
             'production_plan': forms.Select(
                 attrs={
                     'class': 'form-control'}),
-            'change_type': forms.TextInput(
+            'change_type': forms.Select(
+                choices=PRODUCTION_ORDER_CHANGE_TYPE_CHOICES,
                 attrs={
                     'class': 'form-control'}),
             'change_reason': forms.Textarea(
-                attrs={
-                    'class': 'form-control',
-                    'rows': 3}),
-            'old_value': forms.Textarea(
-                attrs={
-                    'class': 'form-control',
-                    'rows': 3}),
-            'new_value': forms.Textarea(
                 attrs={
                     'class': 'form-control',
                     'rows': 3}),
@@ -626,6 +770,97 @@ class ProductionOrderChangeForm(forms.ModelForm):
                 attrs={
                     'class': 'form-control'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['status'].required = False
+        self.fields['status'].initial = 1
+        self.fields['status'].widget = forms.HiddenInput()
+        if self.instance.pk:
+            self.fields['old_display_value'].initial = self._display_value(
+                self.instance.change_type,
+                self.instance.old_value,
+            )
+            self.fields['new_display_value'].initial = self._display_value(
+                self.instance.change_type,
+                self.instance.new_value,
+            )
+
+    def _display_value(self, change_type, payload):
+        payload = payload or {}
+        if change_type == 'quantity':
+            return payload.get('quantity', '')
+        if change_type == 'date':
+            start = payload.get('plan_start_date', '')
+            end = payload.get('plan_end_date', '')
+            if start and end:
+                return f'{start} ~ {end}'
+            return start or end
+        if change_type == 'spec':
+            return payload.get('specs', '')
+        return payload.get('value', '')
+
+    def _normalize_value(self, change_type, raw_value):
+        raw_value = (raw_value or '').strip()
+        if not raw_value:
+            return {}
+        if change_type == 'quantity':
+            try:
+                quantity = float(raw_value)
+            except (TypeError, ValueError):
+                raise ValidationError({'new_display_value': '数量变更请填写合法数字'})
+            if quantity <= 0:
+                raise ValidationError({'new_display_value': '数量变更必须大于 0'})
+            return {'quantity': raw_value}
+        if change_type == 'date':
+            normalized = raw_value.replace('至', '~').replace(',', '~').replace('，', '~')
+            parts = [part.strip() for part in normalized.split('~') if part.strip()]
+            if len(parts) == 1:
+                date_value = parse_date(parts[0])
+                if date_value is None:
+                    raise ValidationError({'new_display_value': '日期变更请填写 YYYY-MM-DD 或 开始 ~ 结束'})
+                return {
+                    'plan_start_date': date_value.isoformat(),
+                    'plan_end_date': date_value.isoformat(),
+                }
+            if len(parts) == 2:
+                start_date = parse_date(parts[0])
+                end_date = parse_date(parts[1])
+                if start_date is None or end_date is None:
+                    raise ValidationError({'new_display_value': '日期变更请填写 YYYY-MM-DD ~ YYYY-MM-DD'})
+                if start_date > end_date:
+                    raise ValidationError({'new_display_value': '结束日期不能早于开始日期'})
+                return {
+                    'plan_start_date': start_date.isoformat(),
+                    'plan_end_date': end_date.isoformat(),
+                }
+            raise ValidationError({'new_display_value': '日期变更请填写 YYYY-MM-DD 或 开始 ~ 结束'})
+        if change_type == 'spec':
+            return {'specs': raw_value}
+        return {'value': raw_value}
+
+    def clean(self):
+        cleaned_data = super().clean()
+        change_type = (cleaned_data.get('change_type') or '').strip()
+        old_display_value = cleaned_data.get('old_display_value', '')
+        new_display_value = cleaned_data.get('new_display_value', '')
+
+        if not change_type:
+            raise ValidationError({'change_type': '请选择变更类型'})
+
+        cleaned_data['old_value_payload'] = self._normalize_value(change_type, old_display_value)
+        cleaned_data['new_value_payload'] = self._normalize_value(change_type, new_display_value)
+        if not cleaned_data['new_value_payload']:
+            raise ValidationError({'new_display_value': '请填写变更后的值'})
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.old_value = self.cleaned_data.get('old_value_payload', {})
+        instance.new_value = self.cleaned_data.get('new_value_payload', {})
+        if commit:
+            instance.save()
+        return instance
 
 
 class ProductionLineDayPlanForm(forms.ModelForm):
@@ -655,6 +890,14 @@ class ProductionLineDayPlanForm(forms.ModelForm):
             'manager': forms.Select(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['completed_quantity'].required = False
+        self.fields['status'].required = False
+        self.fields['completed_quantity'].widget = forms.HiddenInput()
+        self.fields['status'].widget = forms.HiddenInput()
+        self.fields['status'].initial = 1
 
 
 class MaterialRequestForm(forms.ModelForm):
@@ -692,7 +935,12 @@ class MaterialRequestForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['production_task'].required = False
+        self.fields['status'].required = False
+        self.fields['total_amount'].required = False
         self.fields['status'].initial = 1
+        self.fields['status'].widget = forms.HiddenInput()
+        self.fields['total_amount'].widget = forms.HiddenInput()
 
 
 class MaterialRequestItemForm(forms.ModelForm):
@@ -759,7 +1007,12 @@ class MaterialIssueForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['material_request'].required = False
+        self.fields['status'].required = False
+        self.fields['total_amount'].required = False
         self.fields['status'].initial = 1
+        self.fields['status'].widget = forms.HiddenInput()
+        self.fields['total_amount'].widget = forms.HiddenInput()
 
 
 class MaterialIssueItemForm(forms.ModelForm):
@@ -817,7 +1070,12 @@ class MaterialReturnForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['material_issue'].required = False
+        self.fields['status'].required = False
+        self.fields['total_amount'].required = False
         self.fields['status'].initial = 1
+        self.fields['status'].widget = forms.HiddenInput()
+        self.fields['total_amount'].widget = forms.HiddenInput()
 
 
 class MaterialReturnItemForm(forms.ModelForm):
@@ -912,6 +1170,19 @@ class WorkCompletionReportForm(forms.ModelForm):
 
         return cleaned_data
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['created_by'].required = False
+        self.fields['created_by'].widget = forms.HiddenInput()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['created_by'].required = False
+        self.fields['status'].required = False
+        self.fields['created_by'].widget = forms.HiddenInput()
+        self.fields['status'].widget = forms.HiddenInput()
+        self.fields['status'].initial = 1
+
 
 class WorkCompletionRedFlushForm(forms.ModelForm):
     """完工红冲表单"""
@@ -972,6 +1243,14 @@ class WorkCompletionRedFlushForm(forms.ModelForm):
 
         return cleaned_data
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['created_by'].required = False
+        self.fields['status'].required = False
+        self.fields['created_by'].widget = forms.HiddenInput()
+        self.fields['status'].widget = forms.HiddenInput()
+        self.fields['status'].initial = 1
+
 
 class ProductReceiptForm(forms.ModelForm):
     """成品入库表单"""
@@ -1010,6 +1289,61 @@ class ProductReceiptForm(forms.ModelForm):
 
         return cleaned_data
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['completion_report'].required = False
+        self.fields['created_by'].required = False
+        self.fields['status'].required = False
+        self.fields['created_by'].widget = forms.HiddenInput()
+        self.fields['status'].widget = forms.HiddenInput()
+        self.fields['status'].initial = 1
+
+
+class MaterialScrapForm(forms.ModelForm):
+    """生产报废单表单"""
+    class Meta:
+        model = MaterialScrap
+        fields = ['code', 'material_issue', 'production_plan', 'scrap_date',
+                  'status', 'total_amount', 'scrap_reason']
+        widgets = {
+            'code': forms.TextInput(attrs={'class': 'form-control'}),
+            'material_issue': forms.Select(attrs={'class': 'form-control'}),
+            'production_plan': forms.Select(attrs={'class': 'form-control'}),
+            'scrap_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'status': forms.Select(attrs={'class': 'form-control'}),
+            'total_amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'scrap_reason': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['material_issue'].required = False
+        self.fields['status'].required = False
+        self.fields['total_amount'].required = False
+        self.fields['status'].initial = 1
+        self.fields['status'].widget = forms.HiddenInput()
+        self.fields['total_amount'].widget = forms.HiddenInput()
+
+
+class MaterialScrapItemForm(forms.ModelForm):
+    """生产报废明细表单"""
+    class Meta:
+        model = MaterialScrapItem
+        fields = ['material_issue_item', 'material_name', 'material_code',
+                  'specification', 'unit', 'scrap_quantity', 'unit_cost',
+                  'amount', 'remark']
+        widgets = {
+            'material_issue_item': forms.Select(attrs={'class': 'form-control'}),
+            'material_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'material_code': forms.TextInput(attrs={'class': 'form-control'}),
+            'specification': forms.TextInput(attrs={'class': 'form-control'}),
+            'unit': forms.TextInput(attrs={'class': 'form-control'}),
+            'scrap_quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.0001'}),
+            'unit_cost': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'remark': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+
 
 class OrderMaterialConfirmationForm(forms.ModelForm):
     """订单材料确认单表单"""
@@ -1040,6 +1374,11 @@ class OrderMaterialConfirmationForm(forms.ModelForm):
                     'class': 'form-control',
                     'rows': 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['confirmed_by'].required = False
+        self.fields['confirmed_by'].widget = forms.HiddenInput()
 
 
 class ResourceConsumptionForm(forms.ModelForm):
@@ -1078,6 +1417,11 @@ class ResourceConsumptionForm(forms.ModelForm):
                 attrs={
                     'class': 'form-control'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['created_by'].required = False
+        self.fields['created_by'].widget = forms.HiddenInput()
 
 
 class DataCollectionTaskForm(forms.ModelForm):

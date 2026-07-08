@@ -4,45 +4,50 @@
 {% block title %}{% if object %}编辑{{ title }}{% else %}新增{{ title }}{% endif %}{% endblock %}
 
 {% block head %}
-<style>
-    .form-container {max-width: 900px; margin: 20px auto; background: #fff; border-radius: 6px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); overflow: hidden;}
-    .form-header {padding: 18px 28px; background: #009688; color: #fff;}
-    .form-header h2 {margin: 0; font-size: 22px; font-weight: 400;}
-    .form-header p {margin: 6px 0 0; opacity: .9;}
-    .form-body {padding: 28px;}
-    .layui-form-label {width: 130px;}
-    .layui-input-block {margin-left: 160px;}
-    .form-actions {padding: 20px 0 0; text-align: center; border-top: 1px solid #eee;}
-    .error-list {margin-bottom: 15px;}
-</style>
+<link rel="stylesheet" href="{% static 'css/finance-module.css' %}">
 {% endblock %}
 
 {% block content %}
-<div class="form-container">
-    <div class="form-header">
-        <h2><i class="layui-icon layui-icon-form"></i> {% if object %}编辑{{ title }}{% else %}新增{{ title }}{% endif %}</h2>
-        <p>请按实际业务信息填写，提交后将写入财务业务数据。</p>
+<div class="finance-form-shell">
+    <div class="finance-form-header">
+        <h2>{% if object %}编辑{{ title }}{% else %}新增{{ title }}{% endif %}</h2>
+        <p>按业务口径维护{{ title }}数据，保存后将写入对应财务子模块记录。</p>
     </div>
-    <div class="form-body">
-        {% if form.errors %}
-        <div class="layui-bg-red error-list" style="padding: 10px 15px; color: #fff;">
-            请检查表单内容：{{ form.errors }}
-        </div>
-        {% endif %}
+    <div class="finance-form-body">
         <form class="layui-form" method="post">
             {% csrf_token %}
-            {% for field in form %}
-            <div class="layui-form-item">
-                <label class="layui-form-label">{{ field.label }}</label>
-                <div class="layui-input-block">
-                    {{ field }}
-                    {% if field.help_text %}<div class="layui-form-mid layui-word-aux">{{ field.help_text }}</div>{% endif %}
-                    {% if field.errors %}<div class="layui-form-mid" style="color: #ff5722;">{{ field.errors.0 }}</div>{% endif %}
-                </div>
+            {% if form.non_field_errors %}
+            <div class="layui-bg-red" style="padding:10px 12px;border-radius:6px;margin-bottom:16px;color:#fff;">
+                {{ form.non_field_errors|join:"；" }}
             </div>
+            {% endif %}
+
+            {% for field in form.hidden_fields %}
+                {{ field }}
             {% endfor %}
-            <div class="form-actions">
-                <button type="submit" class="layui-btn layui-btn-normal" lay-submit>保存</button>
+
+            <div class="finance-section">
+                <div class="finance-section-title"><i class="layui-icon layui-icon-form"></i>基础信息</div>
+                {% for field in form.visible_fields %}
+                <div class="layui-form-item">
+                    <label class="layui-form-label">{{ field.label }}</label>
+                    <div class="layui-input-block">
+                        {{ field }}
+                        {% if field.help_text %}
+                        <div class="finance-hint">{{ field.help_text }}</div>
+                        {% endif %}
+                        {% if field.errors %}
+                        <div class="finance-hint" style="color:#b91c1c;">{{ field.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="finance-form-actions">
+                <button type="submit" class="layui-btn layui-btn-normal">
+                    <i class="layui-icon layui-icon-ok"></i>{% if object %} 保存修改{% else %} 保存记录{% endif %}
+                </button>
                 <button type="button" class="layui-btn layui-btn-primary" onclick="closePopup()">取消</button>
             </div>
         </form>
@@ -52,8 +57,8 @@
 
 {% block script %}
 <script>
-    layui.use(['form'], function() {
-        layui.form.render();
-    });
+layui.use(["form"], function () {
+    layui.form.render();
+});
 </script>
 {% endblock %}

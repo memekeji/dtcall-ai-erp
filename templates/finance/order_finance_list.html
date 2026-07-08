@@ -6,74 +6,176 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>订单财务记录</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/finance-module.css' %}">
 </head>
 <body>
-    <div class="layui-fluid">
-        <div class="layui-card">
-            <div class="layui-card-header">
-                <div class="layui-form layui-form-pane">
-                    <div class="layui-form-item">
-                        <div class="layui-inline">
-                            <label class="layui-form-label">付款状态</label>
-                            <div class="layui-input-inline">
-                                <select name="status" id="statusFilter">
-                                    <option value="">全部状态</option>
-                                    <option value="pending">待付款</option>
-                                    <option value="partial">部分付款</option>
-                                    <option value="paid">已付款</option>
-                                    <option value="overdue">逾期</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="layui-inline">
-                            <button class="layui-btn" id="searchBtn">搜索</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="layui-card-body">
-                <table id="financeTable" class="layui-table" lay-filter="financeTable"></table>
-            </div>
+<div class="layui-fluid finance-shell">
+    <div class="finance-page-header">
+        <div>
+            <h1 class="finance-page-title">订单财务记录</h1>
+            <p class="finance-page-subtitle">把订单应收、已付和剩余金额放在一张紧凑视图里，方便和开票、回款、付款联动核对。</p>
         </div>
     </div>
 
-    <script src="{% static 'js/jquery.min.js' %}"></script>
-    <script src="{% static 'layui/layui.js' %}"></script>
-    <script>
-        layui.use(['form', 'table'], function() {
-            var table = layui.table;
+    <div class="finance-summary-grid">
+        <div class="finance-summary-card">
+            <div class="finance-summary-label">订单条目</div>
+            <div class="finance-summary-value" id="financeCount">0</div>
+            <div class="finance-summary-note">符合当前筛选</div>
+        </div>
+        <div class="finance-summary-card">
+            <div class="finance-summary-label">订单总额</div>
+            <div class="finance-summary-value" id="financeTotal">¥0.00</div>
+            <div class="finance-summary-note">当前页汇总</div>
+        </div>
+        <div class="finance-summary-card">
+            <div class="finance-summary-label">已收 / 已付</div>
+            <div class="finance-summary-value" id="financePaid">¥0.00</div>
+            <div class="finance-summary-note">已完成金额</div>
+        </div>
+        <div class="finance-summary-card">
+            <div class="finance-summary-label">待跟进</div>
+            <div class="finance-summary-value" id="financePending">0</div>
+            <div class="finance-summary-note">未完全结清订单</div>
+        </div>
+    </div>
 
-            // 初始化表格
-            function initTable(status = '') {
-                table.render({
-                    elem: '#financeTable',
-                    url: '/adm/finance/order-finance/datalist/?status=' + status,
-                    cols: [[
-                        {field: 'id', title: 'ID', width: 80},
-                        {field: 'order_number', title: '订单编号', width: 150},
-                        {field: 'customer_name', title: '客户名称', width: 200},
-                        {field: 'total_amount', title: '订单总金额', width: 120},
-                        {field: 'paid_amount', title: '已付金额', width: 120},
-                        {field: 'unpaid_amount', title: '待付金额', width: 120},
-                        {field: 'payment_status_display', title: '付款状态', width: 100},
-                        {field: 'due_date', title: '到期日期', width: 120},
-                        {field: 'create_time', title: '创建时间', width: 180}
-                    ]],
-                    page: true,
-                    limit: 20,
-                    height: 'full-200'
-                });
-            }
+    <div class="layui-card finance-card-shell">
+        <div class="layui-card-header">
+            <div class="finance-toolbar">
+                <div class="finance-toolbar-left">
+                    <button type="button" class="layui-btn layui-btn-sm layui-btn-warm" id="openRequestBtn">
+                        <i class="layui-icon layui-icon-survey"></i> 开票申请
+                    </button>
+                    <button type="button" class="layui-btn layui-btn-sm layui-btn-primary" id="refreshBtn">
+                        <i class="layui-icon layui-icon-refresh"></i> 刷新
+                    </button>
+                </div>
+                <div class="finance-toolbar-right">
+                    <div class="finance-filter-row">
+                        <input type="text" id="keywordInput" placeholder="订单编号 / 客户名称" class="layui-input" style="width: 240px;">
+                        <select id="statusFilter">
+                            <option value="">全部付款状态</option>
+                            <option value="pending">待付款</option>
+                            <option value="partial">部分付款</option>
+                            <option value="paid">已付款</option>
+                            <option value="overdue">逾期</option>
+                        </select>
+                        <button type="button" class="layui-btn layui-btn-sm" id="searchBtn">
+                            <i class="layui-icon layui-icon-search"></i> 搜索
+                        </button>
+                        <button type="button" class="layui-btn layui-btn-sm layui-btn-primary" id="resetBtn">
+                            <i class="layui-icon layui-icon-refresh-3"></i> 重置
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="layui-card-body">
+            <table id="financeTable" lay-filter="financeTable"></table>
+        </div>
+    </div>
+</div>
 
-            // 初始化表格
-            initTable();
+<script src="{% static 'js/jquery.min.js' %}"></script>
+<script src="{% static 'layui/layui.js' %}"></script>
+<script>
+    layui.use(["table", "layer", "form"], function () {
+        const table = layui.table;
+        const layer = layui.layer;
+        const form = layui.form;
+        const financeBase = window.location.pathname.startsWith("/adm/") ? "/adm/finance" : "/finance";
 
-            // 搜索按钮点击事件
-            $('#searchBtn').click(function() {
-                var status = $('#statusFilter').val();
-                initTable(status);
+        function statusTag(text, type) {
+            const classMap = {
+                pending: "finance-tag finance-tag-orange",
+                partial: "finance-tag finance-tag-blue",
+                paid: "finance-tag finance-tag-green",
+                overdue: "finance-tag finance-tag-red"
+            };
+            return '<span class="' + (classMap[type] || "finance-tag finance-tag-slate") + '">' + (text || "-") + "</span>";
+        }
+
+        function getFilters() {
+            return {
+                status: $("#statusFilter").val(),
+                keywords: $("#keywordInput").val().trim()
+            };
+        }
+
+        function updateSummary(rows, totalCount) {
+            const total = rows.reduce((sum, item) => sum + Number(item.total_amount || 0), 0);
+            const paid = rows.reduce((sum, item) => sum + Number(item.paid_amount || 0), 0);
+            const pending = rows.filter(item => item.payment_status !== "paid").length;
+            $("#financeCount").text(totalCount || 0);
+            $("#financeTotal").text("¥" + total.toFixed(2));
+            $("#financePaid").text("¥" + paid.toFixed(2));
+            $("#financePending").text(pending);
+        }
+
+        function renderTable(resetPage) {
+            table.render({
+                elem: "#financeTable",
+                id: "financeTable",
+                url: financeBase + "/order-finance/datalist/",
+                where: getFilters(),
+                page: true,
+                limit: 20,
+                height: "full-320",
+                cols: [[
+                    { field: "id", title: "ID", width: 80, align: "center", fixed: "left" },
+                    { field: "order_number", title: "订单编号", width: 180, fixed: "left" },
+                    { field: "customer_name", title: "客户名称", width: 180 },
+                    { field: "total_amount", title: "订单金额", width: 120, templet: d => "¥" + Number(d.total_amount || 0).toFixed(2) },
+                    { field: "paid_amount", title: "已收 / 已付", width: 120, templet: d => "¥" + Number(d.paid_amount || 0).toFixed(2) },
+                    { field: "unpaid_amount", title: "剩余金额", width: 120, templet: d => "¥" + Number(d.unpaid_amount || 0).toFixed(2) },
+                    { field: "payment_status_display", title: "付款状态", width: 110, align: "center", templet: d => statusTag(d.payment_status_display, d.payment_status) },
+                    { field: "due_date", title: "到期日期", width: 120, align: "center", templet: d => d.due_date || '<span class="finance-empty-text">未设置</span>' },
+                    { field: "create_time", title: "创建时间", width: 160, align: "center" }
+                ]],
+                page: resetPage ? { curr: 1 } : true,
+                done: function (res) {
+                    updateSummary(res.data || [], res.count);
+                    form.render("select");
+                }
+            });
+        }
+
+        function reloadTable(resetPage) {
+            table.reload("financeTable", {
+                where: getFilters(),
+                page: resetPage ? { curr: 1 } : undefined
+            });
+        }
+
+        $("#openRequestBtn").on("click", function () {
+            layer.open({
+                type: 2,
+                title: "开票申请",
+                shadeClose: false,
+                shade: 0.28,
+                maxmin: true,
+                area: ["82%", "100%"],
+                offset: "r",
+                anim: 2,
+                content: financeBase + "/invoice-request/",
+                success: function (layero) {
+                    layero.css({ right: "0", top: "0", height: "100%" });
+                }
             });
         });
-    </script>
+        $("#refreshBtn").on("click", function () { reloadTable(); });
+        $("#searchBtn").on("click", function () { reloadTable(true); });
+        $("#resetBtn").on("click", function () {
+            $("#keywordInput").val("");
+            $("#statusFilter").val("");
+            form.render("select");
+            reloadTable(true);
+        });
+
+        renderTable();
+    });
+</script>
 </body>
 </html>

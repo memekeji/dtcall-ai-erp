@@ -1,0 +1,92 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>材料出库详情</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
+</head>
+<body>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>材料出库详情</h2></div>
+        <div class="production-section-card">
+            <div class="production-section-header">
+                <span>{{ issue.code }}</span>
+                <span class="production-tag {% if issue.status == 3 %}ok{% elif issue.status == 2 %}warn{% elif issue.status == 4 %}danger{% else %}warn{% endif %}">
+                    {{ issue.get_status_display }}
+                </span>
+            </div>
+            <div class="production-section-body">
+                <div class="production-detail-grid">
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">领料申请</div>
+                        <div class="production-detail-value">{{ issue.material_request.code|default:"未绑定申请单" }}</div>
+                    </div>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">生产计划</div>
+                        <div class="production-detail-value">{{ issue.production_plan.name|default:"-" }}</div>
+                    </div>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">出库日期</div>
+                        <div class="production-detail-value">{{ issue.issue_date|date:"Y-m-d" }}</div>
+                    </div>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">总金额</div>
+                        <div class="production-detail-value">¥{{ issue.total_amount|floatformat:2 }}</div>
+                    </div>
+                </div>
+                {% if issue.description %}
+                <div class="production-detail-item" style="margin-top: 14px;">
+                    <div class="production-detail-label">出库说明</div>
+                    <div class="production-detail-value">{{ issue.description|linebreaksbr }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="production-section-card" style="margin-top: 16px;">
+            <div class="production-section-header">出库明细</div>
+            <div class="production-section-body" style="padding: 0;">
+                <table class="layui-table" lay-skin="line">
+                    <thead>
+                        <tr>
+                            <th>物料</th>
+                            <th>规格/单位</th>
+                            <th>待出数量</th>
+                            <th>库存档案</th>
+                            <th>当前可用</th>
+                            <th>金额</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in item_rows %}
+                        <tr>
+                            <td>
+                                <div>{{ row.item.material_name }}</div>
+                                <div class="production-help">{{ row.item.material_code }}</div>
+                            </td>
+                            <td>{{ row.item.specification|default:"-" }} / {{ row.item.unit }}</td>
+                            <td>{{ row.item.issue_quantity|floatformat:4 }}</td>
+                            <td>
+                                {% if row.inventory_item %}
+                                <span class="production-tag ok">{{ row.inventory_item.code }}</span>
+                                {% else %}
+                                <span class="production-tag danger">未匹配库存档案</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ row.available_quantity|floatformat:4 }}</td>
+                            <td>¥{{ row.item.amount|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="production-empty">暂无出库明细</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% include "production/_popup_feedback.html" %}
+</body>
+</html>

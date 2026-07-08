@@ -6,46 +6,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ action }}生产订单变更</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
 <body>
-    <div class="layui-fluid" style="padding: 20px;">
-        <div class="layui-card">
-            <div class="layui-card-header">{{ action }}生产订单变更</div>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>{{ action }}生产订单变更</h2></div>
+
+        <div class="production-note" style="margin-bottom: 16px;">
+            这里不再直接填写 JSON。系统会根据变更类型自动整理前后值，并在执行后同步到生产计划、日计划和物料流转单据。
+        </div>
+
+        <div class="layui-card production-form-card">
             <div class="layui-card-body">
-                {% if form.errors %}
-                <div class="layui-bg-red" style="padding: 12px; color: #fff; margin-bottom: 16px;">
-                    {% for field in form %}
-                        {% for error in field.errors %}
-                        <div>{{ field.label }}：{{ error }}</div>
-                        {% endfor %}
-                    {% endfor %}
-                    {% for error in form.non_field_errors %}
-                    <div>{{ error }}</div>
-                    {% endfor %}
-                </div>
-                {% endif %}
-
-                <form method="post" class="layui-form">
+                <form class="layui-form" method="post">
                     {% csrf_token %}
-                    {% for hidden in form.hidden_fields %}
-                        {{ hidden }}
-                    {% endfor %}
-
-                    {% for field in form.visible_fields %}
+                    {{ form.status }}
                     <div class="layui-form-item">
-                        <label class="layui-form-label" style="width: 150px;">{{ field.label }}</label>
-                        <div class="layui-input-block" style="margin-left: 180px;">
-                            {{ field }}
-                            {% if field.help_text %}
-                            <div class="layui-form-mid layui-word-aux">{{ field.help_text }}</div>
-                            {% endif %}
+                        <label class="layui-form-label">关联计划</label>
+                        <div class="layui-input-block">{{ form.production_plan }}</div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">变更类型</label>
+                        <div class="layui-input-block">
+                            {{ form.change_type }}
+                            <div class="production-help" id="changeTypeHelp">数量变更填写数字；日期变更填写“开始 ~ 结束”；规格变更填写规格文本。</div>
                         </div>
                     </div>
-                    {% endfor %}
-
                     <div class="layui-form-item">
-                        <div class="layui-input-block" style="margin-left: 180px;">
-                            <button class="layui-btn" type="submit">保存</button>
+                        <label class="layui-form-label">变更前值</label>
+                        <div class="layui-input-block">{{ form.old_display_value }}</div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">变更后值</label>
+                        <div class="layui-input-block">
+                            {{ form.new_display_value }}
+                            {% if form.new_display_value.errors %}<div class="production-field-error">{{ form.new_display_value.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+                    <div class="layui-form-item layui-form-text">
+                        <label class="layui-form-label">变更原因</label>
+                        <div class="layui-input-block">{{ form.change_reason }}</div>
+                    </div>
+                    {% if form.non_field_errors %}
+                    <div class="production-field-error" style="margin-bottom: 16px;">{{ form.non_field_errors.0 }}</div>
+                    {% endif %}
+                    <div class="layui-form-item">
+                        <div class="layui-input-block">
+                            <button type="submit" class="layui-btn">{{ action }}</button>
                             <a href="{% url 'production:production_order_change_list' %}" class="layui-btn layui-btn-primary">返回</a>
                         </div>
                     </div>
@@ -56,31 +64,29 @@
 
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        layui.use(["form"], function () {
+        layui.use(['form'], function () {
             layui.form.render();
         });
 
-        {% include "production/_right_popup_function.html" %}
-</script>
-
-    <!-- 注入的消息提示脚本 -->
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
+        (function () {
+            var field = document.getElementById('id_change_type');
+            var help = document.getElementById('changeTypeHelp');
+            if (!field || !help) return;
+            var helpMap = {
+                quantity: '数量变更：填写新的计划数量，例如 1200。',
+                date: '日期变更：填写 YYYY-MM-DD 或 开始日期 ~ 结束日期。',
+                spec: '规格变更：填写新的产品规格描述。',
+                other: '其他变更：填写会落入计划描述的变更说明。'
+            };
+            function updateHelp() {
+                help.textContent = helpMap[field.value] || helpMap.other;
             }
-        });
+            field.addEventListener('change', updateHelp);
+            updateHelp();
+        })();
+
+        {% include "production/_right_popup_function.html" %}
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
 </html>

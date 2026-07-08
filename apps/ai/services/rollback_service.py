@@ -95,7 +95,9 @@ class AIOperationRollbackService:
 
         if change_set.change_type == 'create':
             obj = model.objects.get(pk=change_set.object_pk)
-            if hasattr(obj, 'delete'):
+            if hasattr(obj, 'hard_delete'):
+                obj.hard_delete()
+            elif hasattr(obj, 'delete'):
                 obj.delete()
             else:
                 raise AttributeError(f'Object {change_set.object_pk} does not support delete()')

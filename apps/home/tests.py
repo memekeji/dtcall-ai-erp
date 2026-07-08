@@ -170,8 +170,70 @@ class UserQuickMenuViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         content = response.content.decode()
-        self.assertIn('justify-content: flex-start;', content)
-        self.assertIn('position: relative;', content)
+        self.assertIn('grid-template-columns: var(--dt-sidebar-width) minmax(0, 1fr) auto;', content)
+        self.assertIn('height: 60px;', content)
+        self.assertIn('z-index: 1200;', content)
         self.assertIn('padding: 0 24px 0 20px;', content)
-        self.assertIn('position: static;', content)
-        self.assertIn('margin-left: auto;', content)
+        self.assertIn('grid-column: 2;', content)
+        self.assertIn('grid-column: 3;', content)
+        self.assertIn('id="quickMenuManageBtn"', content)
+        self.assertIn("home.js' %}?v=20260708-quick-menu-icon-sync", content)
+    def test_quick_menu_list_allows_horizontal_scroll(self):
+        user = self.create_user(username='scroll_user', is_superuser=True)
+        self.client.force_login(user)
+
+        response = self.client.get(reverse('home:main'))
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertIn('.quick-menu-list', content)
+        self.assertIn('overflow-x: auto;', content)
+        self.assertIn('overflow: hidden;', content)
+
+    def test_quick_menu_groups_do_not_force_equal_column_width(self):
+        user = self.create_user(username='column_user', is_superuser=True)
+        self.client.force_login(user)
+
+        response = self.client.get(reverse('home:main'))
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertNotIn('flex: 1 1 0', content)
+
+    def test_quick_menu_list_has_visible_scrollbar(self):
+        user = self.create_user(username='scrollbar_user', is_superuser=True)
+        self.client.force_login(user)
+
+        response = self.client.get(reverse('home:main'))
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        # Extract .quick-menu-list CSS block to verify scrollbar hiding is removed
+        idx_list = content.find('.quick-menu-list {')
+        idx_next = content.find('.quick-menu-item {', idx_list) if idx_list >= 0 else -1
+        if idx_list >= 0 and idx_next >= 0:
+            block = content[idx_list:idx_next]
+            self.assertNotIn('scrollbar-width: none', block)
+            self.assertIn('overflow-x: auto;', block)
+        else:
+            self.assertIn('overflow-x: auto;', content)
+
+    def test_serialize_quick_menu_includes_icon_field(self):
+        user = self.create_user(username='icon_user', is_superuser=True)
+        menu = self.create_menu('员工管理', '/user/employee/')
+        self.client.force_login(user)
+
+        preference = user.menu_preferences.create(
+            menu=menu,
+            use_count=5,
+            last_used_at=timezone.now(),
+        )
+        response = self.client.get(reverse('home:quick_menus'))
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content.decode())
+        frequent = payload.get('frequent_menus', [])
+        self.assertTrue(len(frequent) > 0)
+        first_menu = frequent[0]
+        self.assertIn('icon', first_menu)
+        self.assertEqual(first_menu['icon'], menu.icon)

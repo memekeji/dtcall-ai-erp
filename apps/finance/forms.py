@@ -59,6 +59,7 @@ class ExpenseForm(forms.ModelForm):
             "project_id",
             "cost",
             "income_month",
+            "file_ids",
             "remark",
         ]
         widgets = {
@@ -80,6 +81,9 @@ class ExpenseForm(forms.ModelForm):
             ),
             "income_month": forms.NumberInput(
                 attrs={"class": "layui-input", "placeholder": "入账月份，如 202604"}
+            ),
+            "file_ids": forms.TextInput(
+                attrs={"class": "layui-input", "placeholder": "附件ID，多个用逗号分隔"}
             ),
             "remark": forms.Textarea(attrs={"class": "layui-textarea", "rows": 3}),
         }
@@ -181,16 +185,27 @@ class InvoiceForm(forms.ModelForm):
             raise ValidationError("发票金额必须大于0")
         return amount
 
+    def clean_customer_id(self):
+        customer_id = self.cleaned_data.get("customer_id") or 0
+        if customer_id <= 0:
+            raise ValidationError("请选择关联客户")
+        return customer_id
+
 
 class IncomeForm(forms.ModelForm):
     """回款表单"""
 
+    account_id = forms.IntegerField(required=False)
+
     class Meta:
         model = Income
-        fields = ["invoice_id", "amount", "income_date", "file_ids", "remark"]
+        fields = ["invoice_id", "account_id", "amount", "income_date", "file_ids", "remark"]
         widgets = {
             "invoice_id": forms.NumberInput(
                 attrs={"class": "layui-input", "placeholder": "发票ID"}
+            ),
+            "account_id": forms.NumberInput(
+                attrs={"class": "layui-input", "placeholder": "资金账户ID"}
             ),
             "amount": forms.NumberInput(
                 attrs={
@@ -218,12 +233,49 @@ class IncomeForm(forms.ModelForm):
 class PaymentForm(forms.ModelForm):
     """付款表单"""
 
+    account_id = forms.IntegerField(required=False)
+    customer_id = forms.IntegerField(required=False)
+    order_id = forms.IntegerField(required=False)
+    purchase_order_id = forms.IntegerField(required=False)
+    purchase_contract_id = forms.IntegerField(required=False)
+    project_id = forms.IntegerField(required=False)
+
     class Meta:
         model = Payment
-        fields = ["expense_id", "amount", "payment_date", "file_ids", "remark"]
+        fields = [
+            "expense_id",
+            "account_id",
+            "customer_id",
+            "order_id",
+            "purchase_order_id",
+            "purchase_contract_id",
+            "project_id",
+            "amount",
+            "payment_date",
+            "file_ids",
+            "remark",
+        ]
         widgets = {
             "expense_id": forms.NumberInput(
                 attrs={"class": "layui-input", "placeholder": "报销ID"}
+            ),
+            "account_id": forms.NumberInput(
+                attrs={"class": "layui-input", "placeholder": "资金账户ID"}
+            ),
+            "customer_id": forms.NumberInput(
+                attrs={"class": "layui-input", "placeholder": "客户ID"}
+            ),
+            "order_id": forms.NumberInput(
+                attrs={"class": "layui-input", "placeholder": "订单ID"}
+            ),
+            "purchase_order_id": forms.NumberInput(
+                attrs={"class": "layui-input", "placeholder": "采购订单ID"}
+            ),
+            "purchase_contract_id": forms.NumberInput(
+                attrs={"class": "layui-input", "placeholder": "采购合同ID"}
+            ),
+            "project_id": forms.NumberInput(
+                attrs={"class": "layui-input", "placeholder": "项目ID"}
             ),
             "amount": forms.NumberInput(
                 attrs={
@@ -241,11 +293,38 @@ class PaymentForm(forms.ModelForm):
             "remark": forms.Textarea(attrs={"class": "layui-textarea", "rows": 3}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        relation_fields = [
+            "expense_id",
+            "customer_id",
+            "order_id",
+            "purchase_order_id",
+            "purchase_contract_id",
+            "project_id",
+        ]
+        for field_name in relation_fields + ["file_ids"]:
+            self.fields[field_name].required = False
+
     def clean_amount(self):
         amount = self.cleaned_data["amount"]
         if amount <= 0:
             raise ValidationError("付款金额必须大于0")
         return amount
+
+    def clean(self):
+        cleaned_data = super().clean()
+        relation_values = [
+            cleaned_data.get("expense_id"),
+            cleaned_data.get("customer_id"),
+            cleaned_data.get("order_id"),
+            cleaned_data.get("purchase_order_id"),
+            cleaned_data.get("purchase_contract_id"),
+            cleaned_data.get("project_id"),
+        ]
+        if not any(value for value in relation_values if value):
+            raise ValidationError("至少关联一项业务对象")
+        return cleaned_data
 
 
 class InvoiceRequestForm(forms.ModelForm):
@@ -291,6 +370,12 @@ class InvoiceRequestForm(forms.ModelForm):
         if amount <= 0:
             raise ValidationError("开票金额必须大于0")
         return amount
+
+    def clean_order_id(self):
+        order_id = self.cleaned_data.get("order_id") or 0
+        if order_id <= 0:
+            raise ValidationError("请选择关联订单")
+        return order_id
 
 
 class OrderFinanceRecordForm(forms.ModelForm):

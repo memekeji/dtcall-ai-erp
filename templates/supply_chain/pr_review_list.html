@@ -23,6 +23,13 @@
                     </div>
                 </div>
                 <div class="sc-toolbar-right">
+                    <form method="post" action="{% url 'supply_chain:bootstrap_workspace' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="target" value="pr_review_list">
+                        <button type="submit" class="layui-btn layui-btn-sm layui-btn-primary">
+                            <i class="layui-icon layui-icon-refresh-3"></i> 从库存风险初始化
+                        </button>
+                    </form>
                     <a href="{% url 'supply_chain:pr_review_create' %}" class="layui-btn layui-btn-sm">
                         <i class="layui-icon layui-icon-add-1"></i> 新建 PR 审核任务
                     </a>
@@ -44,6 +51,8 @@
                     <div class="sc-stat-value">{{ batch_ready_count }}</div>
                 </div>
             </div>
+
+            <div class="sc-table-caption">合法来源：库存风险候选 {{ source_inventory_risk_count }} 条。当前模块可将缺料/补货风险派生成 PR 审核任务。</div>
 
             <form class="layui-form sc-inline-form" method="get">
                 <div class="layui-row layui-col-space10">
@@ -96,7 +105,7 @@
                         <th>建议动作</th>
                         <th>异常</th>
                         <th>命中规则</th>
-                        <th width="340">操作</th>
+                        <th width="420">操作</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -122,9 +131,42 @@
                             {% endfor %}
                         </td>
                         <td class="sc-list-actions">
+                            <div class="sc-form-hint">按业务场景选择即可，系统会自动完成规则匹配。</div>
                             <form method="post" action="{% url 'supply_chain:pr_review_evaluate' task.id %}">
                                 {% csrf_token %}
-                                <textarea name="payload_json" rows="3" class="layui-textarea" placeholder='{"tail_order": true, "lt_shortage": false}'></textarea>
+                                <div class="sc-check-grid">
+                                    <div class="sc-check-field">
+                                        <select name="scenario" class="layui-input">
+                                            <option value="normal">常规需求</option>
+                                            <option value="urgent_shortage">紧急缺料</option>
+                                            <option value="tail_order">尾数订单</option>
+                                            <option value="intercompany_tail_order">公司间尾数订单</option>
+                                            <option value="outsource_tail_order">委外尾数订单</option>
+                                            <option value="rework_order">异常工单 / 返工单</option>
+                                            <option value="npi_trial">NPI 试产需求</option>
+                                            <option value="custom">自定义组合</option>
+                                        </select>
+                                    </div>
+                                    <div class="sc-check-field">
+                                        <select name="order_type" class="layui-input">
+                                            <option value="">订单类型（可选）</option>
+                                            <option value="customer">客户订单</option>
+                                            <option value="intercompany">公司间</option>
+                                            <option value="outsource">委外</option>
+                                            <option value="npi">试产</option>
+                                            <option value="internal">内部需求</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="sc-check-grid compact">
+                                    <label class="sc-check-item"><input type="checkbox" name="is_urgent"> 紧急</label>
+                                    <label class="sc-check-item"><input type="checkbox" name="lt_shortage"> LT不足</label>
+                                    <label class="sc-check-item"><input type="checkbox" name="tail_order"> 尾数单</label>
+                                    <label class="sc-check-item"><input type="checkbox" name="intercompany_tail_order"> 公司间尾数</label>
+                                    <label class="sc-check-item"><input type="checkbox" name="outsource_tail_order"> 委外尾数</label>
+                                    <label class="sc-check-item"><input type="checkbox" name="rework_order"> 返工 / 异常工单</label>
+                                    <label class="sc-check-item"><input type="checkbox" name="npi_trial"> NPI试产</label>
+                                </div>
                                 <button type="submit" class="layui-btn layui-btn-xs">规则识别</button>
                             </form>
                             <form method="post" action="{% url 'supply_chain:pr_review_approve' task.id %}">

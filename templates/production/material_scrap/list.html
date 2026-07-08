@@ -1,0 +1,95 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>物料报废管理</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
+</head>
+<body>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>物料报废管理</h2></div>
+        <div class="production-toolbar">
+            <div>
+                <button class="layui-btn layui-btn-danger" onclick="openRightPopup('新建物料报废', '{% url 'production:material_scrap_add' %}')">新建报废单</button>
+                <a class="layui-btn layui-btn-primary" href="{% url 'production:material_management_dashboard' %}">返回物料管理</a>
+            </div>
+            <div class="production-help">报废会同步库存报废台账，并从可用库存中真实扣减。</div>
+        </div>
+
+        <div class="production-section-card">
+            <div class="production-section-body" style="padding: 0;">
+                <table class="layui-table" lay-skin="line">
+                    <thead>
+                        <tr>
+                            <th>报废单</th>
+                            <th>来源出库/计划</th>
+                            <th>报废日期</th>
+                            <th>报废人</th>
+                            <th>金额</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doc in page_obj %}
+                        <tr>
+                            <td>
+                                <div>{{ doc.code }}</div>
+                                <div class="production-help">{{ doc.items.count }} 个物料行</div>
+                            </td>
+                            <td>
+                                <div>{{ doc.material_issue.code|default:"未绑定出库单" }}</div>
+                                <div class="production-help">{{ doc.production_plan.name|default:"-" }}</div>
+                            </td>
+                            <td>{{ doc.scrap_date|date:"Y-m-d" }}</td>
+                            <td>{{ doc.created_by.username|default:"-" }}</td>
+                            <td>¥{{ doc.total_amount|floatformat:2 }}</td>
+                            <td><span class="production-tag {% if doc.status == 3 %}ok{% elif doc.status == 2 %}warn{% elif doc.status == 4 %}danger{% else %}warn{% endif %}">{{ doc.get_status_display }}</span></td>
+                            <td class="production-table-actions">
+                                <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="openRightPopup('报废详情', '{% url 'production:material_scrap_detail' doc.pk %}')">详情</button>
+                                {% if doc.status == 1 %}
+                                <button class="layui-btn layui-btn-xs" onclick="openRightPopup('编辑报废单', '{% url 'production:material_scrap_edit' doc.pk %}')">编辑</button>
+                                <button class="layui-btn layui-btn-xs layui-btn-normal" onclick="approveScrap({{ doc.pk }})">审核</button>
+                                <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="cancelScrap({{ doc.pk }})">取消</button>
+                                {% elif doc.status == 2 %}
+                                <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="executeScrap({{ doc.pk }})">执行报废</button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="7" class="production-empty">暂无物料报废单</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        function approveScrap(id) {
+            layui.layer.confirm('确认审核该物料报废单吗？', function(index) {
+                window.location.href = '{% url "production:material_scrap_approve" 0 %}'.replace('0', id);
+                layui.layer.close(index);
+            });
+        }
+        function executeScrap(id) {
+            layui.layer.confirm('执行后会真实扣减库存并写入报废台账，确认继续吗？', function(index) {
+                window.location.href = '{% url "production:material_scrap_execute" 0 %}'.replace('0', id);
+                layui.layer.close(index);
+            });
+        }
+        function cancelScrap(id) {
+            layui.layer.confirm('确认取消该物料报废单吗？', function(index) {
+                window.location.href = '{% url "production:material_scrap_cancel" 0 %}'.replace('0', id);
+                layui.layer.close(index);
+            });
+        }
+        {% include "production/_right_popup_function.html" %}
+    </script>
+    {% include "production/_popup_feedback.html" %}
+</body>
+</html>

@@ -1,0 +1,155 @@
+{% extends 'include/popup.html' %}
+{% load static %}
+
+{% block title %}开票申请详情{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{% static 'css/finance-module.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="finance-detail-shell">
+    <div class="finance-detail-card">
+        <div class="finance-detail-header">
+            <div>
+                <h2 class="finance-detail-title">开票申请详情</h2>
+                <p class="finance-detail-subtitle">{{ detail.order_number|default:"未关联订单" }} / {{ detail.customer_name|default:"未关联客户" }}</p>
+            </div>
+            <span class="finance-tag {% if detail.status == 'invoiced' %}finance-tag-green{% elif detail.status == 'pending' %}finance-tag-orange{% elif detail.status == 'rejected' %}finance-tag-red{% else %}finance-tag-blue{% endif %}">
+                {{ detail.status_display }}
+            </span>
+        </div>
+
+        <div class="finance-detail-body">
+            <div class="finance-detail-grid">
+                <div class="finance-detail-section">
+                    <div class="finance-section-title"><i class="layui-icon layui-icon-link"></i>业务关联</div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">订单编号</div>
+                        <div class="finance-detail-value">{{ detail.order_number|default:"未关联" }}</div>
+                    </div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">客户名称</div>
+                        <div class="finance-detail-value">{{ detail.customer_name|default:"未关联" }}</div>
+                    </div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">申请人</div>
+                        <div class="finance-detail-value">{{ detail.applicant|default:"-" }}</div>
+                    </div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">审核人</div>
+                        <div class="finance-detail-value">{{ detail.reviewer|default:"未处理" }}</div>
+                    </div>
+                </div>
+
+                <div class="finance-detail-section">
+                    <div class="finance-section-title"><i class="layui-icon layui-icon-form"></i>开票信息</div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">发票类型</div>
+                        <div class="finance-detail-value">{{ detail.invoice_type_display }}</div>
+                    </div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">开票抬头</div>
+                        <div class="finance-detail-value">{{ detail.invoice_title }}</div>
+                    </div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">税号</div>
+                        <div class="finance-detail-value">{{ detail.tax_number|default:"未填写" }}</div>
+                    </div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">申请金额</div>
+                        <div class="finance-detail-value"><strong>¥{{ detail.amount|floatformat:2 }}</strong></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="finance-detail-grid">
+                <div class="finance-detail-section">
+                    <div class="finance-section-title"><i class="layui-icon layui-icon-date"></i>流程时间</div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">申请时间</div>
+                        <div class="finance-detail-value">{{ detail.create_time|default:"-" }}</div>
+                    </div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">审核时间</div>
+                        <div class="finance-detail-value">{{ detail.review_time|default:"未处理" }}</div>
+                    </div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">关联发票</div>
+                        <div class="finance-detail-value">{% if detail.invoice_id %}发票#{{ detail.invoice_id }}{% else %}尚未生成{% endif %}</div>
+                    </div>
+                </div>
+
+                <div class="finance-detail-section">
+                    <div class="finance-section-title"><i class="layui-icon layui-icon-release"></i>审批说明</div>
+                    <div class="finance-detail-label">申请原因</div>
+                    <div class="finance-detail-block">{{ detail.reason|default:"未填写" }}</div>
+                    <div class="finance-detail-label" style="margin-top:12px;">审核意见</div>
+                    <div class="finance-detail-block">{{ detail.review_comment|default:"暂无审核意见" }}</div>
+                </div>
+            </div>
+
+            <div class="finance-detail-actions">
+                {% if detail.status == 'pending' %}
+                <button type="button" class="layui-btn layui-btn-normal" id="approveBtn">
+                    <i class="layui-icon layui-icon-ok"></i> 通过
+                </button>
+                <button type="button" class="layui-btn layui-btn-danger" id="rejectBtn">
+                    <i class="layui-icon layui-icon-close"></i> 驳回
+                </button>
+                {% endif %}
+                <button type="button" class="layui-btn layui-btn-primary" onclick="closePopup()">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+layui.use(["layer"], function () {
+    const layer = layui.layer;
+    const financeBase = window.location.pathname.startsWith("/adm/") ? "/adm/finance" : "/finance";
+
+    function reloadParentTable() {
+        if (window.parent && window.parent.layui && window.parent.layui.table) {
+            window.parent.layui.table.reload("requestTable");
+        }
+    }
+
+    function approveRequest(action) {
+        const title = action === "approved" ? "审批意见" : "驳回原因";
+        layer.prompt({ title: title, formType: 2, value: "" }, function (value, index) {
+            $.ajax({
+                url: financeBase + "/invoice-request/approval/",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({
+                    request_id: {{ invoice_request.id }},
+                    action: action,
+                    comment: value
+                }),
+                success: function (res) {
+                    if (res.code === 0) {
+                        layer.msg(res.msg || "处理成功", { icon: 1 }, function () {
+                            reloadParentTable();
+                            closePopup();
+                        });
+                    } else {
+                        layer.msg(res.msg || "处理失败", { icon: 2 });
+                    }
+                }
+            });
+            layer.close(index);
+        });
+    }
+
+    $("#approveBtn").on("click", function () {
+        approveRequest("approved");
+    });
+    $("#rejectBtn").on("click", function () {
+        approveRequest("rejected");
+    });
+});
+</script>
+{% endblock %}

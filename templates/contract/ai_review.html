@@ -107,6 +107,26 @@
         .history-detail .cross-table,
         .history-detail .quick-review-card,
         .history-detail .risk-overview { background:#fff; }
+        .case-report { display:flex; flex-direction:column; gap:14px; }
+        .case-report-section { background:#fff; border:1px solid #e8edf5; border-radius:6px; padding:14px 16px; }
+        .case-report-title { font-size:14px; font-weight:600; color:#1f2d3d; margin-bottom:12px; }
+        .case-report-lines { display:flex; flex-direction:column; gap:8px; }
+        .case-report-line { display:flex; align-items:flex-start; gap:8px; font-size:13px; line-height:1.85; color:#334155; }
+        .case-report-dot { color:#1e549f; font-weight:700; line-height:1.85; }
+        .case-report-label { color:#111827; font-weight:600; }
+        .case-report-text { flex:1; word-break:break-word; }
+        .case-report-summary { font-size:13px; line-height:1.9; color:#334155; }
+        .case-report-pill { display:inline-flex; align-items:center; padding:4px 10px; border-radius:999px; background:#f5f7fb; color:#475569; font-size:12px; margin-bottom:10px; }
+        .case-clause-list { display:flex; flex-direction:column; gap:12px; }
+        .case-clause-item { border:1px solid #edf2f7; border-radius:6px; padding:12px 14px; background:#fcfdff; }
+        .case-clause-item.high { border-color:#ffd4cf; background:#fff8f7; }
+        .case-clause-item.medium { border-color:#ffe5b8; background:#fffdf8; }
+        .case-clause-item.low { border-color:#d9f0dd; background:#f8fcf8; }
+        .case-clause-heading { font-size:13px; font-weight:600; color:#1f2d3d; margin-bottom:10px; }
+        .case-conclusion-table { width:100%; border-collapse:collapse; font-size:12px; background:#fff; }
+        .case-conclusion-table th { background:#f8fafc; color:#475569; padding:9px 10px; text-align:left; border-bottom:1px solid #e5eaf2; }
+        .case-conclusion-table td { padding:9px 10px; border-bottom:1px solid #eef2f7; color:#334155; }
+        .case-final-advice { margin-top:12px; padding:12px 14px; border-radius:6px; background:#f8fafc; color:#1f2d3d; font-size:13px; line-height:1.85; }
         @media (max-width: 1100px) {
             .history-layout { grid-template-columns:1fr; }
         }
@@ -473,7 +493,7 @@ function renderPreviewReview(data){
 
     document.getElementById("overallBlock").style.display="block";
     document.getElementById("overallContent").innerHTML =
-        renderOverallAssessment(data.overall_assessment || {}, RISK_LABELS)
+        renderDisplayReport(data.display_report || buildDisplayReportFromLegacy(data))
         + renderQuickReview(data.quick_review_result || {}, RISK_LABELS)
         + "<div class='quick-review-note' style='margin-top:12px;'>当前为首屏预评估结果，系统正在继续生成逐条审查意见。</div>";
 
@@ -552,7 +572,7 @@ function pollReviewStatus(reviewId){
 }
 
 function renderReview(data){
-    document.getElementById("overallBlockTitle").textContent = "总体评估";
+    document.getElementById("overallBlockTitle").textContent = "审查结果";
 
     // Cross-check
     var cc = data.data_cross_check||[];
@@ -563,22 +583,10 @@ function renderReview(data){
         document.getElementById("crossCheckBlock").style.display="none";
     }
 
-    // Overall
-    var oa = data.overall_assessment || {};
     document.getElementById("overallBlock").style.display="block";
-    document.getElementById("overallContent").innerHTML = renderOverallAssessment(oa, RISK_LABELS);
-
-    // Clauses
-    var clauses = data.clause_reviews||[];
-    document.getElementById("clauseBlock").style.display = clauses.length?"block":"none";
-    document.getElementById("clauseContent").innerHTML = renderClauseItems(clauses, RISK_LABELS, true);
-
-    // Conclusion
-    var conc = data.review_conclusion||[];
-    document.getElementById("conclusionBlock").style.display = conc.length?"block":"none";
-    if(conc.length){
-        document.getElementById("conclusionContent").innerHTML = renderConclusionTable(conc, RISK_LABELS);
-    }
+    document.getElementById("overallContent").innerHTML = renderDisplayReport(data.display_report || buildDisplayReportFromLegacy(data));
+    document.getElementById("clauseBlock").style.display = "none";
+    document.getElementById("conclusionBlock").style.display = "none";
 
     document.getElementById((cc.length ? "crossCheckBlock" : "overallBlock")).scrollIntoView({behavior:"smooth"});
 }
@@ -623,6 +631,139 @@ function escapeHtml(text){
         .replace(/>/g,"&gt;")
         .replace(/\"/g,"&quot;")
         .replace(/'/g,"&#39;");
+}
+
+function getRiskDisplay(level, spaced){
+    var riskMap = {
+        high: ["🔴", "高风险"],
+        medium: ["🟡", "中风险"],
+        low: ["🟢", "低风险"],
+        unknown: ["⚪", "待确认"]
+    };
+    var tuple = riskMap[level] || riskMap.unknown;
+    return tuple[0] + (spaced ? " " : "") + tuple[1];
+}
+
+function buildDisplayReportFromLegacy(detail){
+    var info = detail.contract_info || {};
+    var overall = detail.overall_assessment || {};
+    var clauses = Array.isArray(detail.clause_reviews) ? detail.clause_reviews : [];
+    var conclusionRows = Array.isArray(detail.review_conclusion) ? detail.review_conclusion : [];
+    return {
+        section_titles: {
+            contract_info: "📄 合同信息",
+            overall_assessment: "📊 总体评估",
+            clause_reviews: "🔍 逐条审查意见",
+            review_conclusion: "📋 审查结论汇总"
+        },
+        contract_info: [
+            {label: "合同名称/类型", value: info.contract_name || "{{ contract.name|escapejs }}"},
+            {label: "我方签约角色", value: info.our_role || "待确认"},
+            {label: "核心诉求", value: info.core_demands || "待确认"}
+        ],
+        overall_assessment: {
+            summary: overall.summary || detail.overall_summary || "",
+            risk_level: overall.risk_level || detail.overall_risk_level || "unknown",
+            risk_display: getRiskDisplay(overall.risk_level || detail.overall_risk_level || "unknown", false),
+            final_recommendation: overall.final_recommendation || detail.final_recommendation || ""
+        },
+        clause_reviews: clauses.map(function(item, index){
+            var clauseNo = item.clause_no || ("第" + (index + 1) + "条");
+            var title = item.title || "";
+            return {
+                heading: title ? (clauseNo + " [" + title + "]") : clauseNo,
+                risk_level: item.risk_level || "unknown",
+                risk_display: getRiskDisplay(item.risk_level || "unknown", false),
+                original_summary: item.original_summary || "",
+                risk_analysis: item.risk_analysis || "",
+                suggestion: item.suggestion || ""
+            };
+        }),
+        review_conclusion: {
+            rows: conclusionRows.map(function(item){
+                return {
+                    clause_no: item.clause_no || "",
+                    title: item.title || "",
+                    risk_level: item.risk_level || "unknown",
+                    risk_display: getRiskDisplay(item.risk_level || "unknown", true),
+                    action: item.action || ""
+                };
+            }),
+            final_recommendation: overall.final_recommendation || detail.final_recommendation || ""
+        }
+    };
+}
+
+function renderBulletLine(label, value){
+    return "<div class='case-report-line'>"
+        +"<span class='case-report-dot'>●</span>"
+        +"<div class='case-report-text'><span class='case-report-label'>"+escapeHtml(label)+"：</span>"
+        +escapeHtml(value || "-").replace(/\n/g,"<br>")+"</div></div>";
+}
+
+function renderDisplayReport(report){
+    if(!report){
+        return "<div class='quick-review-empty'>暂未获取到可展示的审查报告。</div>";
+    }
+    var titles = report.section_titles || {};
+    var contractInfo = Array.isArray(report.contract_info) ? report.contract_info : [];
+    var overall = report.overall_assessment || {};
+    var clauses = Array.isArray(report.clause_reviews) ? report.clause_reviews : [];
+    var conclusion = report.review_conclusion || {};
+    var rows = Array.isArray(conclusion.rows) ? conclusion.rows : [];
+    var html = "<div class='case-report'>";
+
+    html += "<div class='case-report-section'>"
+        +"<div class='case-report-title'>"+escapeHtml(titles.contract_info || "📄 合同信息")+"</div>"
+        +"<div class='case-report-lines'>"
+        +contractInfo.map(function(item){
+            return renderBulletLine(item.label || "", item.value || "");
+        }).join("")
+        +"</div></div>";
+
+    html += "<div class='case-report-section'>"
+        +"<div class='case-report-title'>"+escapeHtml(titles.overall_assessment || "📊 总体评估")+"</div>"
+        +(overall.risk_display ? "<div class='case-report-pill'>"+escapeHtml(overall.risk_display)+"</div>" : "")
+        +"<div class='case-report-summary'>"+escapeHtml(overall.summary || "暂未生成总体评估。").replace(/\n/g,"<br>")+"</div>"
+        +(overall.final_recommendation ? "<div class='case-final-advice'><span class='case-report-label'>最终建议：</span>"+escapeHtml(overall.final_recommendation).replace(/\n/g,"<br>")+"</div>" : "")
+        +"</div>";
+
+    if(clauses.length){
+        html += "<div class='case-report-section'>"
+            +"<div class='case-report-title'>"+escapeHtml(titles.clause_reviews || "🔍 逐条审查意见")+"</div>"
+            +"<div class='case-clause-list'>"
+            +clauses.map(function(item){
+                return "<div class='case-clause-item "+escapeHtml(item.risk_level || "unknown")+"'>"
+                    +"<div class='case-clause-heading'>"+escapeHtml(item.heading || "待确认条款")+"</div>"
+                    +(item.original_summary ? renderBulletLine("原文摘要", item.original_summary) : "")
+                    +renderBulletLine("风险分析", item.risk_analysis || "待补充")
+                    +renderBulletLine("风险等级", item.risk_display || getRiskDisplay(item.risk_level || "unknown", false))
+                    +(item.suggestion ? renderBulletLine("修改建议", item.suggestion) : "")
+                    +"</div>";
+            }).join("")
+            +"</div></div>";
+    }
+
+    if(rows.length || conclusion.final_recommendation){
+        html += "<div class='case-report-section'>"
+            +"<div class='case-report-title'>"+escapeHtml(titles.review_conclusion || "📋 审查结论汇总")+"</div>";
+        if(rows.length){
+            html += "<table class='case-conclusion-table'><thead><tr><th>条款</th><th>风险等级</th><th>建议动作</th></tr></thead><tbody>"
+                +rows.map(function(row){
+                    var clauseText = row.title ? ((row.clause_no || "") + " " + row.title) : (row.clause_no || "-");
+                    return "<tr><td>"+escapeHtml((clauseText || "-").trim())+"</td><td>"+escapeHtml(row.risk_display || getRiskDisplay(row.risk_level || "unknown", true))+"</td><td>"+escapeHtml(row.action || "-")+"</td></tr>";
+                }).join("")
+                +"</tbody></table>";
+        }
+        if(conclusion.final_recommendation){
+            html += "<div class='case-final-advice'><span class='case-report-label'>最终建议：</span>"
+                +escapeHtml(conclusion.final_recommendation).replace(/\n/g,"<br>")+"</div>";
+        }
+        html += "</div>";
+    }
+
+    html += "</div>";
+    return html;
 }
 
 function renderOverallAssessment(oa, labels){
@@ -817,19 +958,9 @@ function renderHistoryDetail(detail){
                 +renderCrossCheckContent(detail.data_cross_check||[])
                 +"</div>";
         }
-        html += "<div class='history-detail-section'><div class='history-detail-title'>总体评估</div>"
-            +renderOverallAssessment(detail.overall_assessment || {}, RISK_LABELS)
+        html += "<div class='history-detail-section'><div class='history-detail-title'>正式审查报告</div>"
+            +renderDisplayReport(detail.display_report || buildDisplayReportFromLegacy(detail))
             +"</div>";
-        if((detail.clause_reviews||[]).length){
-            html += "<div class='history-detail-section'><div class='history-detail-title'>逐条审查意见</div>"
-                +renderClauseItems(detail.clause_reviews || [], RISK_LABELS, false)
-                +"</div>";
-        }
-        if((detail.review_conclusion||[]).length){
-            html += "<div class='history-detail-section'><div class='history-detail-title'>结论汇总</div>"
-                +renderConclusionTable(detail.review_conclusion || [], RISK_LABELS)
-                +"</div>";
-        }
     }
 
     detailEl.innerHTML = html;

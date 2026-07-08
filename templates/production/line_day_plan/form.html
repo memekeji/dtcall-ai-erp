@@ -6,81 +6,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ action }}生产线日计划</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
 <body>
-    <div class="layui-fluid" style="padding: 20px;">
-        <div class="layui-card">
-            <div class="layui-card-header">{{ action }}生产线日计划</div>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>{{ action }}生产线日计划</h2></div>
+        <div class="production-note" style="margin-bottom: 16px;">
+            日计划可以从生产计划直接带入数量、负责人和计划日期，避免二次录入。
+        </div>
+        <div class="layui-card production-form-card">
             <div class="layui-card-body">
-                {% if form.errors %}
-                <div class="layui-bg-red" style="padding: 12px; color: #fff; margin-bottom: 16px;">
-                    {% for field in form %}
-                        {% for error in field.errors %}
-                        <div>{{ field.label }}：{{ error }}</div>
-                        {% endfor %}
-                    {% endfor %}
-                    {% for error in form.non_field_errors %}
-                    <div>{{ error }}</div>
-                    {% endfor %}
-                </div>
-                {% endif %}
-
                 <form method="post" class="layui-form">
                     {% csrf_token %}
-                    {% for hidden in form.hidden_fields %}
-                        {{ hidden }}
-                    {% endfor %}
-
-                    {% for field in form.visible_fields %}
-                    <div class="layui-form-item">
-                        <label class="layui-form-label" style="width: 150px;">{{ field.label }}</label>
-                        <div class="layui-input-block" style="margin-left: 180px;">
-                            {{ field }}
-                            {% if field.help_text %}
-                            <div class="layui-form-mid layui-word-aux">{{ field.help_text }}</div>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% endfor %}
-
-                    <div class="layui-form-item">
-                        <div class="layui-input-block" style="margin-left: 180px;">
-                            <button class="layui-btn" type="submit">保存</button>
-                            <a href="{% url 'production:production_line_day_plan_list' %}" class="layui-btn layui-btn-primary">返回</a>
-                        </div>
-                    </div>
+                    {{ form.completed_quantity }}{{ form.status }}
+                    <div class="layui-form-item"><label class="layui-form-label">日计划名称</label><div class="layui-input-block">{{ form.name }}</div></div>
+                    <div class="layui-form-item"><label class="layui-form-label">日计划编号</label><div class="layui-input-block">{{ form.code }}</div></div>
+                    <div class="layui-form-item"><label class="layui-form-label">生产线</label><div class="layui-input-block">{{ form.production_line }}</div></div>
+                    <div class="layui-form-item"><label class="layui-form-label">计划日期</label><div class="layui-input-block">{{ form.plan_date }}</div></div>
+                    <div class="layui-form-item"><label class="layui-form-label">关联生产计划</label><div class="layui-input-block">{{ form.production_plan }}</div></div>
+                    <div class="layui-form-item"><label class="layui-form-label">计划数量</label><div class="layui-input-block">{{ form.quantity }}</div></div>
+                    <div class="layui-form-item"><label class="layui-form-label">负责人</label><div class="layui-input-block">{{ form.manager }}</div></div>
+                    <div class="layui-form-item layui-form-text"><label class="layui-form-label">计划描述</label><div class="layui-input-block">{{ form.description }}</div></div>
+                    <div class="layui-form-item"><div class="layui-input-block"><button class="layui-btn" type="submit">{{ action }}</button><a href="{% url 'production:production_line_day_plan_list' %}" class="layui-btn layui-btn-primary">返回</a></div></div>
                 </form>
             </div>
         </div>
     </div>
-
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        layui.use(["form"], function () {
+        layui.use(['form', 'laydate'], function () {
             layui.form.render();
+            layui.laydate.render({ elem: '#id_plan_date', type: 'date' });
         });
-
         {% include "production/_right_popup_function.html" %}
-</script>
-
-    <!-- 注入的消息提示脚本 -->
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
-        });
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
 </html>

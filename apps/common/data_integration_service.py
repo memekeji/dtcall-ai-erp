@@ -75,7 +75,7 @@ class DataIntegrationService:
 
             # 自动创建财务记录
             finance_record = OrderFinanceRecord.objects.create(
-                order=order,
+                order_id=order.id,
                 total_amount=order.amount,
                 paid_amount=0,
                 payment_status='pending'
@@ -170,7 +170,7 @@ class DataIntegrationService:
                 order_id__in=order_ids)
 
             # 获取发票
-            invoices = Invoice.objects.filter(contract=contract)
+            invoices = Invoice.objects.filter(contract_id=contract.id)
 
             # 计算统计数据
             total_orders_amount = sum(order.amount for order in orders)
@@ -212,7 +212,7 @@ class DataIntegrationService:
 
             for order in orders_without_finance:
                 OrderFinanceRecord.objects.create(
-                    order=order,
+                    order_id=order.id,
                     total_amount=order.amount,
                     paid_amount=0,
                     payment_status='pending'
@@ -223,7 +223,7 @@ class DataIntegrationService:
             for order in CustomerOrder.objects.all():
                 try:
                     finance_record = OrderFinanceRecord.objects.get(
-                        order=order)
+                        order_id=order.id)
                     if finance_record.payment_status == 'paid':
                         order.finance_status = 'synced'
                         order.save()

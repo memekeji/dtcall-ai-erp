@@ -4,40 +4,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ action }}物料清单</title>
+    <title>{{ action }}BOM</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
-    <style>
-        .page-wrap { padding: 20px; }
-        .field-error { margin-top: 6px; color: #ff5722; font-size: 12px; }
-    </style>
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
 <body>
-    <div class="layui-fluid page-wrap">
-        <div class="layui-card">
-            <div class="layui-card-header">{{ action }}物料清单</div>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title">
+            <h2>{{ action }}BOM</h2>
+        </div>
+
+        <div class="production-note">
+            BOM 明细是生产计划领料、库存缺口计算、生产齐套分析的直接来源。这里维护的每一行物料会在后续领料申请和库存对照中自动引用。
+        </div>
+
+        <div class="layui-card production-form-card" style="margin-top: 16px;">
             <div class="layui-card-body">
-                {% if form.non_field_errors %}
-                <div class="layui-bg-red" style="padding: 12px; margin-bottom: 15px; color: #fff;">{{ form.non_field_errors }}</div>
-                {% endif %}
-                <form class="layui-form" method="post">
+                <form method="post" class="layui-form">
                     {% csrf_token %}
-                    {% for field in form %}
-                    <div class="layui-form-item">
-                        <label class="layui-form-label" style="width: 120px;">{{ field.label }}</label>
-                        <div class="layui-input-block" style="margin-left: 150px;">
-                            {{ field }}
-                            {% if field.help_text %}
-                            <div class="layui-word-aux">{{ field.help_text }}</div>
-                            {% endif %}
-                            {% for error in field.errors %}
-                            <div class="field-error">{{ error }}</div>
-                            {% endfor %}
+
+                    {% if form.non_field_errors %}
+                    <div class="production-field-error" style="margin-bottom: 12px;">{{ form.non_field_errors }}</div>
+                    {% endif %}
+
+                    <div class="production-form-section-title">主档信息</div>
+                    <div class="layui-row layui-col-space16">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">BOM名称</label>
+                                <div class="layui-input-block">
+                                    {{ form.name }}
+                                    {% if form.name.errors %}<div class="production-field-error">{{ form.name.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">BOM编码</label>
+                                <div class="layui-input-block">
+                                    {{ form.code }}
+                                    {% if form.code.errors %}<div class="production-field-error">{{ form.code.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">关联产品</label>
+                                <div class="layui-input-block">
+                                    {{ form.product }}
+                                    {% if form.product.errors %}<div class="production-field-error">{{ form.product.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">版本号</label>
+                                <div class="layui-input-block">
+                                    {{ form.version }}
+                                    {% if form.version.errors %}<div class="production-field-error">{{ form.version.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    {% endfor %}
+
+                    <div class="layui-form-item layui-form-text">
+                        <label class="layui-form-label">BOM说明</label>
+                        <div class="layui-input-block">
+                            {{ form.description }}
+                            {% if form.description.errors %}<div class="production-field-error">{{ form.description.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+
                     <div class="layui-form-item">
-                        <div class="layui-input-block" style="margin-left: 150px;">
-                            <button type="submit" class="layui-btn">{{ action }}</button>
+                        <label class="layui-form-label">启用状态</label>
+                        <div class="layui-input-block">
+                            {{ form.status }}
+                            {% if form.status.errors %}<div class="production-field-error">{{ form.status.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="production-formset-card">
+                        <div class="production-formset-head">
+                            <div>
+                                <div class="production-formset-title">BOM物料明细</div>
+                                <div class="production-mini-note">请维护真实的物料编码、单位和单件用量，后续物料申请会按这里的明细自动生成。</div>
+                            </div>
+                            <button type="button" class="layui-btn layui-btn-normal layui-btn-sm" onclick="addInlineRow('bom-items-body', 'bom-item-template', 'id_items-TOTAL_FORMS')">新增物料行</button>
+                        </div>
+                        <div class="production-formset-body">
+                            {{ formset.management_form }}
+                            {% if formset.non_form_errors %}
+                            <div class="production-field-error" style="margin-bottom: 12px;">{{ formset.non_form_errors }}</div>
+                            {% endif %}
+                            <div class="production-table-wrap">
+                                <table class="layui-table production-formset-table" lay-skin="line">
+                                    <thead>
+                                        <tr>
+                                            <th>物料名称</th>
+                                            <th>物料编码</th>
+                                            <th>规格型号</th>
+                                            <th>单位</th>
+                                            <th>单件用量</th>
+                                            <th>单价</th>
+                                            <th>总价</th>
+                                            <th>供应商</th>
+                                            <th>备注</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="bom-items-body">
+                                        {% for item_form in formset.forms %}
+                                        <tr class="inline-form-row">
+                                            {% for hidden in item_form.hidden_fields %}{{ hidden }}{% endfor %}
+                                            <td>
+                                                {{ item_form.material_name }}
+                                                {% if item_form.material_name.errors %}<div class="production-field-error">{{ item_form.material_name.errors.0 }}</div>{% endif %}
+                                            </td>
+                                            <td>
+                                                {{ item_form.material_code }}
+                                                {% if item_form.material_code.errors %}<div class="production-field-error">{{ item_form.material_code.errors.0 }}</div>{% endif %}
+                                            </td>
+                                            <td>{{ item_form.specification }}</td>
+                                            <td>{{ item_form.unit }}</td>
+                                            <td>{{ item_form.quantity }}</td>
+                                            <td>{{ item_form.unit_cost }}</td>
+                                            <td>{{ item_form.total_cost }}</td>
+                                            <td>{{ item_form.supplier }}</td>
+                                            <td>{{ item_form.remark }}</td>
+                                            <td>
+                                                {% if item_form.DELETE %}<div style="display:none;">{{ item_form.DELETE }}</div>{% endif %}
+                                                <button type="button" class="layui-btn layui-btn-danger layui-btn-xs" onclick="markInlineRowDeleted(this)">移除</button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item" style="margin-top: 18px;">
+                        <div class="layui-input-block">
+                            <button class="layui-btn" type="submit">{{ action }}</button>
                             <a href="{% url 'production:bom_list' %}" class="layui-btn layui-btn-primary">返回</a>
                         </div>
                     </div>
@@ -46,33 +155,82 @@
         </div>
     </div>
 
+    <template id="bom-item-template">
+        <tr class="inline-form-row">
+            {% for hidden in formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
+            <td>{{ formset.empty_form.material_name }}</td>
+            <td>{{ formset.empty_form.material_code }}</td>
+            <td>{{ formset.empty_form.specification }}</td>
+            <td>{{ formset.empty_form.unit }}</td>
+            <td>{{ formset.empty_form.quantity }}</td>
+            <td>{{ formset.empty_form.unit_cost }}</td>
+            <td>{{ formset.empty_form.total_cost }}</td>
+            <td>{{ formset.empty_form.supplier }}</td>
+            <td>{{ formset.empty_form.remark }}</td>
+            <td>
+                {% if formset.empty_form.DELETE %}<div style="display:none;">{{ formset.empty_form.DELETE }}</div>{% endif %}
+                <button type="button" class="layui-btn layui-btn-danger layui-btn-xs" onclick="markInlineRowDeleted(this)">移除</button>
+            </td>
+        </tr>
+    </template>
+
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        layui.use(['form'], function() {
+        function refreshBomRow(row) {
+            var quantityInput = row.querySelector('input[name$="-quantity"]');
+            var unitCostInput = row.querySelector('input[name$="-unit_cost"]');
+            var totalCostInput = row.querySelector('input[name$="-total_cost"]');
+            if (!quantityInput || !unitCostInput || !totalCostInput) {
+                return;
+            }
+            var quantity = parseFloat(quantityInput.value || '0');
+            var unitCost = parseFloat(unitCostInput.value || '0');
+            totalCostInput.value = (quantity * unitCost).toFixed(2);
+        }
+
+        function bindBomRow(row) {
+            ['input', 'change'].forEach(function(eventName) {
+                var quantityInput = row.querySelector('input[name$="-quantity"]');
+                var unitCostInput = row.querySelector('input[name$="-unit_cost"]');
+                if (quantityInput) {
+                    quantityInput.addEventListener(eventName, function() { refreshBomRow(row); });
+                }
+                if (unitCostInput) {
+                    unitCostInput.addEventListener(eventName, function() { refreshBomRow(row); });
+                }
+            });
+            refreshBomRow(row);
+        }
+
+        function addInlineRow(bodyId, templateId, totalId) {
+            var totalInput = document.getElementById(totalId);
+            var nextIndex = parseInt(totalInput.value, 10);
+            var html = document.getElementById(templateId).innerHTML.replace(/__prefix__/g, nextIndex);
+            document.getElementById(bodyId).insertAdjacentHTML('beforeend', html);
+            totalInput.value = nextIndex + 1;
+            var row = document.getElementById(bodyId).lastElementChild;
+            bindBomRow(row);
             layui.form.render();
+        }
+
+        function markInlineRowDeleted(button) {
+            var row = button.closest('tr');
+            var deleteInput = row.querySelector('input[name$="-DELETE"]');
+            if (deleteInput) {
+                deleteInput.checked = true;
+                row.style.display = 'none';
+            } else {
+                row.remove();
+            }
+        }
+
+        layui.use(['form'], function () {
+            layui.form.render();
+            document.querySelectorAll('#bom-items-body .inline-form-row').forEach(bindBomRow);
         });
 
         {% include "production/_right_popup_function.html" %}
-</script>
-
-    <!-- 注入的消息提示脚本 -->
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
-        });
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
 </html>

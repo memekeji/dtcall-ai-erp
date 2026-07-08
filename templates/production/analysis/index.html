@@ -1,298 +1,185 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>性能分析 - 生产管理系统</title>
+    <title>生产性能分析</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
     <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
-    <style>
-        .stats-card {
-            text-align: center;
-            padding: 20px;
-            border-radius: 8px;
-            color: white;
-            margin-bottom: 10px;
-        }
-        .stats-card.total {
-            background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%);
-        }
-        .stats-card.completed {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        }
-        .stats-card.active {
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-        }
-        .stats-card.quality {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        }
-        .stat-number {
-            font-size: 28px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .stat-label {
-            font-size: 14px;
-            opacity: 0.9;
-        }
-        .stat-sub {
-            font-size: 12px;
-            opacity: 0.8;
-            margin-top: 5px;
-        }
-        .chart-container {
-            height: 350px;
-            margin-top: 20px;
-        }
-        .date-filter {
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-        .metric-card {
-            padding: 15px;
-            background: #fff;
-            border: 1px solid #e6e6e6;
-            border-radius: 8px;
-            margin-bottom: 10px;
-        }
-        .metric-title {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 8px;
-        }
-        .metric-value {
-            font-size: 24px;
-            font-weight: bold;
-            color: #333;
-        }
-        .metric-trend {
-            font-size: 12px;
-            margin-top: 5px;
-        }
-        .trend-up {
-            color: #5FB878;
-        }
-        .trend-down {
-            color: #FF5722;
-        }
-        .table-th-center th {
-            text-align: center;
-        }
-        .table-td-center td {
-            text-align: center;
-        }
-        .status-high {
-            color: #5FB878;
-        }
-        .status-medium {
-            color: #FFB800;
-        }
-        .status-low {
-            color: #FF5722;
-        }
-    </style>
 </head>
-
 <body>
-    <div class="layui-fluid" style="padding: 20px;">
-        <div class="layui-row">
-            <div class="layui-col-md12">
-                <h2 style="margin-bottom: 20px;">生产性能分析</h2>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title">
+            <h2>生产性能分析</h2>
+        </div>
+
+        <div class="production-note">
+            分析结果直接汇总项目内生产计划、生产任务、质量检验、资源消耗、物料出库和完工数据，不依赖外部报表导入。
+        </div>
+
+        <div class="layui-card production-panel-card" style="margin-top: 16px;">
+            <div class="layui-card-body" style="padding: 18px 20px;">
+                <form class="layui-form production-list-toolbar" method="get">
+                    <div class="production-inline-actions">
+                        <div class="layui-inline">
+                            <label class="layui-form-label" style="width: 80px;">开始日期</label>
+                            <div class="layui-input-inline">
+                                <input type="text" class="layui-input" id="startDate" name="start_date" value="{{ start_date|date:'Y-m-d' }}" placeholder="开始日期">
+                            </div>
+                        </div>
+                        <div class="layui-inline">
+                            <label class="layui-form-label" style="width: 80px;">结束日期</label>
+                            <div class="layui-input-inline">
+                                <input type="text" class="layui-input" id="endDate" name="end_date" value="{{ end_date|date:'Y-m-d' }}" placeholder="结束日期">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="production-inline-actions">
+                        <button class="layui-btn layui-btn-normal" type="submit">更新分析区间</button>
+                        <button class="layui-btn layui-btn-primary" type="button" onclick="downloadReport()">导出综合报告</button>
+                    </div>
+                </form>
             </div>
         </div>
 
-        <div class="date-filter">
-            <form class="layui-form" lay-filter="dateFilter">
-                <div class="layui-inline">
-                    <label class="layui-form-label" style="width: 80px;">开始日期</label>
-                    <div class="layui-input-inline">
-                        <input type="text" class="layui-input" id="startDate" name="startDate"
-                               value="{{ start_date }}" placeholder="开始日期">
-                    </div>
-                </div>
-                <div class="layui-inline">
-                    <label class="layui-form-label" style="width: 80px;">结束日期</label>
-                    <div class="layui-input-inline">
-                        <input type="text" class="layui-input" id="endDate" name="endDate"
-                               value="{{ end_date }}" placeholder="结束日期">
-                    </div>
-                </div>
-                <div class="layui-inline">
-                    <button class="layui-btn" lay-submit lay-filter="searchFilter">
-                        <i class="layui-icon layui-icon-search"></i> 查询
-                    </button>
-                </div>
-                <div class="layui-inline">
-                    <button class="layui-btn layui-btn-primary" type="button" onclick="exportReport()">
-                        <i class="layui-icon layui-icon-export"></i> 导出报告
-                    </button>
-                </div>
-            </form>
-        </div>
-
-        <div class="layui-row layui-col-space15">
-            <div class="layui-col-md3">
-                <div class="stats-card total">
-                    <div class="stat-number" id="totalPlans">{{ summary.plans.total|default:0 }}</div>
-                    <div class="stat-label">总计划数</div>
-                    <div class="stat-sub">{{ summary.plans.completed|default:0 }} 已完成</div>
-                </div>
+        <div class="production-summary-strip" style="margin-top: 16px;">
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ summary.plans.total|default:0 }}</div>
+                <div class="production-summary-label">计划总数</div>
             </div>
-            <div class="layui-col-md3">
-                <div class="stats-card completed">
-                    <div class="stat-number" id="completionRate">{{ summary.plans.completion_rate|default:0 }}%</div>
-                    <div class="stat-label">计划完成率</div>
-                    <div class="stat-sub">任务完成: {{ summary.tasks.completion_rate|default:0 }}%</div>
-                </div>
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ summary.plans.completion_rate|default:0 }}%</div>
+                <div class="production-summary-label">计划完成率</div>
             </div>
-            <div class="layui-col-md3">
-                <div class="stats-card active">
-                    <div class="stat-number" id="qualityRate">{{ summary.production.quality_rate|default:0 }}%</div>
-                    <div class="stat-label">产品合格率</div>
-                    <div class="stat-sub">完成数量: {{ summary.production.completed_quantity|default:0 }}</div>
-                </div>
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ summary.production.quality_rate|default:0 }}%</div>
+                <div class="production-summary-label">产品合格率</div>
             </div>
-            <div class="layui-col-md3">
-                <div class="stats-card quality">
-                    <div class="stat-number" id="oeeAvg">0%</div>
-                    <div class="stat-label">平均OEE</div>
-                    <div class="stat-sub">设备效率分析</div>
-                </div>
+            <div class="production-summary-item accent">
+                <div class="production-summary-value" id="avgOeeValue">0%</div>
+                <div class="production-summary-label">平均 OEE</div>
             </div>
         </div>
 
-        <div class="layui-row layui-col-space15" style="margin-top: 20px;">
-            <div class="layui-col-md6">
-                <div class="layui-card">
-                    <div class="layui-card-header">生产趋势</div>
-                    <div class="layui-card-body">
-                        <div id="trendChart" class="chart-container"></div>
-                    </div>
-                </div>
+        <div class="production-summary-strip">
+            <div class="production-summary-item">
+                <div class="production-summary-value" id="costTotalValue">0</div>
+                <div class="production-summary-label">区间制造总成本</div>
             </div>
-            <div class="layui-col-md6">
-                <div class="layui-card">
-                    <div class="layui-card-header">生产构成分析</div>
-                    <div class="layui-card-body">
-                        <div id="compositionChart" class="chart-container"></div>
-                    </div>
-                </div>
+            <div class="production-summary-item">
+                <div class="production-summary-value" id="deliveryRateValue">0%</div>
+                <div class="production-summary-label">准时交付率</div>
+            </div>
+            <div class="production-summary-item">
+                <div class="production-summary-value" id="laborEfficiencyValue">0</div>
+                <div class="production-summary-label">人均小时产出</div>
+            </div>
+            <div class="production-summary-item accent">
+                <div class="production-summary-value">{{ summary.tasks.total|default:0 }}</div>
+                <div class="production-summary-label">纳入分析的任务数</div>
             </div>
         </div>
 
-        <div class="layui-row layui-col-space15" style="margin-top: 20px;">
-            <div class="layui-col-md6">
-                <div class="layui-card">
-                    <div class="layui-card-header">质量分析</div>
-                    <div class="layui-card-body">
-                        <div id="qualityChart" class="chart-container"></div>
-                    </div>
+        <div class="production-grid cols-2" style="margin-top: 16px;">
+            <div class="production-section-card">
+                <div class="production-section-header">生产趋势</div>
+                <div class="production-section-body">
+                    <div id="trendChart" class="production-chart-box"></div>
                 </div>
             </div>
-            <div class="layui-col-md6">
-                <div class="layui-card">
-                    <div class="layui-card-header">设备效率分布</div>
-                    <div class="layui-card-body">
-                        <div id="equipmentChart" class="chart-container"></div>
-                    </div>
+            <div class="production-section-card">
+                <div class="production-section-header">生产构成</div>
+                <div class="production-section-body">
+                    <div id="compositionChart" class="production-chart-box"></div>
                 </div>
             </div>
         </div>
 
-        <div class="layui-row" style="margin-top: 20px;">
-            <div class="layui-col-md12">
-                <div class="layui-card">
-                    <div class="layui-card-header">设备效率详情</div>
-                    <div class="layui-card-body" style="padding: 0;">
-                        <table class="layui-table table-th-center table-td-center" lay-skin="line">
-                            <thead>
-                                <tr>
-                                    <th>设备编号</th>
-                                    <th>设备名称</th>
-                                    <th>状态</th>
-                                    <th>任务数</th>
-                                    <th>完成数</th>
-                                    <th>利用率</th>
-                                    <th>OEE</th>
-                                    <th>可用性</th>
-                                    <th>性能</th>
-                                    <th>质量</th>
-                                </tr>
-                            </thead>
-                            <tbody id="equipmentTable">
-                                {% for stat in equipment_stats %}
-                                <tr>
-                                    <td>{{ stat.equipment_code }}</td>
-                                    <td>{{ stat.equipment_name }}</td>
-                                    <td>
-                                        {% if stat.status == 1 %}
-                                            <span style="color: #5FB878;">正常</span>
-                                        {% elif stat.status == 2 %}
-                                            <span style="color: #FFB800;">维修中</span>
-                                        {% elif stat.status == 3 %}
-                                            <span style="color: #FF5722;">停用</span>
-                                        {% else %}
-                                            <span style="color: #999;">报废</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ stat.total_tasks }}</td>
-                                    <td>{{ stat.completed_tasks }}</td>
-                                    <td>
-                                        <div style="width: 100%; height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden;">
-                                            <div style="height: 100%; width: {{ stat.utilization_rate }}%;
-                                                 background: {% if stat.utilization_rate >= 80 %}#5FB878{% elif stat.utilization_rate >= 60 %}#FFB800{% else %}#FF5722{% endif %};">
-                                            </div>
-                                        </div>
-                                        <small>{{ stat.utilization_rate }}%</small>
-                                    </td>
-                                    <td class="{% if stat.oee >= 80 %}status-high{% elif stat.oee >= 60 %}status-medium{% else %}status-low{% endif %}">
-                                        {{ stat.oee }}%
-                                    </td>
-                                    <td>{{ stat.availability }}%</td>
-                                    <td>{{ stat.performance }}%</td>
-                                    <td>{{ stat.quality }}%</td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="10" style="text-align: center; padding: 40px; color: #999;">
-                                        暂无设备数据
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+        <div class="production-grid cols-2" style="margin-top: 16px;">
+            <div class="production-section-card">
+                <div class="production-section-header">质量分析</div>
+                <div class="production-section-body">
+                    <div id="qualityChart" class="production-chart-box"></div>
+                </div>
+            </div>
+            <div class="production-section-card">
+                <div class="production-section-header">设备效率分布</div>
+                <div class="production-section-body">
+                    <div id="equipmentChart" class="production-chart-box"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="production-grid cols-2" style="margin-top: 16px;">
+            <div class="production-section-card">
+                <div class="production-section-header">人员效率排行</div>
+                <div class="production-section-body production-scroll-box">
+                    <div class="production-kpi-list" id="laborList">
+                        <div class="production-empty">正在加载人员效率数据...</div>
+                    </div>
+                </div>
+            </div>
+            <div class="production-section-card">
+                <div class="production-section-header">成本与交付</div>
+                <div class="production-section-body">
+                    <div class="production-kpi-list" id="costDeliveryList">
+                        <div class="production-empty">正在加载成本与交付数据...</div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="layui-row" style="margin-top: 20px;">
-            <div class="layui-col-md12">
-                <div class="layui-card">
-                    <div class="layui-card-header">快速操作</div>
-                    <div class="layui-card-body">
-                        <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:equipment_monitor_realtime' %}'">
-                            <i class="layui-icon layui-icon-chart-screen"></i> 设备监控
-                        </button>
-                        <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:resource_scheduling' %}'">
-                            <i class="layui-icon layui-icon-date"></i> 资源调度
-                        </button>
-                        <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:production_plan_list' %}'">
-                            <i class="layui-icon layui-icon-template-1"></i> 生产计划
-                        </button>
-                        <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:quality_check_list' %}'">
-                            <i class="layui-icon layui-icon-ok-circle"></i> 质量管理
-                        </button>
-                        <button class="layui-btn layui-btn-primary" onclick="openRightPopup('操作', '{% url 'production:statistics_quality' %}')">
-                            <i class="layui-icon layui-icon-chart"></i> 质量统计
-                        </button>
-                    </div>
-                </div>
+        <div class="production-section-card" style="margin-top: 16px;">
+            <div class="production-section-header">设备效率明细</div>
+            <div class="production-section-body" style="padding: 0;">
+                <table class="layui-table" lay-skin="line">
+                    <thead>
+                        <tr>
+                            <th>设备编号</th>
+                            <th>设备名称</th>
+                            <th>状态</th>
+                            <th>任务数</th>
+                            <th>完成数</th>
+                            <th>利用率</th>
+                            <th>OEE</th>
+                            <th>可用性</th>
+                            <th>性能</th>
+                            <th>质量</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in equipment_stats %}
+                        <tr>
+                            <td>{{ stat.equipment_code }}</td>
+                            <td>{{ stat.equipment_name }}</td>
+                            <td>{{ stat.status_display }}</td>
+                            <td>{{ stat.total_tasks }}</td>
+                            <td>{{ stat.completed_tasks }}</td>
+                            <td>{{ stat.utilization_rate }}%</td>
+                            <td>{{ stat.oee }}%</td>
+                            <td>{{ stat.availability }}%</td>
+                            <td>{{ stat.performance }}%</td>
+                            <td>{{ stat.quality }}%</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="10" class="production-empty">当前区间还没有可用于设备效率分析的任务数据</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="production-toolbar" style="margin-top: 16px;">
+            <div class="production-inline-actions">
+                <a class="layui-btn layui-btn-primary" href="{% url 'production:equipment_monitor_realtime' %}">设备监控</a>
+                <a class="layui-btn layui-btn-primary" href="{% url 'production:resource_scheduling' %}">资源调度</a>
+                <a class="layui-btn layui-btn-primary" href="{% url 'production:production_plan_list' %}">生产计划</a>
+                <a class="layui-btn layui-btn-primary" href="{% url 'production:quality_check_list' %}">质量管理</a>
             </div>
         </div>
     </div>
@@ -300,211 +187,80 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        layui.use(['layer', 'form', 'laydate'], function () {
-            var layer = layui.layer;
-            var form = layui.form;
-            var laydate = layui.laydate;
+        var trendChart;
+        var compositionChart;
+        var qualityChart;
+        var equipmentChart;
 
-            laydate.render({
-                elem: '#startDate',
-                format: 'yyyy-MM-dd'
-            });
-
-            laydate.render({
-                elem: '#endDate',
-                format: 'yyyy-MM-dd'
-            });
-
-            form.on('submit(searchFilter)', function (data) {
-                var startDate = $('#startDate').val();
-                var endDate = $('#endDate').val();
-                window.location.href = '/production/analysis/?start_date=' + startDate + '&end_date=' + endDate;
-                return false;
-            });
-        });
-
-        $(document).ready(function() {
-            initCharts();
-            loadStatisticsData();
-        });
+        function buildUrl(path) {
+            return path + '?start_date=' + encodeURIComponent($('#startDate').val()) + '&end_date=' + encodeURIComponent($('#endDate').val());
+        }
 
         function initCharts() {
-            var trendChart = echarts.init(document.getElementById('trendChart'));
-            var compositionChart = echarts.init(document.getElementById('compositionChart'));
-            var qualityChart = echarts.init(document.getElementById('qualityChart'));
-            var equipmentChart = echarts.init(document.getElementById('equipmentChart'));
+            trendChart = echarts.init(document.getElementById('trendChart'));
+            compositionChart = echarts.init(document.getElementById('compositionChart'));
+            qualityChart = echarts.init(document.getElementById('qualityChart'));
+            equipmentChart = echarts.init(document.getElementById('equipmentChart'));
 
-            var trendOption = {
-                tooltip: {
-                    trigger: 'axis'
-                },
-                legend: {
-                    data: ['完成数量', '合格数量', '合格率']
-                },
-                xAxis: {
-                    type: 'category',
-                    data: []
-                },
+            trendChart.setOption({
+                tooltip: { trigger: 'axis' },
+                legend: { top: 0, data: ['完成数量', '合格数量', '合格率'] },
+                grid: { left: 48, right: 40, top: 48, bottom: 32 },
+                xAxis: { type: 'category', data: [] },
                 yAxis: [
-                    {
-                        type: 'value',
-                        name: '数量'
-                    },
-                    {
-                        type: 'value',
-                        name: '合格率',
-                        min: 0,
-                        max: 100,
-                        axisLabel: {
-                            formatter: '{value}%'
-                        }
-                    }
+                    { type: 'value', name: '数量' },
+                    { type: 'value', name: '合格率', min: 0, max: 100, axisLabel: { formatter: '{value}%' } }
                 ],
                 series: [
-                    {
-                        name: '完成数量',
-                        type: 'bar',
-                        data: [],
-                        itemStyle: { color: '#1677ff' }
-                    },
-                    {
-                        name: '合格数量',
-                        type: 'bar',
-                        data: [],
-                        itemStyle: { color: '#43e97b' }
-                    },
-                    {
-                        name: '合格率',
-                        type: 'line',
-                        yAxisIndex: 1,
-                        data: [],
-                        itemStyle: { color: '#f5576c' }
-                    }
+                    { name: '完成数量', type: 'bar', data: [], itemStyle: { color: '#1677ff' } },
+                    { name: '合格数量', type: 'bar', data: [], itemStyle: { color: '#16a34a' } },
+                    { name: '合格率', type: 'line', yAxisIndex: 1, data: [], itemStyle: { color: '#f59e0b' }, smooth: true }
                 ]
-            };
+            });
 
-            var compositionOption = {
-                tooltip: {
-                    trigger: 'item',
-                    formatter: '{b}: {c} ({d}%)'
-                },
-                legend: {
-                    orient: 'vertical',
-                    left: 'left'
-                },
+            compositionChart.setOption({
+                tooltip: { trigger: 'item' },
+                legend: { bottom: 0 },
+                series: [{
+                    type: 'pie',
+                    radius: ['42%', '72%'],
+                    data: [
+                        { value: {{ summary.plans.completed|default:0 }}, name: '已完成', itemStyle: { color: '#16a34a' } },
+                        { value: {{ summary.plans.active|default:0 }}, name: '进行中', itemStyle: { color: '#1677ff' } },
+                        { value: Math.max({{ summary.plans.total|default:0 }} - {{ summary.plans.completed|default:0 }} - {{ summary.plans.active|default:0 }}, 0), name: '待开始/其他', itemStyle: { color: '#94a3b8' } }
+                    ]
+                }]
+            });
+
+            qualityChart.setOption({
+                tooltip: { trigger: 'item' },
+                legend: { bottom: 0 },
+                series: [{
+                    type: 'pie',
+                    radius: '68%',
+                    data: [
+                        { value: 0, name: '合格', itemStyle: { color: '#16a34a' } },
+                        { value: 0, name: '不合格', itemStyle: { color: '#ef4444' } },
+                        { value: 0, name: '待检', itemStyle: { color: '#f59e0b' } }
+                    ]
+                }]
+            });
+
+            equipmentChart.setOption({
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                legend: { top: 0, data: ['OEE', '可用性', '性能', '质量'] },
+                grid: { left: 72, right: 24, top: 48, bottom: 24 },
+                xAxis: { type: 'value', max: 100 },
+                yAxis: { type: 'category', data: [] },
                 series: [
-                    {
-                        name: '生产构成',
-                        type: 'pie',
-                        radius: ['40%', '70%'],
-                        avoidLabelOverlap: false,
-                        label: {
-                            show: false,
-                            position: 'center'
-                        },
-                        emphasis: {
-                            label: {
-                                show: true,
-                                fontSize: 18,
-                                fontWeight: 'bold'
-                            }
-                        },
-                        data: [
-                            { value: {{ summary.plans.completed|default:0 }}, name: '已完成' },
-                            { value: {{ summary.plans.active|default:0 }}, name: '进行中' },
-                            { value: {{ summary.plans.total|default:0 }} - {{ summary.plans.completed|default:0 }} - {{ summary.plans.active|default:0 }}, name: '待开始' }
-                        ]
-                    }
+                    { name: 'OEE', type: 'bar', data: [], itemStyle: { color: '#1677ff' } },
+                    { name: '可用性', type: 'bar', data: [], itemStyle: { color: '#14b8a6' } },
+                    { name: '性能', type: 'bar', data: [], itemStyle: { color: '#f59e0b' } },
+                    { name: '质量', type: 'bar', data: [], itemStyle: { color: '#16a34a' } }
                 ]
-            };
+            });
 
-            var qualityOption = {
-                tooltip: {
-                    trigger: 'item'
-                },
-                legend: {
-                    bottom: '5%',
-                    left: 'center'
-                },
-                series: [
-                    {
-                        name: '质量检验',
-                        type: 'pie',
-                        radius: '65%',
-                        data: [
-                            { value: 0, name: '合格' },
-                            { value: 0, name: '不合格' },
-                            { value: 0, name: '待检' }
-                        ],
-                        emphasis: {
-                            itemStyle: {
-                                shadowBlur: 10,
-                                shadowOffsetX: 0,
-                                shadowColor: 'rgba(0, 0, 0, 0.5)'
-                            }
-                        }
-                    }
-                ]
-            };
-
-            var equipmentOption = {
-                tooltip: {
-                    trigger: 'axis',
-                    axisPointer: {
-                        type: 'shadow'
-                    }
-                },
-                legend: {
-                    data: ['OEE', '可用性', '性能', '质量']
-                },
-                grid: {
-                    left: '3%',
-                    right: '4%',
-                    bottom: '3%',
-                    containLabel: true
-                },
-                xAxis: {
-                    type: 'value',
-                    max: 100
-                },
-                yAxis: {
-                    type: 'category',
-                    data: []
-                },
-                series: [
-                    {
-                        name: 'OEE',
-                        type: 'bar',
-                        stack: 'total',
-                        data: []
-                    },
-                    {
-                        name: '可用性',
-                        type: 'bar',
-                        stack: 'total',
-                        data: []
-                    },
-                    {
-                        name: '性能',
-                        type: 'bar',
-                        stack: 'total',
-                        data: []
-                    },
-                    {
-                        name: '质量',
-                        type: 'bar',
-                        stack: 'total',
-                        data: []
-                    }
-                ]
-            };
-
-            trendChart.setOption(trendOption);
-            compositionChart.setOption(compositionOption);
-            qualityChart.setOption(qualityOption);
-            equipmentChart.setOption(equipmentOption);
-
-            window.addEventListener('resize', function() {
+            window.addEventListener('resize', function () {
                 trendChart.resize();
                 compositionChart.resize();
                 qualityChart.resize();
@@ -512,186 +268,170 @@
             });
         }
 
-        function loadStatisticsData() {
-            var startDate = '{{ start_date }}';
-            var endDate = '{{ end_date }}';
-
-            $.ajax({
-                url: '/production/statistics/trend/',
-                data: {
-                    start_date: startDate,
-                    end_date: endDate,
-                    granularity: 'day'
-                },
-                success: function(response) {
-                    if (response.success) {
-                        updateTrendChart(response.trend);
-                    }
+        function loadTrend() {
+            $.getJSON(buildUrl('/production/statistics/trend/'), { granularity: 'day' }, function (response) {
+                if (!response.success) {
+                    return;
                 }
-            });
-
-            $.ajax({
-                url: '/production/statistics/quality/',
-                data: {
-                    start_date: startDate,
-                    end_date: endDate
-                },
-                success: function(response) {
-                    if (response.success) {
-                        updateQualityChart(response.quality);
-                    }
-                }
-            });
-
-            $.ajax({
-                url: '/production/statistics/equipment/',
-                data: {
-                    start_date: startDate,
-                    end_date: endDate
-                },
-                success: function(response) {
-                    if (response.success) {
-                        updateEquipmentChart(response.efficiency);
-                    }
-                }
+                var dates = [];
+                var completed = [];
+                var qualified = [];
+                var rates = [];
+                response.trend.forEach(function (item) {
+                    dates.push(item.date.substring(5));
+                    completed.push(item.completed_quantity);
+                    qualified.push(item.qualified_quantity);
+                    rates.push(item.quality_rate);
+                });
+                trendChart.setOption({
+                    xAxis: { data: dates },
+                    series: [{ data: completed }, { data: qualified }, { data: rates }]
+                });
             });
         }
 
-        function updateTrendChart(trendData) {
-            var chart = echarts.getInstanceByDom(document.getElementById('trendChart'));
-            var dates = [];
-            var completedQty = [];
-            var qualifiedQty = [];
-            var qualityRates = [];
-
-            trendData.forEach(function(item) {
-                dates.push(item.date.substring(5));
-                completedQty.push(item.completed_quantity);
-                qualifiedQty.push(item.qualified_quantity);
-                qualityRates.push(item.quality_rate);
-            });
-
-            chart.setOption({
-                xAxis: {
-                    data: dates
-                },
-                series: [
-                    { data: completedQty },
-                    { data: qualifiedQty },
-                    { data: qualityRates }
-                ]
+        function loadQuality() {
+            $.getJSON(buildUrl('/production/statistics/quality/'), function (response) {
+                if (!response.success) {
+                    return;
+                }
+                var summary = response.quality.summary || {};
+                qualityChart.setOption({
+                    series: [{
+                        data: [
+                            { value: summary.qualified_checks || 0, name: '合格' },
+                            { value: summary.unqualified_checks || 0, name: '不合格' },
+                            { value: summary.pending_checks || 0, name: '待检' }
+                        ]
+                    }]
+                });
             });
         }
 
-        function updateQualityChart(qualityData) {
-            var chart = echarts.getInstanceByDom(document.getElementById('qualityChart'));
-
-            chart.setOption({
-                series: [{
-                    data: [
-                        { value: qualityData.summary.qualified_checks || 0, name: '合格' },
-                        { value: qualityData.summary.unqualified_checks || 0, name: '不合格' },
-                        { value: qualityData.summary.pending_checks || 0, name: '待检' }
+        function loadEquipment() {
+            $.getJSON(buildUrl('/production/statistics/equipment/'), function (response) {
+                if (!response.success) {
+                    return;
+                }
+                var names = [];
+                var oee = [];
+                var availability = [];
+                var performance = [];
+                var quality = [];
+                var totalOee = 0;
+                response.efficiency.forEach(function (item) {
+                    names.push(item.equipment_name);
+                    oee.push(item.oee);
+                    availability.push(item.availability);
+                    performance.push(item.performance);
+                    quality.push(item.quality);
+                    totalOee += item.oee;
+                });
+                equipmentChart.setOption({
+                    yAxis: { data: names },
+                    series: [
+                        { data: oee },
+                        { data: availability },
+                        { data: performance },
+                        { data: quality }
                     ]
-                }]
+                });
+                $('#avgOeeValue').text((response.efficiency.length ? (totalOee / response.efficiency.length).toFixed(1) : '0') + '%');
             });
         }
 
-        function updateEquipmentChart(efficiencyData) {
-            var chart = echarts.getInstanceByDom(document.getElementById('equipmentChart'));
-
-            var equipmentNames = [];
-            var oeeData = [];
-            var availData = [];
-            var perfData = [];
-            var qualData = [];
-
-            efficiencyData.forEach(function(item) {
-                equipmentNames.push(item.equipment_name);
-                oeeData.push(item.oee);
-                availData.push(item.availability);
-                perfData.push(item.performance);
-                qualData.push(item.quality);
-            });
-
-            var avgOEE = efficiencyData.length > 0
-                ? (efficiencyData.reduce(function(sum, item) { return sum + item.oee; }, 0) / efficiencyData.length).toFixed(1)
-                : 0;
-            $('#oeeAvg').text(avgOEE + '%');
-
-            chart.setOption({
-                yAxis: {
-                    data: equipmentNames
-                },
-                series: [
-                    { data: oeeData },
-                    { data: availData },
-                    { data: perfData },
-                    { data: qualData }
-                ]
+        function loadLabor() {
+            $.getJSON(buildUrl('/production/statistics/labor/'), function (response) {
+                if (!response.success) {
+                    return;
+                }
+                if (!response.efficiency.length) {
+                    $('#laborList').html('<div class="production-empty">当前区间还没有可统计的完工人工数据</div>');
+                    $('#laborEfficiencyValue').text('0');
+                    return;
+                }
+                var totalOutput = 0;
+                var html = '';
+                response.efficiency.slice(0, 8).forEach(function (item) {
+                    totalOutput += item.avg_output_per_hour;
+                    html += '<div class="production-kpi-item">'
+                        + '<div><div class="production-kpi-title">' + item.user_name + '</div>'
+                        + '<div class="production-kpi-meta">完成任务 ' + item.completed_tasks + ' · 合格率 ' + item.quality_rate + '%</div></div>'
+                        + '<span class="production-tag ok">' + item.avg_output_per_hour + '/h</span>'
+                        + '</div>';
+                });
+                $('#laborList').html(html);
+                $('#laborEfficiencyValue').text((totalOutput / Math.min(response.efficiency.length, 8)).toFixed(1));
             });
         }
 
-        function exportReport() {
-            var startDate = $('#startDate').val();
-            var endDate = $('#endDate').val();
-
-            window.open('/production/statistics/report/?start_date=' + startDate + '&end_date=' + endDate, '_blank');
+        function loadCostAndDelivery() {
+            $.when(
+                $.getJSON(buildUrl('/production/statistics/cost/')),
+                $.getJSON(buildUrl('/production/statistics/delivery/'))
+            ).done(function (costRes, deliveryRes) {
+                var costPayload = costRes[0];
+                var deliveryPayload = deliveryRes[0];
+                var html = '';
+                if (costPayload.success) {
+                    var cost = costPayload.cost;
+                    $('#costTotalValue').text('¥' + Number(cost.total_cost || 0).toFixed(2));
+                    html += '<div class="production-kpi-item"><div><div class="production-kpi-title">成本构成</div><div class="production-kpi-meta">材料 ¥'
+                        + Number(cost.material_cost.total || 0).toFixed(2)
+                        + ' · 人工 ¥' + Number(cost.labor_cost.total || 0).toFixed(2)
+                        + ' · 制造费用 ¥' + Number(cost.overhead_cost.total || 0).toFixed(2)
+                        + '</div></div><span class="production-tag warn">单件 ¥'
+                        + Number(cost.unit_cost || 0).toFixed(2) + '</span></div>';
+                }
+                if (deliveryPayload.success) {
+                    var delivery = deliveryPayload.delivery;
+                    $('#deliveryRateValue').text(Number(delivery.on_time_rate || 0).toFixed(1) + '%');
+                    html += '<div class="production-kpi-item"><div><div class="production-kpi-title">交付达成</div><div class="production-kpi-meta">准时 '
+                        + (delivery.on_time_count || 0) + ' / 总完成 ' + (delivery.total_completed || 0)
+                        + ' · 平均延期 ' + Number(delivery.average_delay_days || 0).toFixed(1) + ' 天'
+                        + '</div></div><span class="production-tag '
+                        + ((delivery.on_time_rate || 0) >= 90 ? 'ok' : ((delivery.on_time_rate || 0) >= 70 ? 'warn' : 'danger'))
+                        + '">' + Number(delivery.on_time_rate || 0).toFixed(1) + '%</span></div>';
+                }
+                $('#costDeliveryList').html(html || '<div class="production-empty">当前区间没有成本或交付统计数据</div>');
+            });
         }
+
+        function downloadReport() {
+            $.getJSON(buildUrl('/production/statistics/report/'), function (response) {
+                if (!response.success) {
+                    layui.layer.msg(response.message || '导出失败', {icon: 2});
+                    return;
+                }
+                var content = JSON.stringify(response.report, null, 2);
+                var blob = new Blob([content], {type: 'application/json;charset=utf-8'});
+                var url = URL.createObjectURL(blob);
+                var link = document.createElement('a');
+                link.href = url;
+                link.download = 'production-report-' + $('#startDate').val() + '-to-' + $('#endDate').val() + '.json';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            });
+        }
+
+        layui.use(['laydate', 'layer'], function () {
+            layui.laydate.render({ elem: '#startDate', format: 'yyyy-MM-dd' });
+            layui.laydate.render({ elem: '#endDate', format: 'yyyy-MM-dd' });
+        });
+
+        $(function () {
+            initCharts();
+            loadTrend();
+            loadQuality();
+            loadEquipment();
+            loadLabor();
+            loadCostAndDelivery();
+        });
 
         {% include "production/_right_popup_function.html" %}
-</script>
-
-    <!-- 注入的 iframe 自动关闭及消息提示脚本 -->
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            var flashMsg = sessionStorage.getItem('flash_msg');
-            if (flashMsg) {
-                sessionStorage.removeItem('flash_msg');
-                try {
-                    var parsedMsgs = JSON.parse(flashMsg);
-                    msgs = msgs.concat(parsedMsgs);
-                } catch(e) {}
-            }
-
-            var isLayerFrame = false;
-            if (window !== window.parent) {
-                if (window.frameElement && window.frameElement.closest) {
-                    isLayerFrame = !!window.frameElement.closest('.layui-layer-iframe');
-                }
-                if (!isLayerFrame && window.name && window.parent.layer && typeof window.parent.layer.getFrameIndex === 'function') {
-                    try {
-                        var frameIndex = window.parent.layer.getFrameIndex(window.name);
-                        isLayerFrame = frameIndex !== undefined && frameIndex !== null && frameIndex !== '';
-                    } catch(e) {}
-                }
-            }
-
-            if (isLayerFrame) {
-                if (msgs.length > 0) {
-                    sessionStorage.setItem('flash_msg', JSON.stringify(msgs));
-                }
-                parent.location.reload();
-                return;
-            }
-
-            // 正常独立访问 list 页面
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
-        });
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
-
 </html>

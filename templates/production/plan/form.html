@@ -1,261 +1,181 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ action }}生产计划</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
-
 <body>
-    <div class="layui-fluid" style="padding: 20px;">
-        <!-- 页面标题 -->
-        <div class="layui-row">
-            <div class="layui-col-md12">
-                <h2 style="margin-bottom: 20px;">
-                    {{ action }}生产计划
-                </h2>
-            </div>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title">
+            <h2>{{ action }}生产计划</h2>
         </div>
 
-        <!-- 表单 -->
-        <div class="layui-row">
-            <div class="layui-col-md10">
-                <div class="layui-card">
-                    <div class="layui-card-body">
-                        <form class="layui-form" method="post">
-                            {% csrf_token %}
+        <div class="production-note" style="margin-bottom: 16px;">
+            生产计划是 BOM、工艺路线、领料申请、生产任务和成品入库的上游源头。这里填写的产品、数量和日期会直接影响后续联动。
+        </div>
 
+        <div class="layui-card production-form-card">
+            <div class="layui-card-body">
+                <form class="layui-form" method="post">
+                    {% csrf_token %}
+
+                    <div class="production-form-section-title">计划主档</div>
+                    <div class="layui-row layui-col-space16">
+                        <div class="layui-col-md6">
                             <div class="layui-form-item">
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">计划名称 <span style="color: red;">*</span></label>
-                                    <div class="layui-input-inline" style="width: 300px;">
-                                        {{ form.name }}
-                                        {% if form.name.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.name.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">计划编号 <span style="color: red;">*</span></label>
-                                    <div class="layui-input-inline" style="width: 200px;">
-                                        {{ form.code }}
-                                        {% if form.code.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.code.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="layui-form-item">
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">生产产品</label>
-                                    <div class="layui-input-inline" style="width: 200px;">
-                                        {{ form.product }}
-                                        {% if form.product.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.product.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">使用BOM</label>
-                                    <div class="layui-input-inline" style="width: 200px;">
-                                        {{ form.bom }}
-                                        {% if form.bom.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.bom.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">工序集</label>
-                                    <div class="layui-input-inline" style="width: 200px;">
-                                        {{ form.procedure_set }}
-                                        {% if form.procedure_set.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.procedure_set.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">工艺路线</label>
-                                    <div class="layui-input-inline" style="width: 200px;">
-                                        {{ form.process_route }}
-                                        {% if form.process_route.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.process_route.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="layui-form-item">
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">计划数量 <span style="color: red;">*</span></label>
-                                    <div class="layui-input-inline" style="width: 150px;">
-                                        {{ form.quantity }}
-                                        {% if form.quantity.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.quantity.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">单位 <span style="color: red;">*</span></label>
-                                    <div class="layui-input-inline" style="width: 100px;">
-                                        {{ form.unit }}
-                                        {% if form.unit.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.unit.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">优先级</label>
-                                    <div class="layui-input-inline" style="width: 100px;">
-                                        {{ form.priority }}
-                                        {% if form.priority.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.priority.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="layui-form-item">
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">开始日期 <span style="color: red;">*</span></label>
-                                    <div class="layui-input-inline" style="width: 200px;">
-                                        {{ form.plan_start_date }}
-                                        {% if form.plan_start_date.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.plan_start_date.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">结束日期 <span style="color: red;">*</span></label>
-                                    <div class="layui-input-inline" style="width: 200px;">
-                                        {{ form.plan_end_date }}
-                                        {% if form.plan_end_date.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.plan_end_date.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="layui-form-item">
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">生产部门</label>
-                                    <div class="layui-input-inline" style="width: 200px;">
-                                        {{ form.department }}
-                                        {% if form.department.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.department.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">负责人</label>
-                                    <div class="layui-input-inline" style="width: 200px;">
-                                        {{ form.manager }}
-                                        {% if form.manager.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.manager.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="layui-form-item layui-form-text">
-                                <label class="layui-form-label">计划描述</label>
+                                <label class="layui-form-label">计划名称</label>
                                 <div class="layui-input-block">
-                                    {{ form.description }}
-                                    {% if form.description.errors %}
-                                        <div style="color: red; margin-top: 5px;">{{ form.description.errors.0 }}</div>
-                                    {% endif %}
+                                    {{ form.name }}
+                                    {% if form.name.errors %}<div class="production-field-error">{{ form.name.errors.0 }}</div>{% endif %}
                                 </div>
                             </div>
-
+                        </div>
+                        <div class="layui-col-md6">
                             <div class="layui-form-item">
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">自动完工</label>
-                                    <div class="layui-input-inline" style="width: 100px;">
-                                        {{ form.auto_complete }}
-                                        {% if form.auto_complete.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.auto_complete.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="layui-inline">
-                                    <label class="layui-form-label">自动完工阈值(%)</label>
-                                    <div class="layui-input-inline" style="width: 150px;">
-                                        {{ form.complete_threshold }}
-                                        {% if form.complete_threshold.errors %}
-                                            <div style="color: red; margin-top: 5px;">{{ form.complete_threshold.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="layui-form-item">
+                                <label class="layui-form-label">计划编号</label>
                                 <div class="layui-input-block">
-                                    <button class="layui-btn" lay-submit lay-filter="formSubmit">
-                                        {{ action }}
-                                    </button>
-                                    <button type="button" class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:production_plan_list' %}'">
-                                        取消
-                                    </button>
+                                    {{ form.code }}
+                                    {% if form.code.errors %}<div class="production-field-error">{{ form.code.errors.0 }}</div>{% endif %}
                                 </div>
                             </div>
-                        </form>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">生产产品</label>
+                                <div class="layui-input-block">{{ form.product }}</div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">使用BOM</label>
+                                <div class="layui-input-block">
+                                    {{ form.bom }}
+                                    <div class="production-help">后续领料申请会按这里选择的 BOM 自动生成物料明细。</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">工序集</label>
+                                <div class="layui-input-block">{{ form.procedure_set }}</div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">工艺路线</label>
+                                <div class="layui-input-block">{{ form.process_route }}</div>
+                            </div>
+                        </div>
                     </div>
-                </div>
+
+                    <div class="production-form-section-title" style="margin-top: 8px;">排产参数</div>
+                    <div class="layui-row layui-col-space16">
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">计划数量</label>
+                                <div class="layui-input-block">
+                                    {{ form.quantity }}
+                                    {% if form.quantity.errors %}<div class="production-field-error">{{ form.quantity.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">单位</label>
+                                <div class="layui-input-block">{{ form.unit }}</div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">优先级</label>
+                                <div class="layui-input-block">{{ form.priority }}</div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">开始日期</label>
+                                <div class="layui-input-block">{{ form.plan_start_date }}</div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">结束日期</label>
+                                <div class="layui-input-block">{{ form.plan_end_date }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="production-form-section-title" style="margin-top: 8px;">责任人与策略</div>
+                    <div class="layui-row layui-col-space16">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">生产部门</label>
+                                <div class="layui-input-block">{{ form.department }}</div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">负责人</label>
+                                <div class="layui-input-block">{{ form.manager }}</div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">计划状态</label>
+                                <div class="layui-input-block">{{ form.status }}</div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md3">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">自动完工</label>
+                                <div class="layui-input-block">{{ form.auto_complete }}</div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md3">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">完工阈值</label>
+                                <div class="layui-input-block">{{ form.complete_threshold }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item layui-form-text">
+                        <label class="layui-form-label">计划描述</label>
+                        <div class="layui-input-block">
+                            {{ form.description }}
+                            <div class="production-help">可补充交期、风险、特殊工艺限制或客户要求。</div>
+                        </div>
+                    </div>
+
+                    {% if form.non_field_errors %}
+                    <div class="production-field-error" style="margin-bottom: 16px;">{{ form.non_field_errors.0 }}</div>
+                    {% endif %}
+
+                    <div class="layui-form-item">
+                        <div class="layui-input-block">
+                            <button type="submit" class="layui-btn">{{ action }}</button>
+                            <a href="{% url 'production:production_plan_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                        </div>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        layui.use(['form', 'layer', 'laydate'], function () {
-            var form = layui.form;
-            var layer = layui.layer;
-            var laydate = layui.laydate;
-
-            // 日期选择器
-            laydate.render({
-                elem: '#id_plan_start_date',
-                type: 'date'
-            });
-
-            laydate.render({
-                elem: '#id_plan_end_date',
-                type: 'date'
-            });
-
-            // 监听提交
-            form.on('submit(formSubmit)', function(data) {
-                // 这里可以添加表单验证逻辑
-                return true; // 允许表单提交
-            });
+        layui.use(['form', 'laydate'], function () {
+            layui.form.render();
+            layui.laydate.render({ elem: '#id_plan_start_date', type: 'date' });
+            layui.laydate.render({ elem: '#id_plan_end_date', type: 'date' });
         });
-
         {% include "production/_right_popup_function.html" %}
-</script>
-
-    <!-- 注入的消息提示脚本 -->
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
-        });
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
-
 </html>

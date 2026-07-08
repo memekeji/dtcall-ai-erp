@@ -6,12 +6,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>报销管理</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/finance-module.css' %}">
 </head>
 <body>
-    <div class="layui-fluid">
-        <div class="layui-card">
-            <div class="layui-card-header">
-                <!-- 选项卡区域 -->
+<div class="layui-fluid finance-shell">
+    <div class="finance-page-header">
+        <div>
+            <h1 class="finance-page-title">报销管理</h1>
+            <p class="finance-page-subtitle">覆盖申请、提交、审批和付款登记，保持和项目、客户页同一套紧凑工作台风格。</p>
+        </div>
+    </div>
+
+    <div class="finance-summary-grid">
+        <div class="finance-summary-card">
+            <div class="finance-summary-label">当前结果</div>
+            <div class="finance-summary-value" id="expenseTotal">0</div>
+            <div class="finance-summary-note">符合当前筛选的报销单</div>
+        </div>
+        <div class="finance-summary-card">
+            <div class="finance-summary-label">待审核</div>
+            <div class="finance-summary-value" id="expensePending">0</div>
+            <div class="finance-summary-note">审核流转中的记录</div>
+        </div>
+        <div class="finance-summary-card">
+            <div class="finance-summary-label">待打款</div>
+            <div class="finance-summary-value" id="expensePayPending">0</div>
+            <div class="finance-summary-note">已通过但尚未付款</div>
+        </div>
+        <div class="finance-summary-card">
+            <div class="finance-summary-label">已完成付款</div>
+            <div class="finance-summary-value" id="expensePaid">0</div>
+            <div class="finance-summary-note">已完成付款登记</div>
+        </div>
+    </div>
+
+    <div class="layui-card finance-card-shell">
+        <div class="layui-card-header">
+            <div class="finance-tab-shell">
                 <div class="layui-tab layui-tab-brief" lay-filter="expenseTabs">
                     <ul class="layui-tab-title">
                         <li class="layui-this" lay-id="all">全部报销</li>
@@ -21,261 +53,299 @@
                         <li lay-id="copy">抄送给我</li>
                     </ul>
                 </div>
-                
-                <!-- 按钮和搜索区域 -->
-                <div class="layui-row layui-col-space10" style="margin-top: 15px;">
-                    <div class="layui-col-md6">
-                        <!-- 操作按钮区域 -->
-                        <button class="layui-btn layui-btn-normal layui-btn-sm" onclick="addExpense()" style="position: relative; z-index: 100;">
-                            <i class="layui-icon layui-icon-add-1"></i> 新增报销
+            </div>
+            <div class="finance-toolbar">
+                <div class="finance-toolbar-left">
+                    <button type="button" class="layui-btn layui-btn-sm layui-btn-normal" id="addExpenseBtn">
+                        <i class="layui-icon layui-icon-add-1"></i> 新增报销
+                    </button>
+                    <button type="button" class="layui-btn layui-btn-sm layui-btn-warm" id="batchApprovalBtn">
+                        <i class="layui-icon layui-icon-ok"></i> 批量审批
+                    </button>
+                    <button type="button" class="layui-btn layui-btn-sm layui-btn-primary" id="refreshBtn">
+                        <i class="layui-icon layui-icon-refresh"></i> 刷新
+                    </button>
+                </div>
+                <div class="finance-toolbar-right">
+                    <div class="finance-filter-row">
+                        <input type="text" id="searchCode" placeholder="报销编码" class="layui-input" style="width: 140px;">
+                        <input type="text" id="searchDateRange" placeholder="单据日期范围" class="layui-input" style="width: 220px;">
+                        <button type="button" class="layui-btn layui-btn-sm" id="searchBtn">
+                            <i class="layui-icon layui-icon-search"></i> 搜索
                         </button>
-                        <button class="layui-btn layui-btn-warm layui-btn-sm" onclick="batchApproval()" style="margin-left: 8px; position: relative; z-index: 100;">
-                            <i class="layui-icon layui-icon-ok"></i> 批量审批
+                        <button type="button" class="layui-btn layui-btn-sm layui-btn-primary" id="resetBtn">
+                            <i class="layui-icon layui-icon-refresh-3"></i> 重置
                         </button>
-
-                    </div>
-                    <div class="layui-col-md6" style="text-align: right;">
-                        <!-- 搜索区域 -->
-                        <div class="layui-inline">
-                            <input type="text" id="searchCode" placeholder="报销编码" class="layui-input" style="width: 120px; position: relative; z-index: 1;">
-                        </div>
-                        <div class="layui-inline" style="margin-left: 8px;">
-                            <input type="text" id="searchDateRange" placeholder="选择日期范围" class="layui-input" style="width: 180px; position: relative; z-index: 1;">
-                        </div>
-                        <div class="layui-inline" style="margin-left: 8px;">
-                            <button type="button" class="layui-btn layui-btn-sm" onclick="searchExpense()" style="position: relative; z-index: 1;">
-                                <i class="layui-icon layui-icon-search"></i> 搜索
-                            </button>
-                            <button type="button" class="layui-btn layui-btn-sm layui-btn-primary" onclick="resetSearch()" style="margin-left: 5px; position: relative; z-index: 1;">
-                                <i class="layui-icon layui-icon-refresh"></i> 重置
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
-            <div class="layui-card-body">
-                <table id="expenseTable" class="layui-table" lay-filter="expenseTable"></table>
-            </div>
+        </div>
+        <div class="layui-card-body">
+            <table id="expenseTable" lay-filter="expenseTable"></table>
         </div>
     </div>
+</div>
 
-    <script src="{% static 'js/jquery.min.js' %}"></script>
-    <script src="{% static 'layui/layui.js' %}"></script>
-    <script>
-        layui.use(['element', 'table', 'layer', 'laydate', 'form'], function() {
-            var element = layui.element;
-            var table = layui.table;
-            var layer = layui.layer;
-            var laydate = layui.laydate;
-            var form = layui.form;
+<script src="{% static 'js/jquery.min.js' %}"></script>
+<script src="{% static 'layui/layui.js' %}"></script>
+<script type="text/html" id="expenseToolBar">
+    <a class="layui-btn layui-btn-xs" lay-event="view">查看</a>
+    <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
+    {% verbatim %}
+    {{# if(d.check_status === 0 || d.check_status === 3 || d.check_status === 4){ }}
+    <a class="layui-btn layui-btn-xs" lay-event="submit">提交</a>
+    {{# } }}
+    {{# if(d.check_status === 1){ }}
+    <a class="layui-btn layui-btn-xs layui-btn-warm" lay-event="approve">审批</a>
+    <a class="layui-btn layui-btn-xs layui-btn-primary" lay-event="reject">驳回</a>
+    {{# } }}
+    {{# if(d.check_status === 2 && d.pay_status === 0){ }}
+    <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="pay">付款</a>
+    {{# } }}
+    {% endverbatim %}
+    <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
+</script>
+<script>
+    layui.use(["element", "table", "layer", "laydate"], function () {
+        const element = layui.element;
+        const table = layui.table;
+        const layer = layui.layer;
+        const laydate = layui.laydate;
+        const financeBase = window.location.pathname.startsWith("/adm/") ? "/adm/finance" : "/finance";
+        let currentTab = "0";
 
-            // 初始化日期选择器
-            laydate.render({
-                elem: '#searchDateRange',
-                range: true,
-                format: 'yyyy-MM-dd'
-            });
+        laydate.render({
+            elem: "#searchDateRange",
+            range: true,
+            format: "yyyy-MM-dd"
+        });
 
-            // 初始化表格
-            function initTable(tab = '0') {
-                table.render({
-                    elem: '#expenseTable',
-                    id: 'expenseTable',
-                    url: '/finance/reimbursement/datalist/?tab=' + tab,
-                    cols: [[
-                        {type: 'checkbox', width: 50},
-                        {field: 'id', title: 'ID', width: 80},
-                        {field: 'code', title: '报销编码', width: 150},
-                        {field: 'cost', title: '报销金额', width: 120},
-                        {field: 'income_month', title: '入账月份', width: 100},
-                        {field: 'check_status', title: '审核状态', width: 100},
-                        {field: 'pay_status', title: '打款状态', width: 100},
-                        {field: 'create_time', title: '创建时间', width: 180},
-                        {title: '操作', width: 200, toolbar: '#expenseToolBar'}
-                    ]],
-                    page: true,
-                    limit: 20,
-                    height: 'full-200'
-                });
-            }
+        function statusTag(text, type) {
+            const classMap = {
+                blue: "finance-tag finance-tag-blue",
+                green: "finance-tag finance-tag-green",
+                orange: "finance-tag finance-tag-orange",
+                red: "finance-tag finance-tag-red",
+                slate: "finance-tag finance-tag-slate"
+            };
+            return '<span class="' + classMap[type] + '">' + (text || "-") + "</span>";
+        }
 
-            // 初始化表格
-            initTable();
-
-            // 监听选项卡切换
-            element.on('tab(expenseTabs)', function(data) {
-                var layId = $(this).attr('lay-id');
-                var tabMap = {
-                    'all': '0',
-                    'my': '1',
-                    'pending': '2',
-                    'reviewed': '3',
-                    'copy': '4'
-                };
-                initTable(tabMap[layId]);
-            });
-
-            // 监听工具条
-            table.on('tool(expenseTable)', function(obj) {
-                var data = obj.data;
-                var layEvent = obj.event;
-
-                if (layEvent === 'view') {
-                    layer.open({
-                        type: 2,
-                        title: '报销详情',
-                        shadeClose: false,
-                        shade: 0.3,
-                        maxmin: true,
-                        area: ['80%', '100%'],
-                        offset: 'r',
-                        anim: 2,
-                        content: '/finance/reimbursement/view/' + data.id + '/',
-                        success: function(layero, index) {
-                            if (layero && typeof layero.css === 'function') {
-                                layero.css({
-                                    'right': '0',
-                                    'top': '0',
-                                    'height': '100%'
-                                });
-                            }
-                        }
-                    });
-                } else if (layEvent === 'edit') {
-                    layer.open({
-                        type: 2,
-                        title: '编辑报销',
-                        shadeClose: false,
-                        shade: 0.3,
-                        maxmin: true,
-                        area: ['80%', '100%'],
-                        offset: 'r',
-                        anim: 2,
-                        content: '/finance/reimbursement/edit/' + data.id + '/',
-                        success: function(layero, index) {
-                            if (layero && typeof layero.css === 'function') {
-                                layero.css({
-                                    'right': '0',
-                                    'top': '0',
-                                    'height': '100%'
-                                });
-                            }
-                        },
-                        end: function() {
-                            table.reload('expenseTable');
-                        }
-                    });
-                } else if (layEvent === 'delete') {
-                    layer.confirm('确定删除这条报销记录吗？', function(index) {
-                        $.ajax({
-                            url: '/finance/reimbursement/del/',
-                            type: 'POST',
-                            data: JSON.stringify({id: data.id}),
-                            contentType: 'application/json',
-                            success: function(response) {
-                                if (response.code === 0) {
-                                    layer.msg('删除成功', {icon: 1});
-                                    table.reload('expenseTable');
-                                } else {
-                                    layer.msg(response.msg, {icon: 2});
-                                }
-                            }
-                        });
-                        layer.close(index);
-                    });
+        function openDrawer(url, title, endCallback) {
+            layer.open({
+                type: 2,
+                title: title,
+                shadeClose: false,
+                shade: 0.28,
+                maxmin: true,
+                area: ["82%", "100%"],
+                offset: "r",
+                anim: 2,
+                content: financeBase + url,
+                success: function (layero) {
+                    layero.css({ right: "0", top: "0", height: "100%" });
+                },
+                end: function () {
+                    if (typeof endCallback === "function") {
+                        endCallback();
+                    }
                 }
             });
+        }
 
-            // 新增报销
-            window.addExpense = function() {
-                layer.open({
-                    type: 2,
-                    title: '新增报销',
-                    shadeClose: false,
-                    shade: 0.3,
-                    maxmin: true,
-                    area: ['80%', '100%'],
-                    offset: 'r',
-                    anim: 2,
-                    content: '/finance/reimbursement/add/',
-                    success: function(layero, index) {
-                        if (layero && typeof layero.css === 'function') {
-                            layero.css({
-                                'right': '0',
-                                'top': '0',
-                                'height': '100%'
-                            });
+        function getFilters() {
+            const filters = { tab: currentTab };
+            const code = $("#searchCode").val().trim();
+            const dateRange = $("#searchDateRange").val().trim();
+            if (code) {
+                filters.code = code;
+            }
+            if (dateRange) {
+                filters.date_range = dateRange;
+            }
+            return filters;
+        }
+
+        function updateSummary(rows, totalCount) {
+            const pending = rows.filter(item => item.check_status === 1).length;
+            const payPending = rows.filter(item => item.check_status === 2 && item.pay_status === 0).length;
+            const paid = rows.filter(item => item.pay_status === 1).length;
+            $("#expenseTotal").text(totalCount || 0);
+            $("#expensePending").text(pending);
+            $("#expensePayPending").text(payPending);
+            $("#expensePaid").text(paid);
+        }
+
+        function renderTable() {
+            table.render({
+                elem: "#expenseTable",
+                id: "expenseTable",
+                url: financeBase + "/reimbursement/datalist/",
+                where: getFilters(),
+                page: true,
+                limit: 20,
+                height: "full-320",
+                cols: [[
+                    { type: "checkbox", width: 50, fixed: "left" },
+                    { field: "code", title: "报销编码", width: 180, fixed: "left" },
+                    { field: "cost", title: "金额", width: 120, templet: d => "¥" + Number(d.cost || 0).toFixed(2) },
+                    { field: "income_month", title: "入账月份", width: 110, align: "center" },
+                    { field: "project_id", title: "项目", minWidth: 120, templet: d => d.project_id ? ("项目#" + d.project_id) : '<span class="finance-empty-text">未关联</span>' },
+                    { field: "check_status_display", title: "审核状态", width: 110, align: "center", templet: function (d) {
+                        const type = d.check_status === 2 ? "green" : (d.check_status === 1 ? "orange" : (d.check_status === 3 ? "red" : "slate"));
+                        return statusTag(d.check_status_display, type);
+                    }},
+                    { field: "pay_status_display", title: "付款状态", width: 110, align: "center", templet: function (d) {
+                        return statusTag(d.pay_status_display, d.pay_status === 1 ? "green" : "blue");
+                    }},
+                    { field: "expense_date", title: "单据日期", width: 120, align: "center" },
+                    { field: "create_time", title: "创建时间", width: 160, align: "center" },
+                    { field: "remark", title: "备注", minWidth: 180 },
+                    { title: "操作", width: 320, toolbar: "#expenseToolBar", fixed: "right" }
+                ]],
+                done: function (res) {
+                    updateSummary(res.data || [], res.count);
+                }
+            });
+        }
+
+        function reloadTable(resetPage) {
+            table.reload("expenseTable", {
+                where: getFilters(),
+                page: resetPage ? { curr: 1 } : undefined
+            });
+        }
+
+        function submitExpense(id) {
+            layer.confirm("确认提交这条报销进入审批流吗？", function (index) {
+                $.ajax({
+                    url: financeBase + "/reimbursement/submit/",
+                    type: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify({ expense_id: id }),
+                    success: function (res) {
+                        if (res.code === 0) {
+                            layer.msg(res.msg || "提交成功", { icon: 1 });
+                            reloadTable();
+                        } else {
+                            layer.msg(res.msg || "提交失败", { icon: 2 });
                         }
-                    },
-                    end: function() {
-                        table.reload('expenseTable');
                     }
                 });
-            };
+                layer.close(index);
+            });
+        }
 
-            // 批量审批
-            window.batchApproval = function() {
-                var checkStatus = table.checkStatus('expenseTable');
-                var data = checkStatus.data;
-                if (data.length === 0) {
-                    layer.msg('请选择要审批的报销记录', {icon: 2});
-                    return;
-                }
-                layer.confirm('确定批量通过选中的报销记录吗？', function(index) {
-                    $.ajax({
-                        url: '/finance/reimbursement/batch-approve/',
-                        type: 'POST',
-                        data: JSON.stringify({ids: data.map(function(item) { return item.id; }), action: 'approve'}),
-                        contentType: 'application/json',
-                        success: function(response) {
-                            if (response.code === 0) {
-                                layer.msg(response.msg || '批量审批成功', {icon: 1});
-                                table.reload('expenseTable');
-                            } else {
-                                layer.msg(response.msg || '批量审批失败', {icon: 2});
-                            }
+        function approveExpense(id, action) {
+            const title = action === "approved" ? "审批意见" : "驳回原因";
+            layer.prompt({ title: title, formType: 2, value: "" }, function (value, index) {
+                $.ajax({
+                    url: financeBase + "/reimbursement/approve/",
+                    type: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify({
+                        expense_id: id,
+                        action: action,
+                        notes: value
+                    }),
+                    success: function (res) {
+                        if (res.code === 0) {
+                            layer.msg(res.msg || "处理成功", { icon: 1 });
+                            reloadTable();
+                        } else {
+                            layer.msg(res.msg || "处理失败", { icon: 2 });
                         }
-                    });
-                    layer.close(index);
+                    }
                 });
-            };
+                layer.close(index);
+            });
+        }
 
-
-            // 搜索报销
-            window.searchExpense = function() {
-                var code = $('#searchCode').val();
-                var dateRange = $('#searchDateRange').val();
-                var params = {};
-                if(code) params.code = code;
-                if(dateRange) params.date_range = dateRange;
-                
-                table.reload('expenseTable', {
-                    where: params
+        function deleteExpense(id) {
+            layer.confirm("确定删除这条报销记录吗？", function (index) {
+                $.ajax({
+                    url: financeBase + "/reimbursement/del/",
+                    type: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify({ id: id }),
+                    success: function (res) {
+                        if (res.code === 0) {
+                            layer.msg("删除成功", { icon: 1 });
+                            reloadTable();
+                        } else {
+                            layer.msg(res.msg || "删除失败", { icon: 2 });
+                        }
+                    }
                 });
-            };
+                layer.close(index);
+            });
+        }
 
-            // 重置搜索
-            window.resetSearch = function() {
-                $('#searchCode').val('');
-                $('#searchDateRange').val('');
-                table.reload('expenseTable', {
-                    where: {}
-                });
-            };
-
-            // 刷新表格
-            window.refreshTable = function() {
-                table.reload('expenseTable');
-                layer.msg('刷新成功', {icon: 1});
-            };
+        $("#addExpenseBtn").on("click", function () {
+            openDrawer("/reimbursement/add/", "新增报销", () => reloadTable());
         });
-    </script>
+        $("#batchApprovalBtn").on("click", function () {
+            const selected = table.checkStatus("expenseTable").data || [];
+            if (!selected.length) {
+                layer.msg("请先选择要审批的报销单", { icon: 0 });
+                return;
+            }
+            layer.confirm("批量通过选中的报销单？", function (index) {
+                $.ajax({
+                    url: financeBase + "/reimbursement/batch-approve/",
+                    type: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify({
+                        ids: selected.map(item => item.id),
+                        action: "approve"
+                    }),
+                    success: function (res) {
+                        if (res.code === 0) {
+                            layer.msg(res.msg || "批量审批成功", { icon: 1 });
+                            reloadTable(true);
+                        } else {
+                            layer.msg(res.msg || "批量审批失败", { icon: 2 });
+                        }
+                    }
+                });
+                layer.close(index);
+            });
+        });
+        $("#refreshBtn").on("click", function () { reloadTable(); });
+        $("#searchBtn").on("click", function () { reloadTable(true); });
+        $("#resetBtn").on("click", function () {
+            $("#searchCode").val("");
+            $("#searchDateRange").val("");
+            reloadTable(true);
+        });
 
-    <!-- 工具栏模板 -->
-    <script type="text/html" id="expenseToolBar">
-        <a class="layui-btn layui-btn-xs" lay-event="view">查看</a>
-        <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit">编辑</a>
-        <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
-    </script>
+        table.on("tool(expenseTable)", function (obj) {
+            const data = obj.data;
+            if (obj.event === "view") {
+                openDrawer("/reimbursement/view/" + data.id + "/", "报销详情");
+            } else if (obj.event === "edit") {
+                openDrawer("/reimbursement/edit/" + data.id + "/", "编辑报销", () => reloadTable());
+            } else if (obj.event === "submit") {
+                submitExpense(data.id);
+            } else if (obj.event === "approve") {
+                approveExpense(data.id, "approved");
+            } else if (obj.event === "reject") {
+                approveExpense(data.id, "rejected");
+            } else if (obj.event === "pay") {
+                openDrawer("/payment/add/?expense_id=" + data.id, "登记付款", () => reloadTable());
+            } else if (obj.event === "delete") {
+                deleteExpense(data.id);
+            }
+        });
+
+        element.on("tab(expenseTabs)", function () {
+            const map = { all: "0", my: "1", pending: "2", reviewed: "3", copy: "4" };
+            currentTab = map[$(this).attr("lay-id")] || "0";
+            reloadTable(true);
+        });
+
+        renderTable();
+    });
+</script>
 </body>
 </html>

@@ -8,4 +8,4 @@ class CommonConfig(AppConfig):
 
     def ready(self):
         # 导入信号处理器以确保它们被注册
-        pass
+        from . import signals  # noqa: F401

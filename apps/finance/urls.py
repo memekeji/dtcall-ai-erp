@@ -15,6 +15,7 @@ urlpatterns = [
     path("expense/", views.ExpenseListView.as_view(), name="expense_list"),
     path("expense/datalist/", views.ExpenseListView.as_view(), name="expense_datalist"),
     path("expense/add/", views.ExpenseCreateView.as_view(), name="expense_add"),
+    path("expense/edit/<int:pk>/", views.ExpenseUpdateView.as_view(), name="expense_edit"),
     path("expense/submit/", views.ExpenseSubmitView.as_view(), name="expense_submit"),
     path(
         "expense/approve/", views.ExpenseApproveView.as_view(), name="expense_approve"
@@ -43,6 +44,11 @@ urlpatterns = [
         name="reimbursement_add",
     ),
     path(
+        "reimbursement/edit/<int:pk>/",
+        views.ExpenseUpdateView.as_view(),
+        name="reimbursement_edit",
+    ),
+    path(
         "reimbursement/submit/",
         views.ExpenseSubmitView.as_view(),
         name="reimbursement_submit",
@@ -66,6 +72,11 @@ urlpatterns = [
         "reimbursement/del/",
         views.ExpenseDeleteView.as_view(),
         name="reimbursement_del",
+    ),
+    path(
+        "reimbursement/view/<int:id>/",
+        views.expense_detail,
+        name="reimbursement_view",
     ),
     path("reimbursement/<int:id>/", views.expense_detail, name="reimbursement_detail"),
     # 发票管理 - 新路由
@@ -98,11 +109,13 @@ urlpatterns = [
     path("income/", views.IncomeListView.as_view(), name="income_list"),
     path("income/datalist/", views.IncomeListView.as_view(), name="income_datalist"),
     path("income/add/", views.IncomeCreateView.as_view(), name="income_add"),
+    path("income/view/<int:id>/", views.income_detail, name="income_detail"),
     path("income/del/", views.IncomeDeleteView.as_view(), name="income_del"),
     # 付款管理
     path("payment/", views.PaymentListView.as_view(), name="payment_list"),
     path("payment/datalist/", views.PaymentListView.as_view(), name="payment_datalist"),
     path("payment/add/", views.PaymentCreateView.as_view(), name="payment_add"),
+    path("payment/view/<int:id>/", views.payment_detail, name="payment_detail"),
     path("payment/del/", views.PaymentDeleteView.as_view(), name="payment_del"),
     # 付款统计
     path(
@@ -139,9 +152,24 @@ urlpatterns = [
         name="invoice_request_list",
     ),
     path(
+        "invoice-request/add/",
+        views.InvoiceRequestCreateView.as_view(),
+        name="invoice_request_add",
+    ),
+    path(
         "invoice-request/datalist/",
         views.InvoiceRequestListView.as_view(),
         name="invoice_request_datalist",
+    ),
+    path(
+        "invoice-request/detail/<int:id>/",
+        views.invoice_request_detail,
+        name="invoice_request_detail",
+    ),
+    path(
+        "invoice-request/approval/",
+        views.InvoiceRequestApprovalView.as_view(),
+        name="invoice_request_approval",
     ),
     # 订单财务记录
     path(
@@ -153,6 +181,26 @@ urlpatterns = [
         "order-finance/datalist/",
         views.OrderFinanceRecordListView.as_view(),
         name="order_finance_datalist",
+    ),
+    path(
+        "advanced/bank-transaction/import/",
+        views.BankTransactionImportView.as_view(),
+        name="bank_transaction_import",
+    ),
+    path(
+        "advanced/bank-import-template/",
+        views.BankImportTemplateConfigView.as_view(),
+        name="bank_import_template",
+    ),
+    path(
+        "advanced/bank-reconciliation/import/",
+        views.BankReconciliationImportView.as_view(),
+        name="bank_reconciliation_import",
+    ),
+    path(
+        "advanced/bank-reconciliation/<int:id>/compare/",
+        views.BankReconciliationCompareView.as_view(),
+        name="bank_reconciliation_compare",
     ),
     # 专业财务扩展
     path(

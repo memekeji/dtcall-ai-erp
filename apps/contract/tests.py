@@ -3,7 +3,12 @@ import tempfile
 import json
 import io
 import zipfile
-import fitz
+import unittest
+
+try:
+    import fitz
+except ImportError:  # pragma: no cover - optional test dependency
+    fitz = None
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.conf import settings
@@ -33,7 +38,10 @@ from unittest.mock import patch
 TEST_MEDIA_ROOT = tempfile.mkdtemp()
 TEST_MIDDLEWARE = [
     middleware for middleware in settings.MIDDLEWARE
-    if middleware != 'apps.system.middleware.permission_middleware.PermissionMiddleware'
+    if middleware not in {
+        'apps.system.middleware.permission_middleware.PermissionMiddleware',
+        'apps.system.middleware.database_setup_middleware.DatabaseSetupMiddleware',
+    }
 ]
 
 
@@ -141,6 +149,7 @@ class ContractScanUploadTests(TestCase):
 
         self.assertIn('兜底提取的合同正文', text)
 
+    @unittest.skipUnless(fitz is not None, "PyMuPDF 未安装，跳过 PDF OCR 解析测试")
     @patch('apps.contract.contract_review_service._ocr_pdf_page_with_ai', create=True)
     def test_parse_contract_file_uses_ai_ocr_for_scanned_pdf(self, mock_ocr_page):
         pdf = io.BytesIO()
@@ -200,6 +209,7 @@ class ContractScanUploadTests(TestCase):
         self.assertIn('接口兜底提取成功', payload['data']['full_text'])
         self.assertGreater(payload['data']['text_length'], 0)
 
+    @unittest.skipUnless(fitz is not None, "PyMuPDF 未安装，跳过 PDF OCR 解析测试")
     @patch('apps.contract.contract_review_service._ocr_pdf_page_with_ai', create=True)
     def test_ai_contract_file_parse_api_returns_ocr_metadata_for_scanned_pdf(self, mock_ocr_page):
         pdf = io.BytesIO()
@@ -233,6 +243,7 @@ class ContractScanUploadTests(TestCase):
         self.assertTrue(payload['data']['focus_review_fields'])
         self.assertEqual(payload['data']['focus_review_fields'][0]['field'], '合同编号')
 
+    @unittest.skipUnless(fitz is not None, "PyMuPDF 未安装，跳过 PDF OCR 解析测试")
     @patch('apps.contract.contract_review_service._ocr_pdf_page_with_ai', create=True)
     def test_ai_contract_file_parse_api_updates_contract_without_status_field_error(self, mock_ocr_page):
         contract = Contract.objects.create(
@@ -544,6 +555,47 @@ class ContractScanUploadTests(TestCase):
         self.assertTrue(payload['data']['data_cross_check'])
         self.assertEqual(ContractAIReview.objects.count(), 0)
 
+    @patch('apps.contract.ai_review_views.contract_review_service.quick_review')
+    def test_review_preview_api_includes_case_style_display_report(self, mock_quick_review):
+        mock_quick_review.return_value = {
+            'risk_level': 'medium',
+            'key_risks': ['付款节点未明确', '签订时间待核对'],
+            'brief_summary': '建议先关注付款与签署时间字段。'
+        }
+        contract = Contract.objects.create(
+            code='HT-20260706-PREVIEW-CASE-001',
+            name='解除劳动关系协议书（特殊离职）',
+            customer='测试客户J',
+            customer_id=110,
+            cost='9800.00',
+            subject_id='深圳市平静科技有限公司',
+            sign_time=1783296000,
+            start_time=1783296000,
+            end_time=1785888000,
+            admin_id=self.user.id,
+        )
+
+        request = self.factory.post(
+            reverse('contract:ai_contract_review_preview', args=[contract.id]),
+            data=json.dumps({
+                'contract_text': '第一条 双方协商一致解除劳动合同。',
+                'our_role': '甲方（深圳市平静科技有限公司）',
+                'core_demands': '确保解除劳动关系的合法合规性，避免后续劳动纠纷和法律风险'
+            }),
+            content_type='application/json'
+        )
+        request.user = self.user
+        response = ai_contract_review_preview_api(request, contract.id)
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content.decode('utf-8'))
+        display_report = payload['data']['display_report']
+        self.assertEqual(display_report['section_titles']['overall_assessment'], '📊 总体评估')
+        self.assertEqual(display_report['contract_info'][0]['label'], '合同名称/类型')
+        self.assertEqual(display_report['contract_info'][0]['value'], '解除劳动关系协议书（特殊离职）')
+        self.assertEqual(display_report['overall_assessment']['risk_display'], '🟡中风险')
+        self.assertIn('详细修改建议正在准备中', display_report['overall_assessment']['final_recommendation'])
+
     @patch('apps.contract.ai_review_views._start_contract_full_review_job')
     def test_full_review_api_starts_background_job_and_returns_pending_status(self, mock_start_job):
         contract = Contract.objects.create(
@@ -836,6 +888,64 @@ class ContractScanUploadTests(TestCase):
         self.assertFalse(payload['pending'])
         self.assertEqual(payload['task_error'], 'upstream unavailable')
 
+    def test_review_detail_api_includes_case_style_display_report(self):
+        contract = Contract.objects.create(
+            code='HT-20260706-CASE-001',
+            name='解除劳动关系协议书（特殊离职）',
+            customer='测试客户I',
+            customer_id=109,
+            cost='8500.00',
+            subject_id='深圳市平静科技有限公司',
+            sign_time=1783296000,
+            start_time=1783296000,
+            end_time=1785888000,
+            admin_id=self.user.id,
+        )
+        review = ContractAIReview.objects.create(
+            contract=contract,
+            review_version=1,
+            review_type='full',
+            contract_info={
+                'contract_name': '解除劳动关系协议书（特殊离职）',
+                'contract_type': '',
+                'our_role': '甲方（深圳市平静科技有限公司）',
+                'core_demands': '确保解除劳动关系的合法合规性，避免后续劳动纠纷和法律风险',
+            },
+            overall_risk_level='high',
+            overall_summary='本协议整体框架基本完整，但在补偿金额合理性、支付条件明确性、违约责任对等方面存在中高风险，建议重点修改第2条、第8条，并完善第3条的支付细节。',
+            clause_reviews=[
+                {
+                    'clause_no': '第二条',
+                    'title': '补偿金额条款',
+                    'original_summary': '甲方支付乙方8500元，包括全部应付款项',
+                    'risk_analysis': '补偿金额是否合理需要根据乙方工作年限、月工资标准等计算。',
+                    'risk_level': 'high',
+                    'suggestion': '建议明确补偿构成明细，并确保总额不低于法定标准。',
+                }
+            ],
+            review_conclusion=[
+                {'clause_no': '第二条', 'title': '补偿金额条款', 'risk_level': 'high', 'action': '必须修改'}
+            ],
+            final_recommendation='建议修改后签署。重点确保补偿金额的合法性和违约责任的对等性。',
+            raw_response=json.dumps({}, ensure_ascii=False),
+            is_latest=True,
+        )
+
+        request = self.factory.get(reverse('contract:ai_contract_review_detail', args=[review.id]))
+        request.user = self.user
+        response = ai_contract_review_detail_api(request, review.id)
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content.decode('utf-8'))['data']
+        display_report = payload['display_report']
+        self.assertEqual(display_report['section_titles']['contract_info'], '📄 合同信息')
+        self.assertEqual(display_report['contract_info'][0]['label'], '合同名称/类型')
+        self.assertEqual(display_report['contract_info'][0]['value'], '解除劳动关系协议书（特殊离职）')
+        self.assertEqual(display_report['clause_reviews'][0]['heading'], '第二条 [补偿金额条款]')
+        self.assertEqual(display_report['clause_reviews'][0]['risk_display'], '🔴高风险')
+        self.assertEqual(display_report['review_conclusion']['rows'][0]['risk_display'], '🔴 高风险')
+        self.assertIn('建议修改后签署', display_report['review_conclusion']['final_recommendation'])
+
     def test_contract_review_service_quick_review_accepts_direct_dict_payload(self):
         service = ContractReviewService()
         with patch.object(service.tool, '_call_ai', return_value={
@@ -935,6 +1045,23 @@ class ContractScanUploadTests(TestCase):
         self.assertEqual(len(result['clause_reviews']), 2)
         self.assertEqual(result['clause_reviews'][0]['clause_no'], '第一条')
         self.assertEqual(result['clause_reviews'][1]['clause_no'], '第二条')
+
+    def test_contract_review_prompt_requires_cautious_risk_grading_and_case_style(self):
+        service = ContractReviewService()
+
+        prompt = service._build_review_prompt(
+            contract_text='第一条 双方协商一致解除劳动合同。',
+            contract_name='解除劳动关系协议书（特殊离职）',
+            our_role='甲方（深圳市平静科技有限公司）',
+            core_demands='确保解除劳动关系的合法合规性，避免后续劳动纠纷和法律风险',
+        )
+
+        self.assertIn('风险定级必须谨慎', prompt)
+        self.assertIn('高风险仅适用于', prompt)
+        self.assertIn('📄 合同信息', prompt)
+        self.assertIn('📊 总体评估', prompt)
+        self.assertIn('🔍 逐条审查意见', prompt)
+        self.assertIn('📋 审查结论汇总', prompt)
 
     def test_contract_review_service_splits_single_oversized_clause_into_multiple_chunks(self):
         service = ContractReviewService()

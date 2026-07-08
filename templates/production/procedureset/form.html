@@ -1,124 +1,159 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ action }}工序集</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
-
 <body>
-    <div class="layui-fluid" style="padding: 20px;">
-        <!-- 页面标题 -->
-        <div class="layui-row">
-            <div class="layui-col-md12">
-                <h2 style="margin-bottom: 20px;">
-                    {{ action }}工序集
-                </h2>
-            </div>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>{{ action }}工序集</h2></div>
+
+        <div class="production-note">
+            工序集决定生产计划的标准作业顺序和工时成本汇总。这里维护的工序行会直接参与计划排程、任务拆分和产能估算。
         </div>
 
-        <!-- 表单 -->
-        <div class="layui-row">
-            <div class="layui-col-md8">
-                <div class="layui-card">
-                    <div class="layui-card-body">
-                        <form class="layui-form" method="post">
-                            {% csrf_token %}
+        <div class="layui-card production-form-card" style="margin-top: 16px;">
+            <div class="layui-card-body">
+                <form method="post" class="layui-form">
+                    {% csrf_token %}
 
+                    <div class="production-form-section-title">工序集主档</div>
+                    <div class="layui-row layui-col-space16">
+                        <div class="layui-col-md6">
                             <div class="layui-form-item">
-                                <label class="layui-form-label">工序集名称 <span style="color: red;">*</span></label>
+                                <label class="layui-form-label">工序集名称</label>
                                 <div class="layui-input-block">
                                     {{ form.name }}
-                                    {% if form.name.errors %}
-                                        <div style="color: red; margin-top: 5px;">{{ form.name.errors.0 }}</div>
-                                    {% endif %}
+                                    {% if form.name.errors %}<div class="production-field-error">{{ form.name.errors.0 }}</div>{% endif %}
                                 </div>
                             </div>
-
+                        </div>
+                        <div class="layui-col-md6">
                             <div class="layui-form-item">
-                                <label class="layui-form-label">工序集编码 <span style="color: red;">*</span></label>
+                                <label class="layui-form-label">工序集编码</label>
                                 <div class="layui-input-block">
                                     {{ form.code }}
-                                    {% if form.code.errors %}
-                                        <div style="color: red; margin-top: 5px;">{{ form.code.errors.0 }}</div>
-                                    {% endif %}
+                                    {% if form.code.errors %}<div class="production-field-error">{{ form.code.errors.0 }}</div>{% endif %}
                                 </div>
                             </div>
-
-                            <div class="layui-form-item layui-form-text">
-                                <label class="layui-form-label">工序集描述</label>
-                                <div class="layui-input-block">
-                                    {{ form.description }}
-                                    {% if form.description.errors %}
-                                        <div style="color: red; margin-top: 5px;">{{ form.description.errors.0 }}</div>
-                                    {% endif %}
-                                </div>
-                            </div>
-
-                            <div class="layui-form-item">
-                                <div class="layui-input-block">
-                                    <input type="checkbox" name="status" {% if form.status.value %}checked{% endif %} lay-skin="switch" lay-text="启用|禁用">
-                                    {% if form.status.errors %}
-                                        <div style="color: red; margin-top: 5px;">{{ form.status.errors.0 }}</div>
-                                    {% endif %}
-                                </div>
-                            </div>
-
-                            <div class="layui-form-item">
-                                <div class="layui-input-block">
-                                    <button class="layui-btn" lay-submit lay-filter="formSubmit">
-                                        {{ action }}
-                                    </button>
-                                    <button type="button" class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:procedureset_list' %}'">
-                                        取消
-                                    </button>
-                                </div>
-                            </div>
-                        </form>
+                        </div>
                     </div>
-                </div>
+
+                    <div class="layui-form-item layui-form-text">
+                        <label class="layui-form-label">说明</label>
+                        <div class="layui-input-block">
+                            {{ form.description }}
+                            {% if form.description.errors %}<div class="production-field-error">{{ form.description.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">启用状态</label>
+                        <div class="layui-input-block">
+                            {{ form.status }}
+                            {% if form.status.errors %}<div class="production-field-error">{{ form.status.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="production-formset-card">
+                        <div class="production-formset-head">
+                            <div>
+                                <div class="production-formset-title">工序集明细</div>
+                                <div class="production-mini-note">执行顺序、预估工时都会汇总到工序集档案，用于生产计划自动评估。</div>
+                            </div>
+                            <button type="button" class="layui-btn layui-btn-normal layui-btn-sm" onclick="addInlineRow('procedure-items-body', 'procedure-item-template', 'id_items-TOTAL_FORMS')">新增工序行</button>
+                        </div>
+                        <div class="production-formset-body">
+                            {{ formset.management_form }}
+                            {% if formset.non_form_errors %}
+                            <div class="production-field-error" style="margin-bottom: 12px;">{{ formset.non_form_errors }}</div>
+                            {% endif %}
+                            <div class="production-table-wrap">
+                                <table class="layui-table production-formset-table" lay-skin="line">
+                                    <thead>
+                                        <tr>
+                                            <th>工序</th>
+                                            <th>执行顺序</th>
+                                            <th>预估工时（小时）</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="procedure-items-body">
+                                        {% for item_form in formset.forms %}
+                                        <tr class="inline-form-row">
+                                            {% for hidden in item_form.hidden_fields %}{{ hidden }}{% endfor %}
+                                            <td>{{ item_form.procedure }}</td>
+                                            <td>{{ item_form.sequence }}</td>
+                                            <td>{{ item_form.estimated_time }}</td>
+                                            <td>
+                                                {% if item_form.DELETE %}<div style="display:none;">{{ item_form.DELETE }}</div>{% endif %}
+                                                <button type="button" class="layui-btn layui-btn-danger layui-btn-xs" onclick="markInlineRowDeleted(this)">移除</button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item" style="margin-top: 18px;">
+                        <div class="layui-input-block">
+                            <button class="layui-btn" type="submit">{{ action }}</button>
+                            <a href="{% url 'production:procedureset_list' %}" class="layui-btn layui-btn-primary">返回</a>
+                        </div>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <template id="procedure-item-template">
+        <tr class="inline-form-row">
+            {% for hidden in formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
+            <td>{{ formset.empty_form.procedure }}</td>
+            <td>{{ formset.empty_form.sequence }}</td>
+            <td>{{ formset.empty_form.estimated_time }}</td>
+            <td>
+                {% if formset.empty_form.DELETE %}<div style="display:none;">{{ formset.empty_form.DELETE }}</div>{% endif %}
+                <button type="button" class="layui-btn layui-btn-danger layui-btn-xs" onclick="markInlineRowDeleted(this)">移除</button>
+            </td>
+        </tr>
+    </template>
+
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        layui.use(['form', 'layer'], function () {
-            var form = layui.form;
-            var layer = layui.layer;
+        function addInlineRow(bodyId, templateId, totalId) {
+            var totalInput = document.getElementById(totalId);
+            var nextIndex = parseInt(totalInput.value, 10);
+            var html = document.getElementById(templateId).innerHTML.replace(/__prefix__/g, nextIndex);
+            document.getElementById(bodyId).insertAdjacentHTML('beforeend', html);
+            totalInput.value = nextIndex + 1;
+            layui.form.render();
+        }
 
-            // 监听提交
-            form.on('submit(formSubmit)', function(data) {
-                return true; // 允许表单提交
-            });
+        function markInlineRowDeleted(button) {
+            var row = button.closest('tr');
+            var deleteInput = row.querySelector('input[name$="-DELETE"]');
+            if (deleteInput) {
+                deleteInput.checked = true;
+                row.style.display = 'none';
+            } else {
+                row.remove();
+            }
+        }
+
+        layui.use(['form'], function () {
+            layui.form.render();
         });
 
         {% include "production/_right_popup_function.html" %}
-</script>
-
-    <!-- 注入的消息提示脚本 -->
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
-        });
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
-
 </html>

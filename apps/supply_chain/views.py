@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.files.storage import default_storage
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q
@@ -11,8 +12,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.inventory.models import Inventory
-from apps.production.models import BOM
+from apps.contract.models import Product, Supplier
+from apps.inventory.models import Inventory, InventoryItem
+from apps.production.models import BOM, ProductionPlan
 
 from .forms import (
     DemandForecastPlanForm,
@@ -50,17 +52,20 @@ from .models import (
     SampleReceipt,
     SampleRequest,
 )
+from .services.bootstrap_service import bootstrap_supply_chain_workspace
 from .services.event_service import log_supply_chain_event, send_supply_chain_notification
 from .services.forecast_service import (
+    build_forecast_trend_data,
     build_snapshot_payload,
     calculate_forecast_accuracy,
     calculate_recommended_preparation_quantity,
     calculate_safety_stock,
 )
-from .services.inventory_analysis_service import build_inventory_analysis_summary
+from .services.inventory_analysis_service import build_inventory_analysis_summary, build_inventory_deep_analysis
 from .services.outsource_service import build_issue_item_payload, summarize_issue_order_status
 from .services.price_review_service import (
     build_price_review_conclusion,
+    build_price_review_report,
     compare_component_amounts,
     normalize_price_components,
     parse_price_review_document_text,
@@ -68,6 +73,7 @@ from .services.price_review_service import (
 from .services.pr_review_service import evaluate_pr_payload
 from .services.sample_service import (
     build_receipt_payload,
+    get_sample_statistics,
     generate_sample_request_code,
     is_pickup_overdue,
 )
@@ -171,6 +177,18 @@ def _paginate_queryset(request, queryset, per_page=10):
     return paginator.get_page(request.GET.get('page') or 1)
 
 
+def _build_supply_chain_source_summary():
+    risk_rows = build_inventory_analysis_summary().get('risk_rows', [])
+    return {
+        'source_product_count': Product.objects.count(),
+        'source_supplier_count': Supplier.objects.filter(is_active=True).count(),
+        'source_inventory_item_count': InventoryItem.objects.count(),
+        'source_production_plan_count': ProductionPlan.objects.count(),
+        'source_bom_count': BOM.objects.count(),
+        'source_inventory_risk_count': sum(1 for row in risk_rows if row['risk_level'] in {'high', 'medium'}),
+    }
+
+
 @login_required
 def dashboard(request):
     inventory_summary = build_inventory_analysis_summary()
@@ -188,12 +206,12 @@ def dashboard(request):
         'recent_pr_tasks': PRReviewTask.objects.order_by('-create_time')[:5],
         'has_forecast_history': DemandForecastResult.objects.exists(),
     }
+    context.update(_build_supply_chain_source_summary())
     return render(request, 'supply_chain/dashboard.html', context)
 
 
 @login_required
 def inventory_analysis(request):
-    from .services.inventory_analysis_service import build_inventory_deep_analysis
     context = {
         'page_title': '库存智能分析',
         **build_inventory_analysis_summary(),
@@ -227,6 +245,7 @@ def forecast_list(request):
         'reviewing_count': DemandForecastPlan.objects.filter(status=DemandForecastPlan.STATUS_REVIEWING).count(),
         'approved_count': DemandForecastPlan.objects.filter(status=DemandForecastPlan.STATUS_APPROVED).count(),
     }
+    context.update(_build_supply_chain_source_summary())
     return render(request, 'supply_chain/forecast_list.html', context)
 
 
@@ -428,6 +447,7 @@ def outsource_list(request):
         'shortage_count': OutsourceIssueOrder.objects.filter(status=OutsourceIssueOrder.STATUS_SHORTAGE).count(),
         'ready_count': OutsourceIssueOrder.objects.filter(status=OutsourceIssueOrder.STATUS_READY).count(),
     }
+    context.update(_build_supply_chain_source_summary())
     return render(request, 'supply_chain/outsource_list.html', context)
 
 
@@ -630,6 +650,7 @@ def pr_review_list(request):
         'manual_review_count': PRReviewTask.objects.filter(status=PRReviewTask.STATUS_MANUAL_REVIEW).count(),
         'batch_ready_count': _get_batch_approvable_pr_tasks().count(),
     }
+    context.update(_build_supply_chain_source_summary())
     return render(request, 'supply_chain/pr_review_list.html', context)
 
 
@@ -663,7 +684,7 @@ def pr_review_evaluate(request, pk):
         messages.error(request, 'PR 审核载荷无效')
         return redirect('supply_chain:pr_review_list')
 
-    payload = json.loads(form.cleaned_data['payload_json'])
+    payload = form.build_payload()
     rules = list(PRReviewRule.objects.filter(is_active=True).order_by('priority').values(
         'id',
         'code',
@@ -865,6 +886,7 @@ def price_review_list(request):
         'exception_count': PriceReviewOrder.objects.filter(status=PriceReviewOrder.STATUS_EXCEPTION).count(),
         'approved_count': PriceReviewOrder.objects.filter(status=PriceReviewOrder.STATUS_APPROVED).count(),
     }
+    context.update(_build_supply_chain_source_summary())
     return render(request, 'supply_chain/price_review_list.html', context)
 
 
@@ -1042,6 +1064,7 @@ def sample_list(request):
     if status:
         sample_requests = sample_requests.filter(status=status)
     page_obj = _paginate_queryset(request, sample_requests, per_page=8)
+    stats = get_sample_statistics()
     context = {
         'page_title': '打样管理',
         'requests': page_obj,
@@ -1052,11 +1075,9 @@ def sample_list(request):
         'total_count': sample_requests.count(),
         'pickup_pending_count': SampleRequest.objects.filter(status=SampleRequest.STATUS_PICKUP_PENDING).count(),
         'picked_up_count': SampleRequest.objects.filter(status=SampleRequest.STATUS_PICKED_UP).count(),
-        'overdue_pickup_count': SampleRequest.objects.filter(
-            status=SampleRequest.STATUS_PICKUP_PENDING,
-            receipts__pickup_reminded_at__isnull=True,
-        ).count(),
+        'overdue_pickup_count': stats['overdue_count'],
     }
+    context.update(_build_supply_chain_source_summary())
     return render(request, 'supply_chain/sample_list.html', context)
 
 
@@ -1089,7 +1110,7 @@ def sample_receive(request, pk):
     if request.method != 'POST':
         return redirect('supply_chain:sample_list')
 
-    form = SampleReceiptForm(request.POST)
+    form = SampleReceiptForm(request.POST, request.FILES)
     if not form.is_valid():
         messages.error(request, '到货信息无效')
         return redirect('supply_chain:sample_list')
@@ -1105,12 +1126,20 @@ def sample_receive(request, pk):
         location=form.cleaned_data['location'],
         received_quantity=form.cleaned_data['received_quantity'],
     )
+    photo_file = form.cleaned_data.get('photo_file')
+    photo_path = ''
+    if photo_file:
+        photo_path = default_storage.save(
+            f'supply_chain/sample_receipts/{timezone.now():%Y/%m}/{photo_file.name}',
+            photo_file,
+        )
     with transaction.atomic():
         SampleReceipt.objects.create(
             sample_request=sample_request,
             received_quantity=form.cleaned_data['received_quantity'],
             received_at=received_at,
             location=form.cleaned_data['location'],
+            photo_path=photo_path,
             receiver=request.user,
         )
         sample_request.status = SampleRequest.STATUS_PICKUP_PENDING
@@ -1271,7 +1300,6 @@ def sample_remind(request, pk):
 @login_required
 def sample_statistics(request):
     """Sample monthly/quarterly statistics dashboard."""
-    from .services.sample_service import get_sample_statistics
     stats = get_sample_statistics()
     context = {
         "page_title": "打样台账统计",
@@ -1284,10 +1312,8 @@ def sample_statistics(request):
 def forecast_trend(request):
     """Historical forecast accuracy trend analysis."""
     product_id = (request.GET.get("product_id") or "").strip()
-    from .services.forecast_service import build_forecast_trend_data
     product = None
     if product_id:
-        from apps.contract.models import Product
         product = get_object_or_404(Product, pk=product_id)
     trend = build_forecast_trend_data(product=product)
     context = {
@@ -1302,7 +1328,6 @@ def forecast_trend(request):
 @login_required
 def price_review_report(request):
     """Price review cost breakdown report."""
-    from .services.price_review_service import build_price_review_report
     report = build_price_review_report()
     context = {
         "page_title": "单价复核成本报表",
@@ -1386,8 +1411,6 @@ def _generate_forecast_answer(plan, result, question, ctx):
 @login_required
 def outsource_generate_from_plan(request):
     """Generate outsource issue orders from production plans."""
-    from apps.production.models import ProductionPlan, BOM
-
     if request.method == "POST":
         plan_ids = request.POST.getlist("plan_ids")
         if not plan_ids:
@@ -1431,8 +1454,8 @@ def outsource_generate_from_plan(request):
         return redirect("supply_chain:outsource_list")
 
     plans = ProductionPlan.objects.filter(
-        status__in=["draft", "confirmed", "in_progress"],
-    ).select_related("product").order_by("-create_time")
+        status__in=[1, 2, 3],
+    ).select_related("product", "bom").order_by("-create_time")
 
     plan_data = []
     for plan in plans:
@@ -1448,3 +1471,39 @@ def outsource_generate_from_plan(request):
         "plan_data": plan_data,
     }
     return render(request, "supply_chain/outsource_generate_from_plan.html", context)
+
+
+sample_remind.permission_required = 'user.change_supply_chain_sample'
+sample_statistics.permission_required = 'user.view_supply_chain_sample'
+forecast_trend.permission_required = 'user.view_supply_chain_forecast'
+forecast_qa.permission_required = 'user.view_supply_chain_forecast'
+price_review_report.permission_required = 'user.view_supply_chain_price_review'
+outsource_generate_from_plan.permission_required = 'user.view_supply_chain_outsource'
+
+
+@login_required
+def bootstrap_workspace(request):
+    if request.method != 'POST':
+        return redirect('supply_chain:dashboard')
+
+    target = (request.POST.get('target') or 'dashboard').strip()
+    with transaction.atomic():
+        result = bootstrap_supply_chain_workspace(
+            user=request.user,
+            serial_factory=_generate_serial,
+        )
+
+    messages.success(
+        request,
+        '已基于系统现有主数据初始化供应链台账：'
+        f"预测 {result['forecast_created']} 条，"
+        f"委外 {result['outsource_created']} 条，"
+        f"PR {result['pr_created']} 条，"
+        f"核价 {result['price_review_created']} 条，"
+        f"打样 {result['sample_created']} 条。",
+    )
+    redirect_name = f'supply_chain:{target}' if ':' not in target else target
+    return redirect(redirect_name)
+
+
+bootstrap_workspace.permission_required = 'user.view_supply_chain_dashboard'

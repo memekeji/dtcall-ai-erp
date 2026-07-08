@@ -6,79 +6,72 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>发票统计</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/finance-module.css' %}">
     <style>
-        .stat-card {
-            background: #fff;
-            border-radius: 4px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
         .stat-item {
-            display: inline-block;
-            width: 24%;
+            min-width: 0;
             text-align: center;
-            padding: 15px 0;
+            padding: 16px;
         }
         .stat-value {
-            font-size: 28px;
+            font-size: 26px;
             font-weight: bold;
-            color: #009688;
+            color: #172033;
         }
         .stat-label {
-            font-size: 14px;
-            color: #666;
-            margin-top: 5px;
+            font-size: 13px;
+            color: #5b6b80;
+            margin-top: 6px;
         }
     </style>
 </head>
 <body>
-    <div class="layui-fluid">
-        <div class="layui-card">
+    <div class="layui-fluid finance-shell">
+        <div class="finance-page-header">
+            <div>
+                <h1 class="finance-page-title">发票统计</h1>
+                <p class="finance-page-subtitle">综合查看开票总额、回款进度和发票分布，方便财务复盘。</p>
+            </div>
+        </div>
+        <div class="layui-card finance-card-shell">
             <div class="layui-card-header">发票统计分析</div>
             <div class="layui-card-body">
-                <!-- 统计卡片 -->
-                <div class="stat-card">
-                    <div class="stat-item">
+                <div class="finance-stat-grid">
+                    <div class="finance-summary-card stat-item">
                         <div class="stat-value" id="totalInvoices">0</div>
                         <div class="stat-label">总发票数量</div>
                     </div>
-                    <div class="stat-item">
+                    <div class="finance-summary-card stat-item">
                         <div class="stat-value" id="totalAmount">¥0.00</div>
                         <div class="stat-label">总开票金额</div>
                     </div>
-                    <div class="stat-item">
+                    <div class="finance-summary-card stat-item">
                         <div class="stat-value" id="receivedAmount">¥0.00</div>
                         <div class="stat-label">已回款金额</div>
                     </div>
-                    <div class="stat-item">
+                    <div class="finance-summary-card stat-item">
                         <div class="stat-value" id="pendingAmount">¥0.00</div>
                         <div class="stat-label">待回款金额</div>
                     </div>
                 </div>
 
-                <!-- 图表区域 -->
-                <div class="layui-row layui-col-space15">
-                    <div class="layui-col-md6">
-                        <div class="layui-card">
-                            <div class="layui-card-header">月度开票趋势</div>
-                            <div class="layui-card-body">
-                                <div id="monthlyChart" style="height: 300px;"></div>
-                            </div>
+                <div class="finance-chart-grid">
+                    <div class="layui-card finance-card-shell">
+                        <div class="layui-card-header">月度开票趋势</div>
+                        <div class="layui-card-body">
+                            <div id="monthlyChart" class="finance-chart-panel"></div>
                         </div>
                     </div>
-                    <div class="layui-col-md6">
-                        <div class="layui-card">
-                            <div class="layui-card-header">发票类型分布</div>
-                            <div class="layui-card-body">
-                                <div id="typeChart" style="height: 300px;"></div>
-                            </div>
+                    <div class="layui-card finance-card-shell">
+                        <div class="layui-card-header">发票类型分布</div>
+                        <div class="layui-card-body">
+                            <div id="typeChart" class="finance-chart-panel"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 详细数据表格 -->
-                <div class="layui-card">
+                <div class="layui-card finance-card-shell finance-stat-table">
                     <div class="layui-card-header">发票明细</div>
                     <div class="layui-card-body">
                         <table id="invoiceDetailTable" class="layui-table" lay-filter="invoiceDetailTable"></table>

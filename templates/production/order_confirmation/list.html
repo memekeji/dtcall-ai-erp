@@ -6,99 +6,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>订单材料确认</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
 <body>
-    <div class="layui-fluid" style="padding: 20px;">
-        <div style="margin-bottom: 15px;">
-            <a href="{% url 'production:order_material_confirmation_add' %}" class="layui-btn">新增确认</a>
-        </div>
-        <div class="layui-card">
-            <div class="layui-card-header">订单材料确认列表</div>
-            <div class="layui-card-body" style="padding: 0;">
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>订单材料确认</h2></div>
+        <div class="production-list-toolbar"><div class="production-inline-actions"><button class="layui-btn" onclick="openRightPopup('新增材料确认', '{% url 'production:order_material_confirmation_add' %}')">新增确认</button></div></div>
+        <div class="layui-card production-list-card">
+            <div class="layui-card-body production-table-wrap">
                 <table class="layui-table" lay-skin="line">
-                    <thead>
-                        <tr>
-                            <th>生产计划</th>
-                            <th>材料出库单</th>
-                            <th>确认数量</th>
-                            <th>确认人</th>
-                            <th>确认时间</th>
-                            <th>备注</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th>生产计划</th><th>材料出库单</th><th>确认数量</th><th>确认人</th><th>确认时间</th><th>备注</th></tr></thead>
                     <tbody>
                         {% for item in page_obj %}
-                        <tr>
-                            <td>{{ item.production_plan.name|default:'-' }}</td>
-                            <td>{{ item.material_issue.code|default:'-' }}</td>
-                            <td>{{ item.confirmed_quantity }}</td>
-                            <td>{{ item.confirmed_by.username|default:'-' }}</td>
-                            <td>{{ item.confirm_time|date:"Y-m-d H:i" }}</td>
-                            <td>{{ item.remarks|default:'-' }}</td>
-                        </tr>
+                        <tr><td>{{ item.production_plan.name|default:"-" }}</td><td>{{ item.material_issue.code|default:"-" }}</td><td>{{ item.confirmed_quantity }}</td><td>{{ item.confirmed_by.username|default:"-" }}</td><td>{{ item.confirm_time|date:"Y-m-d H:i" }}</td><td>{{ item.remarks|default:"-" }}</td></tr>
                         {% empty %}
-                        <tr>
-                            <td colspan="6" style="text-align: center; color: #999; padding: 40px;">暂无材料确认记录</td>
-                        </tr>
+                        <tr><td colspan="6" class="production-empty">暂无材料确认记录</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
-<script>
-        {% include "production/_right_popup_function.html" %}
-</script>
-
-    <!-- 注入的 iframe 自动关闭及消息提示脚本 -->
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            var flashMsg = sessionStorage.getItem('flash_msg');
-            if (flashMsg) {
-                sessionStorage.removeItem('flash_msg');
-                try {
-                    var parsedMsgs = JSON.parse(flashMsg);
-                    msgs = msgs.concat(parsedMsgs);
-                } catch(e) {}
-            }
-
-            var isLayerFrame = false;
-            if (window !== window.parent) {
-                if (window.frameElement && window.frameElement.closest) {
-                    isLayerFrame = !!window.frameElement.closest('.layui-layer-iframe');
-                }
-                if (!isLayerFrame && window.name && window.parent.layer && typeof window.parent.layer.getFrameIndex === 'function') {
-                    try {
-                        var frameIndex = window.parent.layer.getFrameIndex(window.name);
-                        isLayerFrame = frameIndex !== undefined && frameIndex !== null && frameIndex !== '';
-                    } catch(e) {}
-                }
-            }
-
-            if (isLayerFrame) {
-                if (msgs.length > 0) {
-                    sessionStorage.setItem('flash_msg', JSON.stringify(msgs));
-                }
-                parent.location.reload();
-                return;
-            }
-
-            // 正常独立访问 list 页面
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
-        });
-    </script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>{% include "production/_right_popup_function.html" %}</script>
+    {% include "production/_popup_feedback.html" %}
 </body>
 </html>

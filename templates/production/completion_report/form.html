@@ -6,75 +6,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ action }}完工申报</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
-    <style>
-        .page-wrap { padding: 20px; }
-        .layui-input-block input,
-        .layui-input-block select,
-        .layui-input-block textarea {
-            width: 100%;
-            min-height: 38px;
-            padding: 8px 12px;
-            border: 1px solid #e6e6e6;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        .layui-input-block textarea { min-height: 120px; }
-        .field-error { margin-top: 6px; color: #ff5722; font-size: 12px; }
-    </style>
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
 <body>
-    <div class="layui-fluid page-wrap">
-        <div class="layui-card">
-            <div class="layui-card-header">{{ action }}完工申报</div>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>{{ action }}完工申报</h2></div>
+        <div class="production-note" style="margin-bottom: 16px;">
+            完工申报审核后会回写任务完成数据，并自动生成对应的成品入库草稿。
+        </div>
+        <div class="layui-card production-form-card">
             <div class="layui-card-body">
                 <form class="layui-form" method="post">
                     {% csrf_token %}
-                    {% if form.non_field_errors %}
-                    <div class="layui-bg-red" style="padding: 12px; margin-bottom: 15px; color: #fff;">{{ form.non_field_errors }}</div>
-                    {% endif %}
-                    {% for field in form %}
-                    <div class="layui-form-item">
-                        <label class="layui-form-label">{{ field.label }}</label>
-                        <div class="layui-input-block">
-                            {{ field }}
-                            {% for error in field.errors %}
-                            <div class="field-error">{{ error }}</div>
-                            {% endfor %}
+                    {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+                    {% for field in form.visible_fields %}
+                        <div class="layui-form-item{% if field.field.widget.input_type == 'textarea' %} layui-form-text{% endif %}">
+                            <label class="layui-form-label">{{ field.label }}</label>
+                            <div class="layui-input-block">
+                                {{ field }}
+                                {% for error in field.errors %}<div class="production-field-error">{{ error }}</div>{% endfor %}
+                            </div>
                         </div>
-                    </div>
                     {% endfor %}
-                    <div class="layui-form-item">
-                        <div class="layui-input-block">
-                            <button type="submit" class="layui-btn">保存</button>
-                            <a href="{% url 'production:work_completion_report_list' %}" class="layui-btn layui-btn-primary">返回</a>
-                        </div>
-                    </div>
+                    {% if form.non_field_errors %}<div class="production-field-error" style="margin-bottom: 16px;">{{ form.non_field_errors.0 }}</div>{% endif %}
+                    <div class="layui-form-item"><div class="layui-input-block"><button type="submit" class="layui-btn">{{ action }}</button><a href="{% url 'production:work_completion_report_list' %}" class="layui-btn layui-btn-primary">返回</a></div></div>
                 </form>
             </div>
         </div>
     </div>
-<script>
-        {% include "production/_right_popup_function.html" %}
-</script>
-
-    <!-- 注入的消息提示脚本 -->
+    <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
+        layui.use(['form', 'laydate'], function () {
+            layui.form.render();
+            layui.laydate.render({ elem: '#id_report_date', type: 'date' });
         });
+        {% include "production/_right_popup_function.html" %}
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
 </html>

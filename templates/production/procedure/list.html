@@ -1,263 +1,108 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>基本工序管理</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
-    <style>
-        .search-form {
-            margin-bottom: 15px;
-        }
-        .table-toolbar {
-            margin-bottom: 15px;
-        }
-        .status-enabled {
-            color: #5FB878;
-        }
-        .status-disabled {
-            color: #FF5722;
-        }
-    </style>
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
-
 <body>
-    <div class="layui-fluid" style="padding: 20px;">
-        <!-- 页面标题 -->
-        <div class="layui-row">
-            <div class="layui-col-md12">
-                <h2 style="margin-bottom: 20px;">基本工序管理</h2>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>基本工序管理</h2></div>
+
+        <div class="production-summary-strip">
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ page_obj.paginator.count }}</div>
+                <div class="production-summary-label">工序总数</div>
+            </div>
+            <div class="production-summary-item">
+                <div class="production-summary-value">{% if search %}{{ search }}{% else %}-{% endif %}</div>
+                <div class="production-summary-label">当前搜索关键词</div>
+            </div>
+            <div class="production-summary-item accent">
+                <div class="production-summary-value">工时标准</div>
+                <div class="production-summary-label">工序成本会被工序集、工艺路线自动引用</div>
+            </div>
+            <div class="production-summary-item accent">
+                <div class="production-summary-value">任务联动</div>
+                <div class="production-summary-label">生产任务执行工序直接来自这里</div>
             </div>
         </div>
 
-        <!-- 工具栏 -->
-        <div class="layui-row table-toolbar">
-            <div class="layui-col-md6">
-                <button class="layui-btn" onclick="showProcedureDialog('add')">
-                    <i class="layui-icon layui-icon-add-1"></i> 添加工序
-                </button>
-                <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:baseinfo_index' %}'">
-                    <i class="layui-icon layui-icon-return"></i> 返回
-                </button>
+        <div class="production-list-toolbar">
+            <div class="production-inline-actions">
+                <button class="layui-btn" onclick="openRightPopup('新建工序', '{% url 'production:procedure_add' %}')">新建工序</button>
+                <a href="{% url 'production:baseinfo_index' %}" class="layui-btn layui-btn-primary">返回基础信息</a>
             </div>
-            <div class="layui-col-md6" style="text-align: right;">
-                <form method="get" class="layui-form layui-form-pane" style="display: inline-block;">
-                    <div class="layui-input-group">
-                        <input type="text" name="search" value="{{ search }}" placeholder="搜索工序名称或编码" class="layui-input" style="width: 200px; display: inline-block;">
-                        <div class="layui-input-split layui-input-suffix">
-                            <button class="layui-btn" type="submit">
-                                <i class="layui-icon layui-icon-search"></i>
-                            </button>
-                        </div>
-                    </div>
-                </form>
-            </div>
+            <form method="get" class="layui-form">
+                <input type="text" name="search" value="{{ search }}" class="layui-input" style="width: 220px;" placeholder="搜索工序名称或编码">
+                <button class="layui-btn layui-btn-normal" type="submit">查询</button>
+            </form>
         </div>
 
-        <!-- 数据表格 -->
-        <div class="layui-row">
-            <div class="layui-col-md12">
-                <div class="layui-card">
-                    <div class="layui-card-body" style="padding: 0;">
-                        <table class="layui-table" lay-skin="line">
-                            <thead>
-                                <tr>
-                                    <th>工序编码</th>
-                                    <th>工序名称</th>
-                                    <th>标准工时</th>
-                                    <th>每小时成本</th>
-                                    <th>所属部门</th>
-                                    <th>状态</th>
-                                    <th>创建时间</th>
-                                    <th>操作</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for procedure in page_obj %}
-                                <tr>
-                                    <td>{{ procedure.code }}</td>
-                                    <td>{{ procedure.name }}</td>
-                                    <td>{{ procedure.standard_time }}小时</td>
-                                    <td>￥{{ procedure.cost_per_hour }}</td>
-                                    <td>{{ procedure.department.name|default:"-" }}</td>
-                                    <td>
-                                        {% if procedure.status %}
-                                            <span class="status-enabled">启用</span>
-                                        {% else %}
-                                            <span class="status-disabled">禁用</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ procedure.create_time|date:"Y-m-d H:i" }}</td>
-                                    <td>
-                                        <button class="layui-btn layui-btn-xs" onclick="showProcedureDialog('edit', {{ procedure.pk }})">
-                                            <i class="layui-icon layui-icon-edit"></i> 编辑
-                                        </button>
-                                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteProcedure({{ procedure.pk }}, '{{ procedure.name }}')">
-                                            <i class="layui-icon layui-icon-delete"></i> 删除
-                                        </button>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="8" style="text-align: center; padding: 40px; color: #999;">
-                                        暂无数据
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+        <div class="layui-card production-list-card">
+            <div class="layui-card-body production-table-wrap">
+                <table class="layui-table" lay-skin="line">
+                    <thead>
+                        <tr>
+                            <th>工序编码</th>
+                            <th>工序名称</th>
+                            <th>标准工时</th>
+                            <th>小时成本</th>
+                            <th>所属部门</th>
+                            <th>排序</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for procedure in page_obj %}
+                        <tr>
+                            <td>{{ procedure.code }}</td>
+                            <td>{{ procedure.name }}</td>
+                            <td>{{ procedure.standard_time }}</td>
+                            <td>￥{{ procedure.cost_per_hour }}</td>
+                            <td>{{ procedure.department.name|default:"-" }}</td>
+                            <td>{{ procedure.sort }}</td>
+                            <td>
+                                <span class="production-tag {% if procedure.status %}ok{% else %}danger{% endif %}">
+                                    {% if procedure.status %}启用{% else %}停用{% endif %}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="production-inline-actions">
+                                    <button class="layui-btn layui-btn-xs" onclick="openRightPopup('编辑工序', '{% url 'production:procedure_edit' procedure.pk %}')">编辑</button>
+                                    <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteProcedure({{ procedure.pk }}, '{{ procedure.name }}')">删除</button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="production-empty">暂无工序数据</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
-
-        <!-- 分页 -->
-        {% if page_obj.has_other_pages %}
-        <div class="layui-row" style="margin-top: 20px;">
-            <div class="layui-col-md12" style="text-align: center;">
-                <div id="pagination"></div>
-            </div>
-        </div>
-        {% endif %}
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        layui.use(['layer', 'laypage'], function () {
-            var layer = layui.layer;
-            var laypage = layui.laypage;
-
-            // 分页
-            laypage.render({
-                elem: 'pagination',
-                count: {{ page_obj.paginator.count }},
-                limit: 20,
-                curr: {{ page_obj.number }},
-                jump: function (obj, first) {
-                    if (!first) {
-                        var url = new URL(window.location);
-                        url.searchParams.set('page', obj.curr);
-                        window.location.href = url.toString();
-                    }
-                }
-            });
-        });
-
         function deleteProcedure(id, name) {
             layui.use(['layer'], function () {
-                var layer = layui.layer;
-                layer.confirm('确定要删除工序 "' + name + '" 吗？', {
-                    icon: 3,
-                    title: '确认删除'
-                }, function (index) {
-                    window.location.href = '{% url 'production:procedure_delete' 0 %}'.replace('0', id);
-                    layer.close(index);
-                });
-            });
-        }
-
-        // 显示工序对话框 - 从右侧弹出
-        function showProcedureDialog(action, id) {
-            layui.use(['layer'], function () {
-                var layer = layui.layer;
-                var title = '';
-                var url = '';
-
-                switch(action) {
-                    case 'add':
-                        title = '添加工序';
-                        url = '{% url 'production:procedure_add' %}';
-                        break;
-                    case 'edit':
-                        title = '编辑工序';
-                        url = '{% url 'production:procedure_edit' 0 %}'.replace('0', id);
-                        break;
-                    default:
-                        return;
-                }
-
-                // 从右侧弹出页面
-                layer.open({
-                    type: 2,
-                    title: title,
-                    shadeClose: false,
-                    shade: 0.3,
-                    maxmin: true,
-                    area: ['80%', '100%'],
-                    offset: 'r',
-                    anim: 2,
-                    content: url,
-                    success: function(layero, index) {
-                        layero.css({
-                            'right': '0',
-                            'top': '0',
-                            'height': '100%'
-                        });
-                    },
-                    end: function() {
-                        // 关闭弹窗后刷新页面，确保数据最新
-                        window.location.reload();
-                    }
+                layui.layer.confirm('确定要删除工序“' + name + '”吗？', {icon: 3, title: '确认删除'}, function(index) {
+                    window.location.href = '{% url "production:procedure_delete" 0 %}'.replace('0', id);
+                    layui.layer.close(index);
                 });
             });
         }
 
         {% include "production/_right_popup_function.html" %}
-</script>
-
-    <!-- 注入的 iframe 自动关闭及消息提示脚本 -->
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            var flashMsg = sessionStorage.getItem('flash_msg');
-            if (flashMsg) {
-                sessionStorage.removeItem('flash_msg');
-                try {
-                    var parsedMsgs = JSON.parse(flashMsg);
-                    msgs = msgs.concat(parsedMsgs);
-                } catch(e) {}
-            }
-
-            var isLayerFrame = false;
-            if (window !== window.parent) {
-                if (window.frameElement && window.frameElement.closest) {
-                    isLayerFrame = !!window.frameElement.closest('.layui-layer-iframe');
-                }
-                if (!isLayerFrame && window.name && window.parent.layer && typeof window.parent.layer.getFrameIndex === 'function') {
-                    try {
-                        var frameIndex = window.parent.layer.getFrameIndex(window.name);
-                        isLayerFrame = frameIndex !== undefined && frameIndex !== null && frameIndex !== '';
-                    } catch(e) {}
-                }
-            }
-
-            if (isLayerFrame) {
-                if (msgs.length > 0) {
-                    sessionStorage.setItem('flash_msg', JSON.stringify(msgs));
-                }
-                parent.location.reload();
-                return;
-            }
-
-            // 正常独立访问 list 页面
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
-        });
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
-
 </html>

@@ -85,15 +85,14 @@ class AIPermissionGuardTests(SimpleTestCase):
         except ModuleNotFoundError as exc:
             self.fail(f'Missing AI permission guard dependency: {exc}')
 
-        user = SimpleNamespace(is_authenticated=True)
+        user = SimpleNamespace(is_authenticated=True, is_superuser=False, has_perm=lambda perm: False)
         action = AIActionRequest(resource='customer', operation='update', object_ids=[1])
 
-        with patch('apps.ai.services.permission_guard.PermissionChecker.can_change', return_value=False):
-            result = AIPermissionGuard().check_action_permission(
-                user,
-                action,
-                permission_code='customer.change_customer',
-            )
+        result = AIPermissionGuard().check_action_permission(
+            user,
+            action,
+            permission_code='customer.change_customer',
+        )
 
         self.assertFalse(result.allowed)
         self.assertEqual(result.reason, 'missing_permission')
@@ -105,18 +104,40 @@ class AIPermissionGuardTests(SimpleTestCase):
         except ModuleNotFoundError as exc:
             self.fail(f'Missing AI permission guard dependency: {exc}')
 
-        user = SimpleNamespace(is_authenticated=True)
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm == 'customer.view_customer',
+        )
         action = AIActionRequest(resource='customer', operation='query')
 
-        with patch('apps.ai.services.permission_guard.PermissionChecker.can_view', return_value=True):
-            result = AIPermissionGuard().check_action_permission(
-                user,
-                action,
-                permission_code='customer.view_customer',
-            )
+        result = AIPermissionGuard().check_action_permission(
+            user,
+            action,
+            permission_code='customer.view_customer',
+        )
 
         self.assertTrue(result.allowed)
         self.assertEqual(result.reason, 'allowed')
+
+    def test_guard_uses_exact_permission_for_non_user_app_codes(self):
+        from apps.ai.services.action_contracts import AIActionRequest
+        from apps.ai.services.permission_guard import AIPermissionGuard
+
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm == 'system.change_document',
+        )
+        action = AIActionRequest(resource='document', operation='update', object_ids=[1])
+
+        result = AIPermissionGuard().check_action_permission(
+            user,
+            action,
+            permission_code='system.change_document',
+        )
+
+        self.assertTrue(result.allowed)
 
 
 class AIRollbackServiceTests(SimpleTestCase):
@@ -245,6 +266,48 @@ class AIRollbackServiceTests(SimpleTestCase):
         self.assertTrue(result['success'])
         customer.delete.assert_called_once()
         self.assertEqual(operation.status, 'rolled_back')
+
+    def test_apply_soft_delete_create_rollback_prefers_hard_delete(self):
+        try:
+            from apps.ai.services.rollback_service import rollback_service
+        except ModuleNotFoundError:
+            self.fail('apps.ai.services.rollback_service.rollback_service is missing')
+
+        record = SimpleNamespace(
+            id=25,
+            delete=MagicMock(),
+            hard_delete=MagicMock(),
+        )
+        change_set = SimpleNamespace(
+            sequence=1,
+            app_label='oa',
+            model_name='MeetingRecord',
+            object_pk='25',
+            change_type='create',
+            before_snapshot=None,
+            after_snapshot={'id': 25, 'title': '项目例会'},
+            changed_fields=['title'],
+            is_rollback_supported=True,
+        )
+        operation = SimpleNamespace(
+            id=780,
+            status='executed',
+            change_sets=SimpleNamespace(all=lambda: [change_set]),
+            save=MagicMock(),
+        )
+
+        with patch('apps.ai.services.rollback_service.AIOperation.objects.get', return_value=operation), \
+                patch('apps.ai.services.rollback_service.AIOperationRollback.objects.create'), \
+                patch('apps.ai.services.rollback_service.build_rollback_plan', return_value=[change_set]), \
+                patch('apps.ai.services.rollback_service.apps.get_model') as get_model, \
+                patch('apps.ai.services.rollback_service.transaction.atomic'):
+            get_model.return_value = MagicMock(objects=MagicMock(get=MagicMock(return_value=record)))
+
+            result = rollback_service.rollback_operation(operation_id=780, user=SimpleNamespace(id=7))
+
+        self.assertTrue(result['success'])
+        record.hard_delete.assert_called_once()
+        record.delete.assert_not_called()
 
     def test_apply_customer_delete_rollback_restores_soft_deleted_record(self):
         try:
@@ -378,6 +441,60 @@ class AIChatExecutionPayloadTests(SimpleTestCase):
         self.assertEqual(payload['operation_id'], 88)
         self.assertEqual(payload['confirmation']['token'], 'token-88')
 
+    def test_chat_payload_persists_recognition_metadata_for_history_rendering(self):
+        from apps.ai.views import AIChatStreamView
+
+        user = SimpleNamespace(is_authenticated=True, id=9)
+        request = SimpleNamespace(session={})
+        ai_message = SimpleNamespace(
+            id=3,
+            runtime_payload={},
+            created_at=None,
+            save=MagicMock(),
+        )
+
+        intent_result = {
+            'success': True,
+            'intent_type': 'DATA_QUERY',
+            'message': '已按安全降级规则识别为待审批查询。',
+            'result': '已按安全降级规则识别为待审批查询。',
+            'confidence': 0.58,
+            'requires_confirmation': True,
+            'action': 'list',
+            'data_type': 'approval_task',
+            'entities': {},
+            'source': 'safe_fallback',
+            'ai_available': False,
+            'ai_configured': True,
+            'failure_reason': 'AI 模型暂时不可用',
+            'model_provider': 'openai',
+            'model_name': 'gpt-5.4',
+        }
+
+        with patch('apps.ai.services.intent_recognition_service.intent_recognition_service.process_request', return_value=intent_result), \
+                patch.object(
+                    AIChatStreamView,
+                    'save_chat_record',
+                    return_value=(SimpleNamespace(id=1), SimpleNamespace(id=2), ai_message),
+                ), \
+                patch.object(
+                    AIChatStreamView,
+                    '_create_operation_preview',
+                    return_value=None,
+                ):
+            payload = AIChatStreamView()._build_intent_response_payload(
+                user,
+                chat_id=None,
+                message='看一下我的待审批流程',
+                request=request,
+            )
+
+        self.assertEqual(payload['recognition_meta']['source'], 'safe_fallback')
+        self.assertEqual(payload['recognition_meta']['source_label'], '规则降级')
+        self.assertEqual(payload['recognition_meta']['status_label'], '模型不可用')
+        self.assertEqual(ai_message.runtime_payload['recognition_meta']['source'], 'safe_fallback')
+        self.assertEqual(ai_message.runtime_payload['recognition_meta']['failure_reason'], 'AI 模型暂时不可用')
+
 
 class AIChatStreamingResponseTests(SimpleTestCase):
     def test_generate_streaming_response_emits_thinking_chunk_and_done_events(self):
@@ -468,6 +585,84 @@ class AIOperationPreviewServiceTests(SimpleTestCase):
         create_confirmation.assert_called_once()
         self.assertEqual(create_confirmation.call_args.kwargs['operation'], operation)
         self.assertEqual(create_confirmation.call_args.kwargs['token'], create_operation.call_args.kwargs['confirmation_token'])
+
+
+class AIConfirmationServiceTests(SimpleTestCase):
+    def test_build_action_request_normalizes_disk_share_resource(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'create',
+            'data_type': 'disk_share',
+            'entities': {
+                'object_ids': [91],
+                'changes': {'permission_type': 'view'},
+            },
+        })
+
+        self.assertEqual(request.resource, 'disk')
+        self.assertEqual(request.context['model'], 'share')
+        self.assertEqual(request.object_ids, [91])
+
+    def test_build_action_request_normalizes_disk_folder_resource(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'update',
+            'data_type': 'disk_folder',
+            'entities': {
+                'object_ids': [71],
+                'changes': {'name': '新资料夹'},
+            },
+        })
+
+        self.assertEqual(request.resource, 'disk')
+        self.assertEqual(request.context['model'], 'folder')
+        self.assertEqual(request.changes['name'], '新资料夹')
+
+    def test_build_action_request_normalizes_finance_invoice_resource(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'update',
+            'data_type': 'finance_invoice',
+            'entities': {
+                'object_ids': [52],
+                'changes': {'delivery': 'SF123456'},
+            },
+        })
+
+        self.assertEqual(request.resource, 'finance')
+        self.assertEqual(request.context['model'], 'invoice')
+        self.assertEqual(request.object_ids, [52])
+
+    def test_build_action_request_normalizes_payment_resource(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'create',
+            'data_type': 'payment',
+            'entities': {
+                'changes': {'amount': '5000.00'},
+            },
+        })
+
+        self.assertEqual(request.resource, 'finance')
+        self.assertEqual(request.context['model'], 'payment')
+
+    def test_build_action_request_normalizes_income_resource(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'create',
+            'data_type': 'finance_income',
+            'entities': {
+                'changes': {'amount': '3000.00'},
+            },
+        })
+
+        self.assertEqual(request.resource, 'finance')
+        self.assertEqual(request.context['model'], 'income')
 
 
 class AIOperationConfirmServiceTests(SimpleTestCase):
@@ -642,6 +837,19 @@ class AIIntentCoverageTests(SimpleTestCase):
         self.assertEqual(result['action'], 'list')
         self.assertEqual(result['data_type'], 'work_report')
 
+    def test_rule_fallback_prefers_order_for_create_query_with_customer_name(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._safe_fallback_result(
+            '帮我添加一个订单，客户是阿里云国际站，订单金额：1100',
+            'AI 模型暂时不可用',
+        )
+
+        self.assertEqual(result['intent'], 'DATA_CREATE')
+        self.assertEqual(result['action'], 'create')
+        self.assertEqual(result['data_type'], 'order')
+
     def test_rule_fallback_recognizes_disk_share_query(self):
         from apps.ai.services.ai_intent_classifier import AIIntentClassifier
 
@@ -695,6 +903,98 @@ class AIIntentCoverageTests(SimpleTestCase):
         self.assertEqual(result['failure_reason'], 'AI 模型暂时不可用')
         self.assertEqual(result['model_provider'], 'openai')
         self.assertEqual(result['model_name'], 'gpt-5.4')
+
+    def test_rule_fallback_collects_candidate_data_types_for_ambiguous_write_query(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._safe_fallback_result(
+            '帮我添加一个订单，客户是阿里云国际站，订单金额：1100',
+            'AI 模型暂时不可用',
+        )
+
+        self.assertEqual(result['data_type'], 'order')
+        self.assertEqual(result['entities']['candidate_data_types'], ['order', 'customer'])
+
+    def test_rule_fallback_recognizes_document_create_from_office_terms(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._safe_fallback_result(
+            '起草一份公文，标题是质量巡检通知',
+            'AI 模型暂时不可用',
+        )
+
+        self.assertEqual(result['intent'], 'DATA_CREATE')
+        self.assertEqual(result['action'], 'create')
+        self.assertEqual(result['data_type'], 'document')
+        self.assertTrue(result['requires_confirmation'])
+
+    def test_rule_fallback_recognizes_inventory_create_from_material_terms(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._safe_fallback_result(
+            '录入一个库存物料，编码 MAT-001',
+            'AI 模型暂时不可用',
+        )
+
+        self.assertEqual(result['intent'], 'DATA_CREATE')
+        self.assertEqual(result['action'], 'create')
+        self.assertEqual(result['data_type'], 'inventory')
+        self.assertTrue(result['requires_confirmation'])
+
+    def test_rule_fallback_recognizes_document_publish_action(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._safe_fallback_result(
+            '发布这份公文',
+            'AI 模型暂时不可用',
+        )
+
+        self.assertEqual(result['intent'], 'DATA_UPDATE')
+        self.assertEqual(result['action'], 'publish')
+        self.assertEqual(result['data_type'], 'document')
+        self.assertTrue(result['requires_confirmation'])
+
+    def test_rule_fallback_recognizes_stockin_approve_action(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._safe_fallback_result(
+            '审核这张入库单',
+            'AI 模型暂时不可用',
+        )
+
+        self.assertEqual(result['intent'], 'DATA_UPDATE')
+        self.assertEqual(result['action'], 'approve')
+        self.assertEqual(result['data_type'], 'stockin')
+        self.assertTrue(result['requires_confirmation'])
+
+    def test_rule_fallback_prefers_personal_contact_for_my_contacts(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._safe_fallback_result(
+            '查一下我的联系人',
+            'AI 模型暂时不可用',
+        )
+
+        self.assertEqual(result['intent'], 'DATA_QUERY')
+        self.assertEqual(result['data_type'], 'personal_contact')
+
+    def test_rule_fallback_prefers_production_task_over_generic_production(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._safe_fallback_result(
+            '看看今天的生产任务',
+            'AI 模型暂时不可用',
+        )
+
+        self.assertEqual(result['intent'], 'DATA_QUERY')
+        self.assertEqual(result['data_type'], 'production_task')
 
     def test_summarize_ai_failure_identifies_unavailable_model(self):
         from apps.ai.services.ai_intent_classifier import AIIntentClassifier
@@ -938,6 +1238,125 @@ class AIIntentCoverageTests(SimpleTestCase):
 
 
 class AIConfigurationSourceTests(SimpleTestCase):
+    def test_project_mcp_registry_exposes_query_and_write_capabilities(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capabilities = project_mcp_service.get_capability_catalog()
+        capability_ids = {item['id'] for item in capabilities}
+
+        self.assertIn('query.approval_task.list', capability_ids)
+        self.assertIn('write.order.create', capability_ids)
+
+        order_create = next(item for item in capabilities if item['id'] == 'write.order.create')
+        self.assertEqual(order_create['resource'], 'order')
+        self.assertEqual(order_create['execution_mode'], 'business_handoff')
+        self.assertIn('record_write', order_create['skill_tags'])
+
+    def test_project_mcp_write_capability_uses_explicit_permission_code(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capabilities = project_mcp_service.get_capability_catalog()
+        document_create = next(item for item in capabilities if item['id'] == 'write.document.create')
+
+        self.assertEqual(document_create['permission_code'], 'system.add_document')
+
+    def test_project_mcp_exposes_document_publish_capability(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capabilities = project_mcp_service.get_capability_catalog()
+        document_publish = next(item for item in capabilities if item['id'] == 'write.document.publish')
+
+        self.assertEqual(document_publish['permission_code'], 'system.change_document_publish')
+        self.assertEqual(document_publish['target_url'], '/system/admin_office/document/publish/{id}/')
+
+    def test_project_mcp_exposes_project_document_create_capability(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capabilities = project_mcp_service.get_capability_catalog()
+        project_document_create = next(item for item in capabilities if item['id'] == 'write.project_document.create')
+
+        self.assertEqual(project_document_create['permission_code'], 'project.add_project_document')
+        self.assertEqual(project_document_create['target_url'], '/project/document/add/')
+
+    def test_project_mcp_exposes_personal_task_create_capability_without_permission_code(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capabilities = project_mcp_service.get_capability_catalog()
+        personal_task_create = next(item for item in capabilities if item['id'] == 'write.personal_task.create')
+
+        self.assertIsNone(personal_task_create['permission_code'])
+        self.assertEqual(personal_task_create['target_url'], '/personal/task/add/')
+
+    def test_project_mcp_exposes_contact_create_capability(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capabilities = project_mcp_service.get_capability_catalog()
+        contact_create = next(item for item in capabilities if item['id'] == 'write.contact.create')
+
+        self.assertEqual(contact_create['permission_code'], 'customer.add_customer')
+        self.assertEqual(contact_create['target_url'], '/customer/')
+
+    def test_project_mcp_exposes_production_task_create_capability(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capabilities = project_mcp_service.get_capability_catalog()
+        production_task_create = next(item for item in capabilities if item['id'] == 'write.production_task.create')
+
+        self.assertEqual(production_task_create['permission_code'], 'user.add_production_task')
+        self.assertEqual(production_task_create['target_url'], '/production/task/execution/add/')
+
+    def test_project_mcp_exposes_finance_expense_query_capability(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capabilities = project_mcp_service.get_capability_catalog()
+        expense_query = next(item for item in capabilities if item['id'] == 'query.finance_expense.list')
+
+        self.assertEqual(expense_query['permission_code'], 'finance.view_expense')
+
+    def test_project_mcp_exposes_production_task_query_capability(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capabilities = project_mcp_service.get_capability_catalog()
+        production_task_query = next(item for item in capabilities if item['id'] == 'query.production_task.list')
+
+        self.assertEqual(production_task_query['permission_code'], 'production.view_productiontask')
+
+    def test_project_mcp_matches_publish_operation_capability(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        matched = project_mcp_service.match_capabilities(
+            '发布这份公文',
+            {'intent': 'DATA_UPDATE', 'action': 'publish', 'data_type': 'document', 'entities': {}},
+        )
+
+        self.assertEqual(matched[0]['id'], 'write.document.publish')
+
+    def test_ai_intent_prompt_includes_project_mcp_capability_context(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        classifier.ai_config = {
+            'provider': 'openai',
+            'model_name': 'gpt-5.5',
+        }
+        classifier.ai_client = MagicMock()
+        classifier.ai_client.chat_completion.return_value = (
+            '{"intent":"DATA_QUERY","confidence":0.91,"action":"list","data_type":"approval_task",'
+            '"entities":{},"time_range":null,"status":null,"customer_name":null,'
+            '"requires_confirmation":false,"reasoning":"识别为待审批查询"}'
+        )
+
+        with patch.object(classifier, '_get_training_data', return_value=[]):
+            result = classifier._ai_classify_intent('看一下我的待审批流程')
+
+        self.assertEqual(result['data_type'], 'approval_task')
+        call_args = classifier.ai_client.chat_completion.call_args
+        messages = call_args.kwargs.get('messages') or call_args.args[0]
+        combined_prompt = '\n'.join(str(item.get('content', '')) for item in messages)
+        self.assertIn('项目MCP能力目录', combined_prompt)
+        self.assertIn('approval_task', combined_prompt)
+        self.assertIn('order', combined_prompt)
+
     def test_config_manager_only_uses_database_configs(self):
         from apps.ai.utils.ai_config_manager import AIConfigManager
 
@@ -993,6 +1412,10 @@ class AIConfigurationSourceTests(SimpleTestCase):
         self.assertIn('AI 模型服务暂时不可用', response['message'])
         self.assertTrue(response['ai_configured'])
         self.assertEqual(response['failure_reason'], 'AI 模型暂时不可用')
+        self.assertEqual(response['recognition_meta']['source_label'], '规则降级')
+        self.assertEqual(response['recognition_meta']['status_label'], '模型不可用')
+        self.assertEqual(response['mcp_context']['matched_capabilities'][0]['resource'], 'approval_task')
+        self.assertIn('query_execute', response['mcp_context']['skill_hints'])
 
     def test_enhanced_intent_inherits_approval_count_follow_up_from_previous_query(self):
         from apps.ai.services.enhanced_intent_service import EnhancedIntentService
@@ -1196,10 +1619,386 @@ class AIConfigurationSourceTests(SimpleTestCase):
         self.assertIsNone(task['disabled_reason'])
         self.assertTrue(task['options'][0]['enabled'])
 
+    def test_order_create_handoff_uses_order_create_url(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm == 'user.add_customer_order',
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'order',
+                'entities': {'customer_name': '阿里云国际站'},
+                'confidence': 0.9,
+            },
+            '帮我添加一个订单，客户是阿里云国际站，订单金额：1100',
+        )
+
+        self.assertEqual(task['data_type'], 'order')
+        self.assertEqual(task['target_url'], '/customer/orders/create/')
+        self.assertIn('新增客户订单', task['message'])
+
+    def test_inventory_create_handoff_is_enabled(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in {'inventory.add_inventoryitem'},
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'inventory',
+                'entities': {'name': '轴承'},
+                'confidence': 0.9,
+            },
+            '新增一个库存物料，叫轴承',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/inventory/item/add/')
+        self.assertIsNone(task['disabled_reason'])
+
+    def test_document_create_handoff_is_enabled(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in {'system.add_document'},
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'document',
+                'entities': {'title': '质量巡检通知'},
+                'confidence': 0.92,
+            },
+            '起草一份质量巡检通知',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/system/admin_office/document/create/')
+        self.assertIsNone(task['disabled_reason'])
+
+    def test_document_publish_handoff_uses_action_target_url(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in {'system.change_document_publish'},
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_UPDATE',
+                'action': 'publish',
+                'data_type': 'document',
+                'entities': {'id': 8},
+                'confidence': 0.9,
+            },
+            '发布这份公文',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/system/admin_office/document/publish/8/')
+        self.assertEqual(task['title'], '发布文档')
+
+    def test_warehouse_create_handoff_is_enabled(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in {'inventory.add_warehouse'},
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'warehouse',
+                'entities': {'name': '华东成品仓'},
+                'confidence': 0.91,
+            },
+            '新增一个华东成品仓',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/inventory/warehouse/add/')
+        self.assertIsNone(task['disabled_reason'])
+
+    def test_project_document_create_handoff_is_enabled(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in {'project.add_project_document'},
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'project_document',
+                'entities': {'title': '实施方案'},
+                'confidence': 0.9,
+            },
+            '新增一个项目文档，标题叫实施方案',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/project/document/add/')
+        self.assertIsNone(task['disabled_reason'])
+
+    def test_position_create_handoff_is_enabled(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in {'position.add_position'},
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'position',
+                'entities': {'title': '招商主管'},
+                'confidence': 0.9,
+            },
+            '新增一个岗位，叫招商主管',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/position/add/')
+        self.assertIsNone(task['disabled_reason'])
+
+    def test_personal_task_create_handoff_is_enabled_for_authenticated_user(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: False,
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'personal_task',
+                'entities': {'title': '跟进供应商报价'},
+                'confidence': 0.9,
+            },
+            '帮我新增一个个人任务，跟进供应商报价',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/personal/task/add/')
+        self.assertIsNone(task['disabled_reason'])
+
+    def test_contact_create_handoff_is_enabled(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in {'customer.add_customer'},
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'contact',
+                'entities': {'contact_person': '张三', 'phone': '13800000000'},
+                'confidence': 0.9,
+            },
+            '给客户新增一个联系人张三',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/customer/')
+        self.assertIsNone(task['disabled_reason'])
+
+    def test_production_task_create_handoff_is_enabled(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in {'user.add_production_task'},
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'production_task',
+                'entities': {'name': '装配工单'},
+                'confidence': 0.9,
+            },
+            '新增一个生产任务',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/production/task/execution/add/')
+        self.assertIsNone(task['disabled_reason'])
+
+    def test_meeting_create_handoff_uses_apply_permission(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm == 'user.apply_meeting',
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'meeting',
+                'entities': {'title': '项目例会'},
+                'confidence': 0.9,
+            },
+            '帮我安排一个项目例会',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/oa/meeting/apply/')
+        self.assertEqual(task['permission_required']['full_code'], 'user.apply_meeting')
+
+    def test_approval_flow_create_handoff_uses_model_permission(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm == 'approval.add_approvalflow',
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'approval_flow',
+                'entities': {'name': '采购审批流'},
+                'confidence': 0.93,
+            },
+            '新增一个采购审批流程',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/approval/approvalflow/add/')
+        self.assertEqual(task['permission_required']['full_code'], 'approval.add_approvalflow')
+
+    def test_safe_fallback_ambiguous_write_requires_business_type_clarification(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in {'user.add_customer', 'user.add_customer_order'},
+        )
+        intent_result = {
+            'intent': 'DATA_CREATE',
+            'confidence': 0.58,
+            'source': 'safe_fallback',
+            'action': 'create',
+            'data_type': 'order',
+            'entities': {
+                'candidate_data_types': ['order', 'customer'],
+                'customer_name': '阿里云国际站',
+            },
+            'fallback_options': [],
+            'ai_available': False,
+            'ai_configured': True,
+            'failure_reason': 'AI 模型暂时不可用',
+            'model_provider': 'openai',
+            'model_name': 'gpt-5.4',
+        }
+
+        response = service._create_confirmation_response(
+            intent_result,
+            '帮我添加一个订单，客户是阿里云国际站，订单金额：1100',
+            user,
+        )
+
+        self.assertTrue(response['requires_confirmation'])
+        self.assertIn('请先确认具体业务类型', response['message'])
+        self.assertIsNone(response['task']['target_url'])
+        self.assertEqual(response['task']['options'][0]['action'], 'clarify_business_type')
+        self.assertEqual(response['task']['options'][0]['data_type'], 'order')
+        self.assertEqual(response['task']['options'][1]['data_type'], 'customer')
+        self.assertEqual(response['mcp_context']['matched_capabilities'][0]['resource'], 'order')
+        self.assertIn('record_write', response['mcp_context']['skill_hints'])
+
     def test_chat_template_safe_business_urls_include_approval(self):
         content = Path('templates/ai/chat.html').read_text(encoding='utf-8')
 
         self.assertIn("'/approval/'", content)
+
+    def test_chat_template_contains_recognition_source_labels(self):
+        content = Path('templates/ai/chat.html').read_text(encoding='utf-8')
+
+        self.assertIn('AI识别', content)
+        self.assertIn('规则降级', content)
+        self.assertIn('模型不可用', content)
+
+    def test_project_mcp_capability_api_returns_catalog(self):
+        from apps.ai.views import ProjectMCPCapabilityAPIView
+
+        factory = RequestFactory()
+        request = factory.get('/ai/project-mcp/capabilities/?q=待审批流程')
+        request.user = SimpleNamespace(is_authenticated=True, has_perm=lambda perm: True)
+
+        response = ProjectMCPCapabilityAPIView.as_view()(request)
+        payload = json.loads(response.content.decode('utf-8'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(payload['success'])
+        self.assertEqual(payload['protocol'], 'project-mcp')
+        self.assertTrue(any(item['resource'] == 'approval_task' for item in payload['matched_capabilities']))
 
 
 class STTDatabaseOnlyConfigTests(SimpleTestCase):
@@ -2788,6 +3587,73 @@ class AIApprovalAdapterTests(SimpleTestCase):
         self.assertTrue(result['success'])
         self.assertEqual(result['change_set'][0]['change_type'], 'update')
 
+    def test_approval_adapter_create_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.approval import ApprovalModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing approval adapter dependency: {exc}')
+
+        adapter = ApprovalModuleAdapter()
+        action = AIActionRequest(
+            resource='approval',
+            operation='create',
+            changes={
+                'title': 'AI发起报销审批',
+                'flow_id': 5,
+                'type_id': 2,
+                'content': '差旅报销审批',
+                'reviewer_id': 9,
+            },
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['change_type'], 'create')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['title'], 'AI发起报销审批')
+
+    def test_approval_adapter_execute_approve_updates_status(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.approval import ApprovalModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing approval adapter dependency: {exc}')
+
+        adapter = ApprovalModuleAdapter()
+        approval = SimpleNamespace(
+            id=21,
+            status=1,
+            current_step_order=2,
+            title='测试审批',
+            reviewer_id=9,
+            save=MagicMock(),
+        )
+        action = AIActionRequest(
+            resource='approval',
+            operation='approve',
+            object_ids=[21],
+            changes={'comment': '同意'},
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(adapter, '_get_approval_for_action', return_value=approval), \
+                patch('apps.ai.services.module_adapters.approval.timezone.now', return_value='NOW'):
+            result = adapter.execute(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+                operation=None,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(approval.status, 2)
+        self.assertEqual(approval.current_step_order, 3)
+        approval.save.assert_called_once()
+
 
 class AIProjectAdapterTests(SimpleTestCase):
     def test_project_adapter_builds_update_change_set(self):
@@ -2877,7 +3743,1642 @@ class AIActionGatewayProjectDispatchTests(SimpleTestCase):
         self.assertEqual(result['message'], 'project updated')
 
 
+class AIOrderAdapterTests(SimpleTestCase):
+    def test_order_adapter_create_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.order import OrderModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing order adapter dependency: {exc}')
+
+        adapter = OrderModuleAdapter()
+        action = AIActionRequest(
+            resource='order',
+            operation='create',
+            changes={
+                'customer_id': 5,
+                'order_number': 'AI-ORD-001',
+                'product_name': '智能工单',
+                'amount': Decimal('1100.00'),
+                'order_date': date(2026, 7, 7),
+                'status': 'pending',
+            },
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'CustomerOrder')
+        self.assertEqual(result['change_set'][0]['change_type'], 'create')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['order_number'], 'AI-ORD-001')
+
+    def test_order_adapter_delete_execute_sets_delete_time(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.order import OrderModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing order adapter dependency: {exc}')
+
+        adapter = OrderModuleAdapter()
+        order = SimpleNamespace(
+            id=81,
+            delete_time=0,
+            save=MagicMock(),
+            order_number='AI-ORD-001',
+            product_name='智能工单',
+            amount=Decimal('1100.00'),
+            order_date=date(2026, 7, 7),
+            status='pending',
+            description='',
+            remark='',
+            finance_status='pending',
+            invoice_request_status='none',
+            customer_id=5,
+            contract_id=None,
+        )
+        action = AIActionRequest(
+            resource='order',
+            operation='delete',
+            object_ids=[81],
+            changes={},
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(adapter, '_get_order_for_action', return_value=order), \
+                patch('apps.ai.services.module_adapters.order.timezone.now', return_value=SimpleNamespace(timestamp=lambda: 1234567890)):
+            result = adapter.execute(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+                operation=None,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(order.delete_time, 1234567890)
+        order.save.assert_called_once()
+
+    def test_order_adapter_denies_without_permission(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.order import OrderModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing order adapter dependency: {exc}')
+
+        adapter = OrderModuleAdapter()
+        action = AIActionRequest(
+            resource='order',
+            operation='create',
+            changes={
+                'customer_id': 5,
+                'order_number': 'AI-ORD-002',
+                'product_name': '智能工单',
+                'amount': Decimal('900.00'),
+                'order_date': date(2026, 7, 7),
+            },
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=False, reason='missing_permission')):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: False),
+            )
+
+        self.assertFalse(result['success'])
+        self.assertIn('权限', result['message'])
+
+
+class AIActionGatewayOrderDispatchTests(SimpleTestCase):
+    def test_gateway_dispatches_order_update_to_registered_adapter(self):
+        from apps.ai.services.action_gateway import AIActionGateway
+
+        adapter = MagicMock()
+        adapter.resource = 'order'
+        adapter.execute.return_value = {'success': True, 'message': 'order updated'}
+        operation = SimpleNamespace(
+            id=24,
+            resource_type='order',
+            operation_type='update',
+            confirmed_payload={'resource': 'order', 'operation': 'update', 'object_ids': [81], 'changes': {'remark': 'AI修改备注'}},
+        )
+        user = SimpleNamespace(id=7, is_authenticated=True)
+
+        gateway = AIActionGateway()
+        gateway.register(adapter)
+
+        result = gateway.execute_confirmed_action(operation, user)
+
+        adapter.execute.assert_called_once()
+        self.assertTrue(result['success'])
+        self.assertEqual(result['message'], 'order updated')
+
+
+class AIContractAdapterTests(SimpleTestCase):
+    def test_contract_adapter_approve_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.contract import ContractModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing contract adapter dependency: {exc}')
+
+        adapter = ContractModuleAdapter()
+        contract = SimpleNamespace(
+            id=91,
+            code='HT-001',
+            name='AI合同',
+            customer='阿里云国际站',
+            cost=Decimal('5000.00'),
+            check_status=0,
+            check_time=0,
+            check_history_uids='',
+            delete_time=0,
+        )
+        action = AIActionRequest(
+            resource='contract',
+            operation='approve',
+            object_ids=[91],
+            changes={'check_status': 2},
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(adapter, '_get_contract_for_action', return_value=contract):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'Contract')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['check_status'], 2)
+
+    def test_contract_adapter_delete_execute_sets_delete_time(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.contract import ContractModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing contract adapter dependency: {exc}')
+
+        adapter = ContractModuleAdapter()
+        contract = SimpleNamespace(
+            id=91,
+            code='HT-001',
+            name='AI合同',
+            customer='阿里云国际站',
+            cost=Decimal('5000.00'),
+            check_status=0,
+            check_time=0,
+            check_history_uids='',
+            delete_time=0,
+            save=MagicMock(),
+        )
+        action = AIActionRequest(
+            resource='contract',
+            operation='delete',
+            object_ids=[91],
+            changes={},
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(adapter, '_get_contract_for_action', return_value=contract), \
+                patch('apps.ai.services.module_adapters.contract.timezone.now', return_value=SimpleNamespace(timestamp=lambda: 2233445566)):
+            result = adapter.execute(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+                operation=None,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(contract.delete_time, 2233445566)
+        contract.save.assert_called_once()
+
+    def test_contract_adapter_create_preview_requires_required_fields(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.contract import ContractModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing contract adapter dependency: {exc}')
+
+        adapter = ContractModuleAdapter()
+        action = AIActionRequest(
+            resource='contract',
+            operation='create',
+            changes={'name': '信息不完整的合同'},
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertFalse(result['success'])
+        self.assertIn('必填', result['message'])
+
+
+class AIActionGatewayContractDispatchTests(SimpleTestCase):
+    def test_gateway_dispatches_contract_update_to_registered_adapter(self):
+        from apps.ai.services.action_gateway import AIActionGateway
+
+        adapter = MagicMock()
+        adapter.resource = 'contract'
+        adapter.execute.return_value = {'success': True, 'message': 'contract updated'}
+        operation = SimpleNamespace(
+            id=25,
+            resource_type='contract',
+            operation_type='update',
+            confirmed_payload={'resource': 'contract', 'operation': 'update', 'object_ids': [91], 'changes': {'remark': 'AI修改合同备注'}},
+        )
+        user = SimpleNamespace(id=7, is_authenticated=True)
+
+        gateway = AIActionGateway()
+        gateway.register(adapter)
+
+        result = gateway.execute_confirmed_action(operation, user)
+
+        adapter.execute.assert_called_once()
+        self.assertTrue(result['success'])
+        self.assertEqual(result['message'], 'contract updated')
+
+
+class AISupplierAdapterTests(SimpleTestCase):
+    def test_supplier_adapter_update_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.supplier import SupplierModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing supplier adapter dependency: {exc}')
+
+        adapter = SupplierModuleAdapter()
+        supplier = SimpleNamespace(
+            id=101,
+            name='旧供应商',
+            code='SUP-001',
+            contact_person='张三',
+            contact_phone='13800000000',
+            contact_email='old@example.com',
+            address='旧地址',
+            tax_number='TAX001',
+            bank_account='6222',
+            bank_name='旧银行',
+            credit_level='A',
+            business_scope='旧范围',
+            is_active=True,
+        )
+        action = AIActionRequest(
+            resource='supplier',
+            operation='update',
+            object_ids=[101],
+            changes={'name': '新供应商', 'contact_phone': '13900000000'},
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(adapter, '_get_supplier_for_action', return_value=supplier):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['after_snapshot']['name'], '新供应商')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['contact_phone'], '13900000000')
+
+
+class AIProductAdapterTests(SimpleTestCase):
+    def test_product_adapter_delete_execute_sets_delete_time(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.product import ProductModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing product adapter dependency: {exc}')
+
+        adapter = ProductModuleAdapter()
+        product = SimpleNamespace(
+            id=111,
+            name='智能产品',
+            code='PRD-001',
+            specs='标准版',
+            unit='套',
+            price=Decimal('199.00'),
+            remark='',
+            cate_id=None,
+            admin_id=7,
+            delete_time=None,
+            save=MagicMock(),
+        )
+        action = AIActionRequest(
+            resource='product',
+            operation='delete',
+            object_ids=[111],
+            changes={},
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(adapter, '_get_product_for_action', return_value=product), \
+                patch('apps.ai.services.module_adapters.product.timezone.now', return_value='NOW'):
+            result = adapter.execute(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+                operation=None,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(product.delete_time, 'NOW')
+        product.save.assert_called_once()
+
+
+class AITaskAdapterTests(SimpleTestCase):
+    def test_task_adapter_create_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.task import TaskModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing task adapter dependency: {exc}')
+
+        adapter = TaskModuleAdapter()
+        action = AIActionRequest(
+            resource='task',
+            operation='create',
+            changes={
+                'title': 'AI创建任务',
+                'description': '跟进合同回款',
+                'assignee_id': 9,
+                'start_date': date(2026, 7, 7),
+                'end_date': date(2026, 7, 10),
+                'priority': 3,
+            },
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'Task')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['title'], 'AI创建任务')
+
+    def test_task_adapter_delete_execute_sets_delete_time(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.task import TaskModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing task adapter dependency: {exc}')
+
+        adapter = TaskModuleAdapter()
+        task = SimpleNamespace(
+            id=301,
+            title='旧任务',
+            description='',
+            project_id=None,
+            step_id=None,
+            assignee_id=9,
+            start_date=None,
+            end_date=None,
+            estimated_hours=0,
+            actual_hours=0,
+            status=1,
+            priority=2,
+            progress=0,
+            creator_id=7,
+            delete_time=None,
+            save=MagicMock(),
+        )
+        action = AIActionRequest(resource='task', operation='delete', object_ids=[301], changes={})
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(adapter, '_get_task_for_action', return_value=task), \
+                patch('apps.ai.services.module_adapters.task.timezone.now', return_value='NOW'):
+            result = adapter.execute(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+                operation=None,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(task.delete_time, 'NOW')
+        task.save.assert_called_once()
+
+
+class AIWorkHourAdapterTests(SimpleTestCase):
+    def test_workhour_adapter_update_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.workhour import WorkHourModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing workhour adapter dependency: {exc}')
+
+        adapter = WorkHourModuleAdapter()
+        workhour = SimpleNamespace(
+            id=401,
+            task_id=301,
+            user_id=7,
+            work_date=date(2026, 7, 7),
+            hours=Decimal('2.50'),
+            description='联调',
+        )
+        action = AIActionRequest(
+            resource='workhour',
+            operation='update',
+            object_ids=[401],
+            changes={'hours': Decimal('3.50'), 'description': '联调+回归'},
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(adapter, '_get_workhour_for_action', return_value=workhour):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['after_snapshot']['hours'], '3.50')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['description'], '联调+回归')
+
+
+class AINoticeAdapterTests(SimpleTestCase):
+    def test_notice_adapter_create_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.notice import NoticeModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing notice adapter dependency: {exc}')
+
+        adapter = NoticeModuleAdapter()
+        action = AIActionRequest(
+            resource='notice',
+            operation='create',
+            changes={
+                'title': 'AI公告',
+                'content': '今晚系统维护',
+                'notice_type': 'system',
+                'is_published': True,
+            },
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['after_snapshot']['title'], 'AI公告')
+        self.assertTrue(result['change_set'][0]['after_snapshot']['is_published'])
+
+
+class AIScheduleAdapterTests(SimpleTestCase):
+    def test_schedule_adapter_delete_execute_sets_delete_time(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.schedule import ScheduleModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing schedule adapter dependency: {exc}')
+
+        adapter = ScheduleModuleAdapter()
+        schedule = SimpleNamespace(
+            id=501,
+            work_id=0,
+            title='客户拜访',
+            start_time=timezone.now(),
+            end_time=timezone.now(),
+            labor_time=2.0,
+            admin_id=7,
+            did=3,
+            labor_type=1,
+            cid=None,
+            tid=None,
+            content='上午拜访客户',
+            delete_time=0,
+            create_time=0,
+            update_time=0,
+            save=MagicMock(),
+        )
+        action = AIActionRequest(resource='schedule', operation='delete', object_ids=[501], changes={})
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(adapter, '_get_schedule_for_action', return_value=schedule), \
+                patch('apps.ai.services.module_adapters.schedule.timezone.now', return_value=SimpleNamespace(timestamp=lambda: 99887766)):
+            result = adapter.execute(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+                operation=None,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(schedule.delete_time, 99887766)
+        schedule.save.assert_called_once()
+
+
+class AIMessageAdapterTests(SimpleTestCase):
+    def test_message_adapter_create_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.message import MessageModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing message adapter dependency: {exc}')
+
+        adapter = MessageModuleAdapter()
+        action = AIActionRequest(
+            resource='message',
+            operation='create',
+            changes={
+                'title': 'AI提醒',
+                'content': '请尽快审批合同',
+                'priority': 3,
+                'user_id': 9,
+            },
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'Message')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['title'], 'AI提醒')
+
+    def test_message_adapter_delete_execute_marks_inactive(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.message import MessageModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing message adapter dependency: {exc}')
+
+        adapter = MessageModuleAdapter()
+        message = SimpleNamespace(
+            id=601,
+            category_id=None,
+            user_id=9,
+            sender_id=7,
+            title='AI提醒',
+            content='请尽快审批合同',
+            priority=2,
+            is_broadcast=False,
+            target_users='',
+            target_departments='',
+            related_object_type='',
+            related_object_id=None,
+            action_url='',
+            expire_time=None,
+            is_active=True,
+            ai_summary=None,
+            ai_suggested_replies=[],
+            save=MagicMock(),
+        )
+        action = AIActionRequest(resource='message', operation='delete', object_ids=[601], changes={})
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(adapter, '_get_message_for_action', return_value=message):
+            result = adapter.execute(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+                operation=None,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertFalse(message.is_active)
+        message.save.assert_called_once()
+
+
+class AIMeetingAdapterTests(SimpleTestCase):
+    def test_meeting_adapter_create_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.meeting import MeetingModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing meeting adapter dependency: {exc}')
+
+        adapter = MeetingModuleAdapter()
+        action = AIActionRequest(
+            resource='meeting',
+            operation='create',
+            changes={
+                'title': 'AI项目例会',
+                'meeting_date': '2026-07-07T09:00:00',
+                'meeting_end_time': '2026-07-07T10:30:00',
+                'meeting_type': 'project',
+                'location': 'A-301',
+            },
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'MeetingRecord')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['title'], 'AI项目例会')
+
+    def test_meeting_adapter_delete_execute_marks_soft_deleted(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.meeting import MeetingModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing meeting adapter dependency: {exc}')
+
+        adapter = MeetingModuleAdapter()
+        meeting = SimpleNamespace(
+            id=701,
+            title='项目例会',
+            meeting_type='project',
+            meeting_date=timezone.now(),
+            meeting_end_time=timezone.now() + timedelta(hours=1),
+            room_id=None,
+            location='A-301',
+            host_id=7,
+            recorder_id=7,
+            department_id=None,
+            status='scheduled',
+            agenda='',
+            content='',
+            summary='',
+            resolution='',
+            action_items='',
+            next_meeting=None,
+            attachments='',
+            rating=None,
+            feedback='',
+            deleted_at=None,
+            is_deleted=False,
+            save=MagicMock(),
+        )
+        action = AIActionRequest(resource='meeting', operation='delete', object_ids=[701], changes={})
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(adapter, '_get_meeting_for_action', return_value=meeting), \
+                patch('apps.ai.services.module_adapters.meeting.timezone.now', return_value='NOW'):
+            result = adapter.execute(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+                operation=None,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(meeting.deleted_at, 'NOW')
+        self.assertTrue(meeting.is_deleted)
+        meeting.save.assert_called_once()
+
+
+class AIApprovalFlowAdapterTests(SimpleTestCase):
+    def test_approval_flow_adapter_create_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.approval_flow import ApprovalFlowModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing approval flow adapter dependency: {exc}')
+
+        adapter = ApprovalFlowModuleAdapter()
+        action = AIActionRequest(
+            resource='approval_flow',
+            operation='create',
+            changes={
+                'name': 'AI采购审批流',
+                'code': 'FLOW_AI_001',
+                'description': '用于采购申请',
+                'is_active': True,
+            },
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'ApprovalFlow')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['code'], 'FLOW_AI_001')
+
+    def test_approval_flow_adapter_delete_execute_calls_delete(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.approval_flow import ApprovalFlowModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing approval flow adapter dependency: {exc}')
+
+        adapter = ApprovalFlowModuleAdapter()
+        flow = SimpleNamespace(
+            id=801,
+            name='采购审批流',
+            code='FLOW_001',
+            description='',
+            approval_type_id=None,
+            is_active=True,
+            delete=MagicMock(),
+        )
+        action = AIActionRequest(resource='approval_flow', operation='delete', object_ids=[801], changes={})
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(adapter, '_get_flow_for_action', return_value=flow):
+            result = adapter.execute(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+                operation=None,
+            )
+
+        self.assertTrue(result['success'])
+        flow.delete.assert_called_once()
+
+
+class AIProductionAdapterTests(SimpleTestCase):
+    def test_production_adapter_create_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.production import ProductionModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing production adapter dependency: {exc}')
+
+        adapter = ProductionModuleAdapter()
+        action = AIActionRequest(
+            resource='production',
+            operation='create',
+            changes={
+                'name': 'AI生产计划',
+                'code': 'PLAN_AI_001',
+                'quantity': '120.50',
+                'unit': '件',
+                'plan_start_date': '2026-07-08',
+                'plan_end_date': '2026-07-15',
+            },
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'ProductionPlan')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['quantity'], '120.50')
+
+    def test_production_adapter_delete_execute_calls_delete(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.production import ProductionModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing production adapter dependency: {exc}')
+
+        adapter = ProductionModuleAdapter()
+        plan = SimpleNamespace(
+            id=901,
+            name='生产计划A',
+            code='PLAN_001',
+            product_id=None,
+            bom_id=None,
+            procedure_set_id=None,
+            process_route_id=None,
+            quantity=Decimal('100.00'),
+            unit='件',
+            plan_start_date=date(2026, 7, 8),
+            plan_end_date=date(2026, 7, 15),
+            actual_start_date=None,
+            actual_end_date=None,
+            status=1,
+            priority=2,
+            department_id=None,
+            manager_id=7,
+            description='',
+            auto_complete=False,
+            complete_threshold=Decimal('100.00'),
+            delete=MagicMock(),
+        )
+        action = AIActionRequest(resource='production', operation='delete', object_ids=[901], changes={})
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(adapter, '_get_plan_for_action', return_value=plan):
+            result = adapter.execute(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+                operation=None,
+            )
+
+        self.assertTrue(result['success'])
+        plan.delete.assert_called_once()
+
+
+class AIFollowupAdapterTests(SimpleTestCase):
+    def test_followup_adapter_create_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.followup import FollowupModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing followup adapter dependency: {exc}')
+
+        adapter = FollowupModuleAdapter()
+        action = AIActionRequest(
+            resource='followup',
+            operation='create',
+            changes={
+                'customer_id': 12,
+                'content': '已电话回访，客户计划下周签约',
+                'follow_type': 'phone',
+                'next_follow_time': '2026-07-10T10:00:00',
+            },
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'FollowRecord')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['customer_id'], 12)
+
+    def test_followup_adapter_delete_execute_sets_delete_time(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.followup import FollowupModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing followup adapter dependency: {exc}')
+
+        adapter = FollowupModuleAdapter()
+        followup = SimpleNamespace(
+            id=1001,
+            customer_id=12,
+            follow_type='phone',
+            content='老内容',
+            follow_user_id=7,
+            follow_time=timezone.now(),
+            next_follow_time=None,
+            ai_summary='',
+            ai_sentiment='',
+            ai_key_points=[],
+            create_time=timezone.now(),
+            update_time=timezone.now(),
+            delete_time=0,
+            save=MagicMock(),
+        )
+        action = AIActionRequest(resource='followup', operation='delete', object_ids=[1001], changes={})
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(adapter, '_get_followup_for_action', return_value=followup), \
+                patch('apps.ai.services.module_adapters.followup.timezone.now', return_value=SimpleNamespace(timestamp=lambda: 778899)):
+            result = adapter.execute(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+                operation=None,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(followup.delete_time, 778899)
+        followup.save.assert_called_once()
+
+
+class AIEmployeeAdapterTests(SimpleTestCase):
+    def test_employee_adapter_create_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.employee import EmployeeModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing employee adapter dependency: {exc}')
+
+        adapter = EmployeeModuleAdapter()
+        action = AIActionRequest(
+            resource='employee',
+            operation='create',
+            changes={
+                'username': 'zhangsan',
+                'name': '张三',
+                'mobile': '13800138000',
+                'did': 3,
+            },
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'Admin')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['username'], 'zhangsan')
+
+
+class AIDepartmentAdapterTests(SimpleTestCase):
+    def test_department_adapter_update_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.department import DepartmentModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing department adapter dependency: {exc}')
+
+        adapter = DepartmentModuleAdapter()
+        department = SimpleNamespace(
+            id=120,
+            name='旧部门',
+            pid=0,
+            code='D001',
+            manager_id=7,
+            leader_ids='7',
+            phone='021-12345678',
+            remark='旧备注',
+            sort=10,
+            status=1,
+            level=0,
+            is_active=True,
+        )
+        action = AIActionRequest(
+            resource='department',
+            operation='update',
+            object_ids=[120],
+            changes={'name': '新部门', 'phone': '021-87654321'},
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(adapter, '_get_department_for_action', return_value=department):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['after_snapshot']['name'], '新部门')
+
+    def test_department_adapter_delete_execute_disables_department(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.department import DepartmentModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing department adapter dependency: {exc}')
+
+        adapter = DepartmentModuleAdapter()
+        department = SimpleNamespace(
+            id=120,
+            name='研发部',
+            pid=0,
+            code='D001',
+            manager_id=7,
+            leader_ids='7',
+            phone='021-12345678',
+            remark='',
+            sort=10,
+            status=1,
+            level=0,
+            is_active=True,
+            save=MagicMock(),
+        )
+        action = AIActionRequest(resource='department', operation='delete', object_ids=[120], changes={})
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(adapter, '_get_department_for_action', return_value=department):
+            result = adapter.execute(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+                operation=None,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(department.status, 0)
+        self.assertFalse(department.is_active)
+        department.save.assert_called_once()
+
+
+class AIInventoryAdapterTests(SimpleTestCase):
+    def test_inventory_adapter_create_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.inventory import InventoryModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing inventory adapter dependency: {exc}')
+
+        adapter = InventoryModuleAdapter()
+        action = AIActionRequest(
+            resource='inventory',
+            operation='create',
+            changes={
+                'name': '轴承',
+                'code': 'MAT-001',
+                'unit': '个',
+                'category_id': 5,
+            },
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'InventoryItem')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['code'], 'MAT-001')
+
+
+class AIDocumentAdapterTests(SimpleTestCase):
+    def test_document_adapter_create_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.document import DocumentModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing document adapter dependency: {exc}')
+
+        adapter = DocumentModuleAdapter()
+        action = AIActionRequest(
+            resource='document',
+            operation='create',
+            changes={
+                'title': '关于质量巡检的通知',
+                'document_number': 'DOC-2026-001',
+                'category_id': 3,
+                'content': '请各部门按要求完成巡检。',
+            },
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'Document')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['status'], 'draft')
+
+    def test_document_adapter_delete_execute_archives_document(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.document import DocumentModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing document adapter dependency: {exc}')
+
+        adapter = DocumentModuleAdapter()
+        document = SimpleNamespace(
+            id=81,
+            title='旧公文',
+            document_number='DOC-OLD',
+            category_id=3,
+            content='旧内容',
+            summary='',
+            author_id=7,
+            department_id=2,
+            status='draft',
+            urgency='normal',
+            security_level='internal',
+            current_reviewer_id=None,
+            review_deadline=None,
+            publish_time=None,
+            effective_time=None,
+            expire_time=None,
+            attachments='',
+            save=MagicMock(),
+        )
+        action = AIActionRequest(resource='document', operation='delete', object_ids=[81], changes={})
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(adapter, '_get_document_for_action', return_value=document):
+            result = adapter.execute(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+                operation=None,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(document.status, 'archived')
+        document.save.assert_called_once()
+
+    def test_document_adapter_submit_execute_updates_status(self):
+        from apps.ai.services.action_contracts import AIActionRequest
+        from apps.ai.services.module_adapters.document import DocumentModuleAdapter
+
+        adapter = DocumentModuleAdapter()
+        document = SimpleNamespace(
+            id=82,
+            title='质量通知',
+            document_number='DOC-2026-002',
+            category_id=3,
+            content='内容',
+            summary='',
+            author_id=7,
+            department_id=2,
+            status='draft',
+            urgency='normal',
+            security_level='internal',
+            current_reviewer_id=None,
+            review_deadline=None,
+            publish_time=None,
+            effective_time=None,
+            expire_time=None,
+            attachments='',
+            save=MagicMock(),
+        )
+        action = AIActionRequest(resource='document', operation='submit', object_ids=[82], changes={})
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(adapter, '_get_document_for_action', return_value=document):
+            result = adapter.execute(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+                operation=None,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(document.status, 'submitted')
+        document.save.assert_called_once()
+
+    def test_document_adapter_publish_execute_sets_publish_time(self):
+        from apps.ai.services.action_contracts import AIActionRequest
+        from apps.ai.services.module_adapters.document import DocumentModuleAdapter
+
+        adapter = DocumentModuleAdapter()
+        document = SimpleNamespace(
+            id=83,
+            title='质量通知',
+            document_number='DOC-2026-003',
+            category_id=3,
+            content='内容',
+            summary='',
+            author_id=7,
+            department_id=2,
+            status='approved',
+            urgency='normal',
+            security_level='internal',
+            current_reviewer_id=None,
+            review_deadline=None,
+            publish_time=None,
+            effective_time=None,
+            expire_time=None,
+            attachments='',
+            save=MagicMock(),
+        )
+        action = AIActionRequest(resource='document', operation='publish', object_ids=[83], changes={})
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(adapter, '_get_document_for_action', return_value=document), \
+                patch('apps.ai.services.module_adapters.document.timezone.now', return_value='NOW'):
+            result = adapter.execute(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+                operation=None,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(document.status, 'published')
+        self.assertEqual(document.publish_time, 'NOW')
+        document.save.assert_called_once()
+
+
+class AIWarehouseAdapterTests(SimpleTestCase):
+    def test_warehouse_adapter_create_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.warehouse import WarehouseModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing warehouse adapter dependency: {exc}')
+
+        adapter = WarehouseModuleAdapter()
+        action = AIActionRequest(
+            resource='warehouse',
+            operation='create',
+            changes={
+                'name': '华东一号仓',
+                'code': 'WH-EAST-001',
+                'warehouse_type': 'main',
+            },
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'Warehouse')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['code'], 'WH-EAST-001')
+
+
+class AIProjectMetadataAdapterTests(SimpleTestCase):
+    def test_project_document_adapter_create_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.project_metadata import ProjectMetadataModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing project metadata adapter dependency: {exc}')
+
+        adapter = ProjectMetadataModuleAdapter('project_document')
+        action = AIActionRequest(
+            resource='project_document',
+            operation='create',
+            changes={
+                'project_id': 5,
+                'title': '交付清单',
+                'content': '第一版交付清单',
+            },
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=12, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'ProjectDocument')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['title'], '交付清单')
+
+
+class AIContactAdapterTests(SimpleTestCase):
+    def test_contact_adapter_create_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.contact import ContactModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing contact adapter dependency: {exc}')
+
+        adapter = ContactModuleAdapter()
+        customer = SimpleNamespace(id=18)
+        action = AIActionRequest(
+            resource='contact',
+            operation='create',
+            changes={
+                'customer_id': 18,
+                'contact_person': '张三',
+                'phone': '13800000000',
+                'position': '采购经理',
+            },
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(adapter, '_get_customer_for_action', return_value=customer):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'Contact')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['contact_person'], '张三')
+
+
+class AIProductionResourceAdapterTests(SimpleTestCase):
+    def test_production_task_adapter_create_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.production_resource import ProductionResourceModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing production resource adapter dependency: {exc}')
+
+        adapter = ProductionResourceModuleAdapter('production_task')
+        action = AIActionRequest(
+            resource='production_task',
+            operation='create',
+            changes={
+                'plan_id': 9,
+                'name': '装配工单',
+                'code': 'TASK-001',
+                'procedure_id': 4,
+                'quantity': '20.00',
+                'plan_start_time': '2026-07-08 09:00:00',
+                'plan_end_time': '2026-07-08 18:00:00',
+            },
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'ProductionTask')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['code'], 'TASK-001')
+
+    def test_production_equipment_adapter_create_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.production_resource import ProductionResourceModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing production resource adapter dependency: {exc}')
+
+        adapter = ProductionResourceModuleAdapter('production_equipment')
+        action = AIActionRequest(
+            resource='production_equipment',
+            operation='create',
+            changes={
+                'name': '贴片机一号',
+                'code': 'EQ-001',
+                'purchase_cost': '120000.00',
+            },
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'Equipment')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['code'], 'EQ-001')
+
+
+class AIPersonalWorkspaceAdapterTests(SimpleTestCase):
+    def test_personal_task_toggle_execute_updates_status(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.personal_workspace import PersonalWorkspaceModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing personal workspace adapter dependency: {exc}')
+
+        adapter = PersonalWorkspaceModuleAdapter('personal_task')
+        task = SimpleNamespace(
+            id=31,
+            title='跟进报价',
+            description='',
+            priority=2,
+            status='todo',
+            due_date=None,
+            completed_at=None,
+            progress=20,
+            estimated_hours=None,
+            actual_hours=None,
+            user_id=9,
+            save=MagicMock(),
+        )
+        action = AIActionRequest(resource='personal_task', operation='submit', object_ids=[31], changes={})
+
+        with patch.object(adapter, '_check_permission', return_value={'allowed': True, 'message': 'allowed'}), \
+                patch.object(adapter, '_get_instance_for_action', return_value=task), \
+                patch('apps.ai.services.module_adapters.personal_workspace.timezone.now', return_value='NOW'):
+            result = adapter.execute(
+                action,
+                user=SimpleNamespace(id=9, is_authenticated=True, has_perm=lambda code: True),
+                operation=None,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(task.status, 'completed')
+        self.assertEqual(task.progress, 100)
+        self.assertEqual(task.completed_at, 'NOW')
+        task.save.assert_called_once()
+
+
+class AIStockDocumentWorkflowAdapterTests(SimpleTestCase):
+    def test_stockin_adapter_approve_execute_marks_checker(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.stock import StockDocumentModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing stock adapter dependency: {exc}')
+
+        adapter = StockDocumentModuleAdapter()
+        stockin = SimpleNamespace(
+            id=61,
+            code='RK-001',
+            stock_in_type='purchase',
+            warehouse_id=9,
+            supplier_id=4,
+            purchase_order_id=None,
+            production_plan_id=None,
+            total_amount=Decimal('1000.00'),
+            total_quantity=Decimal('5.00'),
+            status=1,
+            checker_id=None,
+            check_time=None,
+            stocker_id=None,
+            stock_time=None,
+            remark='',
+            save=MagicMock(),
+        )
+        action = AIActionRequest(resource='stockin', operation='approve', object_ids=[61], changes={})
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(adapter, '_get_stockin_for_action', return_value=stockin), \
+                patch('apps.ai.services.module_adapters.stock.timezone.now', return_value='NOW'):
+            result = adapter.execute(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+                operation=None,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(stockin.status, 2)
+        self.assertEqual(stockin.checker_id, 7)
+        self.assertEqual(stockin.check_time, 'NOW')
+        stockin.save.assert_called_once()
+
+    def test_stockout_adapter_create_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.stock import StockDocumentModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing stock adapter dependency: {exc}')
+
+        adapter = StockDocumentModuleAdapter()
+        action = AIActionRequest(
+            resource='stockout',
+            operation='create',
+            changes={
+                'code': 'CK-001',
+                'stock_out_type': 'sale',
+                'warehouse_id': 3,
+                'total_quantity': '8.50',
+            },
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'StockOut')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['code'], 'CK-001')
+
+
+class AIApprovalTaskAdapterTests(SimpleTestCase):
+    def test_approval_task_adapter_approve_execute_completes_task(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.approval_task import ApprovalTaskModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing approval task adapter dependency: {exc}')
+
+        adapter = ApprovalTaskModuleAdapter()
+        approval = SimpleNamespace(
+            id=15,
+            status=1,
+            current_step_order=2,
+            save=MagicMock(),
+        )
+        step = SimpleNamespace(
+            step_order=2,
+            approval_mode='single',
+            step_type='approve',
+        )
+        task = SimpleNamespace(
+            id=51,
+            approval=approval,
+            step=step,
+            status='pending',
+            result='',
+            comment='',
+            completed_at=None,
+            handler=None,
+            save=MagicMock(),
+        )
+        action = AIActionRequest(resource='approval_task', operation='approve', object_ids=[51], changes={})
+
+        with patch.object(adapter, '_check_permission', return_value={'allowed': True, 'message': 'allowed'}), \
+                patch.object(adapter, '_get_task_for_action', return_value=task), \
+                patch('apps.ai.services.module_adapters.approval_task.timezone.now', return_value='NOW'):
+            result = adapter.execute(
+                action,
+                user=SimpleNamespace(id=9, is_authenticated=True, has_perm=lambda code: True),
+                operation=None,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(task.status, 'completed')
+        self.assertEqual(task.result, 'approve')
+        self.assertEqual(task.completed_at, 'NOW')
+        self.assertEqual(task.handler.id, 9)
+        task.save.assert_called_once()
+
+
 class AIFinanceAdapterTests(SimpleTestCase):
+    def test_finance_payment_create_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.finance import FinanceModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing finance adapter dependency: {exc}')
+
+        adapter = FinanceModuleAdapter()
+        action = AIActionRequest(
+            resource='finance',
+            operation='create',
+            context={'model': 'payment'},
+            changes={
+                'amount': '5200.00',
+                'payment_date': '2026-07-08T11:00:00',
+                'customer_id': 12,
+                'remark': '预付款',
+            },
+        )
+
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'Payment')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['amount'], '5200.00')
+
+    def test_finance_income_update_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.finance import FinanceModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing finance adapter dependency: {exc}')
+
+        adapter = FinanceModuleAdapter()
+        income = SimpleNamespace(
+            id=44,
+            invoice_id=43,
+            amount=Decimal('3000.00'),
+            income_date=timezone.now(),
+            file_ids='',
+            remark='旧备注',
+            create_time=123,
+        )
+        action = AIActionRequest(
+            resource='finance',
+            operation='update',
+            object_ids=[44],
+            context={'model': 'income'},
+            changes={'remark': '银行到账确认'},
+        )
+
+        with patch.object(adapter, '_get_income_for_action', return_value=income):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'Income')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['remark'], '银行到账确认')
+
+    def test_finance_invoice_update_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.finance import FinanceModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing finance adapter dependency: {exc}')
+
+        adapter = FinanceModuleAdapter()
+        invoice = SimpleNamespace(
+            id=43,
+            code='FP-001',
+            customer_id=12,
+            contract_id=0,
+            project_id=0,
+            amount=Decimal('2300.00'),
+            did=3,
+            admin_id=7,
+            open_status=0,
+            open_admin_id=0,
+            open_time=0,
+            delivery='',
+            types=1,
+            invoice_type=2,
+            invoice_subject=0,
+            invoice_title='旧抬头',
+            invoice_tax='',
+            invoice_phone='',
+            invoice_address='',
+            invoice_bank='',
+            invoice_account='',
+            invoice_banking='',
+            file_ids='',
+            other_file_ids='',
+            enter_amount=Decimal('0'),
+            enter_status=0,
+            enter_time=0,
+            check_status=0,
+            check_flow_id=0,
+            check_step_sort=0,
+            check_uids='',
+            check_last_uid='',
+            check_history_uids='',
+            check_copy_uids='',
+            check_time=0,
+            create_time=123,
+            remark='旧备注',
+        )
+        action = AIActionRequest(
+            resource='finance',
+            operation='update',
+            object_ids=[43],
+            context={'model': 'invoice'},
+            changes={'delivery': 'SF987654', 'remark': '已寄出'},
+        )
+
+        with patch.object(adapter, '_get_invoice_for_action', return_value=invoice):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'Invoice')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['delivery'], 'SF987654')
+
     def test_finance_expense_update_preview_builds_change_set(self):
         try:
             from apps.ai.services.action_contracts import AIActionRequest
@@ -4183,6 +6684,232 @@ class BusinessAIFeedbackTests(SimpleTestCase):
             self.assertEqual(get_business_ai_task_type(scenario), task_type)
 
 
+class EnterpriseAgentRegistryTests(SimpleTestCase):
+    def test_registry_exposes_phase_one_enterprise_agents_with_mixed_execution_modes(self):
+        try:
+            from apps.ai.services.enterprise_agents import enterprise_agent_service
+        except ModuleNotFoundError:
+            self.fail('apps.ai.services.enterprise_agents.enterprise_agent_service is missing')
+
+        user = SimpleNamespace(id=7, is_superuser=True, is_authenticated=True)
+        payload = enterprise_agent_service.get_center_payload(user)
+
+        agent_ids = {agent['id'] for agent in payload['enterprise_agents']}
+        self.assertTrue({
+            'customer_followup_agent',
+            'project_risk_agent',
+            'production_dispatch_agent',
+            'inventory_health_agent',
+            'contract_review_agent',
+            'finance_ops_agent',
+        }.issubset(agent_ids))
+
+        self.assertGreaterEqual(payload['summary']['enterprise_agent_count'], 6)
+        self.assertGreater(payload['summary']['direct_action_count'], 0)
+        self.assertGreater(payload['summary']['confirm_action_count'], 0)
+
+
+class EnterpriseAgentExecutionServiceTests(SimpleTestCase):
+    def test_analysis_action_returns_business_result_payload(self):
+        from apps.ai.services.enterprise_agents import enterprise_agent_service
+
+        user = SimpleNamespace(id=7, is_superuser=True, is_authenticated=True)
+        mocked_result = {
+            'scenario': 'customer_profile',
+            'summary': '客户近期活跃度下降，建议安排重点回访。',
+            'risk_level': 'medium',
+            'suggestions': ['3 日内电话回访', '同步创建跟进任务'],
+            'recommended_action': 'follow_up',
+            'confidence': 0.83,
+        }
+
+        with patch.object(
+            enterprise_agent_service,
+            '_execute_customer_profile_analysis',
+            return_value=mocked_result,
+        ) as execute_analysis:
+            result = enterprise_agent_service.execute(
+                user=user,
+                agent_id='customer_followup_agent',
+                action_id='profile_analysis',
+                params={'customer_id': 18},
+            )
+
+        execute_analysis.assert_called_once_with(user, {'customer_id': 18})
+        self.assertTrue(result['success'])
+        self.assertEqual(result['result_type'], 'business_result')
+        self.assertEqual(result['data']['summary'], mocked_result['summary'])
+
+    def test_direct_action_executes_gateway_and_persists_operation(self):
+        from apps.ai.services.enterprise_agents import enterprise_agent_service
+
+        user = SimpleNamespace(id=7, is_superuser=True, is_authenticated=True)
+        operation = SimpleNamespace(id=201, status='preview', save=MagicMock())
+        gateway_result = {
+            'success': True,
+            'message': 'created',
+            'change_set': [
+                {
+                    'app_label': 'project',
+                    'model_name': 'Task',
+                    'object_pk': '88',
+                    'change_type': 'create',
+                    'before_snapshot': None,
+                    'after_snapshot': {'title': '回访重点客户'},
+                    'changed_fields': ['title'],
+                }
+            ],
+        }
+
+        with patch('apps.ai.services.enterprise_agents.AIOperation.objects.create', return_value=operation) as create_operation, \
+                patch('apps.ai.services.enterprise_agents.AIOperationChangeSet.objects.create') as create_change_set, \
+                patch('apps.ai.services.enterprise_agents.AIActionGateway') as gateway_cls, \
+                patch('apps.ai.services.enterprise_agents.timezone.now', return_value='NOW'):
+            gateway = gateway_cls.return_value
+            gateway.get_adapter.return_value.execute.return_value = gateway_result
+
+            result = enterprise_agent_service.execute(
+                user=user,
+                agent_id='customer_followup_agent',
+                action_id='create_followup_task',
+                params={
+                    'title': '回访重点客户',
+                    'assignee_id': 9,
+                    'description': 'AI 自动生成的客户跟进任务',
+                },
+            )
+
+        create_operation.assert_called_once()
+        create_change_set.assert_called_once()
+        self.assertTrue(result['success'])
+        self.assertEqual(result['result_type'], 'operation')
+        self.assertEqual(result['operation']['id'], 201)
+        self.assertEqual(result['operation']['status'], 'executed')
+
+    def test_confirm_action_creates_preview_operation_instead_of_direct_execution(self):
+        from apps.ai.services.enterprise_agents import enterprise_agent_service
+
+        user = SimpleNamespace(id=7, is_superuser=True, is_authenticated=True)
+        preview_operation = SimpleNamespace(id=301, confirmation_token='token-301')
+        preview_result = {
+            'success': True,
+            'change_set': [
+                {
+                    'app_label': 'finance',
+                    'model_name': 'Payment',
+                    'object_pk': 'NEW',
+                    'change_type': 'create',
+                    'before_snapshot': None,
+                    'after_snapshot': {'amount': '5200.00'},
+                    'changed_fields': ['amount'],
+                }
+            ],
+        }
+
+        with patch('apps.ai.services.enterprise_agents.AIActionGateway') as gateway_cls, \
+                patch('apps.ai.services.enterprise_agents.operation_service.create_preview_operation', return_value=preview_operation) as create_preview:
+            gateway = gateway_cls.return_value
+            gateway.get_adapter.return_value.preview.return_value = preview_result
+
+            result = enterprise_agent_service.execute(
+                user=user,
+                agent_id='finance_ops_agent',
+                action_id='create_payment_record',
+                params={
+                    'amount': '5200.00',
+                    'payment_date': '2026-07-08',
+                    'remark': '供应商付款',
+                },
+            )
+
+        create_preview.assert_called_once()
+        self.assertTrue(result['success'])
+        self.assertEqual(result['result_type'], 'confirmation_required')
+        self.assertEqual(result['operation']['id'], 301)
+        self.assertEqual(result['operation']['token'], 'token-301')
+        self.assertEqual(result['preview_change_set'][0]['model_name'], 'Payment')
+
+
+class AgentCenterApiViewTests(SimpleTestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    def test_data_view_returns_enterprise_agent_payload(self):
+        from apps.ai.views import AgentCenterDataView
+
+        request = self.factory.get('/ai/agent-center/data/')
+        request.user = SimpleNamespace(is_authenticated=True, id=7, is_superuser=True)
+
+        mocked_payload = {
+            'summary': {'enterprise_agent_count': 6},
+            'enterprise_agents': [],
+            'foundation_resources': [],
+            'recent_operations': [],
+        }
+
+        with patch('apps.ai.views.enterprise_agent_service.get_center_payload', return_value=mocked_payload) as get_payload:
+            response = AgentCenterDataView.as_view()(request)
+
+        self.assertEqual(response.status_code, 200)
+        body = json.loads(response.content)
+        self.assertTrue(body['success'])
+        self.assertEqual(body['data']['summary']['enterprise_agent_count'], 6)
+        get_payload.assert_called_once_with(request.user)
+
+    def test_execute_view_dispatches_to_enterprise_agent_service(self):
+        from apps.ai.views import AgentCenterExecuteView
+
+        request = self.factory.post(
+            '/ai/agent-center/execute/',
+            data=json.dumps({
+                'agent_id': 'customer_followup_agent',
+                'action_id': 'create_followup_task',
+                'params': {'title': '重点客户跟进'},
+            }),
+            content_type='application/json',
+        )
+        request.user = SimpleNamespace(is_authenticated=True, id=7, is_superuser=True)
+
+        mocked_result = {
+            'success': True,
+            'result_type': 'operation',
+            'operation': {'id': 201, 'status': 'executed'},
+        }
+
+        with patch('apps.ai.views.enterprise_agent_service.execute', return_value=mocked_result) as execute:
+            response = AgentCenterExecuteView.as_view()(request)
+
+        self.assertEqual(response.status_code, 200)
+        body = json.loads(response.content)
+        self.assertTrue(body['success'])
+        self.assertEqual(body['data']['operation']['id'], 201)
+        execute.assert_called_once_with(
+            user=request.user,
+            agent_id='customer_followup_agent',
+            action_id='create_followup_task',
+            params={'title': '重点客户跟进'},
+        )
+
+    def test_rollback_view_dispatches_to_rollback_service(self):
+        from apps.ai.views import AgentCenterRollbackView
+
+        request = self.factory.post(
+            '/ai/agent-center/rollback/',
+            data=json.dumps({'operation_id': 88}),
+            content_type='application/json',
+        )
+        request.user = SimpleNamespace(is_authenticated=True, id=7, is_superuser=True)
+
+        with patch('apps.ai.views.rollback_service.rollback_operation', return_value={'success': True, 'operation_id': 88}) as rollback:
+            response = AgentCenterRollbackView.as_view()(request)
+
+        self.assertEqual(response.status_code, 200)
+        body = json.loads(response.content)
+        self.assertTrue(body['success'])
+        self.assertEqual(body['data']['operation_id'], 88)
+        rollback.assert_called_once_with(88, request.user)
+
+
 class BusinessAIFrontendIntegrationTests(SimpleTestCase):
     @classmethod
     def setUpClass(cls):
@@ -4224,6 +6951,32 @@ class BusinessAIFrontendIntegrationTests(SimpleTestCase):
             content = self._read_project_file(relative_path)
             for snippet in snippets:
                 self.assertIn(snippet, content)
+
+
+class AgentCenterTemplateIntegrationTests(SimpleTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.project_root = Path(__file__).resolve().parents[2]
+
+    def _read_project_file(self, relative_path):
+        return (self.project_root / relative_path).read_text(encoding='utf-8')
+
+    def test_agent_center_template_uses_real_workbench_hooks(self):
+        content = self._read_project_file('templates/ai/agent_center.html')
+
+        for snippet in (
+            'agent-workbench-grid',
+            'agent-detail-panel',
+            '/ai/agent-center/data/',
+            '/ai/agent-center/execute/',
+            'AI 底层资源',
+        ):
+            self.assertIn(snippet, content)
+
+    def test_agent_center_template_no_longer_contains_demo_only_copy(self):
+        content = self._read_project_file('templates/ai/agent_center.html')
+        self.assertNotIn('企业智能体演示版，功能开发中', content)
 
 
 class AIAnalysisServiceTests(SimpleTestCase):

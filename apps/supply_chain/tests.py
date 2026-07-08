@@ -1,12 +1,14 @@
 from datetime import date
 from decimal import Decimal
+import shutil
+import tempfile
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 
@@ -222,6 +224,38 @@ class PRReviewServiceTests(TestCase):
         self.assertEqual(result['status'], 'pending')
 
 
+class PRReviewFormTests(TestCase):
+    def test_builds_payload_from_structured_scenario(self):
+        from apps.supply_chain.forms import PRReviewEvaluateForm
+
+        form = PRReviewEvaluateForm(data={
+            'scenario': 'urgent_shortage',
+            'order_type': 'customer',
+        })
+
+        self.assertTrue(form.is_valid())
+        self.assertEqual(form.build_payload(), {
+            'is_urgent': True,
+            'lt_shortage': True,
+            'tail_order': False,
+            'intercompany_tail_order': False,
+            'outsource_tail_order': False,
+            'rework_order': False,
+            'npi_trial': False,
+            'order_type': 'customer',
+        })
+
+    def test_json_payload_still_supported_for_backward_compatibility(self):
+        from apps.supply_chain.forms import PRReviewEvaluateForm
+
+        form = PRReviewEvaluateForm(data={
+            'payload_json': '{"tail_order": true}',
+        })
+
+        self.assertTrue(form.is_valid())
+        self.assertEqual(form.build_payload(), {'tail_order': True})
+
+
 class PriceReviewServiceTests(TestCase):
     def test_normalizes_price_components_from_parsed_payload(self):
         from apps.supply_chain.services.price_review_service import normalize_price_components
@@ -327,7 +361,16 @@ class SampleWorkflowServiceTests(TestCase):
         self.assertTrue(overdue)
 
 
+TEST_MEDIA_ROOT = tempfile.mkdtemp()
+
+
+@override_settings(MEDIA_ROOT=TEST_MEDIA_ROOT)
 class SupplyChainViewTests(TestCase):
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        shutil.rmtree(TEST_MEDIA_ROOT, ignore_errors=True)
+
     def setUp(self):
         from apps.contract.models import Product, ProductCate, Supplier
         from apps.inventory.models import Inventory, InventoryCategory, InventoryItem, Warehouse
@@ -493,6 +536,32 @@ class SupplyChainViewTests(TestCase):
         self.assertTrue(task.is_abnormal)
         self.assertEqual(PRReviewEvidence.objects.filter(review_task=task).count(), 2)
 
+    def test_can_evaluate_pr_review_task_with_structured_inputs(self):
+        from apps.supply_chain.models import PRReviewRule, PRReviewTask
+
+        PRReviewRule.objects.create(
+            code='PR-URGENT-SHORTAGE-CUSTOM',
+            name='紧急缺料单',
+            condition_json={'is_urgent': True, 'lt_shortage': True},
+            recommended_action='urgent_approve',
+            priority=10,
+        )
+        task = PRReviewTask.objects.create(
+            code='PRR-TEST-STRUCTURED-001',
+            title='紧急缺料 PR',
+            created_by=self.user,
+        )
+
+        response = self.client.post(reverse('supply_chain:pr_review_evaluate', args=[task.id]), {
+            'scenario': 'urgent_shortage',
+            'order_type': 'customer',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        task.refresh_from_db()
+        self.assertEqual(task.recommended_action, 'urgent_approve')
+        self.assertFalse(task.is_abnormal)
+
     def test_can_analyze_price_review_order(self):
         from apps.supply_chain.models import PriceReviewConclusion, PriceReviewOrder
 
@@ -554,6 +623,36 @@ class SupplyChainViewTests(TestCase):
         self.assertEqual(SampleReceipt.objects.filter(sample_request=sample_request).count(), 1)
         self.assertEqual(SamplePickupRecord.objects.filter(sample_request=sample_request).count(), 1)
 
+    def test_sample_receipt_can_store_uploaded_photo(self):
+        from apps.supply_chain.models import SampleReceipt, SampleRequest
+
+        sample_request = SampleRequest.objects.create(
+            code='SMP-RECEIPT-001',
+            material_name='耳机面壳',
+            specification='银色',
+            supplier=self.supplier,
+            engineer=self.user,
+            requested_by=self.user,
+            required_date=date(2026, 7, 10),
+            quantity=Decimal('2'),
+            status=SampleRequest.STATUS_ORDERED,
+        )
+        uploaded = SimpleUploadedFile(
+            'sample-photo.jpg',
+            b'fake-image-bytes',
+            content_type='image/jpeg',
+        )
+
+        response = self.client.post(reverse('supply_chain:sample_receive', args=[sample_request.id]), {
+            'received_quantity': '2',
+            'location': '研发样品柜',
+            'photo_file': uploaded,
+        })
+
+        self.assertEqual(response.status_code, 302)
+        receipt = SampleReceipt.objects.get(sample_request=sample_request)
+        self.assertIn('sample-photo.jpg', receipt.photo_path)
+
     def test_dashboard_and_inventory_analysis_pages_render(self):
         dashboard_response = self.client.get(reverse('supply_chain:dashboard'))
         inventory_response = self.client.get(reverse('supply_chain:inventory_analysis'))
@@ -562,6 +661,51 @@ class SupplyChainViewTests(TestCase):
         self.assertContains(dashboard_response, '供应链智能驾驶舱')
         self.assertEqual(inventory_response.status_code, 200)
         self.assertContains(inventory_response, '库存智能分析')
+        self.assertContains(inventory_response, '170.00', status_code=200)
+        self.assertContains(inventory_response, '180.00', status_code=200)
+
+    def test_can_bootstrap_supply_chain_workspace_from_existing_modules(self):
+        from apps.supply_chain.models import (
+            DemandForecastPlan,
+            OutsourceIssueOrder,
+            PRReviewRule,
+            PRReviewTask,
+            PriceReviewOrder,
+            SampleRequest,
+        )
+        from apps.inventory.models import Inventory, InventoryItem
+
+        risk_item = InventoryItem.objects.create(
+            name='补货风险物料',
+            code='MAT-RISK-001',
+            category=self.inventory_category,
+            specification='Risk',
+            unit='pcs',
+            safety_stock=Decimal('50'),
+            reorder_point=Decimal('40'),
+            standard_cost=Decimal('9.50'),
+        )
+        Inventory.objects.create(
+            item=risk_item,
+            warehouse=self.warehouse,
+            quantity=Decimal('20'),
+            locked_quantity=Decimal('0'),
+            unit_cost=Decimal('9.50'),
+        )
+
+        response = self.client.post(reverse('supply_chain:bootstrap_workspace'), {
+            'target': 'dashboard',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertGreater(DemandForecastPlan.objects.count(), 0)
+        self.assertGreater(OutsourceIssueOrder.objects.count(), 0)
+        self.assertGreater(PRReviewRule.objects.count(), 0)
+        self.assertGreater(PRReviewTask.objects.count(), 0)
+        self.assertGreater(PriceReviewOrder.objects.count(), 0)
+        self.assertGreater(SampleRequest.objects.count(), 0)
+        self.assertFalse(OutsourceIssueOrder.objects.filter(supplier__isnull=True).exists())
+        self.assertFalse(SampleRequest.objects.filter(supplier__isnull=True).exists())
 
     def test_can_approve_forecast_review(self):
         from apps.supply_chain.models import (

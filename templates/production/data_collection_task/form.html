@@ -4,51 +4,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ action }}数据采集任务</title>
+    <title>{{ action }}采集任务</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
-    <style>
-        .page-wrap { padding: 20px; }
-        .layui-input-block input,
-        .layui-input-block select,
-        .layui-input-block textarea {
-            width: 100%;
-            min-height: 38px;
-            padding: 8px 12px;
-            border: 1px solid #e6e6e6;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        .layui-input-block textarea { min-height: 120px; }
-        .field-error { margin-top: 6px; color: #ff5722; font-size: 12px; }
-    </style>
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
 <body>
-    <div class="layui-fluid page-wrap">
-        <div class="layui-card">
-            <div class="layui-card-header">{{ action }}数据采集任务</div>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>{{ action }}采集任务</h2></div>
+
+        <div class="production-note">
+            采集任务决定什么时候、按什么节奏去跑数据源。若选择“定时任务”，至少需要填 Cron 表达式或执行间隔；系统会自动记录执行次数、成功次数和失败次数。
+        </div>
+
+        <div class="layui-card production-form-card" style="margin-top: 16px;">
             <div class="layui-card-body">
                 <form class="layui-form" method="post">
                     {% csrf_token %}
                     {% if form.non_field_errors %}
-                    <div class="layui-bg-red" style="padding: 12px; margin-bottom: 15px; color: #fff;">{{ form.non_field_errors }}</div>
+                    <div class="production-field-error" style="margin-bottom: 12px;">{{ form.non_field_errors }}</div>
                     {% endif %}
-                    {% for field in form %}
-                    <div class="layui-form-item">
-                        <label class="layui-form-label">{{ field.label }}</label>
-                        <div class="layui-input-block">
-                            {{ field }}
-                            {% if field.help_text %}
-                            <div class="layui-word-aux">{{ field.help_text }}</div>
-                            {% endif %}
-                            {% for error in field.errors %}
-                            <div class="field-error">{{ error }}</div>
-                            {% endfor %}
+
+                    <div class="layui-row layui-col-space16">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">任务名称</label>
+                                <div class="layui-input-block">
+                                    {{ form.name }}
+                                    {% if form.name.errors %}<div class="production-field-error">{{ form.name.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">任务类型</label>
+                                <div class="layui-input-block">
+                                    {{ form.task_type }}
+                                    {% if form.task_type.errors %}<div class="production-field-error">{{ form.task_type.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    {% endfor %}
+
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">绑定数据源</label>
+                        <div class="layui-input-block">
+                            {{ form.data_sources }}
+                            <div class="production-help">这里选择的每个数据源都会被同一任务调度执行。</div>
+                            {% if form.data_sources.errors %}<div class="production-field-error">{{ form.data_sources.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="layui-row layui-col-space16">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">Cron表达式</label>
+                                <div class="layui-input-block">
+                                    {{ form.cron_expression }}
+                                    <div class="production-help">例如 `0 */2 * * *` 表示每两小时执行一次。</div>
+                                    {% if form.cron_expression.errors %}<div class="production-field-error">{{ form.cron_expression.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">执行间隔(秒)</label>
+                                <div class="layui-input-block">
+                                    {{ form.interval_seconds }}
+                                    <div class="production-help">也可以直接设置秒级间隔，和 Cron 二选一即可。</div>
+                                    {% if form.interval_seconds.errors %}<div class="production-field-error">{{ form.interval_seconds.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layui-row layui-col-space16">
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">最大重试</label>
+                                <div class="layui-input-block">
+                                    {{ form.max_retries }}
+                                    {% if form.max_retries.errors %}<div class="production-field-error">{{ form.max_retries.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">超时时间</label>
+                                <div class="layui-input-block">
+                                    {{ form.timeout_seconds }}
+                                    {% if form.timeout_seconds.errors %}<div class="production-field-error">{{ form.timeout_seconds.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md4">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">执行状态</label>
+                                <div class="layui-input-block">
+                                    {{ form.status }}
+                                    {% if form.status.errors %}<div class="production-field-error">{{ form.status.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">启用状态</label>
+                        <div class="layui-input-block">
+                            {{ form.is_active }}
+                        </div>
+                    </div>
+
                     <div class="layui-form-item">
                         <div class="layui-input-block">
-                            <button type="submit" class="layui-btn">保存</button>
+                            <button type="submit" class="layui-btn">{{ action }}</button>
                             <a href="{% url 'production:data_collection_task_list' %}" class="layui-btn layui-btn-primary">返回</a>
                         </div>
                     </div>
@@ -56,33 +125,14 @@
             </div>
         </div>
     </div>
+
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
         layui.use(['form'], function () {
             layui.form.render();
         });
-
         {% include "production/_right_popup_function.html" %}
-</script>
-
-    <!-- 注入的消息提示脚本 -->
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
-        });
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
 </html>

@@ -25,6 +25,10 @@ urlpatterns = [
     path('procedureset/', views.procedureset_list, name='procedureset_list'),
     path('procedureset/add/', views.procedureset_add, name='procedureset_add'),
     path(
+        'procedureset/detail/<int:pk>/',
+        views.procedureset_detail,
+        name='procedureset_detail'),
+    path(
         'procedureset/edit/<int:pk>/',
         views.procedureset_edit,
         name='procedureset_edit'),
@@ -372,7 +376,8 @@ urlpatterns = [
          views.production_line_day_plan_delete,
          name='production_line_day_plan_delete'),
 
-    # 领料申请
+    # 物料管理
+    path('material/', views.material_management_dashboard, name='material_management_dashboard'),
     path(
         'material/request/',
         views.material_request_list,
@@ -381,6 +386,10 @@ urlpatterns = [
         'material/request/add/',
         views.material_request_add,
         name='material_request_add'),
+    path(
+        'material/request/<int:pk>/detail/',
+        views.material_request_detail,
+        name='material_request_detail'),
     path(
         'material/request/<int:pk>/edit/',
         views.material_request_edit,
@@ -393,8 +402,6 @@ urlpatterns = [
         'material/request/<int:pk>/cancel/',
         views.material_request_cancel,
         name='material_request_cancel'),
-
-    # 材料出库
     path(
         'material/issue/',
         views.material_issue_list,
@@ -404,6 +411,10 @@ urlpatterns = [
         views.material_issue_add,
         name='material_issue_add'),
     path(
+        'material/issue/<int:pk>/detail/',
+        views.material_issue_detail,
+        name='material_issue_detail'),
+    path(
         'material/issue/<int:pk>/edit/',
         views.material_issue_edit,
         name='material_issue_edit'),
@@ -412,11 +423,13 @@ urlpatterns = [
         views.material_issue_approve,
         name='material_issue_approve'),
     path(
+        'material/issue/<int:pk>/execute/',
+        views.material_issue_execute,
+        name='material_issue_execute'),
+    path(
         'material/issue/<int:pk>/cancel/',
         views.material_issue_cancel,
         name='material_issue_cancel'),
-
-    # 退料管理
     path(
         'material/return/',
         views.material_return_list,
@@ -426,6 +439,10 @@ urlpatterns = [
         views.material_return_add,
         name='material_return_add'),
     path(
+        'material/return/<int:pk>/detail/',
+        views.material_return_detail,
+        name='material_return_detail'),
+    path(
         'material/return/<int:pk>/edit/',
         views.material_return_edit,
         name='material_return_edit'),
@@ -434,11 +451,43 @@ urlpatterns = [
         views.material_return_approve,
         name='material_return_approve'),
     path(
+        'material/return/<int:pk>/execute/',
+        views.material_return_execute,
+        name='material_return_execute'),
+    path(
         'material/return/<int:pk>/cancel/',
         views.material_return_cancel,
         name='material_return_cancel'),
+    path(
+        'material/scrap/',
+        views.material_scrap_list,
+        name='material_scrap_list'),
+    path(
+        'material/scrap/add/',
+        views.material_scrap_add,
+        name='material_scrap_add'),
+    path(
+        'material/scrap/<int:pk>/detail/',
+        views.material_scrap_detail,
+        name='material_scrap_detail'),
+    path(
+        'material/scrap/<int:pk>/edit/',
+        views.material_scrap_edit,
+        name='material_scrap_edit'),
+    path(
+        'material/scrap/<int:pk>/approve/',
+        views.material_scrap_approve,
+        name='material_scrap_approve'),
+    path(
+        'material/scrap/<int:pk>/execute/',
+        views.material_scrap_execute,
+        name='material_scrap_execute'),
+    path(
+        'material/scrap/<int:pk>/cancel/',
+        views.material_scrap_cancel,
+        name='material_scrap_cancel'),
 
-    # 完工申报
+    # 完工与入库
     path(
         'completion/report/',
         views.work_completion_report_list,
@@ -455,8 +504,6 @@ urlpatterns = [
     path('completion/report/<int:pk>/red-flush/',
          views.work_completion_report_red_flush,
          name='work_completion_report_red_flush'),
-
-    # 完工红冲
     path(
         'completion/red-flush/',
         views.work_completion_red_flush_list,
@@ -470,8 +517,6 @@ urlpatterns = [
     path('completion/red-flush/<int:pk>/execute/',
          views.work_completion_red_flush_execute,
          name='work_completion_red_flush_execute'),
-
-    # 成品入库
     path(
         'product/receipt/',
         views.product_receipt_list,
@@ -481,6 +526,10 @@ urlpatterns = [
         views.product_receipt_add,
         name='product_receipt_add'),
     path(
+        'product/receipt/<int:pk>/detail/',
+        views.product_receipt_detail,
+        name='product_receipt_detail'),
+    path(
         'product/receipt/<int:pk>/edit/',
         views.product_receipt_edit,
         name='product_receipt_edit'),
@@ -489,11 +538,15 @@ urlpatterns = [
         views.product_receipt_approve,
         name='product_receipt_approve'),
     path(
+        'product/receipt/<int:pk>/execute/',
+        views.product_receipt_execute,
+        name='product_receipt_execute'),
+    path(
         'product/receipt/<int:pk>/cancel/',
         views.product_receipt_cancel,
         name='product_receipt_cancel'),
 
-    # 材料确认
+    # 材料确认与资源
     path(
         'order/confirmation/',
         views.order_material_confirmation_list,
@@ -501,8 +554,6 @@ urlpatterns = [
     path('order/confirmation/add/',
          views.order_material_confirmation_add,
          name='order_material_confirmation_add'),
-
-    # 资源消耗
     path(
         'resource/consumption/',
         views.resource_consumption_list,
@@ -510,9 +561,6 @@ urlpatterns = [
     path('resource/consumption/add/',
          views.resource_consumption_add,
          name='resource_consumption_add'),
-
-    # 分析报告
-    path('analysis/', views.performance_analysis, name='performance_analysis'),
 
     # 首页路由
     path('', views.baseinfo_index, name='production_index'),

@@ -32,11 +32,14 @@ class AIPermissionGuard:
         checker_name = self.OPERATION_TO_CHECKER.get(action.operation, 'can_operate')
         checker = getattr(PermissionChecker, checker_name)
         permission_name = permission_code.split('.', 1)[-1] if '.' in permission_code else permission_code
+        app_label = permission_code.split('.', 1)[0] if '.' in permission_code else 'user'
         resource_type = permission_name.split('_', 1)[-1] if '_' in permission_name else permission_name
         resource_type = self.RESOURCE_PERMISSION_ALIASES.get(resource_type, resource_type)
 
         if checker_name == 'can_operate':
-            allowed = checker(user, permission_code)
+            allowed = self._check_exact_permission(user, permission_code)
+        elif app_label != 'user':
+            allowed = self._check_exact_permission(user, permission_code)
         else:
             allowed = checker(user, resource_type)
 
@@ -47,3 +50,11 @@ class AIPermissionGuard:
             return PermissionCheckResult(allowed=False, reason='out_of_scope')
 
         return PermissionCheckResult(allowed=True, reason='allowed')
+
+    def _check_exact_permission(self, user, permission_code: str) -> bool:
+        if not getattr(user, 'is_authenticated', False):
+            return False
+        if getattr(user, 'is_superuser', False):
+            return True
+        normalized_perm = PermissionChecker.normalize_permission(permission_code)
+        return bool(getattr(user, 'has_perm', lambda code: False)(normalized_perm))

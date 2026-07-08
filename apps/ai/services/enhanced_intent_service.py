@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class EnhancedIntentService:
     """增强的意图处理服务"""
 
-    MUTATING_ACTIONS = {'create', 'update', 'delete'}
+    MUTATING_ACTIONS = {'create', 'update', 'delete', 'approve', 'reject', 'submit', 'publish', 'withdraw', 'stock'}
     MUTATING_INTENTS = {'DATA_CREATE', 'DATA_UPDATE', 'DATA_DELETE'}
 
     BUSINESS_HANDOFF_CONFIG = {
@@ -68,7 +68,12 @@ class EnhancedIntentService:
             'list_url': '/user/employee/',
             'create_url': '/user/employee/create/',
             'edit_url_template': '/user/employee/update/{id}/',
-            'permission_base': 'employee',
+            'permission': {
+                'query': {'full_code': 'user.view_employeefile', 'exists': True},
+                'create': {'full_code': 'user.add_employee', 'exists': True},
+                'update': {'full_code': 'user.change_employee', 'exists': True},
+                'delete': {'full_code': 'user.delete_employee', 'exists': True},
+            },
         },
         'department': {
             'name': '部门',
@@ -76,7 +81,12 @@ class EnhancedIntentService:
             'list_url': '/system/department/',
             'create_url': '/system/department/add/',
             'edit_url_template': '/system/department/{id}/update/',
-            'permission_base': 'department',
+            'permission': {
+                'query': {'full_code': 'department.view_department', 'exists': True},
+                'create': {'full_code': 'department.add_department', 'exists': True},
+                'update': {'full_code': 'department.change_department', 'exists': True},
+                'delete': {'full_code': 'department.delete_department', 'exists': True},
+            },
         },
         'finance': {
             'name': '费用报销',
@@ -86,6 +96,54 @@ class EnhancedIntentService:
             'edit_url_template': None,
             'permission_base': 'reimbursement',
         },
+        'expense': {
+            'name': '报销单',
+            'module': '财务管理',
+            'list_url': '/finance/expense/',
+            'create_url': '/finance/expense/add/',
+            'edit_url_template': None,
+            'permission': {
+                'query': {'full_code': 'finance.view_expense', 'exists': True},
+                'create': {'full_code': 'finance.add_reimbursement', 'exists': True},
+                'update': {'full_code': 'finance.change_reimbursement', 'exists': True},
+                'delete': {'full_code': 'finance.delete_reimbursement', 'exists': True},
+                'approve': {'full_code': 'finance.approve_reimbursement', 'exists': True},
+            },
+        },
+        'finance_invoice': {
+            'name': '财务发票',
+            'module': '财务管理',
+            'list_url': '/finance/invoice/',
+            'create_url': '/finance/invoice/add/',
+            'edit_url_template': '/finance/invoice/edit/{id}/',
+            'permission_base': 'invoice',
+        },
+        'income': {
+            'name': '回款记录',
+            'module': '财务管理',
+            'list_url': '/finance/paymentreceive/',
+            'create_url': '/finance/paymentreceive/add/',
+            'edit_url_template': '/finance/paymentreceive/',
+            'permission': {
+                'query': {'full_code': 'finance.view_payment_receive', 'exists': True},
+                'create': {'full_code': 'finance.add_payment_receive', 'exists': True},
+                'update': {'full_code': 'finance.change_payment_receive', 'exists': True},
+                'delete': {'full_code': 'finance.delete_payment_receive', 'exists': True},
+            },
+        },
+        'finance_income': {
+            'name': '回款记录',
+            'module': '财务管理',
+            'list_url': '/finance/paymentreceive/',
+            'create_url': '/finance/paymentreceive/add/',
+            'edit_url_template': '/finance/paymentreceive/',
+            'permission': {
+                'query': {'full_code': 'finance.view_payment_receive', 'exists': True},
+                'create': {'full_code': 'finance.add_payment_receive', 'exists': True},
+                'update': {'full_code': 'finance.change_payment_receive', 'exists': True},
+                'delete': {'full_code': 'finance.delete_payment_receive', 'exists': True},
+            },
+        },
         'production': {
             'name': '生产计划',
             'module': '生产管理',
@@ -94,6 +152,38 @@ class EnhancedIntentService:
             'edit_url_template': '/production/task/plan/edit/{id}/',
             'permission_base': 'production_plan',
         },
+        'production_plan': {
+            'name': '生产计划',
+            'module': '生产管理',
+            'list_url': '/production/task/plan/',
+            'create_url': '/production/task/plan/add/',
+            'edit_url_template': '/production/task/plan/edit/{id}/',
+            'permission_base': 'production_plan',
+        },
+        'production_task': {
+            'name': '生产任务',
+            'module': '生产管理',
+            'list_url': '/production/task/execution/',
+            'create_url': '/production/task/execution/add/',
+            'edit_url_template': '/production/task/execution/edit/{id}/',
+            'permission_base': 'production_task',
+        },
+        'production_equipment': {
+            'name': '生产设备',
+            'module': '生产管理',
+            'list_url': '/production/equipment/',
+            'create_url': '/production/equipment/add/',
+            'edit_url_template': '/production/equipment/edit/{id}/',
+            'permission_base': 'equipment',
+        },
+        'production_procedure': {
+            'name': '生产工序',
+            'module': '生产管理',
+            'list_url': '/production/procedure/',
+            'create_url': '/production/procedure/add/',
+            'edit_url_template': '/production/procedure/edit/{id}/',
+            'permission_base': 'procedure',
+        },
         'followup': {
             'name': '跟进记录',
             'module': '客户管理',
@@ -101,6 +191,19 @@ class EnhancedIntentService:
             'create_url': '/customer/followup/create/',
             'edit_url_template': '/customer/followup/{id}/edit/',
             'permission_base': 'follow_record',
+        },
+        'contact': {
+            'name': '客户联系人',
+            'module': '客户管理',
+            'list_url': '/customer/',
+            'create_url': '/customer/',
+            'edit_url_template': None,
+            'permission': {
+                'query': {'full_code': 'customer.view_customer', 'exists': True},
+                'create': {'full_code': 'customer.add_customer', 'exists': True},
+                'update': {'full_code': 'customer.change_customer', 'exists': True},
+                'delete': {'full_code': 'customer.delete_customer', 'exists': True},
+            },
         },
         'supplier': {
             'name': '供应商',
@@ -124,9 +227,63 @@ class EnhancedIntentService:
             'list_url': '/inventory/inventory/',
             'create_url': '/inventory/item/add/',
             'edit_url_template': '/inventory/item/{id}/',
-            'permission_base': 'inventory',
-            'available': False,
-            'unavailable_reason': '库存模块当前未接入系统根路由，请先完成模块接入后再进入业务页面操作',
+            'permission': {
+                'query': {'full_code': 'inventory.view_inventory', 'exists': True},
+                'create': {'full_code': 'inventory.add_inventoryitem', 'exists': True},
+                'update': {'full_code': 'inventory.change_inventoryitem', 'exists': True},
+                'delete': {'full_code': 'inventory.delete_inventoryitem', 'exists': True},
+            },
+        },
+        'warehouse': {
+            'name': '仓库',
+            'module': '库存管理',
+            'list_url': '/inventory/warehouse/',
+            'create_url': '/inventory/warehouse/add/',
+            'edit_url_template': '/inventory/warehouse/{id}/',
+            'permission': {
+                'query': {'full_code': 'inventory.view_warehouse', 'exists': True},
+                'create': {'full_code': 'inventory.add_warehouse', 'exists': True},
+                'update': {'full_code': 'inventory.change_warehouse', 'exists': True},
+                'delete': {'full_code': 'inventory.delete_warehouse', 'exists': True},
+            },
+        },
+        'stockin': {
+            'name': '入库单',
+            'module': '库存管理',
+            'list_url': '/inventory/stockin/',
+            'create_url': '/inventory/stockin/add/',
+            'edit_url_template': '/inventory/stockin/{id}/',
+            'action_urls': {
+                'approve': '/inventory/stockin/{id}/',
+                'stock': '/inventory/stockin/{id}/',
+            },
+            'permission': {
+                'query': {'full_code': 'inventory.view_stockin', 'exists': True},
+                'create': {'full_code': 'inventory.add_stockin', 'exists': True},
+                'update': {'full_code': 'inventory.change_stockin', 'exists': True},
+                'delete': {'full_code': 'inventory.delete_stockin', 'exists': True},
+                'approve': {'full_code': 'inventory.change_stockin', 'exists': True},
+                'stock': {'full_code': 'inventory.change_stockin', 'exists': True},
+            },
+        },
+        'stockout': {
+            'name': '出库单',
+            'module': '库存管理',
+            'list_url': '/inventory/stockout/',
+            'create_url': '/inventory/stockout/add/',
+            'edit_url_template': '/inventory/stockout/{id}/',
+            'action_urls': {
+                'approve': '/inventory/stockout/{id}/',
+                'stock': '/inventory/stockout/{id}/',
+            },
+            'permission': {
+                'query': {'full_code': 'inventory.view_stockout', 'exists': True},
+                'create': {'full_code': 'inventory.add_stockout', 'exists': True},
+                'update': {'full_code': 'inventory.change_stockout', 'exists': True},
+                'delete': {'full_code': 'inventory.delete_stockout', 'exists': True},
+                'approve': {'full_code': 'inventory.change_stockout', 'exists': True},
+                'stock': {'full_code': 'inventory.change_stockout', 'exists': True},
+            },
         },
         'approval': {
             'name': '审批',
@@ -143,8 +300,12 @@ class EnhancedIntentService:
             'list_url': '/approval/approvalflow/',
             'create_url': '/approval/approvalflow/add/',
             'edit_url_template': '/approval/approvalflow/{id}/edit/',
-            'permission_base': 'approval_flow',
-            'skip_permission_gate': True,
+            'permission': {
+                'query': {'full_code': 'user.view_approval_flow', 'exists': True},
+                'create': {'full_code': 'approval.add_approvalflow', 'exists': True},
+                'update': {'full_code': 'approval.change_approvalflow', 'exists': True},
+                'delete': {'full_code': 'approval.delete_approvalflow', 'exists': True},
+            },
         },
         'approval_task': {
             'name': '待办审批',
@@ -193,7 +354,12 @@ class EnhancedIntentService:
             'list_url': '/oa/meeting/list/',
             'create_url': '/oa/meeting/apply/',
             'edit_url_template': '/oa/meeting/view/{id}/',
-            'permission_base': 'meeting_record',
+            'permission': {
+                'query': {'full_code': 'user.view_meeting_record', 'exists': True},
+                'create': {'full_code': 'user.apply_meeting', 'exists': True},
+                'update': {'full_code': 'user.change_meeting_record', 'exists': True},
+                'delete': {'full_code': 'user.delete_meeting_record', 'exists': True},
+            },
         },
         'schedule': {
             'name': '工作日程',
@@ -206,12 +372,157 @@ class EnhancedIntentService:
         'document': {
             'name': '文档',
             'module': '公文管理',
-            'list_url': '/oa/document/view/',
-            'create_url': '/oa/document/draft/add/',
-            'edit_url_template': None,
-            'permission_base': 'document',
-            'available': False,
-            'unavailable_reason': '文档模块存在多个业务入口，请先在业务页面选择具体文档类型',
+            'list_url': '/system/admin_office/document/',
+            'create_url': '/system/admin_office/document/create/',
+            'edit_url_template': '/system/admin_office/document/update/{id}/',
+            'action_urls': {
+                'submit': '/system/admin_office/document/submit/{id}/',
+                'approve': '/system/admin_office/document/approve/{id}/',
+                'reject': '/system/admin_office/document/reject/{id}/',
+                'publish': '/system/admin_office/document/publish/{id}/',
+            },
+            'permission': {
+                'query': {'full_code': 'system.view_document', 'exists': True},
+                'create': {'full_code': 'system.add_document', 'exists': True},
+                'update': {'full_code': 'system.change_document', 'exists': True},
+                'delete': {'full_code': 'system.delete_document', 'exists': True},
+                'submit': {'full_code': 'system.change_document', 'exists': True},
+                'approve': {'full_code': 'system.change_document_approve', 'exists': True},
+                'reject': {'full_code': 'system.change_document_approve', 'exists': True},
+                'publish': {'full_code': 'system.change_document_publish', 'exists': True},
+            },
+        },
+        'project_document': {
+            'name': '项目文档',
+            'module': '项目管理',
+            'list_url': '/project/document/',
+            'create_url': '/project/document/add/',
+            'edit_url_template': '/project/document/edit/{id}/',
+            'permission': {
+                'query': {'full_code': 'project.view_project_document', 'exists': True},
+                'create': {'full_code': 'project.add_project_document', 'exists': True},
+                'update': {'full_code': 'project.change_project_document', 'exists': True},
+                'delete': {'full_code': 'project.delete_project_document', 'exists': True},
+            },
+        },
+        'project_stage': {
+            'name': '项目阶段',
+            'module': '项目管理',
+            'list_url': '/project/stage/',
+            'create_url': '/project/stage/add/',
+            'edit_url_template': '/project/stage/edit/{id}/',
+            'permission': {
+                'query': {'full_code': 'project.view_project_stage', 'exists': True},
+                'create': {'full_code': 'project.add_project_stage', 'exists': True},
+                'update': {'full_code': 'project.change_project_stage', 'exists': True},
+                'delete': {'full_code': 'project.delete_project_stage', 'exists': True},
+            },
+        },
+        'project_category': {
+            'name': '项目分类',
+            'module': '项目管理',
+            'list_url': '/project/category/',
+            'create_url': '/project/category/add/',
+            'edit_url_template': '/project/category/edit/{id}/',
+            'permission': {
+                'query': {'full_code': 'project.view_project_category', 'exists': True},
+                'create': {'full_code': 'project.add_project_category', 'exists': True},
+                'update': {'full_code': 'project.change_project_category', 'exists': True},
+                'delete': {'full_code': 'project.delete_project_category', 'exists': True},
+            },
+        },
+        'work_type': {
+            'name': '工作类型',
+            'module': '项目管理',
+            'list_url': '/project/worktype/',
+            'create_url': '/project/worktype/add/',
+            'edit_url_template': '/project/worktype/edit/{id}/',
+            'permission': {
+                'query': {'full_code': 'project.view_work_type', 'exists': True},
+                'create': {'full_code': 'project.add_work_type', 'exists': True},
+                'update': {'full_code': 'project.change_work_type', 'exists': True},
+                'delete': {'full_code': 'project.delete_work_type', 'exists': True},
+            },
+        },
+        'payment': {
+            'name': '付款单',
+            'module': '财务管理',
+            'list_url': '/finance/payment/',
+            'create_url': '/finance/payment/add/',
+            'edit_url_template': '/finance/payment/view/{id}/',
+            'permission': {
+                'query': {'full_code': 'finance.view_payment', 'exists': True},
+                'create': {'full_code': 'finance.add_payment', 'exists': True},
+                'update': {'full_code': 'finance.change_payment', 'exists': True},
+                'delete': {'full_code': 'finance.delete_payment', 'exists': True},
+            },
+        },
+        'position': {
+            'name': '岗位',
+            'module': '人事管理',
+            'list_url': '/position/',
+            'create_url': '/position/add/',
+            'edit_url_template': '/position/edit/{id}/',
+            'permission': {
+                'query': {'full_code': 'position.view_position', 'exists': True},
+                'create': {'full_code': 'position.add_position', 'exists': True},
+                'update': {'full_code': 'position.change_position', 'exists': True},
+                'delete': {'full_code': 'position.delete_position', 'exists': True},
+            },
+        },
+        'enterprise': {
+            'name': '企业信息',
+            'module': '企业管理',
+            'list_url': '/enterprise/enterprise_list/',
+            'create_url': '/enterprise/enterprise_add/',
+            'edit_url_template': '/enterprise/enterprise_add/{id}/',
+            'skip_permission_gate': True,
+        },
+        'work_record': {
+            'name': '工作记录',
+            'module': '个人办公',
+            'list_url': '/personal/record/',
+            'create_url': '/personal/record/add/',
+            'edit_url_template': '/personal/record/{id}/edit/',
+            'skip_permission_gate': True,
+        },
+        'work_report': {
+            'name': '工作汇报',
+            'module': '个人办公',
+            'list_url': '/personal/report/',
+            'create_url': '/personal/report/add/',
+            'edit_url_template': '/personal/report/{id}/edit/',
+            'action_urls': {
+                'submit': '/personal/report/{id}/edit/',
+            },
+            'skip_permission_gate': True,
+        },
+        'personal_note': {
+            'name': '个人笔记',
+            'module': '个人办公',
+            'list_url': '/personal/note/',
+            'create_url': '/personal/note/add/',
+            'edit_url_template': '/personal/note/{id}/edit/',
+            'skip_permission_gate': True,
+        },
+        'personal_task': {
+            'name': '个人任务',
+            'module': '个人办公',
+            'list_url': '/personal/task/',
+            'create_url': '/personal/task/add/',
+            'edit_url_template': '/personal/task/{id}/edit/',
+            'action_urls': {
+                'submit': '/personal/task/{id}/edit/',
+            },
+            'skip_permission_gate': True,
+        },
+        'personal_contact': {
+            'name': '个人联系人',
+            'module': '个人办公',
+            'list_url': '/personal/contact/',
+            'create_url': '/personal/contact/add/',
+            'edit_url_template': '/personal/contact/{id}/edit/',
+            'skip_permission_gate': True,
         },
         'disk': {
             'name': '网盘文件',
@@ -280,15 +591,20 @@ class EnhancedIntentService:
             permission_result = self._check_data_permission(
                 user, intent_result)
             if not permission_result['has_permission']:
-                return self._create_permission_denied_response(
-                    intent_result, permission_result)
+                response = self._decorate_response_with_recognition_meta(
+                    self._create_permission_denied_response(
+                        intent_result, permission_result),
+                    intent_result,
+                )
+                return self._attach_mcp_context(response, intent_result, query)
 
             if intent_result['confidence'] < 0.65 or intent_result.get('requires_confirmation'):
                 return self._create_confirmation_response(intent_result, query, user)
 
             execution_result = self._execute_intent(user, intent_result, query, conversation_context)
 
-            return execution_result
+            response = self._decorate_response_with_recognition_meta(execution_result, intent_result)
+            return self._attach_mcp_context(response, intent_result, query)
 
         except Exception as e:
             logger.error(f"处理用户请求失败：{str(e)}")
@@ -458,36 +774,22 @@ class EnhancedIntentService:
                 'data_scope': 'general'
             }
 
-        permission_map = {
-            'customer': 'customer.view_customer',
-            'order': 'customer.view_customerorder',
-            'contract': 'contract.view_contract',
-            'project': 'project.view_project',
-            'invoice': 'customer.view_customerinvoice',
-            'employee': 'user.view_employeefile',
-            'department': 'department.view_department',
-            'finance': 'finance.view_expense',
-            'production': 'production.view_productionplan',
-            'supplier': 'contract.view_supplier',
-            'product': 'contract.view_product',
-            'inventory': 'inventory.view_inventory',
-            'followup': 'customer.view_followrecord',
-            'approval': 'approval.view_approval',
-            'approval_flow': 'approval.view_approvalflow',
+        permission_map = dict(getattr(self.query_service, 'permission_mapping', {}) or {})
+        permission_map.update({
             'approval_task': 'approval.view_approval',
-            'task': 'task.view_task',
-            'workhour': 'task.view_workhour',
-            'message': 'message.view_message',
-            'notice': 'user.view_notice',
-            'contact': 'customer.view_customer',
-            'document': 'system.view_document',
-            'payment': 'finance.view_payment',
-            'meeting': 'oa.view_meetingrecord',
-            'schedule': '__authenticated__',
-            'disk': 'disk.view_disk_file',
-            'disk_folder': 'disk.view_disk_folder',
-            'disk_share': 'disk.view_share',
-        }
+            'production': 'production.view_productionplan',
+            'production_plan': 'production.view_productionplan',
+            'production_task': 'production.view_productiontask',
+            'production_equipment': 'production.view_equipment',
+            'production_procedure': 'production.view_productionprocedure',
+            'finance': 'finance.view_expense',
+            'finance_expense': 'finance.view_expense',
+            'expense': 'finance.view_expense',
+            'finance_invoice': 'finance.view_invoice',
+            'finance_income': 'finance.view_payment_receive',
+            'income': 'finance.view_payment_receive',
+            'invoice': 'customer.view_customerinvoice',
+        })
 
         required_permission = permission_map.get(data_type)
 
@@ -811,7 +1113,7 @@ class EnhancedIntentService:
             '当前未配置可用的 AI 模型，我可以继续提供基础帮助。请配置 AI 模型后获得更准确的意图识别和自然语言理解能力。'
         )
 
-        return {
+        payload = {
             'success': True,
             'message': response,
             'intent_type': 'AI_CHAT',
@@ -824,6 +1126,8 @@ class EnhancedIntentService:
             'model_provider': ai_intent_classifier.ai_config.get('provider') if ai_intent_classifier.ai_config else None,
             'model_name': ai_intent_classifier.ai_config.get('model_name') if ai_intent_classifier.ai_config else None,
         }
+        payload = self._decorate_response_with_recognition_meta(payload, payload)
+        return self._attach_mcp_context(payload, payload, query)
 
     def _create_error_response(self, message: str) -> Dict[str, Any]:
         """创建错误响应"""
@@ -909,7 +1213,8 @@ class EnhancedIntentService:
         if business_task:
             response['task'] = business_task
             response['requires_client_action'] = True
-        return response
+        response = self._decorate_response_with_recognition_meta(response, intent_result)
+        return self._attach_mcp_context(response, intent_result, query)
 
     def _is_mutating_intent(self, intent_result: Dict[str, Any]) -> bool:
         return (
@@ -919,6 +1224,10 @@ class EnhancedIntentService:
 
     def _build_business_handoff(
             self, user: User, intent_result: Dict[str, Any], query: str) -> Dict[str, Any]:
+        candidate_data_types = self._get_candidate_data_types(intent_result)
+        if intent_result.get('source') != 'ai' and len(candidate_data_types) > 1:
+            return self._build_business_type_clarification_handoff(intent_result, query, candidate_data_types)
+
         data_type = intent_result.get('data_type')
         if not data_type:
             return self._build_unknown_business_handoff(intent_result, query)
@@ -933,7 +1242,7 @@ class EnhancedIntentService:
         action = self._normalize_business_action(intent_result)
         title = self._build_business_title(action, config['name'])
         target_url, disabled_reason = self._resolve_business_target_url(config, action, intent_result)
-        permission = self._build_business_permission(config.get('permission_base'), action)
+        permission = self._build_business_permission(config.get('permission') or config.get('permission_base'), action)
         entities = intent_result.get('entities') or {}
         skip_permission_gate = bool(config.get('skip_permission_gate'))
         permission_exists = True if skip_permission_gate else self._business_permission_exists(permission)
@@ -972,6 +1281,53 @@ class EnhancedIntentService:
             'options': [],
         }
         task['options'] = self._build_business_options(task, config)
+        return task
+
+    def _build_business_type_clarification_handoff(
+            self,
+            intent_result: Dict[str, Any],
+            query: str,
+            candidate_data_types: list[str]) -> Dict[str, Any]:
+        action = self._normalize_business_action(intent_result)
+        title = '请确认业务类型'
+        business_names = [
+            self.BUSINESS_HANDOFF_CONFIG.get(data_type, {}).get('name', data_type)
+            for data_type in candidate_data_types
+        ]
+        message = f'当前为安全降级识别，请先确认具体业务类型。该请求可能是在处理：{"、".join(business_names)}。'
+        task = {
+            'type': 'business_handoff',
+            'intent_type': intent_result.get('intent'),
+            'action': action,
+            'data_type': intent_result.get('data_type'),
+            'module': None,
+            'title': title,
+            'target_url': None,
+            'list_url': None,
+            'open_mode': 'tab',
+            'requires_user_confirmation': True,
+            'safety_notice': 'AI 在规则降级下不会直接进入写操作页面，请先确认业务类型后再继续。',
+            'message': message,
+            'prefill': self._sanitize_prefill(intent_result.get('entities') or {}),
+            'permission_required': None,
+            'has_business_permission': False,
+            'enabled': False,
+            'disabled_reason': None,
+            'confidence': intent_result.get('confidence', 0),
+            'options': [],
+        }
+        for data_type in candidate_data_types:
+            config = self.BUSINESS_HANDOFF_CONFIG.get(data_type) or {}
+            business_name = config.get('name', data_type)
+            task['options'].append({
+                'text': self._build_business_title(action, business_name),
+                'intent': intent_result.get('intent'),
+                'action': 'clarify_business_type',
+                'data_type': data_type,
+                'enabled': True,
+                'rewrite_prompt': f'请按{business_name}处理：{query}',
+            })
+        task['options'].append({'text': '取消操作', 'intent': 'AI_CHAT', 'action': 'cancel', 'enabled': True})
         return task
 
     def _build_unknown_business_handoff(
@@ -1024,6 +1380,12 @@ class EnhancedIntentService:
             'create': '新增',
             'update': '修改',
             'delete': '删除',
+            'approve': '审批',
+            'reject': '驳回',
+            'submit': '提交',
+            'publish': '发布',
+            'withdraw': '撤回',
+            'stock': '执行',
             'query': '查看',
         }
         return f"{action_names.get(action, '处理')}{business_name}"
@@ -1031,7 +1393,7 @@ class EnhancedIntentService:
     def _get_business_safety_notice(self, action: str) -> str:
         if action == 'delete':
             return 'AI 不会直接删除业务数据，只会打开对应业务页面或列表，请您核对记录后在页面内按系统流程确认。'
-        if action == 'update':
+        if action in {'update', 'approve', 'reject', 'submit', 'publish', 'withdraw', 'stock'}:
             return 'AI 不会直接修改业务数据，只会打开对应业务页面，请您核对记录和字段后再保存。'
         return 'AI 只负责识别和带您进入业务页面，不会直接新增业务数据，请在页面内核对后再保存。'
 
@@ -1042,6 +1404,16 @@ class EnhancedIntentService:
 
         if action == 'create':
             return config.get('create_url'), None if config.get('create_url') else '未配置新增页面入口'
+
+        action_urls = config.get('action_urls') or {}
+        if action in action_urls:
+            record_id = self._extract_record_id(intent_result)
+            template = action_urls.get(action)
+            if record_id and template:
+                return template.format(id=record_id), None
+            if config.get('list_url'):
+                return config.get('list_url'), None
+            return None, '未配置业务动作页面入口'
 
         if action in {'update', 'delete'}:
             record_id = self._extract_record_id(intent_result)
@@ -1066,9 +1438,20 @@ class EnhancedIntentService:
                 return value
         return None
 
-    def _build_business_permission(self, permission_base: str, action: str):
-        if not permission_base:
+    def _build_business_permission(self, permission_config, action: str):
+        if not permission_config:
             return None
+        if isinstance(permission_config, dict):
+            if 'full_code' in permission_config or 'codename' in permission_config:
+                return self._normalize_business_permission(permission_config, action)
+            selected = permission_config.get(action) or permission_config.get('query')
+            if not selected:
+                return None
+            return self._build_business_permission(selected, action)
+        if isinstance(permission_config, str) and '.' in permission_config:
+            return self._normalize_business_permission({'full_code': permission_config}, action)
+
+        permission_base = permission_config
         permission_actions = {
             'create': 'add',
             'update': 'change',
@@ -1085,9 +1468,36 @@ class EnhancedIntentService:
             'name': self._get_permission_display_name(codename),
         }
 
+    def _normalize_business_permission(self, permission_config: Dict[str, Any], action: str):
+        full_code = permission_config.get('full_code')
+        codename = permission_config.get('codename')
+        app_label = permission_config.get('app_label')
+
+        if full_code and '.' in full_code:
+            inferred_app_label, inferred_codename = full_code.split('.', 1)
+            app_label = app_label or inferred_app_label
+            codename = codename or inferred_codename
+        elif full_code and not codename:
+            codename = full_code
+
+        if codename and not full_code:
+            app_label = app_label or 'user'
+            full_code = f'{app_label}.{codename}'
+
+        return {
+            'app_label': app_label or 'user',
+            'codename': codename,
+            'full_code': full_code,
+            'action': permission_config.get('action') or action,
+            'name': permission_config.get('name') or self._get_permission_display_name(codename or full_code or ''),
+            'exists': permission_config.get('exists'),
+        }
+
     def _business_permission_exists(self, permission: Dict[str, Any]) -> bool:
         if not permission:
             return False
+        if permission.get('exists') is not None:
+            return bool(permission.get('exists'))
         codename = permission.get('codename')
         if not codename:
             return False
@@ -1140,6 +1550,92 @@ class EnhancedIntentService:
             elif isinstance(value, (list, tuple)):
                 sanitized[key] = [item for item in value if isinstance(item, (str, int, float, bool))][:10]
         return sanitized
+
+    def _get_candidate_data_types(self, intent_result: Dict[str, Any]) -> list[str]:
+        entities = intent_result.get('entities') or {}
+        raw_candidates = entities.get('candidate_data_types') or []
+        candidates = []
+        for value in raw_candidates:
+            data_type = str(value or '').strip().lower()
+            if data_type and data_type in self.BUSINESS_HANDOFF_CONFIG and data_type not in candidates:
+                candidates.append(data_type)
+        primary = intent_result.get('data_type')
+        if primary and primary in self.BUSINESS_HANDOFF_CONFIG and primary not in candidates:
+            candidates.insert(0, primary)
+        return candidates
+
+    def _decorate_response_with_recognition_meta(
+            self,
+            response: Dict[str, Any],
+            intent_result: Dict[str, Any] | None = None) -> Dict[str, Any]:
+        payload = dict(response or {})
+        meta_source = dict(intent_result or {})
+        meta_source.update({
+            key: payload.get(key, meta_source.get(key))
+            for key in (
+                'source',
+                'ai_available',
+                'ai_configured',
+                'failure_reason',
+                'model_provider',
+                'model_name',
+            )
+        })
+        recognition_meta = self._build_recognition_meta(meta_source)
+        if recognition_meta:
+            payload['recognition_meta'] = recognition_meta
+        for key in (
+            'source',
+            'ai_available',
+            'ai_configured',
+            'failure_reason',
+            'model_provider',
+            'model_name',
+        ):
+            if key in meta_source and key not in payload:
+                payload[key] = meta_source.get(key)
+        return payload
+
+    def _build_recognition_meta(self, intent_result: Dict[str, Any] | None) -> Dict[str, Any] | None:
+        intent_result = intent_result or {}
+        source = intent_result.get('source')
+        ai_available = bool(intent_result.get('ai_available', source == 'ai'))
+        ai_configured = bool(intent_result.get('ai_configured', source == 'ai'))
+        failure_reason = intent_result.get('failure_reason')
+        model_provider = intent_result.get('model_provider')
+        model_name = intent_result.get('model_name')
+
+        if not any([source, failure_reason, model_provider, model_name, ai_available, ai_configured]):
+            return None
+
+        if source == 'ai':
+            source_label = 'AI识别'
+            status_label = '模型可用'
+        else:
+            source_label = '规则降级'
+            status_label = '模型不可用' if ai_configured else '未配置模型'
+
+        return {
+            'source': source or 'unknown',
+            'source_label': source_label,
+            'status_label': status_label,
+            'ai_available': ai_available,
+            'ai_configured': ai_configured,
+            'failure_reason': failure_reason,
+            'model_provider': model_provider,
+            'model_name': model_name,
+        }
+
+    def _attach_mcp_context(
+            self,
+            response: Dict[str, Any],
+            intent_result: Dict[str, Any] | None,
+            query: str) -> Dict[str, Any]:
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        payload = dict(response or {})
+        payload['mcp_context'] = project_mcp_service.build_runtime_context(query, intent_result or payload)
+        return payload
 
     def _build_business_options(
             self, task: Dict[str, Any], config: Dict[str, Any]) -> list:

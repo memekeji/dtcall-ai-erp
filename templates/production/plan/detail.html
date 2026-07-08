@@ -6,115 +6,137 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>生产计划详情</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
 <body>
-    <div class="layui-fluid" style="padding: 20px;">
-        <div class="layui-card">
-            <div class="layui-card-header">
-                <div class="layui-row">
-                    <div class="layui-col-md8">
-                        <h2>{{ plan.name }}</h2>
-                    </div>
-                    <div class="layui-col-md4" style="text-align: right;">
-                        <a href="{% url 'production:production_plan_edit' plan.pk %}" class="layui-btn layui-btn-sm">编辑</a>
-                        <a href="{% url 'production:production_plan_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">返回列表</a>
-                    </div>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>生产计划详情</h2></div>
+
+        <div class="production-toolbar">
+            <div class="production-inline-actions">
+                <button class="layui-btn" onclick="openRightPopup('编辑生产计划', '{% url 'production:production_plan_edit' plan.pk %}')">编辑计划</button>
+                <button class="layui-btn layui-btn-normal" onclick="openRightPopup('新建日计划', '{% url 'production:production_line_day_plan_add' %}?plan={{ plan.pk }}')">生成日计划</button>
+                <button class="layui-btn layui-btn-warm" onclick="openRightPopup('新建领料申请', '{% url 'production:material_request_add' %}?plan={{ plan.pk }}')">生成领料申请</button>
+                <button class="layui-btn layui-btn-primary" onclick="openRightPopup('新建订单变更', '{% url 'production:production_order_change_add' %}?plan={{ plan.pk }}')">新增变更</button>
+                <a href="{% url 'production:production_plan_list' %}" class="layui-btn layui-btn-primary">返回列表</a>
+            </div>
+        </div>
+
+        <div class="production-summary-strip">
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ material_request_count }}</div>
+                <div class="production-summary-label">领料申请</div>
+            </div>
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ material_issue_count }}</div>
+                <div class="production-summary-label">材料出库</div>
+            </div>
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ product_receipt_count }}</div>
+                <div class="production-summary-label">成品入库</div>
+            </div>
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ plan.completion_rate }}%</div>
+                <div class="production-summary-label">计划完成率</div>
+            </div>
+        </div>
+
+        <div class="production-section-card">
+            <div class="production-section-header">
+                <span>{{ plan.name }} / {{ plan.code }}</span>
+                <span class="production-tag {% if plan.status == 4 %}ok{% elif plan.status == 3 %}warn{% elif plan.status == 5 or plan.status == 6 %}danger{% else %}warn{% endif %}">
+                    {{ plan.get_status_display }}
+                </span>
+            </div>
+            <div class="production-section-body">
+                <div class="production-detail-grid">
+                    <div class="production-detail-item"><div class="production-detail-label">生产产品</div><div class="production-detail-value">{{ plan.product.name|default:"-" }}</div></div>
+                    <div class="production-detail-item"><div class="production-detail-label">计划数量</div><div class="production-detail-value">{{ plan.quantity }} {{ plan.unit }}</div></div>
+                    <div class="production-detail-item"><div class="production-detail-label">计划周期</div><div class="production-detail-value">{{ plan.plan_start_date }} 至 {{ plan.plan_end_date }}</div></div>
+                    <div class="production-detail-item"><div class="production-detail-label">负责人</div><div class="production-detail-value">{{ plan.manager.username|default:"-" }}</div></div>
+                    <div class="production-detail-item"><div class="production-detail-label">BOM</div><div class="production-detail-value">{{ plan.bom.name|default:"-" }}</div></div>
+                    <div class="production-detail-item"><div class="production-detail-label">工序集</div><div class="production-detail-value">{{ plan.procedure_set.name|default:"-" }}</div></div>
+                    <div class="production-detail-item"><div class="production-detail-label">工艺路线</div><div class="production-detail-value">{{ plan.process_route.name|default:"-" }}</div></div>
+                    <div class="production-detail-item"><div class="production-detail-label">生产部门</div><div class="production-detail-value">{{ plan.department.name|default:"-" }}</div></div>
+                </div>
+                <div class="production-note" style="margin-top: 16px;">
+                    该计划会作为后续日计划、任务执行、物料申请、完工申报与成品入库的统一业务来源。
+                </div>
+                {% if plan.description %}
+                <div class="production-detail-item" style="margin-top: 16px;">
+                    <div class="production-detail-label">计划描述</div>
+                    <div class="production-detail-value">{{ plan.description|linebreaksbr }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="production-grid cols-2" style="margin-top: 16px;">
+            <div class="production-section-card">
+                <div class="production-section-header">关联任务</div>
+                <div class="production-section-body" style="padding: 0;">
+                    <table class="layui-table" lay-skin="line">
+                        <thead>
+                            <tr>
+                                <th>任务编号</th>
+                                <th>任务名称</th>
+                                <th>工序</th>
+                                <th>状态</th>
+                                <th>完成率</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for task in tasks %}
+                            <tr>
+                                <td>{{ task.code }}</td>
+                                <td>{{ task.name }}</td>
+                                <td>{{ task.procedure.name|default:"-" }}</td>
+                                <td>{{ task.get_status_display }}</td>
+                                <td>{{ task.completion_rate }}%</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="production-empty">暂无关联任务</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
-            <div class="layui-card-body">
-                <div class="layui-row layui-col-space15">
-                    <div class="layui-col-md3"><strong>计划编号：</strong>{{ plan.code }}</div>
-                    <div class="layui-col-md3"><strong>产品：</strong>{{ plan.product.name|default:'-' }}</div>
-                    <div class="layui-col-md3"><strong>计划数量：</strong>{{ plan.quantity }} {{ plan.unit }}</div>
-                    <div class="layui-col-md3"><strong>完成率：</strong>{{ plan.completion_rate }}%</div>
-                </div>
 
-                <hr>
-
-                <div class="layui-row layui-col-space15">
-                    <div class="layui-col-md3"><strong>BOM：</strong>{{ plan.bom.name|default:'-' }}</div>
-                    <div class="layui-col-md3"><strong>工序集：</strong>{{ plan.procedure_set.name|default:'-' }}</div>
-                    <div class="layui-col-md3"><strong>工艺路线：</strong>{{ plan.process_route.name|default:'-' }}</div>
-                    <div class="layui-col-md3"><strong>负责人：</strong>{{ plan.manager.username|default:'-' }}</div>
-                </div>
-
-                <hr>
-
-                <div class="layui-row layui-col-space15">
-                    <div class="layui-col-md3"><strong>计划开始：</strong>{{ plan.plan_start_date }}</div>
-                    <div class="layui-col-md3"><strong>计划结束：</strong>{{ plan.plan_end_date }}</div>
-                    <div class="layui-col-md3"><strong>实际开始：</strong>{{ plan.actual_start_date|default:'-' }}</div>
-                    <div class="layui-col-md3"><strong>实际结束：</strong>{{ plan.actual_end_date|default:'-' }}</div>
-                </div>
-
-                <hr>
-
-                <div class="layui-row layui-col-space15">
-                    <div class="layui-col-md3"><strong>部门：</strong>{{ plan.department.name|default:'-' }}</div>
-                    <div class="layui-col-md3"><strong>优先级：</strong>{{ plan.priority }}</div>
-                    <div class="layui-col-md3"><strong>自动完工：</strong>{{ plan.auto_complete|yesno:'是,否' }}</div>
-                    <div class="layui-col-md3"><strong>阈值：</strong>{{ plan.complete_threshold }}%</div>
-                </div>
-
-                <fieldset class="layui-elem-field layui-field-title">
-                    <legend>计划描述</legend>
-                </fieldset>
-                <div class="layui-text" style="line-height: 1.8;">{{ plan.description|default:'-'|linebreaks }}</div>
-
-                <fieldset class="layui-elem-field layui-field-title">
-                    <legend>关联任务</legend>
-                </fieldset>
-                <table class="layui-table">
-                    <thead>
-                        <tr>
-                            <th>任务编号</th>
-                            <th>任务名称</th>
-                            <th>执行工序</th>
-                            <th>状态</th>
-                            <th>完成率</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for task in tasks %}
-                        <tr>
-                            <td>{{ task.code }}</td>
-                            <td>{{ task.name }}</td>
-                            <td>{{ task.procedure.name|default:'-' }}</td>
-                            <td>{{ task.get_status_display }}</td>
-                            <td>{{ task.completion_rate }}%</td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="5" style="text-align: center;">暂无关联任务</td>
-                        </tr>
+            <div class="production-section-card">
+                <div class="production-section-header">最近日计划 / 完工申报</div>
+                <div class="production-section-body">
+                    <div class="production-kpi-list">
+                        {% for day_plan in day_plans %}
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">日计划 {{ day_plan.code }}</div>
+                                <div class="production-kpi-meta">{{ day_plan.plan_date|date:"Y-m-d" }} · {{ day_plan.production_line }}</div>
+                            </div>
+                            <span class="production-tag">{{ day_plan.get_status_display }}</span>
+                        </div>
                         {% endfor %}
-                    </tbody>
-                </table>
+                        {% for report in completion_reports %}
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">完工 {{ report.code }}</div>
+                                <div class="production-kpi-meta">{{ report.production_task.name }} · 合格 {{ report.qualified_quantity }}</div>
+                            </div>
+                            <span class="production-tag {% if report.status == 2 %}ok{% elif report.status == 3 %}danger{% else %}warn{% endif %}">{{ report.get_status_display }}</span>
+                        </div>
+                        {% empty %}
+                        <div class="production-empty">暂无日计划和完工申报</div>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-<script>
-        {% include "production/_right_popup_function.html" %}
-</script>
 
-    <!-- 注入的消息提示脚本 -->
+    <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
-        });
+        {% include "production/_right_popup_function.html" %}
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
 </html>

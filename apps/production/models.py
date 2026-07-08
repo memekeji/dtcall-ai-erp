@@ -595,6 +595,9 @@ class ProductionTask(models.Model, StatusDisplayMixin, RateCalculationMixin):
             self.status = 3
             if not self.actual_end_time:
                 self.actual_end_time = timezone.now()
+        elif self.status == 3:
+            self.status = 2
+            self.actual_end_time = None
 
         self.save()
 
@@ -1654,6 +1657,107 @@ class ProductReceipt(models.Model):
 
     def __str__(self):
         return f"{self.code} - {self.receipt_date}"
+
+
+class MaterialScrap(models.Model):
+    """生产废料/报废单"""
+    STATUS_CHOICES = (
+        (1, '待审核'),
+        (2, '已审核'),
+        (3, '已执行'),
+        (4, '已取消'),
+    )
+
+    code = models.CharField(max_length=50, unique=True, verbose_name='报废单号')
+    material_issue = models.ForeignKey(
+        MaterialIssue,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='material_scraps',
+        verbose_name='材料出库单')
+    production_plan = models.ForeignKey(
+        ProductionPlan,
+        on_delete=models.CASCADE,
+        related_name='material_scraps',
+        verbose_name='生产计划')
+    scrap_date = models.DateField(default=timezone.now, verbose_name='报废日期')
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_material_scraps',
+        verbose_name='报废人')
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='approved_material_scraps',
+        verbose_name='审核人')
+    status = models.IntegerField(
+        choices=STATUS_CHOICES,
+        default=1,
+        verbose_name='状态')
+    total_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        verbose_name='总金额')
+    scrap_reason = models.TextField(verbose_name='报废原因')
+    create_time = models.DateTimeField(
+        default=timezone.now, verbose_name='创建时间')
+    update_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+
+    class Meta:
+        db_table = 'production_material_scrap'
+        verbose_name = '生产报废单'
+        verbose_name_plural = verbose_name
+        ordering = ['-create_time']
+
+    def __str__(self):
+        return f"{self.code} - {self.scrap_date}"
+
+
+class MaterialScrapItem(models.Model):
+    """生产报废明细"""
+    material_scrap = models.ForeignKey(
+        MaterialScrap,
+        on_delete=models.CASCADE,
+        related_name='items',
+        verbose_name='生产报废单')
+    material_issue_item = models.ForeignKey(
+        MaterialIssueItem,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='material_scrap_items',
+        verbose_name='材料出库明细')
+    material_name = models.CharField(max_length=100, verbose_name='物料名称')
+    material_code = models.CharField(max_length=50, verbose_name='物料编码')
+    specification = models.CharField(
+        max_length=100, blank=True, verbose_name='规格型号')
+    unit = models.CharField(max_length=20, verbose_name='单位')
+    scrap_quantity = models.DecimalField(
+        max_digits=10, decimal_places=4, verbose_name='报废数量')
+    unit_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name='单价')
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        verbose_name='金额')
+    remark = models.TextField(blank=True, verbose_name='备注')
+
+    class Meta:
+        db_table = 'production_material_scrap_item'
+        verbose_name = '生产报废明细'
+        verbose_name_plural = verbose_name
+
+    def __str__(self):
+        return f"{self.material_scrap.code} - {self.material_name}"
 
 
 class OrderMaterialConfirmation(models.Model):

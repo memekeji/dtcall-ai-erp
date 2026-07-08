@@ -25,7 +25,8 @@
         }
 
         body.iframe-body {
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: hidden;
         }
 
         .iframe-content {
@@ -98,7 +99,8 @@
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: hidden;
             border: 2px solid rgba(0,242,254,0.5);
             cursor: pointer;
             transition: all 0.3s;
@@ -152,15 +154,26 @@
             --dt-sidebar-hover: #eef7ff;
         }
 
+        .layui-layout-admin .layui-header,
         .layui-header {
+            display: grid;
+            grid-template-columns: var(--dt-sidebar-width) minmax(0, 1fr) auto;
+            align-items: center;
+            height: 60px;
             background: linear-gradient(135deg, #ffffff 0%, #f8fcff 52%, #eef7ff 100%) !important;
             border-bottom: 1px solid #e6eff9;
             box-shadow: 0 8px 28px rgba(37, 99, 235, 0.08);
+            overflow: hidden;
+            z-index: 1200;
         }
 
         .layui-layout-admin .layui-logo,
         .layui-logo {
+            grid-column: 1;
             width: var(--dt-sidebar-width);
+            max-width: var(--dt-sidebar-width);
+            min-width: 0;
+            height: 100%;
             justify-content: center;
             box-sizing: border-box;
             padding: 0 22px;
@@ -177,7 +190,9 @@
         }
 
         .quick-menu-strip {
-            flex: 1;
+            grid-column: 2;
+            width: 100%;
+            max-width: 100%;
             min-width: 0;
             display: flex;
             align-items: center;
@@ -186,15 +201,44 @@
             overflow: hidden;
             padding: 0 24px 0 20px;
             box-sizing: border-box;
+            position: relative;
+            z-index: 1;
         }
 
         .quick-menu-group {
             display: flex;
-            flex: 1 1 0;
+            flex: 0 1 auto;
             align-items: center;
             gap: 10px;
             min-width: 0;
             overflow: hidden;
+        }
+
+        .quick-menu-group:first-child {
+            flex: 0 0 auto;
+        }
+
+        .quick-menu-group:last-child {
+            flex: 1 1 auto;
+            position: relative;
+        }
+
+        .quick-menu-group:last-child::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 48px;
+            height: 100%;
+            background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.88) 55%, #ffffff 100%);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.22s ease;
+            z-index: 2;
+        }
+
+        .quick-menu-group.has-overflow-fade::after {
+            opacity: 1;
         }
 
         .quick-menu-label {
@@ -212,11 +256,8 @@
             gap: 8px;
             min-width: 0;
             overflow-x: auto;
-            scrollbar-width: none;
-        }
-
-        .quick-menu-list::-webkit-scrollbar {
-            display: none;
+            overflow-y: hidden;
+            padding-right: 6px;
         }
 
         .quick-menu-item {
@@ -272,6 +313,29 @@
             cursor: pointer;
         }
 
+        .quick-menu-manage-btn {
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            border: 1px solid rgba(59, 130, 246, 0.14);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.82);
+            color: #64748b;
+            cursor: pointer;
+            margin-left: 4px;
+            transition: color 0.18s ease, background-color 0.18s ease;
+            position: relative;
+            z-index: 3;
+        }
+
+        .quick-menu-manage-btn:hover {
+            color: #1e3a8a;
+            background: #f0f7ff;
+        }
+
         .quick-menu-item.is-pinned .quick-menu-pin {
             color: #f59e0b;
         }
@@ -283,7 +347,13 @@
         }
 
         .user-menu-container {
+            grid-column: 3;
+            margin-left: 0;
             padding-right: 24px;
+            padding-left: 12px;
+            position: relative;
+            z-index: 3;
+            background: linear-gradient(135deg, #ffffff 0%, #f8fcff 52%, #eef7ff 100%);
         }
 
         .message-bell {
@@ -397,10 +467,12 @@
             top: 60px;
             bottom: 0;
             width: var(--dt-sidebar-width);
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: hidden;
             background: radial-gradient(circle at 18% 0%, rgba(14, 165, 233, 0.16), transparent 30%), linear-gradient(180deg, #ffffff 0%, var(--dt-sidebar-bg) 46%, #eef7ff 100%);
             border-right: 1px solid var(--dt-sidebar-border);
             box-shadow: 14px 0 30px rgba(37, 99, 235, 0.12);
+            z-index: 1000;
         }
 
         .layui-side::before {
@@ -651,14 +723,17 @@
             width: auto;
             height: auto;
             padding-bottom: 0;
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: hidden;
             background: #f4f7fb;
+            z-index: 1;
         }
 
         .layui-tab {
             position: relative;
             height: 100%;
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: hidden;
             display: flex;
             flex-direction: column;
         }
@@ -698,7 +773,8 @@
 
         .layui-tab-content {
             flex: 1;
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: hidden;
             position: relative;
             min-height: 0;
             padding: 0 !important;
@@ -759,7 +835,8 @@
         }
 
         .main-tab-content .layui-tab-item {
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: hidden;
         }
 
         .main-tab-content .layui-tab-item iframe {
@@ -877,6 +954,33 @@
             .quick-menu-group {
                 gap: 8px;
             }
+
+        .quick-menu-group:first-child {
+            flex: 0 0 auto;
+        }
+
+        .quick-menu-group:last-child {
+            flex: 1 1 auto;
+            position: relative;
+        }
+
+        .quick-menu-group:last-child::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 48px;
+            height: 100%;
+            background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.88) 55%, #ffffff 100%);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.22s ease;
+            z-index: 2;
+        }
+
+        .quick-menu-group.has-overflow-fade::after {
+            opacity: 1;
+        }
 
             .quick-menu-label {
                 font-size: 12px;
@@ -1013,7 +1117,8 @@
             width: 52px;
             height: 52px;
             border-radius: 18px;
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: hidden;
             background:
                 linear-gradient(145deg, rgba(8, 47, 99, 0.98), rgba(22, 119, 255, 0.88) 54%, rgba(20, 184, 166, 0.9)),
                 radial-gradient(circle at 35% 22%, rgba(255, 255, 255, 0.42), transparent 30%);
@@ -1427,7 +1532,7 @@
 
     <script src="{% static 'layui/layui.js' %}"></script>
     <script src="{% static 'js/common.js' %}"></script>
-    <script src="{% static 'js/home.js' %}"></script>
+    <script src="{% static 'js/home.js' %}?v=20260708-quick-menu-icon-sync"></script>
 
     {% block content %}
     {% if isInIframe %}
@@ -1462,6 +1567,9 @@
                     <span class="quick-menu-label">常用</span>
                     <div class="quick-menu-list" id="frequentQuickMenus"></div>
                 </div>
+                <button type="button" class="quick-menu-manage-btn" id="quickMenuManageBtn" title="管理固定菜单" aria-label="管理固定菜单">
+                    <i class="layui-icon layui-icon-set"></i>
+                </button>
             </div>
 
             <div class="user-menu-container">

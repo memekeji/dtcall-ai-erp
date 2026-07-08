@@ -6,47 +6,68 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>工艺路线详情</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
 <body>
-    <div class="layui-fluid" style="padding: 20px;">
-        <div class="layui-card">
-            <div class="layui-card-header">
-                <div class="layui-row">
-                    <div class="layui-col-md8">
-                        <h2>{{ route.name }}</h2>
-                    </div>
-                    <div class="layui-col-md4" style="text-align: right;">
-                        <a href="{% url 'production:process_route_edit' route.pk %}" class="layui-btn layui-btn-sm">编辑</a>
-                        <a href="{% url 'production:process_route_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">返回列表</a>
-                    </div>
-                </div>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>工艺路线详情</h2></div>
+
+        <div class="production-section-card">
+            <div class="production-section-header">
+                <span>{{ route.name }} / {{ route.code }}</span>
+                <span class="production-tag {% if route.status == 2 or route.status == 4 %}ok{% elif route.status == 5 %}danger{% else %}warn{% endif %}">
+                    {{ route.status_display }}
+                </span>
             </div>
-            <div class="layui-card-body">
-                <div class="layui-row layui-col-space15">
-                    <div class="layui-col-md3"><strong>编码：</strong>{{ route.code }}</div>
-                    <div class="layui-col-md3"><strong>适用产品：</strong>{{ route.product.name|default:'-' }}</div>
-                    <div class="layui-col-md3"><strong>总工时：</strong>{{ route.total_time }} 小时</div>
-                    <div class="layui-col-md3"><strong>总成本：</strong>￥{{ route.total_cost }}</div>
+            <div class="production-section-body">
+                <div class="production-detail-grid">
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">适用产品</div>
+                        <div class="production-detail-value">{{ route.product.name|default:"-" }}</div>
+                    </div>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">版本号</div>
+                        <div class="production-detail-value">{{ route.version }}</div>
+                    </div>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">总工时</div>
+                        <div class="production-detail-value">{{ route.total_time }}</div>
+                    </div>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">总成本</div>
+                        <div class="production-detail-value">￥{{ route.total_cost }}</div>
+                    </div>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">生效日期</div>
+                        <div class="production-detail-value">{{ route.effective_date|default:"-" }}</div>
+                    </div>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">失效日期</div>
+                        <div class="production-detail-value">{{ route.expiry_date|default:"-" }}</div>
+                    </div>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">创建时间</div>
+                        <div class="production-detail-value">{{ route.create_time|date:"Y-m-d H:i" }}</div>
+                    </div>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">最近更新</div>
+                        <div class="production-detail-value">{{ route.update_time|date:"Y-m-d H:i" }}</div>
+                    </div>
                 </div>
-
-                <hr>
-
-                <div class="layui-row layui-col-space15">
-                    <div class="layui-col-md3"><strong>版本号：</strong>{{ route.version }}</div>
-                    <div class="layui-col-md3"><strong>状态：</strong>{{ route.status_display }}</div>
-                    <div class="layui-col-md3"><strong>生效日期：</strong>{{ route.effective_date|default:'-' }}</div>
-                    <div class="layui-col-md3"><strong>失效日期：</strong>{{ route.expiry_date|default:'-' }}</div>
+                {% if route.description %}
+                <div class="production-detail-item" style="margin-top: 14px;">
+                    <div class="production-detail-label">路线说明</div>
+                    <div class="production-detail-value">{{ route.description|linebreaksbr }}</div>
                 </div>
+                {% endif %}
+            </div>
+        </div>
 
-                <fieldset class="layui-elem-field layui-field-title">
-                    <legend>路线描述</legend>
-                </fieldset>
-                <div class="layui-text">{{ route.description|default:'-'|linebreaks }}</div>
-
-                <fieldset class="layui-elem-field layui-field-title">
-                    <legend>工序步骤</legend>
-                </fieldset>
-                <table class="layui-table">
+        <div class="production-section-card" style="margin-top: 16px;">
+            <div class="production-section-header">路线步骤明细</div>
+            <div class="production-section-body" style="padding: 0;">
+                <table class="layui-table" lay-skin="line">
                     <thead>
                         <tr>
                             <th>顺序</th>
@@ -54,6 +75,7 @@
                             <th>预估工时</th>
                             <th>工位</th>
                             <th>节拍时间</th>
+                            <th>作业指导</th>
                             <th>质量检查点</th>
                         </tr>
                     </thead>
@@ -62,14 +84,15 @@
                         <tr>
                             <td>{{ item.sequence }}</td>
                             <td>{{ item.procedure.name }}</td>
-                            <td>{{ item.estimated_time }} 小时</td>
-                            <td>{{ item.workstation|default:'-' }}</td>
-                            <td>{{ item.cycle_time }} 秒</td>
-                            <td>{{ item.quality_check_points|default:'-' }}</td>
+                            <td>{{ item.estimated_time }}</td>
+                            <td>{{ item.workstation|default:"-" }}</td>
+                            <td>{{ item.cycle_time }}</td>
+                            <td>{{ item.work_instruction|default:"-" }}</td>
+                            <td>{{ item.quality_check_points|default:"-" }}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="6" style="text-align: center;">暂无工序步骤</td>
+                            <td colspan="7" class="production-empty">暂无工艺路线步骤</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -77,28 +100,11 @@
             </div>
         </div>
     </div>
-<script>
-        {% include "production/_right_popup_function.html" %}
-</script>
 
-    <!-- 注入的消息提示脚本 -->
+    <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
-        });
+        {% include "production/_right_popup_function.html" %}
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
 </html>

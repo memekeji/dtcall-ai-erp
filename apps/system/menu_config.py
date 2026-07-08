@@ -1288,7 +1288,7 @@ system_menus = {
     1249: {
         "id": 1249,
         "title": "物料管理",
-        "src": "javascript:;",
+        "src": "/production/material/",
         "pid_id": 1235,
         "sort": 1225,
         "status": 1
@@ -1311,10 +1311,18 @@ system_menus = {
     },
     1252: {
         "id": 1252,
-        "title": "材料退料",
+        "title": "物料入库",
         "src": "/production/material/return/",
         "pid_id": 1249,
         "sort": 1228,
+        "status": 1
+    },
+    12525: {
+        "id": 12525,
+        "title": "废料/报废",
+        "src": "/production/material/scrap/",
+        "pid_id": 1249,
+        "sort": 1229,
         "status": 1
     },
     1253: {
@@ -1403,6 +1411,22 @@ system_menus = {
         "src": "/production/product/receipt/",
         "pid_id": 1253,
         "sort": 1283,
+        "status": 1
+    },
+    1264: {
+        "id": 1264,
+        "title": "订单材料确认",
+        "src": "/production/order/confirmation/",
+        "pid_id": 1253,
+        "sort": 1284,
+        "status": 1
+    },
+    1265: {
+        "id": 1265,
+        "title": "资源消耗",
+        "src": "/production/resource/consumption/",
+        "pid_id": 1253,
+        "sort": 1285,
         "status": 1
     },
     1700: {

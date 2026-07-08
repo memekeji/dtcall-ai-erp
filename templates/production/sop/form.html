@@ -4,39 +4,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ action }}标准操作流程</title>
+    <title>{{ action }}SOP</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
-    <style>
-        .page-wrap { padding: 20px; }
-        .field-error { margin-top: 6px; color: #ff5722; font-size: 12px; }
-    </style>
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
 <body>
-    <div class="layui-fluid page-wrap">
-        <div class="layui-card">
-            <div class="layui-card-header">{{ action }}标准操作流程</div>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>{{ action }}SOP</h2></div>
+
+        <div class="production-note">
+            SOP 页面不只是文档归档，它会跟工序、质量标准和安全要求一起构成生产现场执行口径。建议把关键判定标准写清楚，方便后续培训与追溯。
+        </div>
+
+        <div class="layui-card production-form-card" style="margin-top: 16px;">
             <div class="layui-card-body">
-                {% if form.non_field_errors %}
-                <div class="layui-bg-red" style="padding: 12px; margin-bottom: 15px; color: #fff;">{{ form.non_field_errors }}</div>
-                {% endif %}
                 <form class="layui-form" method="post">
                     {% csrf_token %}
-                    {% for field in form %}
-                    <div class="layui-form-item">
-                        <label class="layui-form-label" style="width: 120px;">{{ field.label }}</label>
-                        <div class="layui-input-block" style="margin-left: 150px;">
-                            {{ field }}
-                            {% if field.help_text %}
-                            <div class="layui-word-aux">{{ field.help_text }}</div>
-                            {% endif %}
-                            {% for error in field.errors %}
-                            <div class="field-error">{{ error }}</div>
-                            {% endfor %}
+                    {% if form.non_field_errors %}
+                    <div class="production-field-error" style="margin-bottom: 12px;">{{ form.non_field_errors }}</div>
+                    {% endif %}
+
+                    <div class="layui-row layui-col-space16">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">SOP名称</label>
+                                <div class="layui-input-block">
+                                    {{ form.name }}
+                                    {% if form.name.errors %}<div class="production-field-error">{{ form.name.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">SOP编号</label>
+                                <div class="layui-input-block">
+                                    {{ form.code }}
+                                    {% if form.code.errors %}<div class="production-field-error">{{ form.code.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">关联工序</label>
+                                <div class="layui-input-block">
+                                    {{ form.procedure }}
+                                    {% if form.procedure.errors %}<div class="production-field-error">{{ form.procedure.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md3">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">版本号</label>
+                                <div class="layui-input-block">
+                                    {{ form.version }}
+                                    {% if form.version.errors %}<div class="production-field-error">{{ form.version.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md3">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">启用状态</label>
+                                <div class="layui-input-block">
+                                    {{ form.status }}
+                                    {% if form.status.errors %}<div class="production-field-error">{{ form.status.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    {% endfor %}
+
+                    <div class="layui-form-item layui-form-text">
+                        <label class="layui-form-label">SOP内容</label>
+                        <div class="layui-input-block">
+                            {{ form.content }}
+                            <div class="production-help">建议按工序步骤、判定标准、异常处理顺序写清楚。</div>
+                            {% if form.content.errors %}<div class="production-field-error">{{ form.content.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="layui-row layui-col-space16">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item layui-form-text">
+                                <label class="layui-form-label">安全要求</label>
+                                <div class="layui-input-block">
+                                    {{ form.safety_requirements }}
+                                    {% if form.safety_requirements.errors %}<div class="production-field-error">{{ form.safety_requirements.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item layui-form-text">
+                                <label class="layui-form-label">质量标准</label>
+                                <div class="layui-input-block">
+                                    {{ form.quality_standards }}
+                                    {% if form.quality_standards.errors %}<div class="production-field-error">{{ form.quality_standards.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layui-row layui-col-space16">
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item layui-form-text">
+                                <label class="layui-form-label">所需工具</label>
+                                <div class="layui-input-block">
+                                    {{ form.tools_required }}
+                                    {% if form.tools_required.errors %}<div class="production-field-error">{{ form.tools_required.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-col-md6">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">附件路径</label>
+                                <div class="layui-input-block">
+                                    {{ form.file_path }}
+                                    <div class="production-help">当前项目暂以路径方式记录附件引用，便于与已有文件体系保持一致。</div>
+                                    {% if form.file_path.errors %}<div class="production-field-error">{{ form.file_path.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="layui-form-item">
-                        <div class="layui-input-block" style="margin-left: 150px;">
+                        <div class="layui-input-block">
                             <button type="submit" class="layui-btn">{{ action }}</button>
                             <a href="{% url 'production:sop_list' %}" class="layui-btn layui-btn-primary">返回</a>
                         </div>
@@ -48,31 +138,11 @@
 
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        layui.use(['form'], function() {
+        layui.use(['form'], function () {
             layui.form.render();
         });
-
         {% include "production/_right_popup_function.html" %}
-</script>
-
-    <!-- 注入的消息提示脚本 -->
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
-        });
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
 </html>

@@ -22,6 +22,13 @@
                     </div>
                 </div>
                 <div class="sc-toolbar-right">
+                    <form method="post" action="{% url 'supply_chain:bootstrap_workspace' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="target" value="dashboard">
+                        <button type="submit" class="layui-btn layui-btn-sm layui-btn-primary">
+                            <i class="layui-icon layui-icon-refresh-3"></i> 从系统数据初始化台账
+                        </button>
+                    </form>
                     <a href="{% url 'supply_chain:forecast_list' %}" class="layui-btn layui-btn-sm">
                         <i class="layui-icon layui-icon-chart-screen"></i> 进入业务台账
                     </a>
@@ -79,6 +86,10 @@
                 <div class="sc-metric-panel">
                     <h4>库存概览</h4>
                     <p>当前纳入分析物料 {{ inventory_summary.total_items }} 项，高风险 {{ inventory_summary.high_risk_count }} 项，中风险 {{ inventory_summary.medium_risk_count }} 项。页面会直接按安全库存与再订货点标出风险等级。</p>
+                </div>
+                <div class="sc-metric-panel">
+                    <h4>上游来源概览</h4>
+                    <p>产品 {{ source_product_count }} 项，供应商 {{ source_supplier_count }} 家，库存物料 {{ source_inventory_item_count }} 项，生产计划 {{ source_production_plan_count }} 条，BOM {{ source_bom_count }} 套，可派生库存风险候选 {{ source_inventory_risk_count }} 条。</p>
                 </div>
             </div>
         </div>

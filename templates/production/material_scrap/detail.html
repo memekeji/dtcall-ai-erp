@@ -1,0 +1,80 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>物料报废详情</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
+</head>
+<body>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>物料报废详情</h2></div>
+        <div class="production-section-card">
+            <div class="production-section-header">
+                <span>{{ material_scrap.code }}</span>
+                <span class="production-tag {% if material_scrap.status == 3 %}ok{% elif material_scrap.status == 2 %}warn{% elif material_scrap.status == 4 %}danger{% else %}warn{% endif %}">
+                    {{ material_scrap.get_status_display }}
+                </span>
+            </div>
+            <div class="production-section-body">
+                <div class="production-detail-grid">
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">来源出库单</div>
+                        <div class="production-detail-value">{{ material_scrap.material_issue.code|default:"未绑定" }}</div>
+                    </div>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">生产计划</div>
+                        <div class="production-detail-value">{{ material_scrap.production_plan.name|default:"-" }}</div>
+                    </div>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">报废日期</div>
+                        <div class="production-detail-value">{{ material_scrap.scrap_date|date:"Y-m-d" }}</div>
+                    </div>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">总金额</div>
+                        <div class="production-detail-value">¥{{ material_scrap.total_amount|floatformat:2 }}</div>
+                    </div>
+                </div>
+                <div class="production-detail-item" style="margin-top: 14px;">
+                    <div class="production-detail-label">报废原因</div>
+                    <div class="production-detail-value">{{ material_scrap.scrap_reason|linebreaksbr }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="production-section-card" style="margin-top: 16px;">
+            <div class="production-section-header">报废明细</div>
+            <div class="production-section-body" style="padding: 0;">
+                <table class="layui-table" lay-skin="line">
+                    <thead>
+                        <tr>
+                            <th>物料</th>
+                            <th>规格/单位</th>
+                            <th>报废数量</th>
+                            <th>金额</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in item_rows %}
+                        <tr>
+                            <td>
+                                <div>{{ item.material_name }}</div>
+                                <div class="production-help">{{ item.material_code }}</div>
+                            </td>
+                            <td>{{ item.specification|default:"-" }} / {{ item.unit }}</td>
+                            <td>{{ item.scrap_quantity|floatformat:4 }}</td>
+                            <td>¥{{ item.amount|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="production-empty">暂无报废明细</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% include "production/_popup_feedback.html" %}
+</body>
+</html>

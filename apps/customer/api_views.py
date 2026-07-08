@@ -514,9 +514,10 @@ class CustomerOrderAddAPIView(LoginRequiredMixin, View):
             
             # 同步到财务记录
             OrderFinanceRecord.objects.create(
-                order=order,
+                order_id=order.id,
                 total_amount=order.amount,
-                payment_status='pending'
+                payment_status='pending',
+                create_time=int(timezone.now().timestamp()),
             )
             
             # 更新订单财务状态
@@ -550,7 +551,7 @@ class InvoiceRequestAPIView(LoginRequiredMixin, View):
             
             # 检查是否已有待处理的开票申请
             existing_request = InvoiceRequest.objects.filter(
-                order=order, 
+                order_id=order.id,
                 status__in=['pending', 'approved']
             ).first()
             
@@ -559,8 +560,8 @@ class InvoiceRequestAPIView(LoginRequiredMixin, View):
             
             # 创建开票申请
             invoice_request = InvoiceRequest.objects.create(
-                order=order,
-                applicant=request.user,
+                order_id=order.id,
+                applicant_id=request.user.id,
                 department_id=data.get('department_id', 0),
                 amount=data['amount'],
                 invoice_type=data.get('invoice_type', 2),

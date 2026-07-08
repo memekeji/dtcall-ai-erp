@@ -1,3 +1,5 @@
+import json
+
 from django import forms
 
 from .models import (
@@ -95,7 +97,107 @@ class PRReviewTaskForm(_BaseStyledModelForm):
 
 
 class PRReviewEvaluateForm(forms.Form):
-    payload_json = forms.CharField(widget=forms.Textarea)
+    SCENARIO_CHOICES = (
+        ('normal', '常规需求'),
+        ('urgent_shortage', '紧急缺料'),
+        ('tail_order', '尾数订单'),
+        ('intercompany_tail_order', '公司间尾数订单'),
+        ('outsource_tail_order', '委外尾数订单'),
+        ('rework_order', '异常工单 / 返工单'),
+        ('npi_trial', 'NPI 试产需求'),
+        ('custom', '自定义组合'),
+    )
+    ORDER_TYPE_CHOICES = (
+        ('', '未区分'),
+        ('customer', '客户订单'),
+        ('intercompany', '公司间'),
+        ('outsource', '委外'),
+        ('npi', '试产'),
+        ('internal', '内部需求'),
+    )
+
+    payload_json = forms.CharField(widget=forms.Textarea, required=False)
+    scenario = forms.ChoiceField(choices=SCENARIO_CHOICES, required=False, initial='normal')
+    order_type = forms.ChoiceField(choices=ORDER_TYPE_CHOICES, required=False)
+    is_urgent = forms.BooleanField(required=False)
+    lt_shortage = forms.BooleanField(required=False)
+    tail_order = forms.BooleanField(required=False)
+    intercompany_tail_order = forms.BooleanField(required=False)
+    outsource_tail_order = forms.BooleanField(required=False)
+    rework_order = forms.BooleanField(required=False)
+    npi_trial = forms.BooleanField(required=False)
+
+    def clean_payload_json(self):
+        value = (self.cleaned_data.get('payload_json') or '').strip()
+        if not value:
+            return ''
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError as exc:
+            raise forms.ValidationError('JSON 格式不正确') from exc
+        if not isinstance(parsed, dict):
+            raise forms.ValidationError('规则载荷必须是 JSON 对象')
+        return value
+
+    def build_payload(self):
+        cleaned = getattr(self, 'cleaned_data', {})
+        raw_json = cleaned.get('payload_json')
+        if raw_json:
+            return json.loads(raw_json)
+
+        payload = {
+            'is_urgent': bool(cleaned.get('is_urgent')),
+            'lt_shortage': bool(cleaned.get('lt_shortage')),
+            'tail_order': bool(cleaned.get('tail_order')),
+            'intercompany_tail_order': bool(cleaned.get('intercompany_tail_order')),
+            'outsource_tail_order': bool(cleaned.get('outsource_tail_order')),
+            'rework_order': bool(cleaned.get('rework_order')),
+            'npi_trial': bool(cleaned.get('npi_trial')),
+        }
+        order_type = cleaned.get('order_type')
+        if order_type:
+            payload['order_type'] = order_type
+
+        scenario = cleaned.get('scenario') or 'normal'
+        scenario_map = {
+            'normal': {
+                'is_urgent': False,
+                'lt_shortage': False,
+                'tail_order': False,
+                'intercompany_tail_order': False,
+                'outsource_tail_order': False,
+                'rework_order': False,
+                'npi_trial': False,
+            },
+            'urgent_shortage': {
+                'is_urgent': True,
+                'lt_shortage': True,
+            },
+            'tail_order': {
+                'tail_order': True,
+            },
+            'intercompany_tail_order': {
+                'intercompany_tail_order': True,
+                'tail_order': True,
+                'order_type': 'intercompany',
+            },
+            'outsource_tail_order': {
+                'outsource_tail_order': True,
+                'tail_order': True,
+                'order_type': 'outsource',
+            },
+            'rework_order': {
+                'rework_order': True,
+            },
+            'npi_trial': {
+                'npi_trial': True,
+                'is_urgent': True,
+                'order_type': 'npi',
+            },
+        }
+        for key, value in scenario_map.get(scenario, {}).items():
+            payload[key] = value
+        return payload
 
 
 class PRQuickApproveForm(forms.Form):
@@ -160,6 +262,7 @@ class SampleRequestForm(_BaseStyledModelForm):
 class SampleReceiptForm(forms.Form):
     received_quantity = forms.DecimalField(max_digits=14, decimal_places=2)
     location = forms.CharField(max_length=100)
+    photo_file = forms.FileField(required=False)
 
 
 class SamplePickupForm(forms.Form):

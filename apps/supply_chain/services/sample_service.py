@@ -47,13 +47,11 @@ def is_pickup_overdue(received_at, pickup_deadline_hours=24, current_time=None):
 def get_sample_statistics():
     """Return monthly/quarterly sample statistics."""
     from apps.supply_chain.models import SampleRequest, SampleReceipt, SamplePickupRecord
-    from django.db.models import Count, Avg, Q
     from django.utils import timezone
     import datetime
 
     now = timezone.now()
     this_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    last_month_start = (this_month_start - datetime.timedelta(days=1)).replace(day=1)
     three_months_ago = now - datetime.timedelta(days=90)
 
     total_all = SampleRequest.objects.count()
@@ -78,18 +76,30 @@ def get_sample_statistics():
     pickups = SamplePickupRecord.objects.filter(picked_at__isnull=False, picked_at__gte=three_months_ago)
     total_pickups = pickups.count()
     if total_pickups:
-        avg_pickup_hours = sum(
-            (p.picked_at - p.sample_request.receipts.order_by("received_at").first().received_at).total_seconds() / 3600
-            for p in pickups.select_related("sample_request__receipts")
-            if p.sample_request and p.sample_request.receipts.exists()
-        ) / total_pickups
+        pickup_hour_values = []
+        for pickup in pickups.select_related("sample_request"):
+            if not pickup.sample_request_id or not pickup.picked_at:
+                continue
+            receipt = pickup.sample_request.receipts.order_by("received_at").first()
+            if receipt and receipt.received_at:
+                pickup_hour_values.append(
+                    (pickup.picked_at - receipt.received_at).total_seconds() / 3600
+                )
+        avg_pickup_hours = (
+            sum(pickup_hour_values) / len(pickup_hour_values)
+            if pickup_hour_values else 0
+        )
     else:
         avg_pickup_hours = 0
 
-    overdue = SampleRequest.objects.filter(
-        status=SampleRequest.STATUS_PICKUP_PENDING,
-        receipts__isnull=False,
-    ).count()
+    overdue = 0
+    pending_receipts = SampleReceipt.objects.filter(
+        sample_request__status=SampleRequest.STATUS_PICKUP_PENDING,
+        received_at__gte=three_months_ago,
+    ).select_related("sample_request")
+    for receipt in pending_receipts:
+        if is_pickup_overdue(receipt.received_at, current_time=now):
+            overdue += 1
 
     monthly_data = []
     for offset in range(5, -1, -1):

@@ -6,188 +6,153 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>数据采集任务</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
-    <style>
-        .search-form {
-            margin-bottom: 15px;
-        }
-        .table-toolbar {
-            margin-bottom: 15px;
-        }
-        .status-active {
-            color: #5FB878;
-        }
-        .status-inactive {
-            color: #999;
-        }
-        .status-pending {
-            color: #FFB800;
-        }
-    </style>
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
 <body>
-    <div class="layui-fluid" style="padding: 20px;">
-        <div class="layui-row">
-            <div class="layui-col-md12">
-                <h2 style="margin-bottom: 20px;">数据采集任务</h2>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>数据采集任务</h2></div>
+
+        <div class="production-nav-strip">
+            <a class="production-nav-link" href="{% url 'production:data_collection_list' %}">现场采集</a>
+            <a class="production-nav-link" href="{% url 'production:data_source_list' %}">数据源</a>
+            <a class="production-nav-link" href="{% url 'production:data_mapping_list' %}">字段映射</a>
+            <a class="production-nav-link active" href="{% url 'production:data_collection_task_list' %}">采集任务</a>
+            <a class="production-nav-link" href="{% url 'production:data_collection_record_list' %}">采集记录</a>
+            <a class="production-nav-link" href="{% url 'production:data_point_list' %}">生产数据点</a>
+        </div>
+
+        <div class="production-summary-strip">
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ summary.total|default:0 }}</div>
+                <div class="production-summary-label">任务总数</div>
+            </div>
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ summary.active_count|default:0 }}</div>
+                <div class="production-summary-label">启用中</div>
+            </div>
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ summary.scheduled_count|default:0 }}</div>
+                <div class="production-summary-label">定时任务</div>
+            </div>
+            <div class="production-summary-item accent">
+                <div class="production-summary-value">{{ summary.completed_count|default:0 }}</div>
+                <div class="production-summary-label">已完成状态</div>
             </div>
         </div>
 
-        <div class="layui-row table-toolbar">
-            <div class="layui-col-md6">
-                <button class="layui-btn" onclick="openRightPopup('添加数据采集任务', '{% url 'production:data_collection_task_add' %}')">
-                    <i class="layui-icon layui-icon-add-1"></i> 添加任务
-                </button>
-                <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:production_task_index' %}'">
-                    <i class="layui-icon layui-icon-return"></i> 返回
-                </button>
-            </div>
-            <div class="layui-col-md6" style="text-align: right;">
-                <form method="get" class="layui-form layui-form-pane" style="display: inline-block;">
-                    <div class="layui-input-group">
-                        <input type="text" name="search" value="{{ search }}" placeholder="搜索任务名称..." class="layui-input" style="width: 200px; display: inline-block;">
-                        <div class="layui-input-split layui-input-suffix">
-                            <button class="layui-btn" type="submit">
-                                <i class="layui-icon layui-icon-search"></i>
-                            </button>
-                        </div>
-                    </div>
-                </form>
-            </div>
+        <div class="production-note">
+            采集任务负责把“数据源配置”和“字段映射”真正串起来。任务执行后会产生采集记录，满足设备映射条件的数据会继续沉淀到生产数据点。
         </div>
 
-        <div class="layui-row">
-            <div class="layui-col-md12">
-                <div class="layui-card">
-                    <div class="layui-card-body" style="padding: 0;">
-                        <table class="layui-table" lay-skin="line">
-                            <thead>
-                                <tr>
-                                    <th>任务名称</th>
-                                    <th>关联数据源</th>
-                                    <th>任务类型</th>
-                                    <th>调度方式</th>
-                                    <th>执行状态</th>
-                                    <th>创建时间</th>
-                                    <th>最后执行</th>
-                                    <th>操作</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for task in page_obj %}
-                                <tr>
-                                    <td>{{ task.name }}</td>
-                                    <td>
-                                        {% for data_source in task.data_sources.all %}
-                                            <span class="layui-badge layui-bg-blue" style="margin-right: 4px;">{{ data_source.name }}</span>
-                                        {% empty %}
-                                            <span style="color: #999;">未配置</span>
-                                        {% endfor %}
-                                    </td>
-                                    <td>{{ task.get_task_type_display|default:"-" }}</td>
-                                    <td>
-                                        {% if task.cron_expression %}
-                                            Cron: {{ task.cron_expression }}
-                                        {% elif task.interval_seconds %}
-                                            每 {{ task.interval_seconds }} 秒
-                                        {% else %}
-                                            手动/事件触发
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if task.is_active %}
-                                            <span class="status-active">{{ task.get_status_display }}</span>
-                                        {% else %}
-                                            <span class="status-inactive">已禁用</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ task.create_time|date:"Y-m-d H:i" }}</td>
-                                    <td>{{ task.last_run_time|date:"Y-m-d H:i"|default:"从未执行" }}</td>
-                                    <td>
-                                        <button class="layui-btn layui-btn-xs" onclick="openRightPopup('编辑采集任务', '{% url 'production:data_collection_task_edit' task.pk %}')">
-                                            <i class="layui-icon layui-icon-edit"></i> 编辑
-                                        </button>
-                                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteTask({{ task.pk }}, '{{ task.name }}')">
-                                            <i class="layui-icon layui-icon-delete"></i> 删除
-                                        </button>
-                                        <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="triggerTask({{ task.pk }}, '{{ task.name }}')">
-                                            <i class="layui-icon layui-icon-play"></i> 手动触发
-                                        </button>
-                                    </td>
-                                </tr>
+        <div class="production-list-toolbar" style="margin-top: 16px;">
+            <div class="production-inline-actions">
+                <button class="layui-btn" onclick="openRightPopup('新增采集任务', '{% url 'production:data_collection_task_add' %}')">新增任务</button>
+                <a href="{% url 'production:production_task_index' %}" class="layui-btn layui-btn-primary">返回工作台</a>
+            </div>
+            <form method="get" class="layui-form production-inline-actions compact">
+                <input type="text" name="search" value="{{ search }}" class="layui-input" style="width: 220px;" placeholder="搜索任务名称">
+                <select name="status" class="layui-input" style="width: 180px;">
+                    <option value="">全部状态</option>
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <button class="layui-btn layui-btn-normal" type="submit">筛选</button>
+            </form>
+        </div>
+
+        <div class="layui-card production-list-card">
+            <div class="layui-card-body production-table-wrap">
+                <table class="layui-table" lay-skin="line">
+                    <thead>
+                        <tr>
+                            <th>任务名称</th>
+                            <th>数据源</th>
+                            <th>类型 / 调度</th>
+                            <th>执行统计</th>
+                            <th>最近执行</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for task in page_obj %}
+                        <tr>
+                            <td>
+                                <div>{{ task.name }}</div>
+                                <div class="production-mini-note">创建于 {{ task.create_time|date:"Y-m-d H:i" }}</div>
+                            </td>
+                            <td>
+                                {% for data_source in task.data_sources.all %}
+                                <span class="production-chip">{{ data_source.name }}</span>
                                 {% empty %}
-                                <tr>
-                                    <td colspan="8" style="text-align: center; padding: 40px; color: #999;">
-                                        暂无数据采集任务
-                                    </td>
-                                </tr>
+                                <span class="production-mini-note">未绑定数据源</span>
                                 {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                            </td>
+                            <td>
+                                <div>{{ task.get_task_type_display }}</div>
+                                <div class="production-mini-note">
+                                    {% if task.cron_expression %}
+                                    Cron：{{ task.cron_expression }}
+                                    {% elif task.interval_seconds %}
+                                    每 {{ task.interval_seconds }} 秒
+                                    {% else %}
+                                    手动 / 事件触发
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>{{ task.success_runs }} / {{ task.failed_runs }} / {{ task.total_runs }}</td>
+                            <td>{{ task.last_run_time|date:"Y-m-d H:i"|default:"从未执行" }}</td>
+                            <td>
+                                <span class="production-tag {% if task.is_active and task.status == 'completed' %}ok{% elif task.is_active %}warn{% else %}danger{% endif %}">
+                                    {% if task.is_active %}{{ task.get_status_display }}{% else %}已停用{% endif %}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="production-inline-actions">
+                                    <button class="layui-btn layui-btn-xs" onclick="openRightPopup('编辑采集任务', '{% url 'production:data_collection_task_edit' task.pk %}')">编辑</button>
+                                    <button class="layui-btn layui-btn-xs layui-btn-warm" onclick="triggerTask({{ task.pk }}, '{{ task.name }}')">立即执行</button>
+                                    <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteTask({{ task.pk }}, '{{ task.name }}')">删除</button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="production-empty">暂无采集任务，可先配置数据源与字段映射后再创建。</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
-
-        {% if page_obj.has_other_pages %}
-        <div class="layui-row" style="margin-top: 20px;">
-            <div class="layui-col-md12" style="text-align: center;">
-                <div id="pagination"></div>
-            </div>
-        </div>
-        {% endif %}
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        layui.use(['layer', 'laypage'], function () {
-            var layer = layui.layer;
-            var laypage = layui.laypage;
-
-            {% if page_obj.has_other_pages %}
-            laypage.render({
-                elem: 'pagination',
-                count: {{ page_obj.paginator.count }},
-                limit: 20,
-                curr: {{ page_obj.number }},
-                jump: function(obj, first) {
-                    if (!first) {
-                        var url = new URL(window.location);
-                        url.searchParams.set('page', obj.curr);
-                        window.location.href = url.toString();
-                    }
-                }
-            });
-            {% endif %}
+        layui.use(['form'], function () {
+            layui.form.render();
         });
 
         function deleteTask(id, name) {
             layui.use(['layer'], function () {
-                var layer = layui.layer;
-                layer.confirm('确定要删除任务 "' + name + '" 吗？', {
-                    icon: 3,
-                    title: '确认删除'
-                }, function(index) {
-                    window.location.href = '{% url 'production:data_collection_task_delete' 0 %}'.replace('0', id);
-                    layer.close(index);
+                layui.layer.confirm('确定要删除任务 “' + name + '”吗？', {icon: 3, title: '确认删除'}, function(index) {
+                    window.location.href = '{% url "production:data_collection_task_delete" 0 %}'.replace('0', id);
+                    layui.layer.close(index);
                 });
             });
         }
 
         function triggerTask(id, name) {
             layui.use(['layer'], function () {
-                var layer = layui.layer;
-                layer.confirm('确定要立即执行任务 "' + name + '" 吗？', {
-                    icon: 3,
-                    title: '确认执行'
-                }, function(index) {
-                    window.location.href = '{% url 'production:data_collection_task_trigger' 0 %}'.replace('0', id);
-                    layer.close(index);
+                layui.layer.confirm('立即执行任务 “' + name + '”？', {icon: 3, title: '确认执行'}, function(index) {
+                    window.location.href = '{% url "production:data_collection_task_trigger" 0 %}'.replace('0', id);
+                    layui.layer.close(index);
                 });
             });
         }
-
         {% include "production/_right_popup_function.html" %}
-</script>
+    </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
 </html>

@@ -1,46 +1,134 @@
 {% extends 'include/popup.html' %}
-{% load static %}
+{% load static customer_filters %}
 
-{% block title %}收款详情{% endblock %}
+{% block title %}回款详情{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{% static 'css/finance-module.css' %}">
+{% endblock %}
 
 {% block content %}
-    <div class="layui-fluid" style="padding: 20px;">
-        <div class="layui-card">
-            <div class="layui-card-header">
-                <h3>收款详情</h3>
+<div class="finance-detail-shell">
+    <div class="finance-detail-card">
+        <div class="finance-detail-header">
+            <div>
+                <h2 class="finance-detail-title">回款详情</h2>
+                <p class="finance-detail-subtitle">
+                    {% if detail.invoice_code %}
+                        {{ detail.invoice_code }} / {{ detail.invoice_title|default:"未设置抬头" }}
+                    {% elif detail.invoice_id %}
+                        发票#{{ detail.invoice_id }}
+                    {% else %}
+                        未关联发票
+                    {% endif %}
+                </p>
             </div>
-            <div class="layui-card-body">
-                <table class="layui-table">
-                    <tbody>
-                        <tr>
-                            <td width="150"><strong>关联发票</strong></td>
-                            <td>{{ income.invoice.code }} - ¥{{ income.invoice.amount }}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>到账金额</strong></td>
-                            <td>¥{{ income.amount }}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>到账日期</strong></td>
-                            <td>{{ income.income_date|date:"Y-m-d H:i:s" }}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>附件ID</strong></td>
-                            <td>{{ income.file_ids|default:"无" }}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>创建时间</strong></td>
-                            <td>{{ income.create_time|date:"Y-m-d H:i:s" }}</td>
-                        </tr>
-                        {% if income.remark %}
-                        <tr>
-                            <td><strong>备注</strong></td>
-                            <td>{{ income.remark }}</td>
-                        </tr>
+            <span class="finance-tag {% if detail.account_name %}finance-tag-green{% else %}finance-tag-orange{% endif %}">
+                {% if detail.account_name %}已登记流水{% else %}未登记流水{% endif %}
+            </span>
+        </div>
+
+        <div class="finance-detail-body">
+            <div class="finance-detail-grid">
+                <div class="finance-detail-section">
+                    <div class="finance-section-title"><i class="layui-icon layui-icon-link"></i>业务关联</div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">发票号码</div>
+                        <div class="finance-detail-value">
+                            {% if detail.invoice_code %}{{ detail.invoice_code }}{% elif detail.invoice_id %}发票#{{ detail.invoice_id }}{% else %}未关联{% endif %}
+                        </div>
+                    </div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">开票抬头</div>
+                        <div class="finance-detail-value">{{ detail.invoice_title|default:"未填写" }}</div>
+                    </div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">客户</div>
+                        <div class="finance-detail-value">{{ detail.customer_name|default:"未关联" }}</div>
+                    </div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">资金账户</div>
+                        <div class="finance-detail-value">
+                            {% if detail.account_name %}
+                                {{ detail.account_name }}{% if detail.bank_name %} / {{ detail.bank_name }}{% endif %}
+                            {% else %}
+                                未登记
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="finance-detail-section">
+                    <div class="finance-section-title"><i class="layui-icon layui-icon-rmb"></i>金额与状态</div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">到账金额</div>
+                        <div class="finance-detail-value"><strong>¥{{ detail.amount|floatformat:2 }}</strong></div>
+                    </div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">发票金额</div>
+                        <div class="finance-detail-value">¥{{ detail.invoice_amount|floatformat:2 }}</div>
+                    </div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">已回款</div>
+                        <div class="finance-detail-value">¥{{ detail.entered_amount|floatformat:2 }}</div>
+                    </div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">待回款</div>
+                        <div class="finance-detail-value">¥{{ detail.remaining_amount|floatformat:2 }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="finance-detail-grid">
+                <div class="finance-detail-section">
+                    <div class="finance-section-title"><i class="layui-icon layui-icon-date"></i>时间与流水</div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">到账日期</div>
+                        <div class="finance-detail-value">{{ detail.income_date|default:"-" }}</div>
+                    </div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">创建时间</div>
+                        <div class="finance-detail-value">{{ detail.create_time|default:"-" }}</div>
+                    </div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">匹配状态</div>
+                        <div class="finance-detail-value">{{ detail.match_status_display }}</div>
+                    </div>
+                    <div class="finance-detail-row">
+                        <div class="finance-detail-label">流水号</div>
+                        <div class="finance-detail-value">{{ detail.transaction_no|default:"未生成" }}</div>
+                    </div>
+                </div>
+
+                <div class="finance-detail-section">
+                    <div class="finance-section-title"><i class="layui-icon layui-icon-edit"></i>备注</div>
+                    <div class="finance-detail-block">{{ detail.remark|default:"暂无备注" }}</div>
+                </div>
+            </div>
+
+            <div class="finance-detail-grid">
+                <div class="finance-detail-section">
+                    <div class="finance-section-title"><i class="layui-icon layui-icon-upload"></i>附件</div>
+                    {% if income.file_ids %}
+                    <div class="finance-attachment-list">
+                        {% for file_id in income.file_ids|split:"," %}
+                        {% if file_id %}
+                        <a href="/download/{{ file_id }}/" class="finance-attachment-chip" target="_blank">
+                            <i class="layui-icon layui-icon-file"></i> 附件{{ forloop.counter }}
+                        </a>
                         {% endif %}
-                    </tbody>
-                </table>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="finance-empty-text">暂无附件</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="finance-detail-actions">
+                <button type="button" class="layui-btn layui-btn-primary" onclick="closePopup()">关闭</button>
             </div>
         </div>
     </div>
+</div>
 {% endblock %}

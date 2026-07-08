@@ -91,7 +91,7 @@ if _allowed_hosts_env:
 else:
     ALLOWED_HOSTS = [
         'www.dtcall.cn',
-        'dtcall.cn',
+        '192.168.1.152:8000',
         'erp.dtcall.cn',
         'erp.51mimu.com'
     ]
@@ -118,7 +118,7 @@ SECURE_HSTS_PRELOAD = _env_bool('SECURE_HSTS_PRELOAD', not DEBUG)
 # CSRF信任的源列表，可通过 CSRF_TRUSTED_ORIGINS 追加或覆盖生产域名。
 _default_csrf_trusted_origins = [
     'https://www.dtcall.cn',  # 主域名
-    'https://dtcall.cn',      # 裸域名
+    '192.168.1.152',      # 裸域名
     'https://erp.dtcall.cn',  # ERP生产域名
     'https://erp.51mimu.com',   # 正式环境
 ]

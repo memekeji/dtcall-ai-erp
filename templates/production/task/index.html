@@ -1,303 +1,155 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>生产管理</title>
+    <title>生产管理工作台</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
     <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
-    <style>
-        .stats-card {
-            text-align: center;
-            padding: 20px;
-            border-radius: 8px;
-            color: white;
-            margin-bottom: 10px;
-        }
-        .stats-card.plan {
-            background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%);
-        }
-        .stats-card.task {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        }
-        .stats-card.utilization {
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-        }
-        .stats-card.efficiency {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        }
-        .stat-number {
-            font-size: 28px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .stat-label {
-            font-size: 14px;
-            opacity: 0.9;
-        }
-        .stat-sub {
-            font-size: 12px;
-            opacity: 0.8;
-            margin-top: 5px;
-        }
-        .quick-actions {
-            margin-bottom: 20px;
-        }
-        .action-btn {
-            margin: 5px;
-        }
-        .recent-item {
-            padding: 10px;
-            border-bottom: 1px solid #f0f0f0;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .recent-item:hover {
-            background-color: #f8f9fa;
-        }
-        .status-badge {
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 12px;
-            color: white;
-        }
-        .status-active {
-            background-color: #5FB878;
-        }
-        .status-pending {
-            background-color: #FFB800;
-        }
-        .status-normal {
-            background-color: #1E9FFF;
-        }
-        .status-maintenance {
-            background-color: #FF5722;
-        }
-        .progress-bar {
-            width: 100%;
-            height: 6px;
-            background-color: #f0f0f0;
-            border-radius: 3px;
-            overflow: hidden;
-            margin-top: 5px;
-        }
-        .progress-fill {
-            height: 100%;
-            background-color: #5FB878;
-            transition: width 0.3s ease;
-        }
-    </style>
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
-
 <body>
-    <div class="layui-fluid" style="padding: 20px;">
-        <!-- 页面标题 -->
-        <div class="layui-row">
-            <div class="layui-col-md12">
-                <h2 style="margin-bottom: 20px;">生产管理</h2>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>生产管理工作台</h2></div>
+
+        <div class="production-grid cols-4">
+            <div class="production-stat-card" style="background: linear-gradient(135deg, #1677ff 0%, #06b6d4 100%);">
+                <div class="production-stat-number">{{ plan_count }}</div>
+                <div class="production-stat-label">生产计划</div>
+                <div class="production-stat-sub">{{ active_plan_count }} 个进行中</div>
+            </div>
+            <div class="production-stat-card" style="background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);">
+                <div class="production-stat-number">{{ task_count }}</div>
+                <div class="production-stat-label">生产任务</div>
+                <div class="production-stat-sub">{{ active_task_count }} 个执行中</div>
+            </div>
+            <div class="production-stat-card" style="background: linear-gradient(135deg, #14b8a6 0%, #34d399 100%);">
+                <div class="production-stat-number">{{ equipment_utilization }}%</div>
+                <div class="production-stat-label">设备利用率</div>
+                <div class="production-stat-sub">{{ maintenance_due_count }} 台待维护</div>
+            </div>
+            <div class="production-stat-card" style="background: linear-gradient(135deg, #f97316 0%, #ef4444 100%);">
+                <div class="production-stat-number">{{ production_efficiency }}%</div>
+                <div class="production-stat-label">完工效率</div>
+                <div class="production-stat-sub">平均完工量 {{ avg_completion }}</div>
             </div>
         </div>
 
-        <!-- 统计卡片 -->
-        <div class="layui-row layui-col-space15">
-            <div class="layui-col-md3">
-                <div class="stats-card plan">
-                    <div class="stat-number">{{ plan_count }}</div>
-                    <div class="stat-label">生产计划</div>
-                    <div class="stat-sub">{{ active_plan_count }} 进行中</div>
-                </div>
-            </div>
-            <div class="layui-col-md3">
-                <div class="stats-card task">
-                    <div class="stat-number">{{ task_count }}</div>
-                    <div class="stat-label">生产任务</div>
-                    <div class="stat-sub">{{ active_task_count }} 执行中</div>
-                </div>
-            </div>
-            <div class="layui-col-md3">
-                <div class="stats-card utilization">
-                    <div class="stat-number">85%</div>
-                    <div class="stat-label">设备利用率</div>
-                    <div class="stat-sub">+2.1% 较昨日</div>
-                </div>
-            </div>
-            <div class="layui-col-md3">
-                <div class="stats-card efficiency">
-                    <div class="stat-number">92%</div>
-                    <div class="stat-label">生产效率</div>
-                    <div class="stat-sub">+1.5% 较上周</div>
-                </div>
+        <div class="production-list-toolbar" style="margin-top: 16px;">
+            <div class="production-inline-actions">
+                <button class="layui-btn" onclick="openRightPopup('新建生产计划', '{% url 'production:production_plan_add' %}')">新建计划</button>
+                <button class="layui-btn layui-btn-normal" onclick="openRightPopup('新建生产任务', '{% url 'production:production_task_add' %}')">新建任务</button>
+                <a href="{% url 'production:material_management_dashboard' %}" class="layui-btn layui-btn-primary">物料管理</a>
+                <a href="{% url 'production:resource_scheduling' %}" class="layui-btn layui-btn-primary">资源调度</a>
+                <a href="{% url 'production:equipment_monitor' %}" class="layui-btn layui-btn-primary">设备监控</a>
+                <a href="{% url 'production:quality_check_list' %}" class="layui-btn layui-btn-primary">质量管理</a>
+                <a href="{% url 'production:work_completion_report_list' %}" class="layui-btn layui-btn-primary">完工申报</a>
+                <a href="{% url 'production:data_collection_task_list' %}" class="layui-btn layui-btn-primary">采集任务</a>
             </div>
         </div>
 
-        <!-- 快捷操作 -->
-        <div class="layui-row layui-col-space15 quick-actions">
-            <div class="layui-col-md12">
-                <div class="layui-card">
-                    <div class="layui-card-header">快捷操作</div>
-                    <div class="layui-card-body">
-                        <button class="layui-btn action-btn" onclick="openRightPopup('添加', '{% url 'production:production_plan_add' %}')">
-                            <i class="layui-icon layui-icon-add-1"></i> 新建计划
-                        </button>
-                        <button class="layui-btn layui-btn-normal action-btn" onclick="openRightPopup('添加', '{% url 'production:production_task_add' %}')">
-                            <i class="layui-icon layui-icon-add-1"></i> 新建任务
-                        </button>
-                        <button class="layui-btn layui-btn-warm action-btn" onclick="location.href='{% url 'production:resource_scheduling' %}'">
-                            <i class="layui-icon layui-icon-date"></i> 资源调度
-                        </button>
-                        <button class="layui-btn layui-btn-danger action-btn" onclick="openRightPopup('添加', '{% url 'production:quality_check_add' %}')">
-                            <i class="layui-icon layui-icon-ok-circle"></i> 质量检查
-                        </button>
-                        <button class="layui-btn layui-btn-primary action-btn" onclick="location.href='{% url 'production:equipment_monitor' %}'">
-                            <i class="layui-icon layui-icon-chart-screen"></i> 设备监控
-                        </button>
-                        <button class="layui-btn layui-btn-primary action-btn" onclick="location.href='{% url 'production:performance_analysis' %}'">
-                            <i class="layui-icon layui-icon-chart"></i> 性能分析
-                        </button>
+        <div class="production-grid cols-2">
+            <div class="production-section-card">
+                <div class="production-section-header">计划与单据总览</div>
+                <div class="production-section-body">
+                    <div class="production-kpi-list">
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">领料申请</div>
+                                <div class="production-kpi-meta">由生产计划 + BOM 自动推导</div>
+                            </div>
+                            <span class="production-chip ok">{{ material_request_count }}</span>
+                        </div>
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">完工申报</div>
+                                <div class="production-kpi-meta">关联生产任务执行与合格数</div>
+                            </div>
+                            <span class="production-chip warn">{{ completion_report_count }}</span>
+                        </div>
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">成品入库</div>
+                                <div class="production-kpi-meta">由完工申报审核后自动生成草稿</div>
+                            </div>
+                            <span class="production-chip ok">{{ receipt_count }}</span>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- 最近计划和设备状态 -->
-        <div class="layui-row layui-col-space15">
-            <div class="layui-col-md6">
-                <div class="layui-card">
-                    <div class="layui-card-header">最近生产计划</div>
-                    <div class="layui-card-body" style="padding: 0;">
+            <div class="production-section-card">
+                <div class="production-section-header">最近生产计划</div>
+                <div class="production-section-body">
+                    <div class="production-kpi-list">
                         {% for plan in recent_plans %}
-                        <div class="recent-item">
+                        <div class="production-kpi-item">
                             <div>
-                                <div style="font-weight: bold;">{{ plan.code }} - {{ plan.name }}</div>
-                                <div style="font-size: 12px; color: #999; margin-top: 5px;">
-                                    <span class="status-badge
-                                        {% if plan.status == 3 %}status-active
-                                        {% elif plan.status == 1 %}status-pending
-                                        {% else %}status-normal{% endif %}">
-                                        {{ plan.get_status_display }}
-                                    </span>
-                                </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: {{ plan.completion_rate }}%;"></div>
-                                </div>
+                                <div class="production-kpi-title">{{ plan.name }}</div>
+                                <div class="production-kpi-meta">{{ plan.code }} · {{ plan.product.name|default:"-" }}</div>
                             </div>
-                            <div style="text-align: right; font-size: 12px; color: #999;">
+                            <span class="production-tag {% if plan.status == 4 %}ok{% elif plan.status == 3 %}warn{% else %}danger{% endif %}">
                                 {{ plan.completion_rate }}%
-                            </div>
+                            </span>
                         </div>
                         {% empty %}
-                        <div style="text-align: center; padding: 20px; color: #999;">暂无计划</div>
+                        <div class="production-empty">暂无生产计划</div>
                         {% endfor %}
-                        <div style="text-align: center; padding: 15px;">
-                            <button class="layui-btn layui-btn-primary layui-btn-sm" onclick="location.href='{% url 'production:production_plan_list' %}'">
-                                查看全部计划
-                            </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="production-grid cols-2" style="margin-top: 16px;">
+            <div class="production-section-card">
+                <div class="production-section-header">最近生产任务</div>
+                <div class="production-section-body">
+                    <div class="production-kpi-list">
+                        {% for task in recent_tasks %}
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">{{ task.name }}</div>
+                                <div class="production-kpi-meta">{{ task.plan.name|default:"-" }} · {{ task.procedure.name|default:"-" }}</div>
+                            </div>
+                            <span class="production-tag {% if task.status == 3 %}ok{% elif task.status == 2 %}warn{% else %}danger{% endif %}">
+                                {{ task.get_status_display }}
+                            </span>
                         </div>
+                        {% empty %}
+                        <div class="production-empty">暂无生产任务</div>
+                        {% endfor %}
                     </div>
                 </div>
             </div>
 
-            <div class="layui-col-md6">
-                <div class="layui-card">
-                    <div class="layui-card-header">设备状态监控</div>
-                    <div class="layui-card-body" style="padding: 0;">
+            <div class="production-section-card">
+                <div class="production-section-header">设备状态概览</div>
+                <div class="production-section-body">
+                    <div class="production-kpi-list">
                         {% for eq in equipments %}
-                        <div class="recent-item">
+                        <div class="production-kpi-item">
                             <div>
-                                <div style="font-weight: bold;">{{ eq.code }} - {{ eq.name }}</div>
-                                <div style="font-size: 12px; color: #999; margin-top: 5px;">
-                                    <span class="status-badge
-                                        {% if eq.status == 1 %}status-normal
-                                        {% elif eq.status == 2 %}status-maintenance
-                                        {% else %}status-stopped{% endif %}">
-                                        {{ eq.get_status_display }}
-                                    </span>
-                                </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: {% if eq.status == 1 %}85{% else %}0{% endif %}%;"></div>
-                                </div>
+                                <div class="production-kpi-title">{{ eq.name }}</div>
+                                <div class="production-kpi-meta">{{ eq.code }} · {{ eq.location|default:"未配置位置" }}</div>
                             </div>
-                            <div style="text-align: right; font-size: 12px; color: #999;">
-                                {% if eq.status == 1 %}85%{% else %}0%{% endif %}
-                            </div>
+                            <span class="production-tag {% if eq.status == 1 %}ok{% elif eq.status == 2 %}warn{% else %}danger{% endif %}">
+                                {{ eq.get_status_display }}
+                            </span>
                         </div>
                         {% empty %}
-                        <div style="text-align: center; padding: 20px; color: #999;">暂无设备</div>
+                        <div class="production-empty">暂无设备档案</div>
                         {% endfor %}
-                        <div style="text-align: center; padding: 15px;">
-                            <button class="layui-btn layui-btn-primary layui-btn-sm" onclick="location.href='{% url 'production:equipment_monitor' %}'">
-                                查看设备监控
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        layui.use(['layer'], function () {
-            var layer = layui.layer;
-        });
-
         {% include "production/_right_popup_function.html" %}
-</script>
-
-    <!-- 注入的 iframe 自动关闭及消息提示脚本 -->
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            var flashMsg = sessionStorage.getItem('flash_msg');
-            if (flashMsg) {
-                sessionStorage.removeItem('flash_msg');
-                try {
-                    var parsedMsgs = JSON.parse(flashMsg);
-                    msgs = msgs.concat(parsedMsgs);
-                } catch(e) {}
-            }
-
-            var isLayerFrame = false;
-            if (window !== window.parent) {
-                if (window.frameElement && window.frameElement.closest) {
-                    isLayerFrame = !!window.frameElement.closest('.layui-layer-iframe');
-                }
-                if (!isLayerFrame && window.name && window.parent.layer && typeof window.parent.layer.getFrameIndex === 'function') {
-                    try {
-                        var frameIndex = window.parent.layer.getFrameIndex(window.name);
-                        isLayerFrame = frameIndex !== undefined && frameIndex !== null && frameIndex !== '';
-                    } catch(e) {}
-                }
-            }
-
-            if (isLayerFrame) {
-                if (msgs.length > 0) {
-                    sessionStorage.setItem('flash_msg', JSON.stringify(msgs));
-                }
-                parent.location.reload();
-                return;
-            }
-
-            // 正常独立访问 list 页面
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
-        });
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
-
 </html>

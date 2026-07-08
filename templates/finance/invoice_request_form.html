@@ -1,0 +1,122 @@
+{% extends 'include/popup.html' %}
+{% load static %}
+
+{% block title %}新增开票申请{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{% static 'css/finance-module.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="finance-form-shell">
+    <div class="finance-form-header">
+        <h2>新增开票申请</h2>
+        <p>从订单直接发起开票申请，审批后自动进入发票记录。</p>
+    </div>
+    <div class="finance-form-body">
+        <form class="layui-form" method="post">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+            <div class="layui-bg-red" style="padding:10px 12px;border-radius:6px;margin-bottom:16px;color:#fff;">
+                {{ form.non_field_errors|join:"；" }}
+            </div>
+            {% endif %}
+
+            <div class="finance-form-grid">
+                <div class="finance-section">
+                    <div class="finance-section-title"><i class="layui-icon layui-icon-link"></i>订单关联</div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">关联订单</label>
+                        <div class="layui-input-block">
+                            <select name="order_id" lay-filter="orderSelect">
+                                <option value="0">请选择订单</option>
+                                {% for order in orders %}
+                                <option value="{{ order.id }}" data-customer="{{ order.customer.name|default:'' }}" data-amount="{{ order.amount }}" {% if form.order_id.value|stringformat:"s" == order.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ order.order_number }} / {{ order.customer.name|default:"未关联客户" }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="finance-preview-panel">
+                        <div class="finance-preview-row">
+                            <span class="finance-preview-label">客户</span>
+                            <span class="finance-preview-value" id="requestCustomerPreview">未选择</span>
+                        </div>
+                        <div class="finance-preview-row">
+                            <span class="finance-preview-label">订单金额</span>
+                            <span class="finance-preview-value" id="requestAmountPreview">¥0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="finance-section">
+                    <div class="finance-section-title"><i class="layui-icon layui-icon-rmb"></i>开票信息</div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">开票金额</label>
+                        <div class="layui-input-block">{{ form.amount }}</div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">发票类型</label>
+                        <div class="layui-input-block">{{ form.invoice_type }}</div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">开票抬头</label>
+                        <div class="layui-input-block">{{ form.invoice_title }}</div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">税号</label>
+                        <div class="layui-input-block">{{ form.tax_number }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="finance-section">
+                <div class="finance-section-title"><i class="layui-icon layui-icon-note"></i>申请说明</div>
+                <div class="layui-form-item">
+                    <label class="layui-form-label">申请原因</label>
+                    <div class="layui-input-block">{{ form.reason }}</div>
+                </div>
+                <div class="layui-form-item">
+                    <label class="layui-form-label">备注</label>
+                    <div class="layui-input-block">{{ form.remark }}</div>
+                </div>
+            </div>
+
+            <div class="finance-form-actions">
+                <button class="layui-btn layui-btn-normal" type="submit">
+                    <i class="layui-icon layui-icon-ok"></i>提交申请
+                </button>
+                <button class="layui-btn layui-btn-primary" type="button" onclick="closePopup()">取消</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+layui.use(["form"], function () {
+    const form = layui.form;
+    const $ = layui.$;
+
+    function syncOrderPreview() {
+        const option = $('select[name="order_id"] option:selected');
+        const customer = option.data("customer") || "未选择";
+        const amount = Number(option.data("amount") || 0);
+        $("#requestCustomerPreview").text(customer);
+        $("#requestAmountPreview").text("¥" + amount.toFixed(2));
+        if (option.val() && option.val() !== "0" && !$('input[name="amount"]').val()) {
+            $('input[name="amount"]').val(amount ? amount.toFixed(2) : "");
+        }
+        if (option.val() && option.val() !== "0" && !$('input[name="invoice_title"]').val()) {
+            $('input[name="invoice_title"]').val(customer === "未选择" ? "" : customer);
+        }
+    }
+
+    form.on("select(orderSelect)", syncOrderPreview);
+    form.render();
+    syncOrderPreview();
+});
+</script>
+{% endblock %}

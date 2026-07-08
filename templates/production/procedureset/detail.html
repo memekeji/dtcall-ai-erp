@@ -1,0 +1,92 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工序集详情</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
+</head>
+<body>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>工序集详情</h2></div>
+
+        <div class="production-section-card">
+            <div class="production-section-header">
+                <span>{{ procedureset.name }} / {{ procedureset.code }}</span>
+                <span class="production-tag {% if procedureset.status %}ok{% else %}danger{% endif %}">
+                    {% if procedureset.status %}启用中{% else %}已停用{% endif %}
+                </span>
+            </div>
+            <div class="production-section-body">
+                <div class="production-detail-grid">
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">总工时</div>
+                        <div class="production-detail-value">{{ procedureset.total_time }}</div>
+                    </div>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">总成本</div>
+                        <div class="production-detail-value">￥{{ procedureset.total_cost }}</div>
+                    </div>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">创建时间</div>
+                        <div class="production-detail-value">{{ procedureset.create_time|date:"Y-m-d H:i" }}</div>
+                    </div>
+                    <div class="production-detail-item">
+                        <div class="production-detail-label">最近更新</div>
+                        <div class="production-detail-value">{{ procedureset.update_time|date:"Y-m-d H:i" }}</div>
+                    </div>
+                </div>
+                {% if procedureset.description %}
+                <div class="production-detail-item" style="margin-top: 14px;">
+                    <div class="production-detail-label">工序集说明</div>
+                    <div class="production-detail-value">{{ procedureset.description|linebreaksbr }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="production-section-card" style="margin-top: 16px;">
+            <div class="production-section-header">工序明细</div>
+            <div class="production-section-body" style="padding: 0;">
+                <table class="layui-table" lay-skin="line">
+                    <thead>
+                        <tr>
+                            <th>执行顺序</th>
+                            <th>工序</th>
+                            <th>所属部门</th>
+                            <th>标准工时</th>
+                            <th>预估工时</th>
+                            <th>小时成本</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td>{{ item.sequence }}</td>
+                            <td>{{ item.procedure.name }}</td>
+                            <td>{{ item.procedure.department.name|default:"-" }}</td>
+                            <td>{{ item.procedure.standard_time }}</td>
+                            <td>{{ item.estimated_time }}</td>
+                            <td>￥{{ item.procedure.cost_per_hour }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="production-empty">暂无工序集明细</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        {% include "production/_right_popup_function.html" %}
+    </script>
+    {% include "production/_popup_feedback.html" %}
+</body>
+</html>

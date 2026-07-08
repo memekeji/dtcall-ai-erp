@@ -1,147 +1,185 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ equipment.name }} - 数据图表</title>
+    <title>{{ equipment.name }} 数据趋势</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 </head>
-
 <body>
-    <div class="layui-fluid" style="padding: 20px;">
-        <!-- 页面标题 -->
-        <div class="layui-row">
-            <div class="layui-col-md12">
-                <h2 style="margin-bottom: 20px;">{{ equipment.name }} - 数据图表</h2>
-                <p style="color: #666;">设备编号：{{ equipment.code }}</p>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title">
+            <h2>{{ equipment.name }} 数据趋势</h2>
+        </div>
+
+        <div class="production-note">
+            图表直接读取生产数据点台账。若当前为空，请先完成设备数据源、字段映射、采集任务配置，或在“数据采集”中录入人工采集记录。
+        </div>
+
+        <div class="production-summary-strip" style="margin-top: 16px;">
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ equipment.code }}</div>
+                <div class="production-summary-label">设备编号</div>
+            </div>
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ data_points|length }}</div>
+                <div class="production-summary-label">最近读取点数</div>
+            </div>
+            <div class="production-summary-item">
+                <div class="production-summary-value">
+                    {% with latest=data_points|first %}
+                        {% if latest %}{{ latest.metric_name }}{% else %}-{% endif %}
+                    {% endwith %}
+                </div>
+                <div class="production-summary-label">最新指标名称</div>
+            </div>
+            <div class="production-summary-item accent">
+                <div class="production-summary-value">
+                    {% with latest=data_points|first %}
+                        {% if latest %}{{ latest.timestamp|date:"m-d H:i" }}{% else %}未采集{% endif %}
+                    {% endwith %}
+                </div>
+                <div class="production-summary-label">最近采集时间</div>
             </div>
         </div>
 
-        <!-- 图表区域 -->
-        <div class="layui-row">
-            <div class="layui-col-md12">
-                <div class="layui-card">
-                    <div class="layui-card-header">最近数据趋势</div>
-                    <div class="layui-card-body">
-                        <div id="dataChart" style="height: 400px; width: 100%;"></div>
+        <div class="production-split-grid" style="margin-top: 16px;">
+            <div class="production-section-card">
+                <div class="production-section-header">趋势图</div>
+                <div class="production-section-body">
+                    <div id="dataChart" class="production-chart-box tall"></div>
+                </div>
+            </div>
+
+            <div class="production-section-card">
+                <div class="production-section-header">当前说明</div>
+                <div class="production-section-body">
+                    <div class="production-kpi-list">
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">来源对象</div>
+                                <div class="production-kpi-meta">生产数据点 `ProductionDataPoint`</div>
+                            </div>
+                        </div>
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">采集范围</div>
+                                <div class="production-kpi-meta">当前页面默认展示最近 100 条同设备数据</div>
+                            </div>
+                        </div>
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">联动入口</div>
+                                <div class="production-kpi-meta">设备详情、数据采集列表、数据源与映射配置</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 操作按钮 -->
-        <div class="layui-row" style="margin-top: 20px;">
-            <div class="layui-col-md12">
-                <button class="layui-btn layui-btn-primary" onclick="openRightPopup('详情', '{% url 'production:equipment_detail' equipment.pk %}')">
-                    <i class="layui-icon layui-icon-return"></i> 返回设备详情
-                </button>
-                <button class="layui-btn layui-btn-primary" onclick="location.href='{% url 'production:data_collection_list' %}?equipment={{ equipment.pk }}'">
-                    <i class="layui-icon layui-icon-list"></i> 查看数据列表
-                </button>
-                <button class="layui-btn layui-btn-primary" onclick="refreshChart()">
-                    <i class="layui-icon layui-icon-refresh"></i> 刷新数据
-                </button>
+        <div class="production-section-card" style="margin-top: 16px;">
+            <div class="production-section-header">
+                <span>最近采集明细</span>
+                <div class="production-inline-actions compact">
+                    <button class="layui-btn layui-btn-primary layui-btn-sm" onclick="openRightPopup('设备详情', '{% url 'production:equipment_detail' equipment.pk %}')">设备详情</button>
+                    <button class="layui-btn layui-btn-normal layui-btn-sm" onclick="location.href='{% url 'production:data_collection_list' %}?equipment={{ equipment.pk }}'">采集列表</button>
+                    <button class="layui-btn layui-btn-sm" onclick="location.reload()">刷新</button>
+                </div>
+            </div>
+            <div class="production-section-body" style="padding: 0;">
+                <table class="layui-table" lay-skin="line">
+                    <thead>
+                        <tr>
+                            <th>时间</th>
+                            <th>指标</th>
+                            <th>数值</th>
+                            <th>单位</th>
+                            <th>质量标识</th>
+                            <th>关联任务</th>
+                            <th>关联工序</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for point in data_points %}
+                        <tr>
+                            <td>{{ point.timestamp|date:"Y-m-d H:i:s" }}</td>
+                            <td>{{ point.metric_name }}</td>
+                            <td>{{ point.metric_value }}</td>
+                            <td>{{ point.metric_unit|default:"-" }}</td>
+                            <td>{{ point.quality|default:"-" }}</td>
+                            <td>{{ point.task.name|default:"-" }}</td>
+                            <td>{{ point.procedure.name|default:"-" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="production-empty">当前设备还没有落到生产数据点台账中的采集数据</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        layui.use(['layer'], function () {
-            var layer = layui.layer;
-        });
-
-        function refreshChart() {
-            location.reload();
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            var chartDom = document.getElementById('dataChart');
-            var myChart = echarts.init(chartDom);
-
+        document.addEventListener('DOMContentLoaded', function () {
+            var chart = echarts.init(document.getElementById('dataChart'));
             var timestamps = [];
             var values = [];
 
             {% for dp in data_points reversed %}
                 timestamps.push('{{ dp.timestamp|date:"m-d H:i:s" }}');
                 values.push(parseFloat('{{ dp.metric_value|escapejs }}') || 0);
-            {% empty %}
-                // No data
             {% endfor %}
 
-            var option = {
-                tooltip: {
-                    trigger: 'axis'
-                },
+            chart.setOption({
+                tooltip: { trigger: 'axis' },
+                grid: { left: 48, right: 24, top: 36, bottom: 42 },
                 xAxis: {
                     type: 'category',
-                    data: timestamps
+                    boundaryGap: false,
+                    data: timestamps,
                 },
                 yAxis: {
-                    type: 'value'
+                    type: 'value',
+                    splitLine: { lineStyle: { color: '#edf0f5' } }
                 },
-                series: [
-                    {
-                        name: '参数值',
-                        data: values,
-                        type: 'line',
-                        smooth: true,
-                        areaStyle: {
-                            opacity: 0.3
-                        },
-                        itemStyle: {
-                            color: '#1E9FFF'
-                        }
-                    }
-                ]
-            };
+                series: [{
+                    name: '采集值',
+                    type: 'line',
+                    smooth: true,
+                    symbol: timestamps.length > 30 ? 'none' : 'circle',
+                    lineStyle: { color: '#1677ff', width: 3 },
+                    areaStyle: { color: 'rgba(22,119,255,0.10)' },
+                    itemStyle: { color: '#1677ff' },
+                    data: values
+                }]
+            });
 
-            if (timestamps.length === 0) {
-                option.title = {
-                    text: '暂无数据',
-                    left: 'center',
-                    top: 'center',
-                    textStyle: {
-                        color: '#999',
-                        fontWeight: 'normal',
-                        fontSize: 14
+            if (!timestamps.length) {
+                chart.setOption({
+                    title: {
+                        text: '暂无可视化数据',
+                        left: 'center',
+                        top: 'center',
+                        textStyle: { color: '#9ca3af', fontWeight: 'normal', fontSize: 16 }
                     }
-                };
+                });
             }
 
-            myChart.setOption(option);
-
-            window.addEventListener('resize', function() {
-                myChart.resize();
+            window.addEventListener('resize', function () {
+                chart.resize();
             });
         });
 
         {% include "production/_right_popup_function.html" %}
-</script>
-
-    <!-- 注入的消息提示脚本 -->
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
-        });
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
-
 </html>

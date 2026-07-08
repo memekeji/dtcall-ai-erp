@@ -4,16 +4,14 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count, OuterRef, Q, Subquery, Sum
 from django.http import Http404, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.views.generic import TemplateView
-
-from apps.ai.services.business_result import build_business_ai_result
 
 from .models import Project, ProjectRiskAnalysis, Task, WorkHour
 from .risk_analysis import (
     get_action_display,
     get_risk_level_display,
-    default_project_analysis_tool,
+    project_risk_analysis_service,
     serialize_risk_analysis,
 )
 
@@ -105,61 +103,12 @@ def ai_project_risk_prediction(request, project_id):
             raise Http404('项目不存在') from exc
         if not has_permission(request.user, project):
             return JsonResponse({'code': 403, 'msg': '没有权限查看此项目'}, status=403)
-
-        task_queryset = Task.objects.filter(project=project, delete_time__isnull=True)
-        work_hour_queryset = WorkHour.objects.filter(project=project, delete_time__isnull=True)
-
-        task_data = [
-            {
-                'id': task.id,
-                'title': getattr(task, 'title', ''),
-                'status': getattr(task, 'status', ''),
-                'priority': getattr(task, 'priority', ''),
-                'progress': getattr(task, 'progress', 0),
-                'assignee_id': getattr(task, 'assignee_id', None),
-                'start_date': getattr(task, 'start_date', None),
-                'end_date': getattr(task, 'end_date', None),
-            }
-            for task in task_queryset
-        ]
-        task_stats = task_queryset.aggregate(
-            total_tasks=Count('id'),
-            completed_tasks=Count('id', filter=Q(status='completed')),
-            in_progress_tasks=Count('id', filter=Q(status='in_progress')),
-            pending_tasks=Count('id', filter=Q(status='pending')),
+        analysis = project_risk_analysis_service.analyze_project(
+            project,
+            trigger_source='manual',
+            triggered_by=request.user,
         )
-        total_hours = work_hour_queryset.aggregate(total=Sum('hours'))
-
-        project_data = {
-            'id': project.id,
-            'name': project.name,
-            'code': getattr(project, 'code', ''),
-            'status': getattr(project, 'status', ''),
-            'progress': getattr(project, 'progress', 0),
-            'start_date': getattr(project, 'start_date', None),
-            'end_date': getattr(project, 'end_date', None),
-            'manager_id': getattr(project, 'manager_id', None),
-            'department_id': getattr(project, 'department_id', None),
-        }
-
-        raw_result = default_project_analysis_tool.predict_project_risk(
-            project_data=project_data,
-            task_data=task_data,
-            task_stats=task_stats,
-            total_hours=total_hours,
-        )
-        payload = build_business_ai_result(
-            raw_result,
-            scenario='project_risk_prediction',
-            source_refs=[{'type': 'project', 'id': project.id}],
-            request=request,
-            raw_input={
-                'project': project_data,
-                'tasks': task_data,
-                'task_stats': task_stats,
-                'total_hours': total_hours,
-            },
-        )
+        payload = serialize_risk_analysis(analysis)
         logger.info('项目风险预测完成: project=%s', project_id)
         return JsonResponse({
             'code': 0,

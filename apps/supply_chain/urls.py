@@ -7,6 +7,7 @@ app_name = 'supply_chain'
 
 urlpatterns = [
     path('', views.dashboard, name='dashboard'),
+    path('bootstrap/', views.bootstrap_workspace, name='bootstrap_workspace'),
     path('inventory-analysis/', views.inventory_analysis, name='inventory_analysis'),
 
     path('forecast/', views.forecast_list, name='forecast_list'),

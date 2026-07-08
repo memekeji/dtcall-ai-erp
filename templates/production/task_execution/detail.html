@@ -6,159 +6,140 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>生产任务详情</title>
     <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
 </head>
 <body>
-    <div class="layui-fluid" style="padding: 20px;">
-        <div class="layui-card">
-            <div class="layui-card-header">
-                <div class="layui-row">
-                    <div class="layui-col-md8">
-                        <h2>{{ task.name }}</h2>
-                    </div>
-                    <div class="layui-col-md4" style="text-align: right;">
-                        <a href="{% url 'production:production_task_edit' task.pk %}" class="layui-btn layui-btn-sm">编辑</a>
-                        <a href="{% url 'production:production_task_list' %}" class="layui-btn layui-btn-sm layui-btn-primary">返回列表</a>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>生产任务详情</h2></div>
+
+        <div class="production-toolbar">
+            <div class="production-inline-actions">
+                <button class="layui-btn" onclick="openRightPopup('编辑生产任务', '{% url 'production:production_task_edit' task.pk %}')">编辑任务</button>
+                <button class="layui-btn layui-btn-normal" onclick="openRightPopup('新增完工申报', '{% url 'production:work_completion_report_add' %}?task={{ task.pk }}')">完工申报</button>
+                <button class="layui-btn layui-btn-warm" onclick="openRightPopup('新增资源消耗', '{% url 'production:resource_consumption_add' %}?task={{ task.pk }}')">资源消耗</button>
+                <a href="{% url 'production:production_task_list' %}" class="layui-btn layui-btn-primary">返回列表</a>
+            </div>
+        </div>
+
+        <div class="production-summary-strip">
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ task.completed_quantity }}</div>
+                <div class="production-summary-label">完成数量</div>
+            </div>
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ task.qualified_quantity }}</div>
+                <div class="production-summary-label">合格数量</div>
+            </div>
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ task.completion_rate }}%</div>
+                <div class="production-summary-label">任务完成率</div>
+            </div>
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ completion_reports|length }}</div>
+                <div class="production-summary-label">完工申报数</div>
+            </div>
+        </div>
+
+        <div class="production-section-card">
+            <div class="production-section-header">
+                <span>{{ task.name }} / {{ task.code }}</span>
+                <span class="production-tag {% if task.status == 3 %}ok{% elif task.status == 2 %}warn{% elif task.status == 6 or task.status == 5 %}danger{% else %}warn{% endif %}">
+                    {{ task.get_status_display }}
+                </span>
+            </div>
+            <div class="production-section-body">
+                <div class="production-detail-grid">
+                    <div class="production-detail-item"><div class="production-detail-label">所属计划</div><div class="production-detail-value">{{ task.plan.name }}</div></div>
+                    <div class="production-detail-item"><div class="production-detail-label">执行工序</div><div class="production-detail-value">{{ task.procedure.name }}</div></div>
+                    <div class="production-detail-item"><div class="production-detail-label">设备</div><div class="production-detail-value">{{ task.equipment.name|default:"-" }}</div></div>
+                    <div class="production-detail-item"><div class="production-detail-label">执行人</div><div class="production-detail-value">{{ task.assignee.username|default:"-" }}</div></div>
+                    <div class="production-detail-item"><div class="production-detail-label">计划开始</div><div class="production-detail-value">{{ task.plan_start_time|date:"Y-m-d H:i" }}</div></div>
+                    <div class="production-detail-item"><div class="production-detail-label">计划结束</div><div class="production-detail-value">{{ task.plan_end_time|date:"Y-m-d H:i" }}</div></div>
+                    <div class="production-detail-item"><div class="production-detail-label">实际开始</div><div class="production-detail-value">{{ task.actual_start_time|date:"Y-m-d H:i"|default:"-" }}</div></div>
+                    <div class="production-detail-item"><div class="production-detail-label">实际结束</div><div class="production-detail-value">{{ task.actual_end_time|date:"Y-m-d H:i"|default:"-" }}</div></div>
+                </div>
+                {% if task.description %}
+                <div class="production-detail-item" style="margin-top: 16px;">
+                    <div class="production-detail-label">任务描述</div>
+                    <div class="production-detail-value">{{ task.description|linebreaksbr }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="production-grid cols-2" style="margin-top: 16px;">
+            <div class="production-section-card">
+                <div class="production-section-header">质量 / 数据采集</div>
+                <div class="production-section-body">
+                    <div class="production-kpi-list">
+                        {% for item in quality_checks %}
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">质检 {{ item.check_time|date:"Y-m-d H:i" }}</div>
+                                <div class="production-kpi-meta">检查 {{ item.check_quantity }}，合格 {{ item.qualified_quantity }}</div>
+                            </div>
+                            <span class="production-tag">{{ item.result_display }}</span>
+                        </div>
+                        {% endfor %}
+                        {% for item in data_collections %}
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">{{ item.parameter_name }}</div>
+                                <div class="production-kpi-meta">{{ item.parameter_value }} {{ item.unit }} · {{ item.collect_time|date:"Y-m-d H:i" }}</div>
+                            </div>
+                            <span class="production-tag {% if item.is_normal %}ok{% else %}danger{% endif %}">{{ item.is_normal|yesno:"正常,异常" }}</span>
+                        </div>
+                        {% empty %}
+                        <div class="production-empty">暂无质量检查和数据采集记录</div>
+                        {% endfor %}
                     </div>
                 </div>
             </div>
-            <div class="layui-card-body">
-                <div class="layui-row layui-col-space15">
-                    <div class="layui-col-md3"><strong>任务编号：</strong>{{ task.code }}</div>
-                    <div class="layui-col-md3"><strong>所属计划：</strong>{{ task.plan.name }}</div>
-                    <div class="layui-col-md3"><strong>执行工序：</strong>{{ task.procedure.name }}</div>
-                    <div class="layui-col-md3"><strong>状态：</strong>{{ task.get_status_display }}</div>
-                </div>
 
-                <hr>
-
-                <div class="layui-row layui-col-space15">
-                    <div class="layui-col-md3"><strong>设备：</strong>{{ task.equipment.name|default:'-' }}</div>
-                    <div class="layui-col-md3"><strong>执行人：</strong>{{ task.assignee.username|default:'-' }}</div>
-                    <div class="layui-col-md3"><strong>创建人：</strong>{{ task.creator.username|default:'-' }}</div>
-                    <div class="layui-col-md3"><strong>创建时间：</strong>{{ task.create_time|date:"Y-m-d H:i:s" }}</div>
-                </div>
-
-                <hr>
-
-                <div class="layui-row layui-col-space15">
-                    <div class="layui-col-md3"><strong>任务数量：</strong>{{ task.quantity }}</div>
-                    <div class="layui-col-md3"><strong>完成数量：</strong>{{ task.completed_quantity }}</div>
-                    <div class="layui-col-md3"><strong>合格数量：</strong>{{ task.qualified_quantity }}</div>
-                    <div class="layui-col-md3"><strong>不合格数量：</strong>{{ task.defective_quantity }}</div>
-                </div>
-
-                <div class="layui-row layui-col-space15" style="margin-top: 12px;">
-                    <div class="layui-col-md6"><strong>完成率：</strong>{{ task.completion_rate }}%</div>
-                    <div class="layui-col-md6"><strong>合格率：</strong>{{ task.qualified_rate }}%</div>
-                </div>
-
-                <hr>
-
-                <div class="layui-row layui-col-space15">
-                    <div class="layui-col-md3"><strong>计划开始：</strong>{{ task.plan_start_time|date:"Y-m-d H:i" }}</div>
-                    <div class="layui-col-md3"><strong>计划结束：</strong>{{ task.plan_end_time|date:"Y-m-d H:i" }}</div>
-                    <div class="layui-col-md3"><strong>实际开始：</strong>{{ task.actual_start_time|date:"Y-m-d H:i"|default:'-' }}</div>
-                    <div class="layui-col-md3"><strong>实际结束：</strong>{{ task.actual_end_time|date:"Y-m-d H:i"|default:'-' }}</div>
-                </div>
-
-                {% if task.suspend_reason %}
-                <fieldset class="layui-elem-field layui-field-title">
-                    <legend>挂起信息</legend>
-                </fieldset>
-                <div class="layui-text" style="line-height: 1.8;">
-                    <div><strong>挂起人：</strong>{{ task.suspended_by.username|default:'-' }}</div>
-                    <div><strong>挂起时间：</strong>{{ task.suspended_time|date:"Y-m-d H:i:s"|default:'-' }}</div>
-                    <div><strong>挂起原因：</strong>{{ task.suspend_reason|linebreaks }}</div>
-                </div>
-                {% endif %}
-
-                <fieldset class="layui-elem-field layui-field-title">
-                    <legend>任务描述</legend>
-                </fieldset>
-                <div class="layui-text" style="line-height: 1.8;">{{ task.description|default:'-'|linebreaks }}</div>
-
-                <fieldset class="layui-elem-field layui-field-title">
-                    <legend>质量检查记录</legend>
-                </fieldset>
-                <table class="layui-table">
-                    <thead>
-                        <tr>
-                            <th>检查时间</th>
-                            <th>检查数量</th>
-                            <th>合格数量</th>
-                            <th>结果</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in quality_checks %}
-                        <tr>
-                            <td>{{ item.check_time|date:"Y-m-d H:i" }}</td>
-                            <td>{{ item.check_quantity }}</td>
-                            <td>{{ item.qualified_quantity }}</td>
-                            <td>{{ item.result_display }}</td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="4" style="text-align: center;">暂无质量检查记录</td>
-                        </tr>
+            <div class="production-section-card">
+                <div class="production-section-header">完工 / 资源 / 材料确认</div>
+                <div class="production-section-body">
+                    <div class="production-kpi-list">
+                        {% for report in completion_reports %}
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">完工 {{ report.code }}</div>
+                                <div class="production-kpi-meta">申报 {{ report.reported_quantity }}，合格 {{ report.qualified_quantity }}</div>
+                            </div>
+                            <span class="production-tag {% if report.status == 2 %}ok{% elif report.status == 3 %}danger{% else %}warn{% endif %}">{{ report.get_status_display }}</span>
+                        </div>
                         {% endfor %}
-                    </tbody>
-                </table>
-
-                <fieldset class="layui-elem-field layui-field-title">
-                    <legend>数据采集记录</legend>
-                </fieldset>
-                <table class="layui-table">
-                    <thead>
-                        <tr>
-                            <th>设备</th>
-                            <th>参数名称</th>
-                            <th>参数值</th>
-                            <th>采集时间</th>
-                            <th>状态</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in data_collections %}
-                        <tr>
-                            <td>{{ item.equipment.name }}</td>
-                            <td>{{ item.parameter_name }}</td>
-                            <td>{{ item.parameter_value }} {{ item.unit }}</td>
-                            <td>{{ item.collect_time|date:"Y-m-d H:i" }}</td>
-                            <td>{{ item.is_normal|yesno:'正常,异常' }}</td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="5" style="text-align: center;">暂无数据采集记录</td>
-                        </tr>
+                        {% for item in resource_consumptions %}
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">{{ item.resource_name }}</div>
+                                <div class="production-kpi-meta">{{ item.resource_type }} · {{ item.consumed_quantity }} {{ item.unit }}</div>
+                            </div>
+                            <span class="production-tag">成本 {{ item.cost }}</span>
+                        </div>
                         {% endfor %}
-                    </tbody>
-                </table>
+                        {% for item in material_confirmations %}
+                        <div class="production-kpi-item">
+                            <div>
+                                <div class="production-kpi-title">材料确认 {{ item.material_issue.code }}</div>
+                                <div class="production-kpi-meta">确认数量 {{ item.confirmed_quantity }}</div>
+                            </div>
+                            <span class="production-tag ok">{{ item.confirm_time|date:"m-d H:i" }}</span>
+                        </div>
+                        {% empty %}
+                        <div class="production-empty">暂无完工、资源消耗和材料确认记录</div>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-<script>
-        {% include "production/_right_popup_function.html" %}
-</script>
 
-    <!-- 注入的消息提示脚本 -->
+    <script src="{% static 'layui/layui.js' %}"></script>
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var msgs = [
-                {% for message in messages %}
-                    { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
-                {% endfor %}
-            ];
-
-            if (msgs.length > 0 && typeof layui !== 'undefined') {
-                layui.use(['layer'], function() {
-                    msgs.forEach(function(m) {
-                        var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
-                        layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
-                    });
-                });
-            }
-        });
+        {% include "production/_right_popup_function.html" %}
     </script>
+    {% include "production/_popup_feedback.html" %}
 </body>
 </html>

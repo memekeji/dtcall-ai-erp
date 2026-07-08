@@ -1,0 +1,47 @@
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        var msgs = [
+            {% for message in messages %}
+                { level: "{{ message.tags }}", text: "{{ message|escapejs }}" },
+            {% endfor %}
+        ];
+
+        var flashMsg = sessionStorage.getItem('flash_msg');
+        if (flashMsg) {
+            sessionStorage.removeItem('flash_msg');
+            try {
+                msgs = msgs.concat(JSON.parse(flashMsg));
+            } catch (e) {}
+        }
+
+        var isLayerFrame = false;
+        if (window !== window.parent) {
+            if (window.frameElement && window.frameElement.closest) {
+                isLayerFrame = !!window.frameElement.closest('.layui-layer-iframe');
+            }
+            if (!isLayerFrame && window.name && window.parent.layer && typeof window.parent.layer.getFrameIndex === 'function') {
+                try {
+                    var frameIndex = window.parent.layer.getFrameIndex(window.name);
+                    isLayerFrame = frameIndex !== undefined && frameIndex !== null && frameIndex !== '';
+                } catch (e) {}
+            }
+        }
+
+        if (isLayerFrame) {
+            if (msgs.length > 0) {
+                sessionStorage.setItem('flash_msg', JSON.stringify(msgs));
+            }
+            parent.location.reload();
+            return;
+        }
+
+        if (msgs.length > 0 && typeof layui !== 'undefined') {
+            layui.use(['layer'], function() {
+                msgs.forEach(function(m) {
+                    var icon = m.level.indexOf('success') !== -1 ? 1 : (m.level.indexOf('error') !== -1 ? 2 : 0);
+                    layui.layer.msg(m.text, {icon: icon, time: 3000, offset: 't'});
+                });
+            });
+        }
+    });
+</script>

@@ -1,283 +1,167 @@
-{% extends 'include/common.html' %}
 {% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>字段映射</title>
+    <link rel="stylesheet" href="{% static 'layui/css/layui.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dtcall-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'production/css/common.css' %}">
+</head>
+<body>
+    <div class="layui-fluid production-container">
+        <div class="production-page-title"><h2>字段映射</h2></div>
 
-{% block title %}数据映射配置{% endblock %}
+        <div class="production-nav-strip">
+            <a class="production-nav-link" href="{% url 'production:data_collection_list' %}">现场采集</a>
+            <a class="production-nav-link" href="{% url 'production:data_source_list' %}">数据源</a>
+            <a class="production-nav-link active" href="{% url 'production:data_mapping_list' %}">字段映射</a>
+            <a class="production-nav-link" href="{% url 'production:data_collection_task_list' %}">采集任务</a>
+            <a class="production-nav-link" href="{% url 'production:data_collection_record_list' %}">采集记录</a>
+            <a class="production-nav-link" href="{% url 'production:data_point_list' %}">生产数据点</a>
+        </div>
 
-{% block content %}
-<div class="layui-fluid">
-    <div class="layui-row layui-col-space15">
-        <div class="layui-col-md12">
-            <div class="layui-card">
-                <div class="layui-card-header">
-                    <h3>数据映射配置{% if current_source %} - {{ current_source.name }}{% endif %}</h3>
-                    <div style="float: right;">
-                        <a href="{% url 'production:data_source_list' %}" class="layui-btn layui-btn-primary layui-btn-sm">
-                            <i class="layui-icon layui-icon-return"></i> 返回数据源
-                        </a>
-                    </div>
-                </div>
-                <div class="layui-card-body">
-                    <!-- 过滤器 -->
-                    <form class="layui-form" method="get" style="margin-bottom: 20px;">
-                        <div class="layui-row layui-col-space10">
-                            <div class="layui-col-md4">
-                                <select name="data_source">
-                                    <option value="">全部数据源</option>
-                                    {% for source in source_options %}
-                                    <option value="{{ source.id }}" {% if current_source and current_source.id == source.id %}selected{% endif %}>
-                                        {{ source.name }} ({{ source.code }})
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="layui-col-md2">
-                                <button type="submit" class="layui-btn">
-                                    <i class="layui-icon layui-icon-search"></i> 筛选
-                                </button>
-                            </div>
-                        </div>
-                    </form>
+        <div class="production-summary-strip">
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ summary.total|default:0 }}</div>
+                <div class="production-summary-label">映射字段数</div>
+            </div>
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ summary.active_count|default:0 }}</div>
+                <div class="production-summary-label">启用中</div>
+            </div>
+            <div class="production-summary-item">
+                <div class="production-summary-value">{{ summary.required_count|default:0 }}</div>
+                <div class="production-summary-label">必填映射</div>
+            </div>
+            <div class="production-summary-item accent">
+                <div class="production-summary-value">{{ summary.transformed_count|default:0 }}</div>
+                <div class="production-summary-label">带转换规则</div>
+            </div>
+        </div>
 
-                    <!-- 数据源信息 -->
-                    {% if current_source %}
-                    <div class="layui-row layui-col-space15" style="margin-bottom: 20px;">
-                        <div class="layui-col-md12">
-                            <div style="background: #f8f9fa; padding: 15px; border-radius: 6px;">
-                                <div class="layui-row">
-                                    <div class="layui-col-md3">
-                                        <strong>数据源类型：</strong>{{ current_source.get_source_type_display }}
-                                    </div>
-                                    <div class="layui-col-md3">
-                                        <strong>连接地址：</strong>
-                                        {% if current_source.endpoint_url %}
-                                            {{ current_source.endpoint_url|truncatechars:30 }}
-                                        {% elif current_source.host %}
-                                            {{ current_source.host }}:{{ current_source.port|default:"" }}
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </div>
-                                    <div class="layui-col-md3">
-                                        <strong>采集间隔：</strong>{{ current_source.collection_interval }}秒
-                                    </div>
-                                    <div class="layui-col-md3">
+        <div class="production-note">
+            字段映射决定原始数据怎样落成系统可用字段。若希望“生产数据点”真正生成，请至少映射出 `equipment_id` 或 `equipment_code`；如需保留原始采样时间，再补 `timestamp`。
+        </div>
 
-                                    </div>
+        <div class="production-list-toolbar" style="margin-top: 16px;">
+            <div class="production-inline-actions">
+                <button class="layui-btn" onclick="openRightPopup('新增映射字段', '{% url 'production:data_mapping_add' %}{% if current_source %}?data_source={{ current_source.id }}{% endif %}')">新增映射</button>
+                <a href="{% url 'production:data_source_list' %}" class="layui-btn layui-btn-primary">返回数据源</a>
+            </div>
+            <form method="get" class="layui-form production-inline-actions compact">
+                <select name="data_source" class="layui-input" style="width: 260px;">
+                    <option value="">全部数据源</option>
+                    {% for source in source_options %}
+                    <option value="{{ source.id }}" {% if current_source and current_source.id == source.id %}selected{% endif %}>{{ source.name }} ({{ source.code }})</option>
+                    {% endfor %}
+                </select>
+                <input type="text" name="search" value="{{ search }}" class="layui-input" style="width: 180px;" placeholder="搜索映射名称">
+                <button class="layui-btn layui-btn-normal" type="submit">筛选</button>
+            </form>
+        </div>
+
+        {% if current_source %}
+        <div class="production-banner">
+            当前数据源：<strong>{{ current_source.name }}</strong>
+            <span class="production-mini-note">连接方式：{{ current_source.get_source_type_display }}，采集间隔：{{ current_source.collection_interval }} 秒</span>
+        </div>
+        {% endif %}
+
+        <div class="layui-card production-list-card" style="margin-top: 16px;">
+            <div class="layui-card-body production-table-wrap">
+                <table class="layui-table" lay-skin="line">
+                    <thead>
+                        <tr>
+                            <th width="80">排序</th>
+                            <th>映射字段</th>
+                            <th>抓取路径</th>
+                            <th>字段类型</th>
+                            <th>转换规则</th>
+                            <th>目标说明</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mapping in page_obj %}
+                        <tr>
+                            <td><input type="number" value="{{ mapping.sort }}" class="layui-input" style="width: 70px;" onchange="updateSort({{ mapping.id }}, this.value)"></td>
+                            <td>
+                                <div>{{ mapping.name }}</div>
+                                <div class="production-mini-note">{% if mapping.is_required %}必填 · {% endif %}{{ mapping.data_source.name }}</div>
+                            </td>
+                            <td><span class="production-code">{{ mapping.source_path }}</span></td>
+                            <td>{{ mapping.get_field_type_display }}</td>
+                            <td>
+                                {% if mapping.transform_type != 'none' %}
+                                <div>{{ mapping.get_transform_type_display }}</div>
+                                <div class="production-mini-note">{{ mapping.transform_params|default:"{}"|truncatechars:36 }}</div>
+                                {% else %}
+                                <span class="production-mini-note">无转换</span>
+                                {% endif %}
+                            </td>
+                            <td>{% if mapping.target_table and mapping.target_field %}{{ mapping.target_table }}.{{ mapping.target_field }}{% else %}-{% endif %}</td>
+                            <td><span class="production-tag {% if mapping.is_active %}ok{% else %}danger{% endif %}">{% if mapping.is_active %}启用{% else %}停用{% endif %}</span></td>
+                            <td>
+                                <div class="production-inline-actions">
+                                    <button class="layui-btn layui-btn-xs" onclick="openRightPopup('编辑映射', '{% url 'production:data_mapping_edit' mapping.id %}')">编辑</button>
+                                    <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteMapping({{ mapping.id }})">删除</button>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- 操作按钮 -->
-                    <div style="margin-bottom: 20px;">
-                        <a href="{% url 'production:data_mapping_add' %}{% if current_source %}?data_source={{ current_source.id }}{% endif %}" class="layui-btn layui-btn-normal">
-                            <i class="layui-icon layui-icon-add-1"></i> 新增映射字段
-                        </a>
-                        <button class="layui-btn layui-btn-primary" onclick="batchImport()">
-                            <i class="layui-icon layui-icon-upload"></i> 批量导入
-                        </button>
-
-                    </div>
-
-                    <!-- 映射字段列表 -->
-                    <table class="layui-table">
-                        <thead>
-                            <tr>
-                                <th width="50">排序</th>
-                                <th>字段名称</th>
-                                <th>源数据路径</th>
-                                <th>字段类型</th>
-                                <th>数据转换</th>
-                                <th>目标映射</th>
-                                <th>状态</th>
-                                <th width="200">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for mapping in page_obj %}
-                            <tr>
-                                <td>
-                                    <input type="number" value="{{ mapping.sort }}" 
-                                           style="width: 60px; text-align: center;" 
-                                           onchange="updateSort({{ mapping.id }}, this.value)">
-                                </td>
-                                <td>
-                                    <strong>{{ mapping.name }}</strong>
-                                    {% if mapping.is_required %}
-                                    <span class="layui-badge layui-bg-red" style="margin-left: 5px;">必填</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px;">
-                                        {{ mapping.source_path }}
-                                    </code>
-                                </td>
-                                <td>
-                                    <span class="layui-badge layui-bg-blue">{{ mapping.get_field_type_display }}</span>
-                                </td>
-                                <td>
-                                    {% if mapping.transform_type != 'none' %}
-                                        <span class="layui-badge layui-bg-orange">{{ mapping.get_transform_type_display }}</span>
-                                        {% if mapping.transform_params %}
-                                        <br><small class="layui-text-muted">{{ mapping.transform_params|truncatechars:30 }}</small>
-                                        {% endif %}
-                                    {% else %}
-                                        <span class="layui-text-muted">无转换</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if mapping.target_table and mapping.target_field %}
-                                        {{ mapping.target_table }}.{{ mapping.target_field }}
-                                    {% else %}
-                                        <span class="layui-text-muted">未设置</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if mapping.is_active %}
-                                    <span class="layui-badge layui-bg-green">启用</span>
-                                    {% else %}
-                                    <span class="layui-badge layui-bg-gray">停用</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <div class="layui-btn-group">
-                                        <a href="{% url 'production:data_mapping_edit' mapping.id %}" class="layui-btn layui-btn-xs">
-                                            <i class="layui-icon layui-icon-edit"></i> 编辑
-                                        </a>
-                                        <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteMapping({{ mapping.id }})">
-                                            <i class="layui-icon layui-icon-delete"></i> 删除
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="8" style="text-align: center; padding: 50px;">
-                                    <i class="layui-icon layui-icon-face-cry" style="font-size: 48px; color: #ccc;"></i>
-                                    <p style="color: #999; margin-top: 10px;">暂无映射字段配置</p>
-                                    <a href="{% url 'production:data_mapping_add' %}{% if current_source %}?data_source={{ current_source.id }}{% endif %}" class="layui-btn layui-btn-normal">
-                                        <i class="layui-icon layui-icon-add-1"></i> 添加第一个映射字段
-                                    </a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-
-                    <!-- 配置说明 -->
-                    <div class="layui-collapse" style="margin-top: 30px;">
-                        <div class="layui-colla-item">
-                            <h2 class="layui-colla-title">配置说明</h2>
-                            <div class="layui-colla-content">
-                                <h4>数据路径语法：</h4>
-                                <ul>
-                                    <li><code>field_name</code> - 访问对象的字段</li>
-                                    <li><code>nested.field</code> - 访问嵌套对象的字段</li>
-                                    <li><code>array[0]</code> - 访问数组的第一个元素</li>
-                                    <li><code>items[0].name</code> - 访问数组第一个元素的name字段</li>
-                                </ul>
-                                
-                                <h4>数据转换类型：</h4>
-                                <ul>
-                                    <li><strong>乘法运算</strong>：将数值乘以指定因子，参数：{"factor": 1.5}</li>
-                                    <li><strong>除法运算</strong>：将数值除以指定除数，参数：{"divisor": 100}</li>
-                                    <li><strong>四舍五入</strong>：保留指定小数位数，参数：{"digits": 2}</li>
-                                    <li><strong>格式化</strong>：使用格式字符串，参数：{"format": "{:.2f}°C"}</li>
-                                    <li><strong>正则提取</strong>：使用正则表达式提取，参数：{"pattern": "\\d+"}</li>
-                                </ul>
-                                
-                                <h4>示例配置：</h4>
-                                <pre style="background: #f8f9fa; padding: 15px; border-radius: 6px;">
-{
-  "temperature": 25.6,
-  "humidity": 60.2,
-  "device": {
-    "id": "DEV001",
-    "status": "online"
-  },
-  "sensors": [
-    {"name": "temp1", "value": 25.6},
-    {"name": "hum1", "value": 60.2}
-  ]
-}
-
-映射配置：
-- 字段名：temperature，路径：temperature，类型：浮点数
-- 字段名：device_id，路径：device.id，类型：字符串
-- 字段名：first_sensor，路径：sensors[0].value，类型：浮点数
-                                </pre>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="production-empty">暂无映射字段，当前数据源还不会自动转成系统可识别字段。</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
-</div>
 
-<script>
-layui.use(['layer', 'element'], function(){
-    var layer = layui.layer;
-    var element = layui.element;
-});
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'layui/layui.js' %}"></script>
+    <script>
+        layui.use(['form'], function () {
+            layui.form.render();
+        });
 
-
-
-
-
-// 批量导入
-function batchImport() {
-    layui.use('layer', function(){
-        var layer = layui.layer;
-        layer.msg('批量导入功能开发中', {icon: 0});
-    });
-}
-
-// 更新排序
-function updateSort(mappingId, sortValue) {
-    $.post('/production/data/mapping/update-sort/', {
-        mapping_id: mappingId,
-        sort: sortValue,
-        csrfmiddlewaretoken: '{{ csrf_token }}'
-    }, function(response) {
-        if (response.code === 0) {
-            layui.use('layer', function(){
-                var layer = layui.layer;
-                layer.msg('排序更新成功', {icon: 1, time: 1000});
-            });
-        }
-    });
-}
-
-
-
-// 删除映射
-function deleteMapping(mappingId) {
-    layui.use('layer', function(){
-        var layer = layui.layer;
-        layer.confirm('确定要删除这个映射字段吗？', {
-            icon: 3,
-            title: '确认删除'
-        }, function(index) {
-            $.post('/production/data/mapping/' + mappingId + '/delete/', {
+        function updateSort(mappingId, sortValue) {
+            $.post('/production/data/mapping/update-sort/', {
+                mapping_id: mappingId,
+                sort: sortValue,
                 csrfmiddlewaretoken: '{{ csrf_token }}'
             }, function(response) {
                 if (response.code === 0) {
-                    layer.msg('删除成功', {icon: 1});
-                    setTimeout(function() {
-                        location.reload();
-                    }, 1500);
-                } else {
-                    layer.msg('删除失败：' + response.msg, {icon: 2});
+                    layui.use('layer', function(){ layui.layer.msg('排序已更新', {icon: 1, time: 1000}); });
                 }
-            }).fail(function() {
-                layer.msg('请求失败', {icon: 2});
             });
-            
-            layer.close(index);
-        });
-    });
-}
-</script>
-{% endblock %}
+        }
+
+        function deleteMapping(mappingId) {
+            layui.use('layer', function(){
+                layui.layer.confirm('确定删除这个映射字段吗？', {icon: 3, title: '确认删除'}, function(index) {
+                    $.post('/production/data/mapping/' + mappingId + '/delete/', {
+                        csrfmiddlewaretoken: '{{ csrf_token }}'
+                    }, function(response) {
+                        if (response.code === 0) {
+                            layui.layer.msg('删除成功', {icon: 1});
+                            setTimeout(function(){ location.reload(); }, 1200);
+                        } else {
+                            layui.layer.msg(response.msg || '删除失败', {icon: 2});
+                        }
+                    }).fail(function() {
+                        layui.layer.msg('删除请求失败', {icon: 2});
+                    });
+                    layui.layer.close(index);
+                });
+            });
+        }
+        {% include "production/_right_popup_function.html" %}
+    </script>
+    {% include "production/_popup_feedback.html" %}
+</body>
+</html>
