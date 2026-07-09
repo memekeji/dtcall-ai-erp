@@ -1062,7 +1062,10 @@ class QueryService:
 
         # 发票相关意图
         elif '发票' in query_lower:
-            if any(keyword in query_lower for keyword in ['未开票', '已开票', '已作废']):
+            self._extract_finance_invoice_entities(query_lower, entities)
+            if entities.get('enter_status'):
+                intent = 'finance_invoice_count' if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower) else 'finance_invoice_list'
+            elif any(keyword in query_lower for keyword in ['未开票', '已开票', '已作废']):
                 if '未开票' in query_lower:
                     entities['status'] = 'unissued'
                     intent = 'finance_invoice_count' if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower) else 'finance_invoice_list'
@@ -1087,14 +1090,13 @@ class QueryService:
 
         # 员工相关意图
         elif '员工' in query_lower or '人事' in query_lower:
+            self._extract_employee_entities(query_lower, entities)
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower):
                 # 检查是否有状态筛选
-                if '在职' in query_lower:
+                if entities.get('status') == 'active':
                     intent = 'employee_count_active'
-                    entities['status'] = '在职'
-                elif '离职' in query_lower:
+                elif entities.get('status') == 'inactive':
                     intent = 'employee_count_inactive'
-                    entities['status'] = '离职'
                 else:
                     intent = 'employee_count'
             elif '列表' in query_lower or '有哪些' in query_lower:
@@ -1102,6 +1104,7 @@ class QueryService:
 
         # 部门相关意图
         elif '部门' in query_lower:
+            self._extract_enabled_status_entities(query_lower, entities)
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower):
                 intent = 'department_count'
             elif '列表' in query_lower or '有哪些' in query_lower:
@@ -1200,6 +1203,10 @@ class QueryService:
         # 财务相关意图
         elif '财务' in query_lower or '报销' in query_lower or '发票' in query_lower or '回款' in query_lower or '打款' in query_lower:
             self._extract_time_range_entities(query_lower, entities)
+            if '报销' in query_lower:
+                self._extract_finance_expense_entities(query_lower, entities)
+            if '发票' in query_lower:
+                self._extract_finance_invoice_entities(query_lower, entities)
             if '待打款' in query_lower:
                 entities['status'] = 'pending_payment'
             elif '已打款' in query_lower:
@@ -1657,6 +1664,42 @@ class QueryService:
             entities['status'] = 'quarantine'
         elif '正常' in query_lower or '可用' in query_lower:
             entities['status'] = 'normal'
+
+    def _extract_employee_entities(self, query_lower, entities):
+        if '离职' in query_lower:
+            entities['status'] = 'inactive'
+        elif any(keyword in query_lower for keyword in ['禁用', '停用', '禁止登录']):
+            entities['status'] = 'disabled'
+        elif any(keyword in query_lower for keyword in ['待入职', '未入职']):
+            entities['status'] = 'pending'
+        elif any(keyword in query_lower for keyword in ['在职', '正常员工', '启用员工']):
+            entities['status'] = 'active'
+
+    def _extract_finance_expense_entities(self, query_lower, entities):
+        if any(keyword in query_lower for keyword in ['审核通过', '审批通过', '已通过']):
+            entities['check_status'] = 'approved'
+        elif any(keyword in query_lower for keyword in ['审核中', '审批中']):
+            entities['check_status'] = 'reviewing'
+        elif any(keyword in query_lower for keyword in ['待审核', '待审批']):
+            entities['check_status'] = 'pending'
+        elif any(keyword in query_lower for keyword in ['审核不通过', '审批不通过', '已驳回', '驳回']):
+            entities['check_status'] = 'rejected'
+        elif any(keyword in query_lower for keyword in ['撤销审核', '已撤销']):
+            entities['check_status'] = 'cancelled'
+
+    def _extract_finance_invoice_entities(self, query_lower, entities):
+        if any(keyword in query_lower for keyword in ['部分回款', '部分到账']):
+            entities['enter_status'] = 'partial'
+        elif any(keyword in query_lower for keyword in ['全部回款', '全额回款', '已回款']):
+            entities['enter_status'] = 'full'
+        elif any(keyword in query_lower for keyword in ['未回款', '未到账']):
+            entities['enter_status'] = 'none'
+        if any(keyword in query_lower for keyword in ['审核通过', '审批通过', '已通过']):
+            entities['check_status'] = 'approved'
+        elif any(keyword in query_lower for keyword in ['审核中', '审批中']):
+            entities['check_status'] = 'reviewing'
+        elif any(keyword in query_lower for keyword in ['待审核', '待审批']):
+            entities['check_status'] = 'pending'
 
     def _extract_contract_entities(self, query_lower, entities):
         if any(keyword in query_lower for keyword in ['审核中', '审批中']):
@@ -2169,11 +2212,11 @@ class QueryService:
     def handle_employee_count(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理员工数量查询"""
-        from apps.user.models import EmployeeFile
-        count = EmployeeFile.objects.count()
+        from apps.user.models import Admin
+        queryset = self._apply_employee_filters(Admin.objects.all(), entities)
         return {
             'type': 'count',
-            'value': count,
+            'value': queryset.count(),
             'data_type': 'employee'
         }
 
@@ -3033,7 +3076,8 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理员工列表查询"""
         from apps.user.models import Admin
-        employees = Admin.objects.all()[:5]
+        queryset = self._apply_employee_filters(Admin.objects.all(), entities)
+        employees = queryset[:5]
         employee_list = [{
             'id': employee.id,
             'name': employee.name,
@@ -3044,7 +3088,7 @@ class QueryService:
         return {
             'type': 'list',
             'items': employee_list,
-            'total': Admin.objects.count(),
+            'total': queryset.count(),
             'data_type': 'employee'
         }
 
@@ -3053,10 +3097,10 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理部门数量查询"""
         from apps.department.models import Department
-        count = Department.objects.count()
+        queryset = self._apply_department_filters(Department.objects.all(), entities)
         return {
             'type': 'count',
-            'value': count,
+            'value': queryset.count(),
             'data_type': 'department'
         }
 
@@ -3064,7 +3108,8 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理部门列表查询"""
         from apps.department.models import Department
-        departments = Department.objects.all()[:5]
+        queryset = self._apply_department_filters(Department.objects.all(), entities)
+        departments = queryset[:5]
         department_list = [{
             'id': department.id,
             'name': department.name,
@@ -3073,7 +3118,7 @@ class QueryService:
         return {
             'type': 'list',
             'items': department_list,
-            'total': Department.objects.count(),
+            'total': queryset.count(),
             'data_type': 'department'
         }
 
@@ -3082,11 +3127,7 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理报销数量查询"""
         from apps.finance.models import Expense
-        queryset = Expense.objects.all()
-        if entities.get('status') == 'pending_payment':
-            queryset = queryset.filter(pay_status=0)
-        elif entities.get('status') == 'paid':
-            queryset = queryset.filter(pay_status=1)
+        queryset = self._apply_finance_expense_filters(Expense.objects.all(), entities)
         return {
             'type': 'count',
             'value': queryset.count(),
@@ -3098,11 +3139,7 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理报销列表查询"""
         from apps.finance.models import Expense
-        queryset = Expense.objects.all()
-        if entities.get('status') == 'pending_payment':
-            queryset = queryset.filter(pay_status=0)
-        elif entities.get('status') == 'paid':
-            queryset = queryset.filter(pay_status=1)
+        queryset = self._apply_finance_expense_filters(Expense.objects.all(), entities)
         expenses = queryset[:5]
         expense_list = [{
             'id': expense.id,
@@ -3123,13 +3160,7 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理发票数量查询"""
         from apps.finance.models import Invoice
-        queryset = Invoice.objects.all()
-        if entities.get('status') == 'unissued':
-            queryset = queryset.filter(open_status=0)
-        elif entities.get('status') == 'issued':
-            queryset = queryset.filter(open_status=1)
-        elif entities.get('status') == 'void':
-            queryset = queryset.filter(open_status=2)
+        queryset = self._apply_finance_invoice_filters(Invoice.objects.all(), entities)
         return {
             'type': 'count',
             'value': queryset.count(),
@@ -3141,13 +3172,7 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理发票列表查询"""
         from apps.finance.models import Invoice
-        queryset = Invoice.objects.all()
-        if entities.get('status') == 'unissued':
-            queryset = queryset.filter(open_status=0)
-        elif entities.get('status') == 'issued':
-            queryset = queryset.filter(open_status=1)
-        elif entities.get('status') == 'void':
-            queryset = queryset.filter(open_status=2)
+        queryset = self._apply_finance_invoice_filters(Invoice.objects.all(), entities)
         invoices = queryset[:5]
         invoice_list = [{
             'id': invoice.id,
@@ -5185,6 +5210,79 @@ class QueryService:
             return queryset.filter(**{field_name: True})
         if status == 'inactive':
             return queryset.filter(**{field_name: False})
+        return queryset
+
+    def _apply_employee_filters(self, queryset, entities):
+        status = entities.get('status')
+        status_mapping = {
+            'pending': -1,
+            'disabled': 0,
+            'active': 1,
+            'inactive': 2,
+        }
+        mapped_status = status_mapping.get(status, status if isinstance(status, int) else None)
+        if mapped_status is not None:
+            queryset = queryset.filter(status=mapped_status)
+        return queryset
+
+    def _apply_department_filters(self, queryset, entities):
+        status = entities.get('status')
+        if status == 'active':
+            queryset = queryset.filter(status=1)
+        elif status == 'inactive':
+            queryset = queryset.filter(status=0)
+        return queryset
+
+    def _apply_finance_expense_filters(self, queryset, entities):
+        status = entities.get('status')
+        if status == 'pending_payment':
+            queryset = queryset.filter(pay_status=0)
+        elif status == 'paid':
+            queryset = queryset.filter(pay_status=1)
+
+        check_status = entities.get('check_status')
+        check_status_mapping = {
+            'pending': 0,
+            'reviewing': 1,
+            'approved': 2,
+            'rejected': 3,
+            'cancelled': 4,
+        }
+        mapped_check_status = check_status_mapping.get(check_status, check_status if isinstance(check_status, int) else None)
+        if mapped_check_status is not None:
+            queryset = queryset.filter(check_status=mapped_check_status)
+        return queryset
+
+    def _apply_finance_invoice_filters(self, queryset, entities):
+        status = entities.get('status')
+        if status == 'unissued':
+            queryset = queryset.filter(open_status=0)
+        elif status == 'issued':
+            queryset = queryset.filter(open_status=1)
+        elif status == 'void':
+            queryset = queryset.filter(open_status=2)
+
+        enter_status = entities.get('enter_status')
+        enter_status_mapping = {
+            'none': 0,
+            'partial': 1,
+            'full': 2,
+        }
+        mapped_enter_status = enter_status_mapping.get(enter_status, enter_status if isinstance(enter_status, int) else None)
+        if mapped_enter_status is not None:
+            queryset = queryset.filter(enter_status=mapped_enter_status)
+
+        check_status = entities.get('check_status')
+        check_status_mapping = {
+            'pending': 0,
+            'reviewing': 1,
+            'approved': 2,
+            'rejected': 3,
+            'cancelled': 4,
+        }
+        mapped_check_status = check_status_mapping.get(check_status, check_status if isinstance(check_status, int) else None)
+        if mapped_check_status is not None:
+            queryset = queryset.filter(check_status=mapped_check_status)
         return queryset
 
     def _apply_warehouse_filters(self, queryset, entities):

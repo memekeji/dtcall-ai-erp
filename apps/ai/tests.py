@@ -2538,6 +2538,22 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         self.assertEqual(intent, 'finance_expense_list')
         self.assertEqual(entities['status'], 'pending_payment')
 
+    def test_recognize_approved_expense_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('审核通过的报销有哪些')
+
+        self.assertEqual(intent, 'finance_expense_list')
+        self.assertEqual(entities['check_status'], 'approved')
+
+    def test_recognize_pending_expense_count_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('待审核报销有多少')
+
+        self.assertEqual(intent, 'finance_expense_count')
+        self.assertEqual(entities['check_status'], 'pending')
+
     def test_recognize_pending_alert_plain_language(self):
         from apps.ai.services.query_service import QueryService
 
@@ -2869,6 +2885,14 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         self.assertEqual(intent, 'finance_income_count')
         self.assertEqual(entities['time_range'], 'last_month')
 
+    def test_recognize_partial_income_invoice_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('部分回款的发票有哪些')
+
+        self.assertEqual(intent, 'finance_invoice_list')
+        self.assertEqual(entities['enter_status'], 'partial')
+
     def test_recognize_unissued_invoice_plain_language(self):
         from apps.ai.services.query_service import QueryService
 
@@ -2876,6 +2900,22 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
 
         self.assertEqual(intent, 'finance_invoice_count')
         self.assertEqual(entities['status'], 'unissued')
+
+    def test_recognize_inactive_employee_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('离职员工有哪些')
+
+        self.assertEqual(intent, 'employee_list')
+        self.assertEqual(entities['status'], 'inactive')
+
+    def test_recognize_inactive_department_count_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('禁用部门有几个')
+
+        self.assertEqual(intent, 'department_count')
+        self.assertEqual(entities['status'], 'inactive')
 
     def test_recognize_pending_publish_document_plain_language(self):
         from apps.ai.services.query_service import QueryService
@@ -3776,6 +3816,22 @@ class AIQueryServiceApprovalAndFinanceScopeTests(TestCase):
 
         self.assertEqual(codes, {'BX-001'})
 
+    def test_finance_expense_list_approved_scope_only_returns_approved(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.finance.models import Expense
+
+        User = get_user_model()
+        user = User.objects.create_user(username='expense-approved-user')
+
+        Expense.objects.create(code='BX-APPROVED', cost=100, pay_status=0, check_status=2)
+        Expense.objects.create(code='BX-PENDING', cost=120, pay_status=0, check_status=0)
+
+        result = QueryService().handle_finance_expense_list({'check_status': 'approved'}, user)
+        codes = {item['code'] for item in result['items']}
+
+        self.assertEqual(codes, {'BX-APPROVED'})
+
     def test_finance_invoice_list_unissued_scope_only_returns_unissued(self):
         from django.contrib.auth import get_user_model
         from apps.ai.services.query_service import QueryService
@@ -3791,6 +3847,51 @@ class AIQueryServiceApprovalAndFinanceScopeTests(TestCase):
         codes = {item['code'] for item in result['items']}
 
         self.assertEqual(codes, {'FP-001'})
+
+    def test_finance_invoice_list_partial_enter_scope_only_returns_partial(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.finance.models import Invoice
+
+        User = get_user_model()
+        user = User.objects.create_user(username='invoice-partial-user')
+
+        Invoice.objects.create(code='FP-PARTIAL', amount=100, open_status=1, enter_status=1)
+        Invoice.objects.create(code='FP-FULL', amount=120, open_status=1, enter_status=2)
+
+        result = QueryService().handle_finance_invoice_list({'enter_status': 'partial'}, user)
+        codes = {item['code'] for item in result['items']}
+
+        self.assertEqual(codes, {'FP-PARTIAL'})
+
+    def test_employee_list_inactive_scope_only_returns_dimission(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+
+        User = get_user_model()
+        User.objects.create_user(username='employee-active', name='在职员工', status=1)
+        User.objects.create_user(username='employee-inactive', name='离职员工', status=2)
+
+        result = QueryService().handle_employee_list({'status': 'inactive'}, User.objects.create_user(username='employee-query-user'))
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(names, {'离职员工'})
+
+    def test_department_list_inactive_scope_only_returns_disabled(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.department.models import Department
+
+        User = get_user_model()
+        user = User.objects.create_user(username='department-query-user')
+
+        Department.objects.create(name='启用部门', code='DEP-ACTIVE', status=1)
+        Department.objects.create(name='禁用部门', code='DEP-INACTIVE', status=0)
+
+        result = QueryService().handle_department_list({'status': 'inactive'}, user)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(names, {'禁用部门'})
 
     def test_approval_list_created_by_me_ongoing_scope_only_returns_unfinished(self):
         from django.contrib.auth import get_user_model
