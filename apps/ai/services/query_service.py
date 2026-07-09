@@ -88,6 +88,14 @@ class QueryService:
             'finance_payable_list': self.handle_finance_payable_list,
             'finance_bank_transaction_count': self.handle_finance_bank_transaction_count,
             'finance_bank_transaction_list': self.handle_finance_bank_transaction_list,
+            'ai_model_config_count': self.handle_ai_model_config_count,
+            'ai_model_config_list': self.handle_ai_model_config_list,
+            'ai_knowledge_base_count': self.handle_ai_knowledge_base_count,
+            'ai_knowledge_base_list': self.handle_ai_knowledge_base_list,
+            'ai_task_count': self.handle_ai_task_count,
+            'ai_task_list': self.handle_ai_task_list,
+            'ai_workflow_count': self.handle_ai_workflow_count,
+            'ai_workflow_list': self.handle_ai_workflow_list,
             'supply_chain_forecast_count': self.handle_supply_chain_forecast_count,
             'supply_chain_forecast_list': self.handle_supply_chain_forecast_list,
             'supply_chain_outsource_count': self.handle_supply_chain_outsource_count,
@@ -221,6 +229,10 @@ class QueryService:
             'finance_receivable': 'finance.view_accountsreceivable',
             'finance_payable': 'finance.view_accountspayable',
             'finance_bank_transaction': 'finance.view_banktransaction',
+            'ai_model_config': 'user.view_model_config',
+            'ai_knowledge_base': 'user.view_knowledge_base',
+            'ai_task': 'user.view_ai_task',
+            'ai_workflow': 'user.view_ai_workflow',
             'supply_chain_forecast': 'user.view_supply_chain_forecast',
             'supply_chain_outsource': 'user.view_supply_chain_outsource',
             'supply_chain_pr_review': 'user.view_supply_chain_pr_review',
@@ -312,6 +324,14 @@ class QueryService:
             'finance_payable_list': 'finance.view_accountspayable',
             'finance_bank_transaction_count': 'finance.view_banktransaction',
             'finance_bank_transaction_list': 'finance.view_banktransaction',
+            'ai_model_config_count': 'user.view_model_config',
+            'ai_model_config_list': 'user.view_model_config',
+            'ai_knowledge_base_count': 'user.view_knowledge_base',
+            'ai_knowledge_base_list': 'user.view_knowledge_base',
+            'ai_task_count': 'user.view_ai_task',
+            'ai_task_list': 'user.view_ai_task',
+            'ai_workflow_count': 'user.view_ai_workflow',
+            'ai_workflow_list': 'user.view_ai_workflow',
             'supply_chain_forecast_count': 'user.view_supply_chain_forecast',
             'supply_chain_forecast_list': 'user.view_supply_chain_forecast',
             'supply_chain_outsource_count': 'user.view_supply_chain_outsource',
@@ -648,6 +668,10 @@ class QueryService:
             'finance_receivable': {'count': 'finance_receivable_count', 'list': 'finance_receivable_list'},
             'finance_payable': {'count': 'finance_payable_count', 'list': 'finance_payable_list'},
             'finance_bank_transaction': {'count': 'finance_bank_transaction_count', 'list': 'finance_bank_transaction_list'},
+            'ai_model_config': {'count': 'ai_model_config_count', 'list': 'ai_model_config_list'},
+            'ai_knowledge_base': {'count': 'ai_knowledge_base_count', 'list': 'ai_knowledge_base_list'},
+            'ai_task': {'count': 'ai_task_count', 'list': 'ai_task_list'},
+            'ai_workflow': {'count': 'ai_workflow_count', 'list': 'ai_workflow_list'},
             'supply_chain_forecast': {'count': 'supply_chain_forecast_count', 'list': 'supply_chain_forecast_list'},
             'supply_chain_outsource': {'count': 'supply_chain_outsource_count', 'list': 'supply_chain_outsource_list'},
             'supply_chain_pr_review': {'count': 'supply_chain_pr_review_count', 'list': 'supply_chain_pr_review_list'},
@@ -760,6 +784,10 @@ class QueryService:
             'finance_payable',
             'finance_account',
             'finance_budget',
+            'ai_model_config',
+            'ai_knowledge_base',
+            'ai_workflow',
+            'ai_task',
             'supply_chain_price_review',
             'supply_chain_pr_review',
             'supply_chain_forecast',
@@ -1010,6 +1038,30 @@ class QueryService:
                 intent = 'schedule_count'
             else:
                 intent = 'schedule_list'
+        elif any(keyword in query_lower for keyword in ['ai模型配置', '模型配置', '可用ai模型', '可用模型']):
+            self._extract_ai_center_entities(query_lower, entities, 'ai_model_config')
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'ai_model_config_count'
+            else:
+                intent = 'ai_model_config_list'
+        elif any(keyword in query_lower for keyword in ['知识库', 'ai知识库']):
+            self._extract_ai_center_entities(query_lower, entities, 'ai_knowledge_base')
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'ai_knowledge_base_count'
+            else:
+                intent = 'ai_knowledge_base_list'
+        elif any(keyword in query_lower for keyword in ['ai任务', '智能任务']):
+            self._extract_ai_center_entities(query_lower, entities, 'ai_task')
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'ai_task_count'
+            else:
+                intent = 'ai_task_list'
+        elif any(keyword in query_lower for keyword in ['ai工作流', '智能工作流', '工作流']):
+            self._extract_ai_center_entities(query_lower, entities, 'ai_workflow')
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'ai_workflow_count'
+            else:
+                intent = 'ai_workflow_list'
         elif any(keyword in query_lower for keyword in ['需求预测', '预测计划', '备料评审']):
             self._extract_supply_chain_entities(query_lower, entities, 'forecast')
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
@@ -2219,6 +2271,36 @@ class QueryService:
             if any(keyword in query_lower for keyword in keywords):
                 entities['status'] = status
                 break
+
+    def _extract_ai_center_entities(self, query_lower, entities, data_type):
+        self._extract_time_range_entities(query_lower, entities)
+        if data_type == 'ai_model_config':
+            if any(keyword in query_lower for keyword in ['可用', '启用', '激活']):
+                entities['is_active'] = True
+            elif any(keyword in query_lower for keyword in ['停用', '禁用']):
+                entities['is_active'] = False
+            if '默认' in query_lower:
+                entities['is_default'] = True
+            return
+
+        if data_type in {'ai_knowledge_base', 'ai_workflow'}:
+            if any(keyword in query_lower for keyword in ['已发布', '发布的']):
+                entities['status'] = 'published'
+            elif any(keyword in query_lower for keyword in ['草稿']):
+                entities['status'] = 'draft'
+            elif any(keyword in query_lower for keyword in ['已归档', '归档']):
+                entities['status'] = 'archived'
+            return
+
+        if data_type == 'ai_task':
+            if any(keyword in query_lower for keyword in ['失败', '执行失败']):
+                entities['status'] = 'failed'
+            elif any(keyword in query_lower for keyword in ['执行中', '运行中']):
+                entities['status'] = 'running'
+            elif any(keyword in query_lower for keyword in ['已完成', '完成的']):
+                entities['status'] = 'completed'
+            elif any(keyword in query_lower for keyword in ['待执行', '待处理']):
+                entities['status'] = 'pending'
 
     def _extract_contract_entities(self, query_lower, entities):
         if any(keyword in query_lower for keyword in ['审核中', '审批中']):
@@ -3835,6 +3917,62 @@ class QueryService:
             'finance_bank_transaction',
         )
         return self._build_advanced_finance_list(queryset, 'finance_bank_transaction', entities)
+
+    def handle_ai_model_config_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.ai.models import AIModelConfig
+        queryset = self._apply_ai_center_filters(AIModelConfig.objects.all(), entities, 'ai_model_config')
+        return self._build_ai_center_count(queryset, 'ai_model_config', entities)
+
+    def handle_ai_model_config_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.ai.models import AIModelConfig
+        queryset = self._apply_ai_center_filters(AIModelConfig.objects.all(), entities, 'ai_model_config')
+        return self._build_ai_center_list(queryset, 'ai_model_config', entities)
+
+    def handle_ai_knowledge_base_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.ai.models import AIKnowledgeBase
+        queryset = self._apply_ai_center_filters(
+            AIKnowledgeBase.objects.select_related('creator').all(),
+            entities,
+            'ai_knowledge_base',
+        )
+        return self._build_ai_center_count(queryset, 'ai_knowledge_base', entities)
+
+    def handle_ai_knowledge_base_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.ai.models import AIKnowledgeBase
+        queryset = self._apply_ai_center_filters(
+            AIKnowledgeBase.objects.select_related('creator').all(),
+            entities,
+            'ai_knowledge_base',
+        )
+        return self._build_ai_center_list(queryset, 'ai_knowledge_base', entities)
+
+    def handle_ai_task_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.ai.models import AITask
+        queryset = self._apply_ai_center_filters(AITask.objects.select_related('user').all(), entities, 'ai_task')
+        return self._build_ai_center_count(queryset, 'ai_task', entities)
+
+    def handle_ai_task_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.ai.models import AITask
+        queryset = self._apply_ai_center_filters(AITask.objects.select_related('user').all(), entities, 'ai_task')
+        return self._build_ai_center_list(queryset, 'ai_task', entities)
+
+    def handle_ai_workflow_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.ai.models import AIWorkflow
+        queryset = self._apply_ai_center_filters(AIWorkflow.objects.select_related('owner').all(), entities, 'ai_workflow')
+        return self._build_ai_center_count(queryset, 'ai_workflow', entities)
+
+    def handle_ai_workflow_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.ai.models import AIWorkflow
+        queryset = self._apply_ai_center_filters(AIWorkflow.objects.select_related('owner').all(), entities, 'ai_workflow')
+        return self._build_ai_center_list(queryset, 'ai_workflow', entities)
 
     def handle_supply_chain_forecast_count(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
@@ -5561,6 +5699,10 @@ class QueryService:
             'finance_receivable': '应收账款',
             'finance_payable': '应付账款',
             'finance_bank_transaction': '银行流水',
+            'ai_model_config': 'AI模型配置',
+            'ai_knowledge_base': '知识库',
+            'ai_task': 'AI任务',
+            'ai_workflow': 'AI工作流',
             'supply_chain_forecast': '需求预测计划',
             'supply_chain_outsource': '委外发料单',
             'supply_chain_pr_review': 'PR审核任务',
@@ -5807,6 +5949,31 @@ class QueryService:
                 direction = item.get('direction', '')
                 amount = item.get('amount', 0)
                 return f"{no}（{direction}，¥{amount:,.2f}）"
+            elif data_type == 'ai_model_config':
+                name = item.get('name', '未知')
+                provider = item.get('provider', '')
+                primary_model = item.get('primary_model', '')
+                active = '启用' if item.get('is_active') else '停用'
+                parts = [part for part in [provider, primary_model, active] if part]
+                if parts:
+                    return f"{name}（{'，'.join(parts)}）"
+                return name
+            elif data_type == 'ai_knowledge_base':
+                name = item.get('name', '未知')
+                status = item.get('status', '')
+                return f"{name}（{status}）"
+            elif data_type == 'ai_task':
+                task_type = item.get('task_type', '未知')
+                status = item.get('status', '')
+                user = item.get('user', '')
+                if user:
+                    return f"{task_type}（{user}，{status}）"
+                return f"{task_type}（{status}）"
+            elif data_type == 'ai_workflow':
+                name = item.get('name', '未知')
+                status = item.get('status', '')
+                visibility = '公开' if item.get('is_public') else '私有'
+                return f"{name}（{status}，{visibility}）"
             elif data_type == 'supply_chain_forecast':
                 name = item.get('name', '未知')
                 code = item.get('code', '')
@@ -6723,6 +6890,53 @@ class QueryService:
             for date_field in ['start_date', 'end_date', 'due_date', 'transaction_date']:
                 if hasattr(row.get(date_field), 'strftime'):
                     row[date_field] = row[date_field].strftime('%Y-%m-%d')
+            items.append(row)
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': data_type,
+            'status': entities.get('status'),
+        }
+
+    def _apply_ai_center_filters(self, queryset, entities, data_type):
+        status = entities.get('status')
+        if status:
+            queryset = queryset.filter(status=status)
+        if data_type == 'ai_model_config':
+            if 'is_active' in entities:
+                queryset = queryset.filter(is_active=entities['is_active'])
+            if 'is_default' in entities:
+                queryset = queryset.filter(is_default=entities['is_default'])
+        return self._apply_datetime_range_filter(queryset, entities, 'created_at')
+
+    def _build_ai_center_count(self, queryset, data_type, entities):
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': data_type,
+            'status': entities.get('status'),
+        }
+
+    def _build_ai_center_list(self, queryset, data_type, entities):
+        fields = {
+            'ai_model_config': ['id', 'name', 'is_default', 'is_active'],
+            'ai_knowledge_base': ['id', 'name', 'description', 'status'],
+            'ai_task': ['id', 'task_type', 'status', 'error_message'],
+            'ai_workflow': ['id', 'name', 'description', 'status', 'is_public'],
+        }
+        items = []
+        for item in queryset[:5]:
+            row = {field: getattr(item, field, '') for field in fields[data_type]}
+            if data_type == 'ai_model_config':
+                row['provider'] = item.provider
+                row['primary_model'] = item.primary_model_name()
+            elif data_type == 'ai_knowledge_base':
+                row['creator'] = getattr(getattr(item, 'creator', None), 'username', '')
+            elif data_type == 'ai_task':
+                row['user'] = getattr(getattr(item, 'user', None), 'username', '')
+            elif data_type == 'ai_workflow':
+                row['owner'] = getattr(getattr(item, 'owner', None), 'username', '')
             items.append(row)
         return {
             'type': 'list',

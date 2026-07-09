@@ -141,6 +141,28 @@ class AIPermissionGuardTests(SimpleTestCase):
 
 
 class AIQueryServicePermissionMappingTests(SimpleTestCase):
+    def test_ai_center_query_permissions_follow_menu_permissions(self):
+        from apps.ai.services.query_service import QueryService
+
+        allowed_permissions = {
+            'user.view_model_config',
+            'user.view_knowledge_base',
+            'user.view_ai_task',
+            'user.view_ai_workflow',
+        }
+        user = SimpleNamespace(
+            username='ai-center-query-user',
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in allowed_permissions,
+        )
+        service = QueryService()
+
+        self.assertTrue(service.check_permission(user, 'ai_model_config_list'))
+        self.assertTrue(service.check_permission(user, 'ai_knowledge_base_list'))
+        self.assertTrue(service.check_permission(user, 'ai_task_list'))
+        self.assertTrue(service.check_permission(user, 'ai_workflow_list'))
+
     def test_supply_chain_query_permissions_follow_menu_permissions(self):
         from apps.ai.services.query_service import QueryService
 
@@ -2527,6 +2549,38 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         self.assertEqual(intent, 'supply_chain_sample_count')
         self.assertEqual(entities['status'], 'pickup_pending')
 
+    def test_recognize_ai_model_config_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('可用AI模型配置有哪些')
+
+        self.assertEqual(intent, 'ai_model_config_list')
+        self.assertTrue(entities['is_active'])
+
+    def test_recognize_ai_knowledge_base_count_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('已发布知识库有多少')
+
+        self.assertEqual(intent, 'ai_knowledge_base_count')
+        self.assertEqual(entities['status'], 'published')
+
+    def test_recognize_failed_ai_task_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('失败的AI任务有哪些')
+
+        self.assertEqual(intent, 'ai_task_list')
+        self.assertEqual(entities['status'], 'failed')
+
+    def test_recognize_published_ai_workflow_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('已发布AI工作流有哪些')
+
+        self.assertEqual(intent, 'ai_workflow_list')
+        self.assertEqual(entities['status'], 'published')
+
     def test_recognize_production_overview_plain_language(self):
         from apps.ai.services.query_service import QueryService
 
@@ -4554,6 +4608,93 @@ class AIQueryServiceOfficeVisibilityTests(TestCase):
 
 
 class AIQueryServiceApprovalAndFinanceScopeTests(TestCase):
+    def test_ai_model_config_list_active_scope_only_returns_active(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.models import AIModelConfig
+        from apps.ai.services.query_service import QueryService
+
+        User = get_user_model()
+        user = User.objects.create_user(username='ai-model-query-user')
+
+        AIModelConfig.objects.create(name='可用模型', api_base='https://example.com/v1', api_key='sk-a', is_active=True)
+        AIModelConfig.objects.create(name='停用模型', api_base='https://example.com/v1', api_key='sk-b', is_active=False)
+
+        result = QueryService().handle_ai_model_config_list({'is_active': True}, user)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(names, {'可用模型'})
+
+    def test_ai_knowledge_base_count_status_scope_only_counts_published(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.models import AIKnowledgeBase
+        from apps.ai.services.query_service import QueryService
+
+        User = get_user_model()
+        user = User.objects.create_user(username='ai-kb-query-user')
+
+        AIKnowledgeBase.objects.create(name='已发布库', status='published', creator=user)
+        AIKnowledgeBase.objects.create(name='草稿库', status='draft', creator=user)
+
+        result = QueryService().handle_ai_knowledge_base_count({'status': 'published'}, user)
+
+        self.assertEqual(result['value'], 1)
+
+    def test_ai_task_list_status_scope_only_returns_failed(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.models import AITask
+        from apps.ai.services.query_service import QueryService
+
+        User = get_user_model()
+        user = User.objects.create_user(username='ai-task-query-user')
+
+        AITask.objects.create(user=user, task_type='document_summary', task_params={}, status='failed')
+        AITask.objects.create(user=user, task_type='document_summary', task_params={}, status='completed')
+
+        result = QueryService().handle_ai_task_list({'status': 'failed'}, user)
+        statuses = {item['status'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(statuses, {'failed'})
+
+    def test_ai_workflow_list_status_scope_only_returns_published(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.models import AIWorkflow
+        from apps.ai.services.query_service import QueryService
+
+        User = get_user_model()
+        user = User.objects.create_user(username='ai-workflow-query-user')
+
+        AIWorkflow.objects.create(name='已发布流程', status='published', owner=user)
+        AIWorkflow.objects.create(name='草稿流程', status='draft', owner=user)
+
+        result = QueryService().handle_ai_workflow_list({'status': 'published'}, user)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(names, {'已发布流程'})
+
+    def test_ai_model_config_result_format_includes_primary_model(self):
+        from apps.ai.services.query_service import QueryService
+
+        result = {
+            'type': 'list',
+            'data_type': 'ai_model_config',
+            'total': 1,
+            'items': [{
+                'id': 1,
+                'name': '默认模型',
+                'provider': 'openai',
+                'primary_model': 'gpt-4o-mini',
+                'is_active': True,
+            }],
+        }
+
+        message = QueryService().format_result(result)
+
+        self.assertIn('默认模型', message)
+        self.assertIn('gpt-4o-mini', message)
+
     def test_supply_chain_forecast_list_status_scope_only_returns_reviewing(self):
         from django.contrib.auth import get_user_model
         from apps.ai.services.query_service import QueryService
