@@ -130,8 +130,16 @@ class QueryService:
             'document_list': self.handle_document_list,
             'asset_count': self.handle_asset_count,
             'asset_list': self.handle_asset_list,
+            'asset_repair_count': self.handle_asset_repair_count,
+            'asset_repair_list': self.handle_asset_repair_list,
             'vehicle_count': self.handle_vehicle_count,
             'vehicle_list': self.handle_vehicle_list,
+            'vehicle_maintenance_count': self.handle_vehicle_maintenance_count,
+            'vehicle_maintenance_list': self.handle_vehicle_maintenance_list,
+            'vehicle_fee_count': self.handle_vehicle_fee_count,
+            'vehicle_fee_list': self.handle_vehicle_fee_list,
+            'vehicle_oil_count': self.handle_vehicle_oil_count,
+            'vehicle_oil_list': self.handle_vehicle_oil_list,
             'seal_count': self.handle_seal_count,
             'seal_list': self.handle_seal_list,
             'seal_application_count': self.handle_seal_application_count,
@@ -208,7 +216,11 @@ class QueryService:
             'work_type': 'project.view_work_type',
             'document': 'system.view_document',
             'asset': 'user.view_asset',
+            'asset_repair': 'user.view_asset_repair',
             'vehicle': 'user.view_vehicle_info',
+            'vehicle_maintenance': 'user.view_vehicle_maintenance',
+            'vehicle_fee': 'user.view_vehicle_fee',
+            'vehicle_oil': 'user.view_vehicle_oil',
             'seal': 'user.view_seal_management',
             'seal_application': 'user.view_seal_application',
             'payment': 'finance.view_payment',
@@ -303,8 +315,16 @@ class QueryService:
             'document_list': 'system.view_document',
             'asset_count': 'user.view_asset',
             'asset_list': 'user.view_asset',
+            'asset_repair_count': 'user.view_asset_repair',
+            'asset_repair_list': 'user.view_asset_repair',
             'vehicle_count': 'user.view_vehicle_info',
             'vehicle_list': 'user.view_vehicle_info',
+            'vehicle_maintenance_count': 'user.view_vehicle_maintenance',
+            'vehicle_maintenance_list': 'user.view_vehicle_maintenance',
+            'vehicle_fee_count': 'user.view_vehicle_fee',
+            'vehicle_fee_list': 'user.view_vehicle_fee',
+            'vehicle_oil_count': 'user.view_vehicle_oil',
+            'vehicle_oil_list': 'user.view_vehicle_oil',
             'seal_count': 'user.view_seal_management',
             'seal_list': 'user.view_seal_management',
             'seal_application_count': 'user.view_seal_application',
@@ -580,7 +600,11 @@ class QueryService:
             'work_type': {'count': 'work_type_count', 'list': 'work_type_list'},
             'document': {'count': 'document_count', 'list': 'document_list'},
             'asset': {'count': 'asset_count', 'list': 'asset_list'},
+            'asset_repair': {'count': 'asset_repair_count', 'list': 'asset_repair_list'},
             'vehicle': {'count': 'vehicle_count', 'list': 'vehicle_list'},
+            'vehicle_maintenance': {'count': 'vehicle_maintenance_count', 'list': 'vehicle_maintenance_list'},
+            'vehicle_fee': {'count': 'vehicle_fee_count', 'list': 'vehicle_fee_list'},
+            'vehicle_oil': {'count': 'vehicle_oil_count', 'list': 'vehicle_oil_list'},
             'seal': {'count': 'seal_count', 'list': 'seal_list'},
             'seal_application': {'count': 'seal_application_count', 'list': 'seal_application_list'},
             'payment': {'count': 'payment_count', 'list': 'payment_list'},
@@ -626,7 +650,11 @@ class QueryService:
             'project',
             'seal_application',
             'invoice',
+            'asset_repair',
             'asset',
+            'vehicle_maintenance',
+            'vehicle_fee',
+            'vehicle_oil',
             'vehicle',
             'seal',
             'employee',
@@ -800,6 +828,29 @@ class QueryService:
                 intent = 'meeting_count'
             else:
                 intent = 'meeting_list'
+        elif any(keyword in query_lower for keyword in ['资产报修', '资产维修记录', '报修记录']):
+            self._extract_asset_repair_entities(query_lower, entities)
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'asset_repair_count'
+            else:
+                intent = 'asset_repair_list'
+        elif any(keyword in query_lower for keyword in ['车辆维修记录', '车辆保养记录', '维修保养记录']):
+            self._extract_vehicle_maintenance_entities(query_lower, entities)
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'vehicle_maintenance_count'
+            else:
+                intent = 'vehicle_maintenance_list'
+        elif any(keyword in query_lower for keyword in ['车辆费用', '车辆保险费', '车辆燃油费', '停车费', '过路费', '车辆罚款']):
+            self._extract_vehicle_fee_entities(query_lower, entities)
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'vehicle_fee_count'
+            else:
+                intent = 'vehicle_fee_list'
+        elif any(keyword in query_lower for keyword in ['车辆油耗', '加油记录', '油耗记录']):
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'vehicle_oil_count'
+            else:
+                intent = 'vehicle_oil_list'
         elif any(keyword in query_lower for keyword in ['固定资产', '资产台账', '资产管理']):
             self._extract_asset_entities(query_lower, entities)
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
@@ -1399,7 +1450,7 @@ class QueryService:
         # 1. 基于具体意图的权限检查
         permission = self.specific_intent_permissions.get(intent)
         if not permission:
-            data_type = intent.split('_')[0]
+            data_type = self._get_data_type_from_specific_intent(intent) or intent.split('_')[0]
             permission = self.permission_mapping.get(data_type)
 
         if permission:
@@ -1744,6 +1795,41 @@ class QueryService:
             entities['status'] = 'scrap'
         elif any(keyword in query_lower for keyword in ['正常', '可用']):
             entities['status'] = 'normal'
+
+    def _extract_asset_repair_entities(self, query_lower, entities):
+        if any(keyword in query_lower for keyword in ['待处理', '待维修', '未处理']):
+            entities['status'] = 'pending'
+        elif any(keyword in query_lower for keyword in ['处理中', '维修中']):
+            entities['status'] = 'processing'
+        elif any(keyword in query_lower for keyword in ['已完成', '已维修', '完成的']):
+            entities['status'] = 'completed'
+        elif any(keyword in query_lower for keyword in ['已取消', '已撤销', '取消的']):
+            entities['status'] = 'cancelled'
+
+    def _extract_vehicle_maintenance_entities(self, query_lower, entities):
+        if any(keyword in query_lower for keyword in ['保养记录', '车辆保养', '保养的']):
+            entities['maintenance_type'] = 'maintain'
+        elif any(keyword in query_lower for keyword in ['维修记录', '车辆维修', '维修的']):
+            entities['maintenance_type'] = 'repair'
+
+    def _extract_vehicle_fee_entities(self, query_lower, entities):
+        fee_type_mapping = {
+            '燃油费': 'fuel',
+            '油费': 'fuel',
+            '保险费': 'insurance',
+            '保险': 'insurance',
+            '车船税': 'tax',
+            '停车费': 'parking',
+            '过路费': 'toll',
+            '通行费': 'toll',
+            '罚款': 'fine',
+            '违章': 'fine',
+            '其他': 'other',
+        }
+        for keyword, fee_type in fee_type_mapping.items():
+            if keyword in query_lower:
+                entities['fee_type'] = fee_type
+                break
 
     def _extract_seal_entities(self, query_lower, entities):
         self._extract_enabled_status_entities(query_lower, entities)
@@ -3870,6 +3956,148 @@ class QueryService:
             'data_type': 'vehicle'
         }
 
+    def handle_asset_repair_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import AssetRepair
+
+        queryset = self._apply_asset_repair_filters(AssetRepair.objects.all(), entities)
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'asset_repair'
+        }
+
+    def handle_asset_repair_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import AssetRepair
+
+        queryset = self._apply_asset_repair_filters(
+            AssetRepair.objects.select_related('asset', 'reporter', 'repair_person'),
+            entities,
+        )
+        items = [{
+            'id': item.id,
+            'asset_name': item.asset.name if item.asset else '',
+            'asset_number': item.asset.asset_number if item.asset else '',
+            'reporter': item.reporter.username if item.reporter else '',
+            'repair_person': item.repair_person.username if item.repair_person else '',
+            'fault_description': item.fault_description,
+            'repair_description': item.repair_description,
+            'repair_cost': item.repair_cost,
+            'report_time': item.report_time.strftime('%Y-%m-%d %H:%M') if item.report_time else '',
+            'status': item.get_status_display() if hasattr(item, 'get_status_display') else item.status,
+        } for item in queryset.order_by('-report_time')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'asset_repair'
+        }
+
+    def handle_vehicle_maintenance_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import VehicleMaintenance
+
+        queryset = self._apply_vehicle_maintenance_filters(VehicleMaintenance.objects.all(), entities)
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'vehicle_maintenance'
+        }
+
+    def handle_vehicle_maintenance_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import VehicleMaintenance
+
+        queryset = self._apply_vehicle_maintenance_filters(
+            VehicleMaintenance.objects.select_related('vehicle', 'operator'),
+            entities,
+        )
+        items = [{
+            'id': item.id,
+            'license_plate': item.vehicle.license_plate if item.vehicle else '',
+            'maintenance_type': item.get_maintenance_type_display() if hasattr(item, 'get_maintenance_type_display') else item.maintenance_type,
+            'maintenance_date': item.maintenance_date.strftime('%Y-%m-%d') if item.maintenance_date else '',
+            'mileage': item.mileage,
+            'cost': item.cost,
+            'service_provider': item.service_provider,
+            'description': item.description,
+            'operator': item.operator.username if item.operator else '',
+        } for item in queryset.order_by('-maintenance_date')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'vehicle_maintenance'
+        }
+
+    def handle_vehicle_fee_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import VehicleFee
+
+        queryset = self._apply_vehicle_fee_filters(VehicleFee.objects.all(), entities)
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'vehicle_fee'
+        }
+
+    def handle_vehicle_fee_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import VehicleFee
+
+        queryset = self._apply_vehicle_fee_filters(
+            VehicleFee.objects.select_related('vehicle', 'operator'),
+            entities,
+        )
+        items = [{
+            'id': item.id,
+            'license_plate': item.vehicle.license_plate if item.vehicle else '',
+            'fee_type': item.get_fee_type_display() if hasattr(item, 'get_fee_type_display') else item.fee_type,
+            'amount': item.amount,
+            'fee_date': item.fee_date.strftime('%Y-%m-%d') if item.fee_date else '',
+            'description': item.description,
+            'operator': item.operator.username if item.operator else '',
+        } for item in queryset.order_by('-fee_date')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'vehicle_fee'
+        }
+
+    def handle_vehicle_oil_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import VehicleOil
+
+        return {
+            'type': 'count',
+            'value': VehicleOil.objects.count(),
+            'data_type': 'vehicle_oil'
+        }
+
+    def handle_vehicle_oil_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import VehicleOil
+
+        queryset = VehicleOil.objects.select_related('vehicle', 'operator')
+        items = [{
+            'id': item.id,
+            'license_plate': item.vehicle.license_plate if item.vehicle else '',
+            'oil_amount': item.oil_amount,
+            'oil_cost': item.oil_cost,
+            'mileage': item.mileage,
+            'oil_date': item.oil_date.strftime('%Y-%m-%d') if item.oil_date else '',
+            'gas_station': item.gas_station,
+            'operator': item.operator.username if item.operator else '',
+        } for item in queryset.order_by('-oil_date')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'vehicle_oil'
+        }
+
     def handle_seal_count(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.system.models import Seal
@@ -4639,7 +4867,11 @@ class QueryService:
             'notice': '通知公告',
             'document': '文档',
             'asset': '固定资产',
+            'asset_repair': '资产报修记录',
             'vehicle': '车辆',
+            'vehicle_maintenance': '车辆维修保养记录',
+            'vehicle_fee': '车辆费用记录',
+            'vehicle_oil': '车辆油耗记录',
             'seal': '印章',
             'seal_application': '用章申请',
             'department': '部门',
@@ -4961,6 +5193,13 @@ class QueryService:
                 if asset_number:
                     return f"{name}（{asset_number}，{status}）"
                 return f"{name}（{status}）"
+            elif data_type == 'asset_repair':
+                asset_name = item.get('asset_name', '未知资产')
+                fault = item.get('fault_description', '')
+                status = item.get('status', '')
+                if fault:
+                    return f"{asset_name}（{fault[:20]}，{status}）"
+                return f"{asset_name}（{status}）"
             elif data_type == 'vehicle':
                 license_plate = item.get('license_plate', '未知')
                 brand = item.get('brand', '')
@@ -4970,6 +5209,30 @@ class QueryService:
                 if vehicle_name:
                     return f"{license_plate}（{vehicle_name}，{status}）"
                 return f"{license_plate}（{status}）"
+            elif data_type == 'vehicle_maintenance':
+                license_plate = item.get('license_plate', '未知车辆')
+                maintenance_type = item.get('maintenance_type', '')
+                cost = item.get('cost', 0)
+                description = item.get('description', '')
+                if description:
+                    return f"{license_plate}（{maintenance_type}，¥{cost}，{description[:20]}）"
+                return f"{license_plate}（{maintenance_type}，¥{cost}）"
+            elif data_type == 'vehicle_fee':
+                license_plate = item.get('license_plate', '未知车辆')
+                fee_type = item.get('fee_type', '')
+                amount = item.get('amount', 0)
+                fee_date = item.get('fee_date', '')
+                if fee_date:
+                    return f"{license_plate}（{fee_type}，¥{amount}，{fee_date}）"
+                return f"{license_plate}（{fee_type}，¥{amount}）"
+            elif data_type == 'vehicle_oil':
+                license_plate = item.get('license_plate', '未知车辆')
+                oil_amount = item.get('oil_amount', 0)
+                oil_cost = item.get('oil_cost', 0)
+                gas_station = item.get('gas_station', '')
+                if gas_station:
+                    return f"{license_plate}（{oil_amount}升，¥{oil_cost}，{gas_station}）"
+                return f"{license_plate}（{oil_amount}升，¥{oil_cost}）"
             elif data_type == 'seal':
                 name = item.get('name', '未知')
                 seal_type = item.get('seal_type', '')
@@ -5517,6 +5780,24 @@ class QueryService:
         status = entities.get('status')
         if status in allowed_statuses:
             queryset = queryset.filter(status=status)
+        return queryset
+
+    def _apply_asset_repair_filters(self, queryset, entities):
+        status = entities.get('status')
+        if status in {'pending', 'processing', 'completed', 'cancelled'}:
+            queryset = queryset.filter(status=status)
+        return queryset
+
+    def _apply_vehicle_maintenance_filters(self, queryset, entities):
+        maintenance_type = entities.get('maintenance_type')
+        if maintenance_type in {'repair', 'maintain'}:
+            queryset = queryset.filter(maintenance_type=maintenance_type)
+        return queryset
+
+    def _apply_vehicle_fee_filters(self, queryset, entities):
+        fee_type = entities.get('fee_type')
+        if fee_type in {'fuel', 'insurance', 'tax', 'parking', 'toll', 'fine', 'other'}:
+            queryset = queryset.filter(fee_type=fee_type)
         return queryset
 
     def _apply_seal_filters(self, queryset, entities):

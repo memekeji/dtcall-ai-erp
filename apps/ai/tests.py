@@ -146,7 +146,11 @@ class AIQueryServicePermissionMappingTests(SimpleTestCase):
 
         allowed_permissions = {
             'user.view_asset',
+            'user.view_asset_repair',
             'user.view_vehicle_info',
+            'user.view_vehicle_maintenance',
+            'user.view_vehicle_fee',
+            'user.view_vehicle_oil',
             'user.view_seal_management',
             'user.view_seal_application',
         }
@@ -159,7 +163,11 @@ class AIQueryServicePermissionMappingTests(SimpleTestCase):
         service = QueryService()
 
         self.assertTrue(service.check_permission(user, 'asset_list'))
+        self.assertTrue(service.check_permission(user, 'asset_repair_list'))
         self.assertTrue(service.check_permission(user, 'vehicle_list'))
+        self.assertTrue(service.check_permission(user, 'vehicle_maintenance_list'))
+        self.assertTrue(service.check_permission(user, 'vehicle_fee_list'))
+        self.assertTrue(service.check_permission(user, 'vehicle_oil_list'))
         self.assertTrue(service.check_permission(user, 'seal_list'))
         self.assertTrue(service.check_permission(user, 'seal_application_list'))
 
@@ -3094,6 +3102,38 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         self.assertEqual(intent, 'seal_application_count')
         self.assertEqual(entities['status'], 'pending')
 
+    def test_recognize_pending_asset_repair_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('待处理资产报修记录有哪些')
+
+        self.assertEqual(intent, 'asset_repair_list')
+        self.assertEqual(entities['status'], 'pending')
+
+    def test_recognize_vehicle_maintenance_count_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('车辆维修记录有几个')
+
+        self.assertEqual(intent, 'vehicle_maintenance_count')
+        self.assertEqual(entities['maintenance_type'], 'repair')
+
+    def test_recognize_vehicle_fee_type_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('车辆保险费有哪些')
+
+        self.assertEqual(intent, 'vehicle_fee_list')
+        self.assertEqual(entities['fee_type'], 'insurance')
+
+    def test_recognize_vehicle_oil_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('车辆油耗记录有哪些')
+
+        self.assertEqual(intent, 'vehicle_oil_list')
+        self.assertEqual(entities, {})
+
     def test_resolve_specific_intent_maps_asset_subtype(self):
         from apps.ai.services.query_service import QueryService
 
@@ -3129,6 +3169,24 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
 
         self.assertEqual(intent, 'seal_application_count')
         self.assertEqual(entities['status'], 'pending')
+
+    def test_resolve_specific_intent_maps_vehicle_fee_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '查一下车辆费用',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'vehicle_fee',
+                'action': 'list',
+                'entities': {'fee_type': 'insurance'},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'vehicle_fee_list')
+        self.assertEqual(entities['fee_type'], 'insurance')
 
     def test_resolve_specific_intent_prefers_order_total_for_deal_amount_query(self):
         from apps.ai.services.query_service import QueryService
@@ -3880,6 +3938,104 @@ class AIQueryServiceOfficeVisibilityTests(TestCase):
 
         self.assertEqual(result['total'], 1)
         self.assertEqual(titles, {'待审核合同'})
+
+    def test_asset_repair_list_pending_scope_only_returns_pending_repairs(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.system.models import Asset, AssetRepair
+
+        User = get_user_model()
+        reporter = User.objects.create_user(username='asset-repair-reporter')
+        asset = Asset.objects.create(
+            asset_number='ASSET-REPAIR-RECORD',
+            name='报修电脑',
+            purchase_date=date.today(),
+            purchase_price=5000,
+        )
+        AssetRepair.objects.create(asset=asset, reporter=reporter, fault_description='不开机', status='pending')
+        AssetRepair.objects.create(asset=asset, reporter=reporter, fault_description='屏幕坏', status='completed')
+
+        result = QueryService().handle_asset_repair_list({'status': 'pending'}, reporter)
+        descriptions = {item['fault_description'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(descriptions, {'不开机'})
+
+    def test_vehicle_maintenance_list_type_scope_only_returns_repairs(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.system.models import Vehicle, VehicleMaintenance
+
+        User = get_user_model()
+        operator = User.objects.create_user(username='vehicle-maintenance-operator')
+        vehicle = Vehicle.objects.create(
+            license_plate='京B00001',
+            brand='大众',
+            model='途观',
+            color='蓝色',
+            engine_number='ENG-MAINT',
+            frame_number='FRM-MAINT',
+            purchase_date=date.today(),
+            purchase_price=100000,
+        )
+        VehicleMaintenance.objects.create(vehicle=vehicle, maintenance_type='repair', maintenance_date=date.today(), mileage=1000, cost=300, service_provider='维修厂', description='维修刹车', operator=operator)
+        VehicleMaintenance.objects.create(vehicle=vehicle, maintenance_type='maintain', maintenance_date=date.today(), mileage=1100, cost=200, service_provider='保养店', description='常规保养', operator=operator)
+
+        result = QueryService().handle_vehicle_maintenance_list({'maintenance_type': 'repair'}, operator)
+        descriptions = {item['description'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(descriptions, {'维修刹车'})
+
+    def test_vehicle_fee_list_type_scope_only_returns_insurance_fees(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.system.models import Vehicle, VehicleFee
+
+        User = get_user_model()
+        operator = User.objects.create_user(username='vehicle-fee-operator')
+        vehicle = Vehicle.objects.create(
+            license_plate='京C00001',
+            brand='丰田',
+            model='荣放',
+            color='白色',
+            engine_number='ENG-FEE',
+            frame_number='FRM-FEE',
+            purchase_date=date.today(),
+            purchase_price=130000,
+        )
+        VehicleFee.objects.create(vehicle=vehicle, fee_type='insurance', amount=3000, fee_date=date.today(), operator=operator)
+        VehicleFee.objects.create(vehicle=vehicle, fee_type='fuel', amount=500, fee_date=date.today(), operator=operator)
+
+        result = QueryService().handle_vehicle_fee_list({'fee_type': 'insurance'}, operator)
+        fee_types = {item['fee_type'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(fee_types, {'保险费'})
+
+    def test_vehicle_oil_list_returns_oil_records(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.system.models import Vehicle, VehicleOil
+
+        User = get_user_model()
+        operator = User.objects.create_user(username='vehicle-oil-operator')
+        vehicle = Vehicle.objects.create(
+            license_plate='京D00001',
+            brand='本田',
+            model='雅阁',
+            color='灰色',
+            engine_number='ENG-OIL',
+            frame_number='FRM-OIL',
+            purchase_date=date.today(),
+            purchase_price=150000,
+        )
+        VehicleOil.objects.create(vehicle=vehicle, oil_amount=30, oil_cost=240, mileage=1000, oil_date=date.today(), gas_station='测试加油站', operator=operator)
+
+        result = QueryService().handle_vehicle_oil_list({}, operator)
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(result['items'][0]['gas_station'], '测试加油站')
 
     def test_notice_list_only_returns_authored_or_targeted_published_notices(self):
         from django.contrib.auth import get_user_model
