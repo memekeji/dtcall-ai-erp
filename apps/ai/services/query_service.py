@@ -128,8 +128,14 @@ class QueryService:
             'work_type_list': self.handle_work_type_list,
             'document_count': self.handle_document_count,
             'document_list': self.handle_document_list,
+            'document_category_count': self.handle_document_category_count,
+            'document_category_list': self.handle_document_category_list,
             'asset_count': self.handle_asset_count,
             'asset_list': self.handle_asset_list,
+            'asset_category_count': self.handle_asset_category_count,
+            'asset_category_list': self.handle_asset_category_list,
+            'asset_brand_count': self.handle_asset_brand_count,
+            'asset_brand_list': self.handle_asset_brand_list,
             'asset_repair_count': self.handle_asset_repair_count,
             'asset_repair_list': self.handle_asset_repair_list,
             'vehicle_count': self.handle_vehicle_count,
@@ -219,7 +225,10 @@ class QueryService:
             'project_category': 'project.view_project_category',
             'work_type': 'project.view_work_type',
             'document': 'system.view_document',
+            'document_category': 'user.view_document_category',
             'asset': 'user.view_asset',
+            'asset_category': 'user.view_asset',
+            'asset_brand': 'user.view_asset',
             'asset_repair': 'user.view_asset_repair',
             'vehicle': 'user.view_vehicle_info',
             'vehicle_maintenance': 'user.view_vehicle_maintenance',
@@ -319,8 +328,14 @@ class QueryService:
             'work_type_list': 'project.view_work_type',
             'document_count': 'system.view_document',
             'document_list': 'system.view_document',
+            'document_category_count': 'user.view_document_category',
+            'document_category_list': 'user.view_document_category',
             'asset_count': 'user.view_asset',
             'asset_list': 'user.view_asset',
+            'asset_category_count': 'user.view_asset',
+            'asset_category_list': 'user.view_asset',
+            'asset_brand_count': 'user.view_asset',
+            'asset_brand_list': 'user.view_asset',
             'asset_repair_count': 'user.view_asset_repair',
             'asset_repair_list': 'user.view_asset_repair',
             'vehicle_count': 'user.view_vehicle_info',
@@ -609,7 +624,10 @@ class QueryService:
             'project_category': {'count': 'project_category_count', 'list': 'project_category_list'},
             'work_type': {'count': 'work_type_count', 'list': 'work_type_list'},
             'document': {'count': 'document_count', 'list': 'document_list'},
+            'document_category': {'count': 'document_category_count', 'list': 'document_category_list'},
             'asset': {'count': 'asset_count', 'list': 'asset_list'},
+            'asset_category': {'count': 'asset_category_count', 'list': 'asset_category_list'},
+            'asset_brand': {'count': 'asset_brand_count', 'list': 'asset_brand_list'},
             'asset_repair': {'count': 'asset_repair_count', 'list': 'asset_repair_list'},
             'vehicle': {'count': 'vehicle_count', 'list': 'vehicle_list'},
             'vehicle_maintenance': {'count': 'vehicle_maintenance_count', 'list': 'vehicle_maintenance_list'},
@@ -663,6 +681,8 @@ class QueryService:
             'seal_application',
             'invoice',
             'asset_repair',
+            'asset_category',
+            'asset_brand',
             'asset',
             'vehicle_maintenance',
             'vehicle_fee',
@@ -694,6 +714,7 @@ class QueryService:
             'message',
             'notice',
             'contact',
+            'document_category',
             'document',
             'payment',
             'meeting_reservation',
@@ -1246,6 +1267,13 @@ class QueryService:
             else:
                 intent = 'supplier_list'
 
+        elif '资产品牌' in query_lower or '资产牌子' in query_lower:
+            self._extract_enabled_status_entities(query_lower, entities)
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'asset_brand_count'
+            else:
+                intent = 'asset_brand_list'
+
         elif '产品' in query_lower or '商品' in query_lower:
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
                 intent = 'product_count'
@@ -1314,6 +1342,20 @@ class QueryService:
                 intent = 'contact_count'
             else:
                 intent = 'contact_list'
+
+        elif '公文分类' in query_lower or '文档分类' in query_lower:
+            self._extract_enabled_status_entities(query_lower, entities)
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'document_category_count'
+            else:
+                intent = 'document_category_list'
+
+        elif '资产分类' in query_lower or '资产类别' in query_lower:
+            self._extract_enabled_status_entities(query_lower, entities)
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'asset_category_count'
+            else:
+                intent = 'asset_category_list'
 
         elif '公文' in query_lower or '文档' in query_lower:
             if '待发布' in query_lower:
@@ -3936,6 +3978,37 @@ class QueryService:
             'data_type': 'document'
         }
 
+    def handle_document_category_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import DocumentCategory
+
+        queryset = self._apply_active_status_filter(DocumentCategory.objects.all(), entities, 'is_active')
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'document_category'
+        }
+
+    def handle_document_category_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import DocumentCategory
+
+        queryset = self._apply_active_status_filter(DocumentCategory.objects.all(), entities, 'is_active')
+        items = [{
+            'id': item.id,
+            'name': item.name,
+            'code': item.code,
+            'description': item.description or '',
+            'is_active': item.is_active,
+            'status': '启用' if item.is_active else '停用',
+        } for item in queryset.order_by('code')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'document_category'
+        }
+
     def handle_asset_count(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.system.models import Asset
@@ -3974,6 +4047,74 @@ class QueryService:
             'items': items,
             'total': queryset.count(),
             'data_type': 'asset'
+        }
+
+    def handle_asset_category_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import AssetCategory
+
+        queryset = self._apply_active_status_filter(AssetCategory.objects.all(), entities, 'is_active')
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'asset_category'
+        }
+
+    def handle_asset_category_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import AssetCategory
+
+        queryset = self._apply_active_status_filter(
+            AssetCategory.objects.select_related('parent'),
+            entities,
+            'is_active',
+        )
+        items = [{
+            'id': item.id,
+            'name': item.name,
+            'code': item.code,
+            'parent': item.parent.name if item.parent else '',
+            'description': item.description or '',
+            'sort_order': item.sort_order,
+            'is_active': item.is_active,
+            'status': '启用' if item.is_active else '停用',
+        } for item in queryset.order_by('sort_order', 'name')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'asset_category'
+        }
+
+    def handle_asset_brand_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import AssetBrand
+
+        queryset = self._apply_active_status_filter(AssetBrand.objects.all(), entities, 'is_active')
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'asset_brand'
+        }
+
+    def handle_asset_brand_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import AssetBrand
+
+        queryset = self._apply_active_status_filter(AssetBrand.objects.all(), entities, 'is_active')
+        items = [{
+            'id': item.id,
+            'name': item.name,
+            'code': item.code,
+            'description': item.description or '',
+            'is_active': item.is_active,
+            'status': '启用' if item.is_active else '停用',
+        } for item in queryset.order_by('name')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'asset_brand'
         }
 
     def handle_vehicle_count(
@@ -5003,7 +5144,10 @@ class QueryService:
             'approval': '审批',
             'notice': '通知公告',
             'document': '文档',
+            'document_category': '公文分类',
             'asset': '固定资产',
+            'asset_category': '资产分类',
+            'asset_brand': '资产品牌',
             'asset_repair': '资产报修记录',
             'vehicle': '车辆',
             'vehicle_maintenance': '车辆维修保养记录',
@@ -5323,13 +5467,16 @@ class QueryService:
                 if project_name:
                     return f"{title}（{project_name}）"
                 return title
-            elif data_type in {'project_stage', 'project_category', 'work_type'}:
+            elif data_type in {'project_stage', 'project_category', 'work_type', 'document_category', 'asset_category', 'asset_brand'}:
                 name = item.get('name', '未知')
                 code = item.get('code', '')
                 description = item.get('description', '')
+                status = item.get('status', '')
                 parts = []
                 if code:
                     parts.append(code)
+                if status:
+                    parts.append(status)
                 if description:
                     parts.append(description[:20])
                 if parts:

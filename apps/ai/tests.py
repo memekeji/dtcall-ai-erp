@@ -147,6 +147,7 @@ class AIQueryServicePermissionMappingTests(SimpleTestCase):
         allowed_permissions = {
             'user.view_asset',
             'user.view_asset_repair',
+            'user.view_document_category',
             'user.view_vehicle_info',
             'user.view_vehicle_maintenance',
             'user.view_vehicle_fee',
@@ -164,7 +165,10 @@ class AIQueryServicePermissionMappingTests(SimpleTestCase):
         service = QueryService()
 
         self.assertTrue(service.check_permission(user, 'asset_list'))
+        self.assertTrue(service.check_permission(user, 'asset_category_list'))
+        self.assertTrue(service.check_permission(user, 'asset_brand_list'))
         self.assertTrue(service.check_permission(user, 'asset_repair_list'))
+        self.assertTrue(service.check_permission(user, 'document_category_list'))
         self.assertTrue(service.check_permission(user, 'vehicle_list'))
         self.assertTrue(service.check_permission(user, 'vehicle_maintenance_list'))
         self.assertTrue(service.check_permission(user, 'vehicle_fee_list'))
@@ -3161,6 +3165,30 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         self.assertEqual(intent, 'meeting_reservation_list')
         self.assertEqual(entities['time_range'], 'today')
 
+    def test_recognize_active_document_category_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('启用的公文分类有哪些')
+
+        self.assertEqual(intent, 'document_category_list')
+        self.assertEqual(entities['status'], 'active')
+
+    def test_recognize_inactive_asset_category_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('停用资产分类有几个')
+
+        self.assertEqual(intent, 'asset_category_count')
+        self.assertEqual(entities['status'], 'inactive')
+
+    def test_recognize_active_asset_brand_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('启用资产品牌有哪些')
+
+        self.assertEqual(intent, 'asset_brand_list')
+        self.assertEqual(entities['status'], 'active')
+
     def test_resolve_specific_intent_maps_asset_subtype(self):
         from apps.ai.services.query_service import QueryService
 
@@ -3250,6 +3278,42 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
 
         self.assertEqual(intent, 'meeting_reservation_count')
         self.assertEqual(entities['status'], 'pending')
+
+    def test_resolve_specific_intent_maps_document_category_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '查一下公文分类',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'document_category',
+                'action': 'list',
+                'entities': {'status': 'active'},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'document_category_list')
+        self.assertEqual(entities['status'], 'active')
+
+    def test_resolve_specific_intent_maps_asset_brand_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '查一下资产品牌',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'asset_brand',
+                'action': 'count',
+                'entities': {'status': 'active'},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'asset_brand_count')
+        self.assertEqual(entities['status'], 'active')
 
     def test_resolve_specific_intent_prefers_order_total_for_deal_amount_query(self):
         from apps.ai.services.query_service import QueryService
@@ -4157,6 +4221,54 @@ class AIQueryServiceOfficeVisibilityTests(TestCase):
 
         self.assertEqual(result['total'], 1)
         self.assertEqual(titles, {'今日待审核会议'})
+
+    def test_document_category_list_status_scope_only_returns_active_categories(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.system.models import DocumentCategory
+
+        User = get_user_model()
+        user = User.objects.create_user(username='document-category-query-user')
+        DocumentCategory.objects.create(name='通知类', code='DOC-ACTIVE', is_active=True)
+        DocumentCategory.objects.create(name='停用类', code='DOC-INACTIVE', is_active=False)
+
+        result = QueryService().handle_document_category_list({'status': 'active'}, user)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(names, {'通知类'})
+
+    def test_asset_category_list_status_scope_only_returns_inactive_categories(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.system.models import AssetCategory
+
+        User = get_user_model()
+        user = User.objects.create_user(username='asset-category-query-user')
+        AssetCategory.objects.create(name='办公设备', code='ASSET-ACTIVE', is_active=True)
+        AssetCategory.objects.create(name='停用设备', code='ASSET-INACTIVE', is_active=False)
+
+        result = QueryService().handle_asset_category_list({'status': 'inactive'}, user)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(names, {'停用设备'})
+
+    def test_asset_brand_list_status_scope_only_returns_active_brands(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.system.models import AssetBrand
+
+        User = get_user_model()
+        user = User.objects.create_user(username='asset-brand-query-user')
+        AssetBrand.objects.create(name='联想', code='LENOVO', is_active=True)
+        AssetBrand.objects.create(name='停用品牌', code='OLD-BRAND', is_active=False)
+
+        result = QueryService().handle_asset_brand_list({'status': 'active'}, user)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(names, {'联想'})
 
     def test_notice_list_only_returns_authored_or_targeted_published_notices(self):
         from django.contrib.auth import get_user_model
