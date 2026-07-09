@@ -1108,6 +1108,7 @@ class QueryService:
                 intent = 'department_list'
 
         elif '供应商' in query_lower:
+            self._extract_enabled_status_entities(query_lower, entities)
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
                 intent = 'supplier_count'
             else:
@@ -1120,6 +1121,7 @@ class QueryService:
                 intent = 'product_list'
 
         elif '入库' in query_lower:
+            self._extract_stock_movement_entities(query_lower, entities, 'in')
             if '待入库确认' in query_lower or '待执行入库' in query_lower or '待入库' in query_lower:
                 entities['status'] = 'approved'
             elif '已入库' in query_lower:
@@ -1134,6 +1136,7 @@ class QueryService:
                 intent = 'stockin_list'
 
         elif '出库' in query_lower:
+            self._extract_stock_movement_entities(query_lower, entities, 'out')
             if '待出库确认' in query_lower or '待执行出库' in query_lower or '待出库' in query_lower:
                 entities['status'] = 'approved'
             elif '已出库' in query_lower:
@@ -1146,6 +1149,14 @@ class QueryService:
                 intent = 'stockout_count'
             else:
                 intent = 'stockout_list'
+
+        elif '仓库' in query_lower:
+            self._extract_enabled_status_entities(query_lower, entities)
+            self._extract_warehouse_entities(query_lower, entities)
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'warehouse_count'
+            else:
+                intent = 'warehouse_list'
 
         elif '预警' in query_lower:
             if '未处理' in query_lower or '待处理' in query_lower:
@@ -1160,6 +1171,7 @@ class QueryService:
                 intent = 'alert_list'
 
         elif '库存' in query_lower or '存货' in query_lower or '物料' in query_lower:
+            self._extract_inventory_entities(query_lower, entities)
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
                 intent = 'inventory_count'
             else:
@@ -1187,6 +1199,7 @@ class QueryService:
 
         # 财务相关意图
         elif '财务' in query_lower or '报销' in query_lower or '发票' in query_lower or '回款' in query_lower or '打款' in query_lower:
+            self._extract_time_range_entities(query_lower, entities)
             if '待打款' in query_lower:
                 entities['status'] = 'pending_payment'
             elif '已打款' in query_lower:
@@ -1215,6 +1228,7 @@ class QueryService:
                     intent = 'finance_expense_list'
 
         elif '付款' in query_lower or '付款记录' in query_lower:
+            self._extract_time_range_entities(query_lower, entities)
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
                 intent = 'payment_count'
             else:
@@ -1574,6 +1588,75 @@ class QueryService:
             entities['status'] = 'completed'
         elif '已取消' in query_lower:
             entities['status'] = 'cancelled'
+
+    def _extract_time_range_entities(self, query_lower, entities):
+        if '今天' in query_lower or '今日' in query_lower:
+            entities['time_range'] = 'today'
+        elif any(keyword in query_lower for keyword in ['本周', '这周']):
+            entities['time_range'] = 'this_week'
+        elif any(keyword in query_lower for keyword in ['上周', '上一周']):
+            entities['time_range'] = 'last_week'
+        elif '本月' in query_lower or '这个月' in query_lower:
+            entities['time_range'] = 'this_month'
+        elif '上月' in query_lower or '上个月' in query_lower:
+            entities['time_range'] = 'last_month'
+        elif any(keyword in query_lower for keyword in ['最近', '近期']):
+            entities['time_range'] = 'recent'
+
+    def _extract_enabled_status_entities(self, query_lower, entities):
+        if any(keyword in query_lower for keyword in ['停用', '禁用', '未启用']):
+            entities['status'] = 'inactive'
+        elif any(keyword in query_lower for keyword in ['启用', '可用', '正常']):
+            entities['status'] = 'active'
+
+    def _extract_warehouse_entities(self, query_lower, entities):
+        warehouse_type_mapping = {
+            '主仓': 'main',
+            '主仓库': 'main',
+            '分仓': 'branch',
+            '分仓库': 'branch',
+            '虚拟仓': 'virtual',
+            '虚拟仓库': 'virtual',
+            '生产仓': 'production',
+            '生产仓库': 'production',
+            '质检仓': 'quality',
+            '质检仓库': 'quality',
+        }
+        for keyword, warehouse_type in warehouse_type_mapping.items():
+            if keyword in query_lower:
+                entities['warehouse_type'] = warehouse_type
+                break
+
+    def _extract_stock_movement_entities(self, query_lower, entities, direction):
+        if direction == 'in':
+            type_mapping = {
+                '采购入库': 'purchase',
+                '生产入库': 'production',
+                '退货入库': 'return',
+                '调拨入库': 'transfer',
+                '其他入库': 'other',
+            }
+        else:
+            type_mapping = {
+                '销售出库': 'sale',
+                '生产领料': 'production',
+                '生产出库': 'production',
+                '调拨出库': 'transfer',
+                '报废出库': 'scrap',
+                '其他出库': 'other',
+            }
+        for keyword, stock_type in type_mapping.items():
+            if keyword in query_lower:
+                entities['stock_type'] = stock_type
+                break
+
+    def _extract_inventory_entities(self, query_lower, entities):
+        if '锁定' in query_lower:
+            entities['status'] = 'locked'
+        elif '隔离' in query_lower or '待检' in query_lower:
+            entities['status'] = 'quarantine'
+        elif '正常' in query_lower or '可用' in query_lower:
+            entities['status'] = 'normal'
 
     def _extract_contract_entities(self, query_lower, entities):
         if any(keyword in query_lower for keyword in ['审核中', '审批中']):
@@ -3085,10 +3168,10 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理回款数量查询"""
         from apps.finance.models import Income
-        count = Income.objects.count()
+        queryset = self._apply_datetime_range_filter(Income.objects.all(), entities, 'income_date')
         return {
             'type': 'count',
-            'value': count,
+            'value': queryset.count(),
             'data_type': 'finance_income'
         }
 
@@ -3096,17 +3179,17 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理回款列表查询"""
         from apps.finance.models import Income
-        incomes = Income.objects.all()[:5]
+        incomes = self._apply_datetime_range_filter(Income.objects.all(), entities, 'income_date')[:5]
         income_list = [{
             'id': income.id,
-            'invoice_code': income.invoice.code,
+            'invoice_code': getattr(getattr(income, 'invoice', None), 'code', ''),
             'amount': income.amount,
             'income_date': income.income_date.strftime('%Y-%m-%d')
         } for income in incomes]
         return {
             'type': 'list',
             'items': income_list,
-            'total': Income.objects.count(),
+            'total': self._apply_datetime_range_filter(Income.objects.all(), entities, 'income_date').count(),
             'data_type': 'finance_income'
         }
 
@@ -3272,7 +3355,7 @@ class QueryService:
     def handle_supplier_count(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.contract.models import Supplier
-        count = Supplier.objects.count()
+        count = self._apply_active_status_filter(Supplier.objects.all(), entities, 'is_active').count()
         return {
             'type': 'count',
             'value': count,
@@ -3282,7 +3365,8 @@ class QueryService:
     def handle_supplier_list(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.contract.models import Supplier
-        suppliers = Supplier.objects.all()[:5]
+        queryset = self._apply_active_status_filter(Supplier.objects.all(), entities, 'is_active')
+        suppliers = queryset[:5]
         supplier_list = [{
             'id': supplier.id,
             'code': supplier.code,
@@ -3294,7 +3378,7 @@ class QueryService:
         return {
             'type': 'list',
             'items': supplier_list,
-            'total': Supplier.objects.count(),
+            'total': queryset.count(),
             'data_type': 'supplier'
         }
 
@@ -3330,7 +3414,7 @@ class QueryService:
     def handle_inventory_count(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.inventory.models import Inventory
-        count = Inventory.objects.count()
+        count = self._apply_inventory_filters(Inventory.objects.all(), entities).count()
         return {
             'type': 'count',
             'value': count,
@@ -3340,7 +3424,11 @@ class QueryService:
     def handle_inventory_list(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.inventory.models import Inventory
-        inventories = Inventory.objects.select_related('item', 'warehouse', 'location').all()[:5]
+        queryset = self._apply_inventory_filters(
+            Inventory.objects.select_related('item', 'warehouse', 'location').all(),
+            entities,
+        )
+        inventories = queryset[:5]
         inventory_list = [{
             'id': inventory.id,
             'item_code': inventory.item.code,
@@ -3352,23 +3440,24 @@ class QueryService:
         return {
             'type': 'list',
             'items': inventory_list,
-            'total': Inventory.objects.count(),
+            'total': queryset.count(),
             'data_type': 'inventory'
         }
 
     def handle_warehouse_count(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.inventory.models import Warehouse
+        queryset = self._apply_warehouse_filters(Warehouse.objects.all(), entities)
         return {
             'type': 'count',
-            'value': Warehouse.objects.count(),
+            'value': queryset.count(),
             'data_type': 'warehouse'
         }
 
     def handle_warehouse_list(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.inventory.models import Warehouse
-        queryset = Warehouse.objects.all().order_by('code')
+        queryset = self._apply_warehouse_filters(Warehouse.objects.all(), entities).order_by('code')
         items = [{
             'id': warehouse.id,
             'name': warehouse.name,
@@ -3716,9 +3805,10 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.finance.models import Payment
 
+        queryset = self._apply_datetime_range_filter(Payment.objects.all(), entities, 'payment_date')
         return {
             'type': 'count',
-            'value': Payment.objects.count(),
+            'value': queryset.count(),
             'data_type': 'payment'
         }
 
@@ -3726,7 +3816,7 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.finance.models import Expense, Payment
 
-        queryset = Payment.objects.all().order_by('-payment_date')
+        queryset = self._apply_datetime_range_filter(Payment.objects.all(), entities, 'payment_date').order_by('-payment_date')
         expense_ids = list(queryset.values_list('expense_id', flat=True)[:5])
         expense_map = {
             expense.id: expense
@@ -5089,6 +5179,32 @@ class QueryService:
             queryset = queryset.filter(status=4)
         return queryset
 
+    def _apply_active_status_filter(self, queryset, entities, field_name):
+        status = entities.get('status')
+        if status == 'active':
+            return queryset.filter(**{field_name: True})
+        if status == 'inactive':
+            return queryset.filter(**{field_name: False})
+        return queryset
+
+    def _apply_warehouse_filters(self, queryset, entities):
+        status = entities.get('status')
+        if status == 'active':
+            queryset = queryset.filter(status=1)
+        elif status == 'inactive':
+            queryset = queryset.filter(status=0)
+
+        warehouse_type = entities.get('warehouse_type')
+        if warehouse_type:
+            queryset = queryset.filter(warehouse_type=warehouse_type)
+        return queryset
+
+    def _apply_inventory_filters(self, queryset, entities):
+        status = entities.get('status')
+        if status in {'normal', 'locked', 'quarantine'}:
+            queryset = queryset.filter(status=status)
+        return queryset
+
     def _apply_stock_movement_filters(self, queryset, entities):
         status = entities.get('status')
         if status == 'pending':
@@ -5099,6 +5215,21 @@ class QueryService:
             queryset = queryset.filter(status=3)
         elif status == 'cancelled':
             queryset = queryset.filter(status=4)
+
+        stock_type = entities.get('stock_type')
+        if stock_type:
+            if hasattr(queryset.model, 'stock_in_type'):
+                queryset = queryset.filter(stock_in_type=stock_type)
+            elif hasattr(queryset.model, 'stock_out_type'):
+                queryset = queryset.filter(stock_out_type=stock_type)
+        return queryset
+
+    def _apply_datetime_range_filter(self, queryset, entities, field_name):
+        time_range = entities.get('time_range')
+        if time_range:
+            start_at, end_at = self._resolve_time_range(time_range)
+            if start_at and end_at:
+                return queryset.filter(**{f'{field_name}__range': (start_at, end_at)})
         return queryset
 
     def _apply_schedule_filters(self, queryset, entities):

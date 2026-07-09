@@ -2400,6 +2400,14 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         self.assertEqual(intent, 'supplier_list')
         self.assertEqual(entities, {})
 
+    def test_recognize_inactive_supplier_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('停用供应商有哪些')
+
+        self.assertEqual(intent, 'supplier_list')
+        self.assertEqual(entities['status'], 'inactive')
+
     def test_recognize_product_plain_language(self):
         from apps.ai.services.query_service import QueryService
 
@@ -2415,6 +2423,30 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
 
         self.assertEqual(intent, 'inventory_count')
         self.assertEqual(entities, {})
+
+    def test_recognize_disabled_warehouse_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('禁用仓库有哪些')
+
+        self.assertEqual(intent, 'warehouse_list')
+        self.assertEqual(entities['status'], 'inactive')
+
+    def test_recognize_production_warehouse_count_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('生产仓库有几个')
+
+        self.assertEqual(intent, 'warehouse_count')
+        self.assertEqual(entities['warehouse_type'], 'production')
+
+    def test_recognize_locked_inventory_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('锁定库存有哪些')
+
+        self.assertEqual(intent, 'inventory_list')
+        self.assertEqual(entities['status'], 'locked')
 
     def test_recognize_disk_shared_to_me_plain_language(self):
         from apps.ai.services.query_service import QueryService
@@ -2522,6 +2554,14 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         self.assertEqual(intent, 'stockin_list')
         self.assertEqual(entities['status'], 'approved')
 
+    def test_recognize_purchase_stockin_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('采购入库单有哪些')
+
+        self.assertEqual(intent, 'stockin_list')
+        self.assertEqual(entities['stock_type'], 'purchase')
+
     def test_recognize_stocked_stockout_plain_language(self):
         from apps.ai.services.query_service import QueryService
 
@@ -2529,6 +2569,14 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
 
         self.assertEqual(intent, 'stockout_count')
         self.assertEqual(entities['status'], 'stocked')
+
+    def test_recognize_sale_stockout_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('销售出库单有多少')
+
+        self.assertEqual(intent, 'stockout_count')
+        self.assertEqual(entities['stock_type'], 'sale')
 
     def test_recognize_overdue_finance_order_record_plain_language(self):
         from apps.ai.services.query_service import QueryService
@@ -2804,6 +2852,22 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
 
         self.assertEqual(intent, 'payment_list')
         self.assertEqual(entities, {})
+
+    def test_recognize_this_month_payment_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('本月付款记录')
+
+        self.assertEqual(intent, 'payment_list')
+        self.assertEqual(entities['time_range'], 'this_month')
+
+    def test_recognize_last_month_income_count_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('上月回款有多少')
+
+        self.assertEqual(intent, 'finance_income_count')
+        self.assertEqual(entities['time_range'], 'last_month')
 
     def test_recognize_unissued_invoice_plain_language(self):
         from apps.ai.services.query_service import QueryService
@@ -3930,6 +3994,45 @@ class AIQueryServiceInventoryIntentBridgeTests(TestCase):
 
         self.assertEqual(names, {'华东仓', '华南仓'})
 
+    def test_warehouse_list_inactive_scope_only_returns_disabled(self):
+        from apps.ai.services.query_service import QueryService
+        from apps.inventory.models import Warehouse
+
+        Warehouse.objects.create(name='启用仓', code='WH-ACTIVE', status=1)
+        Warehouse.objects.create(name='禁用仓', code='WH-INACTIVE', status=0)
+
+        result = QueryService().handle_warehouse_list({'status': 'inactive'}, SimpleNamespace(is_superuser=False, id=1))
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(names, {'禁用仓'})
+
+    def test_warehouse_count_type_scope_only_counts_matching_type(self):
+        from apps.ai.services.query_service import QueryService
+        from apps.inventory.models import Warehouse
+
+        Warehouse.objects.create(name='生产仓', code='WH-PROD', warehouse_type='production')
+        Warehouse.objects.create(name='质检仓', code='WH-QA', warehouse_type='quality')
+
+        result = QueryService().handle_warehouse_count({'warehouse_type': 'production'}, SimpleNamespace(is_superuser=False, id=1))
+
+        self.assertEqual(result['value'], 1)
+
+    def test_inventory_list_locked_scope_only_returns_locked(self):
+        from apps.ai.services.query_service import QueryService
+        from apps.inventory.models import Inventory, InventoryCategory, InventoryItem, Warehouse
+
+        warehouse = Warehouse.objects.create(name='库存仓', code='WH-INV')
+        category = InventoryCategory.objects.create(name='原料', code='CAT-INV')
+        item = InventoryItem.objects.create(name='铜线', code='ITEM-LOCK', category=category, unit='卷')
+        Inventory.objects.create(item=item, warehouse=warehouse, quantity=10, available_quantity=2, status='locked')
+        Inventory.objects.create(item=item, warehouse=warehouse, batch_number='B2', quantity=10, available_quantity=10, status='normal')
+
+        result = QueryService().handle_inventory_list({'status': 'locked'}, SimpleNamespace(is_superuser=False, id=1))
+        names = {item['item_name'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(names, {'铜线'})
+
     def test_stockin_list_returns_stockin_orders(self):
         from apps.ai.services.query_service import QueryService
         from apps.inventory.models import Warehouse, StockIn
@@ -4019,6 +4122,19 @@ class AIQueryServiceInventoryIntentBridgeTests(TestCase):
 
         self.assertEqual(codes, {'IN-APP-1'})
 
+    def test_stockin_list_type_scope_only_returns_matching_type(self):
+        from apps.ai.services.query_service import QueryService
+        from apps.inventory.models import Warehouse, StockIn
+
+        warehouse = Warehouse.objects.create(name='采购仓', code='WH-IN-TYPE')
+        StockIn.objects.create(code='IN-PURCHASE', stock_in_type='purchase', warehouse=warehouse)
+        StockIn.objects.create(code='IN-PRODUCTION', stock_in_type='production', warehouse=warehouse)
+
+        result = QueryService().handle_stockin_list({'stock_type': 'purchase'}, SimpleNamespace(is_superuser=False, id=1))
+        codes = {item['stock_in_no'] for item in result['items']}
+
+        self.assertEqual(codes, {'IN-PURCHASE'})
+
     def test_stockout_list_stocked_scope_only_returns_stocked(self):
         from apps.ai.services.query_service import QueryService
         from apps.inventory.models import Warehouse, StockOut
@@ -4031,6 +4147,19 @@ class AIQueryServiceInventoryIntentBridgeTests(TestCase):
         codes = {item['stock_out_no'] for item in result['items']}
 
         self.assertEqual(codes, {'OUT-ST-1'})
+
+    def test_stockout_list_type_scope_only_returns_matching_type(self):
+        from apps.ai.services.query_service import QueryService
+        from apps.inventory.models import Warehouse, StockOut
+
+        warehouse = Warehouse.objects.create(name='销售仓', code='WH-OUT-TYPE')
+        StockOut.objects.create(code='OUT-SALE', stock_out_type='sale', warehouse=warehouse)
+        StockOut.objects.create(code='OUT-PRODUCTION', stock_out_type='production', warehouse=warehouse)
+
+        result = QueryService().handle_stockout_list({'stock_type': 'sale'}, SimpleNamespace(is_superuser=False, id=1))
+        codes = {item['stock_out_no'] for item in result['items']}
+
+        self.assertEqual(codes, {'OUT-SALE'})
 
 
 class AIQueryServiceContactDocumentPaymentBridgeTests(TestCase):
@@ -4086,6 +4215,38 @@ class AIQueryServiceContactDocumentPaymentBridgeTests(TestCase):
         expense_codes = {item['expense_code'] for item in result['items']}
 
         self.assertEqual(expense_codes, {'BX-PAY-001'})
+
+    def test_payment_list_this_month_scope_only_returns_current_month(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.finance.models import Payment
+
+        User = get_user_model()
+        user = User.objects.create_user(username='payment-this-month-user')
+        now = timezone.now()
+        Payment.objects.create(amount=100, payment_date=now, remark='本月付款')
+        Payment.objects.create(amount=200, payment_date=now - timedelta(days=40), remark='上期付款')
+
+        result = QueryService().handle_payment_list({'time_range': 'this_month'}, user)
+        remarks = {item['remark'] for item in result['items']}
+
+        self.assertEqual(remarks, {'本月付款'})
+
+    def test_finance_income_count_last_month_scope_only_counts_last_month(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.finance.models import Income
+
+        User = get_user_model()
+        user = User.objects.create_user(username='income-last-month-user')
+        now = timezone.now()
+        last_month = (now.replace(day=1) - timedelta(days=1)).replace(day=15)
+        Income.objects.create(amount=100, income_date=last_month, remark='上月回款')
+        Income.objects.create(amount=200, income_date=now, remark='本月回款')
+
+        result = QueryService().handle_finance_income_count({'time_range': 'last_month'}, user)
+
+        self.assertEqual(result['value'], 1)
 
     def test_finance_order_record_list_overdue_scope_only_returns_overdue(self):
         from django.contrib.auth import get_user_model
