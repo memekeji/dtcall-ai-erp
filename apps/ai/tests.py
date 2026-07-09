@@ -664,6 +664,22 @@ class AIConfirmationServiceTests(SimpleTestCase):
         self.assertEqual(request.resource, 'finance')
         self.assertEqual(request.context['model'], 'income')
 
+    def test_build_action_request_normalizes_finance_order_record_resource(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'update',
+            'data_type': 'finance_order_record',
+            'entities': {
+                'object_ids': [63],
+                'changes': {'remark': '已确认回款节点'},
+            },
+        })
+
+        self.assertEqual(request.resource, 'finance')
+        self.assertEqual(request.context['model'], 'order_record')
+        self.assertEqual(request.object_ids, [63])
+
 
 class AIOperationConfirmServiceTests(SimpleTestCase):
     def test_confirm_operation_validates_token_and_updates_status(self):
@@ -972,6 +988,20 @@ class AIIntentCoverageTests(SimpleTestCase):
         self.assertEqual(result['data_type'], 'stockin')
         self.assertTrue(result['requires_confirmation'])
 
+    def test_rule_fallback_recognizes_alert_approve_action(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._safe_fallback_result(
+            '处理一下这个库存预警',
+            'AI 模型暂时不可用',
+        )
+
+        self.assertEqual(result['intent'], 'DATA_UPDATE')
+        self.assertEqual(result['action'], 'approve')
+        self.assertEqual(result['data_type'], 'alert')
+        self.assertTrue(result['requires_confirmation'])
+
     def test_rule_fallback_prefers_personal_contact_for_my_contacts(self):
         from apps.ai.services.ai_intent_classifier import AIIntentClassifier
 
@@ -995,6 +1025,32 @@ class AIIntentCoverageTests(SimpleTestCase):
 
         self.assertEqual(result['intent'], 'DATA_QUERY')
         self.assertEqual(result['data_type'], 'production_task')
+
+    def test_rule_fallback_recognizes_finance_order_record_query(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._safe_fallback_result(
+            '查一下订单财务记录',
+            'AI 模型暂时不可用',
+        )
+
+        self.assertEqual(result['intent'], 'DATA_QUERY')
+        self.assertEqual(result['action'], 'list')
+        self.assertEqual(result['data_type'], 'finance_order_record')
+
+    def test_rule_fallback_recognizes_pending_alert_query_status(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._safe_fallback_result(
+            '看看未处理的库存预警',
+            'AI 模型暂时不可用',
+        )
+
+        self.assertEqual(result['intent'], 'DATA_QUERY')
+        self.assertEqual(result['data_type'], 'alert')
+        self.assertEqual(result['status'], 'pending')
 
     def test_summarize_ai_failure_identifies_unavailable_model(self):
         from apps.ai.services.ai_intent_classifier import AIIntentClassifier
@@ -1313,6 +1369,15 @@ class AIConfigurationSourceTests(SimpleTestCase):
 
         self.assertEqual(expense_query['permission_code'], 'finance.view_expense')
 
+    def test_project_mcp_exposes_finance_expense_create_capability(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capabilities = project_mcp_service.get_capability_catalog()
+        expense_create = next(item for item in capabilities if item['id'] == 'write.finance_expense.create')
+
+        self.assertEqual(expense_create['permission_code'], 'finance.add_reimbursement')
+        self.assertEqual(expense_create['target_url'], '/finance/expense/add/')
+
     def test_project_mcp_exposes_production_task_query_capability(self):
         from apps.ai.services.project_mcp_service import project_mcp_service
 
@@ -1320,6 +1385,24 @@ class AIConfigurationSourceTests(SimpleTestCase):
         production_task_query = next(item for item in capabilities if item['id'] == 'query.production_task.list')
 
         self.assertEqual(production_task_query['permission_code'], 'production.view_productiontask')
+
+    def test_project_mcp_exposes_alert_approve_capability(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capabilities = project_mcp_service.get_capability_catalog()
+        alert_approve = next(item for item in capabilities if item['id'] == 'write.alert.approve')
+
+        self.assertEqual(alert_approve['permission_code'], 'inventory.change_inventoryalert')
+        self.assertEqual(alert_approve['target_url'], '/inventory/alert/')
+
+    def test_project_mcp_exposes_finance_order_record_update_capability(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capabilities = project_mcp_service.get_capability_catalog()
+        order_record_update = next(item for item in capabilities if item['id'] == 'write.finance_order_record.update')
+
+        self.assertEqual(order_record_update['permission_code'], 'finance.change_orderfinancerecord')
+        self.assertEqual(order_record_update['target_url'], '/finance/order-finance/')
 
     def test_project_mcp_matches_publish_operation_capability(self):
         from apps.ai.services.project_mcp_service import project_mcp_service
@@ -1879,6 +1962,84 @@ class AIConfigurationSourceTests(SimpleTestCase):
         self.assertEqual(task['target_url'], '/production/task/execution/add/')
         self.assertIsNone(task['disabled_reason'])
 
+    def test_finance_expense_create_handoff_is_enabled(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in {'finance.add_reimbursement'},
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'finance_expense',
+                'entities': {'code': 'BX-001'},
+                'confidence': 0.9,
+            },
+            '新增一张报销单',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/finance/expense/add/')
+        self.assertIsNone(task['disabled_reason'])
+
+    def test_alert_approve_handoff_is_enabled(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in {'inventory.change_inventoryalert'},
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_UPDATE',
+                'action': 'approve',
+                'data_type': 'alert',
+                'entities': {'object_ids': [12]},
+                'confidence': 0.9,
+            },
+            '处理这个库存预警',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/inventory/alert/')
+        self.assertIsNone(task['disabled_reason'])
+
+    def test_finance_order_record_update_handoff_is_enabled(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in {'finance.change_orderfinancerecord'},
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_UPDATE',
+                'action': 'update',
+                'data_type': 'finance_order_record',
+                'entities': {'object_ids': [63]},
+                'confidence': 0.9,
+            },
+            '更新这条订单财务记录',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/finance/order-finance/')
+        self.assertIsNone(task['disabled_reason'])
+
     def test_meeting_create_handoff_uses_apply_permission(self):
         from apps.ai.services.enhanced_intent_service import EnhancedIntentService
 
@@ -2188,6 +2349,22 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
 
         self.assertEqual(intent, 'finance_expense_list')
         self.assertEqual(entities['status'], 'pending_payment')
+
+    def test_recognize_pending_alert_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('未处理库存预警有多少')
+
+        self.assertEqual(intent, 'alert_count')
+        self.assertEqual(entities['status'], 'pending')
+
+    def test_recognize_overdue_finance_order_record_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('查一下逾期订单财务记录')
+
+        self.assertEqual(intent, 'finance_order_record_list')
+        self.assertEqual(entities['status'], 'overdue')
 
     def test_recognize_contact_plain_language(self):
         from apps.ai.services.query_service import QueryService
@@ -3383,6 +3560,37 @@ class AIQueryServiceInventoryIntentBridgeTests(TestCase):
 
         self.assertEqual(names, {'钢材'})
 
+    def test_alert_list_pending_scope_only_returns_unprocessed(self):
+        from apps.ai.services.query_service import QueryService
+        from apps.inventory.models import Warehouse, InventoryCategory, InventoryItem, InventoryAlert
+
+        warehouse = Warehouse.objects.create(name='预警仓2', code='WH-AL-002')
+        category = InventoryCategory.objects.create(name='辅料', code='CAT-002')
+        item = InventoryItem.objects.create(name='锡膏', code='IT-002', category=category, unit='瓶')
+        InventoryAlert.objects.create(
+            item=item,
+            warehouse=warehouse,
+            alert_type='low_stock',
+            current_quantity=1,
+            threshold_value=5,
+            message='待处理预警',
+            status=1,
+        )
+        InventoryAlert.objects.create(
+            item=item,
+            warehouse=warehouse,
+            alert_type='over_stock',
+            current_quantity=20,
+            threshold_value=5,
+            message='已处理预警',
+            status=2,
+        )
+
+        result = QueryService().handle_alert_list({'status': 'pending'}, SimpleNamespace(is_superuser=False, id=1))
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(result['items'][0]['status'], '未处理')
+
 
 class AIQueryServiceContactDocumentPaymentBridgeTests(TestCase):
     def test_contact_list_returns_customer_contacts(self):
@@ -3437,6 +3645,34 @@ class AIQueryServiceContactDocumentPaymentBridgeTests(TestCase):
         expense_codes = {item['expense_code'] for item in result['items']}
 
         self.assertEqual(expense_codes, {'BX-PAY-001'})
+
+    def test_finance_order_record_list_overdue_scope_only_returns_overdue(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.finance.models import OrderFinanceRecord
+
+        User = get_user_model()
+        user = User.objects.create_user(username='finance-order-user')
+
+        OrderFinanceRecord.objects.create(
+            order_id=11,
+            total_amount=Decimal('1000.00'),
+            paid_amount=Decimal('200.00'),
+            payment_status='overdue',
+            remark='已逾期',
+        )
+        OrderFinanceRecord.objects.create(
+            order_id=12,
+            total_amount=Decimal('2000.00'),
+            paid_amount=Decimal('2000.00'),
+            payment_status='paid',
+            remark='已付款',
+        )
+
+        result = QueryService().handle_finance_order_record_list({'status': 'overdue'}, user)
+        statuses = {item['payment_status'] for item in result['items']}
+
+        self.assertEqual(statuses, {'overdue'})
 
 
 class AIQueryServiceWorkHourAndAliasBridgeTests(TestCase):
@@ -5083,6 +5319,49 @@ class AIProductionResourceAdapterTests(SimpleTestCase):
         self.assertEqual(result['change_set'][0]['after_snapshot']['code'], 'EQ-001')
 
 
+class AIAlertAdapterTests(SimpleTestCase):
+    def test_alert_adapter_approve_execute_marks_processed(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.alert import AlertModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing alert adapter dependency: {exc}')
+
+        adapter = AlertModuleAdapter()
+        alert = SimpleNamespace(
+            id=12,
+            item_id=5,
+            warehouse_id=6,
+            alert_type='low_stock',
+            current_quantity=Decimal('2'),
+            threshold_value=Decimal('10'),
+            message='库存过低',
+            status=1,
+            handler_id=None,
+            handle_time=None,
+            handle_remark='',
+            create_time=None,
+            save=MagicMock(),
+        )
+        action = AIActionRequest(resource='alert', operation='approve', object_ids=[12], changes={'handle_remark': '已安排补货'})
+
+        with patch.object(adapter, '_check_permission', return_value={'allowed': True, 'message': 'allowed'}), \
+                patch.object(adapter, '_get_alert_for_action', return_value=alert), \
+                patch('apps.ai.services.module_adapters.alert.timezone.now', return_value='NOW'):
+            result = adapter.execute(
+                action,
+                user=SimpleNamespace(id=9, is_authenticated=True, has_perm=lambda code: True),
+                operation=None,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(alert.status, 2)
+        self.assertEqual(alert.handler_id, 9)
+        self.assertEqual(alert.handle_time, 'NOW')
+        self.assertEqual(alert.handle_remark, '已安排补货')
+        alert.save.assert_called()
+
+
 class AIPersonalWorkspaceAdapterTests(SimpleTestCase):
     def test_personal_task_toggle_execute_updates_status(self):
         try:
@@ -5483,6 +5762,42 @@ class AIFinanceAdapterTests(SimpleTestCase):
         self.assertEqual(result['change_set'][0]['model_name'], 'InvoiceRequest')
         self.assertEqual(result['change_set'][0]['before_snapshot']['status'], 'pending')
         self.assertEqual(result['change_set'][0]['after_snapshot']['status'], 'approved')
+
+    def test_finance_order_record_update_preview_builds_change_set(self):
+        try:
+            from apps.ai.services.action_contracts import AIActionRequest
+            from apps.ai.services.module_adapters.finance import FinanceModuleAdapter
+        except ModuleNotFoundError as exc:
+            self.fail(f'Missing finance adapter dependency: {exc}')
+
+        adapter = FinanceModuleAdapter()
+        record = SimpleNamespace(
+            id=63,
+            order_id=11,
+            total_amount=Decimal('9800.00'),
+            paid_amount=Decimal('3000.00'),
+            payment_status='partial',
+            due_date=date(2026, 7, 30),
+            create_time=123,
+            remark='旧备注',
+        )
+        action = AIActionRequest(
+            resource='finance',
+            operation='update',
+            object_ids=[63],
+            context={'model': 'order_record'},
+            changes={'remark': '补充回款说明', 'payment_status': 'paid'},
+        )
+
+        with patch.object(adapter, '_get_order_record_for_action', return_value=record):
+            result = adapter.preview(
+                action,
+                user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['model_name'], 'OrderFinanceRecord')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['payment_status'], 'paid')
 
     def test_finance_adapter_denies_without_permission(self):
         try:
@@ -6702,11 +7017,19 @@ class EnterpriseAgentRegistryTests(SimpleTestCase):
             'inventory_health_agent',
             'contract_review_agent',
             'finance_ops_agent',
+            'approval_workbench_agent',
+            'workforce_planning_agent',
+            'meeting_coordination_agent',
+            'admin_communication_agent',
+            'personal_execution_agent',
+            'order_fulfillment_agent',
         }.issubset(agent_ids))
 
-        self.assertGreaterEqual(payload['summary']['enterprise_agent_count'], 6)
+        self.assertGreaterEqual(payload['summary']['enterprise_agent_count'], 12)
+        self.assertGreaterEqual(payload['summary']['module_count'], 8)
         self.assertGreater(payload['summary']['direct_action_count'], 0)
         self.assertGreater(payload['summary']['confirm_action_count'], 0)
+        self.assertTrue(any(item['module'] == '财务管理' for item in payload['module_breakdown']))
 
 
 class EnterpriseAgentExecutionServiceTests(SimpleTestCase):
@@ -6971,6 +7294,9 @@ class AgentCenterTemplateIntegrationTests(SimpleTestCase):
             '/ai/agent-center/data/',
             '/ai/agent-center/execute/',
             'AI 底层资源',
+            'agentModuleFilters',
+            'moduleBreakdownGrid',
+            'agentSearchInput',
         ):
             self.assertIn(snippet, content)
 
@@ -7323,38 +7649,47 @@ class BusinessAIEndpointResponseTests(SimpleTestCase):
             manager_id=7,
             description='核心客户交付',
         )
-        task = SimpleNamespace(
-            id=40,
-            title='接口联调',
-            status=2,
-            priority=3,
-            start_date=None,
-            end_date=None,
-            assignee_id=8,
-            estimated_hours=16,
-        )
-        task_queryset = MagicMock()
-        task_queryset.__iter__.return_value = iter([task])
-        task_queryset.aggregate.return_value = {
-            'total_tasks': 1,
-            'completed_tasks': 0,
-            'in_progress_tasks': 1,
-            'pending_tasks': 0,
-        }
-        work_hour_queryset = MagicMock()
-        work_hour_queryset.aggregate.return_value = {'total': 20}
-
-        with patch('apps.project.ai_views.Project.objects.get', return_value=project), \
-                patch('apps.project.ai_views.Task.objects.filter', return_value=task_queryset), \
-                patch('apps.project.ai_views.WorkHour.objects.filter', return_value=work_hour_queryset), \
-                patch('apps.project.ai_views.default_project_analysis_tool.predict_project_risk') as predict:
-            predict.return_value = {
-                'analysis': '进度存在延期风险，需要聚焦接口联调。',
+        analysis = SimpleNamespace(id=18)
+        serialized_payload = {
+            'analysis_id': 18,
+            'project_id': 4,
+            'project_name': '交付项目',
+            'scenario': 'project_risk_prediction',
+            'source_refs': [{'type': 'project', 'id': 4}],
+            'risk_level': 'high',
+            'risk_level_display': '高风险',
+            'risk_score': 82,
+            'warning_count': 1,
+            'summary': '进度存在延期风险，需要聚焦接口联调。',
+            'risk_points': ['接口联调未完成'],
+            'suggestions': ['优先推进接口联调'],
+            'recommended_action': 'manual_review',
+            'recommended_action_display': '人工重点复核',
+            'confidence': 0.83,
+            'metrics': {'progress': 45},
+            'trigger_source': 'manual',
+            'trigger_source_display': '手动触发',
+            'analyzed_at': '2026-07-09 10:00',
+            'requires_confirmation': True,
+            'raw_result': {
                 'risk_level': 'high',
                 'risk_points': ['接口联调未完成'],
-                'confidence': 0.83,
-            }
+            },
+            'feedback_context': {
+                'endpoint': '/ai/business-feedback/',
+                'payload': {
+                    'scenario': 'project_risk_prediction',
+                    'source_refs': [{'type': 'project', 'id': 4}],
+                    'summary': '进度存在延期风险，需要聚焦接口联调。',
+                    'task_type': 'project_risk_analysis',
+                    'task_id': 'project_risk_prediction:4',
+                },
+            },
+        }
 
+        with patch('apps.project.ai_views.Project.objects.get', return_value=project), \
+                patch('apps.project.ai_views.project_risk_analysis_service.analyze_project', return_value=analysis) as analyze_project, \
+                patch('apps.project.ai_views.serialize_risk_analysis', return_value=serialized_payload) as serialize:
             response = ai_project_risk_prediction(request, project_id=4)
 
         payload = json.loads(response.content.decode('utf-8'))
@@ -7362,6 +7697,12 @@ class BusinessAIEndpointResponseTests(SimpleTestCase):
         self._assert_business_result_contract(payload['data'], 'project_risk_prediction')
         self.assertEqual(payload['data']['risk_level'], 'high')
         self.assertTrue(payload['data']['requires_confirmation'])
+        analyze_project.assert_called_once_with(
+            project,
+            trigger_source='manual',
+            triggered_by=request.user,
+        )
+        serialize.assert_called_once_with(analysis)
 
     def test_inventory_forecast_returns_normalized_business_result(self):
         from datetime import datetime
