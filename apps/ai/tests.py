@@ -140,6 +140,30 @@ class AIPermissionGuardTests(SimpleTestCase):
         self.assertTrue(result.allowed)
 
 
+class AIQueryServicePermissionMappingTests(SimpleTestCase):
+    def test_admin_office_query_permissions_follow_menu_nodes(self):
+        from apps.ai.services.query_service import QueryService
+
+        allowed_permissions = {
+            'user.view_asset',
+            'user.view_vehicle_info',
+            'user.view_seal_management',
+            'user.view_seal_application',
+        }
+        user = SimpleNamespace(
+            username='office-query-user',
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in allowed_permissions,
+        )
+        service = QueryService()
+
+        self.assertTrue(service.check_permission(user, 'asset_list'))
+        self.assertTrue(service.check_permission(user, 'vehicle_list'))
+        self.assertTrue(service.check_permission(user, 'seal_list'))
+        self.assertTrue(service.check_permission(user, 'seal_application_list'))
+
+
 class AIRollbackServiceTests(SimpleTestCase):
     def test_rollback_plan_reverses_change_set_order(self):
         try:
@@ -3030,6 +3054,82 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         self.assertEqual(intent, 'meeting_list')
         self.assertEqual(entities['time_range'], 'last_week')
 
+    def test_recognize_repair_asset_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('维修中的固定资产有哪些')
+
+        self.assertEqual(intent, 'asset_list')
+        self.assertEqual(entities['status'], 'repair')
+
+    def test_recognize_scrap_vehicle_count_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('报废车辆有几个')
+
+        self.assertEqual(intent, 'vehicle_count')
+        self.assertEqual(entities['status'], 'scrap')
+
+    def test_recognize_inactive_seal_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('停用印章有哪些')
+
+        self.assertEqual(intent, 'seal_list')
+        self.assertEqual(entities['status'], 'inactive')
+
+    def test_recognize_finance_seal_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('财务专用章有哪些')
+
+        self.assertEqual(intent, 'seal_list')
+        self.assertEqual(entities['seal_type'], 'finance')
+
+    def test_recognize_pending_seal_application_count_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('待审核用章申请有多少')
+
+        self.assertEqual(intent, 'seal_application_count')
+        self.assertEqual(entities['status'], 'pending')
+
+    def test_resolve_specific_intent_maps_asset_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '查一下固定资产',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'asset',
+                'action': 'list',
+                'entities': {},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'asset_list')
+        self.assertEqual(entities, {})
+
+    def test_resolve_specific_intent_maps_seal_application_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '待审核用章申请数量',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'seal_application',
+                'action': 'count',
+                'entities': {'status': 'pending'},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'seal_application_count')
+        self.assertEqual(entities['status'], 'pending')
+
     def test_resolve_specific_intent_prefers_order_total_for_deal_amount_query(self):
         from apps.ai.services.query_service import QueryService
 
@@ -3651,6 +3751,136 @@ class AIQueryServiceDiskVisibilityTests(TestCase):
 
 
 class AIQueryServiceOfficeVisibilityTests(TestCase):
+    def test_asset_list_repair_scope_only_returns_repair_assets(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.system.models import Asset
+
+        User = get_user_model()
+        user = User.objects.create_user(username='asset-query-user')
+
+        Asset.objects.create(
+            asset_number='ASSET-REPAIR',
+            name='维修电脑',
+            purchase_date=date.today(),
+            purchase_price=5000,
+            status='repair',
+        )
+        Asset.objects.create(
+            asset_number='ASSET-NORMAL',
+            name='正常电脑',
+            purchase_date=date.today(),
+            purchase_price=6000,
+            status='normal',
+        )
+
+        result = QueryService().handle_asset_list({'status': 'repair'}, user)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(names, {'维修电脑'})
+
+    def test_vehicle_count_scrap_scope_only_counts_scrapped_vehicles(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.system.models import Vehicle
+
+        User = get_user_model()
+        user = User.objects.create_user(username='vehicle-query-user')
+
+        Vehicle.objects.create(
+            license_plate='京A00001',
+            brand='大众',
+            model='帕萨特',
+            color='黑色',
+            engine_number='ENG-SCRAP',
+            frame_number='FRM-SCRAP',
+            purchase_date=date.today(),
+            purchase_price=100000,
+            status='scrap',
+        )
+        Vehicle.objects.create(
+            license_plate='京A00002',
+            brand='丰田',
+            model='凯美瑞',
+            color='白色',
+            engine_number='ENG-NORMAL',
+            frame_number='FRM-NORMAL',
+            purchase_date=date.today(),
+            purchase_price=120000,
+            status='normal',
+        )
+
+        result = QueryService().handle_vehicle_count({'status': 'scrap'}, user)
+
+        self.assertEqual(result['value'], 1)
+
+    def test_seal_list_inactive_scope_only_returns_inactive_seals(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.system.models import Seal
+
+        User = get_user_model()
+        keeper = User.objects.create_user(username='seal-keeper')
+
+        Seal.objects.create(name='停用公章', seal_type='company', keeper=keeper, is_active=False)
+        Seal.objects.create(name='启用公章', seal_type='company', keeper=keeper, is_active=True)
+
+        result = QueryService().handle_seal_list({'status': 'inactive'}, keeper)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(names, {'停用公章'})
+
+    def test_seal_list_type_scope_only_returns_matching_seals(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.system.models import Seal
+
+        User = get_user_model()
+        keeper = User.objects.create_user(username='seal-type-keeper')
+
+        Seal.objects.create(name='财务章', seal_type='finance', keeper=keeper)
+        Seal.objects.create(name='合同章', seal_type='contract', keeper=keeper)
+
+        result = QueryService().handle_seal_list({'seal_type': 'finance'}, keeper)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(names, {'财务章'})
+
+    def test_seal_application_list_pending_scope_only_returns_pending_applications(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.system.models import Seal, SealApplication
+
+        User = get_user_model()
+        applicant = User.objects.create_user(username='seal-applicant')
+        keeper = User.objects.create_user(username='seal-application-keeper')
+        seal = Seal.objects.create(name='业务公章', seal_type='company', keeper=keeper)
+
+        SealApplication.objects.create(
+            seal=seal,
+            applicant=applicant,
+            purpose='合同盖章',
+            document_title='待审核合同',
+            use_date=date.today(),
+            status='pending',
+        )
+        SealApplication.objects.create(
+            seal=seal,
+            applicant=applicant,
+            purpose='协议盖章',
+            document_title='已通过协议',
+            use_date=date.today(),
+            status='approved',
+        )
+
+        result = QueryService().handle_seal_application_list({'status': 'pending'}, applicant)
+        titles = {item['document_title'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(titles, {'待审核合同'})
+
     def test_notice_list_only_returns_authored_or_targeted_published_notices(self):
         from django.contrib.auth import get_user_model
         from apps.ai.services.query_service import QueryService

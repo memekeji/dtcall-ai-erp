@@ -128,6 +128,14 @@ class QueryService:
             'work_type_list': self.handle_work_type_list,
             'document_count': self.handle_document_count,
             'document_list': self.handle_document_list,
+            'asset_count': self.handle_asset_count,
+            'asset_list': self.handle_asset_list,
+            'vehicle_count': self.handle_vehicle_count,
+            'vehicle_list': self.handle_vehicle_list,
+            'seal_count': self.handle_seal_count,
+            'seal_list': self.handle_seal_list,
+            'seal_application_count': self.handle_seal_application_count,
+            'seal_application_list': self.handle_seal_application_list,
             'payment_count': self.handle_payment_count,
             'payment_list': self.handle_payment_list,
             'meeting_count': self.handle_meeting_count,
@@ -199,6 +207,10 @@ class QueryService:
             'project_category': 'project.view_project_category',
             'work_type': 'project.view_work_type',
             'document': 'system.view_document',
+            'asset': 'user.view_asset',
+            'vehicle': 'user.view_vehicle_info',
+            'seal': 'user.view_seal_management',
+            'seal_application': 'user.view_seal_application',
             'payment': 'finance.view_payment',
             'meeting': 'oa.view_meetingrecord',
             'schedule': '__authenticated__',
@@ -289,6 +301,14 @@ class QueryService:
             'work_type_list': 'project.view_work_type',
             'document_count': 'system.view_document',
             'document_list': 'system.view_document',
+            'asset_count': 'user.view_asset',
+            'asset_list': 'user.view_asset',
+            'vehicle_count': 'user.view_vehicle_info',
+            'vehicle_list': 'user.view_vehicle_info',
+            'seal_count': 'user.view_seal_management',
+            'seal_list': 'user.view_seal_management',
+            'seal_application_count': 'user.view_seal_application',
+            'seal_application_list': 'user.view_seal_application',
             'payment_count': 'finance.view_payment',
             'payment_list': 'finance.view_payment',
             'meeting_count': 'oa.view_meetingrecord',
@@ -559,6 +579,10 @@ class QueryService:
             'project_category': {'count': 'project_category_count', 'list': 'project_category_list'},
             'work_type': {'count': 'work_type_count', 'list': 'work_type_list'},
             'document': {'count': 'document_count', 'list': 'document_list'},
+            'asset': {'count': 'asset_count', 'list': 'asset_list'},
+            'vehicle': {'count': 'vehicle_count', 'list': 'vehicle_list'},
+            'seal': {'count': 'seal_count', 'list': 'seal_list'},
+            'seal_application': {'count': 'seal_application_count', 'list': 'seal_application_list'},
             'payment': {'count': 'payment_count', 'list': 'payment_list'},
             'meeting': {'count': 'meeting_count', 'list': 'meeting_list'},
             'schedule': {'count': 'schedule_count', 'list': 'schedule_list'},
@@ -600,7 +624,11 @@ class QueryService:
             'project_category',
             'work_type',
             'project',
+            'seal_application',
             'invoice',
+            'asset',
+            'vehicle',
+            'seal',
             'employee',
             'department',
             'finance_expense',
@@ -772,6 +800,30 @@ class QueryService:
                 intent = 'meeting_count'
             else:
                 intent = 'meeting_list'
+        elif any(keyword in query_lower for keyword in ['固定资产', '资产台账', '资产管理']):
+            self._extract_asset_entities(query_lower, entities)
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'asset_count'
+            else:
+                intent = 'asset_list'
+        elif any(keyword in query_lower for keyword in ['车辆', '车牌', '用车']):
+            self._extract_vehicle_entities(query_lower, entities)
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'vehicle_count'
+            else:
+                intent = 'vehicle_list'
+        elif any(keyword in query_lower for keyword in ['用章申请', '盖章申请', '印章申请']):
+            self._extract_seal_application_entities(query_lower, entities)
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'seal_application_count'
+            else:
+                intent = 'seal_application_list'
+        elif any(keyword in query_lower for keyword in ['印章', '公章', '专用章', '法人章']):
+            self._extract_seal_entities(query_lower, entities)
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'seal_count'
+            else:
+                intent = 'seal_list'
         elif (
                 '日程' in query_lower or
                 '排期' in query_lower or
@@ -1674,6 +1726,52 @@ class QueryService:
             entities['status'] = 'pending'
         elif any(keyword in query_lower for keyword in ['在职', '正常员工', '启用员工']):
             entities['status'] = 'active'
+
+    def _extract_asset_entities(self, query_lower, entities):
+        if any(keyword in query_lower for keyword in ['维修中', '维修的', '报修']):
+            entities['status'] = 'repair'
+        elif any(keyword in query_lower for keyword in ['报废', '已废弃']):
+            entities['status'] = 'scrap'
+        elif any(keyword in query_lower for keyword in ['丢失', '遗失']):
+            entities['status'] = 'lost'
+        elif any(keyword in query_lower for keyword in ['正常', '可用']):
+            entities['status'] = 'normal'
+
+    def _extract_vehicle_entities(self, query_lower, entities):
+        if any(keyword in query_lower for keyword in ['维修中', '维修的', '检修']):
+            entities['status'] = 'repair'
+        elif any(keyword in query_lower for keyword in ['报废', '已废弃']):
+            entities['status'] = 'scrap'
+        elif any(keyword in query_lower for keyword in ['正常', '可用']):
+            entities['status'] = 'normal'
+
+    def _extract_seal_entities(self, query_lower, entities):
+        self._extract_enabled_status_entities(query_lower, entities)
+        seal_type_mapping = {
+            '公司公章': 'company',
+            '公章': 'company',
+            '合同专用章': 'contract',
+            '合同章': 'contract',
+            '财务专用章': 'finance',
+            '财务章': 'finance',
+            '法人章': 'legal',
+        }
+        for keyword, seal_type in seal_type_mapping.items():
+            if keyword in query_lower:
+                entities['seal_type'] = seal_type
+                break
+
+    def _extract_seal_application_entities(self, query_lower, entities):
+        if any(keyword in query_lower for keyword in ['待审核', '待审批', '待处理']):
+            entities['status'] = 'pending'
+        elif any(keyword in query_lower for keyword in ['已通过', '审核通过', '审批通过']):
+            entities['status'] = 'approved'
+        elif any(keyword in query_lower for keyword in ['已拒绝', '已驳回', '审核不通过', '审批不通过']):
+            entities['status'] = 'rejected'
+        elif any(keyword in query_lower for keyword in ['已用章', '已盖章']):
+            entities['status'] = 'used'
+        elif any(keyword in query_lower for keyword in ['已取消', '已撤销', '已撤回']):
+            entities['status'] = 'cancelled'
 
     def _extract_finance_expense_entities(self, query_lower, entities):
         if any(keyword in query_lower for keyword in ['审核通过', '审批通过', '已通过']):
@@ -3693,6 +3791,154 @@ class QueryService:
             'data_type': 'document'
         }
 
+    def handle_asset_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import Asset
+
+        queryset = self._apply_office_status_filters(Asset.objects.all(), entities, {'normal', 'repair', 'scrap', 'lost'})
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'asset'
+        }
+
+    def handle_asset_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import Asset
+
+        queryset = self._apply_office_status_filters(
+            Asset.objects.select_related('category', 'brand', 'responsible_person', 'department'),
+            entities,
+            {'normal', 'repair', 'scrap', 'lost'},
+        )
+        items = [{
+            'id': item.id,
+            'asset_number': item.asset_number,
+            'name': item.name,
+            'category': item.category.name if item.category else '',
+            'brand': item.brand.name if item.brand else '',
+            'model': item.model or '',
+            'location': item.location or '',
+            'responsible_person': item.responsible_person.username if item.responsible_person else '',
+            'department': item.department.name if item.department else '',
+            'purchase_price': item.purchase_price,
+            'status': item.get_status_display() if hasattr(item, 'get_status_display') else item.status,
+        } for item in queryset.order_by('-created_at')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'asset'
+        }
+
+    def handle_vehicle_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import Vehicle
+
+        queryset = self._apply_office_status_filters(Vehicle.objects.all(), entities, {'normal', 'repair', 'scrap'})
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'vehicle'
+        }
+
+    def handle_vehicle_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import Vehicle
+
+        queryset = self._apply_office_status_filters(
+            Vehicle.objects.select_related('driver'),
+            entities,
+            {'normal', 'repair', 'scrap'},
+        )
+        items = [{
+            'id': item.id,
+            'license_plate': item.license_plate,
+            'brand': item.brand,
+            'model': item.model,
+            'color': item.color,
+            'driver': item.driver.username if item.driver else '',
+            'purchase_price': item.purchase_price,
+            'insurance_expire': item.insurance_expire.strftime('%Y-%m-%d') if item.insurance_expire else '',
+            'annual_inspection': item.annual_inspection.strftime('%Y-%m-%d') if item.annual_inspection else '',
+            'status': item.get_status_display() if hasattr(item, 'get_status_display') else item.status,
+        } for item in queryset.order_by('-created_at')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'vehicle'
+        }
+
+    def handle_seal_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import Seal
+
+        queryset = self._apply_seal_filters(Seal.objects.all(), entities)
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'seal'
+        }
+
+    def handle_seal_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import Seal
+
+        queryset = self._apply_seal_filters(Seal.objects.select_related('keeper'), entities)
+        items = [{
+            'id': item.id,
+            'name': item.name,
+            'seal_type': item.get_seal_type_display() if hasattr(item, 'get_seal_type_display') else item.seal_type,
+            'keeper': item.keeper.username if item.keeper else '',
+            'location': item.location or '',
+            'is_active': item.is_active,
+            'status': '启用' if item.is_active else '停用',
+        } for item in queryset.order_by('name')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'seal'
+        }
+
+    def handle_seal_application_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import SealApplication
+
+        queryset = self._apply_seal_application_filters(SealApplication.objects.all(), entities)
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'seal_application'
+        }
+
+    def handle_seal_application_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import SealApplication
+
+        queryset = self._apply_seal_application_filters(
+            SealApplication.objects.select_related('seal', 'applicant', 'approver'),
+            entities,
+        )
+        items = [{
+            'id': item.id,
+            'seal_name': item.seal.name if item.seal else '',
+            'document_title': item.document_title,
+            'purpose': item.purpose,
+            'applicant': item.applicant.username if item.applicant else '',
+            'approver': item.approver.username if item.approver else '',
+            'use_date': item.use_date.strftime('%Y-%m-%d') if item.use_date else '',
+            'copies': item.copies,
+            'status': item.get_status_display() if hasattr(item, 'get_status_display') else item.status,
+        } for item in queryset.order_by('-created_at')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'seal_application'
+        }
+
     def handle_project_document_count(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.project.models import ProjectDocument
@@ -4392,6 +4638,10 @@ class QueryService:
             'approval': '审批',
             'notice': '通知公告',
             'document': '文档',
+            'asset': '固定资产',
+            'vehicle': '车辆',
+            'seal': '印章',
+            'seal_application': '用章申请',
             'department': '部门',
             'message': '站内消息',
             'employee': '员工',
@@ -4704,6 +4954,36 @@ class QueryService:
                 if user:
                     return f"{title}（{user}，{size}）"
                 return f"{title}（{size}）"
+            elif data_type == 'asset':
+                name = item.get('name', '未知')
+                asset_number = item.get('asset_number', '')
+                status = item.get('status', '')
+                if asset_number:
+                    return f"{name}（{asset_number}，{status}）"
+                return f"{name}（{status}）"
+            elif data_type == 'vehicle':
+                license_plate = item.get('license_plate', '未知')
+                brand = item.get('brand', '')
+                model = item.get('model', '')
+                status = item.get('status', '')
+                vehicle_name = ' '.join(part for part in [brand, model] if part)
+                if vehicle_name:
+                    return f"{license_plate}（{vehicle_name}，{status}）"
+                return f"{license_plate}（{status}）"
+            elif data_type == 'seal':
+                name = item.get('name', '未知')
+                seal_type = item.get('seal_type', '')
+                status = item.get('status', '')
+                if seal_type:
+                    return f"{name}（{seal_type}，{status}）"
+                return f"{name}（{status}）"
+            elif data_type == 'seal_application':
+                title = item.get('document_title', '未知')
+                seal_name = item.get('seal_name', '')
+                status = item.get('status', '')
+                if seal_name:
+                    return f"{title}（{seal_name}，{status}）"
+                return f"{title}（{status}）"
             elif data_type == 'department':
                 name = item.get('name', '未知')
                 parent = item.get('parent', '')
@@ -5231,6 +5511,25 @@ class QueryService:
             queryset = queryset.filter(status=1)
         elif status == 'inactive':
             queryset = queryset.filter(status=0)
+        return queryset
+
+    def _apply_office_status_filters(self, queryset, entities, allowed_statuses):
+        status = entities.get('status')
+        if status in allowed_statuses:
+            queryset = queryset.filter(status=status)
+        return queryset
+
+    def _apply_seal_filters(self, queryset, entities):
+        queryset = self._apply_active_status_filter(queryset, entities, 'is_active')
+        seal_type = entities.get('seal_type')
+        if seal_type:
+            queryset = queryset.filter(seal_type=seal_type)
+        return queryset
+
+    def _apply_seal_application_filters(self, queryset, entities):
+        status = entities.get('status')
+        if status in {'pending', 'approved', 'rejected', 'used', 'cancelled'}:
+            queryset = queryset.filter(status=status)
         return queryset
 
     def _apply_finance_expense_filters(self, queryset, entities):
