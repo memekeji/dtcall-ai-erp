@@ -32,6 +32,8 @@ class FinanceModuleAdapter(AIBaseModuleAdapter):
             return self._validate_model_fields(action, self.allowed_payment_fields(), self.required_payment_fields, '付款记录')
         if model == 'income':
             return self._validate_model_fields(action, self.allowed_income_fields(), self.required_income_fields, '回款记录')
+        if model == 'order_record':
+            return self._validate_model_fields(action, self.allowed_order_record_fields(), {'order_id', 'total_amount'}, '订单财务记录')
         if model == 'expense':
             invalid_fields = sorted(set(action.changes.keys()) - self.allowed_expense_fields())
             if invalid_fields:
@@ -99,6 +101,10 @@ class FinanceModuleAdapter(AIBaseModuleAdapter):
             return self._preview_standard_model(
                 action, user, 'Income', self._get_income_for_action, self._normalize_income_changes, rollback_model='income'
             )
+        if model == 'order_record':
+            return self._preview_standard_model(
+                action, user, 'OrderFinanceRecord', self._get_order_record_for_action, self._normalize_order_record_changes, rollback_model='order_record'
+            )
 
         expense = self._get_expense_for_action(action.object_ids[0], user)
         before_snapshot = self._snapshot_instance(expense)
@@ -164,6 +170,8 @@ class FinanceModuleAdapter(AIBaseModuleAdapter):
             return self._execute_standard_model(action, user, preview, 'Payment', self._get_payment_for_action, self._normalize_payment_changes)
         if model == 'income':
             return self._execute_standard_model(action, user, preview, 'Income', self._get_income_for_action, self._normalize_income_changes)
+        if model == 'order_record':
+            return self._execute_standard_model(action, user, preview, 'OrderFinanceRecord', self._get_order_record_for_action, self._normalize_order_record_changes)
 
         expense = self._get_expense_for_action(action.object_ids[0], user)
         if action.operation == 'delete':
@@ -239,6 +247,9 @@ class FinanceModuleAdapter(AIBaseModuleAdapter):
     def allowed_income_fields(self):
         return {'invoice_id', 'amount', 'income_date', 'file_ids', 'remark'}
 
+    def allowed_order_record_fields(self):
+        return {'order_id', 'total_amount', 'paid_amount', 'payment_status', 'due_date', 'remark'}
+
     def _resolve_model_name(self, action):
         context = action.context or {}
         model = context.get('model') or context.get('model_name')
@@ -264,6 +275,9 @@ class FinanceModuleAdapter(AIBaseModuleAdapter):
             ('income', 'create'): 'finance.add_payment_receive',
             ('income', 'update'): 'finance.change_payment_receive',
             ('income', 'delete'): 'finance.delete_payment_receive',
+            ('order_record', 'create'): 'finance.add_orderfinancerecord',
+            ('order_record', 'update'): 'finance.change_orderfinancerecord',
+            ('order_record', 'delete'): 'finance.delete_orderfinancerecord',
         }
         permission_code = permission_map.get((model, action.operation))
         if not permission_code:
@@ -374,12 +388,42 @@ class FinanceModuleAdapter(AIBaseModuleAdapter):
             payload.setdefault('create_time', int(timezone.now().timestamp()))
         return {'success': True, 'payload': self._serialize_payload(payload)}
 
+    def _normalize_order_record_changes(self, changes, user, partial=False):
+        payload = {}
+        try:
+            for field, value in (changes or {}).items():
+                if field == 'order_id':
+                    payload[field] = int(value) if value not in (None, '') else 0
+                elif field in {'total_amount', 'paid_amount'}:
+                    payload[field] = Decimal(str(value))
+                elif field == 'due_date':
+                    payload[field] = self._parse_date(value)
+                else:
+                    payload[field] = value
+        except (TypeError, ValueError, InvalidOperation):
+            return {'success': False, 'message': '订单财务记录字段格式无效，请检查订单、金额和到期日期'}
+
+        if not partial:
+            payload.setdefault('paid_amount', Decimal('0'))
+            payload.setdefault('payment_status', 'pending')
+            payload.setdefault('due_date', None)
+            payload.setdefault('remark', '')
+            payload.setdefault('create_time', int(timezone.now().timestamp()))
+        return {'success': True, 'payload': self._serialize_payload(payload)}
+
     def _parse_datetime(self, value):
         if isinstance(value, datetime):
             return value
         if isinstance(value, str):
             return datetime.fromisoformat(value)
         raise ValueError('invalid datetime')
+
+    def _parse_date(self, value):
+        if value in (None, ''):
+            return None
+        if hasattr(value, 'isoformat') and not isinstance(value, str):
+            return value
+        return datetime.fromisoformat(f'{value}T00:00:00').date()
 
     def _serialize_payload(self, payload):
         serialized = {}
@@ -440,6 +484,10 @@ class FinanceModuleAdapter(AIBaseModuleAdapter):
     def _get_income_for_action(self, income_id, user):
         from apps.finance.models import Income
         return Income.objects.get(id=income_id)
+
+    def _get_order_record_for_action(self, record_id, user):
+        from apps.finance.models import OrderFinanceRecord
+        return OrderFinanceRecord.objects.get(id=record_id)
 
     def _get_invoice_request_for_action(self, request_id, user):
         from apps.finance.models import InvoiceRequest

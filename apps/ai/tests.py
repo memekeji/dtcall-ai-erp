@@ -2432,6 +2432,23 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         self.assertEqual(intent, 'disk_share_list')
         self.assertEqual(entities['scope'], 'created_by_me')
 
+
+    def test_recognize_starred_disk_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看看我收藏的网盘文件')
+
+        self.assertEqual(intent, 'disk_list')
+        self.assertEqual(entities['status'], 'starred')
+
+    def test_recognize_shared_disk_count_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('共享给我的文件有多少')
+
+        self.assertEqual(intent, 'disk_count')
+        self.assertEqual(entities['scope'], 'shared_to_me')
+
     def test_recognize_my_approval_plain_language(self):
         from apps.ai.services.query_service import QueryService
 
@@ -2447,6 +2464,23 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
 
         self.assertEqual(intent, 'message_list')
         self.assertEqual(entities['status'], 'unread')
+
+
+    def test_recognize_starred_message_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看一下我标星的消息')
+
+        self.assertEqual(intent, 'message_list')
+        self.assertEqual(entities['status'], 'starred')
+
+    def test_recognize_read_message_count_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('我已读消息有多少')
+
+        self.assertEqual(intent, 'message_count')
+        self.assertEqual(entities['status'], 'read')
 
     def test_recognize_today_meeting_plain_language(self):
         from apps.ai.services.query_service import QueryService
@@ -2680,6 +2714,31 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         self.assertEqual(intent, 'work_record_count')
         self.assertEqual(entities, {})
 
+
+    def test_recognize_today_work_record_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看一下今天的工作记录')
+
+        self.assertEqual(intent, 'work_record_list')
+        self.assertEqual(entities['time_range'], 'today')
+
+    def test_recognize_project_work_record_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('项目工作记录有多少')
+
+        self.assertEqual(intent, 'work_record_count')
+        self.assertEqual(entities['work_type'], 'project')
+
+    def test_recognize_meeting_work_record_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('会议工作记录有哪些')
+
+        self.assertEqual(intent, 'work_record_list')
+        self.assertEqual(entities['work_type'], 'meeting')
+
     def test_recognize_work_report_plain_language(self):
         from apps.ai.services.query_service import QueryService
 
@@ -2785,6 +2844,47 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
 
         self.assertEqual(intent, 'order_list')
         self.assertEqual(entities['customer_name'], '张三公司')
+
+
+    def test_recognize_pending_order_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('待处理订单有哪些')
+
+        self.assertEqual(intent, 'order_list')
+        self.assertEqual(entities['status'], 'pending')
+
+    def test_recognize_completed_order_list_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('已完成订单有哪些')
+
+        self.assertEqual(intent, 'order_list')
+        self.assertEqual(entities['status'], 'completed')
+
+    def test_recognize_reviewing_contract_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('审核中的合同有哪些')
+
+        self.assertEqual(intent, 'contract_list')
+        self.assertEqual(entities['status'], 'reviewing')
+
+    def test_recognize_owned_project_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('我负责的项目有哪些')
+
+        self.assertEqual(intent, 'project_list')
+        self.assertEqual(entities['scope'], 'owned_by_me')
+
+    def test_recognize_paused_project_count_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('暂停项目有几个')
+
+        self.assertEqual(intent, 'project_count_paused')
+        self.assertEqual(entities['status'], 'paused')
 
     def test_recognize_owned_task_plain_language(self):
         from apps.ai.services.query_service import QueryService
@@ -3701,6 +3801,57 @@ class AIQueryServiceCustomerOrderTaskScopeTests(TestCase):
 
         self.assertEqual(numbers, {'A-001'})
 
+
+    def test_order_list_pending_scope_only_returns_pending_orders(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.customer.models import Customer, CustomerOrder
+
+        User = get_user_model()
+        owner = User.objects.create_user(username='order-status-owner')
+        customer = Customer.objects.create(name='订单状态客户', belong_uid=owner.id, delete_time=0)
+
+        CustomerOrder.objects.create(customer=customer, order_number='P-001', product_name='产品P', amount=100, order_date=date.today(), status='pending', create_user=owner, delete_time=0)
+        CustomerOrder.objects.create(customer=customer, order_number='C-001', product_name='产品C', amount=200, order_date=date.today(), status='completed', create_user=owner, delete_time=0)
+
+        result = QueryService().handle_order_list({'status': 'pending'}, owner)
+        numbers = {item['order_number'] for item in result['items']}
+
+        self.assertEqual(numbers, {'P-001'})
+
+    def test_contract_list_reviewing_scope_only_returns_reviewing_contracts(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.contract.models import Contract
+
+        User = get_user_model()
+        user = User.objects.create_user(username='contract-reviewing-user')
+
+        Contract.objects.create(name='审核中合同', code='HT-REVIEW', customer='客户A', check_status=1, delete_time=0)
+        Contract.objects.create(name='通过合同', code='HT-PASS', customer='客户B', check_status=2, delete_time=0)
+
+        result = QueryService().handle_contract_list({'status': 'reviewing'}, user)
+        codes = {item['contract_no'] for item in result['items']}
+
+        self.assertEqual(codes, {'HT-REVIEW'})
+
+    def test_project_list_owned_by_me_scope_only_returns_managed_projects(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.project.models import Project
+
+        User = get_user_model()
+        manager = User.objects.create_user(username='project-manager-owned')
+        other = User.objects.create_user(username='project-manager-other')
+
+        Project.objects.create(name='我的项目', code='PRJ-MINE', manager=manager)
+        Project.objects.create(name='别人项目', code='PRJ-OTHER', manager=other)
+
+        result = QueryService().handle_project_list({'scope': 'owned_by_me'}, manager)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(names, {'我的项目'})
+
     def test_task_list_owned_by_me_scope_only_returns_assigned_tasks(self):
         from django.contrib.auth import get_user_model
         from apps.ai.services.query_service import QueryService
@@ -4165,6 +4316,79 @@ class AIQueryServiceProductionScopeTests(TestCase):
 
         self.assertEqual(names, {'维修机台'})
 
+
+
+class AIQueryServiceMessagingAndWorkspaceFiltersTests(TestCase):
+    def test_message_list_starred_scope_only_returns_starred(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.message.models import Message, MessageUserRelation
+
+        User = get_user_model()
+        user = User.objects.create_user(username='message-star-user')
+        sender = User.objects.create_user(username='message-star-sender')
+
+        starred = Message.objects.create(title='标星消息', content='a', sender=sender, is_active=True)
+        normal = Message.objects.create(title='普通消息', content='b', sender=sender, is_active=True)
+        MessageUserRelation.objects.create(message=starred, user=user, is_starred=True, is_read=False)
+        MessageUserRelation.objects.create(message=normal, user=user, is_starred=False, is_read=True)
+
+        result = QueryService().handle_message_list({'status': 'starred'}, user)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(titles, {'标星消息'})
+
+    def test_work_record_list_project_scope_only_returns_project_records(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.personal.models import WorkRecord
+        from datetime import time
+
+        User = get_user_model()
+        user = User.objects.create_user(username='work-record-project-user')
+
+        WorkRecord.objects.create(title='项目联调', content='a', work_type='project', work_date=date.today(), start_time=time(9, 0), end_time=time(10, 0), duration=1, user=user)
+        WorkRecord.objects.create(title='会议纪要', content='b', work_type='meeting', work_date=date.today(), start_time=time(10, 0), end_time=time(11, 0), duration=1, user=user)
+
+        result = QueryService().handle_work_record_list({'work_type': 'project'}, user)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(titles, {'项目联调'})
+
+    def test_work_record_list_today_scope_only_returns_today_records(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.personal.models import WorkRecord
+        from datetime import time, timedelta
+
+        User = get_user_model()
+        user = User.objects.create_user(username='work-record-today-user')
+
+        WorkRecord.objects.create(title='今日事项', content='a', work_type='daily', work_date=date.today(), start_time=time(9, 0), end_time=time(10, 0), duration=1, user=user)
+        WorkRecord.objects.create(title='昨日事项', content='b', work_type='daily', work_date=date.today() - timedelta(days=1), start_time=time(9, 0), end_time=time(10, 0), duration=1, user=user)
+
+        result = QueryService().handle_work_record_list({'time_range': 'today'}, user)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(titles, {'今日事项'})
+
+    def test_disk_list_shared_to_me_scope_only_returns_shared_files(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.disk.models import DiskFile
+
+        User = get_user_model()
+        user = User.objects.create_user(username='disk-shared-user')
+        owner = User.objects.create_user(username='disk-owner-user')
+
+        shared = DiskFile.objects.create(name='共享文件.pdf', owner=owner)
+        shared.shared_users.add(user)
+        DiskFile.objects.create(name='我的文件.pdf', owner=user)
+
+        result = QueryService().handle_disk_list({'scope': 'shared_to_me'}, user)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(names, {'共享文件.pdf'})
 
 class AIQueryServicePersonalWorkspaceScopeTests(TestCase):
     def test_personal_task_list_completed_scope_only_returns_completed(self):

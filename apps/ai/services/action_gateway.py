@@ -31,6 +31,7 @@ from apps.ai.services.module_adapters.personal_workspace import PersonalWorkspac
 from apps.ai.services.module_adapters.approval_task import ApprovalTaskModuleAdapter
 from apps.ai.services.module_adapters.contact import ContactModuleAdapter
 from apps.ai.services.module_adapters.production_resource import ProductionResourceModuleAdapter
+from apps.ai.services.module_adapters.alert import AlertModuleAdapter
 
 
 class AIActionGateway:
@@ -39,6 +40,7 @@ class AIActionGateway:
         'disk_share': 'disk',
         'finance_expense': 'finance',
         'finance_income': 'finance',
+        'finance_order_record': 'finance',
         'expense': 'finance',
         'income': 'finance',
         'finance_invoice': 'finance',
@@ -79,6 +81,7 @@ class AIActionGateway:
         self.register(EmployeeModuleAdapter())
         self.register(DepartmentModuleAdapter())
         self.register(InventoryModuleAdapter())
+        self.register(AlertModuleAdapter())
         self.register(DocumentModuleAdapter())
         self.register(StockDocumentModuleAdapter('stockin'))
         self.register(StockDocumentModuleAdapter('stockout'))

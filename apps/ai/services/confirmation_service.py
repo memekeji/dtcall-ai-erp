@@ -10,6 +10,7 @@ class AIConfirmationService:
         'finance_invoice': ('finance', {'model': 'invoice'}),
         'finance_expense': ('finance', {'model': 'expense'}),
         'finance_income': ('finance', {'model': 'income'}),
+        'finance_order_record': ('finance', {'model': 'order_record'}),
         'expense': ('finance', {'model': 'expense'}),
         'income': ('finance', {'model': 'income'}),
         'invoice': ('finance', {'model': 'invoice'}),

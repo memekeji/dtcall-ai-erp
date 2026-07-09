@@ -225,7 +225,7 @@ class AIIntentClassifier:
         ('disk_share', ['网盘分享', '文件分享', '分享链接', '共享链接', '提取码', '分享码']),
         ('disk_folder', ['网盘文件夹', '共享文件夹', '文件夹权限', '目录权限']),
         ('disk', ['网盘', '共享文件', '共享资料', '文件权限', '文件', '资料', '附件']),
-        ('approval_task', ['待审批', '待办审批', '审批任务', '待办流程']),
+        ('approval_task', ['待审批', '待办审批', '审批任务', '待办流程', '已审批', '我审批的', '审批过的流程']),
         ('approval_flow', ['审批流', '审批流程', '流程配置', '流程模板']),
         ('approval', ['审批', '流程', '申请单', '审批单']),
         ('message', ['消息', '站内信', '通知消息', '会话', '沟通']),
@@ -250,6 +250,7 @@ class AIIntentClassifier:
         ('expense', ['报销单', '费用单', '费用', '支出']),
         ('income', ['回款记录', '到账记录', '收入', '回款']),
         ('payment', ['付款单', '打款记录', '付款', '打款', '收款']),
+        ('finance_order_record', ['订单财务记录', '订单财务', '订单回款记录', '订单付款记录']),
         ('finance', ['财务', '财务记录', '财务数据']),
         ('production_plan', ['生产计划', '排产计划']),
         ('production_task', ['生产任务', '生产工单', '派工单']),
@@ -274,8 +275,8 @@ class AIIntentClassifier:
     )
     CREATE_KEYWORDS = ('添加', '新增', '创建', '增加', '新建', '录入', '登记', '上传', '提交', '发起', '申请', '起草')
     UPDATE_KEYWORDS = ('修改', '更新', '更改', '调整', '编辑', '维护', '设置', '共享', '分享', '审批通过', '驳回', '同意', '拒绝')
-    APPROVE_KEYWORDS = ('帮我审批', '请审批', '审批这', '审批一下', '帮我审核', '请审核', '审核这', '审核一下', '批准这', '通过这', '同意这', '审批通过', '审核通过', '批准通过', '过审')
-    REJECT_KEYWORDS = ('驳回', '拒绝', '退回')
+    APPROVE_KEYWORDS = ('帮我审批', '请审批', '审批这', '审批一下', '帮我审核', '请审核', '审核这', '审核一下', '批准这', '通过这', '同意这', '审批通过', '审核通过', '批准通过', '过审', '处理预警', '处理一下预警', '确认预警', '处理这个预警', '处理库存预警')
+    REJECT_KEYWORDS = ('驳回', '拒绝', '退回', '忽略预警', '忽略这个预警')
     SUBMIT_KEYWORDS = ('提交', '提审', '送审', '上报')
     PUBLISH_KEYWORDS = ('发布', '下发', '发文')
     WITHDRAW_KEYWORDS = ('撤回审批', '撤回流程', '撤回申请', '撤销审批')
@@ -724,6 +725,7 @@ class AIIntentClassifier:
         entities = {}
         if len(candidate_data_types) > 1:
             entities['candidate_data_types'] = candidate_data_types
+        status = self._infer_business_status_from_query(query, data_type)
 
         return {
             'intent': intent,
@@ -731,6 +733,7 @@ class AIIntentClassifier:
             'action': action,
             'data_type': data_type,
             'entities': entities,
+            'status': status,
             'requires_confirmation': requires_confirmation,
             'reasoning': f'{reason}，已按业务关键词安全识别',
             'fallback_options': [
@@ -759,12 +762,14 @@ class AIIntentClassifier:
                 score -= 20
             if data_type == 'personal_contact' and any(keyword in query for keyword in ['我的联系人', '个人通讯录', '私人通讯录', '私人联系人']):
                 score += 40
-            if data_type == 'approval_task' and any(keyword in query for keyword in ['待审批', '待办审批', '待办流程']):
+            if data_type == 'approval_task' and any(keyword in query for keyword in ['待审批', '待办审批', '待办流程', '已审批', '我审批的', '审批过的流程']):
                 score += 40
             if data_type in {'production_plan', 'production_task', 'production_equipment', 'production_procedure'}:
                 score += 20
             if data_type in {'expense', 'income', 'payment'}:
                 score += 15
+            if data_type == 'finance_order_record':
+                score += 25
             scored_matches.append((score, data_type))
         for _, data_type in sorted(scored_matches, key=lambda item: item[0], reverse=True):
             if data_type not in candidate_data_types:
@@ -777,6 +782,22 @@ class AIIntentClassifier:
 
     def _infer_action_from_query(self, query: str) -> str:
         query_lower = (query or '').lower()
+        if any(keyword.lower() in query_lower for keyword in self.QUERY_KEYWORDS):
+            if any(
+                    phrase in query_lower for phrase in [
+                        '待发布', '已发布', '未发布', '草稿',
+                        '待入库确认', '待出库确认', '已入库', '已出库',
+                        '已审批', '我审批的', '审批过的流程',
+                        '未结束', '进行中', '已暂停', '待完成',
+                    ]):
+                if any(keyword in query_lower for keyword in ['多少', '数量', '总数', '统计', '合计']):
+                    return 'count'
+                return 'list'
+        if '预警' in query_lower:
+            if any(keyword.lower() in query_lower for keyword in self.REJECT_KEYWORDS):
+                return 'reject'
+            if '未处理' not in query_lower and any(keyword in query_lower for keyword in ['处理一下', '处理这个', '处理该', '确认', '解除']):
+                return 'approve'
         if any(keyword.lower() in query_lower for keyword in self.WITHDRAW_KEYWORDS):
             return 'withdraw'
         if any(keyword.lower() in query_lower for keyword in self.REJECT_KEYWORDS):
@@ -800,6 +821,89 @@ class AIIntentClassifier:
         if any(keyword.lower() in query_lower for keyword in self.UPDATE_KEYWORDS):
             return 'update'
         return 'chat'
+
+    def _infer_business_status_from_query(self, query: str, data_type: str | None) -> str | None:
+        query_lower = (query or '').lower()
+        if data_type == 'approval_task':
+            if any(keyword in query_lower for keyword in ['待审批', '待办审批', '待办流程']):
+                return 'pending'
+            if any(keyword in query_lower for keyword in ['已审批', '我审批的', '审批过的流程']):
+                return 'completed'
+        if data_type == 'approval':
+            if any(keyword in query_lower for keyword in ['未结束', '进行中', '处理中', '还没结束']):
+                return 'ongoing'
+            if '已通过' in query_lower:
+                return 'approved'
+            if '已拒绝' in query_lower or '已驳回' in query_lower:
+                return 'rejected'
+            if '已取消' in query_lower or '已撤回' in query_lower:
+                return 'cancelled'
+        if data_type == 'alert':
+            if '未处理' in query_lower or '待处理' in query_lower:
+                return 'pending'
+            if '已处理' in query_lower:
+                return 'processed'
+            if '已忽略' in query_lower or '忽略' in query_lower:
+                return 'ignored'
+        if data_type in {'stockin', 'stockout'}:
+            if '待入库确认' in query_lower or '待出库确认' in query_lower or '待执行入库' in query_lower or '待执行出库' in query_lower:
+                return 'approved'
+            if '已入库' in query_lower or '已出库' in query_lower:
+                return 'stocked'
+            if '待审核' in query_lower:
+                return 'pending'
+            if '已取消' in query_lower:
+                return 'cancelled'
+        if data_type == 'production_task':
+            if '已暂停' in query_lower:
+                return 'paused'
+            if '已完成' in query_lower:
+                return 'completed'
+            if '进行中' in query_lower:
+                return 'in_progress'
+            if '待完成' in query_lower or '未完成' in query_lower:
+                return 'unfinished'
+            if '待开始' in query_lower:
+                return 'pending'
+        if data_type == 'production_plan':
+            if '已审核' in query_lower:
+                return 'approved'
+            if '已完成' in query_lower:
+                return 'completed'
+            if '进行中' in query_lower:
+                return 'in_progress'
+            if '已暂停' in query_lower or '已挂起' in query_lower:
+                return 'paused'
+            if '待审核' in query_lower:
+                return 'pending'
+        if data_type == 'production_equipment':
+            if '维修中' in query_lower:
+                return 'maintenance'
+            if '停用' in query_lower:
+                return 'disabled'
+            if '报废' in query_lower:
+                return 'scrapped'
+            if '正常' in query_lower:
+                return 'normal'
+        if data_type == 'document':
+            if '待发布' in query_lower:
+                return 'approved'
+            if '已发布' in query_lower:
+                return 'published'
+            if '草稿' in query_lower or '未发布' in query_lower:
+                return 'draft'
+            if '待审核' in query_lower:
+                return 'pending'
+        if data_type == 'finance_order_record':
+            if '待付款' in query_lower:
+                return 'pending'
+            if '部分付款' in query_lower:
+                return 'partial'
+            if '已付款' in query_lower or '已付' in query_lower:
+                return 'paid'
+            if '逾期' in query_lower:
+                return 'overdue'
+        return None
 
     def _intent_for_action(self, action: str) -> str:
         if action == 'create':
@@ -899,6 +1003,8 @@ class AIIntentClassifier:
                 result['status'] = 'in_progress'
             elif '已完成' in query_lower:
                 result['status'] = 'completed'
+            else:
+                result['status'] = self._infer_business_status_from_query(query, result.get('data_type'))
 
         if result['action'] in self.MUTATING_ACTIONS or result['intent'] in {'DATA_CREATE', 'DATA_UPDATE', 'DATA_DELETE'}:
             result['requires_confirmation'] = True

@@ -110,6 +110,20 @@ class EnhancedIntentService:
                 'approve': {'full_code': 'finance.approve_reimbursement', 'exists': True},
             },
         },
+        'finance_expense': {
+            'name': '报销单',
+            'module': '财务管理',
+            'list_url': '/finance/expense/',
+            'create_url': '/finance/expense/add/',
+            'edit_url_template': None,
+            'permission': {
+                'query': {'full_code': 'finance.view_expense', 'exists': True},
+                'create': {'full_code': 'finance.add_reimbursement', 'exists': True},
+                'update': {'full_code': 'finance.change_reimbursement', 'exists': True},
+                'delete': {'full_code': 'finance.delete_reimbursement', 'exists': True},
+                'approve': {'full_code': 'finance.approve_reimbursement', 'exists': True},
+            },
+        },
         'finance_invoice': {
             'name': '财务发票',
             'module': '财务管理',
@@ -142,6 +156,19 @@ class EnhancedIntentService:
                 'create': {'full_code': 'finance.add_payment_receive', 'exists': True},
                 'update': {'full_code': 'finance.change_payment_receive', 'exists': True},
                 'delete': {'full_code': 'finance.delete_payment_receive', 'exists': True},
+            },
+        },
+        'finance_order_record': {
+            'name': '订单财务记录',
+            'module': '财务管理',
+            'list_url': '/finance/order-finance/',
+            'create_url': None,
+            'edit_url_template': None,
+            'permission': {
+                'query': {'full_code': 'finance.view_orderfinancerecord', 'exists': True},
+                'create': {'full_code': 'finance.add_orderfinancerecord', 'exists': True},
+                'update': {'full_code': 'finance.change_orderfinancerecord', 'exists': True},
+                'delete': {'full_code': 'finance.delete_orderfinancerecord', 'exists': True},
             },
         },
         'production': {
@@ -283,6 +310,24 @@ class EnhancedIntentService:
                 'delete': {'full_code': 'inventory.delete_stockout', 'exists': True},
                 'approve': {'full_code': 'inventory.change_stockout', 'exists': True},
                 'stock': {'full_code': 'inventory.change_stockout', 'exists': True},
+            },
+        },
+        'alert': {
+            'name': '库存预警',
+            'module': '库存管理',
+            'list_url': '/inventory/alert/',
+            'create_url': None,
+            'edit_url_template': None,
+            'action_urls': {
+                'approve': '/inventory/alert/',
+                'reject': '/inventory/alert/',
+            },
+            'permission': {
+                'query': {'full_code': 'inventory.view_inventoryalert', 'exists': True},
+                'update': {'full_code': 'inventory.change_inventoryalert', 'exists': True},
+                'delete': {'full_code': 'inventory.delete_inventoryalert', 'exists': True},
+                'approve': {'full_code': 'inventory.change_inventoryalert', 'exists': True},
+                'reject': {'full_code': 'inventory.change_inventoryalert', 'exists': True},
             },
         },
         'approval': {
