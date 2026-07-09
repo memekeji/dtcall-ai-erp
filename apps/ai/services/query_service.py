@@ -88,6 +88,16 @@ class QueryService:
             'finance_payable_list': self.handle_finance_payable_list,
             'finance_bank_transaction_count': self.handle_finance_bank_transaction_count,
             'finance_bank_transaction_list': self.handle_finance_bank_transaction_list,
+            'supply_chain_forecast_count': self.handle_supply_chain_forecast_count,
+            'supply_chain_forecast_list': self.handle_supply_chain_forecast_list,
+            'supply_chain_outsource_count': self.handle_supply_chain_outsource_count,
+            'supply_chain_outsource_list': self.handle_supply_chain_outsource_list,
+            'supply_chain_pr_review_count': self.handle_supply_chain_pr_review_count,
+            'supply_chain_pr_review_list': self.handle_supply_chain_pr_review_list,
+            'supply_chain_price_review_count': self.handle_supply_chain_price_review_count,
+            'supply_chain_price_review_list': self.handle_supply_chain_price_review_list,
+            'supply_chain_sample_count': self.handle_supply_chain_sample_count,
+            'supply_chain_sample_list': self.handle_supply_chain_sample_list,
             'production_plan_count': self.handle_production_plan_count,
             'production_plan_list': self.handle_production_plan_list,
             'production_task_count': self.handle_production_task_count,
@@ -211,6 +221,11 @@ class QueryService:
             'finance_receivable': 'finance.view_accountsreceivable',
             'finance_payable': 'finance.view_accountspayable',
             'finance_bank_transaction': 'finance.view_banktransaction',
+            'supply_chain_forecast': 'user.view_supply_chain_forecast',
+            'supply_chain_outsource': 'user.view_supply_chain_outsource',
+            'supply_chain_pr_review': 'user.view_supply_chain_pr_review',
+            'supply_chain_price_review': 'user.view_supply_chain_price_review',
+            'supply_chain_sample': 'user.view_supply_chain_sample',
             'production': 'production.view_productionplan',
             'production_plan': 'production.view_productionplan',
             'production_task': 'production.view_productiontask',
@@ -297,6 +312,16 @@ class QueryService:
             'finance_payable_list': 'finance.view_accountspayable',
             'finance_bank_transaction_count': 'finance.view_banktransaction',
             'finance_bank_transaction_list': 'finance.view_banktransaction',
+            'supply_chain_forecast_count': 'user.view_supply_chain_forecast',
+            'supply_chain_forecast_list': 'user.view_supply_chain_forecast',
+            'supply_chain_outsource_count': 'user.view_supply_chain_outsource',
+            'supply_chain_outsource_list': 'user.view_supply_chain_outsource',
+            'supply_chain_pr_review_count': 'user.view_supply_chain_pr_review',
+            'supply_chain_pr_review_list': 'user.view_supply_chain_pr_review',
+            'supply_chain_price_review_count': 'user.view_supply_chain_price_review',
+            'supply_chain_price_review_list': 'user.view_supply_chain_price_review',
+            'supply_chain_sample_count': 'user.view_supply_chain_sample',
+            'supply_chain_sample_list': 'user.view_supply_chain_sample',
             'production_plan_count': 'production.view_productionplan',
             'production_plan_list': 'production.view_productionplan',
             'production_task_count': 'production.view_productiontask',
@@ -623,6 +648,11 @@ class QueryService:
             'finance_receivable': {'count': 'finance_receivable_count', 'list': 'finance_receivable_list'},
             'finance_payable': {'count': 'finance_payable_count', 'list': 'finance_payable_list'},
             'finance_bank_transaction': {'count': 'finance_bank_transaction_count', 'list': 'finance_bank_transaction_list'},
+            'supply_chain_forecast': {'count': 'supply_chain_forecast_count', 'list': 'supply_chain_forecast_list'},
+            'supply_chain_outsource': {'count': 'supply_chain_outsource_count', 'list': 'supply_chain_outsource_list'},
+            'supply_chain_pr_review': {'count': 'supply_chain_pr_review_count', 'list': 'supply_chain_pr_review_list'},
+            'supply_chain_price_review': {'count': 'supply_chain_price_review_count', 'list': 'supply_chain_price_review_list'},
+            'supply_chain_sample': {'count': 'supply_chain_sample_count', 'list': 'supply_chain_sample_list'},
             'expense': {'count': 'finance_expense_count', 'list': 'finance_expense_list'},
             'income': {'count': 'finance_income_count', 'list': 'finance_income_list'},
             'production': {'count': 'production_plan_count', 'list': 'production_plan_list'},
@@ -730,6 +760,11 @@ class QueryService:
             'finance_payable',
             'finance_account',
             'finance_budget',
+            'supply_chain_price_review',
+            'supply_chain_pr_review',
+            'supply_chain_forecast',
+            'supply_chain_outsource',
+            'supply_chain_sample',
             'production_plan',
             'production_task',
             'production_equipment',
@@ -975,6 +1010,36 @@ class QueryService:
                 intent = 'schedule_count'
             else:
                 intent = 'schedule_list'
+        elif any(keyword in query_lower for keyword in ['需求预测', '预测计划', '备料评审']):
+            self._extract_supply_chain_entities(query_lower, entities, 'forecast')
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'supply_chain_forecast_count'
+            else:
+                intent = 'supply_chain_forecast_list'
+        elif any(keyword in query_lower for keyword in ['委外发料', '委外发料单', '齐套']):
+            self._extract_supply_chain_entities(query_lower, entities, 'outsource')
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'supply_chain_outsource_count'
+            else:
+                intent = 'supply_chain_outsource_list'
+        elif any(keyword in query_lower for keyword in ['pr审核', 'pr审查', 'pr复核', 'pr智能审核', '采购申请审核']):
+            self._extract_supply_chain_entities(query_lower, entities, 'pr_review')
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'supply_chain_pr_review_count'
+            else:
+                intent = 'supply_chain_pr_review_list'
+        elif any(keyword in query_lower for keyword in ['单价复核', '核价', '价格复核', '报价复核']):
+            self._extract_supply_chain_entities(query_lower, entities, 'price_review')
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'supply_chain_price_review_count'
+            else:
+                intent = 'supply_chain_price_review_list'
+        elif any(keyword in query_lower for keyword in ['打样申请', '打样', '样品申请', '样品']):
+            self._extract_supply_chain_entities(query_lower, entities, 'sample')
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'supply_chain_sample_count'
+            else:
+                intent = 'supply_chain_sample_list'
         # 个人任务相关意图（优先于通用任务）
         elif '个人任务' in query_lower or '我的待办' in query_lower or ('待办' in query_lower and '审批' not in query_lower and '流程' not in query_lower):
             has_explicit_personal_scope = '个人' in query_lower or '我的' in query_lower
@@ -2099,6 +2164,61 @@ class QueryService:
             entities['status'] = 'pending'
         elif any(keyword in query_lower for keyword in ['待付款', '待付']):
             entities['status'] = 'pending'
+
+    def _extract_supply_chain_entities(self, query_lower, entities, data_type):
+        self._extract_time_range_entities(query_lower, entities)
+        if any(keyword in query_lower for keyword in ['异常', '有问题', '风险']):
+            entities['is_abnormal'] = True
+
+        status_keywords = {
+            'forecast': [
+                ('reviewing', ['评审中', '待评审']),
+                ('approved', ['已通过', '通过的', '已批准']),
+                ('rejected', ['已驳回', '已拒绝', '驳回']),
+                ('running', ['计算中', '运行中']),
+                ('generated', ['已生成', '生成的']),
+                ('archived', ['已归档', '归档']),
+                ('draft', ['草稿']),
+            ],
+            'outsource': [
+                ('shortage', ['缺料', '欠料']),
+                ('ready', ['齐套完成', '已齐套', '齐套']),
+                ('checking', ['齐套校验中', '校验中']),
+                ('picking', ['备料中', '拣料中']),
+                ('issued', ['已发料']),
+                ('notified', ['已通知']),
+                ('closed', ['已关闭', '关闭']),
+                ('draft', ['草稿']),
+            ],
+            'pr_review': [
+                ('manual_review', ['人工复核', '人工审核']),
+                ('auto_approved', ['自动通过']),
+                ('rule_matched', ['规则命中', '命中规则']),
+                ('done', ['已处理', '处理完']),
+                ('rejected', ['已拒绝', '已驳回']),
+                ('pending', ['待识别', '待审核', '待处理']),
+            ],
+            'price_review': [
+                ('exception', ['异常待处理', '异常']),
+                ('reviewing', ['复核中', '审核中']),
+                ('parsing', ['解析中']),
+                ('breakdown', ['拆解中']),
+                ('approved', ['已通过', '通过的']),
+                ('draft', ['草稿']),
+            ],
+            'sample': [
+                ('pickup_pending', ['待领样', '待领取']),
+                ('picked_up', ['已领样', '已领取']),
+                ('received', ['已到货', '到货']),
+                ('ordered', ['已下单', '下单']),
+                ('closed', ['已关闭', '关闭']),
+                ('draft', ['草稿']),
+            ],
+        }
+        for status, keywords in status_keywords.get(data_type, []):
+            if any(keyword in query_lower for keyword in keywords):
+                entities['status'] = status
+                break
 
     def _extract_contract_entities(self, query_lower, entities):
         if any(keyword in query_lower for keyword in ['审核中', '审批中']):
@@ -3715,6 +3835,98 @@ class QueryService:
             'finance_bank_transaction',
         )
         return self._build_advanced_finance_list(queryset, 'finance_bank_transaction', entities)
+
+    def handle_supply_chain_forecast_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.supply_chain.models import DemandForecastPlan
+        queryset = self._apply_supply_chain_filters(
+            DemandForecastPlan.objects.select_related('product').all(),
+            entities,
+            'supply_chain_forecast',
+        )
+        return self._build_supply_chain_count(queryset, 'supply_chain_forecast', entities)
+
+    def handle_supply_chain_forecast_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.supply_chain.models import DemandForecastPlan
+        queryset = self._apply_supply_chain_filters(
+            DemandForecastPlan.objects.select_related('product').all(),
+            entities,
+            'supply_chain_forecast',
+        )
+        return self._build_supply_chain_list(queryset, 'supply_chain_forecast', entities)
+
+    def handle_supply_chain_outsource_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.supply_chain.models import OutsourceIssueOrder
+        queryset = self._apply_supply_chain_filters(
+            OutsourceIssueOrder.objects.select_related('product', 'supplier').all(),
+            entities,
+            'supply_chain_outsource',
+        )
+        return self._build_supply_chain_count(queryset, 'supply_chain_outsource', entities)
+
+    def handle_supply_chain_outsource_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.supply_chain.models import OutsourceIssueOrder
+        queryset = self._apply_supply_chain_filters(
+            OutsourceIssueOrder.objects.select_related('product', 'supplier').all(),
+            entities,
+            'supply_chain_outsource',
+        )
+        return self._build_supply_chain_list(queryset, 'supply_chain_outsource', entities)
+
+    def handle_supply_chain_pr_review_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.supply_chain.models import PRReviewTask
+        queryset = self._apply_supply_chain_filters(PRReviewTask.objects.all(), entities, 'supply_chain_pr_review')
+        return self._build_supply_chain_count(queryset, 'supply_chain_pr_review', entities)
+
+    def handle_supply_chain_pr_review_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.supply_chain.models import PRReviewTask
+        queryset = self._apply_supply_chain_filters(PRReviewTask.objects.all(), entities, 'supply_chain_pr_review')
+        return self._build_supply_chain_list(queryset, 'supply_chain_pr_review', entities)
+
+    def handle_supply_chain_price_review_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.supply_chain.models import PriceReviewOrder
+        queryset = self._apply_supply_chain_filters(
+            PriceReviewOrder.objects.select_related('inventory_item', 'supplier').all(),
+            entities,
+            'supply_chain_price_review',
+        )
+        return self._build_supply_chain_count(queryset, 'supply_chain_price_review', entities)
+
+    def handle_supply_chain_price_review_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.supply_chain.models import PriceReviewOrder
+        queryset = self._apply_supply_chain_filters(
+            PriceReviewOrder.objects.select_related('inventory_item', 'supplier').all(),
+            entities,
+            'supply_chain_price_review',
+        )
+        return self._build_supply_chain_list(queryset, 'supply_chain_price_review', entities)
+
+    def handle_supply_chain_sample_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.supply_chain.models import SampleRequest
+        queryset = self._apply_supply_chain_filters(
+            SampleRequest.objects.select_related('supplier', 'engineer').all(),
+            entities,
+            'supply_chain_sample',
+        )
+        return self._build_supply_chain_count(queryset, 'supply_chain_sample', entities)
+
+    def handle_supply_chain_sample_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.supply_chain.models import SampleRequest
+        queryset = self._apply_supply_chain_filters(
+            SampleRequest.objects.select_related('supplier', 'engineer').all(),
+            entities,
+            'supply_chain_sample',
+        )
+        return self._build_supply_chain_list(queryset, 'supply_chain_sample', entities)
 
     # 生产相关处理函数
     def handle_production_plan_count(
@@ -5349,6 +5561,11 @@ class QueryService:
             'finance_receivable': '应收账款',
             'finance_payable': '应付账款',
             'finance_bank_transaction': '银行流水',
+            'supply_chain_forecast': '需求预测计划',
+            'supply_chain_outsource': '委外发料单',
+            'supply_chain_pr_review': 'PR审核任务',
+            'supply_chain_price_review': '单价复核单',
+            'supply_chain_sample': '打样申请',
             'production_plan': '生产计划',
             'production_task': '生产任务',
             'production_equipment': '生产设备',
@@ -5590,6 +5807,45 @@ class QueryService:
                 direction = item.get('direction', '')
                 amount = item.get('amount', 0)
                 return f"{no}（{direction}，¥{amount:,.2f}）"
+            elif data_type == 'supply_chain_forecast':
+                name = item.get('name', '未知')
+                code = item.get('code', '')
+                status = item.get('status', '')
+                if code:
+                    return f"{name}（{code}，{status}）"
+                return f"{name}（{status}）"
+            elif data_type == 'supply_chain_outsource':
+                code = item.get('code', '未知')
+                quantity = item.get('quantity', 0)
+                status = item.get('status', '')
+                product = item.get('product', '')
+                if product:
+                    return f"{code}（{product}，数量{quantity}，{status}）"
+                return f"{code}（数量{quantity}，{status}）"
+            elif data_type == 'supply_chain_pr_review':
+                title = item.get('title', item.get('code', '未知'))
+                code = item.get('code', '')
+                status = item.get('status', '')
+                abnormal = '异常' if item.get('is_abnormal') else '正常'
+                if code:
+                    return f"{title}（{code}，{abnormal}，{status}）"
+                return f"{title}（{abnormal}，{status}）"
+            elif data_type == 'supply_chain_price_review':
+                code = item.get('code', '未知')
+                price = item.get('quoted_price', 0)
+                status = item.get('status', '')
+                item_name = item.get('item_name', '')
+                if item_name:
+                    return f"{code}（{item_name}，报价¥{price:,.4f}，{status}）"
+                return f"{code}（报价¥{price:,.4f}，{status}）"
+            elif data_type == 'supply_chain_sample':
+                material = item.get('material_name', item.get('code', '未知'))
+                code = item.get('code', '')
+                quantity = item.get('quantity', 0)
+                status = item.get('status', '')
+                if code:
+                    return f"{material}（{code}，数量{quantity}，{status}）"
+                return f"{material}（数量{quantity}，{status}）"
             elif data_type == 'payment':
                 no = item.get('payment_no', '未知')
                 amount = item.get('amount', 0)
@@ -6465,6 +6721,54 @@ class QueryService:
             if data_type == 'finance_bank_transaction':
                 row['account'] = getattr(getattr(item, 'account', None), 'name', '')
             for date_field in ['start_date', 'end_date', 'due_date', 'transaction_date']:
+                if hasattr(row.get(date_field), 'strftime'):
+                    row[date_field] = row[date_field].strftime('%Y-%m-%d')
+            items.append(row)
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': data_type,
+            'status': entities.get('status'),
+        }
+
+    def _apply_supply_chain_filters(self, queryset, entities, data_type):
+        status = entities.get('status')
+        if status:
+            queryset = queryset.filter(status=status)
+        if 'is_abnormal' in entities and data_type == 'supply_chain_pr_review':
+            queryset = queryset.filter(is_abnormal=entities['is_abnormal'])
+        return self._apply_datetime_range_filter(queryset, entities, 'create_time')
+
+    def _build_supply_chain_count(self, queryset, data_type, entities):
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': data_type,
+            'status': entities.get('status'),
+        }
+
+    def _build_supply_chain_list(self, queryset, data_type, entities):
+        fields = {
+            'supply_chain_forecast': ['id', 'code', 'name', 'status', 'period_start', 'period_end', 'summary'],
+            'supply_chain_outsource': ['id', 'code', 'quantity', 'status'],
+            'supply_chain_pr_review': ['id', 'code', 'title', 'source_code', 'status', 'is_abnormal', 'recommended_action'],
+            'supply_chain_price_review': ['id', 'code', 'quoted_price', 'status', 'ai_summary'],
+            'supply_chain_sample': ['id', 'code', 'material_name', 'specification', 'quantity', 'required_date', 'status'],
+        }
+        items = []
+        for item in queryset[:5]:
+            row = {field: getattr(item, field, '') for field in fields[data_type]}
+            if data_type in {'supply_chain_forecast', 'supply_chain_outsource'}:
+                row['product'] = getattr(getattr(item, 'product', None), 'name', '')
+            if data_type in {'supply_chain_outsource', 'supply_chain_price_review', 'supply_chain_sample'}:
+                row['supplier'] = getattr(getattr(item, 'supplier', None), 'name', '')
+            if data_type == 'supply_chain_price_review':
+                row['item_name'] = getattr(getattr(item, 'inventory_item', None), 'name', '')
+            if data_type == 'supply_chain_sample':
+                engineer = getattr(item, 'engineer', None)
+                row['engineer'] = getattr(engineer, 'name', '') or getattr(engineer, 'username', '')
+            for date_field in ['period_start', 'period_end', 'required_date']:
                 if hasattr(row.get(date_field), 'strftime'):
                     row[date_field] = row[date_field].strftime('%Y-%m-%d')
             items.append(row)

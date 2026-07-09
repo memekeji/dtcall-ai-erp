@@ -141,6 +141,30 @@ class AIPermissionGuardTests(SimpleTestCase):
 
 
 class AIQueryServicePermissionMappingTests(SimpleTestCase):
+    def test_supply_chain_query_permissions_follow_menu_permissions(self):
+        from apps.ai.services.query_service import QueryService
+
+        allowed_permissions = {
+            'user.view_supply_chain_forecast',
+            'user.view_supply_chain_outsource',
+            'user.view_supply_chain_pr_review',
+            'user.view_supply_chain_price_review',
+            'user.view_supply_chain_sample',
+        }
+        user = SimpleNamespace(
+            username='supply-chain-query-user',
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in allowed_permissions,
+        )
+        service = QueryService()
+
+        self.assertTrue(service.check_permission(user, 'supply_chain_forecast_list'))
+        self.assertTrue(service.check_permission(user, 'supply_chain_outsource_list'))
+        self.assertTrue(service.check_permission(user, 'supply_chain_pr_review_list'))
+        self.assertTrue(service.check_permission(user, 'supply_chain_price_review_list'))
+        self.assertTrue(service.check_permission(user, 'supply_chain_sample_list'))
+
     def test_advanced_finance_query_permissions_follow_model_permissions(self):
         from apps.ai.services.query_service import QueryService
 
@@ -2463,6 +2487,46 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         self.assertEqual(intent, 'finance_bank_transaction_list')
         self.assertEqual(entities['match_status'], 'unmatched')
 
+    def test_recognize_supply_chain_forecast_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('评审中的需求预测有哪些')
+
+        self.assertEqual(intent, 'supply_chain_forecast_list')
+        self.assertEqual(entities['status'], 'reviewing')
+
+    def test_recognize_supply_chain_outsource_count_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('缺料委外发料单有几个')
+
+        self.assertEqual(intent, 'supply_chain_outsource_count')
+        self.assertEqual(entities['status'], 'shortage')
+
+    def test_recognize_supply_chain_pr_review_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('异常PR审核任务有哪些')
+
+        self.assertEqual(intent, 'supply_chain_pr_review_list')
+        self.assertTrue(entities['is_abnormal'])
+
+    def test_recognize_supply_chain_price_review_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('异常单价复核单有哪些')
+
+        self.assertEqual(intent, 'supply_chain_price_review_list')
+        self.assertEqual(entities['status'], 'exception')
+
+    def test_recognize_supply_chain_sample_count_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('待领样打样申请有多少')
+
+        self.assertEqual(intent, 'supply_chain_sample_count')
+        self.assertEqual(entities['status'], 'pickup_pending')
+
     def test_recognize_production_overview_plain_language(self):
         from apps.ai.services.query_service import QueryService
 
@@ -4490,6 +4554,132 @@ class AIQueryServiceOfficeVisibilityTests(TestCase):
 
 
 class AIQueryServiceApprovalAndFinanceScopeTests(TestCase):
+    def test_supply_chain_forecast_list_status_scope_only_returns_reviewing(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.supply_chain.models import DemandForecastPlan
+
+        User = get_user_model()
+        user = User.objects.create_user(username='supply-forecast-user')
+
+        DemandForecastPlan.objects.create(
+            name='评审中预测',
+            code='FC-REVIEW',
+            period_start=date.today(),
+            period_end=date.today() + timedelta(days=30),
+            status='reviewing',
+        )
+        DemandForecastPlan.objects.create(
+            name='已通过预测',
+            code='FC-APPROVED',
+            period_start=date.today(),
+            period_end=date.today() + timedelta(days=30),
+            status='approved',
+        )
+
+        result = QueryService().handle_supply_chain_forecast_list({'status': 'reviewing'}, user)
+        codes = {item['code'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(codes, {'FC-REVIEW'})
+
+    def test_supply_chain_outsource_count_status_scope_only_counts_shortage(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.supply_chain.models import OutsourceIssueOrder
+
+        User = get_user_model()
+        user = User.objects.create_user(username='supply-outsource-user')
+
+        OutsourceIssueOrder.objects.create(code='OS-SHORT', quantity=Decimal('10'), status='shortage')
+        OutsourceIssueOrder.objects.create(code='OS-READY', quantity=Decimal('8'), status='ready')
+
+        result = QueryService().handle_supply_chain_outsource_count({'status': 'shortage'}, user)
+
+        self.assertEqual(result['value'], 1)
+
+    def test_supply_chain_pr_review_list_abnormal_scope_only_returns_abnormal(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.supply_chain.models import PRReviewTask
+
+        User = get_user_model()
+        user = User.objects.create_user(username='supply-pr-user')
+
+        PRReviewTask.objects.create(code='PR-ABN', title='异常PR', is_abnormal=True, status='manual_review')
+        PRReviewTask.objects.create(code='PR-NORMAL', title='正常PR', is_abnormal=False, status='done')
+
+        result = QueryService().handle_supply_chain_pr_review_list({'is_abnormal': True}, user)
+        codes = {item['code'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(codes, {'PR-ABN'})
+
+    def test_supply_chain_price_review_list_status_scope_only_returns_exception(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.supply_chain.models import PriceReviewOrder
+
+        User = get_user_model()
+        user = User.objects.create_user(username='supply-price-user')
+
+        PriceReviewOrder.objects.create(code='PRC-EX', quoted_price=Decimal('12.5'), status='exception')
+        PriceReviewOrder.objects.create(code='PRC-OK', quoted_price=Decimal('11.0'), status='approved')
+
+        result = QueryService().handle_supply_chain_price_review_list({'status': 'exception'}, user)
+        codes = {item['code'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(codes, {'PRC-EX'})
+
+    def test_supply_chain_sample_count_status_scope_only_counts_pickup_pending(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.supply_chain.models import SampleRequest
+
+        User = get_user_model()
+        user = User.objects.create_user(username='supply-sample-user')
+
+        SampleRequest.objects.create(
+            code='SMP-PICK',
+            material_name='测试物料A',
+            required_date=date.today() + timedelta(days=7),
+            quantity=Decimal('2'),
+            status='pickup_pending',
+        )
+        SampleRequest.objects.create(
+            code='SMP-CLOSE',
+            material_name='测试物料B',
+            required_date=date.today() + timedelta(days=7),
+            quantity=Decimal('3'),
+            status='closed',
+        )
+
+        result = QueryService().handle_supply_chain_sample_count({'status': 'pickup_pending'}, user)
+
+        self.assertEqual(result['value'], 1)
+
+    def test_supply_chain_sample_result_format_includes_material_and_quantity(self):
+        from apps.ai.services.query_service import QueryService
+
+        result = {
+            'type': 'list',
+            'data_type': 'supply_chain_sample',
+            'total': 1,
+            'items': [{
+                'id': 1,
+                'code': 'SMP-001',
+                'material_name': '测试物料',
+                'quantity': Decimal('2'),
+                'status': 'pickup_pending',
+            }],
+        }
+
+        message = QueryService().format_result(result)
+
+        self.assertIn('测试物料', message)
+        self.assertIn('数量2', message)
+
     def test_approval_list_created_by_me_scope_only_returns_my_approvals(self):
         from django.contrib.auth import get_user_model
         from apps.ai.services.query_service import QueryService
