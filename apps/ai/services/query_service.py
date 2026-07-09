@@ -833,7 +833,8 @@ class QueryService:
                 intent = 'message_count'
             else:
                 intent = 'message_list'
-        elif '公告' in query_lower or '通知公告' in query_lower:
+        elif any(keyword in query_lower for keyword in ['公告', '通知公告', '公司通知', '系统通知', '紧急通知']):
+            self._extract_notice_entities(query_lower, entities)
             if '已发布' in query_lower:
                 entities['status'] = 'published'
             elif '未发布' in query_lower or '草稿' in query_lower:
@@ -1487,6 +1488,14 @@ class QueryService:
             if match not in exclude_words and len(match) > 1:
                 return match
         return None
+
+    def _extract_notice_entities(self, query_lower: str, entities: Dict[str, Any]) -> None:
+        if any(keyword in query_lower for keyword in ['紧急通知', '紧急公告', '急件通知', '急件公告']):
+            entities['notice_type'] = 'urgent'
+        elif any(keyword in query_lower for keyword in ['系统通知', '系统公告', '平台通知', '平台公告']):
+            entities['notice_type'] = 'system'
+        elif any(keyword in query_lower for keyword in ['公司公告', '公司通知', '企业公告', '企业通知', '公司动态']):
+            entities['notice_type'] = 'company'
 
     def check_permission(self, user: User, intent: str) -> bool:
         """
@@ -5984,6 +5993,10 @@ class QueryService:
             queryset = queryset.filter(is_published=False)
         elif status == 'top':
             queryset = queryset.filter(is_top=True)
+
+        notice_type = entities.get('notice_type')
+        if notice_type in {'company', 'system', 'urgent'}:
+            queryset = queryset.filter(notice_type=notice_type)
 
         keyword = entities.get('keyword') or entities.get('keywords')
         if keyword:

@@ -2310,6 +2310,30 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         self.assertEqual(intent, 'notice_list')
         self.assertEqual(entities, {})
 
+    def test_recognize_company_notice_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('公司公告有哪些')
+
+        self.assertEqual(intent, 'notice_list')
+        self.assertEqual(entities['notice_type'], 'company')
+
+    def test_recognize_system_notice_count_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('系统通知有多少')
+
+        self.assertEqual(intent, 'notice_count')
+        self.assertEqual(entities['notice_type'], 'system')
+
+    def test_recognize_urgent_notice_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('紧急通知有哪些')
+
+        self.assertEqual(intent, 'notice_list')
+        self.assertEqual(entities['notice_type'], 'urgent')
+
     def test_recognize_schedule_plain_language(self):
         from apps.ai.services.query_service import QueryService
 
@@ -4655,6 +4679,23 @@ class AIQueryServiceCustomerOrderTaskScopeTests(TestCase):
 
 
 class AIQueryServiceNoticeAndMeetingScopeTests(TestCase):
+    def test_notice_list_notice_type_scope_only_returns_matching_type(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.system.models import Notice
+
+        User = get_user_model()
+        author = User.objects.create_user(username='notice-type-author')
+
+        Notice.objects.create(title='公司公告', content='x', author=author, notice_type='company', is_published=True, publish_time=timezone.now())
+        Notice.objects.create(title='系统通知', content='x', author=author, notice_type='system', is_published=True, publish_time=timezone.now())
+
+        result = QueryService().handle_notice_list({'notice_type': 'system'}, author)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(titles, {'系统通知'})
+
     def test_notice_list_top_scope_only_returns_top_notices(self):
         from django.contrib.auth import get_user_model
         from apps.ai.services.query_service import QueryService
