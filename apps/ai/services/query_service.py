@@ -146,6 +146,10 @@ class QueryService:
             'seal_application_list': self.handle_seal_application_list,
             'payment_count': self.handle_payment_count,
             'payment_list': self.handle_payment_list,
+            'meeting_room_count': self.handle_meeting_room_count,
+            'meeting_room_list': self.handle_meeting_room_list,
+            'meeting_reservation_count': self.handle_meeting_reservation_count,
+            'meeting_reservation_list': self.handle_meeting_reservation_list,
             'meeting_count': self.handle_meeting_count,
             'meeting_list': self.handle_meeting_list,
             'schedule_count': self.handle_schedule_count,
@@ -224,6 +228,8 @@ class QueryService:
             'seal': 'user.view_seal_management',
             'seal_application': 'user.view_seal_application',
             'payment': 'finance.view_payment',
+            'meeting_room': 'user.view_meeting_room',
+            'meeting_reservation': '__authenticated__',
             'meeting': 'oa.view_meetingrecord',
             'schedule': '__authenticated__',
             'enterprise': '__authenticated__',
@@ -331,6 +337,10 @@ class QueryService:
             'seal_application_list': 'user.view_seal_application',
             'payment_count': 'finance.view_payment',
             'payment_list': 'finance.view_payment',
+            'meeting_room_count': 'user.view_meeting_room',
+            'meeting_room_list': 'user.view_meeting_room',
+            'meeting_reservation_count': '__authenticated__',
+            'meeting_reservation_list': '__authenticated__',
             'meeting_count': 'oa.view_meetingrecord',
             'meeting_list': 'oa.view_meetingrecord',
             'schedule_count': '__authenticated__',
@@ -608,6 +618,8 @@ class QueryService:
             'seal': {'count': 'seal_count', 'list': 'seal_list'},
             'seal_application': {'count': 'seal_application_count', 'list': 'seal_application_list'},
             'payment': {'count': 'payment_count', 'list': 'payment_list'},
+            'meeting_room': {'count': 'meeting_room_count', 'list': 'meeting_room_list'},
+            'meeting_reservation': {'count': 'meeting_reservation_count', 'list': 'meeting_reservation_list'},
             'meeting': {'count': 'meeting_count', 'list': 'meeting_list'},
             'schedule': {'count': 'schedule_count', 'list': 'schedule_list'},
             'enterprise': {'count': 'enterprise_count', 'list': 'enterprise_list'},
@@ -684,6 +696,8 @@ class QueryService:
             'contact',
             'document',
             'payment',
+            'meeting_reservation',
+            'meeting_room',
             'meeting',
             'schedule',
             'enterprise',
@@ -817,6 +831,18 @@ class QueryService:
                 intent = 'work_record_count'
             else:
                 intent = 'work_record_list'
+        elif any(keyword in query_lower for keyword in ['会议室预订', '会议室预约', '会议预订', '会议预约']):
+            self._extract_meeting_reservation_entities(query_lower, entities)
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'meeting_reservation_count'
+            else:
+                intent = 'meeting_reservation_list'
+        elif '会议室' in query_lower:
+            self._extract_meeting_room_entities(query_lower, entities)
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'meeting_room_count'
+            else:
+                intent = 'meeting_room_list'
         elif '会议' in query_lower or '会议纪要' in query_lower:
             if '今天' in query_lower:
                 entities['time_range'] = 'today'
@@ -1830,6 +1856,39 @@ class QueryService:
             if keyword in query_lower:
                 entities['fee_type'] = fee_type
                 break
+
+    def _extract_meeting_room_entities(self, query_lower, entities):
+        if any(keyword in query_lower for keyword in ['可用', '启用', '正常', '空闲']):
+            entities['status'] = 'active'
+        elif any(keyword in query_lower for keyword in ['停用', '禁用', '不可用']):
+            entities['status'] = 'inactive'
+        if '投影' in query_lower:
+            entities['has_projector'] = True
+        if '白板' in query_lower:
+            entities['has_whiteboard'] = True
+        if '电视' in query_lower:
+            entities['has_tv'] = True
+        if '电话' in query_lower:
+            entities['has_phone'] = True
+        if any(keyword in query_lower for keyword in ['wifi', 'wi-fi', '无线']):
+            entities['has_wifi'] = True
+
+    def _extract_meeting_reservation_entities(self, query_lower, entities):
+        if any(keyword in query_lower for keyword in ['待审核', '待审批', '待处理']):
+            entities['status'] = 'pending'
+        elif any(keyword in query_lower for keyword in ['已通过', '审核通过', '审批通过']):
+            entities['status'] = 'approved'
+        elif any(keyword in query_lower for keyword in ['已拒绝', '已驳回', '审核不通过', '审批不通过']):
+            entities['status'] = 'rejected'
+        elif any(keyword in query_lower for keyword in ['已取消', '已撤销']):
+            entities['status'] = 'cancelled'
+
+        if '今天' in query_lower:
+            entities['time_range'] = 'today'
+        elif any(keyword in query_lower for keyword in ['本周', '这周']):
+            entities['time_range'] = 'this_week'
+        elif any(keyword in query_lower for keyword in ['上周', '上一周']):
+            entities['time_range'] = 'last_week'
 
     def _extract_seal_entities(self, query_lower, entities):
         self._extract_enabled_status_entities(query_lower, entities)
@@ -4629,6 +4688,84 @@ class QueryService:
             'status': entities.get('status'),
         }
 
+    def handle_meeting_room_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.oa.models import MeetingRoom
+
+        queryset = self._apply_meeting_room_filters(
+            MeetingRoom.objects.filter(is_deleted=False),
+            entities,
+        )
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'meeting_room',
+        }
+
+    def handle_meeting_room_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.oa.models import MeetingRoom
+
+        queryset = self._apply_meeting_room_filters(
+            MeetingRoom.objects.select_related('manager').filter(is_deleted=False),
+            entities,
+        )
+        items = [{
+            'id': item.id,
+            'name': item.name,
+            'code': item.code,
+            'location': item.location,
+            'capacity': item.capacity,
+            'equipment': item.get_equipment_display() if hasattr(item, 'get_equipment_display') else '',
+            'manager': item.manager.username if item.manager else '',
+            'status': item.get_status_display() if hasattr(item, 'get_status_display') else item.status,
+        } for item in queryset.order_by('code')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'meeting_room',
+        }
+
+    def handle_meeting_reservation_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import MeetingReservation
+
+        queryset = self._filter_meeting_reservation_queryset(MeetingReservation.objects.all(), user)
+        queryset = self._apply_meeting_reservation_filters(queryset, entities)
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'meeting_reservation',
+            'status': entities.get('status'),
+        }
+
+    def handle_meeting_reservation_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.system.models import MeetingReservation
+
+        queryset = self._filter_meeting_reservation_queryset(
+            MeetingReservation.objects.select_related('meeting_room', 'organizer'),
+            user,
+        )
+        queryset = self._apply_meeting_reservation_filters(queryset, entities)
+        items = [{
+            'id': item.id,
+            'title': item.title,
+            'meeting_room': item.meeting_room.name if item.meeting_room else '',
+            'organizer': item.organizer.username if item.organizer else '',
+            'start_time': item.start_time.strftime('%Y-%m-%d %H:%M') if item.start_time else '',
+            'end_time': item.end_time.strftime('%Y-%m-%d %H:%M') if item.end_time else '',
+            'status': item.get_status_display() if hasattr(item, 'get_status_display') else item.status,
+        } for item in queryset.order_by('-start_time')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'meeting_reservation',
+            'status': entities.get('status'),
+        }
+
     def handle_meeting_count(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.oa.models import MeetingRecord
@@ -4887,6 +5024,8 @@ class QueryService:
             'production_procedure': '生产工序',
             'approval_flow': '审批流程',
             'approval_task': '待办审批',
+            'meeting_room': '会议室',
+            'meeting_reservation': '会议室预订',
             'meeting': '会议',
             'schedule': '工作日程',
             'enterprise': '企业信息',
@@ -5151,6 +5290,23 @@ class QueryService:
                 if handler:
                     return f"{title}（{handler}，{status}）"
                 return f"{title}（{status}）"
+            elif data_type == 'meeting_room':
+                name = item.get('name', '未知会议室')
+                location = item.get('location', '')
+                capacity = item.get('capacity', 0)
+                status = item.get('status', '')
+                if location:
+                    return f"{name}（{location}，{capacity}人，{status}）"
+                return f"{name}（{capacity}人，{status}）"
+            elif data_type == 'meeting_reservation':
+                title = item.get('title', '未知预订')
+                room = item.get('meeting_room', '')
+                start_time = item.get('start_time', '')
+                status = item.get('status', '')
+                parts = [part for part in [room, start_time, status] if part]
+                if parts:
+                    return f"{title}（{'，'.join(parts)}）"
+                return title
             elif data_type == 'notice':
                 title = item.get('title', '未知')
                 publisher = item.get('publisher', '')
@@ -5462,6 +5618,11 @@ class QueryService:
             Q(is_broadcast=True) |
             Q(user_relations__user=user)
         ).distinct()
+
+    def _filter_meeting_reservation_queryset(self, queryset, user):
+        if getattr(user, 'is_superuser', False):
+            return queryset
+        return queryset.filter(organizer=user)
 
 
     def _filter_followup_queryset(self, queryset, user):
@@ -5798,6 +5959,27 @@ class QueryService:
         fee_type = entities.get('fee_type')
         if fee_type in {'fuel', 'insurance', 'tax', 'parking', 'toll', 'fine', 'other'}:
             queryset = queryset.filter(fee_type=fee_type)
+        return queryset
+
+    def _apply_meeting_room_filters(self, queryset, entities):
+        status = entities.get('status')
+        if status in {'active', 'inactive', 'pending', 'deleted'}:
+            queryset = queryset.filter(status=status)
+        for field_name in ['has_projector', 'has_whiteboard', 'has_tv', 'has_phone', 'has_wifi']:
+            if field_name in entities:
+                queryset = queryset.filter(**{field_name: bool(entities[field_name])})
+        return queryset
+
+    def _apply_meeting_reservation_filters(self, queryset, entities):
+        status = entities.get('status')
+        if status in {'pending', 'approved', 'rejected', 'cancelled'}:
+            queryset = queryset.filter(status=status)
+
+        time_range = entities.get('time_range')
+        if time_range:
+            start_at, end_at = self._resolve_time_range(time_range)
+            if start_at and end_at:
+                queryset = queryset.filter(start_time__range=(start_at, end_at))
         return queryset
 
     def _apply_seal_filters(self, queryset, entities):

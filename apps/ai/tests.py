@@ -151,6 +151,7 @@ class AIQueryServicePermissionMappingTests(SimpleTestCase):
             'user.view_vehicle_maintenance',
             'user.view_vehicle_fee',
             'user.view_vehicle_oil',
+            'user.view_meeting_room',
             'user.view_seal_management',
             'user.view_seal_application',
         }
@@ -168,6 +169,8 @@ class AIQueryServicePermissionMappingTests(SimpleTestCase):
         self.assertTrue(service.check_permission(user, 'vehicle_maintenance_list'))
         self.assertTrue(service.check_permission(user, 'vehicle_fee_list'))
         self.assertTrue(service.check_permission(user, 'vehicle_oil_list'))
+        self.assertTrue(service.check_permission(user, 'meeting_room_list'))
+        self.assertTrue(service.check_permission(user, 'meeting_reservation_list'))
         self.assertTrue(service.check_permission(user, 'seal_list'))
         self.assertTrue(service.check_permission(user, 'seal_application_list'))
 
@@ -3134,6 +3137,30 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         self.assertEqual(intent, 'vehicle_oil_list')
         self.assertEqual(entities, {})
 
+    def test_recognize_active_meeting_room_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('可用会议室有哪些')
+
+        self.assertEqual(intent, 'meeting_room_list')
+        self.assertEqual(entities['status'], 'active')
+
+    def test_recognize_pending_meeting_reservation_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('待审核会议室预订有几个')
+
+        self.assertEqual(intent, 'meeting_reservation_count')
+        self.assertEqual(entities['status'], 'pending')
+
+    def test_recognize_today_meeting_reservation_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('今天会议室预约有哪些')
+
+        self.assertEqual(intent, 'meeting_reservation_list')
+        self.assertEqual(entities['time_range'], 'today')
+
     def test_resolve_specific_intent_maps_asset_subtype(self):
         from apps.ai.services.query_service import QueryService
 
@@ -3187,6 +3214,42 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
 
         self.assertEqual(intent, 'vehicle_fee_list')
         self.assertEqual(entities['fee_type'], 'insurance')
+
+    def test_resolve_specific_intent_maps_meeting_room_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '查一下会议室',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'meeting_room',
+                'action': 'list',
+                'entities': {'status': 'active'},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'meeting_room_list')
+        self.assertEqual(entities['status'], 'active')
+
+    def test_resolve_specific_intent_maps_meeting_reservation_subtype(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '查一下会议室预订',
+            {
+                'intent': 'DATA_QUERY',
+                'data_type': 'meeting_reservation',
+                'action': 'count',
+                'entities': {'status': 'pending'},
+                'source': 'ai',
+            },
+            context={},
+        )
+
+        self.assertEqual(intent, 'meeting_reservation_count')
+        self.assertEqual(entities['status'], 'pending')
 
     def test_resolve_specific_intent_prefers_order_total_for_deal_amount_query(self):
         from apps.ai.services.query_service import QueryService
@@ -4036,6 +4099,64 @@ class AIQueryServiceOfficeVisibilityTests(TestCase):
 
         self.assertEqual(result['total'], 1)
         self.assertEqual(result['items'][0]['gas_station'], '测试加油站')
+
+    def test_meeting_room_list_status_scope_only_returns_active_rooms(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.oa.models import MeetingRoom
+
+        User = get_user_model()
+        manager = User.objects.create_user(username='meeting-room-manager')
+        MeetingRoom.objects.create(name='一号会议室', code='MR-001', location='1楼', capacity=12, status='active', manager=manager)
+        MeetingRoom.objects.create(name='停用会议室', code='MR-002', location='2楼', capacity=8, status='inactive', manager=manager)
+
+        result = QueryService().handle_meeting_room_list({'status': 'active'}, manager)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(names, {'一号会议室'})
+
+    def test_meeting_reservation_list_filters_owner_status_and_today(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.oa.models import MeetingRoom
+        from apps.system.models import MeetingReservation
+
+        User = get_user_model()
+        organizer = User.objects.create_user(username='meeting-reservation-owner')
+        other = User.objects.create_user(username='meeting-reservation-other')
+        room = MeetingRoom.objects.create(name='二号会议室', code='MR-003', location='3楼', capacity=16, status='active')
+        today_start = timezone.now().replace(hour=10, minute=0, second=0, microsecond=0)
+        MeetingReservation.objects.create(
+            meeting_room=room,
+            title='今日待审核会议',
+            organizer=organizer,
+            start_time=today_start,
+            end_time=today_start + timedelta(hours=1),
+            status='pending',
+        )
+        MeetingReservation.objects.create(
+            meeting_room=room,
+            title='他人的待审核会议',
+            organizer=other,
+            start_time=today_start,
+            end_time=today_start + timedelta(hours=1),
+            status='pending',
+        )
+        MeetingReservation.objects.create(
+            meeting_room=room,
+            title='今日已通过会议',
+            organizer=organizer,
+            start_time=today_start,
+            end_time=today_start + timedelta(hours=1),
+            status='approved',
+        )
+
+        result = QueryService().handle_meeting_reservation_list({'status': 'pending', 'time_range': 'today'}, organizer)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(titles, {'今日待审核会议'})
 
     def test_notice_list_only_returns_authored_or_targeted_published_notices(self):
         from django.contrib.auth import get_user_model
