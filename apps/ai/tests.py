@@ -141,6 +141,30 @@ class AIPermissionGuardTests(SimpleTestCase):
 
 
 class AIQueryServicePermissionMappingTests(SimpleTestCase):
+    def test_advanced_finance_query_permissions_follow_model_permissions(self):
+        from apps.ai.services.query_service import QueryService
+
+        allowed_permissions = {
+            'finance.view_financeaccount',
+            'finance.view_financebudget',
+            'finance.view_accountsreceivable',
+            'finance.view_accountspayable',
+            'finance.view_banktransaction',
+        }
+        user = SimpleNamespace(
+            username='finance-query-user',
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in allowed_permissions,
+        )
+        service = QueryService()
+
+        self.assertTrue(service.check_permission(user, 'finance_account_list'))
+        self.assertTrue(service.check_permission(user, 'finance_budget_list'))
+        self.assertTrue(service.check_permission(user, 'finance_receivable_list'))
+        self.assertTrue(service.check_permission(user, 'finance_payable_list'))
+        self.assertTrue(service.check_permission(user, 'finance_bank_transaction_list'))
+
     def test_admin_office_query_permissions_follow_menu_nodes(self):
         from apps.ai.services.query_service import QueryService
 
@@ -2399,6 +2423,46 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         self.assertEqual(intent, 'finance_expense_list')
         self.assertEqual(entities, {})
 
+    def test_recognize_finance_account_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('启用资金账户有哪些')
+
+        self.assertEqual(intent, 'finance_account_list')
+        self.assertEqual(entities['status'], 'active')
+
+    def test_recognize_finance_budget_count_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('执行中的预算有多少')
+
+        self.assertEqual(intent, 'finance_budget_count')
+        self.assertEqual(entities['status'], 'active')
+
+    def test_recognize_receivable_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('逾期应收账款有哪些')
+
+        self.assertEqual(intent, 'finance_receivable_list')
+        self.assertEqual(entities['status'], 'overdue')
+
+    def test_recognize_payable_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('待付款应付账款有几个')
+
+        self.assertEqual(intent, 'finance_payable_count')
+        self.assertEqual(entities['status'], 'pending')
+
+    def test_recognize_bank_transaction_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('未匹配银行流水有哪些')
+
+        self.assertEqual(intent, 'finance_bank_transaction_list')
+        self.assertEqual(entities['match_status'], 'unmatched')
+
     def test_recognize_production_overview_plain_language(self):
         from apps.ai.services.query_service import QueryService
 
@@ -4458,6 +4522,134 @@ class AIQueryServiceApprovalAndFinanceScopeTests(TestCase):
         codes = {item['code'] for item in result['items']}
 
         self.assertEqual(codes, {'BX-001'})
+
+    def test_finance_account_list_status_scope_only_returns_active_accounts(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.finance.models import FinanceAccount
+
+        User = get_user_model()
+        user = User.objects.create_user(username='finance-account-user')
+
+        FinanceAccount.objects.create(name='基本户', current_balance=Decimal('1000'), status='active')
+        FinanceAccount.objects.create(name='停用户', current_balance=Decimal('500'), status='disabled')
+
+        result = QueryService().handle_finance_account_list({'status': 'active'}, user)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(names, {'基本户'})
+
+    def test_finance_budget_count_status_scope_only_counts_active_budgets(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.finance.models import FinanceBudget
+
+        User = get_user_model()
+        user = User.objects.create_user(username='finance-budget-user')
+
+        FinanceBudget.objects.create(
+            name='执行预算',
+            start_date=date.today(),
+            end_date=date.today() + timedelta(days=30),
+            budget_amount=Decimal('10000'),
+            status='active',
+        )
+        FinanceBudget.objects.create(
+            name='草稿预算',
+            start_date=date.today(),
+            end_date=date.today() + timedelta(days=30),
+            budget_amount=Decimal('8000'),
+            status='draft',
+        )
+
+        result = QueryService().handle_finance_budget_count({'status': 'active'}, user)
+
+        self.assertEqual(result['value'], 1)
+
+    def test_finance_receivable_list_status_scope_only_returns_overdue(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.finance.models import AccountsReceivable
+
+        User = get_user_model()
+        user = User.objects.create_user(username='finance-receivable-user')
+
+        AccountsReceivable.objects.create(code='AR-001', amount=Decimal('1000'), status='overdue')
+        AccountsReceivable.objects.create(code='AR-002', amount=Decimal('800'), status='pending')
+
+        result = QueryService().handle_finance_receivable_list({'status': 'overdue'}, user)
+        codes = {item['code'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(codes, {'AR-001'})
+
+    def test_finance_payable_count_status_scope_only_counts_pending(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.finance.models import AccountsPayable
+
+        User = get_user_model()
+        user = User.objects.create_user(username='finance-payable-user')
+
+        AccountsPayable.objects.create(code='AP-001', amount=Decimal('1000'), status='pending')
+        AccountsPayable.objects.create(code='AP-002', amount=Decimal('800'), status='settled')
+
+        result = QueryService().handle_finance_payable_count({'status': 'pending'}, user)
+
+        self.assertEqual(result['value'], 1)
+
+    def test_finance_bank_transaction_list_match_scope_only_returns_unmatched(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.finance.models import BankTransaction, FinanceAccount
+
+        User = get_user_model()
+        user = User.objects.create_user(username='finance-bank-user')
+        account = FinanceAccount.objects.create(name='银行户', status='active')
+
+        BankTransaction.objects.create(
+            account=account,
+            transaction_date=timezone.now(),
+            direction='in',
+            amount=Decimal('1000'),
+            transaction_no='TXN-001',
+            match_status='unmatched',
+        )
+        BankTransaction.objects.create(
+            account=account,
+            transaction_date=timezone.now(),
+            direction='out',
+            amount=Decimal('500'),
+            transaction_no='TXN-002',
+            match_status='matched',
+        )
+
+        result = QueryService().handle_finance_bank_transaction_list({'match_status': 'unmatched'}, user)
+        transaction_nos = {item['transaction_no'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(transaction_nos, {'TXN-001'})
+
+    def test_finance_account_result_format_includes_balance(self):
+        from apps.ai.services.query_service import QueryService
+
+        result = {
+            'type': 'list',
+            'data_type': 'finance_account',
+            'total': 1,
+            'items': [{
+                'id': 1,
+                'name': '基本户',
+                'current_balance': Decimal('1000.00'),
+                'status': 'active',
+            }],
+        }
+
+        message = QueryService().format_result(result)
+
+        self.assertIn('基本户', message)
+        self.assertIn('余额¥1,000.00', message)
 
     def test_finance_expense_list_approved_scope_only_returns_approved(self):
         from django.contrib.auth import get_user_model

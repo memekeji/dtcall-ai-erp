@@ -78,6 +78,16 @@ class QueryService:
             'finance_income_list': self.handle_finance_income_list,
             'finance_order_record_count': self.handle_finance_order_record_count,
             'finance_order_record_list': self.handle_finance_order_record_list,
+            'finance_account_count': self.handle_finance_account_count,
+            'finance_account_list': self.handle_finance_account_list,
+            'finance_budget_count': self.handle_finance_budget_count,
+            'finance_budget_list': self.handle_finance_budget_list,
+            'finance_receivable_count': self.handle_finance_receivable_count,
+            'finance_receivable_list': self.handle_finance_receivable_list,
+            'finance_payable_count': self.handle_finance_payable_count,
+            'finance_payable_list': self.handle_finance_payable_list,
+            'finance_bank_transaction_count': self.handle_finance_bank_transaction_count,
+            'finance_bank_transaction_list': self.handle_finance_bank_transaction_list,
             'production_plan_count': self.handle_production_plan_count,
             'production_plan_list': self.handle_production_plan_list,
             'production_task_count': self.handle_production_task_count,
@@ -196,6 +206,11 @@ class QueryService:
             'finance_invoice': 'finance.view_invoice',
             'finance_income': 'finance.view_payment_receive',
             'finance_order_record': 'finance.view_orderfinancerecord',
+            'finance_account': 'finance.view_financeaccount',
+            'finance_budget': 'finance.view_financebudget',
+            'finance_receivable': 'finance.view_accountsreceivable',
+            'finance_payable': 'finance.view_accountspayable',
+            'finance_bank_transaction': 'finance.view_banktransaction',
             'production': 'production.view_productionplan',
             'production_plan': 'production.view_productionplan',
             'production_task': 'production.view_productiontask',
@@ -272,6 +287,16 @@ class QueryService:
             'finance_income_list': 'finance.view_income',
             'finance_order_record_count': 'finance.view_orderfinancerecord',
             'finance_order_record_list': 'finance.view_orderfinancerecord',
+            'finance_account_count': 'finance.view_financeaccount',
+            'finance_account_list': 'finance.view_financeaccount',
+            'finance_budget_count': 'finance.view_financebudget',
+            'finance_budget_list': 'finance.view_financebudget',
+            'finance_receivable_count': 'finance.view_accountsreceivable',
+            'finance_receivable_list': 'finance.view_accountsreceivable',
+            'finance_payable_count': 'finance.view_accountspayable',
+            'finance_payable_list': 'finance.view_accountspayable',
+            'finance_bank_transaction_count': 'finance.view_banktransaction',
+            'finance_bank_transaction_list': 'finance.view_banktransaction',
             'production_plan_count': 'production.view_productionplan',
             'production_plan_list': 'production.view_productionplan',
             'production_task_count': 'production.view_productiontask',
@@ -593,6 +618,11 @@ class QueryService:
             'finance_invoice': {'count': 'finance_invoice_count', 'list': 'finance_invoice_list'},
             'finance_income': {'count': 'finance_income_count', 'list': 'finance_income_list'},
             'finance_order_record': {'count': 'finance_order_record_count', 'list': 'finance_order_record_list'},
+            'finance_account': {'count': 'finance_account_count', 'list': 'finance_account_list'},
+            'finance_budget': {'count': 'finance_budget_count', 'list': 'finance_budget_list'},
+            'finance_receivable': {'count': 'finance_receivable_count', 'list': 'finance_receivable_list'},
+            'finance_payable': {'count': 'finance_payable_count', 'list': 'finance_payable_list'},
+            'finance_bank_transaction': {'count': 'finance_bank_transaction_count', 'list': 'finance_bank_transaction_list'},
             'expense': {'count': 'finance_expense_count', 'list': 'finance_expense_list'},
             'income': {'count': 'finance_income_count', 'list': 'finance_income_list'},
             'production': {'count': 'production_plan_count', 'list': 'production_plan_list'},
@@ -695,6 +725,11 @@ class QueryService:
             'finance_invoice',
             'finance_income',
             'finance_order_record',
+            'finance_bank_transaction',
+            'finance_receivable',
+            'finance_payable',
+            'finance_account',
+            'finance_budget',
             'production_plan',
             'production_task',
             'production_equipment',
@@ -1372,6 +1407,41 @@ class QueryService:
             else:
                 intent = 'document_list'
 
+        elif any(keyword in query_lower for keyword in ['资金账户', '财务账户', '银行账户', '现金账户']):
+            self._extract_advanced_finance_entities(query_lower, entities)
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'finance_account_count'
+            else:
+                intent = 'finance_account_list'
+
+        elif any(keyword in query_lower for keyword in ['预算', '预算管理']):
+            self._extract_advanced_finance_entities(query_lower, entities)
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'finance_budget_count'
+            else:
+                intent = 'finance_budget_list'
+
+        elif any(keyword in query_lower for keyword in ['应收账款', '应收款', '应收']):
+            self._extract_advanced_finance_entities(query_lower, entities)
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'finance_receivable_count'
+            else:
+                intent = 'finance_receivable_list'
+
+        elif any(keyword in query_lower for keyword in ['应付账款', '应付款', '应付']):
+            self._extract_advanced_finance_entities(query_lower, entities)
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'finance_payable_count'
+            else:
+                intent = 'finance_payable_list'
+
+        elif any(keyword in query_lower for keyword in ['银行流水', '资金流水', '账户流水', '流水记录']):
+            self._extract_advanced_finance_entities(query_lower, entities)
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'finance_bank_transaction_count'
+            else:
+                intent = 'finance_bank_transaction_list'
+
         # 财务相关意图
         elif '财务' in query_lower or '报销' in query_lower or '发票' in query_lower or '回款' in query_lower or '打款' in query_lower:
             self._extract_time_range_entities(query_lower, entities)
@@ -1994,6 +2064,41 @@ class QueryService:
             entities['check_status'] = 'reviewing'
         elif any(keyword in query_lower for keyword in ['待审核', '待审批']):
             entities['check_status'] = 'pending'
+
+    def _extract_advanced_finance_entities(self, query_lower, entities):
+        self._extract_time_range_entities(query_lower, entities)
+        if any(keyword in query_lower for keyword in ['未匹配', '未对上']):
+            entities['match_status'] = 'unmatched'
+        elif any(keyword in query_lower for keyword in ['已匹配', '已对上']):
+            entities['match_status'] = 'matched'
+
+        if any(keyword in query_lower for keyword in ['收入流水', '收入方向', '收款流水', '入账']):
+            entities['direction'] = 'in'
+        elif any(keyword in query_lower for keyword in ['支出流水', '支出方向', '付款流水', '出账']):
+            entities['direction'] = 'out'
+
+        if any(keyword in query_lower for keyword in ['停用', '禁用']):
+            entities['status'] = 'inactive'
+        elif any(keyword in query_lower for keyword in ['启用', '可用', '正常']):
+            entities['status'] = 'active'
+        elif any(keyword in query_lower for keyword in ['草稿']):
+            entities['status'] = 'draft'
+        elif any(keyword in query_lower for keyword in ['执行中', '生效中']):
+            entities['status'] = 'active'
+        elif any(keyword in query_lower for keyword in ['已关闭', '关闭']):
+            entities['status'] = 'closed'
+        elif any(keyword in query_lower for keyword in ['逾期', '已逾期']):
+            entities['status'] = 'overdue'
+        elif any(keyword in query_lower for keyword in ['坏账']):
+            entities['status'] = 'bad_debt'
+        elif any(keyword in query_lower for keyword in ['部分收款', '部分付款']):
+            entities['status'] = 'partial'
+        elif any(keyword in query_lower for keyword in ['已结清', '结清']):
+            entities['status'] = 'settled'
+        elif any(keyword in query_lower for keyword in ['待收款', '待收']):
+            entities['status'] = 'pending'
+        elif any(keyword in query_lower for keyword in ['待付款', '待付']):
+            entities['status'] = 'pending'
 
     def _extract_contract_entities(self, query_lower, entities):
         if any(keyword in query_lower for keyword in ['审核中', '审批中']):
@@ -3542,6 +3647,74 @@ class QueryService:
             'total': queryset.count(),
             'data_type': 'finance_order_record'
         }
+
+    def handle_finance_account_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.finance.models import FinanceAccount
+        queryset = self._apply_advanced_finance_filters(FinanceAccount.objects.all(), entities, 'finance_account')
+        return self._build_advanced_finance_count(queryset, 'finance_account', entities)
+
+    def handle_finance_account_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.finance.models import FinanceAccount
+        queryset = self._apply_advanced_finance_filters(FinanceAccount.objects.all(), entities, 'finance_account')
+        return self._build_advanced_finance_list(queryset, 'finance_account', entities)
+
+    def handle_finance_budget_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.finance.models import FinanceBudget
+        queryset = self._apply_advanced_finance_filters(FinanceBudget.objects.all(), entities, 'finance_budget')
+        return self._build_advanced_finance_count(queryset, 'finance_budget', entities)
+
+    def handle_finance_budget_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.finance.models import FinanceBudget
+        queryset = self._apply_advanced_finance_filters(FinanceBudget.objects.all(), entities, 'finance_budget')
+        return self._build_advanced_finance_list(queryset, 'finance_budget', entities)
+
+    def handle_finance_receivable_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.finance.models import AccountsReceivable
+        queryset = self._apply_advanced_finance_filters(AccountsReceivable.objects.all(), entities, 'finance_receivable')
+        return self._build_advanced_finance_count(queryset, 'finance_receivable', entities)
+
+    def handle_finance_receivable_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.finance.models import AccountsReceivable
+        queryset = self._apply_advanced_finance_filters(AccountsReceivable.objects.all(), entities, 'finance_receivable')
+        return self._build_advanced_finance_list(queryset, 'finance_receivable', entities)
+
+    def handle_finance_payable_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.finance.models import AccountsPayable
+        queryset = self._apply_advanced_finance_filters(AccountsPayable.objects.all(), entities, 'finance_payable')
+        return self._build_advanced_finance_count(queryset, 'finance_payable', entities)
+
+    def handle_finance_payable_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.finance.models import AccountsPayable
+        queryset = self._apply_advanced_finance_filters(AccountsPayable.objects.all(), entities, 'finance_payable')
+        return self._build_advanced_finance_list(queryset, 'finance_payable', entities)
+
+    def handle_finance_bank_transaction_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.finance.models import BankTransaction
+        queryset = self._apply_advanced_finance_filters(
+            BankTransaction.objects.select_related('account').all(),
+            entities,
+            'finance_bank_transaction',
+        )
+        return self._build_advanced_finance_count(queryset, 'finance_bank_transaction', entities)
+
+    def handle_finance_bank_transaction_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.finance.models import BankTransaction
+        queryset = self._apply_advanced_finance_filters(
+            BankTransaction.objects.select_related('account').all(),
+            entities,
+            'finance_bank_transaction',
+        )
+        return self._build_advanced_finance_list(queryset, 'finance_bank_transaction', entities)
 
     # 生产相关处理函数
     def handle_production_plan_count(
@@ -5171,6 +5344,11 @@ class QueryService:
             'finance_invoice': '发票',
             'finance_income': '回款',
             'finance_order_record': '订单财务记录',
+            'finance_account': '资金账户',
+            'finance_budget': '预算',
+            'finance_receivable': '应收账款',
+            'finance_payable': '应付账款',
+            'finance_bank_transaction': '银行流水',
             'production_plan': '生产计划',
             'production_task': '生产任务',
             'production_equipment': '生产设备',
@@ -5387,6 +5565,31 @@ class QueryService:
                 if customer:
                     return f"{no}（{customer}，¥{amount:,.2f}）"
                 return f"{no}（¥{amount:,.2f}）"
+            elif data_type == 'finance_account':
+                name = item.get('name', '未知')
+                balance = item.get('current_balance', 0)
+                status = item.get('status', '')
+                return f"{name}（余额¥{balance:,.2f}，{status}）"
+            elif data_type == 'finance_budget':
+                name = item.get('name', '未知')
+                amount = item.get('budget_amount', 0)
+                used = item.get('used_amount', 0)
+                return f"{name}（预算¥{amount:,.2f}，已用¥{used:,.2f}）"
+            elif data_type == 'finance_receivable':
+                code = item.get('code', '未知')
+                amount = item.get('amount', 0)
+                status = item.get('status', '')
+                return f"{code}（应收¥{amount:,.2f}，{status}）"
+            elif data_type == 'finance_payable':
+                code = item.get('code', '未知')
+                amount = item.get('amount', 0)
+                status = item.get('status', '')
+                return f"{code}（应付¥{amount:,.2f}，{status}）"
+            elif data_type == 'finance_bank_transaction':
+                no = item.get('transaction_no', '未知')
+                direction = item.get('direction', '')
+                amount = item.get('amount', 0)
+                return f"{no}（{direction}，¥{amount:,.2f}）"
             elif data_type == 'payment':
                 no = item.get('payment_no', '未知')
                 amount = item.get('amount', 0)
@@ -6206,6 +6409,72 @@ class QueryService:
         if mapped_check_status is not None:
             queryset = queryset.filter(check_status=mapped_check_status)
         return queryset
+
+    def _apply_advanced_finance_filters(self, queryset, entities, data_type):
+        status = entities.get('status')
+        status_mappings = {
+            'finance_account': {'inactive': 'disabled'},
+            'finance_budget': {'active': 'active', 'draft': 'draft', 'closed': 'closed'},
+            'finance_receivable': {
+                'pending': 'pending',
+                'partial': 'partial',
+                'settled': 'settled',
+                'overdue': 'overdue',
+                'bad_debt': 'bad_debt',
+            },
+            'finance_payable': {
+                'pending': 'pending',
+                'partial': 'partial',
+                'settled': 'settled',
+                'overdue': 'overdue',
+            },
+        }
+        mapped_status = status_mappings.get(data_type, {}).get(status, status)
+        if data_type in status_mappings and mapped_status:
+            queryset = queryset.filter(status=mapped_status)
+
+        if data_type == 'finance_bank_transaction':
+            direction = entities.get('direction')
+            if direction in {'in', 'out'}:
+                queryset = queryset.filter(direction=direction)
+            match_status = entities.get('match_status')
+            if match_status in {'matched', 'unmatched'}:
+                queryset = queryset.filter(match_status=match_status)
+            queryset = self._apply_datetime_range_filter(queryset, entities, 'transaction_date')
+        return queryset
+
+    def _build_advanced_finance_count(self, queryset, data_type, entities):
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': data_type,
+            'status': entities.get('status'),
+        }
+
+    def _build_advanced_finance_list(self, queryset, data_type, entities):
+        fields = {
+            'finance_account': ['id', 'name', 'account_type', 'bank_name', 'account_no', 'currency', 'current_balance', 'status'],
+            'finance_budget': ['id', 'name', 'period_type', 'budget_amount', 'used_amount', 'status', 'start_date', 'end_date'],
+            'finance_receivable': ['id', 'code', 'amount', 'received_amount', 'due_date', 'status'],
+            'finance_payable': ['id', 'code', 'amount', 'paid_amount', 'due_date', 'status'],
+            'finance_bank_transaction': ['id', 'transaction_no', 'transaction_date', 'direction', 'amount', 'counterparty', 'purpose', 'match_status'],
+        }
+        items = []
+        for item in queryset[:5]:
+            row = {field: getattr(item, field, '') for field in fields[data_type]}
+            if data_type == 'finance_bank_transaction':
+                row['account'] = getattr(getattr(item, 'account', None), 'name', '')
+            for date_field in ['start_date', 'end_date', 'due_date', 'transaction_date']:
+                if hasattr(row.get(date_field), 'strftime'):
+                    row[date_field] = row[date_field].strftime('%Y-%m-%d')
+            items.append(row)
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': data_type,
+            'status': entities.get('status'),
+        }
 
     def _apply_warehouse_filters(self, queryset, entities):
         status = entities.get('status')
