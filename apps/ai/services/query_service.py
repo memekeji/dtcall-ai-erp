@@ -699,6 +699,12 @@ class QueryService:
                 intent = 'disk_count'
             else:
                 intent = 'disk_list'
+        elif any(keyword in query_lower for keyword in ['已审批', '已处理审批', '我审批的', '我已审批的', '审批过的流程']):
+            entities['status'] = 'completed'
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'approval_task_count'
+            else:
+                intent = 'approval_task_list'
         elif any(keyword in query_lower for keyword in ['待审批', '待办审批', '审批任务', '待办流程']):
             entities['status'] = 'pending'
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
@@ -711,8 +717,16 @@ class QueryService:
             else:
                 intent = 'approval_flow_list'
         elif '审批' in query_lower or '流程' in query_lower:
-            if any(keyword in query_lower for keyword in ['我发起的', '我提交的', '我的审批']):
+            if any(keyword in query_lower for keyword in ['我发起的', '我提交的', '我的审批', '我发起但未结束的', '我发起但是未结束的']):
                 entities['scope'] = 'created_by_me'
+            if any(keyword in query_lower for keyword in ['未结束', '进行中', '处理中', '还没结束']):
+                entities['status'] = 'ongoing'
+            elif '已通过' in query_lower:
+                entities['status'] = 'approved'
+            elif '已拒绝' in query_lower or '已驳回' in query_lower:
+                entities['status'] = 'rejected'
+            elif '已取消' in query_lower or '已撤回' in query_lower:
+                entities['status'] = 'cancelled'
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
                 intent = 'approval_count'
             else:
@@ -769,6 +783,14 @@ class QueryService:
                 intent = 'schedule_list'
         # 个人任务相关意图（优先于通用任务）
         elif '个人任务' in query_lower or '我的待办' in query_lower or ('待办' in query_lower and '审批' not in query_lower and '流程' not in query_lower):
+            has_explicit_personal_scope = '个人' in query_lower or '我的' in query_lower
+            if has_explicit_personal_scope:
+                if any(keyword in query_lower for keyword in ['已完成', '完成的', '完成态']):
+                    entities['status'] = 'completed'
+                elif any(keyword in query_lower for keyword in ['待办', '未完成', '待处理']):
+                    entities['status'] = 'todo'
+                elif '进行中' in query_lower:
+                    entities['status'] = 'in_progress'
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
                 intent = 'personal_task_count'
             else:
@@ -786,13 +808,15 @@ class QueryService:
 
         # 个人笔记相关意图
         elif '个人笔记' in query_lower or '我的笔记' in query_lower or ('笔记' in query_lower and '项目' not in query_lower and '会议' not in query_lower):
+            if '重要' in query_lower:
+                entities['is_important'] = True
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
                 intent = 'personal_note_count'
             else:
                 intent = 'personal_note_list'
 
         # 个人通讯录相关意图
-        elif '个人通讯录' in query_lower or '我的联系人' in query_lower or '私人通讯录' in query_lower:
+        elif '个人通讯录' in query_lower or '我的联系人' in query_lower or '私人通讯录' in query_lower or '私人联系人' in query_lower:
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
                 intent = 'personal_contact_count'
             else:
@@ -823,16 +847,31 @@ class QueryService:
 
         # 工作汇报相关意图
         elif '工作汇报' in query_lower or '工作报告' in query_lower or ('工作总结' in query_lower and '项目' not in query_lower):
+            self._extract_work_report_entities(query_lower, entities)
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
                 intent = 'work_report_count'
             else:
                 intent = 'work_report_list'
         elif ('日报' in query_lower or '周报' in query_lower or '月报' in query_lower) and '项目' not in query_lower:
+            self._extract_work_report_entities(query_lower, entities)
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
                 intent = 'work_report_count'
             else:
                 intent = 'work_report_list'
 
+        elif any(keyword in query_lower for keyword in ['订单财务记录', '订单财务', '订单回款记录', '订单付款记录']):
+            if '待付款' in query_lower:
+                entities['status'] = 'pending'
+            elif '部分付款' in query_lower:
+                entities['status'] = 'partial'
+            elif '已付款' in query_lower or '已付' in query_lower:
+                entities['status'] = 'paid'
+            elif '逾期' in query_lower:
+                entities['status'] = 'overdue'
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'finance_order_record_count'
+            else:
+                intent = 'finance_order_record_list'
 
             # 订单相关意图（优先于客户相关意图，因为订单查询可能包含客户名称）
         elif '订单' in query_lower:
@@ -867,12 +906,19 @@ class QueryService:
 
         # 客户相关意图
         elif '跟进' in query_lower or '回访' in query_lower:
+            self._extract_followup_entities(query_lower, entities)
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
                 intent = 'followup_count'
             else:
                 intent = 'followup_list'
 
         elif '客户' in query_lower:
+            if '对接人' in query_lower or '联系人' in query_lower:
+                if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                    intent = 'contact_count'
+                else:
+                    intent = 'contact_list'
+                return intent, entities
             if any(keyword in query_lower for keyword in owned_scope_keywords):
                 entities['scope'] = 'owned_by_me'
             # 先检查是否是数量查询，优先级高于客户名称查询
@@ -1096,19 +1142,67 @@ class QueryService:
             else:
                 intent = 'product_list'
 
+        elif '入库' in query_lower:
+            if '待入库确认' in query_lower or '待执行入库' in query_lower or '待入库' in query_lower:
+                entities['status'] = 'approved'
+            elif '已入库' in query_lower:
+                entities['status'] = 'stocked'
+            elif '待审核' in query_lower:
+                entities['status'] = 'pending'
+            elif '已取消' in query_lower:
+                entities['status'] = 'cancelled'
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'stockin_count'
+            else:
+                intent = 'stockin_list'
+
+        elif '出库' in query_lower:
+            if '待出库确认' in query_lower or '待执行出库' in query_lower or '待出库' in query_lower:
+                entities['status'] = 'approved'
+            elif '已出库' in query_lower:
+                entities['status'] = 'stocked'
+            elif '待审核' in query_lower:
+                entities['status'] = 'pending'
+            elif '已取消' in query_lower:
+                entities['status'] = 'cancelled'
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'stockout_count'
+            else:
+                intent = 'stockout_list'
+
+        elif '预警' in query_lower:
+            if '未处理' in query_lower or '待处理' in query_lower:
+                entities['status'] = 'pending'
+            elif '已处理' in query_lower:
+                entities['status'] = 'processed'
+            elif '已忽略' in query_lower or '忽略' in query_lower:
+                entities['status'] = 'ignored'
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'alert_count'
+            else:
+                intent = 'alert_list'
+
         elif '库存' in query_lower or '存货' in query_lower or '物料' in query_lower:
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
                 intent = 'inventory_count'
             else:
                 intent = 'inventory_list'
 
-        elif '联系人' in query_lower:
+        elif '客户联系人' in query_lower or '对接人' in query_lower or '联系人' in query_lower:
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
                 intent = 'contact_count'
             else:
                 intent = 'contact_list'
 
         elif '公文' in query_lower or '文档' in query_lower:
+            if '待发布' in query_lower:
+                entities['status'] = 'approved'
+            elif '已发布' in query_lower:
+                entities['status'] = 'published'
+            elif '草稿' in query_lower:
+                entities['status'] = 'draft'
+            elif '待审核' in query_lower:
+                entities['status'] = 'pending'
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
                 intent = 'document_count'
             else:
@@ -1151,6 +1245,32 @@ class QueryService:
 
         # 生产相关意图
         elif '生产' in query_lower or '生产计划' in query_lower or '生产任务' in query_lower or '设备' in query_lower or '工序' in query_lower:
+            if '今天' in query_lower or '今日' in query_lower:
+                entities['time_range'] = 'today'
+            elif any(keyword in query_lower for keyword in ['本周', '这周']):
+                entities['time_range'] = 'this_week'
+
+            if '维修中' in query_lower:
+                entities['status'] = 'maintenance'
+            elif '停用' in query_lower:
+                entities['status'] = 'disabled'
+            elif '报废' in query_lower:
+                entities['status'] = 'scrapped'
+            elif '正常' in query_lower:
+                entities['status'] = 'normal'
+            elif '已暂停' in query_lower or '已挂起' in query_lower:
+                entities['status'] = 'paused'
+            elif '已完成' in query_lower:
+                entities['status'] = 'completed'
+            elif '进行中' in query_lower:
+                entities['status'] = 'in_progress'
+            elif '已审核' in query_lower:
+                entities['status'] = 'approved'
+            elif '待完成' in query_lower or '未完成' in query_lower:
+                entities['status'] = 'unfinished'
+            elif '待开始' in query_lower:
+                entities['status'] = 'pending'
+
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower):
                 if '计划' in query_lower:
                     intent = 'production_plan_count'
@@ -1334,6 +1454,7 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.personal.models import WorkReport
         queryset = WorkReport.objects.filter(user=user)
+        queryset = self._apply_work_report_filters(queryset, entities)
         return {
             "type": "count",
             "value": queryset.count(),
@@ -1343,18 +1464,19 @@ class QueryService:
     def handle_work_report_list(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.personal.models import WorkReport
-        queryset = WorkReport.objects.filter(user=user).order_by("-report_date")[:5]
+        queryset = WorkReport.objects.filter(user=user)
+        queryset = self._apply_work_report_filters(queryset, entities)
         items = [{
             "id": r.id,
             "title": r.title,
             "report_type": r.report_type_display if hasattr(r, "report_type_display") else r.report_type,
             "report_date": r.report_date.strftime("%Y-%m-%d") if r.report_date else "",
             "is_submitted": r.is_submitted
-        } for r in queryset]
+        } for r in queryset.order_by("-report_date")[:5]]
         return {
             "type": "list",
             "items": items,
-            "total": WorkReport.objects.filter(user=user).count(),
+            "total": queryset.count(),
             "data_type": "work_report"
         }
 
@@ -1364,6 +1486,7 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.personal.models import PersonalTask
         queryset = PersonalTask.objects.filter(user=user)
+        queryset = self._apply_personal_task_filters(queryset, entities)
         return {
             "type": "count",
             "value": queryset.count(),
@@ -1373,18 +1496,19 @@ class QueryService:
     def handle_personal_task_list(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.personal.models import PersonalTask
-        queryset = PersonalTask.objects.filter(user=user).order_by("-priority", "due_date")[:5]
+        queryset = PersonalTask.objects.filter(user=user)
+        queryset = self._apply_personal_task_filters(queryset, entities)
         items = [{
             "id": t.id,
             "title": t.title,
             "status": t.status_display if hasattr(t, "status_display") else t.status,
             "priority": t.priority_display if hasattr(t, "priority_display") else t.priority,
             "due_date": t.due_date.strftime("%Y-%m-%d") if t.due_date else "",
-        } for t in queryset]
+        } for t in queryset.order_by("-priority", "due_date")[:5]]
         return {
             "type": "list",
             "items": items,
-            "total": PersonalTask.objects.filter(user=user).count(),
+            "total": queryset.count(),
             "data_type": "personal_task"
         }
 
@@ -1392,6 +1516,7 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.personal.models import PersonalNote
         queryset = PersonalNote.objects.filter(user=user)
+        queryset = self._apply_personal_note_filters(queryset, entities)
         return {
             "type": "count",
             "value": queryset.count(),
@@ -1401,17 +1526,18 @@ class QueryService:
     def handle_personal_note_list(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.personal.models import PersonalNote
-        queryset = PersonalNote.objects.filter(user=user).order_by("-updated_at")[:5]
+        queryset = PersonalNote.objects.filter(user=user)
+        queryset = self._apply_personal_note_filters(queryset, entities)
         items = [{
             "id": n.id,
             "title": n.title,
             "category": n.category_display if hasattr(n, "category_display") else n.category,
             "is_important": n.is_important,
-        } for n in queryset]
+        } for n in queryset.order_by("-updated_at")[:5]]
         return {
             "type": "list",
             "items": items,
-            "total": PersonalNote.objects.filter(user=user).count(),
+            "total": queryset.count(),
             "data_type": "personal_note"
         }
 
@@ -1443,6 +1569,54 @@ class QueryService:
             "data_type": "personal_contact"
         }
 
+
+
+    def _extract_work_report_entities(self, query_lower, entities):
+        has_submission_status = False
+        if any(keyword in query_lower for keyword in ['已提交', '已上交']):
+            entities['is_submitted'] = True
+            has_submission_status = True
+        elif any(keyword in query_lower for keyword in ['草稿', '未提交']):
+            entities['is_submitted'] = False
+            has_submission_status = True
+
+        if has_submission_status:
+            if '日报' in query_lower:
+                entities['report_type'] = 'daily'
+            elif '周报' in query_lower:
+                entities['report_type'] = 'weekly'
+            elif '月报' in query_lower:
+                entities['report_type'] = 'monthly'
+
+    def _extract_followup_entities(self, query_lower, entities):
+        if any(keyword in query_lower for keyword in ['电话跟进', '电话回访', '电话沟通']):
+            entities['follow_type'] = 'phone'
+        elif any(keyword in query_lower for keyword in ['上门拜访', '拜访跟进', '到访跟进']):
+            entities['follow_type'] = 'visit'
+        elif '邮件跟进' in query_lower:
+            entities['follow_type'] = 'email'
+        elif any(keyword in query_lower for keyword in ['会议跟进', '洽谈跟进']):
+            entities['follow_type'] = 'meeting'
+
+    def _apply_work_report_filters(self, queryset, entities):
+        report_type = entities.get('report_type')
+        if report_type:
+            queryset = queryset.filter(report_type=report_type)
+
+        if 'is_submitted' in entities:
+            queryset = queryset.filter(is_submitted=entities['is_submitted'])
+        return queryset
+
+    def _apply_personal_task_filters(self, queryset, entities):
+        status = entities.get('status')
+        if status:
+            queryset = queryset.filter(status=status)
+        return queryset
+
+    def _apply_personal_note_filters(self, queryset, entities):
+        if 'is_important' in entities:
+            queryset = queryset.filter(is_important=entities['is_important'])
+        return queryset
 
     def format_result(self, result: Dict[str, Any]) -> str:
         """格式化查询结果为可读字符串
@@ -2848,7 +3022,7 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理订单财务记录数量查询"""
         from apps.finance.models import OrderFinanceRecord
-        count = OrderFinanceRecord.objects.count()
+        count = self._filter_finance_order_record_queryset(OrderFinanceRecord.objects.all(), entities).count()
         return {
             'type': 'count',
             'value': count,
@@ -2859,10 +3033,11 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理订单财务记录列表查询"""
         from apps.finance.models import OrderFinanceRecord
-        records = OrderFinanceRecord.objects.all()[:5]
+        queryset = self._filter_finance_order_record_queryset(OrderFinanceRecord.objects.all(), entities)
+        records = queryset[:5]
         record_list = [{
             'id': record.id,
-            'order_number': record.order.order_number,
+            'order_number': getattr(getattr(record, 'order', None), 'order_number', '') or f'订单{record.order_id}',
             'total_amount': record.total_amount,
             'paid_amount': record.paid_amount,
             'payment_status': record.payment_status
@@ -2870,7 +3045,7 @@ class QueryService:
         return {
             'type': 'list',
             'items': record_list,
-            'total': OrderFinanceRecord.objects.count(),
+            'total': queryset.count(),
             'data_type': 'finance_order_record'
         }
 
@@ -2879,10 +3054,10 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理生产计划数量查询"""
         from apps.production.models import ProductionPlan
-        count = ProductionPlan.objects.count()
+        queryset = self._apply_production_plan_filters(ProductionPlan.objects.all(), entities)
         return {
             'type': 'count',
-            'value': count,
+            'value': queryset.count(),
             'data_type': 'production_plan'
         }
 
@@ -2890,7 +3065,8 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理生产计划列表查询"""
         from apps.production.models import ProductionPlan
-        plans = ProductionPlan.objects.all()[:5]
+        queryset = self._apply_production_plan_filters(ProductionPlan.objects.all(), entities)
+        plans = queryset[:5]
         plan_list = [{
             'id': plan.id,
             'code': plan.code,
@@ -2901,7 +3077,7 @@ class QueryService:
         return {
             'type': 'list',
             'items': plan_list,
-            'total': ProductionPlan.objects.count(),
+            'total': queryset.count(),
             'data_type': 'production_plan'
         }
 
@@ -2909,10 +3085,10 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理生产任务数量查询"""
         from apps.production.models import ProductionTask
-        count = ProductionTask.objects.count()
+        queryset = self._apply_production_task_filters(ProductionTask.objects.all(), entities)
         return {
             'type': 'count',
-            'value': count,
+            'value': queryset.count(),
             'data_type': 'production_task'
         }
 
@@ -2920,7 +3096,11 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理生产任务列表查询"""
         from apps.production.models import ProductionTask
-        tasks = ProductionTask.objects.all()[:5]
+        queryset = self._apply_production_task_filters(
+            ProductionTask.objects.select_related('procedure').all(),
+            entities,
+        )
+        tasks = queryset[:5]
         task_list = [{
             'id': task.id,
             'code': task.code,
@@ -2932,7 +3112,7 @@ class QueryService:
         return {
             'type': 'list',
             'items': task_list,
-            'total': ProductionTask.objects.count(),
+            'total': queryset.count(),
             'data_type': 'production_task'
         }
 
@@ -2940,10 +3120,10 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理生产设备数量查询"""
         from apps.production.models import Equipment
-        count = Equipment.objects.count()
+        queryset = self._apply_production_equipment_filters(Equipment.objects.all(), entities)
         return {
             'type': 'count',
-            'value': count,
+            'value': queryset.count(),
             'data_type': 'production_equipment'
         }
 
@@ -2951,7 +3131,8 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理生产设备列表查询"""
         from apps.production.models import Equipment
-        equipments = Equipment.objects.all()[:5]
+        queryset = self._apply_production_equipment_filters(Equipment.objects.all(), entities)
+        equipments = queryset[:5]
         equipment_list = [{
             'id': equipment.id,
             'code': equipment.code,
@@ -2962,7 +3143,7 @@ class QueryService:
         return {
             'type': 'list',
             'items': equipment_list,
-            'total': Equipment.objects.count(),
+            'total': queryset.count(),
             'data_type': 'production_equipment'
         }
 
@@ -3113,16 +3294,20 @@ class QueryService:
     def handle_stockin_count(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.inventory.models import StockIn
+        queryset = self._apply_stock_movement_filters(StockIn.objects.all(), entities)
         return {
             'type': 'count',
-            'value': StockIn.objects.count(),
+            'value': queryset.count(),
             'data_type': 'stockin'
         }
 
     def handle_stockin_list(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.inventory.models import StockIn
-        queryset = StockIn.objects.select_related('warehouse', 'supplier').order_by('-create_time')
+        queryset = self._apply_stock_movement_filters(
+            StockIn.objects.select_related('warehouse', 'supplier').order_by('-create_time'),
+            entities,
+        )
         items = [{
             'id': stock_in.id,
             'stock_in_no': stock_in.code,
@@ -3143,16 +3328,20 @@ class QueryService:
     def handle_stockout_count(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.inventory.models import StockOut
+        queryset = self._apply_stock_movement_filters(StockOut.objects.all(), entities)
         return {
             'type': 'count',
-            'value': StockOut.objects.count(),
+            'value': queryset.count(),
             'data_type': 'stockout'
         }
 
     def handle_stockout_list(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.inventory.models import StockOut
-        queryset = StockOut.objects.select_related('warehouse', 'customer').order_by('-create_time')
+        queryset = self._apply_stock_movement_filters(
+            StockOut.objects.select_related('warehouse', 'customer').order_by('-create_time'),
+            entities,
+        )
         items = [{
             'id': stock_out.id,
             'stock_out_no': stock_out.code,
@@ -3175,14 +3364,17 @@ class QueryService:
         from apps.inventory.models import InventoryAlert
         return {
             'type': 'count',
-            'value': InventoryAlert.objects.count(),
+            'value': self._filter_alert_queryset(InventoryAlert.objects.all(), entities).count(),
             'data_type': 'alert'
         }
 
     def handle_alert_list(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.inventory.models import InventoryAlert
-        queryset = InventoryAlert.objects.select_related('item', 'warehouse', 'handler').order_by('-create_time')
+        queryset = self._filter_alert_queryset(
+            InventoryAlert.objects.select_related('item', 'warehouse', 'handler').order_by('-create_time'),
+            entities,
+        )
         items = [{
             'id': alert.id,
             'product_name': alert.item.name if alert.item else '',
@@ -3199,6 +3391,27 @@ class QueryService:
             'total': queryset.count(),
             'data_type': 'alert'
         }
+
+    def _filter_finance_order_record_queryset(self, queryset, entities: Dict[str, Any]):
+        status = (entities or {}).get('status')
+        if status in {'pending', 'partial', 'paid', 'overdue'}:
+            queryset = queryset.filter(payment_status=status)
+        return queryset
+
+    def _filter_alert_queryset(self, queryset, entities: Dict[str, Any]):
+        status = (entities or {}).get('status')
+        status_mapping = {
+            'pending': 1,
+            '未处理': 1,
+            'processed': 2,
+            '已处理': 2,
+            'ignored': 3,
+            '已忽略': 3,
+        }
+        mapped_status = status_mapping.get(status)
+        if mapped_status is not None:
+            queryset = queryset.filter(status=mapped_status)
+        return queryset
 
     def handle_contact_count(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
@@ -3240,6 +3453,7 @@ class QueryService:
         from apps.system.models import Document
 
         queryset = self._filter_document_queryset(Document.objects.all(), user)
+        queryset = self._apply_document_filters(queryset, entities)
         return {
             'type': 'count',
             'value': queryset.count(),
@@ -3254,6 +3468,7 @@ class QueryService:
             Document.objects.select_related('author', 'category', 'department', 'current_reviewer').prefetch_related('target_users', 'target_departments'),
             user,
         )
+        queryset = self._apply_document_filters(queryset, entities)
         items = [{
             'id': item.id,
             'title': item.title,
@@ -3445,29 +3660,32 @@ class QueryService:
 
     def handle_followup_count(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
-        from apps.customer.models import CustomerFollowUp
-        count = CustomerFollowUp.objects.count()
+        from apps.customer.models import FollowRecord
+        queryset = self._filter_followup_queryset(FollowRecord.objects.select_related('customer', 'follow_user'), user)
+        queryset = self._apply_followup_filters(queryset, entities)
         return {
             'type': 'count',
-            'value': count,
+            'value': queryset.count(),
             'data_type': 'followup'
         }
 
     def handle_followup_list(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
-        from apps.customer.models import CustomerFollowUp
-        followups = CustomerFollowUp.objects.select_related('customer', 'creator').all()[:5]
+        from apps.customer.models import FollowRecord
+        queryset = self._filter_followup_queryset(FollowRecord.objects.select_related('customer', 'follow_user'), user)
+        queryset = self._apply_followup_filters(queryset, entities)
         followup_list = [{
             'id': followup.id,
             'customer': followup.customer.name if followup.customer else '',
-            'follow_type': followup.follow_type,
+            'follow_type': followup.get_follow_type_display() if hasattr(followup, 'get_follow_type_display') else followup.follow_type,
+            'follow_time': followup.follow_time.strftime('%Y-%m-%d %H:%M') if followup.follow_time else '',
             'next_follow_time': followup.next_follow_time.strftime('%Y-%m-%d %H:%M') if followup.next_follow_time else '',
-            'creator': followup.creator.username if followup.creator else ''
-        } for followup in followups]
+            'creator': getattr(followup.follow_user, 'username', '') if followup.follow_user else ''
+        } for followup in queryset[:5]]
         return {
             'type': 'list',
             'items': followup_list,
-            'total': CustomerFollowUp.objects.count(),
+            'total': queryset.count(),
             'data_type': 'followup'
         }
 
@@ -3477,6 +3695,7 @@ class QueryService:
         queryset = self._filter_approval_queryset(Approval.objects.all(), user)
         if entities.get('scope') == 'created_by_me':
             queryset = queryset.filter(applicant_id=getattr(user, 'id', None))
+        queryset = self._apply_approval_filters(queryset, entities)
         return {
             'type': 'count',
             'value': queryset.count(),
@@ -3492,6 +3711,7 @@ class QueryService:
         )
         if entities.get('scope') == 'created_by_me':
             queryset = queryset.filter(applicant_id=getattr(user, 'id', None))
+        queryset = self._apply_approval_filters(queryset, entities)
         items = []
         for item in queryset.order_by('-create_time')[:5]:
             items.append({
@@ -3539,8 +3759,7 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.approval.models import ApprovalTask
         queryset = self._filter_approval_task_queryset(ApprovalTask.objects.all(), user)
-        if entities.get('status') in {'pending', '待处理', '待审批'}:
-            queryset = queryset.filter(status='pending')
+        queryset = self._apply_approval_task_filters(queryset, entities)
         return {
             'type': 'count',
             'value': queryset.count(),
@@ -3555,8 +3774,7 @@ class QueryService:
             ApprovalTask.objects.select_related('approval', 'handler', 'step'),
             user,
         )
-        if entities.get('status') in {'pending', '待处理', '待审批'}:
-            queryset = queryset.filter(status='pending')
+        queryset = self._apply_approval_task_filters(queryset, entities)
         items = []
         for item in queryset.order_by('-created_at')[:5]:
             items.append({
@@ -4431,10 +4649,32 @@ class QueryService:
             Q(tasks__handler=user)
         ).distinct()
 
+    def _apply_approval_filters(self, queryset, entities):
+        status = entities.get('status')
+        if status == 'ongoing':
+            queryset = queryset.filter(status__in=[0, 1])
+        elif status == 'approved':
+            queryset = queryset.filter(status=2)
+        elif status == 'rejected':
+            queryset = queryset.filter(status=3)
+        elif status == 'cancelled':
+            queryset = queryset.filter(status=4)
+        return queryset
+
     def _filter_approval_task_queryset(self, queryset, user):
         if getattr(user, 'is_superuser', False):
             return queryset
         return queryset.filter(handler=user)
+
+    def _apply_approval_task_filters(self, queryset, entities):
+        status = entities.get('status')
+        if status in {'pending', '待处理', '待审批'}:
+            queryset = queryset.filter(status='pending')
+        elif status in {'completed', '已审批', '已处理'}:
+            queryset = queryset.filter(status='completed')
+        elif status == 'cancelled':
+            queryset = queryset.filter(status='cancelled')
+        return queryset
 
     def _filter_workhour_queryset(self, queryset, user):
         from django.db.models import Q
@@ -4476,6 +4716,28 @@ class QueryService:
             Q(user_relations__user=user)
         ).distinct()
 
+
+    def _filter_followup_queryset(self, queryset, user):
+        from django.db.models import Q
+
+        if getattr(user, 'is_superuser', False):
+            return queryset.filter(delete_time=0, customer__delete_time=0)
+        user_id = getattr(user, 'id', None)
+        return queryset.filter(
+            Q(follow_user=user) |
+            Q(customer__belong_uid=user_id) |
+            Q(customer__share_ids__contains=str(user_id or ''))
+        ).filter(
+            delete_time=0,
+            customer__delete_time=0,
+        ).distinct()
+
+    def _apply_followup_filters(self, queryset, entities):
+        follow_type = entities.get('follow_type')
+        if follow_type:
+            queryset = queryset.filter(follow_type=follow_type)
+        return queryset
+
     def _filter_contact_queryset(self, queryset, user):
         from django.db.models import Q
 
@@ -4506,6 +4768,20 @@ class QueryService:
             Q(current_reviewer=user) |
             published_scope
         ).distinct()
+
+    def _apply_document_filters(self, queryset, entities):
+        status = entities.get('status')
+        if status == 'approved':
+            queryset = queryset.filter(status='approved')
+        elif status == 'published':
+            queryset = queryset.filter(status='published')
+        elif status == 'draft':
+            queryset = queryset.filter(status='draft')
+        elif status == 'pending':
+            queryset = queryset.filter(status__in=['pending', 'reviewing'])
+        elif status == 'rejected':
+            queryset = queryset.filter(status='rejected')
+        return queryset
 
     def _filter_project_document_queryset(self, queryset, user):
         from django.db.models import Q
@@ -4650,6 +4926,74 @@ class QueryService:
             start_at, end_at = self._resolve_time_range(time_range)
             if start_at and end_at:
                 queryset = queryset.filter(created_at__range=(start_at, end_at))
+        return queryset
+
+    def _apply_production_plan_filters(self, queryset, entities):
+        status = entities.get('status')
+        if status == 'pending':
+            queryset = queryset.filter(status=1)
+        elif status == 'approved':
+            queryset = queryset.filter(status=2)
+        elif status == 'in_progress':
+            queryset = queryset.filter(status=3)
+        elif status == 'completed':
+            queryset = queryset.filter(status=4)
+        elif status == 'cancelled':
+            queryset = queryset.filter(status=5)
+        elif status == 'paused':
+            queryset = queryset.filter(status=6)
+
+        time_range = entities.get('time_range')
+        if time_range:
+            start_at, end_at = self._resolve_time_range(time_range)
+            if start_at and end_at:
+                queryset = queryset.filter(plan_start_date__range=(start_at.date(), end_at.date()))
+        return queryset
+
+    def _apply_production_task_filters(self, queryset, entities):
+        status = entities.get('status')
+        if status == 'pending':
+            queryset = queryset.filter(status=1)
+        elif status == 'in_progress':
+            queryset = queryset.filter(status=2)
+        elif status == 'completed':
+            queryset = queryset.filter(status=3)
+        elif status == 'paused':
+            queryset = queryset.filter(status=4)
+        elif status == 'cancelled':
+            queryset = queryset.filter(status=5)
+        elif status == 'unfinished':
+            queryset = queryset.filter(status__in=[1, 2, 4, 6])
+
+        time_range = entities.get('time_range')
+        if time_range:
+            start_at, end_at = self._resolve_time_range(time_range)
+            if start_at and end_at:
+                queryset = queryset.filter(plan_start_time__range=(start_at, end_at))
+        return queryset
+
+    def _apply_production_equipment_filters(self, queryset, entities):
+        status = entities.get('status')
+        if status == 'normal':
+            queryset = queryset.filter(status=1)
+        elif status == 'maintenance':
+            queryset = queryset.filter(status=2)
+        elif status == 'disabled':
+            queryset = queryset.filter(status=3)
+        elif status == 'scrapped':
+            queryset = queryset.filter(status=4)
+        return queryset
+
+    def _apply_stock_movement_filters(self, queryset, entities):
+        status = entities.get('status')
+        if status == 'pending':
+            queryset = queryset.filter(status=1)
+        elif status == 'approved':
+            queryset = queryset.filter(status=2)
+        elif status == 'stocked':
+            queryset = queryset.filter(status=3)
+        elif status == 'cancelled':
+            queryset = queryset.filter(status=4)
         return queryset
 
     def _apply_schedule_filters(self, queryset, entities):

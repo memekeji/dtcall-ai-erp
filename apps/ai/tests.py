@@ -1052,6 +1052,71 @@ class AIIntentCoverageTests(SimpleTestCase):
         self.assertEqual(result['data_type'], 'alert')
         self.assertEqual(result['status'], 'pending')
 
+    def test_rule_fallback_recognizes_completed_approval_task_query_status(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._safe_fallback_result(
+            '看看我已审批的流程',
+            'AI 模型暂时不可用',
+        )
+
+        self.assertEqual(result['intent'], 'DATA_QUERY')
+        self.assertEqual(result['data_type'], 'approval_task')
+        self.assertEqual(result['status'], 'completed')
+
+    def test_rule_fallback_recognizes_stockin_pending_stock_query_status(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._safe_fallback_result(
+            '看一下待入库确认的入库单',
+            'AI 模型暂时不可用',
+        )
+
+        self.assertEqual(result['intent'], 'DATA_QUERY')
+        self.assertEqual(result['data_type'], 'stockin')
+        self.assertEqual(result['status'], 'approved')
+
+    def test_rule_fallback_recognizes_paused_production_task_query_status(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._safe_fallback_result(
+            '查一下已暂停的生产任务',
+            'AI 模型暂时不可用',
+        )
+
+        self.assertEqual(result['intent'], 'DATA_QUERY')
+        self.assertEqual(result['data_type'], 'production_task')
+        self.assertEqual(result['status'], 'paused')
+
+    def test_rule_fallback_recognizes_pending_publish_document_query_status(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._safe_fallback_result(
+            '看一下待发布公文',
+            'AI 模型暂时不可用',
+        )
+
+        self.assertEqual(result['intent'], 'DATA_QUERY')
+        self.assertEqual(result['data_type'], 'document')
+        self.assertEqual(result['status'], 'approved')
+
+    def test_rule_fallback_recognizes_maintenance_equipment_query_status(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._safe_fallback_result(
+            '看一下维修中的设备',
+            'AI 模型暂时不可用',
+        )
+
+        self.assertEqual(result['intent'], 'DATA_QUERY')
+        self.assertEqual(result['data_type'], 'production_equipment')
+        self.assertEqual(result['status'], 'maintenance')
+
     def test_summarize_ai_failure_identifies_unavailable_model(self):
         from apps.ai.services.ai_intent_classifier import AIIntentClassifier
         from apps.ai.utils.ai_client import AIClientError
@@ -2238,6 +2303,23 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         self.assertEqual(intent, 'approval_task_count')
         self.assertEqual(entities['status'], 'pending')
 
+    def test_recognize_completed_approval_task_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('我已审批的流程有哪些')
+
+        self.assertEqual(intent, 'approval_task_list')
+        self.assertEqual(entities['status'], 'completed')
+
+    def test_recognize_created_by_me_ongoing_approval_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('我发起但未结束的审批有哪些')
+
+        self.assertEqual(intent, 'approval_list')
+        self.assertEqual(entities['scope'], 'created_by_me')
+        self.assertEqual(entities['status'], 'ongoing')
+
     def test_recognize_finance_income_plain_language(self):
         from apps.ai.services.query_service import QueryService
 
@@ -2261,6 +2343,46 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
 
         self.assertEqual(intent, 'production_plan_list')
         self.assertEqual(entities, {})
+
+    def test_recognize_today_production_task_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('今日生产任务有哪些')
+
+        self.assertEqual(intent, 'production_task_list')
+        self.assertEqual(entities['time_range'], 'today')
+
+    def test_recognize_paused_production_task_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('查一下已暂停生产任务')
+
+        self.assertEqual(intent, 'production_task_list')
+        self.assertEqual(entities['status'], 'paused')
+
+    def test_recognize_completed_production_plan_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('已完成生产计划有哪些')
+
+        self.assertEqual(intent, 'production_plan_list')
+        self.assertEqual(entities['status'], 'completed')
+
+    def test_recognize_maintenance_equipment_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('维修中的设备有多少')
+
+        self.assertEqual(intent, 'production_equipment_count')
+        self.assertEqual(entities['status'], 'maintenance')
+
+    def test_recognize_disabled_equipment_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('停用设备有哪些')
+
+        self.assertEqual(intent, 'production_equipment_list')
+        self.assertEqual(entities['status'], 'disabled')
 
     def test_recognize_followup_plain_language(self):
         from apps.ai.services.query_service import QueryService
@@ -2358,6 +2480,22 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         self.assertEqual(intent, 'alert_count')
         self.assertEqual(entities['status'], 'pending')
 
+    def test_recognize_pending_stockin_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看一下待入库确认的入库单')
+
+        self.assertEqual(intent, 'stockin_list')
+        self.assertEqual(entities['status'], 'approved')
+
+    def test_recognize_stocked_stockout_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('已出库单据有多少')
+
+        self.assertEqual(intent, 'stockout_count')
+        self.assertEqual(entities['status'], 'stocked')
+
     def test_recognize_overdue_finance_order_record_plain_language(self):
         from apps.ai.services.query_service import QueryService
 
@@ -2370,6 +2508,14 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         from apps.ai.services.query_service import QueryService
 
         intent, entities = QueryService().recognize_intent('查一下联系人')
+
+        self.assertEqual(intent, 'contact_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_contact_handoff_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('查一下客户对接人')
 
         self.assertEqual(intent, 'contact_list')
         self.assertEqual(entities, {})
@@ -2438,6 +2584,22 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         self.assertEqual(intent, 'personal_task_count')
         self.assertEqual(entities, {})
 
+    def test_recognize_completed_personal_task_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看一下已完成的个人任务')
+
+        self.assertEqual(intent, 'personal_task_list')
+        self.assertEqual(entities['status'], 'completed')
+
+    def test_recognize_pending_personal_task_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('我还有几个个人待办')
+
+        self.assertEqual(intent, 'personal_task_count')
+        self.assertEqual(entities['status'], 'todo')
+
     def test_recognize_personal_note_plain_language(self):
         from apps.ai.services.query_service import QueryService
 
@@ -2446,10 +2608,26 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         self.assertEqual(intent, 'personal_note_list')
         self.assertEqual(entities, {})
 
+    def test_recognize_important_personal_note_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看看我的重要笔记')
+
+        self.assertEqual(intent, 'personal_note_list')
+        self.assertTrue(entities['is_important'])
+
     def test_recognize_personal_contact_plain_language(self):
         from apps.ai.services.query_service import QueryService
 
         intent, entities = QueryService().recognize_intent('打开个人通讯录')
+
+        self.assertEqual(intent, 'personal_contact_list')
+        self.assertEqual(entities, {})
+
+    def test_recognize_private_contact_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('看一下我的私人联系人')
 
         self.assertEqual(intent, 'personal_contact_list')
         self.assertEqual(entities, {})
@@ -2526,6 +2704,40 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         self.assertEqual(intent, 'work_report_list')
         self.assertEqual(entities, {})
 
+    def test_recognize_submitted_work_report_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('查一下已提交的周报')
+
+        self.assertEqual(intent, 'work_report_list')
+        self.assertTrue(entities['is_submitted'])
+        self.assertEqual(entities['report_type'], 'weekly')
+
+    def test_recognize_draft_work_report_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('草稿日报有哪些')
+
+        self.assertEqual(intent, 'work_report_list')
+        self.assertFalse(entities['is_submitted'])
+        self.assertEqual(entities['report_type'], 'daily')
+
+    def test_recognize_phone_followup_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('查一下电话跟进记录')
+
+        self.assertEqual(intent, 'followup_list')
+        self.assertEqual(entities['follow_type'], 'phone')
+
+    def test_recognize_visit_followup_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('上门拜访跟进有多少')
+
+        self.assertEqual(intent, 'followup_count')
+        self.assertEqual(entities['follow_type'], 'visit')
+
     def test_recognize_payment_plain_language(self):
         from apps.ai.services.query_service import QueryService
 
@@ -2541,6 +2753,22 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
 
         self.assertEqual(intent, 'finance_invoice_count')
         self.assertEqual(entities['status'], 'unissued')
+
+    def test_recognize_pending_publish_document_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('待发布公文有哪些')
+
+        self.assertEqual(intent, 'document_list')
+        self.assertEqual(entities['status'], 'approved')
+
+    def test_recognize_published_document_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('已发布公文有多少')
+
+        self.assertEqual(intent, 'document_count')
+        self.assertEqual(entities['status'], 'published')
 
     def test_recognize_owned_customer_plain_language(self):
         from apps.ai.services.query_service import QueryService
@@ -3400,6 +3628,42 @@ class AIQueryServiceApprovalAndFinanceScopeTests(TestCase):
 
         self.assertEqual(codes, {'FP-001'})
 
+    def test_approval_list_created_by_me_ongoing_scope_only_returns_unfinished(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.approval.models import Approval
+
+        User = get_user_model()
+        applicant = User.objects.create_user(username='approval-ongoing-applicant')
+
+        Approval.objects.create(title='我发起待审批', applicant_id=applicant.id, status=0)
+        Approval.objects.create(title='我发起已通过', applicant_id=applicant.id, status=2)
+
+        result = QueryService().handle_approval_list({'scope': 'created_by_me', 'status': 'ongoing'}, applicant)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(titles, {'我发起待审批'})
+
+    def test_approval_task_list_completed_scope_only_returns_completed(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.approval.models import Approval, ApprovalFlow, ApprovalStep, ApprovalTask
+
+        User = get_user_model()
+        handler = User.objects.create_user(username='approval-task-handler')
+
+        flow = ApprovalFlow.objects.create(name='测试流程', code='FLOW-COMPLETE')
+        step = ApprovalStep.objects.create(flow=flow, step_name='审核', step_order=1)
+        approval = Approval.objects.create(title='测试审批', applicant_id=handler.id)
+
+        ApprovalTask.objects.create(approval=approval, step=step, handler=handler, status='completed')
+        ApprovalTask.objects.create(approval=approval, step=step, handler=handler, status='pending')
+
+        result = QueryService().handle_approval_task_list({'status': 'completed'}, handler)
+        statuses = {item['status'] for item in result['items']}
+
+        self.assertEqual(statuses, {'已完成'})
+
 
 class AIQueryServiceCustomerOrderTaskScopeTests(TestCase):
     def test_customer_list_owned_by_me_scope_only_returns_owned_customers(self):
@@ -3591,6 +3855,32 @@ class AIQueryServiceInventoryIntentBridgeTests(TestCase):
         self.assertEqual(result['total'], 1)
         self.assertEqual(result['items'][0]['status'], '未处理')
 
+    def test_stockin_list_approved_scope_only_returns_checked(self):
+        from apps.ai.services.query_service import QueryService
+        from apps.inventory.models import Warehouse, StockIn
+
+        warehouse = Warehouse.objects.create(name='待入库仓', code='WH-IN-APP')
+        StockIn.objects.create(code='IN-APP-1', stock_in_type='purchase', warehouse=warehouse, status=2)
+        StockIn.objects.create(code='IN-APP-2', stock_in_type='purchase', warehouse=warehouse, status=3)
+
+        result = QueryService().handle_stockin_list({'status': 'approved'}, SimpleNamespace(is_superuser=False, id=1))
+        codes = {item['stock_in_no'] for item in result['items']}
+
+        self.assertEqual(codes, {'IN-APP-1'})
+
+    def test_stockout_list_stocked_scope_only_returns_stocked(self):
+        from apps.ai.services.query_service import QueryService
+        from apps.inventory.models import Warehouse, StockOut
+
+        warehouse = Warehouse.objects.create(name='已出库仓', code='WH-OUT-STOCKED')
+        StockOut.objects.create(code='OUT-ST-1', stock_out_type='sale', warehouse=warehouse, status=3)
+        StockOut.objects.create(code='OUT-ST-2', stock_out_type='sale', warehouse=warehouse, status=2)
+
+        result = QueryService().handle_stockout_list({'status': 'stocked'}, SimpleNamespace(is_superuser=False, id=1))
+        codes = {item['stock_out_no'] for item in result['items']}
+
+        self.assertEqual(codes, {'OUT-ST-1'})
+
 
 class AIQueryServiceContactDocumentPaymentBridgeTests(TestCase):
     def test_contact_list_returns_customer_contacts(self):
@@ -3673,6 +3963,346 @@ class AIQueryServiceContactDocumentPaymentBridgeTests(TestCase):
         statuses = {item['payment_status'] for item in result['items']}
 
         self.assertEqual(statuses, {'overdue'})
+
+    def test_document_list_published_scope_only_returns_published(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.system.models import Document, DocumentCategory
+
+        User = get_user_model()
+        author = User.objects.create_user(username='document-author-published')
+        category = DocumentCategory.objects.create(name='通知', code='DOC-PUB')
+
+        Document.objects.create(
+            title='已发布公文',
+            document_number='DOC-001',
+            category=category,
+            content='x',
+            author=author,
+            status='published',
+        )
+        Document.objects.create(
+            title='待发布公文',
+            document_number='DOC-002',
+            category=category,
+            content='x',
+            author=author,
+            status='approved',
+        )
+
+        result = QueryService().handle_document_list({'status': 'published'}, author)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(titles, {'已发布公文'})
+
+    def test_document_list_pending_publish_scope_only_returns_approved(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.system.models import Document, DocumentCategory
+
+        User = get_user_model()
+        author = User.objects.create_user(username='document-author-approved')
+        category = DocumentCategory.objects.create(name='制度', code='DOC-APR')
+
+        Document.objects.create(
+            title='待发布制度',
+            document_number='DOC-101',
+            category=category,
+            content='x',
+            author=author,
+            status='approved',
+        )
+        Document.objects.create(
+            title='草稿制度',
+            document_number='DOC-102',
+            category=category,
+            content='x',
+            author=author,
+            status='draft',
+        )
+
+        result = QueryService().handle_document_list({'status': 'approved'}, author)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(titles, {'待发布制度'})
+
+
+class AIQueryServiceProductionScopeTests(TestCase):
+    def test_production_task_list_today_scope_only_returns_today_tasks(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.production.models import ProductionPlan, ProductionProcedure, ProductionTask
+
+        User = get_user_model()
+        user = User.objects.create_user(username='production-user-today')
+        procedure = ProductionProcedure.objects.create(name='组装', code='PROC-TODAY')
+        plan = ProductionPlan.objects.create(
+            name='今日计划',
+            code='PLAN-TODAY',
+            quantity=10,
+            unit='件',
+            plan_start_date=date.today(),
+            plan_end_date=date.today(),
+        )
+        today_start = timezone.now()
+        tomorrow_start = today_start + timedelta(days=1)
+
+        ProductionTask.objects.create(
+            plan=plan,
+            name='今日任务',
+            code='TASK-TODAY',
+            procedure=procedure,
+            quantity=10,
+            plan_start_time=today_start,
+            plan_end_time=today_start + timedelta(hours=2),
+            status=2,
+        )
+        ProductionTask.objects.create(
+            plan=plan,
+            name='明日任务',
+            code='TASK-TOMORROW',
+            procedure=procedure,
+            quantity=10,
+            plan_start_time=tomorrow_start,
+            plan_end_time=tomorrow_start + timedelta(hours=2),
+            status=2,
+        )
+
+        result = QueryService().handle_production_task_list({'time_range': 'today'}, user)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(names, {'今日任务'})
+
+    def test_production_task_list_paused_scope_only_returns_paused(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.production.models import ProductionPlan, ProductionProcedure, ProductionTask
+
+        User = get_user_model()
+        user = User.objects.create_user(username='production-user-paused')
+        procedure = ProductionProcedure.objects.create(name='测试工序', code='PROC-PAUSED')
+        plan = ProductionPlan.objects.create(
+            name='暂停计划',
+            code='PLAN-PAUSED',
+            quantity=20,
+            unit='件',
+            plan_start_date=date.today(),
+            plan_end_date=date.today(),
+        )
+        now = timezone.now()
+
+        ProductionTask.objects.create(
+            plan=plan,
+            name='已暂停任务',
+            code='TASK-PAUSED',
+            procedure=procedure,
+            quantity=10,
+            plan_start_time=now,
+            plan_end_time=now + timedelta(hours=2),
+            status=4,
+        )
+        ProductionTask.objects.create(
+            plan=plan,
+            name='已完成任务',
+            code='TASK-DONE',
+            procedure=procedure,
+            quantity=10,
+            plan_start_time=now,
+            plan_end_time=now + timedelta(hours=2),
+            status=3,
+        )
+
+        result = QueryService().handle_production_task_list({'status': 'paused'}, user)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(names, {'已暂停任务'})
+
+    def test_production_plan_list_completed_scope_only_returns_completed(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.production.models import ProductionPlan
+
+        User = get_user_model()
+        user = User.objects.create_user(username='production-plan-user')
+
+        ProductionPlan.objects.create(
+            name='已完成计划',
+            code='PLAN-DONE',
+            quantity=10,
+            unit='件',
+            plan_start_date=date.today(),
+            plan_end_date=date.today(),
+            status=4,
+        )
+        ProductionPlan.objects.create(
+            name='执行中计划',
+            code='PLAN-RUN',
+            quantity=10,
+            unit='件',
+            plan_start_date=date.today(),
+            plan_end_date=date.today(),
+            status=3,
+        )
+
+        result = QueryService().handle_production_plan_list({'status': 'completed'}, user)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(names, {'已完成计划'})
+
+    def test_production_equipment_list_maintenance_scope_only_returns_maintenance(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.production.models import Equipment
+
+        User = get_user_model()
+        user = User.objects.create_user(username='production-equipment-user')
+
+        Equipment.objects.create(name='维修机台', code='EQ-MAINT', status=2)
+        Equipment.objects.create(name='正常机台', code='EQ-NORMAL', status=1)
+
+        result = QueryService().handle_production_equipment_list({'status': 'maintenance'}, user)
+        names = {item['name'] for item in result['items']}
+
+        self.assertEqual(names, {'维修机台'})
+
+
+class AIQueryServicePersonalWorkspaceScopeTests(TestCase):
+    def test_personal_task_list_completed_scope_only_returns_completed(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.personal.models import PersonalTask
+
+        User = get_user_model()
+        user = User.objects.create_user(username='personal-task-user')
+
+        PersonalTask.objects.create(title='已完成任务', user=user, status='completed')
+        PersonalTask.objects.create(title='待办任务', user=user, status='todo')
+
+        result = QueryService().handle_personal_task_list({'status': 'completed'}, user)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(titles, {'已完成任务'})
+
+    def test_work_report_list_submitted_scope_only_returns_submitted(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.personal.models import WorkReport
+
+        User = get_user_model()
+        user = User.objects.create_user(username='work-report-user')
+
+        WorkReport.objects.create(
+            title='已提交周报',
+            report_type='weekly',
+            report_date=date.today(),
+            summary='s',
+            completed_work='c',
+            next_work='n',
+            user=user,
+            is_submitted=True,
+        )
+        WorkReport.objects.create(
+            title='草稿周报',
+            report_type='weekly',
+            report_date=date.today(),
+            summary='s',
+            completed_work='c',
+            next_work='n',
+            user=user,
+            is_submitted=False,
+        )
+
+        result = QueryService().handle_work_report_list({'is_submitted': True}, user)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(titles, {'已提交周报'})
+
+    def test_work_report_list_daily_scope_only_returns_daily_reports(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.personal.models import WorkReport
+
+        User = get_user_model()
+        user = User.objects.create_user(username='work-report-daily-user')
+
+        WorkReport.objects.create(
+            title='日报A',
+            report_type='daily',
+            report_date=date.today(),
+            summary='s',
+            completed_work='c',
+            next_work='n',
+            user=user,
+        )
+        WorkReport.objects.create(
+            title='周报B',
+            report_type='weekly',
+            report_date=date.today(),
+            summary='s',
+            completed_work='c',
+            next_work='n',
+            user=user,
+        )
+
+        result = QueryService().handle_work_report_list({'report_type': 'daily'}, user)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(titles, {'日报A'})
+
+    def test_personal_note_list_important_scope_only_returns_important(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.personal.models import PersonalNote
+
+        User = get_user_model()
+        user = User.objects.create_user(username='personal-note-user')
+
+        PersonalNote.objects.create(title='重要笔记', content='a', user=user, is_important=True)
+        PersonalNote.objects.create(title='普通笔记', content='b', user=user, is_important=False)
+
+        result = QueryService().handle_personal_note_list({'is_important': True}, user)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(titles, {'重要笔记'})
+
+    def test_followup_list_phone_scope_only_returns_phone_records(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.customer.models import Customer, FollowRecord
+
+        User = get_user_model()
+        user = User.objects.create_user(username='followup-phone-user')
+
+        phone_customer = Customer.objects.create(name='电话客户', belong_uid=user.id)
+        visit_customer = Customer.objects.create(name='拜访客户', belong_uid=user.id)
+
+        FollowRecord.objects.create(customer=phone_customer, follow_type='phone', content='电话沟通', follow_user=user)
+        FollowRecord.objects.create(customer=visit_customer, follow_type='visit', content='上门拜访', follow_user=user)
+
+        result = QueryService().handle_followup_list({'follow_type': 'phone'}, user)
+        customers = {item['customer'] for item in result['items']}
+
+        self.assertEqual(customers, {'电话客户'})
+
+    def test_followup_list_only_returns_user_visible_records(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.customer.models import Customer, FollowRecord
+
+        User = get_user_model()
+        user = User.objects.create_user(username='followup-visible-user')
+        other = User.objects.create_user(username='followup-hidden-user')
+
+        visible_customer = Customer.objects.create(name='可见客户', belong_uid=user.id)
+        hidden_customer = Customer.objects.create(name='隐藏客户', belong_uid=other.id)
+
+        FollowRecord.objects.create(customer=visible_customer, follow_type='phone', content='我的跟进', follow_user=user)
+        FollowRecord.objects.create(customer=hidden_customer, follow_type='phone', content='别人的跟进', follow_user=other)
+
+        result = QueryService().handle_followup_list({}, user)
+        customers = {item['customer'] for item in result['items']}
+
+        self.assertEqual(customers, {'可见客户'})
 
 
 class AIQueryServiceWorkHourAndAliasBridgeTests(TestCase):
@@ -7023,13 +7653,31 @@ class EnterpriseAgentRegistryTests(SimpleTestCase):
             'admin_communication_agent',
             'personal_execution_agent',
             'order_fulfillment_agent',
+            'document_flow_agent',
+            'disk_collaboration_agent',
+            'employee_masterdata_agent',
         }.issubset(agent_ids))
 
-        self.assertGreaterEqual(payload['summary']['enterprise_agent_count'], 12)
-        self.assertGreaterEqual(payload['summary']['module_count'], 8)
+        self.assertGreaterEqual(payload['summary']['enterprise_agent_count'], 15)
+        self.assertGreaterEqual(payload['summary']['module_count'], 9)
         self.assertGreater(payload['summary']['direct_action_count'], 0)
         self.assertGreater(payload['summary']['confirm_action_count'], 0)
         self.assertTrue(any(item['module'] == '财务管理' for item in payload['module_breakdown']))
+        self.assertTrue(any(item['module'] == '企业网盘' for item in payload['module_breakdown']))
+
+    def test_new_disk_collaboration_agent_exposes_analysis_and_execution_actions(self):
+        from apps.ai.services.enterprise_agents import enterprise_agent_service
+
+        user = SimpleNamespace(id=7, is_superuser=True, is_authenticated=True)
+        detail = enterprise_agent_service.get_agent_detail('disk_collaboration_agent', user)
+        action_ids = {action['id'] for action in detail['agent']['actions']}
+
+        self.assertEqual(detail['agent']['module'], '企业网盘')
+        self.assertTrue({
+            'disk_asset_analysis',
+            'rename_disk_file',
+            'share_disk_file',
+        }.issubset(action_ids))
 
 
 class EnterpriseAgentExecutionServiceTests(SimpleTestCase):
@@ -7151,6 +7799,222 @@ class EnterpriseAgentExecutionServiceTests(SimpleTestCase):
         self.assertEqual(result['operation']['id'], 301)
         self.assertEqual(result['operation']['token'], 'token-301')
         self.assertEqual(result['preview_change_set'][0]['model_name'], 'Payment')
+
+
+class EnterpriseAgentActionBuilderTests(SimpleTestCase):
+    def test_build_action_create_document_request(self):
+        from apps.ai.services.enterprise_agents import enterprise_agent_service
+
+        action = enterprise_agent_service._get_action(
+            enterprise_agent_service._get_agent('document_flow_agent'),
+            'create_document',
+        )
+        request = enterprise_agent_service._build_action_create_document(
+            'document_flow_agent',
+            action,
+            {
+                'title': '关于上线安排的通知',
+                'document_number': 'OA-2026-001',
+                'category_id': '3',
+                'content': '请各部门按计划完成上线准备。',
+                'department_id': '2',
+                'urgency': 'urgent',
+            },
+        )
+
+        self.assertEqual(request.resource, 'document')
+        self.assertEqual(request.operation, 'create')
+        self.assertEqual(request.changes['title'], '关于上线安排的通知')
+        self.assertEqual(request.changes['category_id'], '3')
+        self.assertEqual(request.changes['urgency'], 'urgent')
+
+    def test_build_action_publish_document_request(self):
+        from apps.ai.services.enterprise_agents import enterprise_agent_service
+
+        action = enterprise_agent_service._get_action(
+            enterprise_agent_service._get_agent('document_flow_agent'),
+            'publish_document',
+        )
+        request = enterprise_agent_service._build_action_publish_document(
+            'document_flow_agent',
+            action,
+            {'document_id': '18'},
+        )
+
+        self.assertEqual(request.resource, 'document')
+        self.assertEqual(request.operation, 'publish')
+        self.assertEqual(request.object_ids, ['18'])
+
+    def test_build_action_rename_disk_file_request(self):
+        from apps.ai.services.enterprise_agents import enterprise_agent_service
+
+        action = enterprise_agent_service._get_action(
+            enterprise_agent_service._get_agent('disk_collaboration_agent'),
+            'rename_disk_file',
+        )
+        request = enterprise_agent_service._build_action_rename_disk_file(
+            'disk_collaboration_agent',
+            action,
+            {'file_id': '9', 'name': '客户报价单-最终版.pdf'},
+        )
+
+        self.assertEqual(request.resource, 'disk')
+        self.assertEqual(request.operation, 'update')
+        self.assertEqual(request.object_ids, ['9'])
+        self.assertEqual(request.changes, {'name': '客户报价单-最终版.pdf'})
+        self.assertEqual(request.context, {'model': 'file'})
+
+    def test_build_action_share_disk_file_request(self):
+        from apps.ai.services.enterprise_agents import enterprise_agent_service
+
+        action = enterprise_agent_service._get_action(
+            enterprise_agent_service._get_agent('disk_collaboration_agent'),
+            'share_disk_file',
+        )
+        request = enterprise_agent_service._build_action_share_disk_file(
+            'disk_collaboration_agent',
+            action,
+            {
+                'file_id': '11',
+                'permission_type': 'download',
+                'allow_download': '1',
+                'access_limit': '5',
+                'password': 'ABCD',
+            },
+        )
+
+        self.assertEqual(request.resource, 'disk')
+        self.assertEqual(request.operation, 'create')
+        self.assertEqual(request.object_ids, ['11'])
+        self.assertTrue(request.changes['allow_download'])
+        self.assertEqual(request.context, {'model': 'share', 'share_type': 'file'})
+
+    def test_build_action_create_employee_request_includes_position_name(self):
+        from apps.ai.services.enterprise_agents import enterprise_agent_service
+
+        action = enterprise_agent_service._get_action(
+            enterprise_agent_service._get_agent('employee_masterdata_agent'),
+            'create_employee',
+        )
+        values_list_result = MagicMock()
+        values_list_result.first.return_value = '实施顾问'
+        filter_result = MagicMock()
+        filter_result.values_list.return_value = values_list_result
+
+        with patch('apps.ai.services.enterprise_agents.Position.objects.filter', return_value=filter_result):
+            request = enterprise_agent_service._build_action_create_employee(
+                'employee_masterdata_agent',
+                action,
+                {
+                    'username': 'lihua',
+                    'name': '李华',
+                    'position_id': '6',
+                    'did': '2',
+                    'job_number': 'A106',
+                },
+            )
+
+        self.assertEqual(request.resource, 'employee')
+        self.assertEqual(request.operation, 'create')
+        self.assertEqual(request.changes['position_name'], '实施顾问')
+        self.assertEqual(request.changes['job_number'], 'A106')
+
+    def test_build_action_adjust_employee_status_request(self):
+        from apps.ai.services.enterprise_agents import enterprise_agent_service
+
+        action = enterprise_agent_service._get_action(
+            enterprise_agent_service._get_agent('employee_masterdata_agent'),
+            'adjust_employee_status',
+        )
+        request = enterprise_agent_service._build_action_adjust_employee_status(
+            'employee_masterdata_agent',
+            action,
+            {'employee_id': '23', 'status': '0', 'is_lock': '1'},
+        )
+
+        self.assertEqual(request.resource, 'employee')
+        self.assertEqual(request.operation, 'update')
+        self.assertEqual(request.object_ids, ['23'])
+        self.assertEqual(request.changes, {'status': '0', 'is_lock': '1'})
+
+
+class EnterpriseAgentAnalysisTests(SimpleTestCase):
+    def test_document_flow_analysis_returns_business_result(self):
+        from apps.ai.services.enterprise_agents import enterprise_agent_service
+
+        user = SimpleNamespace(id=7, is_superuser=True, is_authenticated=True)
+        queryset = MagicMock()
+        queryset.order_by.return_value = queryset
+        queryset.count.return_value = 12
+        queryset.filter.side_effect = [
+            MagicMock(count=MagicMock(return_value=4)),
+            MagicMock(count=MagicMock(return_value=5)),
+            MagicMock(count=MagicMock(return_value=2)),
+        ]
+        queryset.__getitem__.return_value = [
+            SimpleNamespace(
+                title='关于客户回访安排的通知',
+                get_status_display=lambda: '审核中',
+                get_urgency_display=lambda: '紧急',
+            )
+        ]
+
+        with patch('apps.ai.services.enterprise_agents.Document.objects.select_related', return_value=queryset), \
+                patch('apps.ai.services.enterprise_agents.build_business_ai_result', side_effect=lambda raw_result, **kwargs: {'raw_result': raw_result, **kwargs}):
+            result = enterprise_agent_service._execute_document_flow_analysis(user, {})
+
+        self.assertIn('待审核/流转 4 份', result['raw_result']['summary'])
+        self.assertEqual(result['raw_result']['risk_level'], 'medium')
+        self.assertEqual(result['scenario'], 'general')
+
+    def test_disk_asset_analysis_returns_business_result(self):
+        from apps.ai.services.enterprise_agents import enterprise_agent_service
+
+        user = SimpleNamespace(id=7, is_superuser=True, is_authenticated=True)
+        file_queryset = MagicMock()
+        file_queryset.count.return_value = 30
+        file_queryset.order_by.return_value.__getitem__.return_value = [
+            SimpleNamespace(name='客户报价单.pdf', get_full_path=lambda: '销售资料/客户报价单.pdf')
+        ]
+        folder_queryset = MagicMock()
+        folder_queryset.count.return_value = 8
+        share_queryset = MagicMock()
+        share_queryset.count.return_value = 6
+        share_queryset.filter.return_value.count.return_value = 2
+
+        with patch('apps.ai.services.enterprise_agents.DiskFile.objects.filter', return_value=file_queryset), \
+                patch('apps.ai.services.enterprise_agents.DiskFolder.objects.filter', return_value=folder_queryset), \
+                patch('apps.ai.services.enterprise_agents.DiskShare.objects.filter', return_value=share_queryset), \
+                patch('apps.ai.services.enterprise_agents.build_business_ai_result', side_effect=lambda raw_result, **kwargs: {'raw_result': raw_result, **kwargs}):
+            result = enterprise_agent_service._execute_disk_asset_analysis(user, {})
+
+        self.assertIn('有效分享 6 条', result['raw_result']['summary'])
+        self.assertEqual(result['raw_result']['risk_level'], 'medium')
+        self.assertEqual(result['scenario'], 'general')
+
+    def test_employee_masterdata_analysis_returns_business_result(self):
+        from apps.ai.services.enterprise_agents import enterprise_agent_service
+
+        user = SimpleNamespace(id=7, is_superuser=True, is_authenticated=True)
+        queryset = MagicMock()
+        queryset.count.return_value = 20
+        queryset.filter.side_effect = [
+            MagicMock(count=MagicMock(return_value=15)),
+            MagicMock(count=MagicMock(return_value=2)),
+            MagicMock(count=MagicMock(return_value=3)),
+            MagicMock(count=MagicMock(return_value=1)),
+        ]
+        queryset.order_by.return_value.__getitem__.return_value = [
+            SimpleNamespace(name='王敏', username='wangmin', position_name='')
+        ]
+
+        with patch('apps.ai.services.enterprise_agents.Admin.objects.filter', return_value=queryset), \
+                patch('apps.ai.services.enterprise_agents.build_business_ai_result', side_effect=lambda raw_result, **kwargs: {'raw_result': raw_result, **kwargs}):
+            result = enterprise_agent_service._execute_employee_masterdata_analysis(user, {})
+
+        self.assertIn('在岗 15 人', result['raw_result']['summary'])
+        self.assertEqual(result['raw_result']['risk_level'], 'medium')
+        self.assertEqual(result['scenario'], 'general')
 
 
 class AgentCenterApiViewTests(SimpleTestCase):

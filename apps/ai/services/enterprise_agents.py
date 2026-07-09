@@ -24,6 +24,7 @@ from apps.contract.contract_review_service import contract_review_service
 from apps.customer.models import Contact, Customer, FollowRecord
 from apps.customer.models import CustomerOrder
 from apps.department.models import Department
+from apps.disk.models import DiskFile, DiskFolder, DiskShare
 from apps.inventory.models import InventoryItem
 from apps.message.models import Message
 from apps.oa.models import MeetingRecord
@@ -33,7 +34,7 @@ from apps.production.models import ProductionPlan, ProductionTask
 from apps.project.risk_analysis import project_risk_analysis_service, serialize_risk_analysis
 from apps.project.models import Project, Task, WorkHour
 from apps.supply_chain.services.inventory_analysis_service import build_inventory_analysis_summary
-from apps.system.models import Notice
+from apps.system.models import Document, DocumentCategory, Notice
 from apps.ai.utils.analysis_tools import default_customer_analysis_tool
 from apps.user.models import Admin, Position
 
@@ -616,6 +617,75 @@ class EnterpriseAgentService:
                 ],
             ),
             AgentDefinition(
+                id='document_flow_agent',
+                name='公文流转智能体',
+                description='围绕企业公文起草、审核发布和积压扫描提供固定入口，减少行政流转过程中的断点。',
+                module='行政办公',
+                domain='行政 / 公文',
+                icon='layui-icon-read',
+                status='online',
+                audience='行政专员、办公室主任、部门负责人',
+                highlights=['流转扫描', '公文起草', '发布确认'],
+                actions=[
+                    AgentActionDefinition(
+                        id='document_flow_analysis',
+                        label='公文流转扫描',
+                        description='统计待审核、待发布和高优先级公文，识别当前流转压力。',
+                        execution_mode='analysis',
+                        risk_level='medium',
+                        handler_name='document_flow_analysis',
+                    ),
+                    AgentActionDefinition(
+                        id='create_document',
+                        label='新建公文草稿',
+                        description='快速起草标准公文，直接落地为正式草稿记录。',
+                        execution_mode='direct',
+                        risk_level='low',
+                        resource='document',
+                        operation='create',
+                        fields=[
+                            self._text_field('title', '公文标题', required=True),
+                            self._text_field('document_number', '公文编号', required=True),
+                            self._select_field('category_id', '公文分类', 'document_categories', required=True),
+                            self._textarea_field('content', '公文内容', required=True),
+                            self._textarea_field('summary', '公文摘要'),
+                            self._select_field('department_id', '起草部门', 'departments'),
+                            self._select_field(
+                                'urgency',
+                                '紧急程度',
+                                static_options=[
+                                    {'value': 'normal', 'label': '普通'},
+                                    {'value': 'urgent', 'label': '紧急'},
+                                    {'value': 'very_urgent', 'label': '特急'},
+                                ],
+                            ),
+                            self._select_field(
+                                'security_level',
+                                '密级',
+                                static_options=[
+                                    {'value': 'public', 'label': '公开'},
+                                    {'value': 'internal', 'label': '内部'},
+                                    {'value': 'confidential', 'label': '机密'},
+                                    {'value': 'secret', 'label': '秘密'},
+                                ],
+                            ),
+                        ],
+                    ),
+                    AgentActionDefinition(
+                        id='publish_document',
+                        label='发布公文',
+                        description='对已完成审批的公文进行发布，执行前先查看变更预览。',
+                        execution_mode='confirm',
+                        risk_level='high',
+                        resource='document',
+                        operation='publish',
+                        fields=[
+                            self._select_field('document_id', '待发布公文', 'documents', required=True),
+                        ],
+                    ),
+                ],
+            ),
+            AgentDefinition(
                 id='admin_communication_agent',
                 name='公告触达智能体',
                 description='统一承接公告发布与消息触达，确保重要信息能在企业内部快速落地。',
@@ -675,6 +745,74 @@ class EnterpriseAgentService:
                 ],
             ),
             AgentDefinition(
+                id='disk_collaboration_agent',
+                name='网盘协同智能体',
+                description='围绕文件资产整理、命名治理和安全分享提供标准化智能入口，减少网盘协同中的重复动作。',
+                module='企业网盘',
+                domain='网盘 / 文件协同',
+                icon='layui-icon-file',
+                status='online',
+                audience='行政、项目经理、销售支持、全员协同',
+                highlights=['资产扫描', '文件改名', '外发分享'],
+                actions=[
+                    AgentActionDefinition(
+                        id='disk_asset_analysis',
+                        label='网盘资产扫描',
+                        description='汇总文件、文件夹和分享使用情况，识别高频协同与过期资产。',
+                        execution_mode='analysis',
+                        risk_level='medium',
+                        handler_name='disk_asset_analysis',
+                    ),
+                    AgentActionDefinition(
+                        id='rename_disk_file',
+                        label='重命名网盘文件',
+                        description='对现有网盘文件做低风险命名修正，适合整理归档。',
+                        execution_mode='direct',
+                        risk_level='low',
+                        resource='disk',
+                        operation='update',
+                        context={'model': 'file'},
+                        fields=[
+                            self._select_field('file_id', '文件', 'disk_files', required=True),
+                            self._text_field('name', '新文件名', required=True),
+                        ],
+                    ),
+                    AgentActionDefinition(
+                        id='share_disk_file',
+                        label='创建文件分享',
+                        description='对网盘文件生成对外分享，先预览权限和分享设置再执行。',
+                        execution_mode='confirm',
+                        risk_level='high',
+                        resource='disk',
+                        operation='create',
+                        context={'model': 'share', 'share_type': 'file'},
+                        fields=[
+                            self._select_field('file_id', '文件', 'disk_files', required=True),
+                            self._select_field(
+                                'permission_type',
+                                '分享权限',
+                                static_options=[
+                                    {'value': 'view', 'label': '仅查看'},
+                                    {'value': 'download', 'label': '可下载'},
+                                    {'value': 'edit', 'label': '可编辑'},
+                                ],
+                            ),
+                            self._select_field(
+                                'allow_download',
+                                '允许下载',
+                                static_options=[
+                                    {'value': '1', 'label': '是'},
+                                    {'value': '0', 'label': '否'},
+                                ],
+                            ),
+                            self._number_field('access_limit', '访问次数限制'),
+                            self._number_field('download_limit', '下载次数限制'),
+                            self._text_field('password', '提取密码'),
+                        ],
+                    ),
+                ],
+            ),
+            AgentDefinition(
                 id='personal_execution_agent',
                 name='个人执行智能体',
                 description='帮助员工围绕待办、汇报和个人节奏进行自驱管理，把零散执行动作沉淀成结构化记录。',
@@ -728,6 +866,74 @@ class EnterpriseAgentService:
                         operation='submit',
                         fields=[
                             self._select_field('report_id', '工作汇报', 'work_reports', required=True),
+                        ],
+                    ),
+                ],
+            ),
+            AgentDefinition(
+                id='employee_masterdata_agent',
+                name='员工主数据智能体',
+                description='覆盖员工主数据新增、状态调整和信息体检，帮助人事团队把员工资料维护为正式可审计记录。',
+                module='人事管理',
+                domain='人事 / 员工主数据',
+                icon='layui-icon-username',
+                status='online',
+                audience='HR、HRBP、用人主管',
+                highlights=['主数据体检', '员工新增', '状态调整'],
+                actions=[
+                    AgentActionDefinition(
+                        id='employee_masterdata_analysis',
+                        label='员工主数据体检',
+                        description='统计在岗、锁定、缺岗位和联系方式缺失员工，识别主数据风险。',
+                        execution_mode='analysis',
+                        risk_level='medium',
+                        handler_name='employee_masterdata_analysis',
+                    ),
+                    AgentActionDefinition(
+                        id='create_employee',
+                        label='新增员工档案',
+                        description='为新员工建立基础主数据档案，快速完成入库。',
+                        execution_mode='confirm',
+                        risk_level='high',
+                        resource='employee',
+                        operation='create',
+                        fields=[
+                            self._text_field('username', '登录账号', required=True),
+                            self._text_field('name', '员工姓名', required=True),
+                            self._text_field('mobile', '手机号'),
+                            self._text_field('email', '邮箱'),
+                            self._select_field('did', '所属部门', 'departments'),
+                            self._select_field('position_id', '岗位', 'positions'),
+                            self._text_field('job_number', '工号'),
+                            self._text_field('work_location', '工作地点'),
+                        ],
+                    ),
+                    AgentActionDefinition(
+                        id='adjust_employee_status',
+                        label='调整员工状态',
+                        description='对员工启停用和锁定状态进行调整，执行前先确认。',
+                        execution_mode='confirm',
+                        risk_level='high',
+                        resource='employee',
+                        operation='update',
+                        fields=[
+                            self._select_field('employee_id', '员工', 'employees', required=True),
+                            self._select_field(
+                                'status',
+                                '员工状态',
+                                static_options=[
+                                    {'value': '1', 'label': '启用'},
+                                    {'value': '0', 'label': '停用'},
+                                ],
+                            ),
+                            self._select_field(
+                                'is_lock',
+                                '锁定状态',
+                                static_options=[
+                                    {'value': '0', 'label': '正常'},
+                                    {'value': '1', 'label': '锁定'},
+                                ],
+                            ),
                         ],
                     ),
                 ],
@@ -1267,6 +1473,86 @@ class EnterpriseAgentService:
             context=action.context,
         )
 
+    def _build_action_create_document(self, agent_id: str, action: AgentActionDefinition, params: dict[str, Any]) -> AIActionRequest:
+        return AIActionRequest(
+            resource='document',
+            operation='create',
+            changes=self._without_empty({
+                'title': params.get('title'),
+                'document_number': params.get('document_number'),
+                'category_id': params.get('category_id'),
+                'content': params.get('content'),
+                'summary': params.get('summary'),
+                'department_id': params.get('department_id'),
+                'urgency': params.get('urgency'),
+                'security_level': params.get('security_level'),
+            }),
+        )
+
+    def _build_action_publish_document(self, agent_id: str, action: AgentActionDefinition, params: dict[str, Any]) -> AIActionRequest:
+        return AIActionRequest(
+            resource='document',
+            operation='publish',
+            object_ids=[params.get('document_id')] if params.get('document_id') not in (None, '') else [],
+        )
+
+    def _build_action_rename_disk_file(self, agent_id: str, action: AgentActionDefinition, params: dict[str, Any]) -> AIActionRequest:
+        return AIActionRequest(
+            resource='disk',
+            operation='update',
+            object_ids=[params.get('file_id')] if params.get('file_id') not in (None, '') else [],
+            changes=self._without_empty({
+                'name': params.get('name'),
+            }),
+            context=action.context,
+        )
+
+    def _build_action_share_disk_file(self, agent_id: str, action: AgentActionDefinition, params: dict[str, Any]) -> AIActionRequest:
+        return AIActionRequest(
+            resource='disk',
+            operation='create',
+            object_ids=[params.get('file_id')] if params.get('file_id') not in (None, '') else [],
+            changes=self._without_empty({
+                'permission_type': params.get('permission_type'),
+                'allow_download': self._normalize_bool_string(params.get('allow_download')),
+                'access_limit': params.get('access_limit'),
+                'download_limit': params.get('download_limit'),
+                'password': params.get('password'),
+            }),
+            context=action.context,
+        )
+
+    def _build_action_create_employee(self, agent_id: str, action: AgentActionDefinition, params: dict[str, Any]) -> AIActionRequest:
+        position_name = ''
+        if params.get('position_id') not in (None, ''):
+            position_name = Position.objects.filter(id=params.get('position_id')).values_list('title', flat=True).first() or ''
+        return AIActionRequest(
+            resource='employee',
+            operation='create',
+            changes=self._without_empty({
+                'username': params.get('username'),
+                'name': params.get('name'),
+                'mobile': params.get('mobile'),
+                'email': params.get('email'),
+                'did': params.get('did'),
+                'position_id': params.get('position_id'),
+                'position_name': position_name,
+                'job_number': params.get('job_number'),
+                'work_location': params.get('work_location'),
+            }),
+        )
+
+    def _build_action_adjust_employee_status(self, agent_id: str, action: AgentActionDefinition, params: dict[str, Any]) -> AIActionRequest:
+        return AIActionRequest(
+            resource='employee',
+            operation='update',
+            object_ids=[params.get('employee_id')] if params.get('employee_id') not in (None, '') else [],
+            changes=self._without_empty({
+                'status': params.get('status'),
+                'is_lock': params.get('is_lock'),
+            }),
+        )
+
     def _execute_customer_profile_analysis(self, user, params: dict[str, Any]) -> dict[str, Any]:
         customer = Customer.objects.get(id=params['customer_id'], delete_time=0)
         contacts = Contact.objects.filter(customer=customer)
@@ -1463,6 +1749,82 @@ class EnterpriseAgentService:
         }
         return build_business_ai_result(raw_result, scenario='general', source_refs=[{'type': 'notice'}], raw_input={'notice_count': len(recent_notices)})
 
+    def _execute_document_flow_analysis(self, user, params: dict[str, Any]) -> dict[str, Any]:
+        queryset = Document.objects.select_related('category', 'department').order_by('-updated_at')
+        total_count = queryset.count()
+        pending_count = queryset.filter(status__in=['pending', 'reviewing']).count()
+        published_count = queryset.filter(status='published').count()
+        urgent_count = queryset.filter(urgency__in=['urgent', 'very_urgent']).count()
+        top_items = list(queryset[:5])
+        raw_result = {
+            'summary': f'当前公文总量 {total_count} 份，待审核/流转 {pending_count} 份，已发布 {published_count} 份，高优先级 {urgent_count} 份。',
+            'risk_level': 'high' if pending_count >= 8 else 'medium' if pending_count or urgent_count else 'low',
+            'risk_points': [
+                f"{item.title} / {item.get_status_display()} / {item.get_urgency_display()}"
+                for item in top_items
+            ],
+            'suggestions': [
+                '优先处理待审核且紧急程度为紧急/特急的公文',
+                '发布前核对编号、分类和起草部门，避免流转返工',
+            ],
+            'confidence': 0.85,
+        }
+        return build_business_ai_result(raw_result, scenario='general', source_refs=[{'type': 'document'}], raw_input={'total_count': total_count, 'pending_count': pending_count})
+
+    def _execute_disk_asset_analysis(self, user, params: dict[str, Any]) -> dict[str, Any]:
+        file_queryset = DiskFile.objects.filter(delete_time__isnull=True)
+        folder_queryset = DiskFolder.objects.filter(delete_time__isnull=True)
+        share_queryset = DiskShare.objects.filter(is_active=True)
+        if not getattr(user, 'is_superuser', False):
+            file_queryset = file_queryset.filter(owner=user)
+            folder_queryset = folder_queryset.filter(owner=user)
+            share_queryset = share_queryset.filter(creator=user)
+
+        file_count = file_queryset.count()
+        folder_count = folder_queryset.count()
+        active_share_count = share_queryset.count()
+        expiring_share_count = share_queryset.filter(
+            expire_time__isnull=False,
+            expire_time__lte=timezone.now() + timedelta(days=7),
+        ).count()
+        top_files = list(file_queryset.order_by('-update_time')[:5])
+        raw_result = {
+            'summary': f'当前可用文件 {file_count} 份、文件夹 {folder_count} 个、有效分享 {active_share_count} 条，其中 7 天内到期分享 {expiring_share_count} 条。',
+            'risk_level': 'medium' if expiring_share_count or active_share_count >= 20 else 'low',
+            'risk_points': [
+                f"{item.name} / {item.get_full_path()}"
+                for item in top_files
+            ],
+            'suggestions': [
+                '对高频协同文件统一命名规则，减少搜索和版本识别成本',
+                '及时清理即将到期或长期无访问的分享链接',
+            ],
+            'confidence': 0.84,
+        }
+        return build_business_ai_result(raw_result, scenario='general', source_refs=[{'type': 'disk'}], raw_input={'file_count': file_count, 'share_count': active_share_count})
+
+    def _execute_employee_masterdata_analysis(self, user, params: dict[str, Any]) -> dict[str, Any]:
+        queryset = Admin.objects.filter(is_superuser=False)
+        active_count = queryset.filter(status=1).count()
+        locked_count = queryset.filter(is_lock=1).count()
+        no_position_count = queryset.filter(position_id=0).count()
+        missing_contact_count = queryset.filter(mobile='', email='').count()
+        top_items = list(queryset.order_by('-id')[:5])
+        raw_result = {
+            'summary': f'当前员工档案 {queryset.count()} 份，在岗 {active_count} 人，锁定 {locked_count} 人，无岗位映射 {no_position_count} 人，联系方式缺失 {missing_contact_count} 人。',
+            'risk_level': 'high' if missing_contact_count >= 5 else 'medium' if locked_count or no_position_count else 'low',
+            'risk_points': [
+                f"{item.name or item.username} / {item.position_name or '未配置岗位'}"
+                for item in top_items
+            ],
+            'suggestions': [
+                '新建员工时同步补齐部门、岗位和工号，避免后续流程断链',
+                '定期核对停用、锁定和联系方式缺失人员，保证主数据可用性',
+            ],
+            'confidence': 0.86,
+        }
+        return build_business_ai_result(raw_result, scenario='general', source_refs=[{'type': 'employee'}], raw_input={'active_count': active_count, 'locked_count': locked_count})
+
     def _execute_personal_focus_analysis(self, user, params: dict[str, Any]) -> dict[str, Any]:
         task_queryset = PersonalTask.objects.filter(user_id=getattr(user, 'id', 0) or 0)
         report_queryset = WorkReport.objects.filter(user_id=getattr(user, 'id', 0) or 0)
@@ -1531,6 +1893,22 @@ class EnterpriseAgentService:
             return self._safe_option_queryset(queryset[:50], label_field='id', extra_label_getter=lambda item: f"{item.approval.title} / {item.step.step_name}")
         if provider == 'departments':
             return self._safe_option_queryset(Department.objects.filter(status=1).order_by('name')[:80], label_field='name')
+        if provider == 'document_categories':
+            return self._safe_option_queryset(DocumentCategory.objects.filter(is_active=True).order_by('code')[:60], label_field='name', extra_field='code')
+        if provider == 'documents':
+            return self._safe_option_queryset(Document.objects.order_by('-updated_at')[:60], label_field='title', extra_field='document_number')
+        if provider == 'disk_files':
+            queryset = DiskFile.objects.filter(delete_time__isnull=True).order_by('-update_time')
+            if user is not None and not getattr(user, 'is_superuser', False):
+                queryset = queryset.filter(owner=user)
+            return self._safe_option_queryset(queryset[:60], label_field='name', extra_label_getter=lambda item: item.get_full_path())
+        if provider == 'disk_folders':
+            queryset = DiskFolder.objects.filter(delete_time__isnull=True).order_by('name')
+            if user is not None and not getattr(user, 'is_superuser', False):
+                queryset = queryset.filter(owner=user)
+            return self._safe_option_queryset(queryset[:60], label_field='name', extra_label_getter=lambda item: item.get_full_path())
+        if provider == 'positions':
+            return self._safe_option_queryset(Position.objects.filter(status=1).order_by('title')[:80], label_field='title')
         if provider == 'work_reports':
             queryset = WorkReport.objects.order_by('-report_date')
             if user is not None and getattr(user, 'id', None):
