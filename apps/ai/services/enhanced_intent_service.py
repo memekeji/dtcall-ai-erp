@@ -4,6 +4,7 @@
 """
 
 import logging
+import re
 from typing import Dict, Any
 from django.contrib.auth.models import User
 from apps.ai.models import AIChat, AIChatMessage
@@ -481,6 +482,35 @@ class EnhancedIntentService:
             'edit_url_template': '/approval/{id}/process/',
             'permission_base': 'approval',
             'skip_permission_gate': True,
+        },
+        'approval_type': {
+            'name': '审批类型',
+            'module': '审批管理',
+            'list_url': '/approval/approval_type/',
+            'create_url': '/approval/approval_type/add/',
+            'edit_url_template': '/approval/approval_type/{id}/edit/',
+            'permission': {
+                'query': {'full_code': 'approval.view_approvaltype', 'exists': True},
+                'create': {'full_code': 'approval.add_approvaltype', 'exists': True},
+                'update': {'full_code': 'approval.change_approvaltype', 'exists': True},
+                'delete': {'full_code': 'approval.delete_approvaltype', 'exists': True},
+            },
+        },
+        'approval_step': {
+            'name': '审批步骤',
+            'module': '审批管理',
+            'list_url': '/approval/approvalflow/',
+            'create_url_template': '/approval/approvalflow/{flow_id}/step/add/',
+            'edit_url_template': '/approval/approvalflow/{flow_id}/step/{id}/edit/',
+            'action_urls': {
+                'delete': '/approval/approvalflow/{flow_id}/step/{id}/delete/',
+            },
+            'permission': {
+                'query': {'full_code': 'approval.view_approvalstep', 'exists': True},
+                'create': {'full_code': 'approval.add_approvalstep', 'exists': True},
+                'update': {'full_code': 'approval.change_approvalstep', 'exists': True},
+                'delete': {'full_code': 'approval.delete_approvalstep', 'exists': True},
+            },
         },
         'approval_flow': {
             'name': '审批流程',
@@ -1690,25 +1720,35 @@ class EnhancedIntentService:
             return None, config.get('unavailable_reason') or '该业务模块当前不可用'
 
         if action == 'create':
-            return config.get('create_url'), None if config.get('create_url') else '未配置新增页面入口'
+            create_url = config.get('create_url')
+            if create_url:
+                return create_url, None
+            create_template = config.get('create_url_template')
+            if create_template:
+                return self._format_business_url_template(create_template, intent_result)
+            return None, '未配置新增页面入口'
 
         action_urls = config.get('action_urls') or {}
         if action in action_urls:
-            record_id = self._extract_record_id(intent_result)
             template = action_urls.get(action)
-            if record_id and template:
-                return template.format(id=record_id), None
+            if template:
+                formatted_url, format_reason = self._format_business_url_template(template, intent_result)
+                if formatted_url:
+                    return formatted_url, None
+                if format_reason:
+                    return None, format_reason
             if config.get('list_url'):
                 return config.get('list_url'), None
             return None, '未配置业务动作页面入口'
 
         if action in {'update', 'delete'}:
-            record_id = self._extract_record_id(intent_result)
             template = config.get('edit_url_template')
-            if action == 'update' and record_id and template:
-                return template.format(id=record_id), None
-            if action == 'delete' and record_id and template:
-                return template.format(id=record_id), None
+            if template:
+                formatted_url, format_reason = self._format_business_url_template(template, intent_result)
+                if formatted_url:
+                    return formatted_url, None
+                if format_reason:
+                    return None, format_reason
             if config.get('list_url'):
                 return config.get('list_url'), None
             return None, '未配置业务列表页面入口'
@@ -1724,6 +1764,47 @@ class EnhancedIntentService:
             if isinstance(value, str) and value.isdigit():
                 return value
         return None
+
+    def _format_business_url_template(
+            self, template: str | None, intent_result: Dict[str, Any]) -> tuple[str | None, str | None]:
+        if not template:
+            return None, '未配置业务页面入口'
+
+        params = self._extract_business_url_params(intent_result)
+        required_keys = [match.group(1) for match in re.finditer(r'{(\w+)}', template)]
+        missing_keys = [key for key in required_keys if params.get(key) in (None, '')]
+        if missing_keys:
+            return None, self._build_missing_business_url_reason(missing_keys)
+
+        try:
+            return template.format(**params), None
+        except KeyError as exc:
+            return None, self._build_missing_business_url_reason([str(exc).strip("'")])
+
+    def _extract_business_url_params(self, intent_result: Dict[str, Any]) -> Dict[str, Any]:
+        entities = intent_result.get('entities') or {}
+
+        def pick(*keys):
+            for key in keys:
+                value = entities.get(key)
+                if value not in (None, ''):
+                    return value
+                value = intent_result.get(key)
+                if value not in (None, ''):
+                    return value
+            return None
+
+        return {
+            'id': pick('id', 'pk', 'record_id', 'object_id'),
+            'flow_id': pick('flow_id', 'flow_pk', 'approval_flow_id'),
+        }
+
+    def _build_missing_business_url_reason(self, missing_keys: list[str]) -> str:
+        if 'flow_id' in missing_keys:
+            return '缺少所属流程信息，无法定位审批步骤页面'
+        if 'id' in missing_keys:
+            return '缺少业务记录标识，无法直接定位到目标记录'
+        return f"缺少必要参数：{', '.join(missing_keys)}"
 
     def _build_business_permission(self, permission_config, action: str):
         if not permission_config:

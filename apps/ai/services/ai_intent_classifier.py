@@ -183,6 +183,10 @@ class AIIntentClassifier:
         'product',
         'inventory',
         'approval',
+        'approval_type',
+        'approval_step',
+        'approval_record',
+        'approval_flow_edge',
         'approval_flow',
         'approval_task',
         'task',
@@ -247,6 +251,10 @@ class AIIntentClassifier:
         ('disk_folder', ['网盘文件夹', '共享文件夹', '文件夹权限', '目录权限']),
         ('disk', ['网盘', '共享文件', '共享资料', '文件权限', '文件', '资料', '附件']),
         ('approval_task', ['待审批', '待办审批', '审批任务', '待办流程', '已审批', '我审批的', '审批过的流程']),
+        ('approval_flow_edge', ['流程连线', '审批连线', '节点连线', '流程路径']),
+        ('approval_step', ['审批步骤', '流程步骤', '审批节点', '流程节点']),
+        ('approval_type', ['审批类型', '流程类型']),
+        ('approval_record', ['审批记录', '流程记录', '审批历史', '流转记录']),
         ('approval_flow', ['审批流', '审批流程', '流程配置', '流程模板']),
         ('approval', ['审批', '流程', '申请单', '审批单']),
         ('message', ['消息', '站内信', '通知消息', '会话', '沟通']),
@@ -880,6 +888,11 @@ class AIIntentClassifier:
                 return 'rejected'
             if '已取消' in query_lower or '已撤回' in query_lower:
                 return 'cancelled'
+        if data_type == 'approval_type':
+            if any(keyword in query_lower for keyword in ['启用', '可用', '正常']):
+                return 'active'
+            if any(keyword in query_lower for keyword in ['停用', '禁用', '未启用']):
+                return 'inactive'
         if data_type == 'alert':
             if '未处理' in query_lower or '待处理' in query_lower:
                 return 'pending'

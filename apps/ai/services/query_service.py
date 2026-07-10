@@ -146,6 +146,14 @@ class QueryService:
             'followup_list': self.handle_followup_list,
             'approval_count': self.handle_approval_count,
             'approval_list': self.handle_approval_list,
+            'approval_type_count': self.handle_approval_type_count,
+            'approval_type_list': self.handle_approval_type_list,
+            'approval_step_count': self.handle_approval_step_count,
+            'approval_step_list': self.handle_approval_step_list,
+            'approval_record_count': self.handle_approval_record_count,
+            'approval_record_list': self.handle_approval_record_list,
+            'approval_flow_edge_count': self.handle_approval_flow_edge_count,
+            'approval_flow_edge_list': self.handle_approval_flow_edge_list,
             'approval_flow_count': self.handle_approval_flow_count,
             'approval_flow_list': self.handle_approval_flow_list,
             'approval_task_count': self.handle_approval_task_count,
@@ -276,6 +284,10 @@ class QueryService:
             'disk_folder': 'disk.view_disk_folder',
             'disk_share': 'disk.view_share',
             'approval': 'approval.view_approval',
+            'approval_type': 'approval.view_approvaltype',
+            'approval_step': 'approval.view_approvalstep',
+            'approval_record': 'approval.view_approvalrecord',
+            'approval_flow_edge': 'approval.view_approvalflowedge',
             'approval_flow': 'approval.view_approvalflow',
             'approval_task': 'approval.view_approvaltask',
             'task': 'task.view_task',
@@ -409,6 +421,14 @@ class QueryService:
             'disk_share_list': 'disk.view_share',
             'approval_count': 'approval.view_approval',
             'approval_list': 'approval.view_approval',
+            'approval_type_count': 'approval.view_approvaltype',
+            'approval_type_list': 'approval.view_approvaltype',
+            'approval_step_count': 'approval.view_approvalstep',
+            'approval_step_list': 'approval.view_approvalstep',
+            'approval_record_count': 'approval.view_approvalrecord',
+            'approval_record_list': 'approval.view_approvalrecord',
+            'approval_flow_edge_count': 'approval.view_approvalflowedge',
+            'approval_flow_edge_list': 'approval.view_approvalflowedge',
             'approval_flow_count': 'approval.view_approvalflow',
             'approval_flow_list': 'approval.view_approvalflow',
             'approval_task_count': 'approval.view_approvaltask',
@@ -738,6 +758,10 @@ class QueryService:
             'disk_folder': {'count': 'disk_folder_count', 'list': 'disk_folder_list'},
             'disk_share': {'count': 'disk_share_count', 'list': 'disk_share_list'},
             'approval': {'count': 'approval_count', 'list': 'approval_list'},
+            'approval_type': {'count': 'approval_type_count', 'list': 'approval_type_list'},
+            'approval_step': {'count': 'approval_step_count', 'list': 'approval_step_list'},
+            'approval_record': {'count': 'approval_record_count', 'list': 'approval_record_list'},
+            'approval_flow_edge': {'count': 'approval_flow_edge_count', 'list': 'approval_flow_edge_list'},
             'approval_flow': {'count': 'approval_flow_count', 'list': 'approval_flow_list'},
             'approval_task': {'count': 'approval_task_count', 'list': 'approval_task_list'},
             'task': {'count': 'task_count', 'list': 'task_list'},
@@ -854,6 +878,10 @@ class QueryService:
             'stockout',
             'alert',
             'followup',
+            'approval_type',
+            'approval_step',
+            'approval_record',
+            'approval_flow_edge',
             'approval_flow',
             'approval_task',
             'approval',
@@ -949,7 +977,32 @@ class QueryService:
                 intent = 'approval_task_count'
             else:
                 intent = 'approval_task_list'
+        elif any(keyword in query_lower for keyword in ['流程连线', '审批连线', '节点连线', '流程路径']):
+            self._extract_approval_detail_entities(query_lower, entities, 'approval_flow_edge')
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'approval_flow_edge_count'
+            else:
+                intent = 'approval_flow_edge_list'
+        elif any(keyword in query_lower for keyword in ['审批步骤', '流程步骤', '审批节点', '流程节点']):
+            self._extract_approval_detail_entities(query_lower, entities, 'approval_step')
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'approval_step_count'
+            else:
+                intent = 'approval_step_list'
+        elif any(keyword in query_lower for keyword in ['审批类型', '流程类型']):
+            self._extract_approval_detail_entities(query_lower, entities, 'approval_type')
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'approval_type_count'
+            else:
+                intent = 'approval_type_list'
+        elif any(keyword in query_lower for keyword in ['审批记录', '流程记录', '审批历史', '流转记录']):
+            self._extract_approval_detail_entities(query_lower, entities, 'approval_record')
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'approval_record_count'
+            else:
+                intent = 'approval_record_list'
         elif any(keyword in query_lower for keyword in ['审批流', '审批流程', '流程配置', '流程模板']):
+            self._extract_approval_detail_entities(query_lower, entities, 'approval_flow')
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
                 intent = 'approval_flow_count'
             else:
@@ -2185,6 +2238,69 @@ class QueryService:
                 entities['status'] = 'abnormal'
             elif any(keyword in query_lower for keyword in ['正常', '合规']):
                 entities['status'] = 'normal'
+
+    def _extract_approval_detail_entities(self, query_lower, entities, data_type):
+        self._extract_time_range_entities(query_lower, entities)
+        if data_type in {'approval_type', 'approval_flow'}:
+            self._extract_enabled_status_entities(query_lower, entities)
+            return
+
+        flow_match = re.search(r'([\u4e00-\u9fffA-Za-z0-9_-]+)审批流程', query_lower)
+        if flow_match:
+            entities['flow_name'] = flow_match.group(1)
+
+        flow_id_match = re.search(r'流程\s*(\d+)', query_lower)
+        if flow_id_match:
+            entities['flow_id'] = int(flow_id_match.group(1))
+
+        if data_type == 'approval_step':
+            step_type_mapping = {
+                'condition': ['条件步骤', '条件节点', '条件审批', '条件分支'],
+                'department_head': ['部门负责人', '主管审批'],
+                'specific_user': ['指定用户', '指定审批人'],
+                'cc': ['抄送'],
+                'notification': ['通知节点', '通知步骤'],
+                'countersign': ['会签'],
+                'orsign': ['或签'],
+                'execute': ['办理节点', '执行节点', '办理步骤'],
+                'external': ['外部审批'],
+            }
+            for step_type, keywords in step_type_mapping.items():
+                if any(keyword in query_lower for keyword in keywords):
+                    entities['step_type'] = step_type
+                    break
+            return
+
+        if data_type == 'approval_record':
+            action_mapping = {
+                'approve': ['通过', '同意', '批准'],
+                'reject': ['拒绝', '驳回'],
+                'return': ['退回'],
+                'withdraw': ['撤回'],
+                'transfer': ['转办', '转交'],
+                'delegate': ['委托'],
+                'urge': ['催办'],
+                'timeout': ['超时'],
+                'force_end': ['强制结束'],
+                'archive': ['归档'],
+            }
+            for action, keywords in action_mapping.items():
+                if any(keyword in query_lower for keyword in keywords):
+                    entities['action'] = action
+                    break
+            return
+
+        if data_type == 'approval_flow_edge':
+            edge_type_mapping = {
+                'condition': ['条件连线', '条件流转', '条件分支'],
+                'success': ['通过连线', '通过路径'],
+                'reject': ['拒绝连线', '驳回路径'],
+                'return': ['退回连线', '退回路径'],
+            }
+            for edge_type, keywords in edge_type_mapping.items():
+                if any(keyword in query_lower for keyword in keywords):
+                    entities['edge_type'] = edge_type
+                    break
 
     def _extract_asset_entities(self, query_lower, entities):
         if any(keyword in query_lower for keyword in ['维修中', '维修的', '报修']):
@@ -5540,10 +5656,156 @@ class QueryService:
             'data_type': 'approval',
         }
 
+    def handle_approval_type_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.approval.models import ApprovalType
+        queryset = self._apply_approval_type_filters(ApprovalType.objects.all(), entities)
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'approval_type',
+            'status': entities.get('status'),
+        }
+
+    def handle_approval_type_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.approval.models import ApprovalType
+        queryset = self._apply_approval_type_filters(ApprovalType.objects.all(), entities)
+        items = [{
+            'id': item.id,
+            'name': item.name,
+            'code': item.code,
+            'status': '启用' if item.is_active else '停用',
+            'description': item.description or '',
+        } for item in queryset.order_by('sort_order', 'name')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'approval_type',
+            'status': entities.get('status'),
+        }
+
+    def handle_approval_step_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.approval.models import ApprovalStep
+        queryset = self._apply_approval_step_filters(
+            ApprovalStep.objects.select_related('flow', 'approver').all(),
+            entities,
+        )
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'approval_step',
+            'status': entities.get('step_type'),
+        }
+
+    def handle_approval_step_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.approval.models import ApprovalStep
+        queryset = self._apply_approval_step_filters(
+            ApprovalStep.objects.select_related('flow', 'approver').all(),
+            entities,
+        )
+        items = [{
+            'id': item.id,
+            'step_name': item.step_name,
+            'flow': item.flow.name if item.flow else '',
+            'step_type': item.get_step_type_display() if hasattr(item, 'get_step_type_display') else item.step_type,
+            'step_order': item.step_order,
+            'approver': item.approver.username if item.approver else '',
+        } for item in queryset.order_by('flow__name', 'step_order', 'id')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'approval_step',
+            'status': entities.get('step_type'),
+        }
+
+    def handle_approval_record_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.approval.models import Approval, ApprovalRecord
+
+        queryset = ApprovalRecord.objects.select_related('approval', 'handler').all()
+        if not getattr(user, 'is_superuser', False):
+            approval_ids = self._filter_approval_queryset(Approval.objects.all(), user).values_list('id', flat=True)
+            queryset = queryset.filter(approval_id__in=approval_ids)
+        queryset = self._apply_approval_record_filters(queryset, entities)
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'approval_record',
+            'status': entities.get('action'),
+        }
+
+    def handle_approval_record_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.approval.models import Approval, ApprovalRecord
+
+        queryset = ApprovalRecord.objects.select_related('approval', 'handler').all()
+        if not getattr(user, 'is_superuser', False):
+            approval_ids = self._filter_approval_queryset(Approval.objects.all(), user).values_list('id', flat=True)
+            queryset = queryset.filter(approval_id__in=approval_ids)
+        queryset = self._apply_approval_record_filters(queryset, entities)
+        items = [{
+            'id': item.id,
+            'approval_title': item.approval.title if item.approval else '未知审批',
+            'step_name': item.step_name,
+            'action': item.get_action_display() if hasattr(item, 'get_action_display') else item.action,
+            'handler': item.handler.username if item.handler else '',
+        } for item in queryset.order_by('-create_time', '-id')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'approval_record',
+            'status': entities.get('action'),
+        }
+
+    def handle_approval_flow_edge_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.approval.models import ApprovalFlowEdge
+
+        queryset = self._apply_approval_flow_edge_filters(
+            ApprovalFlowEdge.objects.select_related('flow', 'from_step', 'to_step').all(),
+            entities,
+        )
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'approval_flow_edge',
+            'status': entities.get('edge_type'),
+        }
+
+    def handle_approval_flow_edge_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.approval.models import ApprovalFlowEdge
+
+        queryset = self._apply_approval_flow_edge_filters(
+            ApprovalFlowEdge.objects.select_related('flow', 'from_step', 'to_step').all(),
+            entities,
+        )
+        items = [{
+            'id': item.id,
+            'flow': item.flow.name if item.flow else '',
+            'from_node': item.from_step.step_name if item.from_step else item.from_node,
+            'to_node': item.to_step.step_name if item.to_step else item.to_node,
+            'edge_type': item.get_edge_type_display() if hasattr(item, 'get_edge_type_display') else item.edge_type,
+            'label': item.label or '',
+        } for item in queryset.order_by('flow__name', 'sort_order', 'id')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'approval_flow_edge',
+            'status': entities.get('edge_type'),
+        }
+
     def handle_approval_flow_count(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.approval.models import ApprovalFlow
-        queryset = ApprovalFlow.objects.all()
+        queryset = self._apply_approval_type_filters(ApprovalFlow.objects.all(), entities)
         return {
             'type': 'count',
             'value': queryset.count(),
@@ -5553,7 +5815,10 @@ class QueryService:
     def handle_approval_flow_list(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.approval.models import ApprovalFlow
-        queryset = ApprovalFlow.objects.select_related('approval_type').all()
+        queryset = self._apply_approval_type_filters(
+            ApprovalFlow.objects.select_related('approval_type').all(),
+            entities,
+        )
         items = [{
             'id': item.id,
             'name': item.name,
@@ -6073,6 +6338,10 @@ class QueryService:
             'stockout': '出库单',
             'alert': '库存预警',
             'approval': '审批',
+            'approval_type': '审批类型',
+            'approval_step': '审批步骤',
+            'approval_record': '审批记录',
+            'approval_flow_edge': '流程连线',
             'notice': '通知公告',
             'document': '文档',
             'document_category': '公文分类',
@@ -6461,6 +6730,35 @@ class QueryService:
                 if applicant:
                     return f"{title}（{applicant}，{status}）"
                 return f"{title}（{status}）"
+            elif data_type == 'approval_type':
+                name = item.get('name', '未知')
+                code = item.get('code', '')
+                status = item.get('status', '')
+                if code:
+                    return f"{name}（{code}，{status}）"
+                return f"{name}（{status}）"
+            elif data_type == 'approval_step':
+                step_name = item.get('step_name', '未知步骤')
+                flow = item.get('flow', '')
+                step_type = item.get('step_type', '')
+                if flow and step_type:
+                    return f"{step_name}（{flow}，{step_type}）"
+                if step_type:
+                    return f"{step_name}（{step_type}）"
+                return step_name
+            elif data_type == 'approval_record':
+                title = item.get('approval_title', '未知审批')
+                action = item.get('action', '')
+                step_name = item.get('step_name', '')
+                if step_name:
+                    return f"{title}（{step_name}，{action}）"
+                return f"{title}（{action}）"
+            elif data_type == 'approval_flow_edge':
+                flow = item.get('flow', '未知流程')
+                from_node = item.get('from_node', '')
+                to_node = item.get('to_node', '')
+                edge_type = item.get('edge_type', '')
+                return f"{flow}（{from_node}->{to_node}，{edge_type}）"
             elif data_type == 'approval_flow':
                 name = item.get('name', '未知')
                 code = item.get('code', '')
@@ -6795,6 +7093,50 @@ class QueryService:
             queryset = queryset.filter(status=3)
         elif status == 'cancelled':
             queryset = queryset.filter(status=4)
+        return queryset
+
+    def _apply_approval_type_filters(self, queryset, entities):
+        status = entities.get('status')
+        if status == 'active':
+            queryset = queryset.filter(is_active=True)
+        elif status == 'inactive':
+            queryset = queryset.filter(is_active=False)
+        keyword = entities.get('keyword') or entities.get('name')
+        if keyword:
+            queryset = queryset.filter(name__icontains=keyword)
+        return queryset
+
+    def _apply_approval_step_filters(self, queryset, entities):
+        step_type = entities.get('step_type')
+        if step_type:
+            queryset = queryset.filter(step_type=step_type)
+        flow_id = entities.get('flow_id')
+        if flow_id:
+            queryset = queryset.filter(flow_id=flow_id)
+        flow_name = entities.get('flow_name')
+        if flow_name:
+            queryset = queryset.filter(flow__name__icontains=flow_name)
+        return queryset
+
+    def _apply_approval_record_filters(self, queryset, entities):
+        action = entities.get('action')
+        if action:
+            queryset = queryset.filter(action=action)
+        flow_name = entities.get('flow_name')
+        if flow_name:
+            queryset = queryset.filter(approval__flow__name__icontains=flow_name)
+        return self._apply_datetime_range_filter(queryset, entities, 'create_time')
+
+    def _apply_approval_flow_edge_filters(self, queryset, entities):
+        edge_type = entities.get('edge_type')
+        if edge_type:
+            queryset = queryset.filter(edge_type=edge_type)
+        flow_id = entities.get('flow_id')
+        if flow_id:
+            queryset = queryset.filter(flow_id=flow_id)
+        flow_name = entities.get('flow_name')
+        if flow_name:
+            queryset = queryset.filter(flow__name__icontains=flow_name)
         return queryset
 
     def _filter_approval_task_queryset(self, queryset, user):

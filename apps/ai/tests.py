@@ -276,6 +276,28 @@ class AIQueryServicePermissionMappingTests(SimpleTestCase):
         self.assertTrue(service.check_permission(user, 'quality_check_list'))
         self.assertTrue(service.check_permission(user, 'datacollection_list'))
 
+    def test_approval_detail_query_permissions_follow_model_nodes(self):
+        from apps.ai.services.query_service import QueryService
+
+        allowed_permissions = {
+            'approval.view_approvaltype',
+            'approval.view_approvalstep',
+            'approval.view_approvalrecord',
+            'approval.view_approvalflowedge',
+        }
+        user = SimpleNamespace(
+            username='approval-detail-query-user',
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in allowed_permissions,
+        )
+        service = QueryService()
+
+        self.assertTrue(service.check_permission(user, 'approval_type_list'))
+        self.assertTrue(service.check_permission(user, 'approval_step_list'))
+        self.assertTrue(service.check_permission(user, 'approval_record_list'))
+        self.assertTrue(service.check_permission(user, 'approval_flow_edge_list'))
+
 
 class AIRollbackServiceTests(SimpleTestCase):
     def test_rollback_plan_reverses_change_set_order(self):
@@ -1607,6 +1629,24 @@ class AIConfigurationSourceTests(SimpleTestCase):
         self.assertEqual(bom_create['permission_code'], 'user.add_bom')
         self.assertEqual(bom_create['target_url'], '/production/bom/add/')
 
+    def test_project_mcp_exposes_approval_type_query_capability(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capabilities = project_mcp_service.get_capability_catalog()
+        approval_type_query = next(item for item in capabilities if item['id'] == 'query.approval_type.list')
+
+        self.assertEqual(approval_type_query['permission_code'], 'approval.view_approvaltype')
+        self.assertEqual(approval_type_query['module'], '审批管理')
+
+    def test_project_mcp_exposes_approval_step_create_capability(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capabilities = project_mcp_service.get_capability_catalog()
+        approval_step_create = next(item for item in capabilities if item['id'] == 'write.approval_step.create')
+
+        self.assertEqual(approval_step_create['permission_code'], 'approval.add_approvalstep')
+        self.assertEqual(approval_step_create['target_url'], '/approval/approvalflow/{flow_id}/step/add/')
+
     def test_project_mcp_registry_exposes_query_and_write_capabilities(self):
         from apps.ai.services.project_mcp_service import project_mcp_service
 
@@ -2561,6 +2601,83 @@ class AIConfigurationSourceTests(SimpleTestCase):
         self.assertEqual(task['target_url'], '/approval/approvalflow/add/')
         self.assertEqual(task['permission_required']['full_code'], 'approval.add_approvalflow')
 
+    def test_approval_type_create_handoff_is_enabled(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm == 'approval.add_approvaltype',
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'approval_type',
+                'entities': {'name': '用印审批'},
+                'confidence': 0.91,
+            },
+            '新增一个用印审批类型',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/approval/approval_type/add/')
+        self.assertEqual(task['permission_required']['full_code'], 'approval.add_approvaltype')
+
+    def test_approval_step_create_handoff_is_enabled_when_flow_id_present(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm == 'approval.add_approvalstep',
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'approval_step',
+                'entities': {'flow_id': 12, 'step_name': '部门负责人审批'},
+                'confidence': 0.9,
+            },
+            '给流程12新增一个部门负责人审批步骤',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/approval/approvalflow/12/step/add/')
+        self.assertEqual(task['permission_required']['full_code'], 'approval.add_approvalstep')
+
+    def test_approval_step_create_handoff_requires_flow_id(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm == 'approval.add_approvalstep',
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'approval_step',
+                'entities': {'step_name': '部门负责人审批'},
+                'confidence': 0.9,
+            },
+            '新增一个部门负责人审批步骤',
+        )
+
+        self.assertFalse(task['enabled'])
+        self.assertIn('流程', task['message'])
+
     def test_safe_fallback_ambiguous_write_requires_business_type_clarification(self):
         from apps.ai.services.enhanced_intent_service import EnhancedIntentService
 
@@ -2883,6 +3000,22 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
 
         self.assertEqual(intent, 'bom_count')
         self.assertEqual(entities['status'], 'active')
+
+    def test_recognize_active_approval_type_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('启用的审批类型有哪些')
+
+        self.assertEqual(intent, 'approval_type_list')
+        self.assertEqual(entities['status'], 'active')
+
+    def test_recognize_returned_approval_record_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('退回的审批记录有哪些')
+
+        self.assertEqual(intent, 'approval_record_list')
+        self.assertEqual(entities['action'], 'return')
 
     def test_recognize_published_ai_workflow_plain_language(self):
         from apps.ai.services.query_service import QueryService
@@ -5318,6 +5451,88 @@ class AIQueryServiceApprovalAndFinanceScopeTests(TestCase):
         titles = {item['title'] for item in result['items']}
 
         self.assertEqual(titles, {'我发起的审批'})
+
+    def test_approval_type_list_status_scope_only_returns_active(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.approval.models import ApprovalType
+
+        User = get_user_model()
+        user = User.objects.create_user(username='approval-type-user')
+
+        ApprovalType.objects.create(name='启用类型', code='TYPE-ACTIVE', is_active=True)
+        ApprovalType.objects.create(name='停用类型', code='TYPE-INACTIVE', is_active=False)
+
+        result = QueryService().handle_approval_type_list({'status': 'active'}, user)
+        codes = {item['code'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(codes, {'TYPE-ACTIVE'})
+
+    def test_approval_step_list_flow_scope_only_returns_target_flow(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.approval.models import ApprovalFlow, ApprovalStep, ApprovalType
+
+        User = get_user_model()
+        user = User.objects.create_user(username='approval-step-user')
+        approval_type = ApprovalType.objects.create(name='流程类型', code='FLOW-TYPE')
+        purchase_flow = ApprovalFlow.objects.create(name='采购审批流程', code='FLOW-PURCHASE', approval_type=approval_type)
+        leave_flow = ApprovalFlow.objects.create(name='请假审批流程', code='FLOW-LEAVE', approval_type=approval_type)
+
+        ApprovalStep.objects.create(flow=purchase_flow, step_name='采购经理审批', step_order=1, step_type='specific_user')
+        ApprovalStep.objects.create(flow=leave_flow, step_name='人事审批', step_order=1, step_type='specific_user')
+
+        result = QueryService().handle_approval_step_list({'flow_name': '采购'}, user)
+        step_names = {item['step_name'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(step_names, {'采购经理审批'})
+
+    def test_approval_record_count_action_scope_only_counts_visible_approve_records(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.approval.models import Approval, ApprovalRecord
+
+        User = get_user_model()
+        applicant = User.objects.create_user(username='approval-record-applicant')
+        other = User.objects.create_user(username='approval-record-other')
+
+        my_approval = Approval.objects.create(title='我的审批', applicant_id=applicant.id)
+        other_approval = Approval.objects.create(title='别人的审批', applicant_id=other.id)
+
+        ApprovalRecord.objects.create(approval=my_approval, step_order=1, step_name='经理审批', action='approve', handler=applicant)
+        ApprovalRecord.objects.create(approval=my_approval, step_order=2, step_name='财务审批', action='return', handler=applicant)
+        ApprovalRecord.objects.create(approval=other_approval, step_order=1, step_name='经理审批', action='approve', handler=other)
+
+        result = QueryService().handle_approval_record_count({'action': 'approve'}, applicant)
+
+        self.assertEqual(result['value'], 1)
+
+    def test_approval_flow_edge_count_edge_type_scope_only_counts_condition(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.approval.models import ApprovalFlow, ApprovalFlowEdge, ApprovalType
+
+        User = get_user_model()
+        user = User.objects.create_user(username='approval-edge-user', is_superuser=True)
+        approval_type = ApprovalType.objects.create(name='连线类型', code='EDGE-TYPE')
+        flow = ApprovalFlow.objects.create(name='采购审批流', code='EDGE-FLOW', approval_type=approval_type)
+
+        ApprovalFlowEdge.objects.create(flow=flow, from_node='start', to_node='step_1', edge_type='success')
+        ApprovalFlowEdge.objects.create(
+            flow=flow,
+            from_node='step_1',
+            to_node='step_2',
+            edge_type='condition',
+            condition_field='amount',
+            condition_operator='>',
+            condition_value='1000',
+        )
+
+        result = QueryService().handle_approval_flow_edge_count({'edge_type': 'condition'}, user)
+
+        self.assertEqual(result['value'], 1)
 
     def test_finance_expense_list_pending_payment_scope_only_returns_pending(self):
         from django.contrib.auth import get_user_model

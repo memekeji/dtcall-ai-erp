@@ -29,6 +29,10 @@ class ProjectMCPService:
         'stockout': {'label': '出库单', 'module': '库存管理', 'aliases': ['出库']},
         'alert': {'label': '库存预警', 'module': '库存管理', 'aliases': ['预警', '库存预警']},
         'approval': {'label': '审批单', 'module': '审批管理', 'aliases': ['审批', '流程', '申请单']},
+        'approval_type': {'label': '审批类型', 'module': '审批管理', 'aliases': ['审批类型', '流程类型']},
+        'approval_step': {'label': '审批步骤', 'module': '审批管理', 'aliases': ['审批步骤', '流程步骤', '审批节点']},
+        'approval_record': {'label': '审批记录', 'module': '审批管理', 'aliases': ['审批记录', '流程记录', '流转记录']},
+        'approval_flow_edge': {'label': '流程连线', 'module': '审批管理', 'aliases': ['流程连线', '审批连线', '节点连线']},
         'approval_flow': {'label': '审批流程', 'module': '审批管理', 'aliases': ['审批流程', '审批流']},
         'approval_task': {'label': '待办审批', 'module': '审批管理', 'aliases': ['待审批', '待办审批', '待审批流程']},
         'task': {'label': '任务', 'module': '任务管理', 'aliases': ['任务', '待办任务']},
@@ -188,7 +192,8 @@ class ProjectMCPService:
             aliases = self.RESOURCE_METADATA.get(resource, {}).get('aliases') or [label]
             permission_base = config.get('permission_base')
             action_urls = config.get('action_urls') or {}
-            if config.get('create_url'):
+            create_target = config.get('create_url') or config.get('create_url_template')
+            if create_target:
                 capabilities.append({
                     'id': f'write.{resource}.create',
                     'resource': resource,
@@ -198,7 +203,7 @@ class ProjectMCPService:
                     'execution_mode': 'business_handoff',
                     'operations': ['create'],
                     'permission_code': self._resolve_write_permission_code(config, 'create', permission_base),
-                    'target_url': config.get('create_url'),
+                    'target_url': create_target,
                     'skill_tags': self._skill_tags_for_write(resource, 'create'),
                     'aliases': aliases,
                 })
@@ -291,7 +296,7 @@ class ProjectMCPService:
         tags = ['query_execute', 'permission_guard']
         if resource in {'order', 'customer', 'contract', 'followup', 'contact'}:
             tags.append('crm_query')
-        if resource in {'approval', 'approval_flow', 'approval_task'}:
+        if resource in {'approval', 'approval_type', 'approval_step', 'approval_record', 'approval_flow_edge', 'approval_flow', 'approval_task'}:
             tags.append('approval_query')
         if resource.startswith('disk'):
             tags.append('file_query')
@@ -305,7 +310,7 @@ class ProjectMCPService:
             tags.append('rollback_supported')
         if operation in {'approve', 'reject', 'submit', 'publish', 'withdraw', 'stock'}:
             tags.extend(['workflow_action', 'rollback_supported'])
-        if resource in {'approval', 'approval_flow', 'approval_task'}:
+        if resource in {'approval', 'approval_type', 'approval_step', 'approval_flow_edge', 'approval_flow', 'approval_task'}:
             tags.append('approval_flow_control')
         if resource.startswith('disk'):
             tags.append('file_write')
