@@ -1552,6 +1552,15 @@ class AIConfigurationSourceTests(SimpleTestCase):
         self.assertEqual(account_query['permission_code'], 'finance.view_financeaccount')
         self.assertEqual(account_query['module'], '财务管理')
 
+    def test_project_mcp_exposes_advanced_finance_bank_transaction_write_capability(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capabilities = project_mcp_service.get_capability_catalog()
+        bank_tx_create = next(item for item in capabilities if item['id'] == 'write.finance_bank_transaction.create')
+
+        self.assertEqual(bank_tx_create['permission_code'], 'finance.add_banktransaction')
+        self.assertEqual(bank_tx_create['target_url'], '/finance/advanced/bank-transaction/add/')
+
     def test_project_mcp_registry_exposes_query_and_write_capabilities(self):
         from apps.ai.services.project_mcp_service import project_mcp_service
 
@@ -2375,6 +2384,58 @@ class AIConfigurationSourceTests(SimpleTestCase):
         self.assertTrue(task['enabled'])
         self.assertEqual(task['target_url'], '/supply-chain/forecast/create/')
         self.assertEqual(task['permission_required']['full_code'], 'user.add_supply_chain_forecast')
+
+    def test_finance_account_create_handoff_is_enabled(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in {'finance.add_financeaccount'},
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'finance_account',
+                'entities': {'name': '招商银行基本户'},
+                'confidence': 0.9,
+            },
+            '新增一个资金账户',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/finance/advanced/account/add/')
+        self.assertEqual(task['permission_required']['full_code'], 'finance.add_financeaccount')
+
+    def test_finance_bank_transaction_create_handoff_is_enabled(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in {'finance.add_banktransaction'},
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'finance_bank_transaction',
+                'entities': {'summary': '银行来款'},
+                'confidence': 0.9,
+            },
+            '新增一条银行流水',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/finance/advanced/bank-transaction/add/')
+        self.assertEqual(task['permission_required']['full_code'], 'finance.add_banktransaction')
 
     def test_approval_flow_create_handoff_uses_model_permission(self):
         from apps.ai.services.enhanced_intent_service import EnhancedIntentService
