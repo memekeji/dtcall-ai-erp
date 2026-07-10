@@ -952,6 +952,63 @@ class AIConfirmOperationViewTests(SimpleTestCase):
 
 
 class AIIntentCoverageTests(SimpleTestCase):
+    def test_normalize_ai_result_keeps_ai_model_config_subtype(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._normalize_ai_result({
+            'intent': 'DATA_QUERY',
+            'confidence': 0.84,
+            'action': 'list',
+            'data_type': 'ai_model_config',
+            'entities': {},
+            'time_range': None,
+            'status': None,
+            'customer_name': None,
+            'requires_confirmation': False,
+            'reasoning': '识别为AI模型配置列表',
+        }, '查看 AI 模型配置')
+
+        self.assertEqual(result['data_type'], 'ai_model_config')
+
+    def test_normalize_ai_result_keeps_supply_chain_forecast_subtype(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._normalize_ai_result({
+            'intent': 'DATA_QUERY',
+            'confidence': 0.84,
+            'action': 'list',
+            'data_type': 'supply_chain_forecast',
+            'entities': {},
+            'time_range': None,
+            'status': None,
+            'customer_name': None,
+            'requires_confirmation': False,
+            'reasoning': '识别为需求预测列表',
+        }, '查看需求预测计划')
+
+        self.assertEqual(result['data_type'], 'supply_chain_forecast')
+
+    def test_normalize_ai_result_keeps_finance_account_subtype(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._normalize_ai_result({
+            'intent': 'DATA_QUERY',
+            'confidence': 0.84,
+            'action': 'list',
+            'data_type': 'finance_account',
+            'entities': {},
+            'time_range': None,
+            'status': None,
+            'customer_name': None,
+            'requires_confirmation': False,
+            'reasoning': '识别为资金账户列表',
+        }, '查看资金账户')
+
+        self.assertEqual(result['data_type'], 'finance_account')
+
     def test_rule_fallback_recognizes_work_report_without_unpack_error(self):
         from apps.ai.services.ai_intent_classifier import AIIntentClassifier
 
@@ -1468,6 +1525,33 @@ class AIIntentCoverageTests(SimpleTestCase):
 
 
 class AIConfigurationSourceTests(SimpleTestCase):
+    def test_project_mcp_exposes_ai_center_query_capability(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capabilities = project_mcp_service.get_capability_catalog()
+        ai_model_query = next(item for item in capabilities if item['id'] == 'query.ai_model_config.list')
+
+        self.assertEqual(ai_model_query['permission_code'], 'user.view_model_config')
+        self.assertEqual(ai_model_query['module'], 'AI智能中心')
+
+    def test_project_mcp_exposes_supply_chain_query_capability(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capabilities = project_mcp_service.get_capability_catalog()
+        forecast_query = next(item for item in capabilities if item['id'] == 'query.supply_chain_forecast.list')
+
+        self.assertEqual(forecast_query['permission_code'], 'user.view_supply_chain_forecast')
+        self.assertEqual(forecast_query['module'], '供应链管理')
+
+    def test_project_mcp_exposes_advanced_finance_query_capability(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capabilities = project_mcp_service.get_capability_catalog()
+        account_query = next(item for item in capabilities if item['id'] == 'query.finance_account.list')
+
+        self.assertEqual(account_query['permission_code'], 'finance.view_financeaccount')
+        self.assertEqual(account_query['module'], '财务管理')
+
     def test_project_mcp_registry_exposes_query_and_write_capabilities(self):
         from apps.ai.services.project_mcp_service import project_mcp_service
 
@@ -2239,6 +2323,58 @@ class AIConfigurationSourceTests(SimpleTestCase):
         self.assertTrue(task['enabled'])
         self.assertEqual(task['target_url'], '/oa/meeting/apply/')
         self.assertEqual(task['permission_required']['full_code'], 'user.apply_meeting')
+
+    def test_ai_model_config_create_handoff_is_enabled(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in {'user.add_model_config'},
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'ai_model_config',
+                'entities': {'name': 'OpenAI主模型'},
+                'confidence': 0.9,
+            },
+            '新增一个 AI 模型配置',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/ai/model-config/create/')
+        self.assertEqual(task['permission_required']['full_code'], 'user.add_model_config')
+
+    def test_supply_chain_forecast_create_handoff_is_enabled(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in {'user.add_supply_chain_forecast'},
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'supply_chain_forecast',
+                'entities': {'name': '7月备料预测'},
+                'confidence': 0.9,
+            },
+            '新增一个需求预测计划',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/supply-chain/forecast/create/')
+        self.assertEqual(task['permission_required']['full_code'], 'user.add_supply_chain_forecast')
 
     def test_approval_flow_create_handoff_uses_model_permission(self):
         from apps.ai.services.enhanced_intent_service import EnhancedIntentService

@@ -16,6 +16,11 @@ class ProjectMCPService:
         'finance_invoice': {'label': '开票申请', 'module': '财务管理', 'aliases': ['开票申请', '财务发票']},
         'finance_income': {'label': '回款', 'module': '财务管理', 'aliases': ['回款', '收入']},
         'finance_order_record': {'label': '订单财务记录', 'module': '财务管理', 'aliases': ['订单财务', '财务记录']},
+        'finance_account': {'label': '资金账户', 'module': '财务管理', 'aliases': ['资金账户', '银行账户', '账户余额']},
+        'finance_budget': {'label': '预算', 'module': '财务管理', 'aliases': ['预算', '预算管理']},
+        'finance_receivable': {'label': '应收账款', 'module': '财务管理', 'aliases': ['应收', '应收款', '应收账款']},
+        'finance_payable': {'label': '应付账款', 'module': '财务管理', 'aliases': ['应付', '应付款', '应付账款']},
+        'finance_bank_transaction': {'label': '银行流水', 'module': '财务管理', 'aliases': ['银行流水', '银行交易', '账户流水']},
         'supplier': {'label': '供应商', 'module': '合同管理', 'aliases': ['供应商']},
         'product': {'label': '产品', 'module': '合同管理', 'aliases': ['产品', '商品']},
         'inventory': {'label': '库存', 'module': '库存管理', 'aliases': ['库存', '物料', '存货']},
@@ -56,6 +61,15 @@ class ProjectMCPService:
         'personal_task': {'label': '个人任务', 'module': '个人办公', 'aliases': ['个人任务', '我的待办']},
         'personal_note': {'label': '个人笔记', 'module': '个人办公', 'aliases': ['个人笔记', '笔记']},
         'personal_contact': {'label': '个人联系人', 'module': '个人办公', 'aliases': ['个人联系人', '私人通讯录', '我的联系人', '私人联系人']},
+        'ai_model_config': {'label': 'AI模型配置', 'module': 'AI智能中心', 'aliases': ['AI模型配置', '模型配置', '模型列表']},
+        'ai_knowledge_base': {'label': '知识库', 'module': 'AI智能中心', 'aliases': ['知识库', '知识库列表']},
+        'ai_task': {'label': 'AI任务', 'module': 'AI智能中心', 'aliases': ['AI任务', '智能任务']},
+        'ai_workflow': {'label': 'AI工作流', 'module': 'AI智能中心', 'aliases': ['AI工作流', '工作流']},
+        'supply_chain_forecast': {'label': '需求预测计划', 'module': '供应链管理', 'aliases': ['需求预测', '预测计划', '备料预测']},
+        'supply_chain_outsource': {'label': '委外发料单', 'module': '供应链管理', 'aliases': ['委外发料', '委外单', '委外发料单']},
+        'supply_chain_pr_review': {'label': 'PR审核任务', 'module': '供应链管理', 'aliases': ['PR审核', 'PR复核', '采购申请审核']},
+        'supply_chain_price_review': {'label': '单价复核单', 'module': '供应链管理', 'aliases': ['单价复核', '价格复核', '询价复核']},
+        'supply_chain_sample': {'label': '打样申请', 'module': '供应链管理', 'aliases': ['打样', '打样申请', '样品申请']},
     }
     QUERY_SUMMARY_RESOURCES = {'order', 'contract'}
 
