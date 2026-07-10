@@ -114,6 +114,20 @@ class QueryService:
             'production_equipment_list': self.handle_production_equipment_list,
             'production_procedure_count': self.handle_production_procedure_count,
             'production_procedure_list': self.handle_production_procedure_list,
+            'reward_punishment_count': self.handle_reward_punishment_count,
+            'reward_punishment_list': self.handle_reward_punishment_list,
+            'employee_care_count': self.handle_employee_care_count,
+            'employee_care_list': self.handle_employee_care_list,
+            'procedureset_count': self.handle_procedureset_count,
+            'procedureset_list': self.handle_procedureset_list,
+            'bom_count': self.handle_bom_count,
+            'bom_list': self.handle_bom_list,
+            'process_count': self.handle_process_count,
+            'process_list': self.handle_process_list,
+            'quality_check_count': self.handle_quality_check_count,
+            'quality_check_list': self.handle_quality_check_list,
+            'datacollection_count': self.handle_datacollection_count,
+            'datacollection_list': self.handle_datacollection_list,
             'supplier_count': self.handle_supplier_count,
             'supplier_list': self.handle_supplier_list,
             'product_count': self.handle_product_count,
@@ -243,6 +257,13 @@ class QueryService:
             'production_task': 'production.view_productiontask',
             'production_equipment': 'production.view_equipment',
             'production_procedure': 'production.view_productionprocedure',
+            'reward_punishment': 'user.view_reward_punishment',
+            'employee_care': 'user.view_employee_care',
+            'procedureset': 'user.view_procedureset',
+            'bom': 'user.view_bom',
+            'process': 'user.view_process',
+            'quality_check': 'user.view_quality_check',
+            'datacollection': 'user.view_datacollection',
             'supplier': 'contract.view_supplier',
             'product': 'contract.view_product',
             'inventory': 'inventory.view_inventory',
@@ -350,6 +371,20 @@ class QueryService:
             'production_equipment_list': 'production.view_equipment',
             'production_procedure_count': 'production.view_productionprocedure',
             'production_procedure_list': 'production.view_productionprocedure',
+            'reward_punishment_count': 'user.view_reward_punishment',
+            'reward_punishment_list': 'user.view_reward_punishment',
+            'employee_care_count': 'user.view_employee_care',
+            'employee_care_list': 'user.view_employee_care',
+            'procedureset_count': 'user.view_procedureset',
+            'procedureset_list': 'user.view_procedureset',
+            'bom_count': 'user.view_bom',
+            'bom_list': 'user.view_bom',
+            'process_count': 'user.view_process',
+            'process_list': 'user.view_process',
+            'quality_check_count': 'user.view_quality_check',
+            'quality_check_list': 'user.view_quality_check',
+            'datacollection_count': 'user.view_datacollection',
+            'datacollection_list': 'user.view_datacollection',
             'supplier_count': 'contract.view_supplier',
             'supplier_list': 'contract.view_supplier',
             'product_count': 'contract.view_product',
@@ -684,6 +719,13 @@ class QueryService:
             'production_task': {'count': 'production_task_count', 'list': 'production_task_list'},
             'production_equipment': {'count': 'production_equipment_count', 'list': 'production_equipment_list'},
             'production_procedure': {'count': 'production_procedure_count', 'list': 'production_procedure_list'},
+            'reward_punishment': {'count': 'reward_punishment_count', 'list': 'reward_punishment_list'},
+            'employee_care': {'count': 'employee_care_count', 'list': 'employee_care_list'},
+            'procedureset': {'count': 'procedureset_count', 'list': 'procedureset_list'},
+            'bom': {'count': 'bom_count', 'list': 'bom_list'},
+            'process': {'count': 'process_count', 'list': 'process_list'},
+            'quality_check': {'count': 'quality_check_count', 'list': 'quality_check_list'},
+            'datacollection': {'count': 'datacollection_count', 'list': 'datacollection_list'},
             'supplier': {'count': 'supplier_count', 'list': 'supplier_list'},
             'product': {'count': 'product_count', 'list': 'product_list'},
             'inventory': {'count': 'inventory_count', 'list': 'inventory_list'},
@@ -797,6 +839,13 @@ class QueryService:
             'production_task',
             'production_equipment',
             'production_procedure',
+            'reward_punishment',
+            'employee_care',
+            'procedureset',
+            'bom',
+            'process',
+            'quality_check',
+            'datacollection',
             'supplier',
             'product',
             'inventory',
@@ -1038,6 +1087,48 @@ class QueryService:
                 intent = 'schedule_count'
             else:
                 intent = 'schedule_list'
+        elif any(keyword in query_lower for keyword in ['奖罚', '奖惩', '奖励记录', '处罚记录']):
+            self._extract_reward_punishment_entities(query_lower, entities)
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'reward_punishment_count'
+            else:
+                intent = 'reward_punishment_list'
+        elif any(keyword in query_lower for keyword in ['员工关怀', '关怀记录', '生日关怀', '节日关怀']):
+            self._extract_employee_care_entities(query_lower, entities)
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'employee_care_count'
+            else:
+                intent = 'employee_care_list'
+        elif any(keyword in query_lower for keyword in ['工序集', '工序组合', '工序套']):
+            self._extract_production_detail_entities(query_lower, entities, 'procedureset')
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'procedureset_count'
+            else:
+                intent = 'procedureset_list'
+        elif any(keyword in query_lower for keyword in ['bom', '物料清单', 'bom清单']):
+            self._extract_production_detail_entities(query_lower, entities, 'bom')
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'bom_count'
+            else:
+                intent = 'bom_list'
+        elif any(keyword in query_lower for keyword in ['工艺路线', '生产路线', '路线模板']):
+            self._extract_production_detail_entities(query_lower, entities, 'process')
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'process_count'
+            else:
+                intent = 'process_list'
+        elif any(keyword in query_lower for keyword in ['质量检查', '质检记录', '质量管理']):
+            self._extract_production_detail_entities(query_lower, entities, 'quality_check')
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'quality_check_count'
+            else:
+                intent = 'quality_check_list'
+        elif any(keyword in query_lower for keyword in ['数据采集', '采集记录', '采集数据']):
+            self._extract_production_detail_entities(query_lower, entities, 'datacollection')
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'datacollection_count'
+            else:
+                intent = 'datacollection_list'
         elif any(keyword in query_lower for keyword in ['ai模型配置', '模型配置', '可用ai模型', '可用模型']):
             self._extract_ai_center_entities(query_lower, entities, 'ai_model_config')
             if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
@@ -2041,6 +2132,59 @@ class QueryService:
             entities['status'] = 'pending'
         elif any(keyword in query_lower for keyword in ['在职', '正常员工', '启用员工']):
             entities['status'] = 'active'
+
+    def _extract_reward_punishment_entities(self, query_lower, entities):
+        self._extract_time_range_entities(query_lower, entities)
+        if any(keyword in query_lower for keyword in ['奖励', '表彰', '嘉奖']):
+            entities['type'] = 'reward'
+        elif any(keyword in query_lower for keyword in ['处罚', '惩罚', '处分']):
+            entities['type'] = 'punishment'
+
+    def _extract_employee_care_entities(self, query_lower, entities):
+        self._extract_time_range_entities(query_lower, entities)
+        care_type_mapping = {
+            'birthday': ['生日关怀', '生日'],
+            'holiday': ['节日关怀', '节日'],
+            'illness': ['生病慰问', '病假慰问', '住院慰问'],
+            'family': ['家庭关怀', '家属关怀'],
+            'achievement': ['成就祝贺', '获奖祝贺', '晋升祝贺'],
+        }
+        for care_type, keywords in care_type_mapping.items():
+            if any(keyword in query_lower for keyword in keywords):
+                entities['care_type'] = care_type
+                break
+
+    def _extract_production_detail_entities(self, query_lower, entities, data_type):
+        self._extract_time_range_entities(query_lower, entities)
+        if data_type in {'procedureset', 'bom'}:
+            self._extract_enabled_status_entities(query_lower, entities)
+            return
+        if data_type == 'process':
+            status_mapping = {
+                'pending': ['待审核'],
+                'approved': ['已审核'],
+                'in_progress': ['执行中', '进行中'],
+                'completed': ['已完成'],
+                'cancelled': ['已取消'],
+            }
+            for status, keywords in status_mapping.items():
+                if any(keyword in query_lower for keyword in keywords):
+                    entities['status'] = status
+                    break
+            return
+        if data_type == 'quality_check':
+            if any(keyword in query_lower for keyword in ['不合格', '异常质检']):
+                entities['status'] = 'unqualified'
+            elif any(keyword in query_lower for keyword in ['合格']):
+                entities['status'] = 'qualified'
+            elif any(keyword in query_lower for keyword in ['待检']):
+                entities['status'] = 'pending'
+            return
+        if data_type == 'datacollection':
+            if any(keyword in query_lower for keyword in ['异常', '超标', '不正常']):
+                entities['status'] = 'abnormal'
+            elif any(keyword in query_lower for keyword in ['正常', '合规']):
+                entities['status'] = 'normal'
 
     def _extract_asset_entities(self, query_lower, entities):
         if any(keyword in query_lower for keyword in ['维修中', '维修的', '报修']):
@@ -4194,6 +4338,261 @@ class QueryService:
             'data_type': 'production_procedure'
         }
 
+    def handle_reward_punishment_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.user.models.employee import RewardPunishment
+
+        queryset = self._apply_reward_punishment_filters(
+            RewardPunishment.objects.select_related('employee', 'executor').all(),
+            entities,
+        )
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'reward_punishment',
+            'status': entities.get('type'),
+        }
+
+    def handle_reward_punishment_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.user.models.employee import RewardPunishment
+
+        queryset = self._apply_reward_punishment_filters(
+            RewardPunishment.objects.select_related('employee', 'executor').all(),
+            entities,
+        )
+        items = [{
+            'id': item.id,
+            'title': item.title,
+            'type': item.get_type_display() if hasattr(item, 'get_type_display') else item.type,
+            'level': item.get_level_display() if hasattr(item, 'get_level_display') else item.level,
+            'employee': getattr(item.employee, 'username', ''),
+            'executor': getattr(item.executor, 'username', ''),
+            'effective_date': item.effective_date.strftime('%Y-%m-%d') if item.effective_date else '',
+        } for item in queryset[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'reward_punishment',
+            'status': entities.get('type'),
+        }
+
+    def handle_employee_care_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.user.models.employee import EmployeeCare
+
+        queryset = self._apply_employee_care_filters(
+            EmployeeCare.objects.select_related('employee', 'executor').all(),
+            entities,
+        )
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'employee_care',
+            'status': entities.get('care_type'),
+        }
+
+    def handle_employee_care_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.user.models.employee import EmployeeCare
+
+        queryset = self._apply_employee_care_filters(
+            EmployeeCare.objects.select_related('employee', 'executor').all(),
+            entities,
+        )
+        items = [{
+            'id': item.id,
+            'title': item.title,
+            'care_type': item.get_care_type_display() if hasattr(item, 'get_care_type_display') else item.care_type,
+            'employee': getattr(item.employee, 'username', ''),
+            'executor': getattr(item.executor, 'username', ''),
+            'care_date': item.care_date.strftime('%Y-%m-%d') if item.care_date else '',
+        } for item in queryset[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'employee_care',
+            'status': entities.get('care_type'),
+        }
+
+    def handle_procedureset_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.production.models import ProcedureSet
+
+        queryset = self._apply_active_status_filter(ProcedureSet.objects.all(), entities, 'status')
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'procedureset',
+            'status': entities.get('status'),
+        }
+
+    def handle_procedureset_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.production.models import ProcedureSet
+
+        queryset = self._apply_active_status_filter(ProcedureSet.objects.all(), entities, 'status')
+        items = [{
+            'id': item.id,
+            'name': item.name,
+            'code': item.code,
+            'status': '启用' if item.status else '停用',
+            'total_time': item.total_time,
+        } for item in queryset[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'procedureset',
+            'status': entities.get('status'),
+        }
+
+    def handle_bom_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.production.models import BOM
+
+        queryset = self._apply_active_status_filter(BOM.objects.all(), entities, 'status')
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'bom',
+            'status': entities.get('status'),
+        }
+
+    def handle_bom_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.production.models import BOM
+
+        queryset = self._apply_active_status_filter(
+            BOM.objects.select_related('product', 'creator').all(),
+            entities,
+            'status',
+        )
+        items = [{
+            'id': item.id,
+            'name': item.name,
+            'code': item.code,
+            'status': '启用' if item.status else '停用',
+            'product': getattr(getattr(item, 'product', None), 'name', ''),
+        } for item in queryset[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'bom',
+            'status': entities.get('status'),
+        }
+
+    def handle_process_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.production.models import ProcessRoute
+
+        queryset = self._apply_process_filters(ProcessRoute.objects.all(), entities)
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'process',
+            'status': entities.get('status'),
+        }
+
+    def handle_process_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.production.models import ProcessRoute
+
+        queryset = self._apply_process_filters(ProcessRoute.objects.select_related('product').all(), entities)
+        items = [{
+            'id': item.id,
+            'name': item.name,
+            'code': item.code,
+            'status': item.status_display,
+            'product': getattr(getattr(item, 'product', None), 'name', ''),
+        } for item in queryset[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'process',
+            'status': entities.get('status'),
+        }
+
+    def handle_quality_check_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.production.models import QualityCheck
+
+        queryset = self._apply_quality_check_filters(QualityCheck.objects.select_related('task').all(), entities)
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'quality_check',
+            'status': entities.get('status'),
+        }
+
+    def handle_quality_check_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.production.models import QualityCheck
+
+        queryset = self._apply_quality_check_filters(
+            QualityCheck.objects.select_related('task', 'created_by').all(),
+            entities,
+        )
+        items = [{
+            'id': item.id,
+            'task': getattr(getattr(item, 'task', None), 'name', ''),
+            'result': item.result_display if hasattr(item, 'result_display') else item.result,
+            'check_time': item.check_time.strftime('%Y-%m-%d %H:%M') if item.check_time else '',
+            'inspector': getattr(getattr(item, 'created_by', None), 'username', ''),
+        } for item in queryset[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'quality_check',
+            'status': entities.get('status'),
+        }
+
+    def handle_datacollection_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.production.models import DataCollection
+
+        queryset = self._apply_datacollection_filters(
+            DataCollection.objects.select_related('task', 'equipment').all(),
+            entities,
+        )
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'datacollection',
+            'status': entities.get('status'),
+        }
+
+    def handle_datacollection_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.production.models import DataCollection
+
+        queryset = self._apply_datacollection_filters(
+            DataCollection.objects.select_related('task', 'equipment', 'created_by').all(),
+            entities,
+        )
+        items = [{
+            'id': item.id,
+            'parameter_name': item.parameter_name,
+            'parameter_value': item.parameter_value,
+            'unit': item.unit,
+            'equipment': getattr(getattr(item, 'equipment', None), 'name', ''),
+            'task': getattr(getattr(item, 'task', None), 'name', ''),
+            'status': '正常' if item.is_normal else '异常',
+            'collect_time': item.collect_time.strftime('%Y-%m-%d %H:%M') if item.collect_time else '',
+        } for item in queryset[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'datacollection',
+            'status': entities.get('status'),
+        }
+
     def handle_supplier_count(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.contract.models import Supplier
@@ -5712,6 +6111,13 @@ class QueryService:
             'production_task': '生产任务',
             'production_equipment': '生产设备',
             'production_procedure': '生产工序',
+            'reward_punishment': '奖罚记录',
+            'employee_care': '员工关怀',
+            'procedureset': '工序集',
+            'bom': 'BOM',
+            'process': '工艺路线',
+            'quality_check': '质量检查',
+            'datacollection': '数据采集',
             'approval_flow': '审批流程',
             'approval_task': '待办审批',
             'meeting_room': '会议室',
@@ -6244,6 +6650,51 @@ class QueryService:
                 if code:
                     return f"{name}（{code}，标准工时{time}小时）"
                 return f"{name}（标准工时{time}小时）"
+            elif data_type == 'reward_punishment':
+                title = item.get('title', '未知')
+                record_type = item.get('type', '')
+                employee = item.get('employee', '')
+                if employee:
+                    return f"{title}（{employee}，{record_type}）"
+                return f"{title}（{record_type}）"
+            elif data_type == 'employee_care':
+                title = item.get('title', '未知')
+                care_type = item.get('care_type', '')
+                employee = item.get('employee', '')
+                if employee:
+                    return f"{title}（{employee}，{care_type}）"
+                return f"{title}（{care_type}）"
+            elif data_type == 'procedureset':
+                name = item.get('name', '未知')
+                code = item.get('code', '')
+                status = item.get('status', '')
+                if code:
+                    return f"{name}（{code}，{status}）"
+                return f"{name}（{status}）"
+            elif data_type == 'bom':
+                name = item.get('name', '未知')
+                code = item.get('code', '')
+                status = item.get('status', '')
+                if code:
+                    return f"{name}（{code}，{status}）"
+                return f"{name}（{status}）"
+            elif data_type == 'process':
+                name = item.get('name', '未知')
+                code = item.get('code', '')
+                status = item.get('status', '')
+                if code:
+                    return f"{name}（{code}，{status}）"
+                return f"{name}（{status}）"
+            elif data_type == 'quality_check':
+                task = item.get('task', '未知任务')
+                result = item.get('result', '')
+                return f"{task}（{result}）"
+            elif data_type == 'datacollection':
+                parameter = item.get('parameter_name', '未知参数')
+                value = item.get('parameter_value', '')
+                unit = item.get('unit', '')
+                status = item.get('status', '')
+                return f"{parameter}（{value}{unit}，{status}）"
             elif data_type == 'disk':
                 name = item.get('name', '未知')
                 folder = item.get('folder', '')
@@ -6714,6 +7165,66 @@ class QueryService:
         if mapped_status is not None:
             queryset = queryset.filter(status=mapped_status)
         return queryset
+
+    def _apply_reward_punishment_filters(self, queryset, entities):
+        record_type = entities.get('type')
+        if record_type in {'reward', 'punishment'}:
+            queryset = queryset.filter(type=record_type)
+        time_range = entities.get('time_range')
+        if time_range:
+            start_at, end_at = self._resolve_time_range(time_range)
+            if start_at and end_at:
+                queryset = queryset.filter(
+                    effective_date__range=(start_at.date(), (end_at - timedelta(seconds=1)).date())
+                )
+        return queryset
+
+    def _apply_employee_care_filters(self, queryset, entities):
+        care_type = entities.get('care_type')
+        if care_type:
+            queryset = queryset.filter(care_type=care_type)
+        time_range = entities.get('time_range')
+        if time_range:
+            start_at, end_at = self._resolve_time_range(time_range)
+            if start_at and end_at:
+                queryset = queryset.filter(
+                    care_date__range=(start_at.date(), (end_at - timedelta(seconds=1)).date())
+                )
+        return queryset
+
+    def _apply_process_filters(self, queryset, entities):
+        status_mapping = {
+            'pending': 1,
+            'approved': 2,
+            'in_progress': 3,
+            'completed': 4,
+            'cancelled': 5,
+        }
+        status = entities.get('status')
+        mapped_status = status_mapping.get(status, status if isinstance(status, int) else None)
+        if mapped_status is not None:
+            queryset = queryset.filter(status=mapped_status)
+        return queryset
+
+    def _apply_quality_check_filters(self, queryset, entities):
+        status = entities.get('status')
+        status_mapping = {
+            'qualified': 1,
+            'unqualified': 2,
+            'pending': 3,
+        }
+        mapped_status = status_mapping.get(status, status if isinstance(status, int) else None)
+        if mapped_status is not None:
+            queryset = queryset.filter(result=mapped_status)
+        return self._apply_datetime_range_filter(queryset, entities, 'check_time')
+
+    def _apply_datacollection_filters(self, queryset, entities):
+        status = entities.get('status')
+        if status == 'normal':
+            queryset = queryset.filter(is_normal=True)
+        elif status == 'abnormal':
+            queryset = queryset.filter(is_normal=False)
+        return self._apply_datetime_range_filter(queryset, entities, 'collect_time')
 
     def _apply_department_filters(self, queryset, entities):
         status = entities.get('status')

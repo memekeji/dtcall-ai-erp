@@ -248,6 +248,34 @@ class AIQueryServicePermissionMappingTests(SimpleTestCase):
         self.assertTrue(service.check_permission(user, 'seal_list'))
         self.assertTrue(service.check_permission(user, 'seal_application_list'))
 
+    def test_hr_and_production_detail_query_permissions_follow_menu_nodes(self):
+        from apps.ai.services.query_service import QueryService
+
+        allowed_permissions = {
+            'user.view_reward_punishment',
+            'user.view_employee_care',
+            'user.view_procedureset',
+            'user.view_bom',
+            'user.view_process',
+            'user.view_quality_check',
+            'user.view_datacollection',
+        }
+        user = SimpleNamespace(
+            username='hr-production-detail-query-user',
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in allowed_permissions,
+        )
+        service = QueryService()
+
+        self.assertTrue(service.check_permission(user, 'reward_punishment_list'))
+        self.assertTrue(service.check_permission(user, 'employee_care_list'))
+        self.assertTrue(service.check_permission(user, 'procedureset_list'))
+        self.assertTrue(service.check_permission(user, 'bom_list'))
+        self.assertTrue(service.check_permission(user, 'process_list'))
+        self.assertTrue(service.check_permission(user, 'quality_check_list'))
+        self.assertTrue(service.check_permission(user, 'datacollection_list'))
+
 
 class AIRollbackServiceTests(SimpleTestCase):
     def test_rollback_plan_reverses_change_set_order(self):
@@ -1561,6 +1589,24 @@ class AIConfigurationSourceTests(SimpleTestCase):
         self.assertEqual(bank_tx_create['permission_code'], 'finance.add_banktransaction')
         self.assertEqual(bank_tx_create['target_url'], '/finance/advanced/bank-transaction/add/')
 
+    def test_project_mcp_exposes_reward_punishment_query_capability(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capabilities = project_mcp_service.get_capability_catalog()
+        reward_query = next(item for item in capabilities if item['id'] == 'query.reward_punishment.list')
+
+        self.assertEqual(reward_query['permission_code'], 'user.view_reward_punishment')
+        self.assertEqual(reward_query['module'], '人事管理')
+
+    def test_project_mcp_exposes_bom_create_capability(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capabilities = project_mcp_service.get_capability_catalog()
+        bom_create = next(item for item in capabilities if item['id'] == 'write.bom.create')
+
+        self.assertEqual(bom_create['permission_code'], 'user.add_bom')
+        self.assertEqual(bom_create['target_url'], '/production/bom/add/')
+
     def test_project_mcp_registry_exposes_query_and_write_capabilities(self):
         from apps.ai.services.project_mcp_service import project_mcp_service
 
@@ -2437,6 +2483,58 @@ class AIConfigurationSourceTests(SimpleTestCase):
         self.assertEqual(task['target_url'], '/finance/advanced/bank-transaction/add/')
         self.assertEqual(task['permission_required']['full_code'], 'finance.add_banktransaction')
 
+    def test_reward_punishment_create_handoff_is_enabled(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in {'user.add_reward_punishment'},
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'reward_punishment',
+                'entities': {'title': '季度优秀员工奖励'},
+                'confidence': 0.9,
+            },
+            '新增一条季度优秀员工奖励记录',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/user/reward-punishment/add/')
+        self.assertEqual(task['permission_required']['full_code'], 'user.add_reward_punishment')
+
+    def test_bom_create_handoff_is_enabled(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm in {'user.add_bom'},
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'bom',
+                'entities': {'name': '主板BOM'},
+                'confidence': 0.9,
+            },
+            '新增一个主板BOM',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/production/bom/add/')
+        self.assertEqual(task['permission_required']['full_code'], 'user.add_bom')
+
     def test_approval_flow_create_handoff_uses_model_permission(self):
         from apps.ai.services.enhanced_intent_service import EnhancedIntentService
 
@@ -2769,6 +2867,22 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
 
         self.assertEqual(intent, 'ai_task_list')
         self.assertEqual(entities['status'], 'failed')
+
+    def test_recognize_reward_punishment_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('奖励记录有哪些')
+
+        self.assertEqual(intent, 'reward_punishment_list')
+        self.assertEqual(entities['type'], 'reward')
+
+    def test_recognize_bom_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('启用的BOM有多少')
+
+        self.assertEqual(intent, 'bom_count')
+        self.assertEqual(entities['status'], 'active')
 
     def test_recognize_published_ai_workflow_plain_language(self):
         from apps.ai.services.query_service import QueryService
@@ -5017,6 +5131,176 @@ class AIQueryServiceApprovalAndFinanceScopeTests(TestCase):
 
         self.assertIn('测试物料', message)
         self.assertIn('数量2', message)
+
+    def _build_production_task(self, suffix: str):
+        from apps.production.models import Equipment, ProductionPlan, ProductionProcedure, ProductionTask
+
+        procedure = ProductionProcedure.objects.create(name=f'装配工序{suffix}', code=f'PROC-{suffix}')
+        plan = ProductionPlan.objects.create(
+            name=f'生产计划{suffix}',
+            code=f'PLAN-{suffix}',
+            quantity=Decimal('10'),
+            unit='件',
+            plan_start_date=date.today(),
+            plan_end_date=date.today() + timedelta(days=1),
+        )
+        equipment = Equipment.objects.create(name=f'设备{suffix}', code=f'EQ-{suffix}')
+        task = ProductionTask.objects.create(
+            plan=plan,
+            name=f'生产任务{suffix}',
+            code=f'TASK-{suffix}',
+            procedure=procedure,
+            equipment=equipment,
+            quantity=Decimal('10'),
+            plan_start_time=timezone.now(),
+            plan_end_time=timezone.now() + timedelta(hours=8),
+        )
+        return task, equipment
+
+    def test_reward_punishment_list_type_scope_only_returns_reward(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.user.models.employee import RewardPunishment
+
+        User = get_user_model()
+        employee = User.objects.create_user(username='reward-employee')
+        executor = User.objects.create_user(username='reward-executor')
+
+        RewardPunishment.objects.create(
+            employee=employee,
+            executor=executor,
+            type='reward',
+            level='company',
+            title='季度奖励',
+            reason='业绩突出',
+            effective_date=date.today(),
+        )
+        RewardPunishment.objects.create(
+            employee=employee,
+            executor=executor,
+            type='punishment',
+            level='department',
+            title='考勤处罚',
+            reason='迟到',
+            effective_date=date.today(),
+        )
+
+        result = QueryService().handle_reward_punishment_list({'type': 'reward'}, employee)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(titles, {'季度奖励'})
+
+    def test_employee_care_count_care_type_scope_only_counts_birthday(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.user.models.employee import EmployeeCare
+
+        User = get_user_model()
+        employee = User.objects.create_user(username='care-employee')
+        executor = User.objects.create_user(username='care-executor')
+
+        EmployeeCare.objects.create(
+            employee=employee,
+            executor=executor,
+            care_type='birthday',
+            title='生日礼券',
+            content='生日快乐',
+            care_date=date.today(),
+        )
+        EmployeeCare.objects.create(
+            employee=employee,
+            executor=executor,
+            care_type='holiday',
+            title='节日礼包',
+            content='节日问候',
+            care_date=date.today(),
+        )
+
+        result = QueryService().handle_employee_care_count({'care_type': 'birthday'}, employee)
+
+        self.assertEqual(result['value'], 1)
+
+    def test_bom_list_status_scope_only_returns_active(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.production.models import BOM
+
+        User = get_user_model()
+        user = User.objects.create_user(username='bom-query-user')
+
+        BOM.objects.create(name='启用BOM', code='BOM-ACTIVE', status=True, creator=user)
+        BOM.objects.create(name='停用BOM', code='BOM-INACTIVE', status=False, creator=user)
+
+        result = QueryService().handle_bom_list({'status': 'active'}, user)
+        codes = {item['code'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(codes, {'BOM-ACTIVE'})
+
+    def test_quality_check_list_result_scope_only_returns_unqualified(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.production.models import QualityCheck
+
+        User = get_user_model()
+        inspector = User.objects.create_user(username='quality-inspector')
+        task, _ = self._build_production_task('QC')
+
+        QualityCheck.objects.create(
+            task=task,
+            created_by=inspector,
+            check_quantity=Decimal('10'),
+            qualified_quantity=Decimal('10'),
+            defective_quantity=Decimal('0'),
+            result=1,
+        )
+        QualityCheck.objects.create(
+            task=task,
+            created_by=inspector,
+            check_quantity=Decimal('10'),
+            qualified_quantity=Decimal('8'),
+            defective_quantity=Decimal('2'),
+            result=2,
+        )
+
+        result = QueryService().handle_quality_check_list({'status': 'unqualified'}, inspector)
+        statuses = {item['result'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(statuses, {'不合格'})
+
+    def test_datacollection_count_status_scope_only_counts_abnormal(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.production.models import DataCollection
+
+        User = get_user_model()
+        operator = User.objects.create_user(username='data-collector')
+        task, equipment = self._build_production_task('DC')
+
+        DataCollection.objects.create(
+            task=task,
+            equipment=equipment,
+            parameter_name='温度',
+            parameter_value=Decimal('32.5000'),
+            unit='℃',
+            is_normal=True,
+            created_by=operator,
+        )
+        DataCollection.objects.create(
+            task=task,
+            equipment=equipment,
+            parameter_name='温度',
+            parameter_value=Decimal('85.0000'),
+            unit='℃',
+            is_normal=False,
+            created_by=operator,
+        )
+
+        result = QueryService().handle_datacollection_count({'status': 'abnormal'}, operator)
+
+        self.assertEqual(result['value'], 1)
 
     def test_approval_list_created_by_me_scope_only_returns_my_approvals(self):
         from django.contrib.auth import get_user_model

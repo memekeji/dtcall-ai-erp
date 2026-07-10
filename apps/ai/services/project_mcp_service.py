@@ -55,6 +55,13 @@ class ProjectMCPService:
         'production_task': {'label': '生产任务', 'module': '生产管理', 'aliases': ['生产任务', '生产工单', '派工单']},
         'production_equipment': {'label': '生产设备', 'module': '生产管理', 'aliases': ['设备', '生产设备', '机台', '机器设备']},
         'production_procedure': {'label': '工序', 'module': '生产管理', 'aliases': ['工序', '生产工序', '工艺工序']},
+        'procedureset': {'label': '工序集', 'module': '生产管理', 'aliases': ['工序集', '工序组合', '工序套']},
+        'bom': {'label': 'BOM', 'module': '生产管理', 'aliases': ['BOM', 'bom', '物料清单', 'BOM清单']},
+        'process': {'label': '工艺路线', 'module': '生产管理', 'aliases': ['工艺路线', '生产路线', '路线模板']},
+        'quality_check': {'label': '质量检查', 'module': '生产管理', 'aliases': ['质量检查', '质检记录', '质量管理']},
+        'datacollection': {'label': '数据采集', 'module': '生产管理', 'aliases': ['数据采集', '采集记录', '采集数据']},
+        'reward_punishment': {'label': '奖罚记录', 'module': '人事管理', 'aliases': ['奖罚', '奖惩', '奖励记录', '处罚记录']},
+        'employee_care': {'label': '员工关怀', 'module': '人事管理', 'aliases': ['员工关怀', '关怀记录', '生日关怀', '节日关怀']},
         'employee': {'label': '员工', 'module': '人事管理', 'aliases': ['员工', '人员']},
         'department': {'label': '部门', 'module': '组织管理', 'aliases': ['部门', '组织架构']},
         'followup': {'label': '跟进记录', 'module': '客户管理', 'aliases': ['跟进', '跟进记录', '回访']},
@@ -288,7 +295,7 @@ class ProjectMCPService:
             tags.append('approval_query')
         if resource.startswith('disk'):
             tags.append('file_query')
-        if resource.startswith('production'):
+        if resource.startswith('production') or resource in {'procedureset', 'bom', 'process', 'quality_check', 'datacollection'}:
             tags.append('production_query')
         return tags
 
