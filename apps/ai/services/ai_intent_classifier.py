@@ -261,7 +261,7 @@ class AIIntentClassifier:
         ('notice', ['公告', '通知公告']),
         ('meeting', ['会议', '会议纪要', '会议室']),
         ('schedule', ['日程', '排期', '安排']),
-        ('task', ['任务', '待办']),
+        ('task', ['任务', '待办', '待办任务', '工作任务']),
         ('workhour', ['工时']),
         ('project_document', ['项目文档', '项目资料', '项目附件', '项目文件']),
         ('project_stage', ['项目阶段', '阶段管理', '阶段列表']),
@@ -276,7 +276,7 @@ class AIIntentClassifier:
         ('invoice', ['发票', '开票']),
         ('employee', ['员工', '人事', '人员', '同事']),
         ('department', ['部门', '组织', '组织架构']),
-        ('expense', ['报销单', '费用单', '费用', '支出']),
+        ('expense', ['报销单', '费用单', '费用', '支出', '报销', '费用报销', '报销了', '花了多少钱', '花费', '花销', '开支', '经费']),
         ('income', ['回款记录', '到账记录', '收入', '回款']),
         ('payment', ['付款单', '打款记录', '付款', '打款', '收款']),
         ('finance_order_record', ['订单财务记录', '订单财务', '订单回款记录', '订单付款记录']),
@@ -318,21 +318,21 @@ class AIIntentClassifier:
         ('enterprise', ['企业信息', '公司信息', '公司', '企业']),
         ('position', ['岗位', '职称', '职位', '岗位信息']),
         ('work_record', ['工作记录', '工作日志', '履职记录']),
-        ('work_report', ['工作汇报', '日报', '周报', '月报', '工作总结', '工作报告']),
+        ('work_report', ['工作汇报', '日报', '周报', '工作总结', '工作报告', '工作月报']),
         ('personal_task', ['个人任务', '我的待办', '待办']),
         ('personal_note', ['个人笔记', '我的笔记', '笔记']),
         ('personal_contact', ['个人通讯录', '我的联系人', '私人通讯录', '私人联系人']),
     )
-    CREATE_KEYWORDS = ('添加', '新增', '创建', '增加', '新建', '录入', '登记', '上传', '提交', '发起', '申请', '起草')
-    UPDATE_KEYWORDS = ('修改', '更新', '更改', '调整', '编辑', '维护', '设置', '共享', '分享', '审批通过', '驳回', '同意', '拒绝')
+    CREATE_KEYWORDS = ('添加', '新增', '创建', '增加', '新建', '录入', '登记', '上传', '提交', '发起', '申请', '起草', '帮我加', '帮加', '帮我建', '帮建', '帮我录入', '帮我输入', '帮我登记', '加一个', '建一个', '录一个', '添一个', '创建一个')
+    UPDATE_KEYWORDS = ('修改', '更新', '更改', '调整', '编辑', '维护', '设置', '共享', '分享', '审批通过', '驳回', '同意', '拒绝', '帮我改', '帮改', '帮我修改', '帮我更新', '帮我设置', '改一下', '更新一下', '修改一下', '变更为', '改成', '更改为')
     APPROVE_KEYWORDS = ('帮我审批', '请审批', '审批这', '审批一下', '帮我审核', '请审核', '审核这', '审核一下', '批准这', '通过这', '同意这', '审批通过', '审核通过', '批准通过', '过审', '处理预警', '处理一下预警', '确认预警', '处理这个预警', '处理库存预警')
     REJECT_KEYWORDS = ('驳回', '拒绝', '退回', '忽略预警', '忽略这个预警')
     SUBMIT_KEYWORDS = ('提交', '提审', '送审', '上报')
     PUBLISH_KEYWORDS = ('发布', '下发', '发文')
     WITHDRAW_KEYWORDS = ('撤回审批', '撤回流程', '撤回申请', '撤销审批')
     STOCK_KEYWORDS = ('入库确认', '出库确认', '执行入库', '执行出库', '完成入库', '完成出库')
-    DELETE_KEYWORDS = ('删除', '移除', '作废', '撤销', '取消', '停用')
-    QUERY_KEYWORDS = ('查询', '查看', '查', '查下', '看一下', '看下', '看看', '看一看', '找', '搜索', '统计', '多少', '数量', '列表', '有哪些', '列出', '显示', '汇总', '进度')
+    DELETE_KEYWORDS = ('删除', '移除', '作废', '撤销', '取消', '停用', '帮我删', '帮删', '帮我删除', '帮我移除', '删掉', '去掉', '清除', '清理')
+    QUERY_KEYWORDS = ('查询', '查看', '查', '查下', '看一下', '看下', '看看', '看一看', '找', '搜索', '统计', '多少', '数量', '列表', '有哪些', '列出', '显示', '汇总', '进度', '帮我查', '帮查', '帮我查下', '帮我看看', '帮看看', '帮我找', '帮找', '帮我统计', '帮我算', '告诉', '告诉我', '说一下', '讲一下', '还有多少', '剩多少', '还有几个', '剩几个', '什么情况', '怎么样', '有多少个', '有哪些是', '都是什么', '都是谁')
 
     def __init__(self):
         self.ai_client = None
@@ -702,11 +702,23 @@ class AIIntentClassifier:
         return cleaned[:max_length]
 
     def _safe_fallback_result(self, query: str, reason: str) -> Dict[str, Any]:
-        """模型不可用时的安全降级结果"""
+        """模型不可用时的安全降级结果——提供更智能的业务引导"""
         query_lower = (query or '').lower()
         ai_configured = self.ai_config is not None
         model_provider = self.ai_config.get('provider') if self.ai_config else None
         model_name = self.ai_config.get('model_name') if self.ai_config else None
+        # 构造更友好的降级提示信息
+        if not ai_configured:
+            friendly_reason = 'AI 模型未配置，已使用规则引擎识别意图。您可前往AI模型配置页面添加模型以启用 AI 智能识别。'
+        elif '503' in str(reason) or 'channel' in str(reason).lower():
+            friendly_reason = 'AI 服务暂时不可用(503)，已使用规则引擎识别意图。请稍后重试或检查 AI 模型服务状态。'
+        elif '401' in str(reason) or 'token' in str(reason).lower() or 'key' in str(reason).lower():
+            friendly_reason = 'AI API 密钥无效，已使用规则引擎识别意图。请检查AI模型配置中的 API 密钥是否正确。'
+        elif 'timeout' in str(reason).lower():
+            friendly_reason = 'AI 请求超时，已使用规则引擎识别意图。请检查网络连接或 API 服务是否可达。'
+        else:
+            friendly_reason = reason
+
         fallback = {
             'intent': 'AI_CHAT',
             'confidence': 0.35,
@@ -722,11 +734,11 @@ class AIIntentClassifier:
                 {'text': '请补充要查询的数据范围', 'intent': 'DATA_QUERY', 'action': 'select'},
                 {'text': '打开完整 AI 助手', 'intent': 'UI_ACTION', 'action': 'ui_open_assistant'},
             ],
-            'reasoning': reason,
+            'reasoning': friendly_reason,
             'source': 'safe_fallback',
             'ai_available': False,
             'ai_configured': ai_configured,
-            'failure_reason': reason,
+            'failure_reason': friendly_reason,
             'model_provider': model_provider,
             'model_name': model_name,
         }
@@ -870,6 +882,9 @@ class AIIntentClassifier:
             return 'approve'
         if any(keyword.lower() in query_lower for keyword in self.UPDATE_KEYWORDS):
             return 'update'
+        # 如果识别到了具体的数据类型但没匹配到任何操作关键词，默认为查询
+        if self._infer_candidate_data_types_from_query(query):
+            return 'list'
         return 'chat'
 
     def _infer_business_status_from_query(self, query: str, data_type: str | None) -> str | None:
@@ -1004,8 +1019,46 @@ class AIIntentClassifier:
                     result['customer_name'] = match.group(1)[:80]
                     break
 
-        if result.get('data_type') not in self.ALLOWED_DATA_TYPES:
-            result['data_type'] = None
+        # 提取金额实体
+        if not result.get('extracted_amount'):
+            amount_patterns = [
+                r'([0-9,.]+)\s*[万亿千百]?\s*[元块]',
+                r'金额[：:]\s*([0-9,.]+)',
+                r'[0-9,.]+[万亿千百]',
+            ]
+            for pattern in amount_patterns:
+                match = re.search(pattern, query or '')
+                if match:
+                    result['extracted_amount'] = match.group(0).strip()
+                    break
+
+        # 提取日期实体
+        if not result.get('extracted_date'):
+            date_patterns = [
+                r'(\d{4}[-/年]\d{1,2}[-/月]\d{1,2})',
+                r'(\d{1,2}月\d{1,2}[日号])',
+                r'(今天|昨天|明天|前天|后天)',
+                r'(本周[一二三四五六日]|上周[一二三四五六日]|下周[一二三四五六日])',
+            ]
+            for pattern in date_patterns:
+                match = re.search(pattern, query or '')
+                if match:
+                    result['extracted_date'] = match.group(0).strip()
+                    break
+
+        # 提取名称实体
+        if not result.get('extracted_name'):
+            name_patterns = [
+                r'(?:员工|同事|负责人|项目经理|联系人)[：:]*\s*([\u4e00-\u9fa5]{2,4})',
+                r'项目[：:]*\s*[“”「」]*([\u4e00-\u9fa5\w]{2,20})[“”「」]*',
+                r'(?:给|对|找|联系|叫)\s*([\u4e00-\u9fa5]{2,4})\s*(?:打电话|发消息|处理|审批|协调)',
+            ]
+            for pattern in name_patterns:
+                match = re.search(pattern, query or '')
+                if match:
+                    result['extracted_name'] = match.group(1).strip()
+                    break
+
 
         candidate_data_types = self._infer_candidate_data_types_from_query(query)
         if not result.get('data_type'):
