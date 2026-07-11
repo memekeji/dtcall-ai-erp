@@ -781,7 +781,10 @@ class AIChatDetailView(
         return super().get(request, *args, **kwargs)
 
     def _serialize_message(self, message):
-        payload = getattr(message, 'runtime_payload', None)
+        payload = self._hydrate_pending_operation_payload(
+            message,
+            getattr(message, 'runtime_payload', None),
+        )
         data = {
             'id': message.id,
             'role': message.role,
@@ -793,6 +796,8 @@ class AIChatDetailView(
             options = payload.get('options')
             if isinstance(task, dict):
                 data['task'] = task
+                if message.role == 'assistant' and task.get('message'):
+                    data['content'] = task.get('message')
             if isinstance(options, list):
                 data['options'] = options
             if isinstance(payload.get('recognition_meta'), dict):
@@ -800,6 +805,77 @@ class AIChatDetailView(
             if isinstance(payload.get('mcp_context'), dict):
                 data['mcp_context'] = payload.get('mcp_context')
         return data
+
+    def _hydrate_pending_operation_payload(self, message, payload):
+        if not isinstance(payload, dict):
+            return payload
+
+        task = payload.get('task')
+        action = str(
+            (payload.get('action') or (task.get('action') if isinstance(task, dict) else '') or '')
+        ).lower()
+        intent_type = str(payload.get('intent_type') or (task.get('intent_type') if isinstance(task, dict) else '') or '')
+        if action not in enhanced_intent_service.MUTATING_ACTIONS and intent_type not in {'DATA_CREATE', 'DATA_UPDATE', 'DATA_DELETE'}:
+            return payload
+
+        if isinstance(task, dict) and task.get('operation_id') and task.get('confirmation_token'):
+            return payload
+
+        pending_operation = self._get_pending_operation_for_message(message)
+        if not pending_operation:
+            return payload
+
+        hydrated = dict(payload)
+        task_payload = dict(task or {})
+        task_title = task_payload.get('title') or '业务操作'
+        safety_notice = enhanced_intent_service._get_business_safety_notice(action or task_payload.get('action') or 'create')
+        message_text = f'已识别到{task_title}意图。{safety_notice}'
+        confirm_option = {
+            'text': '确认并执行',
+            'intent': task_payload.get('intent_type') or intent_type or 'AI_CHAT',
+            'action': 'confirm_operation',
+            'operation_id': pending_operation.id,
+            'token': pending_operation.confirmation_token,
+            'enabled': True,
+        }
+        cancel_option = {
+            'text': '取消操作',
+            'intent': 'AI_CHAT',
+            'action': 'cancel',
+            'enabled': True,
+        }
+
+        task_payload.update({
+            'operation_id': pending_operation.id,
+            'confirmation_token': pending_operation.confirmation_token,
+            'confirmation_message': message_text,
+            'message': message_text,
+            'safety_notice': safety_notice,
+            'options': [confirm_option, cancel_option],
+        })
+        hydrated['task'] = task_payload
+        hydrated['options'] = [confirm_option, cancel_option]
+        hydrated['operation_id'] = pending_operation.id
+        hydrated['requires_confirmation'] = True
+        confirmation = dict(hydrated.get('confirmation') or {})
+        confirmation.update({
+            'required': True,
+            'token': pending_operation.confirmation_token,
+            'message': message_text,
+        })
+        hydrated['confirmation'] = confirmation
+        return hydrated
+
+    def _get_pending_operation_for_message(self, message):
+        user = getattr(getattr(self, 'request', None), 'user', None)
+        filters = {
+            'ai_message_id': getattr(message, 'id', None),
+            'status': 'preview',
+        }
+        user_id = getattr(user, 'id', None)
+        if user_id:
+            filters['user_id'] = user_id
+        return AIOperation.objects.filter(**filters).order_by('-created_at').first()
 
 
 class AIChatDeleteView(

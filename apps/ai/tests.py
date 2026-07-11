@@ -803,6 +803,61 @@ class AIChatStreamingResponseTests(SimpleTestCase):
         self.assertIn('"ai_message": "你好"', stream_text)
 
 
+class AIChatHistorySerializationTests(SimpleTestCase):
+    def test_serialize_message_hydrates_legacy_pending_operation(self):
+        from apps.ai.views import AIChatDetailView
+
+        view = AIChatDetailView()
+        view.request = SimpleNamespace(user=SimpleNamespace(id=9, is_authenticated=True))
+        message = SimpleNamespace(
+            id=3,
+            role='assistant',
+            content='已识别到新增审批意图。AI 只负责识别和带您进入业务页面，不会直接新增业务数据，请在页面内核对后再保存。',
+            created_at=timezone.now(),
+            runtime_payload={
+                'intent_type': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'approval',
+                'confirmation': {'required': True},
+                'task': {
+                    'type': 'business_handoff',
+                    'intent_type': 'DATA_CREATE',
+                    'action': 'create',
+                    'data_type': 'approval',
+                    'module': '审批管理',
+                    'title': '新增审批',
+                    'target_url': '/approval/apply/',
+                    'list_url': '/approval/my/',
+                    'open_mode': 'tab',
+                    'requires_user_confirmation': True,
+                    'safety_notice': 'AI 只负责识别和带您进入业务页面，不会直接新增业务数据，请在页面内核对后再保存。',
+                    'message': '已识别到新增审批意图。AI 只负责识别和带您进入业务页面，不会直接新增业务数据，请在页面内核对后再保存。',
+                    'options': [
+                        {'text': '打开新增审批', 'intent': 'DATA_CREATE', 'action': 'open_business_page', 'target_url': '/approval/apply/'},
+                        {'text': '打开审批列表', 'intent': 'DATA_QUERY', 'action': 'open_business_page', 'target_url': '/approval/my/'},
+                        {'text': '取消操作', 'intent': 'AI_CHAT', 'action': 'cancel'},
+                    ],
+                },
+                'options': [
+                    {'text': '打开新增审批', 'intent': 'DATA_CREATE', 'action': 'open_business_page', 'target_url': '/approval/apply/'},
+                    {'text': '打开审批列表', 'intent': 'DATA_QUERY', 'action': 'open_business_page', 'target_url': '/approval/my/'},
+                    {'text': '取消操作', 'intent': 'AI_CHAT', 'action': 'cancel'},
+                ],
+            },
+        )
+        operation = SimpleNamespace(id=301, confirmation_token='token-301')
+
+        with patch('apps.ai.views.AIOperation.objects.filter') as operation_filter:
+            operation_filter.return_value.order_by.return_value.first.return_value = operation
+            data = view._serialize_message(message)
+
+        self.assertIn('确认后直接执行', data['content'])
+        self.assertEqual(data['task']['operation_id'], 301)
+        self.assertEqual(data['task']['confirmation_token'], 'token-301')
+        self.assertEqual(data['task']['options'][0]['action'], 'confirm_operation')
+        self.assertEqual(data['options'][0]['action'], 'confirm_operation')
+
+
 class AIOperationPreviewServiceTests(SimpleTestCase):
     def test_create_preview_operation_persists_operation_and_confirmation(self):
         try:

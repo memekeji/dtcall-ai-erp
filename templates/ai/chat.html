@@ -490,6 +490,36 @@ layui.use(['layer', 'jquery'], function() {
         return $message;
     }
 
+    function isDialogExecutableTask(task) {
+        return !!(task && task.operation_id && task.confirmation_token);
+    }
+
+    function normalizeTaskOptions(task, options) {
+        var safeOptions = Array.isArray(options) ? options.slice() : [];
+        if (!isDialogExecutableTask(task)) {
+            return safeOptions;
+        }
+
+        safeOptions = safeOptions.filter(function(option) {
+            return option && option.action !== 'open_business_page';
+        });
+
+        var hasConfirmOption = safeOptions.some(function(option) {
+            return option && option.action === 'confirm_operation';
+        });
+        if (!hasConfirmOption) {
+            safeOptions.unshift({
+                text: '确认并执行',
+                intent: task.intent_type || task.intent || 'AI_CHAT',
+                action: 'confirm_operation',
+                operation_id: task.operation_id,
+                token: task.confirmation_token,
+                enabled: true
+            });
+        }
+        return safeOptions;
+    }
+
     function setAssistantStreamMessage($message, text) {
         if (!$message || !$message.length) return;
         $message.find('.ai-stream-message-content').text(text || '');
@@ -660,7 +690,7 @@ layui.use(['layer', 'jquery'], function() {
     }
 
     function renderTaskCard(task, options) {
-        var safeOptions = Array.isArray(options) ? options : [];
+        var safeOptions = normalizeTaskOptions(task, options);
         var taskPayload = escapeHtml(JSON.stringify(task || {}));
         var optionsPayload = escapeHtml(JSON.stringify(safeOptions));
         var html = '' +
@@ -680,9 +710,12 @@ layui.use(['layer', 'jquery'], function() {
         safeOptions.forEach(function(option, index) {
             var disabled = option.enabled === false ? ' disabled' : '';
             var cls = option.action === 'cancel' ? ' layui-btn-primary' : '';
+            if (option.action === 'confirm_operation') {
+                cls = ' layui-btn-normal';
+            }
             html += '<button type="button" class="layui-btn layui-btn-sm ai-task-option' + cls + '" data-option-index="' + index + '"' + disabled + '>' + escapeHtml(option.text || '操作') + '</button>';
         });
-        if (!safeOptions.length && task.confirmation_token && task.operation_id) {
+        if (!safeOptions.length && isDialogExecutableTask(task)) {
             html += '<button type="button" class="layui-btn layui-btn-normal layui-btn-sm ai-task-confirm" data-operation-id="' + escapeHtml(task.operation_id) + '" data-token="' + escapeHtml(task.confirmation_token) + '">确认并执行</button>';
         } else if (!safeOptions.length && task.target_url) {
             html += '<button type="button" class="layui-btn layui-btn-sm ai-task-option" data-option-index="0">查看' + escapeHtml(task.title || '业务页面') + '</button>';
@@ -710,6 +743,14 @@ layui.use(['layer', 'jquery'], function() {
             return;
         }
         if (option.action === 'open_business_page') {
+            if (isDialogExecutableTask(task)) {
+                confirmChatOperation({
+                    operation_id: task.operation_id,
+                    token: task.confirmation_token,
+                    action: 'confirm_operation'
+                }, task);
+                return;
+            }
             openSafeBusinessPage(option, task);
         }
     }
@@ -983,7 +1024,14 @@ layui.use(['layer', 'jquery'], function() {
         var task = $card.data('task') || null;
         var index = Number($(this).data('option-index'));
         var option = options[index] || null;
-        if (!option && task && task.target_url) {
+        if (!option && task && isDialogExecutableTask(task)) {
+            option = {
+                action: 'confirm_operation',
+                operation_id: task.operation_id,
+                token: task.confirmation_token,
+                enabled: true
+            };
+        } else if (!option && task && task.target_url) {
             option = {
                 action: 'open_business_page',
                 target_url: task.target_url,
