@@ -658,6 +658,71 @@ class AIChatExecutionPayloadTests(SimpleTestCase):
 
 
 class AIChatStreamingResponseTests(SimpleTestCase):
+    def test_openai_client_stream_chat_completion_yields_delta_chunks(self):
+        from apps.ai.utils.ai_client import OpenAIClient
+
+        client = OpenAIClient(
+            base_url='https://api.openai.com/v1',
+            api_key='sk-test',
+            model_config={'chat': 'gpt-5.5'},
+        )
+        client._ensure_client = MagicMock(return_value=True)
+        client.client = SimpleNamespace(
+            chat=SimpleNamespace(
+                completions=SimpleNamespace(
+                    create=MagicMock(return_value=[
+                        SimpleNamespace(choices=[SimpleNamespace(delta=SimpleNamespace(content='你'))]),
+                        SimpleNamespace(choices=[SimpleNamespace(delta=SimpleNamespace(content='好'))]),
+                        SimpleNamespace(choices=[SimpleNamespace(delta=SimpleNamespace(content=None))]),
+                    ])
+                )
+            )
+        )
+
+        chunks = list(client.stream_chat_completion([
+            {'role': 'user', 'content': '你好'}
+        ]))
+
+        self.assertEqual(chunks, ['你', '好'])
+
+    def test_stream_user_request_does_not_reclassify_non_ai_requests(self):
+        from apps.ai.services.enhanced_intent_service import enhanced_intent_service
+
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            pk=7,
+            has_perm=lambda perm: True,
+        )
+        intent_result = {
+            'intent': 'DATA_QUERY',
+            'confidence': 0.92,
+            'action': 'list',
+            'data_type': 'customer',
+            'entities': {},
+            'requires_confirmation': False,
+            'source': 'ai',
+            'ai_available': True,
+            'ai_configured': True,
+            'model_provider': 'openai',
+            'model_name': 'gpt-5.5',
+        }
+
+        with patch.object(
+            enhanced_intent_service.classifier,
+            'classify_intent',
+            return_value=intent_result,
+        ) as classify_intent, \
+                patch.object(
+                    enhanced_intent_service.query_service,
+                    'process_query',
+                    return_value={'success': True, 'result': 'ok', 'specific_intent': 'customer_list'},
+                ):
+            events = list(enhanced_intent_service.stream_user_request(user, '查一下客户', chat_id=None))
+
+        self.assertEqual(classify_intent.call_count, 1)
+        self.assertEqual(events[-1]['type'], 'done')
+
     def test_generate_streaming_response_emits_thinking_chunk_and_done_events(self):
         from apps.ai.views import AIChatStreamView
 
@@ -704,6 +769,38 @@ class AIChatStreamingResponseTests(SimpleTestCase):
             for chunk in response.streaming_content
         )
         self.assertIn('event: done', stream_text)
+
+    def test_stream_view_streams_ai_chat_chunks(self):
+        from apps.ai.views import AIChatStreamView
+        from django.http import StreamingHttpResponse
+
+        factory = RequestFactory()
+        request = factory.post('/ai/chat/stream/', data={'chat_id': 5, 'message': '你好'})
+        request.user = SimpleNamespace(is_authenticated=True, id=7)
+        request.session = {}
+
+        with patch.object(
+            AIChatStreamView,
+            '_stream_chat_events',
+            return_value=iter([
+                'event: thinking\ndata: {"message": "正在思考...."}\n\n',
+                'event: chunk\ndata: {"content": "你"}\n\n',
+                'event: chunk\ndata: {"content": "好"}\n\n',
+                'event: done\ndata: {"success": true, "ai_message": "你好", "status": "success"}\n\n',
+            ]),
+        ):
+            response = AIChatStreamView.as_view()(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(response, StreamingHttpResponse)
+        stream_text = ''.join(
+            chunk.decode('utf-8') if isinstance(chunk, bytes) else chunk
+            for chunk in response.streaming_content
+        )
+        self.assertIn('event: chunk', stream_text)
+        self.assertIn('你', stream_text)
+        self.assertIn('event: done', stream_text)
+        self.assertIn('"ai_message": "你好"', stream_text)
 
 
 class AIOperationPreviewServiceTests(SimpleTestCase):

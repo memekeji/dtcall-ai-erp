@@ -45,6 +45,7 @@ from .forms import (
     AIActionTriggerForm
 )
 from .utils.ai_client import AIClient, AIClientError
+from .services.enhanced_intent_service import enhanced_intent_service
 from apps.common.cache_service import CacheManager
 from .services.complete_node_config import (
     get_node_config_schema,
@@ -1807,10 +1808,23 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
             if not message:
                 return JsonResponse({'status': 'error', 'message': '消息不能为空'})
 
-            # 1. 调用意图识别服务（使用新的 AI 分类器）
             if request.headers.get('Accept') == 'application/json' or data.get('response_format') == 'json':
                 return JsonResponse(self._build_intent_response_payload(
                     request.user, data.get('chat_id'), message, request))
+
+            if request.headers.get('Accept') == 'text/event-stream' or data.get('stream') in {True, 'true', '1', 1}:
+                response = StreamingHttpResponse(
+                    self._stream_chat_events(
+                        user=request.user,
+                        chat_id=data.get('chat_id'),
+                        message=message,
+                        request=request,
+                    ),
+                    content_type='text/event-stream; charset=utf-8',
+                )
+                response['Cache-Control'] = 'no-cache'
+                response['X-Accel-Buffering'] = 'no'
+                return response
 
             response = StreamingHttpResponse(
                 self._stream_chat_events(
@@ -1842,19 +1856,63 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
     def _stream_chat_events(self, user, chat_id, message, request=None):
         yield self._serialize_stream_event('thinking', {'message': '正在思考....'})
         try:
-            payload = self._build_intent_response_payload(
+            request_obj = request or getattr(self, 'request', None)
+            referrer = request_obj.session.get('ai_last_referrer') if request_obj else None
+            page_context = None
+            if request_obj and hasattr(request_obj, 'POST'):
+                raw_page_context = request_obj.POST.get('page_context')
+                if raw_page_context:
+                    try:
+                        page_context = json.loads(raw_page_context)
+                    except (TypeError, ValueError):
+                        page_context = None
+            if request_obj and hasattr(request_obj, 'session'):
+                if page_context:
+                    request_obj.session['ai_page_context'] = page_context
+                elif request_obj.session.get('ai_page_context'):
+                    page_context = request_obj.session.get('ai_page_context')
+            intent_input = f"当前页面URL: {referrer}\n用户请求: {message}" if referrer else message
+            stream_iter = enhanced_intent_service.stream_user_request(
                 user,
-                chat_id,
-                message,
-                request,
+                intent_input,
+                chat_id=chat_id,
+                context={'page_context': page_context} if page_context else None,
             )
-            payload['status'] = 'success' if payload.get('success') else 'error'
-            payload.setdefault('ai_message', payload.get('message', '抱歉，我无法处理您的请求'))
-            payload.setdefault('user_message', message)
-            payload.setdefault('intent', payload.get('intent_type') or payload.get('intent'))
-            payload.setdefault('confidence', payload.get('confidence', 0))
+            assistant_text = []
+            final_payload = None
+            for item in stream_iter:
+                if not isinstance(item, dict):
+                    continue
+                event_type = item.get('type')
+                if event_type == 'chunk':
+                    chunk = item.get('content') or ''
+                    if chunk:
+                        assistant_text.append(chunk)
+                        yield self._serialize_stream_event('chunk', {'content': chunk})
+                elif event_type == 'done':
+                    final_payload = dict(item.get('payload') or {})
+                elif event_type == 'error':
+                    final_payload = dict(item.get('payload') or {})
+                    break
 
-            yield from self.generate_streaming_response(payload, include_thinking=False)
+            if final_payload is None:
+                final_payload = {
+                    'success': True,
+                    'status': 'success',
+                    'message': ''.join(assistant_text),
+                    'ai_message': ''.join(assistant_text),
+                    'options': [],
+                }
+            if not final_payload.get('status'):
+                final_payload['status'] = 'success' if final_payload.get('success', True) else 'error'
+            final_payload.setdefault('ai_message', final_payload.get('message', '抱歉，我无法处理您的请求'))
+            final_payload.setdefault('user_message', message)
+            final_payload.setdefault('intent', final_payload.get('intent_type') or final_payload.get('intent'))
+            final_payload.setdefault('confidence', final_payload.get('confidence', 0))
+            if not assistant_text and final_payload.get('ai_message'):
+                for chunk in self._chunk_stream_text(final_payload.get('ai_message')):
+                    yield self._serialize_stream_event('chunk', {'content': chunk})
+            yield self._serialize_stream_event('done', final_payload)
         except Exception as e:
             logger.error(f'流式聊天请求失败: {str(e)}')
             error_payload = {

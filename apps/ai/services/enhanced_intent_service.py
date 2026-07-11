@@ -895,37 +895,88 @@ class EnhancedIntentService:
             conversation_context = self._build_conversation_context(user, chat_id, extra_context=context)
             intent_result = self.classifier.classify_intent(user, query)
             intent_result = self._apply_follow_up_context(intent_result, query, conversation_context)
-
-            if not intent_result.get('intent'):
-                return self._create_error_response('无法识别您的意图，请重新描述您的需求')
-
-            if intent_result.get('source') != 'ai' and intent_result.get('intent') != 'UI_ACTION':
-                return self._create_confirmation_response(intent_result, query, user)
-
-            if self._is_mutating_intent(intent_result):
-                return self._create_confirmation_response(intent_result, query, user)
-
-            permission_result = self._check_data_permission(
-                user, intent_result)
-            if not permission_result['has_permission']:
-                response = self._decorate_response_with_recognition_meta(
-                    self._create_permission_denied_response(
-                        intent_result, permission_result),
-                    intent_result,
-                )
-                return self._attach_mcp_context(response, intent_result, query)
-
-            if intent_result['confidence'] < 0.65 or intent_result.get('requires_confirmation'):
-                return self._create_confirmation_response(intent_result, query, user)
-
-            execution_result = self._execute_intent(user, intent_result, query, conversation_context)
-
-            response = self._decorate_response_with_recognition_meta(execution_result, intent_result)
-            return self._attach_mcp_context(response, intent_result, query)
+            return self._process_intent_result(user, query, intent_result, conversation_context)
 
         except Exception as e:
             logger.error(f"处理用户请求失败：{str(e)}")
             return self._create_error_response('处理请求时发生错误，请稍后重试')
+
+    def stream_user_request(
+            self,
+            user: User,
+            query: str,
+            chat_id: int | None = None,
+            context: Dict[str, Any] | None = None):
+        """以流式方式处理用户请求。"""
+        try:
+            conversation_context = self._build_conversation_context(
+                user, chat_id, extra_context=context)
+            intent_result = self.classifier.classify_intent(user, query)
+            intent_result = self._apply_follow_up_context(
+                intent_result, query, conversation_context)
+
+            if not intent_result.get('intent'):
+                yield {
+                    'type': 'error',
+                    'payload': self._create_error_response('无法识别您的意图，请重新描述您的需求')
+                }
+                return
+
+            if intent_result.get('intent') == 'AI_CHAT':
+                yield from self._stream_ai_chat(
+                    user,
+                    query,
+                    conversation_context,
+                    intent_result=intent_result,
+                )
+                return
+
+            payload = self._process_intent_result(
+                user,
+                query,
+                intent_result,
+                conversation_context,
+            )
+            yield {
+                'type': 'done',
+                'payload': payload,
+            }
+        except Exception as e:
+            logger.error(f"流式处理用户请求失败：{str(e)}")
+            yield {
+                'type': 'error',
+                'payload': self._create_error_response('处理请求时发生错误，请稍后重试')
+            }
+
+    def _process_intent_result(
+            self,
+            user: User,
+            query: str,
+            intent_result: Dict[str, Any],
+            conversation_context: Dict[str, Any] | None = None) -> Dict[str, Any]:
+        if not intent_result.get('intent'):
+            return self._create_error_response('无法识别您的意图，请重新描述您的需求')
+
+        if intent_result.get('source') != 'ai' and intent_result.get('intent') != 'UI_ACTION':
+            return self._create_confirmation_response(intent_result, query, user)
+
+        if self._is_mutating_intent(intent_result):
+            return self._create_confirmation_response(intent_result, query, user)
+
+        permission_result = self._check_data_permission(user, intent_result)
+        if not permission_result['has_permission']:
+            response = self._decorate_response_with_recognition_meta(
+                self._create_permission_denied_response(intent_result, permission_result),
+                intent_result,
+            )
+            return self._attach_mcp_context(response, intent_result, query)
+
+        if intent_result['confidence'] < 0.65 or intent_result.get('requires_confirmation'):
+            return self._create_confirmation_response(intent_result, query, user)
+
+        execution_result = self._execute_intent(user, intent_result, query, conversation_context)
+        response = self._decorate_response_with_recognition_meta(execution_result, intent_result)
+        return self._attach_mcp_context(response, intent_result, query)
 
     def _apply_follow_up_context(
             self,
@@ -1152,7 +1203,8 @@ class EnhancedIntentService:
             str: 数据范围描述
         """
         try:
-            data_scope = PermissionChecker.get_user_data_scope(user)
+            from apps.system.middleware.data_permission_middleware import DataScopeFilter
+            data_scope = DataScopeFilter.get_user_data_scope(user)
             return data_scope.get('scope', 'self')
         except Exception as e:
             logger.error(f"获取数据范围失败：{str(e)}")
@@ -1231,7 +1283,7 @@ class EnhancedIntentService:
             chat_id: int | None,
             extra_context: Dict[str, Any] | None = None) -> Dict[str, Any]:
         base_context = dict(extra_context or {})
-        if not chat_id:
+        if not chat_id or not hasattr(user, 'pk'):
             return base_context
         try:
             chat = AIChat.objects.get(id=chat_id, user=user)
@@ -1353,6 +1405,97 @@ class EnhancedIntentService:
         except Exception as e:
             logger.error(f"AI 对话失败：{str(e)}")
             return self._create_fallback_response(query)
+
+    def _stream_ai_chat(
+            self,
+            user: User,
+            query: str,
+            conversation_context: Dict[str, Any] | None = None,
+            intent_result: Dict[str, Any] | None = None):
+        """流式处理 AI 对话。"""
+        try:
+            from apps.ai.services.ai_intent_classifier import ai_intent_classifier
+
+            ai_intent_classifier._ensure_ai_client(force_refresh=True)
+            ai_config = ai_intent_classifier.ai_config or {}
+            if self._is_model_meta_question(query):
+                response_text = self._build_model_meta_response(ai_config, conversation_context)
+                payload = {
+                    'success': True,
+                    'message': response_text,
+                    'result': response_text,
+                    'intent_type': 'AI_CHAT',
+                    'confidence': 1.0,
+                    'source': 'ai',
+                    'ai_available': True,
+                    'ai_configured': True,
+                    'model_provider': ai_config.get('provider'),
+                    'model_name': ai_config.get('model_name'),
+                }
+                payload = self._decorate_response_with_recognition_meta(payload, intent_result)
+                payload = self._attach_mcp_context(payload, intent_result or payload, query)
+                chat, user_message, ai_message = self.save_chat_record(user, None, query, response_text)
+                if chat:
+                    payload['chat_id'] = chat.id
+                if user_message:
+                    payload['user_message_id'] = user_message.id
+                if ai_message:
+                    payload['ai_message_id'] = ai_message.id
+                yield {'type': 'done', 'payload': payload}
+                return
+
+            ai_client = ai_intent_classifier.ai_client
+            if ai_client is None:
+                payload = self._create_fallback_response(query)
+                yield {'type': 'done', 'payload': payload}
+                return
+
+            messages = [
+                {
+                    'role': 'system',
+                    'content': self._build_ai_chat_system_prompt(query, conversation_context, ai_config),
+                },
+                {'role': 'user', 'content': query}
+            ]
+
+            assistant_text = ''
+            for chunk in ai_client.stream_chat_completion(messages=messages):
+                if not chunk:
+                    continue
+                assistant_text += chunk
+                yield {'type': 'chunk', 'content': chunk}
+
+            if not assistant_text.strip():
+                payload = self._create_fallback_response(query)
+                yield {'type': 'done', 'payload': payload}
+                return
+
+            payload = {
+                'success': True,
+                'message': assistant_text,
+                'result': assistant_text,
+                'intent_type': 'AI_CHAT',
+                'confidence': 1.0,
+                'source': 'ai',
+                'ai_available': True,
+                'ai_configured': True,
+                'model_provider': ai_config.get('provider'),
+                'model_name': ai_config.get('model_name'),
+            }
+            payload = self._decorate_response_with_recognition_meta(payload, intent_result)
+            payload = self._attach_mcp_context(payload, intent_result or payload, query)
+            chat, user_message, ai_message = self.save_chat_record(user, None, query, assistant_text)
+            if chat:
+                payload['chat_id'] = chat.id
+            if user_message:
+                payload['user_message_id'] = user_message.id
+            if ai_message:
+                payload['ai_message_id'] = ai_message.id
+            yield {'type': 'done', 'payload': payload}
+        except Exception as e:
+            logger.error(f"AI 流式对话失败：{str(e)}")
+            payload = self._create_fallback_response(query)
+            yield {'type': 'done', 'payload': payload}
 
     def _build_ai_chat_system_prompt(
             self,

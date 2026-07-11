@@ -1,3 +1,4 @@
+import json
 import requests
 import time
 import logging
@@ -466,6 +467,128 @@ class OpenAIClient(BaseAIClient):
                     raise rest_error
         except Exception as e:
             self._raise_safe_error("OpenAI API 调用失败", e)
+
+    def _extract_stream_content(self, chunk):
+        if chunk is None:
+            return ''
+        if isinstance(chunk, str):
+            return chunk
+        if isinstance(chunk, dict):
+            choices = chunk.get('choices') or []
+            for choice in choices:
+                if not isinstance(choice, dict):
+                    continue
+                delta = choice.get('delta') or {}
+                if isinstance(delta, dict):
+                    content = delta.get('content') or delta.get('text') or ''
+                    if content:
+                        return content
+                message = choice.get('message') or {}
+                if isinstance(message, dict):
+                    content = message.get('content') or ''
+                    if content:
+                        return content
+            return ''
+
+        choices = getattr(chunk, 'choices', None) or []
+        for choice in choices:
+            delta = getattr(choice, 'delta', None)
+            content = ''
+            if delta is not None:
+                content = getattr(delta, 'content', '') or getattr(delta, 'text', '') or ''
+                if not content and isinstance(delta, dict):
+                    content = delta.get('content') or delta.get('text') or ''
+            if content:
+                return content
+            message = getattr(choice, 'message', None)
+            if message is not None:
+                content = getattr(message, 'content', '') or ''
+                if not content and isinstance(message, dict):
+                    content = message.get('content') or ''
+                if content:
+                    return content
+        if hasattr(chunk, 'text'):
+            return getattr(chunk, 'text') or ''
+        return ''
+
+    def _rest_chat_completion_stream(self, messages, **kwargs):
+        if not self.api_key:
+            raise AIClientError("OpenAI API Key 未配置")
+        url = self._rest_url("/chat/completions")
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        data = {
+            "model": kwargs.get("model", self.model_config.get("chat", "gpt-3.5-turbo")),
+            "messages": messages,
+            "temperature": kwargs.get("temperature", self.model_config.get('temperature', 0.7)),
+            "max_tokens": kwargs.get("max_tokens", self.model_config.get('max_tokens', 2000)),
+            "stream": True,
+        }
+        for k in ["top_p", "presence_penalty", "frequency_penalty"]:
+            if k in kwargs or self.model_config.get(k) is not None:
+                value = kwargs.get(k, self.model_config.get(k))
+                if value is not None:
+                    data[k] = value
+
+        response = self._make_request("POST", url, headers=headers, json=data, stream=True)
+        try:
+            for raw_line in response.iter_lines(decode_unicode=True):
+                if not raw_line:
+                    continue
+                line = raw_line.strip()
+                if not line.startswith("data:"):
+                    continue
+                data_text = line[5:].strip()
+                if not data_text or data_text == "[DONE]":
+                    continue
+                try:
+                    payload = json.loads(data_text)
+                except Exception:
+                    continue
+                content = self._extract_stream_content(payload)
+                if content:
+                    yield content
+        finally:
+            try:
+                response.close()
+            except Exception:
+                pass
+
+    def stream_chat_completion(self, messages, **kwargs):
+        """以流式方式生成聊天完成内容"""
+        params = {
+            'model': kwargs.get('model', self.model_config.get('chat', 'gpt-3.5-turbo')),
+            'temperature': kwargs.get('temperature', self.model_config.get('temperature', 0.7)),
+            'max_tokens': kwargs.get('max_tokens', self.model_config.get('max_tokens', 2000)),
+            'messages': messages,
+            'stream': True,
+        }
+        if 'top_p' in kwargs or self.model_config.get('top_p') is not None:
+            params['top_p'] = kwargs.get('top_p', self.model_config.get('top_p', 1.0))
+
+        if not self._ensure_client():
+            yield from self._rest_chat_completion_stream(messages, **kwargs)
+            return
+
+        try:
+            try:
+                stream = self.client.chat.completions.create(**params)
+                for chunk in stream:
+                    content = self._extract_stream_content(chunk)
+                    if content:
+                        yield content
+                return
+            except Exception as chat_error:
+                try:
+                    yield from self._rest_chat_completion_stream(messages, **kwargs)
+                except Exception as rest_error:
+                    if self._is_official_endpoint() or self._is_model_channel_error(rest_error):
+                        logger.error(f"OpenAI 流式聊天调用失败: {str(chat_error)}")
+                    raise rest_error
+        except Exception as e:
+            self._raise_safe_error("OpenAI 流式 API 调用失败", e)
 
     def _is_official_endpoint(self):
         base_url = (self.base_url or 'https://api.openai.com/v1').lower()
@@ -1249,6 +1372,9 @@ class AIClient:
 
     def chat_completion(self, messages, **kwargs):
         return self.client.chat_completion(messages, **kwargs)
+
+    def stream_chat_completion(self, messages, **kwargs):
+        return self.client.stream_chat_completion(messages, **kwargs)
 
     def text_completion(self, prompt, **kwargs):
         return self.client.text_completion(prompt, **kwargs)
