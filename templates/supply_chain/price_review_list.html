@@ -82,8 +82,8 @@
                         <th>物料 / 供应商</th>
                         <th>报价</th>
                         <th>状态</th>
-                        <th width="260">解析规格书</th>
-                        <th width="340">成本复核分析</th>
+                        <th width="260">AI解析规格书</th>
+                        <th width="340">AI成本复核分析</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -105,7 +105,7 @@
                                 {% csrf_token %}
                                 <input type="file" name="document_file" class="layui-input">
                                 <textarea name="raw_text" rows="2" placeholder="或直接粘贴规格文本" class="layui-textarea"></textarea>
-                                <button type="submit" class="layui-btn layui-btn-xs">解析规格书</button>
+                                <button type="submit" class="layui-btn layui-btn-xs">AI解析规格书</button>
                             </form>
                         </td>
                         <td class="sc-list-actions">
@@ -143,7 +143,7 @@
                                         <input type="number" step="0.0001" name="target_price" placeholder="目标价" class="layui-input">
                                     </div>
                                 </div>
-                                <button type="submit" class="layui-btn layui-btn-xs layui-btn-normal">生成复核报告</button>
+                                <button type="submit" class="layui-btn layui-btn-xs layui-btn-normal">AI生成复核报告</button>
                                 {% if order.conclusion and order.conclusion.summary %}
                                 <div class="sc-note" style="margin-top:6px;">{{ order.conclusion.summary|truncatewords:24 }}</div>
                                 {% endif %}

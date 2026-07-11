@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from time import perf_counter, sleep
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -595,5 +596,30 @@ class SupplyChainAIIntegrationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(mock_call.called)
         self.assertContains(response, "AI打样建议")
+
+    @patch("apps.supply_chain.services.ai_services.AIAnalysisTool._call_ai")
+    def test_supply_chain_ai_timeout_returns_fast_fallback(self, mock_call):
+        from apps.supply_chain.services.ai_services import supply_chain_ai
+
+        original_timeout = supply_chain_ai.timeout_seconds
+        supply_chain_ai.timeout_seconds = 0.05
+        mock_call.side_effect = lambda *args, **kwargs: sleep(0.2) or {"content": "late"}
+
+        try:
+            started_at = perf_counter()
+            result = supply_chain_ai.analyze_inventory_risk(
+                total_items=10,
+                high_risk_count=1,
+                medium_risk_count=2,
+                dead_stock_count=0,
+                safety_breach_count=1,
+                top_risk_items=["蓝牙芯片"],
+            )
+            elapsed = perf_counter() - started_at
+        finally:
+            supply_chain_ai.timeout_seconds = original_timeout
+
+        self.assertLess(elapsed, 0.5)
+        self.assertIn("AI响应超时", result)
 
 

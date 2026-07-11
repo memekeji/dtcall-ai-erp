@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from decimal import Decimal
 
 from apps.ai.utils.analysis_tools import AIAnalysisTool
+
+
+logger = logging.getLogger(__name__)
 
 
 class SupplyChainAIService:
@@ -13,11 +18,46 @@ class SupplyChainAIService:
 
     def __init__(self) -> None:
         self._tool = AIAnalysisTool()
+        self.timeout_seconds = 8
 
     def _call(self, prompt: str, max_tokens: int = 1200, temperature: float = 0.2) -> dict[str, object]:
         """Call the global AI tool and return a dict-safe result."""
-        result = self._tool._call_ai(prompt=prompt, max_tokens=max_tokens, temperature=temperature)
-        return self._extract_json(result)
+        ai_client = getattr(self._tool, "ai_client", None)
+        original_timeout = getattr(ai_client, "timeout", None)
+        original_retries = getattr(ai_client, "max_retries", None)
+        original_retry_delay = getattr(ai_client, "retry_delay", None)
+
+        if ai_client is not None:
+            if hasattr(ai_client, "timeout"):
+                ai_client.timeout = min(original_timeout or self.timeout_seconds, self.timeout_seconds)
+            if hasattr(ai_client, "max_retries"):
+                ai_client.max_retries = 0
+            if hasattr(ai_client, "retry_delay"):
+                ai_client.retry_delay = 0
+
+        executor = ThreadPoolExecutor(max_workers=1)
+        future = executor.submit(
+            self._tool._call_ai,
+            prompt=prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        try:
+            result = future.result(timeout=self.timeout_seconds)
+            return self._extract_json(result)
+        except TimeoutError:
+            future.cancel()
+            logger.warning("Supply chain AI call timed out after %s seconds", self.timeout_seconds)
+            return {"content": "AI响应超时，已使用系统业务规则兜底，请稍后刷新获取模型建议。"}
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
+            if ai_client is not None:
+                if original_timeout is not None and hasattr(ai_client, "timeout"):
+                    ai_client.timeout = original_timeout
+                if original_retries is not None and hasattr(ai_client, "max_retries"):
+                    ai_client.max_retries = original_retries
+                if original_retry_delay is not None and hasattr(ai_client, "retry_delay"):
+                    ai_client.retry_delay = original_retry_delay
 
     # ------------------------------------------------------------------
     # 1. Demand Forecast
