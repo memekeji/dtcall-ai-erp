@@ -2147,6 +2147,13 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
         if not command:
             return None
 
+        if command == 'rollback':
+            operation = operation_service.get_latest_executed_operation(user, chat_id=chat_id)
+            if not operation:
+                return None
+            result = rollback_service.rollback_operation(operation.id, user)
+            return self._build_operation_result_payload(user, chat_id, message, operation, result, 'rolled_back')
+
         operation = operation_service.get_latest_preview_operation(user, chat_id=chat_id)
         if not operation:
             return None
@@ -2171,7 +2178,12 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
 
     def _build_operation_result_payload(self, user, chat_id, message, operation, result, command):
         success = bool(result.get('success'))
-        default_message = '已执行完成，支持按本次操作单独回退。' if command == 'confirmed' else '已取消上一步待确认操作，本次不会写入任何数据。'
+        default_messages = {
+            'confirmed': '已执行完成，支持按本次操作单独回退。',
+            'cancelled': '已取消上一步待确认操作，本次不会写入任何数据。',
+            'rolled_back': '已回退本次操作。',
+        }
+        default_message = default_messages.get(command, '操作已处理。')
         ai_response = result.get('message') or default_message
         chat, user_message, ai_message = self.save_chat_record(user, chat_id, message, ai_response)
         task = self._build_operation_result_task(operation, result, command, success)
@@ -2181,8 +2193,8 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
             'message': ai_response,
             'ai_message': ai_response,
             'user_message': message,
-            'intent': 'AI_OPERATION_CONFIRM' if command == 'confirmed' else 'AI_OPERATION_CANCEL',
-            'intent_type': 'AI_OPERATION_CONFIRM' if command == 'confirmed' else 'AI_OPERATION_CANCEL',
+            'intent': self._get_operation_result_intent(command),
+            'intent_type': self._get_operation_result_intent(command),
             'confidence': 1.0,
             'operation_id': getattr(operation, 'id', None),
             'operation_result': result,
@@ -2207,6 +2219,15 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
             ai_message.save(update_fields=['runtime_payload'])
         return payload
 
+    def _get_operation_result_intent(self, command):
+        if command == 'confirmed':
+            return 'AI_OPERATION_CONFIRM'
+        if command == 'cancelled':
+            return 'AI_OPERATION_CANCEL'
+        if command == 'rolled_back':
+            return 'AI_OPERATION_ROLLBACK'
+        return 'AI_OPERATION'
+
     def _build_operation_result_task(self, operation, result, command, success):
         previous_task = {}
         ai_message = getattr(operation, 'ai_message', None)
@@ -2221,7 +2242,7 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
             'data_type': previous_task.get('data_type') or getattr(operation, 'resource_type', ''),
             'action': previous_task.get('action') or getattr(operation, 'operation_type', ''),
             'operation_id': getattr(operation, 'id', None),
-            'execution_status': 'executed' if command == 'confirmed' and success else ('cancelled' if command == 'cancelled' and success else 'failed'),
+            'execution_status': self._get_operation_execution_status(command, success),
             'operation_result': result,
             'message': result.get('message') or '',
             'options': [],
@@ -2239,7 +2260,21 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
         elif command == 'cancelled' and success:
             task['can_rollback'] = False
             task['safety_notice'] = '本次操作已取消，未写入业务数据。'
+        elif command == 'rolled_back' and success:
+            task['can_rollback'] = False
+            task['safety_notice'] = '本次操作已按单条记录完成物理回退。'
         return task
+
+    def _get_operation_execution_status(self, command, success):
+        if not success:
+            return 'failed'
+        if command == 'confirmed':
+            return 'executed'
+        if command == 'cancelled':
+            return 'cancelled'
+        if command == 'rolled_back':
+            return 'rolled_back'
+        return 'success'
 
     def _create_operation_preview(self, user, chat, user_message, ai_message, payload):
         from apps.ai.services.operation_service import operation_service

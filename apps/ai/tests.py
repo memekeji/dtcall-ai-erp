@@ -801,6 +801,63 @@ class AIChatExecutionPayloadTests(SimpleTestCase):
         self.assertEqual(payload['message'], '已取消上一步待确认操作，本次不会写入任何数据。')
         self.assertEqual(payload.get('options'), [])
 
+    def test_chat_payload_rolls_back_latest_executed_operation_from_natural_language(self):
+        from apps.ai.views import AIChatStreamView
+
+        user = SimpleNamespace(is_authenticated=True, id=9)
+        request = SimpleNamespace(session={})
+        ai_message = SimpleNamespace(
+            id=15,
+            runtime_payload={},
+            created_at=None,
+            save=MagicMock(),
+        )
+        executed_operation = SimpleNamespace(
+            id=403,
+            resource_type='approval',
+            operation_type='create',
+            ai_message=SimpleNamespace(
+                runtime_payload={
+                    'task': {
+                        'type': 'business_handoff',
+                        'title': '请假申请',
+                        'module': '审批管理',
+                        'data_type': 'approval',
+                        'action': 'create',
+                    }
+                }
+            ),
+        )
+
+        with patch('apps.ai.views.operation_service.match_pending_operation_command', return_value='rollback'), \
+                patch('apps.ai.views.operation_service.get_latest_executed_operation', return_value=executed_operation), \
+                patch(
+                    'apps.ai.views.rollback_service.rollback_operation',
+                    return_value={
+                        'success': True,
+                        'message': '已回退本次操作',
+                        'operation_id': 403,
+                    },
+                ) as rollback_operation, \
+                patch('apps.ai.services.intent_recognition_service.intent_recognition_service.process_request') as process_request, \
+                patch.object(
+                    AIChatStreamView,
+                    'save_chat_record',
+                    return_value=(SimpleNamespace(id=1), SimpleNamespace(id=2), ai_message),
+                ):
+            payload = AIChatStreamView()._build_intent_response_payload(
+                user,
+                chat_id=3,
+                message='回退刚才的操作',
+                request=request,
+            )
+
+        process_request.assert_not_called()
+        rollback_operation.assert_called_once_with(403, user)
+        self.assertTrue(payload['success'])
+        self.assertEqual(payload['task']['execution_status'], 'rolled_back')
+        self.assertEqual(payload.get('options'), [])
+
 
 class AIChatStreamingResponseTests(SimpleTestCase):
     def test_openai_client_stream_chat_completion_yields_delta_chunks(self):
@@ -1684,6 +1741,8 @@ class AIOperationCancelServiceTests(SimpleTestCase):
         self.assertIsNone(operation_service.match_pending_operation_command('执行中的项目有几个'))
         self.assertEqual(operation_service.match_pending_operation_command('确认执行'), 'confirm')
         self.assertEqual(operation_service.match_pending_operation_command('取消吧'), 'cancel')
+        self.assertEqual(operation_service.match_pending_operation_command('回退刚才的操作'), 'rollback')
+        self.assertEqual(operation_service.match_pending_operation_command('撤销上一步'), 'rollback')
 
     def test_cancel_operation_marks_preview_cancelled(self):
         from apps.ai.services.operation_service import operation_service

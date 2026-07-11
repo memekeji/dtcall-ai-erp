@@ -106,17 +106,22 @@ class AIOperationService:
             return None
         exact_confirm = {"确认", "执行", "继续", "可以", "好的", "行", "好", "嗯", "对", "是", "yes", "ok", "确定", "就这么办", "没问题"}
         exact_cancel = {"取消", "不要了", "算了", "不执行", "撤回", "不了", "别执行", "停下", "中止", "停止", "撤销"}
+        exact_rollback = {"回退", "撤销上一步", "回滚", "回退刚才", "撤销刚才"}
         if normalised in exact_confirm:
             return "confirm"
         if normalised in exact_cancel:
             return "cancel"
+        if normalised in exact_rollback:
+            return "rollback"
         if len(normalised) <= 20:
-            if any(kw in normalised for kw in ["查", "看", "列表", "明细", "多少", "几个", "项目", "客户", "合同", "审批"]):
-                return None
             if any(kw in normalised for kw in ["确认执行", "确定执行", "确认提交", "执行吧", "就这么办"]):
                 return "confirm"
             if any(kw in normalised for kw in ["取消操作", "取消吧", "不要执行", "别执行", "算了吧"]):
                 return "cancel"
+            if any(kw in normalised for kw in ["回退", "回滚", "撤销"]):
+                return "rollback"
+            if any(kw in normalised for kw in ["查", "看", "列表", "明细", "多少", "几个", "项目", "客户", "合同", "审批"]):
+                return None
         return None
 
     def get_latest_preview_operation(self, user, chat_id=None):
@@ -125,6 +130,13 @@ class AIOperationService:
             filters["chat_id"] = chat_id
         from apps.ai.models_operation import AIOperation
         return AIOperation.objects.filter(**filters).order_by("-created_at").first()
+
+    def get_latest_executed_operation(self, user, chat_id=None):
+        filters = {"user": user, "status": "executed"}
+        if chat_id is not None:
+            filters["chat_id"] = chat_id
+        from apps.ai.models_operation import AIOperation
+        return AIOperation.objects.filter(**filters).order_by("-executed_at", "-created_at").first()
 
     def cancel_operation(self, operation_id, token, user):
         from apps.ai.models_operation import AIOperation
