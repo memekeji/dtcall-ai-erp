@@ -54,6 +54,7 @@ from .models import (
 )
 from .services.bootstrap_service import bootstrap_supply_chain_workspace
 from .services.event_service import log_supply_chain_event, send_supply_chain_notification
+from .services.ai_services import supply_chain_ai
 from .services.forecast_service import (
     build_forecast_trend_data,
     build_snapshot_payload,
@@ -143,6 +144,15 @@ def _price_history_from_text(raw_text):
     return values
 
 
+def _decimal_from_ai(value, default):
+    if value in (None, ''):
+        return Decimal(str(default or 0))
+    try:
+        return Decimal(str(value))
+    except Exception:
+        return Decimal(str(default or 0))
+
+
 def _coerce_price_payload_from_document(document):
     payload = {}
     parsed_payload = getattr(document, 'parsed_payload', {}) or {}
@@ -192,6 +202,18 @@ def _build_supply_chain_source_summary():
 @login_required
 def dashboard(request):
     inventory_summary = build_inventory_analysis_summary()
+    ai_dashboard_summary = supply_chain_ai.analyze_inventory_risk(
+        total_items=inventory_summary.get('total_items', 0),
+        high_risk_count=inventory_summary.get('high_risk_count', 0),
+        medium_risk_count=inventory_summary.get('medium_risk_count', 0),
+        dead_stock_count=0,
+        safety_breach_count=inventory_summary.get('high_risk_count', 0),
+        top_risk_items=[
+            f"{row['item'].name}:{row['status']}"
+            for row in inventory_summary.get('risk_rows', [])
+            if row.get('risk_level') in {'high', 'medium'}
+        ][:5],
+    )
     context = {
         'page_title': '供应链智能驾驶舱',
         'forecast_count': DemandForecastPlan.objects.count(),
@@ -205,6 +227,7 @@ def dashboard(request):
         'recent_samples': SampleRequest.objects.order_by('-create_time')[:5],
         'recent_pr_tasks': PRReviewTask.objects.order_by('-create_time')[:5],
         'has_forecast_history': DemandForecastResult.objects.exists(),
+        'ai_dashboard_summary': ai_dashboard_summary,
     }
     context.update(_build_supply_chain_source_summary())
     return render(request, 'supply_chain/dashboard.html', context)
@@ -212,11 +235,27 @@ def dashboard(request):
 
 @login_required
 def inventory_analysis(request):
+    inventory_summary = build_inventory_analysis_summary()
+    deep_analysis = build_inventory_deep_analysis()
+    top_risk_items = [
+        f"{row['item'].name}:{row['status']}"
+        for row in inventory_summary.get('risk_rows', [])
+        if row.get('risk_level') in {'high', 'medium'}
+    ][:5]
+    ai_inventory_summary = supply_chain_ai.analyze_inventory_risk(
+        total_items=inventory_summary.get('total_items', 0),
+        high_risk_count=inventory_summary.get('high_risk_count', 0),
+        medium_risk_count=inventory_summary.get('medium_risk_count', 0),
+        dead_stock_count=deep_analysis.get('dead_stock_count', 0),
+        safety_breach_count=deep_analysis.get('safety_breach_count', 0),
+        top_risk_items=top_risk_items,
+    )
     context = {
         'page_title': '库存智能分析',
-        **build_inventory_analysis_summary(),
+        'ai_inventory_summary': ai_inventory_summary,
+        **inventory_summary,
     }
-    context.update(build_inventory_deep_analysis())
+    context.update(deep_analysis)
     return render(request, 'supply_chain/inventory_analysis.html', context)
 
 
@@ -304,7 +343,7 @@ def forecast_run(request, pk):
             notes='系统自动生成预测快照',
         )
         safety_stock = calculate_safety_stock(form.cleaned_data['avg_daily_demand'])
-        recommended_quantity = calculate_recommended_preparation_quantity(
+        rule_recommended_quantity = calculate_recommended_preparation_quantity(
             predicted_quantity=form.cleaned_data['predicted_quantity'],
             safety_stock=safety_stock,
             inventory_quantity=payload['inventory_quantity'],
@@ -313,22 +352,42 @@ def forecast_run(request, pk):
             prepared_quantity=payload['prepared_quantity'],
             manual_adjustment=payload['manual_adjustment'],
         )
+        history_results = list(
+            DemandForecastResult.objects.filter(
+                forecast_plan__product_id=plan.product_id,
+            ).order_by('-create_time')[:6]
+        )
+        ai_forecast = supply_chain_ai.generate_forecast(
+            product_name=str(plan.product or plan.name),
+            historical_demand=[item.predicted_quantity for item in history_results],
+            inventory_quantity=payload['inventory_quantity'],
+            wip_quantity=payload['wip_quantity'],
+            safety_stock=safety_stock,
+        )
+        predicted_quantity = _decimal_from_ai(
+            ai_forecast.get('predicted_quantity'),
+            form.cleaned_data['predicted_quantity'],
+        )
+        recommended_quantity = _decimal_from_ai(
+            ai_forecast.get('recommended_quantity'),
+            rule_recommended_quantity,
+        )
         actual_quantity = form.cleaned_data.get('actual_quantity')
         confidence = (
-            calculate_forecast_accuracy(form.cleaned_data['predicted_quantity'], actual_quantity)
-            if actual_quantity else Decimal('80.00')
+            calculate_forecast_accuracy(predicted_quantity, actual_quantity)
+            if actual_quantity else _decimal_from_ai(ai_forecast.get('confidence'), '80.00')
         )
         result = DemandForecastResult.objects.create(
             forecast_plan=plan,
-            predicted_quantity=form.cleaned_data['predicted_quantity'],
+            predicted_quantity=predicted_quantity,
             safety_stock=safety_stock,
             recommended_quantity=recommended_quantity,
             confidence=confidence,
-            risk_level=_risk_level_by_gap(
-                form.cleaned_data['predicted_quantity'],
+            risk_level=ai_forecast.get('risk_level') or _risk_level_by_gap(
+                predicted_quantity,
                 recommended_quantity,
             ),
-            summary=f'基于出货、库存、在制、在途与备料生成建议备料量 {recommended_quantity}',
+            summary=ai_forecast.get('summary') or f'基于出货、库存、在制、在途与备料生成建议备料量 {recommended_quantity}',
         )
         MaterialPreparationReview.objects.create(
             forecast_result=result,
@@ -532,13 +591,24 @@ def outsource_check(request, pk):
             )
 
         new_status = summarize_issue_order_status(item_payloads)
+        shortage_details = [
+            f"{item['material_name']}缺口{item['shortage_quantity']}"
+            for item in item_payloads
+            if item.get('status') == 'shortage'
+        ]
+        ai_advice = supply_chain_ai.outsource_completeness_advice(
+            order_code=order.code,
+            total_items=len(item_payloads),
+            shortage_count=len(shortage_details),
+            shortage_details=shortage_details,
+        )
         order.status = new_status
         order.save(update_fields=['status', 'update_time'])
         OutsourceIssueStatusLog.objects.create(
             issue_order=order,
             from_status=OutsourceIssueOrder.STATUS_CHECKING,
             to_status=new_status,
-            message='系统完成齐套校验',
+            message=ai_advice or '系统完成齐套校验',
             operator=request.user,
         )
 
@@ -694,6 +764,20 @@ def pr_review_evaluate(request, pk):
         'priority',
     ))
     result = evaluate_pr_payload(payload=payload, rules=rules)
+    ai_result = supply_chain_ai.evaluate_pr(
+        scenario=form.cleaned_data.get('scenario') or payload.get('scenario') or task.source_type or task.title,
+        order_type=payload.get('order_type') or task.source_type,
+        is_urgent=bool(payload.get('is_urgent')),
+        lt_shortage=bool(payload.get('lt_shortage')),
+        tail_order=bool(payload.get('tail_order')),
+        npi_trial=bool(payload.get('npi_trial')),
+        rework_order=bool(payload.get('rework_order')),
+    )
+    ai_action = ai_result.get('recommended_action')
+    if ai_action in {'approve', 'urgent_approve', 'manual_review', 'filter'}:
+        result['recommended_action'] = ai_action
+        result['is_abnormal'] = bool(ai_result.get('is_abnormal', result['is_abnormal']))
+    result['evidence']['ai_result'] = ai_result
 
     with transaction.atomic():
         task.is_abnormal = result['is_abnormal']
@@ -948,6 +1032,28 @@ def price_review_analyze(request, pk):
         market_price=market_price,
         target_price=target_price,
     )
+    history_average = (
+        sum(history, Decimal('0')) / Decimal(len(history))
+        if history else Decimal('0')
+    )
+    component_summary = '; '.join(
+        f"{row['component_name']}:{row['amount']}"
+        for row in component_rows
+    )
+    ai_conclusion = supply_chain_ai.analyze_price_review(
+        item_name=str(order.inventory_item or order.code),
+        quoted_price=order.quoted_price,
+        component_summary=component_summary,
+        market_price=market_price,
+        history_avg=history_average,
+    )
+    if ai_conclusion.get('result') in {'approved', 'exception'}:
+        conclusion_payload['result'] = ai_conclusion['result']
+    if ai_conclusion.get('risk_level') in {'high', 'medium', 'low'}:
+        conclusion_payload['risk_level'] = ai_conclusion['risk_level']
+    for key in ('summary', 'abnormal_items', 'negotiation_points'):
+        if ai_conclusion.get(key):
+            conclusion_payload[key] = ai_conclusion[key]
 
     with transaction.atomic():
         order.status = (
@@ -1024,6 +1130,11 @@ def price_review_parse_document(request, pk):
         raw_text = parse_contract_file(document_file)
 
     parsed_payload = parse_price_review_document_text(raw_text)
+    ai_payload = supply_chain_ai.parse_spec_document(raw_text)
+    for field_name in PRICE_COMPONENT_FIELDS:
+        ai_value = ai_payload.get(field_name)
+        if ai_value not in (None, ''):
+            parsed_payload[field_name] = f'{_decimal_from_ai(ai_value, parsed_payload.get(field_name, 0)):.4f}'
     with transaction.atomic():
         order.status = PriceReviewOrder.STATUS_PARSING
         order.save(update_fields=['status', 'update_time'])
@@ -1065,6 +1176,19 @@ def sample_list(request):
         sample_requests = sample_requests.filter(status=status)
     page_obj = _paginate_queryset(request, sample_requests, per_page=8)
     stats = get_sample_statistics()
+    pending_receipts = SampleReceipt.objects.filter(
+        sample_request__status=SampleRequest.STATUS_PICKUP_PENDING,
+    ).select_related('sample_request')[:5]
+    overdue_details = [
+        receipt.sample_request.material_name
+        for receipt in pending_receipts
+        if is_pickup_overdue(receipt.received_at, current_time=timezone.now())
+    ]
+    ai_sample_advice = supply_chain_ai.suggest_sample_priority(
+        pending_count=SampleRequest.objects.filter(status=SampleRequest.STATUS_PICKUP_PENDING).count(),
+        overdue_count=stats['overdue_count'],
+        overdue_details=overdue_details,
+    )
     context = {
         'page_title': '打样管理',
         'requests': page_obj,
@@ -1076,6 +1200,7 @@ def sample_list(request):
         'pickup_pending_count': SampleRequest.objects.filter(status=SampleRequest.STATUS_PICKUP_PENDING).count(),
         'picked_up_count': SampleRequest.objects.filter(status=SampleRequest.STATUS_PICKED_UP).count(),
         'overdue_pickup_count': stats['overdue_count'],
+        'ai_sample_advice': ai_sample_advice,
     }
     context.update(_build_supply_chain_source_summary())
     return render(request, 'supply_chain/sample_list.html', context)
@@ -1365,7 +1490,14 @@ def forecast_qa(request, pk):
         }
     if request.method == "POST":
         question = (request.POST.get("question") or "").strip()
-        answer = _generate_forecast_answer(plan, result, question, qa_context)
+        answer = supply_chain_ai.answer_forecast_question(
+            plan_name=plan.name,
+            predicted_quantity=result.predicted_quantity if result else Decimal('0'),
+            recommended_quantity=result.recommended_quantity if result else Decimal('0'),
+            risk_level=result.risk_level if result else 'unknown',
+            confidence=float(result.confidence) if result else 0,
+            question=question,
+        ) or _generate_forecast_answer(plan, result, question, qa_context)
         qa_context["question"] = question
         qa_context["answer"] = answer
     context = {

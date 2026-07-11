@@ -44,6 +44,12 @@
             </div>
 
             <div class="sc-table-caption">数据来源：库存物料主数据 + 库存台账实时汇总。物料风险按库存实时聚合结果展示，便于计划与采购快速锁定补货对象。</div>
+            {% if ai_inventory_summary %}
+            <div class="sc-form-section">
+                <div class="sc-form-section-title">AI库存体检</div>
+                <div class="sc-note" style="line-height:1.8;">{{ ai_inventory_summary }}</div>
+            </div>
+            {% endif %}
             <table class="layui-table sc-table-compact" lay-skin="line">
                 <thead>
                     <tr>

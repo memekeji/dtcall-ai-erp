@@ -54,6 +54,12 @@
             </div>
 
             <div class="sc-table-caption">合法来源：产品主数据 {{ source_product_count }} 项。若暂无打样申请，可从现有产品快速初始化打样草稿。</div>
+            {% if ai_sample_advice %}
+            <div class="sc-form-section">
+                <div class="sc-form-section-title">AI打样建议</div>
+                <div class="sc-note" style="line-height:1.8;">{{ ai_sample_advice }}</div>
+            </div>
+            {% endif %}
 
             <form class="layui-form sc-inline-form" method="get">
                 <div class="layui-row layui-col-space10">
