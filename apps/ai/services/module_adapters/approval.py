@@ -25,7 +25,7 @@ class ApprovalModuleAdapter(AIBaseModuleAdapter):
             }
 
         if action.operation == 'create':
-            after_snapshot = self._build_create_snapshot(action, user)
+            after_snapshot = self._build_create_snapshot(action, user, resolve_flow=False)
             return {
                 'success': True,
                 'change_set': [
@@ -88,7 +88,7 @@ class ApprovalModuleAdapter(AIBaseModuleAdapter):
             from apps.approval.models import Approval
             from apps.approval.views import _ensure_initial_tasks
 
-            create_snapshot = self._build_create_snapshot(action, user)
+            create_snapshot = self._build_create_snapshot(action, user, resolve_flow=True)
             approval = Approval.objects.create(
                 title=action.changes.get('title', ''),
                 flow_id=action.changes.get('flow_id'),
@@ -203,8 +203,8 @@ class ApprovalModuleAdapter(AIBaseModuleAdapter):
             'current_step_order': getattr(approval, 'current_step_order', 1),
         }
 
-    def _build_create_snapshot(self, action, user):
-        flow = self._get_create_flow(action)
+    def _build_create_snapshot(self, action, user, resolve_flow=True):
+        flow = self._get_create_flow(action) if resolve_flow else None
         has_steps = bool(flow and flow.steps.exists())
         return {
             'title': action.changes.get('title', ''),

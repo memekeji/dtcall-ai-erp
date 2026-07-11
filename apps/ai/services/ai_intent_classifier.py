@@ -194,6 +194,7 @@ class AIIntentClassifier:
         'message',
         'notice',
         'document',
+        'meeting_minutes',
         'meeting',
         'schedule',
         'disk',
@@ -259,7 +260,8 @@ class AIIntentClassifier:
         ('approval', ['审批', '流程', '申请单', '审批单']),
         ('message', ['消息', '站内信', '通知消息', '会话', '沟通']),
         ('notice', ['公告', '通知公告']),
-        ('meeting', ['会议', '会议纪要', '会议室']),
+        ('meeting_minutes', ['会议纪要', '纪要']),
+        ('meeting', ['会议', '会议室']),
         ('schedule', ['日程', '排期', '安排']),
         ('task', ['任务', '待办', '待办任务', '工作任务']),
         ('workhour', ['工时']),
@@ -825,7 +827,11 @@ class AIIntentClassifier:
             if data_type == 'personal_contact' and any(keyword in query for keyword in ['我的联系人', '个人通讯录', '私人通讯录', '私人联系人']):
                 score += 40
             if data_type == 'approval_task' and any(keyword in query for keyword in ['待审批', '待办审批', '待办流程', '已审批', '我审批的', '审批过的流程']):
-                score += 40
+                score += 70
+            if data_type == 'approval_flow' and any(keyword in query for keyword in ['审批流程', '审批流', '流程配置', '流程模板']):
+                score += 45
+            if data_type == 'meeting_minutes':
+                score += 35
             if data_type in {'production_plan', 'production_task', 'production_equipment', 'production_procedure'}:
                 score += 20
             if data_type in {'expense', 'income', 'payment'}:

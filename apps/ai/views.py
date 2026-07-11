@@ -2094,13 +2094,13 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
                         'token': operation.confirmation_token,
                         'enabled': True,
                     }
-                    if task_options:
-                        task['options'] = [confirm_option] + [
-                            option for option in task_options
-                            if not (isinstance(option, dict) and option.get('action') == 'open_business_page')
-                        ]
-                    else:
-                        task['options'] = [confirm_option]
+                    task['options'] = [confirm_option] + [
+                        option for option in task_options
+                        if not (
+                            isinstance(option, dict)
+                            and option.get('action') in {'confirm_operation', 'open_business_page'}
+                        )
+                    ]
                     payload['options'] = task['options']
 
         task = payload.get('task')

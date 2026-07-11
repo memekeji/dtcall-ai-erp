@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from apps.ai.services.action_contracts import AIActionRequest
 
 
@@ -27,6 +29,29 @@ class AIConfirmationService:
         'expense': ('报销', '费用'),
         'purchase': ('采购',),
     }
+    APPROVAL_REQUEST_TYPE_ALIASES = {
+        '请假': 'leave_request',
+        '请个假': 'leave_request',
+        '休假': 'leave_request',
+        '假期': 'leave_request',
+        '年假': 'leave_request',
+        '事假': 'leave_request',
+        '病假': 'leave_request',
+        '婚假': 'leave_request',
+        'leave': 'leave_request',
+        'leave_request': 'leave_request',
+        'vacation': 'leave_request',
+        '出差': 'business_trip',
+        '差旅': 'business_trip',
+        'business_trip': 'business_trip',
+        'trip': 'business_trip',
+        '报销': 'reimbursement',
+        '费用': 'reimbursement',
+        'reimbursement': 'reimbursement',
+        'expense': 'reimbursement',
+        '采购': 'purchase',
+        'purchase': 'purchase',
+    }
 
     def build_action_request(self, intent_result: dict, user=None) -> AIActionRequest | None:
         action = intent_result.get('action')
@@ -47,6 +72,7 @@ class AIConfirmationService:
                 changes,
                 normalized_context,
                 user=user,
+                query=intent_result.get('original_query') or intent_result.get('query') or '',
             )
 
         return AIActionRequest(
@@ -89,12 +115,28 @@ class AIConfirmationService:
             },
         }
 
-    def _normalize_approval_create_payload(self, entities: dict, changes: dict, context: dict, user=None) -> tuple[dict, dict]:
+    def _normalize_approval_create_payload(
+            self,
+            entities: dict,
+            changes: dict,
+            context: dict,
+            user=None,
+            query: str = '') -> tuple[dict, dict]:
         normalized_changes = dict(changes or {})
         normalized_context = dict(context or {})
 
-        request_type = self._normalize_approval_request_type(entities)
-        reason = str(entities.get('reason') or normalized_changes.get('reason') or '').strip()
+        request_type = self._normalize_approval_request_type(entities, query=query)
+        reason = str(
+            entities.get('reason') or
+            entities.get('approval_reason') or
+            entities.get('leave_reason') or
+            entities.get('trip_reason') or
+            entities.get('reimbursement_reason') or
+            normalized_changes.get('reason') or
+            normalized_changes.get('approval_reason') or
+            self._extract_approval_reason(query, request_type) or
+            ''
+        ).strip()
         flow = self._resolve_approval_flow(user, request_type)
         if flow:
             normalized_changes.setdefault('flow_id', flow.id)
@@ -113,13 +155,89 @@ class AIConfirmationService:
             normalized_context.setdefault('approval_reason', reason)
         return normalized_changes, normalized_context
 
-    def _normalize_approval_request_type(self, entities: dict) -> str:
-        raw_value = (
-            entities.get('request_type') or
-            entities.get('type') or
-            entities.get('approval_type')
-        )
-        return str(raw_value or '').strip().lower()
+    def _normalize_approval_request_type(self, entities: dict, query: str = '') -> str:
+        raw_values = [
+            entities.get('request_type'),
+            entities.get('type'),
+            entities.get('approval_type'),
+        ]
+        for raw_value in raw_values:
+            request_type = self._canonical_approval_request_type(raw_value)
+            if request_type:
+                return request_type
+        return self._infer_approval_request_type_from_text(query)
+
+    def _canonical_approval_request_type(self, value) -> str:
+        cleaned = str(value or '').strip().lower()
+        if not cleaned:
+            return ''
+        if cleaned in self.APPROVAL_REQUEST_TYPE_ALIASES:
+            return self.APPROVAL_REQUEST_TYPE_ALIASES[cleaned]
+        for request_type, keywords in self.APPROVAL_REQUEST_TYPE_KEYWORDS.items():
+            if any(keyword and keyword.lower() in cleaned for keyword in keywords):
+                return self.APPROVAL_REQUEST_TYPE_ALIASES.get(request_type, request_type)
+        return cleaned
+
+    def _infer_approval_request_type_from_text(self, text: str) -> str:
+        value = str(text or '').strip().lower()
+        if not value:
+            return ''
+        for keyword, request_type in self.APPROVAL_REQUEST_TYPE_ALIASES.items():
+            if keyword and keyword.lower() in value:
+                return request_type
+        return ''
+
+    def _extract_approval_reason(self, text: str, request_type: str) -> str:
+        value = str(text or '').strip()
+        if not value or request_type not in {'leave_request', 'business_trip', 'reimbursement', 'purchase'}:
+            return ''
+
+        for pattern in [
+                r'(?:因为|由于|原因是|事由是|理由是)\s*([^，。；;,.]+)',
+                r'(?:我要|我想|需要|准备|打算)\s*去?\s*([^，。；;,.]+)',
+        ]:
+            match = re.search(pattern, value)
+            if match:
+                reason = self._clean_approval_reason(match.group(1), request_type)
+                if reason:
+                    return reason
+
+        known_reasons = {
+            '婚假': '结婚',
+            '结婚': '结婚',
+            '生病': '生病',
+            '看病': '看病',
+            '病假': '生病',
+            '产检': '产检',
+            '陪产': '陪产',
+            '家里有事': '家里有事',
+            '个人原因': '个人原因',
+            '调休': '调休',
+            '年假': '年假',
+            '事假': '事假',
+        }
+        for keyword, reason in known_reasons.items():
+            if keyword in value:
+                return reason
+
+        return self._clean_approval_reason(value, request_type)
+
+    def _clean_approval_reason(self, value: str, request_type: str) -> str:
+        reason = str(value or '').strip()
+        if not reason:
+            return ''
+        removals = [
+            '当前页面url', '用户请求', '帮我', '请帮我', '麻烦', '我要', '我想',
+            '需要', '准备', '打算', '申请', '发起', '创建', '新增', '提交',
+            '请个假', '请假', '休假', '假期', '出差', '差旅', '报销', '采购',
+            '审批', '流程', '去',
+        ]
+        for item in removals:
+            reason = reason.replace(item, '')
+        reason = re.sub(r'[:：,，.。;；\s]+', '', reason)
+        if not reason or len(reason) > 40:
+            return ''
+        return reason
 
     def _build_approval_title(self, request_type: str, reason: str, flow=None) -> str:
         prefix_map = {

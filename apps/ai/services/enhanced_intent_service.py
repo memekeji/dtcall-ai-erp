@@ -534,6 +534,19 @@ class EnhancedIntentService:
             'permission_base': 'approval',
             'skip_permission_gate': True,
         },
+        'meeting_minutes': {
+            'name': '会议纪要',
+            'module': '办公管理',
+            'list_url': '/personal/minutes/',
+            'create_url': '/personal/minutes/add/',
+            'edit_url_template': '/personal/minutes/{id}/edit/',
+            'permission': {
+                'query': {'full_code': 'user.view_meeting_minutes', 'exists': True},
+                'create': {'full_code': 'user.add_meeting_minutes', 'exists': True},
+                'update': {'full_code': 'user.change_meeting_minutes', 'exists': True},
+                'delete': {'full_code': 'user.delete_meeting_minutes', 'exists': True},
+            },
+        },
         'task': {
             'name': '任务',
             'module': '任务管理',
@@ -1622,7 +1635,19 @@ class EnhancedIntentService:
             business_task = self._build_business_handoff(
                 user, intent_result, query) if user else self._build_unknown_business_handoff(intent_result, query)
             if business_task:
-                options = business_task.get('options', [])
+                if business_task.get('data_type') and not any(
+                        isinstance(option, dict) and option.get('action') == 'clarify_business_type'
+                        for option in (business_task.get('options') or [])):
+                    options = [
+                        {'text': '确认并执行', 'intent': intent_type, 'action': 'confirm_operation'}
+                    ] + [
+                        option for option in (business_task.get('options') or [])
+                        if not (isinstance(option, dict) and option.get('action') == 'confirm_operation')
+                    ]
+                    business_task = dict(business_task)
+                    business_task['options'] = options
+                else:
+                    options = business_task.get('options', [])
                 message = business_task.get('message')
             else:
                 options = [

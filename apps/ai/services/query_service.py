@@ -206,6 +206,8 @@ class QueryService:
             'meeting_room_list': self.handle_meeting_room_list,
             'meeting_reservation_count': self.handle_meeting_reservation_count,
             'meeting_reservation_list': self.handle_meeting_reservation_list,
+            'meeting_minutes_count': self.handle_meeting_minutes_count,
+            'meeting_minutes_list': self.handle_meeting_minutes_list,
             'meeting_count': self.handle_meeting_count,
             'meeting_list': self.handle_meeting_list,
             'schedule_count': self.handle_schedule_count,
@@ -314,6 +316,7 @@ class QueryService:
             'payment': 'finance.view_payment',
             'meeting_room': 'user.view_meeting_room',
             'meeting_reservation': '__authenticated__',
+            'meeting_minutes': 'user.view_meeting_minutes',
             'meeting': 'oa.view_meetingrecord',
             'schedule': '__authenticated__',
             'enterprise': '__authenticated__',
@@ -481,6 +484,8 @@ class QueryService:
             'meeting_room_list': 'user.view_meeting_room',
             'meeting_reservation_count': '__authenticated__',
             'meeting_reservation_list': '__authenticated__',
+            'meeting_minutes_count': 'user.view_meeting_minutes',
+            'meeting_minutes_list': 'user.view_meeting_minutes',
             'meeting_count': 'oa.view_meetingrecord',
             'meeting_list': 'oa.view_meetingrecord',
             'schedule_count': '__authenticated__',
@@ -788,6 +793,7 @@ class QueryService:
             'payment': {'count': 'payment_count', 'list': 'payment_list'},
             'meeting_room': {'count': 'meeting_room_count', 'list': 'meeting_room_list'},
             'meeting_reservation': {'count': 'meeting_reservation_count', 'list': 'meeting_reservation_list'},
+            'meeting_minutes': {'count': 'meeting_minutes_count', 'list': 'meeting_minutes_list'},
             'meeting': {'count': 'meeting_count', 'list': 'meeting_list'},
             'schedule': {'count': 'schedule_count', 'list': 'schedule_list'},
             'enterprise': {'count': 'enterprise_count', 'list': 'enterprise_list'},
@@ -893,6 +899,7 @@ class QueryService:
             'document',
             'payment',
             'meeting_reservation',
+            'meeting_minutes',
             'meeting_room',
             'meeting',
             'schedule',
@@ -1065,7 +1072,20 @@ class QueryService:
                 intent = 'meeting_room_count'
             else:
                 intent = 'meeting_room_list'
-        elif '会议' in query_lower or '会议纪要' in query_lower:
+        elif '会议纪要' in query_lower:
+            if any(keyword in query_lower for keyword in owned_scope_keywords):
+                entities['scope'] = 'owned_by_me'
+            if '今天' in query_lower:
+                entities['time_range'] = 'today'
+            elif any(keyword in query_lower for keyword in ['本周', '这周']):
+                entities['time_range'] = 'this_week'
+            elif any(keyword in query_lower for keyword in ['上周', '上一周']):
+                entities['time_range'] = 'last_week'
+            if ('数量' in query_lower or '几个' in query_lower or '多少' in query_lower or '统计' in query_lower):
+                intent = 'meeting_minutes_count'
+            else:
+                intent = 'meeting_minutes_list'
+        elif '会议' in query_lower:
             if '今天' in query_lower:
                 entities['time_range'] = 'today'
             elif any(keyword in query_lower for keyword in ['本周', '这周']):
@@ -6143,6 +6163,45 @@ class QueryService:
             'data_type': 'meeting',
         }
 
+    def handle_meeting_minutes_count(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.personal.models import MeetingMinutes
+
+        queryset = self._filter_meeting_minutes_queryset(
+            MeetingMinutes.objects.select_related('recorder', 'user'),
+            user,
+            entities,
+        )
+        return {
+            'type': 'count',
+            'value': queryset.count(),
+            'data_type': 'meeting_minutes',
+        }
+
+    def handle_meeting_minutes_list(
+            self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
+        from apps.personal.models import MeetingMinutes
+
+        queryset = self._filter_meeting_minutes_queryset(
+            MeetingMinutes.objects.select_related('recorder', 'user'),
+            user,
+            entities,
+        )
+        items = [{
+            'id': item.id,
+            'title': item.title,
+            'meeting_type': item.meeting_type_display if hasattr(item, 'meeting_type_display') else item.meeting_type,
+            'meeting_date': item.meeting_date.strftime('%Y-%m-%d %H:%M') if item.meeting_date else '',
+            'recorder': item.recorder.username if item.recorder else '',
+            'is_public': item.is_public,
+        } for item in queryset.order_by('-meeting_date', '-id')[:5]]
+        return {
+            'type': 'list',
+            'items': items,
+            'total': queryset.count(),
+            'data_type': 'meeting_minutes',
+        }
+
     def handle_schedule_count(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         from apps.oa.models import Schedule
@@ -7299,6 +7358,22 @@ class QueryService:
             Q(attendees=user) |
             Q(shared_users=user)
         ).distinct()
+
+    def _filter_meeting_minutes_queryset(self, queryset, user, entities):
+        from django.db.models import Q
+
+        if not getattr(user, 'is_superuser', False):
+            if entities.get('scope') == 'owned_by_me':
+                queryset = queryset.filter(Q(user=user) | Q(recorder=user))
+            else:
+                queryset = queryset.filter(Q(user=user) | Q(recorder=user) | Q(is_public=True))
+
+        time_range = entities.get('time_range')
+        if time_range:
+            start_at, end_at = self._resolve_time_range(time_range)
+            if start_at and end_at:
+                queryset = queryset.filter(meeting_date__range=(start_at, end_at))
+        return queryset.distinct()
 
     def _filter_notice_queryset(self, queryset, user):
         from django.db.models import Q

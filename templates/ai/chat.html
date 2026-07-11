@@ -42,6 +42,10 @@
         color: #ff5722;
     }
 
+    #digitalHumanContainer {
+        display: none !important;
+    }
+
     .ai-recognition-meta {
         margin-top: 8px;
         padding: 8px 10px;
@@ -491,7 +495,14 @@ layui.use(['layer', 'jquery'], function() {
     }
 
     function isDialogExecutableTask(task) {
-        return !!(task && task.operation_id && task.confirmation_token);
+        if (!(task && task.operation_id && task.confirmation_token)) {
+            return false;
+        }
+        return ['executed', 'cancelled', 'rolled_back'].indexOf(task.execution_status) === -1;
+    }
+
+    function isFinishedDialogTask(task) {
+        return !!(task && task.operation_id && ['executed', 'cancelled', 'rolled_back'].indexOf(task.execution_status) !== -1);
     }
 
     function normalizeTaskOptions(task, options) {
@@ -504,9 +515,20 @@ layui.use(['layer', 'jquery'], function() {
             return option && option.action !== 'open_business_page';
         });
 
-        var hasConfirmOption = safeOptions.some(function(option) {
-            return option && option.action === 'confirm_operation';
+        var confirmOption = null;
+        safeOptions = safeOptions.filter(function(option) {
+            if (!option) return false;
+            if (option.action !== 'confirm_operation') return true;
+            if (confirmOption) return false;
+            confirmOption = option;
+            return true;
         });
+        if (confirmOption) {
+            confirmOption.operation_id = confirmOption.operation_id || task.operation_id;
+            confirmOption.token = confirmOption.token || task.confirmation_token;
+            confirmOption.enabled = confirmOption.enabled !== false;
+        }
+        var hasConfirmOption = !!confirmOption;
         if (!hasConfirmOption) {
             safeOptions.unshift({
                 text: '确认并执行',
@@ -717,7 +739,7 @@ layui.use(['layer', 'jquery'], function() {
         });
         if (!safeOptions.length && isDialogExecutableTask(task)) {
             html += '<button type="button" class="layui-btn layui-btn-normal layui-btn-sm ai-task-confirm" data-operation-id="' + escapeHtml(task.operation_id) + '" data-token="' + escapeHtml(task.confirmation_token) + '">确认并执行</button>';
-        } else if (!safeOptions.length && task.target_url) {
+        } else if (!safeOptions.length && task.target_url && !isFinishedDialogTask(task)) {
             html += '<button type="button" class="layui-btn layui-btn-sm ai-task-option" data-option-index="0">查看' + escapeHtml(task.title || '业务页面') + '</button>';
         }
         html += '</div></div>';
@@ -1096,6 +1118,12 @@ layui.use(['layer', 'jquery'], function() {
         });
     }
 
+    function dispatchChatMessage(text) {
+        abortActiveChatStream();
+        appendUserMessage(text);
+        startChatStream(text);
+    }
+
     function sendMessage(forcedText) {
         if (voiceListening) {
             voiceEndingForSend = true;
@@ -1103,17 +1131,34 @@ layui.use(['layer', 'jquery'], function() {
             layer.msg('正在结束录音并识别，请确认文本后再发送');
             return;
         }
-        if (!currentChatId) {
-            layer.msg('请先选择或新建会话');
-            return;
-        }
-        var text = forcedText || $('#chatInput').val();
+        var text = typeof forcedText === 'string' ? forcedText : $('#chatInput').val();
         if (!text || !text.trim()) return;
         $('#chatInput').val('');
 
-        abortActiveChatStream();
-        appendUserMessage(text);
-        startChatStream(text);
+        if (!currentChatId) {
+            $.ajax({
+                url: '/ai/chat/create/',
+                type: 'POST',
+                data: {title: 'AI助手对话', csrfmiddlewaretoken: csrfToken},
+                success: function(res) {
+                    if (res && res.status === 'success') {
+                        currentChatId = res.chat_id;
+                        loadChats();
+                        dispatchChatMessage(text);
+                    } else {
+                        $('#chatInput').val(text);
+                        layer.msg(res && res.message ? res.message : '创建会话失败');
+                    }
+                },
+                error: function() {
+                    $('#chatInput').val(text);
+                    layer.msg('创建会话失败');
+                }
+            });
+            return;
+        }
+
+        dispatchChatMessage(text);
     }
 
     $('#chatList').on('click', '.layui-menu-item', function() {

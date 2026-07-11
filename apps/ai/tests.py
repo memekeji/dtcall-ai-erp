@@ -1052,6 +1052,11 @@ class AIChatStreamingResponseTests(SimpleTestCase):
                 },
                 'options': [
                     {
+                        'text': '确认并执行',
+                        'intent': 'DATA_CREATE',
+                        'action': 'confirm_operation',
+                    },
+                    {
                         'text': '打开新增审批',
                         'intent': 'DATA_CREATE',
                         'action': 'open_business_page',
@@ -1141,6 +1146,11 @@ class AIChatStreamingResponseTests(SimpleTestCase):
         self.assertEqual(payload['task']['options'][0]['action'], 'confirm_operation')
         self.assertEqual(payload['operation_id'], 123)
         self.assertEqual(payload['confirmation']['token'], 'token-123')
+        self.assertEqual(
+            sum(1 for option in payload['task']['options'] if option['action'] == 'confirm_operation'),
+            1,
+        )
+        self.assertEqual(payload['task']['options'][0]['token'], 'token-123')
 
     def test_stream_chat_events_shortcut_confirm_uses_pending_operation_follow_up(self):
         from apps.ai.views import AIChatStreamView
@@ -1368,6 +1378,61 @@ class AIConfirmationServiceTests(SimpleTestCase):
 
 
 class AIApprovalConversationExecutionTests(TestCase):
+    def test_confirmation_payload_resolves_chinese_leave_request_type(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.confirmation_service import confirmation_service
+        from apps.approval.models import ApprovalFlow, ApprovalStep, ApprovalType
+
+        user_model = get_user_model()
+        user = user_model.objects.create_user(
+            username='approval-ai-chinese-leave',
+            password='test-pass-123',
+            is_superuser=True,
+        )
+        approval_type = ApprovalType.objects.create(
+            name='请假审批',
+            code='LEAVE-TYPE-CHINESE-AI',
+            is_active=True,
+        )
+        flow = ApprovalFlow.objects.create(
+            name='请假审批流程',
+            code='LEAVE-FLOW-CHINESE-AI',
+            approval_type=approval_type,
+            is_active=True,
+        )
+        ApprovalStep.objects.create(
+            flow=flow,
+            step_name='人事审批',
+            step_order=1,
+            step_type='specific_user',
+            action_type='approve',
+            approver=user,
+        )
+
+        payload = {
+            'success': True,
+            'requires_confirmation': True,
+            'message': '已识别到请假审批意图，请确认后执行。',
+            'intent_type': 'DATA_CREATE',
+            'action': 'create',
+            'data_type': 'approval',
+            'original_query': '帮我请个假，我要去结婚',
+            'entities': {
+                'request_type': '请假',
+            },
+        }
+
+        confirmation = confirmation_service.build_confirmation_payload(payload, user=user)
+        changes = confirmation['action_plan']['changes']
+        context = confirmation['action_plan']['context']
+
+        self.assertEqual(changes['flow_id'], flow.id)
+        self.assertEqual(changes['type_id'], approval_type.id)
+        self.assertEqual(changes['title'], '请假申请（结婚）')
+        self.assertEqual(changes['content'], '请假事由：结婚')
+        self.assertEqual(context['approval_request_type'], 'leave_request')
+        self.assertEqual(context['approval_reason'], '结婚')
+
     def test_confirm_operation_creates_leave_approval_and_initial_task(self):
         from django.contrib.auth import get_user_model
         from apps.ai.services.confirmation_service import confirmation_service

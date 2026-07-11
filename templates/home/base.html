@@ -1519,7 +1519,8 @@
 
         // 控制数字人和水印显示
         document.addEventListener('DOMContentLoaded', function() {
-            const display = isInIframe ? 'none' : 'flex';
+            const hideDigitalHuman = isInIframe || window.location.pathname === '/ai/chat/';
+            const display = hideDigitalHuman ? 'none' : 'flex';
             const watermarkDisplay = isInIframe ? 'none' : 'block';
 
             const digitalHumanContainer = document.getElementById('digitalHumanContainer');
