@@ -802,6 +802,144 @@ class AIChatStreamingResponseTests(SimpleTestCase):
         self.assertIn('event: done', stream_text)
         self.assertIn('"ai_message": "你好"', stream_text)
 
+    def test_stream_chat_events_upgrade_confirmable_write_to_confirm_operation(self):
+        from apps.ai.views import AIChatStreamView
+
+        factory = RequestFactory()
+        request = factory.post('/ai/chat/stream/', data={'chat_id': 5, 'message': '帮我请个假，我要去结婚'})
+        request.user = SimpleNamespace(is_authenticated=True, id=7)
+        request.session = {}
+
+        ai_message = SimpleNamespace(
+            id=31,
+            runtime_payload={},
+            created_at=None,
+            save=MagicMock(),
+        )
+        operation_record = SimpleNamespace(id=123, confirmation_token='token-123')
+        stream_payload = {
+            'success': True,
+            'requires_confirmation': True,
+            'message': '已识别到新增审批意图。AI 会在您确认后直接执行新增，并保留本次操作的单条回退记录。',
+            'ai_message': '已识别到新增审批意图。AI 会在您确认后直接执行新增，并保留本次操作的单条回退记录。',
+            'intent_type': 'DATA_CREATE',
+            'confidence': 0.78,
+            'source': 'ai',
+            'action': 'create',
+            'data_type': 'approval',
+            'entities': {
+                'type': 'leave_request',
+                'reason': '结婚',
+            },
+            'task': {
+                'type': 'business_handoff',
+                'intent_type': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'approval',
+                'module': '审批管理',
+                'title': '新增审批',
+                'target_url': '/approval/apply/',
+                'list_url': '/approval/my/',
+                'open_mode': 'tab',
+                'requires_user_confirmation': True,
+                'safety_notice': 'AI 会在您确认后直接执行新增，并保留本次操作的单条回退记录。',
+                'message': '已识别到新增审批意图。AI 会在您确认后直接执行新增，并保留本次操作的单条回退记录。',
+                'prefill': {
+                    'type': 'leave_request',
+                    'reason': '结婚',
+                },
+                'options': [
+                    {
+                        'text': '打开新增审批',
+                        'intent': 'DATA_CREATE',
+                        'action': 'open_business_page',
+                        'target_url': '/approval/apply/',
+                    },
+                    {
+                        'text': '打开审批列表',
+                        'intent': 'DATA_QUERY',
+                        'action': 'open_business_page',
+                        'target_url': '/approval/my/',
+                    },
+                    {
+                        'text': '取消操作',
+                        'intent': 'AI_CHAT',
+                        'action': 'cancel',
+                        'enabled': True,
+                    },
+                ],
+            },
+            'options': [
+                {
+                    'text': '打开新增审批',
+                    'intent': 'DATA_CREATE',
+                    'action': 'open_business_page',
+                    'target_url': '/approval/apply/',
+                },
+                {
+                    'text': '打开审批列表',
+                    'intent': 'DATA_QUERY',
+                    'action': 'open_business_page',
+                    'target_url': '/approval/my/',
+                },
+                {
+                    'text': '取消操作',
+                    'intent': 'AI_CHAT',
+                    'action': 'cancel',
+                    'enabled': True,
+                },
+            ],
+        }
+
+        with patch(
+            'apps.ai.views.enhanced_intent_service.stream_user_request',
+            return_value=iter([{'type': 'done', 'payload': stream_payload}]),
+        ), patch(
+            'apps.ai.services.confirmation_service.confirmation_service.build_confirmation_payload',
+            return_value={
+                'action_plan': {
+                    'resource': 'approval',
+                    'operation': 'create',
+                    'object_ids': [],
+                    'changes': {
+                        'flow_id': 8,
+                        'title': '请假申请（结婚）',
+                        'content': '请假事由：结婚',
+                    },
+                    'filters': {},
+                    'context': {'approval_request_type': 'leave_request'},
+                },
+                'confirmation': {
+                    'required': True,
+                    'message': '已识别到新增审批意图。AI 会在您确认后直接执行新增，并保留本次操作的单条回退记录。',
+                },
+            },
+        ), patch.object(
+            AIChatStreamView,
+            'save_chat_record',
+            return_value=(SimpleNamespace(id=5), SimpleNamespace(id=21), ai_message),
+        ) as save_chat_record, patch.object(
+            AIChatStreamView,
+            '_create_operation_preview',
+            return_value=operation_record,
+        ) as create_preview:
+            events = list(AIChatStreamView()._stream_chat_events(
+                user=request.user,
+                chat_id=5,
+                message='帮我请个假，我要去结婚',
+                request=request,
+            ))
+
+        done_event = next(item for item in events if 'event: done' in item)
+        payload = json.loads(done_event.split('data: ', 1)[1].strip())
+
+        save_chat_record.assert_called_once()
+        create_preview.assert_called_once()
+        self.assertEqual(payload['options'][0]['action'], 'confirm_operation')
+        self.assertEqual(payload['task']['options'][0]['action'], 'confirm_operation')
+        self.assertEqual(payload['operation_id'], 123)
+        self.assertEqual(payload['confirmation']['token'], 'token-123')
+
 
 class AIChatHistorySerializationTests(SimpleTestCase):
     def test_serialize_message_hydrates_legacy_pending_operation(self):
@@ -992,6 +1130,77 @@ class AIConfirmationServiceTests(SimpleTestCase):
         self.assertEqual(request.resource, 'finance')
         self.assertEqual(request.context['model'], 'order_record')
         self.assertEqual(request.object_ids, [63])
+
+
+class AIApprovalConversationExecutionTests(TestCase):
+    def test_confirm_operation_creates_leave_approval_and_initial_task(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.confirmation_service import confirmation_service
+        from apps.ai.services.operation_service import operation_service
+        from apps.approval.models import Approval, ApprovalFlow, ApprovalStep, ApprovalTask, ApprovalType
+
+        user_model = get_user_model()
+        user = user_model.objects.create_user(
+            username='approval-ai-executor',
+            password='test-pass-123',
+            is_superuser=True,
+        )
+        approval_type = ApprovalType.objects.create(
+            name='请假审批',
+            code='LEAVE-TYPE-AI',
+            is_active=True,
+        )
+        flow = ApprovalFlow.objects.create(
+            name='请假审批流程',
+            code='LEAVE-FLOW-AI',
+            approval_type=approval_type,
+            is_active=True,
+        )
+        ApprovalStep.objects.create(
+            flow=flow,
+            step_name='人事审批',
+            step_order=1,
+            step_type='specific_user',
+            action_type='approve',
+            approver=user,
+        )
+
+        payload = {
+            'success': True,
+            'requires_confirmation': True,
+            'message': '已识别到请假审批意图，请确认后执行。',
+            'intent_type': 'DATA_CREATE',
+            'action': 'create',
+            'data_type': 'approval',
+            'entities': {
+                'request_type': 'leave_request',
+                'reason': '结婚',
+            },
+        }
+        payload.update(confirmation_service.build_confirmation_payload(payload, user=user))
+
+        operation = operation_service.create_preview_operation(
+            user=user,
+            chat=None,
+            user_message=None,
+            ai_message=None,
+            payload=payload,
+        )
+        result = operation_service.confirm_operation(
+            operation.id,
+            operation.confirmation_token,
+            user,
+        )
+
+        self.assertTrue(result['success'])
+        approval = Approval.objects.get(title__contains='请假')
+        self.assertEqual(approval.flow_id, flow.id)
+        self.assertEqual(approval.type_id, approval_type.id)
+        self.assertIn('结婚', approval.content)
+        self.assertEqual(approval.status, 1)
+        self.assertTrue(
+            ApprovalTask.objects.filter(approval=approval, status='pending').exists()
+        )
 
 
 class AIOperationConfirmServiceTests(SimpleTestCase):

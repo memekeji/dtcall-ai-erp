@@ -1985,6 +1985,12 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
             final_payload.setdefault('user_message', message)
             final_payload.setdefault('intent', final_payload.get('intent_type') or final_payload.get('intent'))
             final_payload.setdefault('confidence', final_payload.get('confidence', 0))
+            final_payload = self._enrich_intent_payload(
+                user=user,
+                chat_id=chat_id,
+                message=message,
+                payload=final_payload,
+            )
             if not assistant_text and final_payload.get('ai_message'):
                 for chunk in self._chunk_stream_text(final_payload.get('ai_message')):
                     yield self._serialize_stream_event('chunk', {'content': chunk})
@@ -2002,8 +2008,6 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
 
     def _build_intent_response_payload(self, user, chat_id, message, request=None):
         from apps.ai.services.intent_recognition_service import intent_recognition_service
-        from apps.ai.services.confirmation_service import confirmation_service
-        from apps.ai.services.enhanced_intent_service import enhanced_intent_service
         request_obj = request or getattr(self, 'request', None)
         referrer = request_obj.session.get('ai_last_referrer') if request_obj else None
         page_context = None
@@ -2026,16 +2030,34 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
             chat_id=chat_id,
             context={'page_context': page_context} if page_context else None,
         )
-        ai_response = self.get_response_text(intent_result)
-        payload = dict(intent_result)
+        return self._enrich_intent_payload(
+            user=user,
+            chat_id=chat_id,
+            message=message,
+            payload=intent_result,
+        )
+
+    def _enrich_intent_payload(self, user, chat_id, message, payload):
+        from apps.ai.services.confirmation_service import confirmation_service
+        from apps.ai.services.enhanced_intent_service import enhanced_intent_service
+
+        payload = dict(payload or {})
         payload = enhanced_intent_service._decorate_response_with_recognition_meta(payload, payload)
-        chat, user_message, ai_message = self.save_chat_record(
-            user, chat_id, message, ai_response)
+
+        ai_response = payload.get('ai_message') or self.get_response_text(payload)
+        chat = None
+        user_message = None
+        ai_message = None
+        if not payload.get('ai_message_id'):
+            chat, user_message, ai_message = self.save_chat_record(
+                user, chat_id, message, ai_response)
+
         payload['ai_message'] = ai_response
         payload['user_message'] = message
-        payload.update(confirmation_service.build_confirmation_payload(payload))
+        payload.update(confirmation_service.build_confirmation_payload(payload, user=user))
+
         operation = None
-        if payload.get('confirmation', {}).get('required'):
+        if payload.get('confirmation', {}).get('required') and not payload.get('operation_id'):
             operation = self._create_operation_preview(
                 user=user,
                 chat=chat,
@@ -2068,6 +2090,7 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
                     else:
                         task['options'] = [confirm_option]
                     payload['options'] = task['options']
+
         task = payload.get('task')
         options = payload.get('options') or (task.get('options') if isinstance(task, dict) else [])
         if chat:

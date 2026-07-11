@@ -25,16 +25,7 @@ class ApprovalModuleAdapter(AIBaseModuleAdapter):
             }
 
         if action.operation == 'create':
-            after_snapshot = {
-                'title': action.changes.get('title', ''),
-                'flow_id': action.changes.get('flow_id'),
-                'type_id': action.changes.get('type_id', 0),
-                'applicant_id': getattr(user, 'id', 0) or 0,
-                'status': 0,
-                'content': action.changes.get('content', ''),
-                'reviewer_id': action.changes.get('reviewer_id'),
-                'current_step_order': 1,
-            }
+            after_snapshot = self._build_create_snapshot(action, user)
             return {
                 'success': True,
                 'change_set': [
@@ -95,17 +86,22 @@ class ApprovalModuleAdapter(AIBaseModuleAdapter):
 
         if action.operation == 'create':
             from apps.approval.models import Approval
+            from apps.approval.views import _ensure_initial_tasks
 
+            create_snapshot = self._build_create_snapshot(action, user)
             approval = Approval.objects.create(
                 title=action.changes.get('title', ''),
                 flow_id=action.changes.get('flow_id'),
-                type_id=action.changes.get('type_id', 0) or 0,
+                type_id=create_snapshot.get('type_id', 0) or 0,
                 applicant_id=getattr(user, 'id', 0) or 0,
-                status=0,
+                status=create_snapshot.get('status', 0),
                 content=action.changes.get('content', ''),
                 reviewer_id=action.changes.get('reviewer_id'),
-                current_step_order=1,
+                current_step_order=create_snapshot.get('current_step_order', 0),
             )
+            _ensure_initial_tasks(approval)
+            approval.refresh_from_db()
+            approval_snapshot = self._snapshot_approval(approval)
             return {
                 'success': True,
                 'message': 'created',
@@ -116,8 +112,8 @@ class ApprovalModuleAdapter(AIBaseModuleAdapter):
                         'object_pk': str(approval.id),
                         'change_type': 'create',
                         'before_snapshot': None,
-                        'after_snapshot': self._snapshot_approval(approval),
-                        'changed_fields': sorted(self._snapshot_approval(approval).keys()),
+                        'after_snapshot': approval_snapshot,
+                        'changed_fields': sorted(approval_snapshot.keys()),
                     }
                 ],
             }
@@ -206,3 +202,25 @@ class ApprovalModuleAdapter(AIBaseModuleAdapter):
             'reviewer_id': getattr(approval, 'reviewer_id', None),
             'current_step_order': getattr(approval, 'current_step_order', 1),
         }
+
+    def _build_create_snapshot(self, action, user):
+        flow = self._get_create_flow(action)
+        has_steps = bool(flow and flow.steps.exists())
+        return {
+            'title': action.changes.get('title', ''),
+            'flow_id': action.changes.get('flow_id'),
+            'type_id': action.changes.get('type_id') or getattr(flow, 'approval_type_id', 0) or 0,
+            'applicant_id': getattr(user, 'id', 0) or 0,
+            'status': 1 if has_steps else 2,
+            'content': action.changes.get('content', ''),
+            'reviewer_id': action.changes.get('reviewer_id'),
+            'current_step_order': 1 if has_steps else 0,
+        }
+
+    def _get_create_flow(self, action):
+        from apps.approval.models import ApprovalFlow
+
+        flow_id = action.changes.get('flow_id')
+        if not flow_id:
+            return None
+        return ApprovalFlow.objects.filter(id=flow_id, is_active=True).first()
