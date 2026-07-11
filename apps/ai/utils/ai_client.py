@@ -321,6 +321,62 @@ class OpenAIClient(BaseAIClient):
         except Exception as e:
             self._raise_safe_error("OpenAI REST 调用失败", e)
 
+    def _rest_responses_completion(self, messages, params=None, **kwargs):
+        if not self.api_key:
+            raise AIClientError("OpenAI API Key 未配置")
+        params = params or {}
+        url = self._rest_url("/responses")
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        data = {
+            "model": params.get("model") or kwargs.get("model") or self.model_config.get("chat", "gpt-3.5-turbo"),
+            "input": messages,
+            "temperature": params.get("temperature", kwargs.get("temperature", self.model_config.get('temperature', 0.7))),
+            "max_output_tokens": params.get("max_tokens", kwargs.get("max_tokens", self.model_config.get('max_tokens', 2000))),
+        }
+        top_p = params.get("top_p", kwargs.get("top_p", self.model_config.get("top_p")))
+        if top_p is not None:
+            data["top_p"] = top_p
+        response = self._make_request("POST", url, headers=headers, json=data)
+        return self._parse_responses_response(response.json())
+
+    def _parse_responses_response(self, result):
+        if not isinstance(result, dict):
+            return ""
+        if result.get("output_text"):
+            return result.get("output_text") or ""
+        output = result.get("output") or []
+        for item in output:
+            content = item.get("content") if isinstance(item, dict) else getattr(item, "content", None)
+            if not content:
+                continue
+            if isinstance(content, list):
+                texts = []
+                for content_item in content:
+                    if isinstance(content_item, dict):
+                        texts.append(content_item.get("text") or "")
+                    elif hasattr(content_item, "text"):
+                        texts.append(content_item.text or "")
+                joined = "".join(texts).strip()
+                if joined:
+                    return joined
+            elif isinstance(content, str):
+                return content
+            elif hasattr(content, "text"):
+                return content.text or ""
+        return ""
+
+    def _is_model_channel_error(self, error):
+        detail = getattr(error, "detail", None) or str(error)
+        detail_lower = str(detail or "").lower()
+        return (
+            "no available channel for model" in detail_lower
+            or "model_not_found" in detail_lower
+            or "model not found" in detail_lower
+        )
+
     def _rest_embedding(self, text, **kwargs):
         if not self.api_key:
             raise AIClientError("OpenAI API Key 未配置")
@@ -380,7 +436,15 @@ class OpenAIClient(BaseAIClient):
             params['top_p'] = kwargs.get('top_p', self.model_config.get('top_p', 1.0))
 
         if not self._ensure_client():
-            return self._rest_chat_completion(messages, **kwargs)
+            try:
+                return self._rest_chat_completion(messages, **kwargs)
+            except Exception as rest_error:
+                if self._is_model_channel_error(rest_error):
+                    try:
+                        return self._rest_responses_completion(messages, params=params, **kwargs)
+                    except Exception:
+                        pass
+                raise
 
         try:
             try:
@@ -390,11 +454,14 @@ class OpenAIClient(BaseAIClient):
                 try:
                     return self._rest_chat_completion(messages, **kwargs)
                 except Exception as rest_error:
-                    if self._is_official_endpoint():
+                    if self._is_official_endpoint() or self._is_model_channel_error(rest_error):
                         try:
                             return self._call_responses_api(messages, params)
                         except Exception:
-                            pass
+                            try:
+                                return self._rest_responses_completion(messages, params=params, **kwargs)
+                            except Exception:
+                                pass
                     logger.error(f"OpenAI Chat Completions 调用失败: {str(chat_error)}")
                     raise rest_error
         except Exception as e:

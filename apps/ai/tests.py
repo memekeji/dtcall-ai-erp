@@ -223,6 +223,7 @@ class AIQueryServicePermissionMappingTests(SimpleTestCase):
             'user.view_vehicle_fee',
             'user.view_vehicle_oil',
             'user.view_meeting_room',
+            'user.view_meeting_minutes',
             'user.view_seal_management',
             'user.view_seal_application',
         }
@@ -244,6 +245,7 @@ class AIQueryServicePermissionMappingTests(SimpleTestCase):
         self.assertTrue(service.check_permission(user, 'vehicle_fee_list'))
         self.assertTrue(service.check_permission(user, 'vehicle_oil_list'))
         self.assertTrue(service.check_permission(user, 'meeting_room_list'))
+        self.assertTrue(service.check_permission(user, 'meeting_minutes_list'))
         self.assertTrue(service.check_permission(user, 'meeting_reservation_list'))
         self.assertTrue(service.check_permission(user, 'seal_list'))
         self.assertTrue(service.check_permission(user, 'seal_application_list'))
@@ -1647,6 +1649,24 @@ class AIConfigurationSourceTests(SimpleTestCase):
         self.assertEqual(approval_step_create['permission_code'], 'approval.add_approvalstep')
         self.assertEqual(approval_step_create['target_url'], '/approval/approvalflow/{flow_id}/step/add/')
 
+    def test_project_mcp_exposes_meeting_minutes_query_capability(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capabilities = project_mcp_service.get_capability_catalog()
+        meeting_minutes_query = next(item for item in capabilities if item['id'] == 'query.meeting_minutes.list')
+
+        self.assertEqual(meeting_minutes_query['permission_code'], 'user.view_meeting_minutes')
+        self.assertEqual(meeting_minutes_query['module'], '办公管理')
+
+    def test_project_mcp_exposes_meeting_minutes_create_capability(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capabilities = project_mcp_service.get_capability_catalog()
+        meeting_minutes_create = next(item for item in capabilities if item['id'] == 'write.meeting_minutes.create')
+
+        self.assertEqual(meeting_minutes_create['permission_code'], 'user.add_meeting_minutes')
+        self.assertEqual(meeting_minutes_create['target_url'], '/personal/minutes/add/')
+
     def test_project_mcp_registry_exposes_query_and_write_capabilities(self):
         from apps.ai.services.project_mcp_service import project_mcp_service
 
@@ -2678,6 +2698,32 @@ class AIConfigurationSourceTests(SimpleTestCase):
         self.assertFalse(task['enabled'])
         self.assertIn('流程', task['message'])
 
+    def test_meeting_minutes_create_handoff_is_enabled(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm == 'user.add_meeting_minutes',
+        )
+
+        task = service._build_business_handoff(
+            user,
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'meeting_minutes',
+                'entities': {'title': '周例会纪要'},
+                'confidence': 0.91,
+            },
+            '新增一份周例会纪要',
+        )
+
+        self.assertTrue(task['enabled'])
+        self.assertEqual(task['target_url'], '/personal/minutes/add/')
+        self.assertEqual(task['permission_required']['full_code'], 'user.add_meeting_minutes')
+
     def test_safe_fallback_ambiguous_write_requires_business_type_clarification(self):
         from apps.ai.services.enhanced_intent_service import EnhancedIntentService
 
@@ -3016,6 +3062,14 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
 
         self.assertEqual(intent, 'approval_record_list')
         self.assertEqual(entities['action'], 'return')
+
+    def test_recognize_my_meeting_minutes_plain_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().recognize_intent('我的会议纪要有哪些')
+
+        self.assertEqual(intent, 'meeting_minutes_list')
+        self.assertEqual(entities['scope'], 'owned_by_me')
 
     def test_recognize_published_ai_workflow_plain_language(self):
         from apps.ai.services.query_service import QueryService
@@ -5468,6 +5522,36 @@ class AIQueryServiceApprovalAndFinanceScopeTests(TestCase):
 
         self.assertEqual(result['total'], 1)
         self.assertEqual(codes, {'TYPE-ACTIVE'})
+
+    def test_meeting_minutes_list_scope_only_returns_owned_minutes(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.personal.models import MeetingMinutes
+
+        User = get_user_model()
+        user = User.objects.create_user(username='minutes-owner')
+        other = User.objects.create_user(username='minutes-other')
+
+        MeetingMinutes.objects.create(
+            title='我的纪要',
+            meeting_date=timezone.now(),
+            recorder=user,
+            user=user,
+            is_public=False,
+        )
+        MeetingMinutes.objects.create(
+            title='公开纪要',
+            meeting_date=timezone.now(),
+            recorder=other,
+            user=other,
+            is_public=True,
+        )
+
+        result = QueryService().handle_meeting_minutes_list({'scope': 'owned_by_me'}, user)
+        titles = {item['title'] for item in result['items']}
+
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(titles, {'我的纪要'})
 
     def test_approval_step_list_flow_scope_only_returns_target_flow(self):
         from django.contrib.auth import get_user_model
@@ -9565,6 +9649,33 @@ class AIModelConfigCompatibilityTests(SimpleTestCase):
 
 
 class AIModelConfigValidateViewTests(SimpleTestCase):
+    def test_openai_client_falls_back_to_responses_endpoint_for_proxy_model_channel_error(self):
+        from apps.ai.utils.ai_client import AIClientError, OpenAIClient
+
+        client = OpenAIClient(
+            base_url='https://proxy.example.com/v1',
+            api_key='sk-test',
+            model_config={'chat': 'gpt-5.5', 'model_name': 'gpt-5.5', 'max_tokens': 128},
+        )
+
+        def fake_request(method, url, **kwargs):
+            if url.endswith('/chat/completions'):
+                raise AIClientError(
+                    'AI模型调用失败，请检查模型配置后重试',
+                    error_code='http_error',
+                    status_code=503,
+                    detail='No available channel for model gpt-5.5 under group default',
+                )
+            self.assertTrue(url.endswith('/responses'))
+            self.assertEqual(kwargs['json']['model'], 'gpt-5.5')
+            return SimpleNamespace(json=lambda: {'output_text': '模型可用'})
+
+        with patch.object(client, '_ensure_client', return_value=False), \
+                patch.object(client, '_make_request', side_effect=fake_request):
+            result = client.chat_completion([{'role': 'user', 'content': '你好'}])
+
+        self.assertEqual(result, '模型可用')
+
     def test_validate_view_returns_http_status_details_for_ai_client_error(self):
         from apps.ai.views import AIModelConfigValidateView
         from apps.ai.utils.ai_client import AIClientError
@@ -9595,6 +9706,33 @@ class AIModelConfigValidateViewTests(SimpleTestCase):
         self.assertEqual(payload['details']['status_code'], 503)
         self.assertEqual(payload['details']['error_code'], 'http_error')
         self.assertEqual(payload['details']['detail'], 'Service Unavailable')
+
+    def test_validate_view_identifies_model_channel_error(self):
+        from apps.ai.views import AIModelConfigValidateView
+        from apps.ai.utils.ai_client import AIClientError
+
+        view = AIModelConfigValidateView()
+        model_config = SimpleNamespace(
+            id=1,
+            provider='openai',
+            api_base='https://www.aitokens.link/v1',
+            model_names=['gpt-5.5'],
+            primary_model_name=lambda: 'gpt-5.5',
+            api_key='sk-test',
+        )
+
+        error = AIClientError(
+            'AI模型调用失败，请检查模型配置后重试',
+            error_code='http_error',
+            status_code=503,
+            detail='{"error":{"code":"model_not_found","message":"No available channel for model gpt-5.5 under group default"}}',
+        )
+
+        payload = view._build_validation_error_payload(model_config, error)
+
+        self.assertIn('模型', payload['message'])
+        self.assertIn('渠道', payload['message'])
+        self.assertIn('gpt-5.5', payload['details']['suggestion'])
 
 
 class STTServiceSelectionTests(SimpleTestCase):

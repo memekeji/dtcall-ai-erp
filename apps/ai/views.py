@@ -264,7 +264,7 @@ class AIModelConfigValidateView(
         status_code = getattr(error, 'status_code', None)
         error_code = getattr(error, 'error_code', None)
         detail = getattr(error, 'detail', None) or str(error)
-        message = self._build_validation_message(error_type, status_code)
+        message = self._build_validation_message(error_type, status_code, detail)
         return {
             'status': 'error',
             'message': message,
@@ -277,11 +277,27 @@ class AIModelConfigValidateView(
                 'error_code': error_code,
                 'status_code': status_code,
                 'detail': detail[:500] if isinstance(detail, str) else str(detail),
-                'suggestion': self._get_error_suggestion(error_type, model_config, status_code=status_code, error_code=error_code)
+                'suggestion': self._get_error_suggestion(
+                    error_type,
+                    model_config,
+                    status_code=status_code,
+                    error_code=error_code,
+                    detail=detail,
+                )
             }
         }
 
-    def _build_validation_message(self, error_type, status_code=None):
+    def _is_model_channel_error(self, detail):
+        detail_lower = str(detail or '').lower()
+        return (
+            'no available channel for model' in detail_lower
+            or 'model_not_found' in detail_lower
+            or 'model not found' in detail_lower
+        )
+
+    def _build_validation_message(self, error_type, status_code=None, detail=None):
+        if self._is_model_channel_error(detail):
+            return '连接失败：当前模型在所选渠道不可用'
         if status_code == 401:
             return '连接失败：API 密钥无效或已过期'
         if status_code == 403:
@@ -302,8 +318,14 @@ class AIModelConfigValidateView(
             return '连接失败，请检查模型配置或稍后重试'
         return '连接失败，请检查模型配置后重试'
 
-    def _get_error_suggestion(self, error_type, model_config, status_code=None, error_code=None):
+    def _get_error_suggestion(self, error_type, model_config, status_code=None, error_code=None, detail=None):
         """根据错误类型提供修复建议"""
+        if self._is_model_channel_error(detail):
+            return (
+                f'当前渠道未返回模型 {self._get_primary_model_name(model_config)} 的可用实例。'
+                '请确认模型名称是否与服务商控制台完全一致、该模型是否已开通，'
+                '或检查该服务商是否要求使用 /responses 等特定 OpenAI 兼容接口。'
+            )
         if status_code == 401:
             return '请检查数据库中保存的 API 密钥是否正确、是否已过期，并确认该密钥属于当前服务地址'
         if status_code == 403:
