@@ -517,6 +517,33 @@ class AIRollbackServiceTests(SimpleTestCase):
         self.assertEqual(customer.belong_did, 3)
         self.assertEqual(customer.share_ids, '7,8')
 
+    def test_rollback_operation_scopes_to_request_user(self):
+        from apps.ai.services.rollback_service import rollback_service
+
+        user = SimpleNamespace(id=7, is_authenticated=True)
+        operation = SimpleNamespace(
+            id=77,
+            status='executed',
+            change_sets=SimpleNamespace(all=lambda: []),
+            save=MagicMock(),
+        )
+        rollback_record = SimpleNamespace(
+            id=1,
+            status='pending',
+            result_summary={},
+            error_message='',
+            completed_at=None,
+            save=MagicMock(),
+        )
+
+        with patch('apps.ai.services.rollback_service.AIOperation.objects.get', return_value=operation) as get_operation, \
+                patch('apps.ai.services.rollback_service.AIOperationRollback.objects.create', return_value=rollback_record), \
+                patch('apps.ai.services.rollback_service.transaction.atomic'):
+            result = rollback_service.rollback_operation(operation_id=77, user=user)
+
+        self.assertTrue(result['success'])
+        get_operation.assert_called_once_with(id=77, user=user)
+
 
 class AIChatExecutionPayloadTests(SimpleTestCase):
     def test_chat_payload_includes_action_plan_for_confirmable_write(self):
@@ -655,6 +682,124 @@ class AIChatExecutionPayloadTests(SimpleTestCase):
         self.assertEqual(payload['recognition_meta']['status_label'], '模型不可用')
         self.assertEqual(ai_message.runtime_payload['recognition_meta']['source'], 'safe_fallback')
         self.assertEqual(ai_message.runtime_payload['recognition_meta']['failure_reason'], 'AI 模型暂时不可用')
+
+    def test_chat_payload_confirms_latest_preview_operation_from_natural_language(self):
+        from apps.ai.views import AIChatStreamView
+
+        user = SimpleNamespace(is_authenticated=True, id=9)
+        request = SimpleNamespace(session={})
+        ai_message = SimpleNamespace(
+            id=13,
+            runtime_payload={},
+            created_at=None,
+            save=MagicMock(),
+        )
+        pending_operation = SimpleNamespace(
+            id=401,
+            confirmation_token='token-401',
+            resource_type='approval',
+            operation_type='create',
+            ai_message=SimpleNamespace(
+                runtime_payload={
+                    'task': {
+                        'type': 'business_handoff',
+                        'title': '请假申请',
+                        'module': '审批管理',
+                        'data_type': 'approval',
+                        'action': 'create',
+                    }
+                }
+            ),
+        )
+
+        with patch('apps.ai.views.operation_service.match_pending_operation_command', return_value='confirm'), \
+                patch('apps.ai.views.operation_service.get_latest_preview_operation', return_value=pending_operation), \
+                patch(
+                    'apps.ai.views.operation_service.confirm_operation',
+                    return_value={
+                        'success': True,
+                        'message': '请假申请已创建',
+                        'operation_id': 401,
+                        'gateway_result': {
+                            'change_set': [{'object_pk': '88'}],
+                        },
+                    },
+                ) as confirm_operation, \
+                patch('apps.ai.services.intent_recognition_service.intent_recognition_service.process_request') as process_request, \
+                patch.object(
+                    AIChatStreamView,
+                    'save_chat_record',
+                    return_value=(SimpleNamespace(id=1), SimpleNamespace(id=2), ai_message),
+                ):
+            payload = AIChatStreamView()._build_intent_response_payload(
+                user,
+                chat_id=3,
+                message='确认',
+                request=request,
+            )
+
+        process_request.assert_not_called()
+        confirm_operation.assert_called_once_with(
+            operation_id=401,
+            token='token-401',
+            user=user,
+        )
+        self.assertTrue(payload['success'])
+        self.assertEqual(payload['task']['operation_id'], 401)
+        self.assertTrue(payload['task']['can_rollback'])
+        self.assertEqual(payload['options'][0]['action'], 'rollback_operation')
+
+    def test_chat_payload_cancels_latest_preview_operation_from_natural_language(self):
+        from apps.ai.views import AIChatStreamView
+
+        user = SimpleNamespace(is_authenticated=True, id=9)
+        request = SimpleNamespace(session={})
+        ai_message = SimpleNamespace(
+            id=14,
+            runtime_payload={},
+            created_at=None,
+            save=MagicMock(),
+        )
+        pending_operation = SimpleNamespace(
+            id=402,
+            confirmation_token='token-402',
+            resource_type='approval',
+            operation_type='create',
+            ai_message=SimpleNamespace(runtime_payload={}),
+        )
+
+        with patch('apps.ai.views.operation_service.match_pending_operation_command', return_value='cancel'), \
+                patch('apps.ai.views.operation_service.get_latest_preview_operation', return_value=pending_operation), \
+                patch(
+                    'apps.ai.views.operation_service.cancel_operation',
+                    return_value={
+                        'success': True,
+                        'message': '已取消上一步待确认操作，本次不会写入任何数据。',
+                        'operation_id': 402,
+                    },
+                ) as cancel_operation, \
+                patch('apps.ai.services.intent_recognition_service.intent_recognition_service.process_request') as process_request, \
+                patch.object(
+                    AIChatStreamView,
+                    'save_chat_record',
+                    return_value=(SimpleNamespace(id=1), SimpleNamespace(id=2), ai_message),
+                ):
+            payload = AIChatStreamView()._build_intent_response_payload(
+                user,
+                chat_id=3,
+                message='不要了',
+                request=request,
+            )
+
+        process_request.assert_not_called()
+        cancel_operation.assert_called_once_with(
+            operation_id=402,
+            token='token-402',
+            user=user,
+        )
+        self.assertTrue(payload['success'])
+        self.assertEqual(payload['message'], '已取消上一步待确认操作，本次不会写入任何数据。')
+        self.assertEqual(payload.get('options'), [])
 
 
 class AIChatStreamingResponseTests(SimpleTestCase):
@@ -939,6 +1084,39 @@ class AIChatStreamingResponseTests(SimpleTestCase):
         self.assertEqual(payload['task']['options'][0]['action'], 'confirm_operation')
         self.assertEqual(payload['operation_id'], 123)
         self.assertEqual(payload['confirmation']['token'], 'token-123')
+
+    def test_stream_chat_events_shortcut_confirm_uses_pending_operation_follow_up(self):
+        from apps.ai.views import AIChatStreamView
+
+        factory = RequestFactory()
+        request = factory.post('/ai/chat/stream/', data={'chat_id': 5, 'message': '确认'})
+        request.user = SimpleNamespace(is_authenticated=True, id=7)
+        request.session = {}
+
+        with patch.object(
+            AIChatStreamView,
+            '_build_pending_operation_follow_up_payload',
+            create=True,
+            return_value={
+                'success': True,
+                'status': 'success',
+                'message': '已执行完成',
+                'ai_message': '已执行完成',
+                'options': [],
+            },
+        ) as build_follow_up, patch(
+            'apps.ai.views.enhanced_intent_service.stream_user_request',
+        ) as stream_user_request:
+            events = list(AIChatStreamView()._stream_chat_events(
+                user=request.user,
+                chat_id=5,
+                message='确认',
+                request=request,
+            ))
+
+        build_follow_up.assert_called_once()
+        stream_user_request.assert_not_called()
+        self.assertTrue(any('event: done' in item for item in events))
 
 
 class AIChatHistorySerializationTests(SimpleTestCase):
@@ -1229,6 +1407,7 @@ class AIOperationConfirmServiceTests(SimpleTestCase):
 
         with patch('apps.ai.services.operation_service.AIOperation.objects.select_related') as select_related, \
                 patch('apps.ai.services.operation_service.timezone.now', return_value='NOW'), \
+                patch('apps.ai.services.operation_service.transaction.atomic'), \
                 patch('apps.ai.services.operation_service.AIActionGateway') as gateway_cls:
             select_related.return_value.get.return_value = operation
             gateway = gateway_cls.return_value
@@ -1322,6 +1501,7 @@ class AIOperationConfirmServiceTests(SimpleTestCase):
         with patch('apps.ai.services.operation_service.AIOperation.objects.select_related') as select_related, \
                 patch('apps.ai.services.operation_service.AIOperationChangeSet.objects.create') as create_change_set, \
                 patch('apps.ai.services.operation_service.timezone.now', return_value='NOW'), \
+                patch('apps.ai.services.operation_service.transaction.atomic'), \
                 patch('apps.ai.services.operation_service.AIActionGateway') as gateway_cls:
             select_related.return_value.get.return_value = operation
             operation.confirmation = confirmation
@@ -1342,6 +1522,195 @@ class AIOperationConfirmServiceTests(SimpleTestCase):
         self.assertEqual(create_change_set.call_args.kwargs['object_pk'], '12')
         self.assertEqual(create_change_set.call_args.kwargs['change_type'], 'update')
 
+    def test_confirm_operation_scopes_to_request_user(self):
+        from apps.ai.services.operation_service import operation_service
+
+        user = SimpleNamespace(id=7, is_authenticated=True)
+        operation = SimpleNamespace(
+            id=9,
+            status='preview',
+            requires_confirmation=True,
+            preview_payload={'resource': 'customer', 'operation': 'update'},
+            confirmed_payload={},
+            save=MagicMock(),
+        )
+        confirmation = SimpleNamespace(
+            token='token-9',
+            is_used=False,
+            confirmed_by=None,
+            confirmed_at=None,
+            save=MagicMock(),
+        )
+
+        with patch('apps.ai.services.operation_service.AIOperation.objects.select_related') as select_related, \
+                patch('apps.ai.services.operation_service.timezone.now', return_value='NOW'), \
+                patch('apps.ai.services.operation_service.transaction.atomic'), \
+                patch('apps.ai.services.operation_service.AIActionGateway') as gateway_cls:
+            select_related.return_value.get.return_value = operation
+            operation.confirmation = confirmation
+            gateway_cls.return_value.execute_confirmed_action.return_value = {
+                'success': True,
+                'message': 'done',
+                'change_set': [],
+            }
+
+            operation_service.confirm_operation(
+                operation_id=9,
+                token='token-9',
+                user=user,
+            )
+
+        select_related.return_value.get.assert_called_once_with(id=9, user=user)
+
+    def test_confirm_operation_rejects_cancelled_preview(self):
+        from apps.ai.services.operation_service import operation_service
+
+        user = SimpleNamespace(id=7, is_authenticated=True)
+        operation = SimpleNamespace(
+            id=9,
+            status='cancelled',
+            requires_confirmation=True,
+            preview_payload={'resource': 'customer', 'operation': 'update'},
+            confirmed_payload={},
+            save=MagicMock(),
+        )
+        confirmation = SimpleNamespace(
+            token='token-9',
+            is_used=False,
+        )
+
+        with patch('apps.ai.services.operation_service.AIOperation.objects.select_related') as select_related, \
+                patch('apps.ai.services.operation_service.AIActionGateway') as gateway_cls:
+            select_related.return_value.get.return_value = operation
+            operation.confirmation = confirmation
+
+            result = operation_service.confirm_operation(
+                operation_id=9,
+                token='token-9',
+                user=user,
+            )
+
+        self.assertFalse(result['success'])
+        self.assertEqual(result['message'], '该操作已处理，无法再次确认')
+        gateway_cls.assert_not_called()
+
+    def test_confirm_operation_marks_failed_when_gateway_fails(self):
+        from apps.ai.services.operation_service import operation_service
+
+        user = SimpleNamespace(id=7, is_authenticated=True)
+        operation = SimpleNamespace(
+            id=9,
+            status='preview',
+            requires_confirmation=True,
+            preview_payload={'resource': 'customer', 'operation': 'update'},
+            confirmed_payload={},
+            save=MagicMock(),
+        )
+        confirmation = SimpleNamespace(
+            token='token-9',
+            is_used=False,
+            confirmed_by=None,
+            confirmed_at=None,
+            save=MagicMock(),
+        )
+
+        with patch('apps.ai.services.operation_service.AIOperation.objects.select_related') as select_related, \
+                patch('apps.ai.services.operation_service.timezone.now', return_value='NOW'), \
+                patch('apps.ai.services.operation_service.transaction.atomic'), \
+                patch('apps.ai.services.operation_service.AIActionGateway') as gateway_cls:
+            select_related.return_value.get.return_value = operation
+            operation.confirmation = confirmation
+            gateway_cls.return_value.execute_confirmed_action.return_value = {
+                'success': False,
+                'message': 'adapter failed',
+                'change_set': [],
+            }
+
+            result = operation_service.confirm_operation(
+                operation_id=9,
+                token='token-9',
+                user=user,
+            )
+
+        self.assertFalse(result['success'])
+        self.assertEqual(operation.status, 'failed')
+
+    def test_confirm_operation_runs_execution_in_database_transaction(self):
+        from apps.ai.services.operation_service import operation_service
+
+        user = SimpleNamespace(id=7, is_authenticated=True)
+        operation = SimpleNamespace(
+            id=9,
+            status='preview',
+            requires_confirmation=True,
+            preview_payload={'resource': 'customer', 'operation': 'update'},
+            confirmed_payload={},
+            save=MagicMock(),
+        )
+        confirmation = SimpleNamespace(
+            token='token-9',
+            is_used=False,
+            confirmed_by=None,
+            confirmed_at=None,
+            save=MagicMock(),
+        )
+
+        with patch('apps.ai.services.operation_service.AIOperation.objects.select_related') as select_related, \
+                patch('apps.ai.services.operation_service.timezone.now', return_value='NOW'), \
+                patch('apps.ai.services.operation_service.transaction.atomic') as atomic, \
+                patch('apps.ai.services.operation_service.AIActionGateway') as gateway_cls:
+            select_related.return_value.get.return_value = operation
+            operation.confirmation = confirmation
+            gateway_cls.return_value.execute_confirmed_action.return_value = {
+                'success': True,
+                'message': 'done',
+                'change_set': [],
+            }
+
+            operation_service.confirm_operation(
+                operation_id=9,
+                token='token-9',
+                user=user,
+            )
+
+        atomic.assert_called_once()
+
+
+class AIOperationCancelServiceTests(SimpleTestCase):
+    def test_match_pending_operation_command_does_not_confirm_business_follow_up(self):
+        from apps.ai.services.operation_service import operation_service
+
+        self.assertIsNone(operation_service.match_pending_operation_command('继续查一下客户'))
+        self.assertIsNone(operation_service.match_pending_operation_command('执行中的项目有几个'))
+        self.assertEqual(operation_service.match_pending_operation_command('确认执行'), 'confirm')
+        self.assertEqual(operation_service.match_pending_operation_command('取消吧'), 'cancel')
+
+    def test_cancel_operation_marks_preview_cancelled(self):
+        from apps.ai.services.operation_service import operation_service
+
+        user = SimpleNamespace(id=7, is_authenticated=True)
+        operation = SimpleNamespace(
+            id=9,
+            status='preview',
+            save=MagicMock(),
+        )
+        confirmation = SimpleNamespace(token='token-9')
+
+        with patch('apps.ai.services.operation_service.AIOperation.objects.select_related') as select_related:
+            select_related.return_value.get.return_value = operation
+            operation.confirmation = confirmation
+
+            result = operation_service.cancel_operation(
+                operation_id=9,
+                token='token-9',
+                user=user,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(operation.status, 'cancelled')
+        operation.save.assert_called_once()
+        select_related.return_value.get.assert_called_once_with(id=9, user=user)
+
 
 class AIConfirmOperationViewTests(SimpleTestCase):
     def test_confirm_operation_view_returns_service_result(self):
@@ -1357,6 +1726,27 @@ class AIConfirmOperationViewTests(SimpleTestCase):
 
         with patch('apps.ai.views.operation_service.confirm_operation', return_value={'success': True, 'operation_id': 9, 'message': 'done'}):
             response = AIConfirmOperationView.as_view()(request)
+
+        payload = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(payload['success'])
+        self.assertEqual(payload['operation_id'], 9)
+
+
+class AICancelOperationViewTests(SimpleTestCase):
+    def test_cancel_operation_view_returns_service_result(self):
+        from apps.ai.views import AICancelOperationView
+
+        factory = RequestFactory()
+        request = factory.post(
+            '/ai/operation/cancel/',
+            data=json.dumps({'operation_id': 9, 'token': 'token-9'}),
+            content_type='application/json',
+        )
+        request.user = SimpleNamespace(id=7, is_authenticated=True)
+
+        with patch('apps.ai.views.operation_service.cancel_operation', return_value={'success': True, 'operation_id': 9, 'message': 'cancelled'}):
+            response = AICancelOperationView.as_view()(request)
 
         payload = json.loads(response.content.decode('utf-8'))
         self.assertEqual(response.status_code, 200)

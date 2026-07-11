@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import secrets
 
+from django.db import transaction
 from django.utils import timezone
 
 from apps.ai.models import AIOperation, AIOperationChangeSet, AIOperationConfirmation
@@ -36,7 +37,7 @@ class AIOperationService:
         return operation
 
     def confirm_operation(self, operation_id, token, user):
-        operation = AIOperation.objects.select_related('confirmation').get(id=operation_id)
+        operation = AIOperation.objects.select_related('confirmation').get(id=operation_id, user=user)
         confirmation = operation.confirmation
 
         if confirmation.token != token:
@@ -51,41 +52,99 @@ class AIOperationService:
                 'message': '确认令牌已使用',
             }
 
-        confirmation.is_used = True
-        confirmation.confirmed_by = user
-        confirmation.confirmed_at = timezone.now()
-        confirmation.save(update_fields=['is_used', 'confirmed_by', 'confirmed_at'])
+        if operation.status != 'preview':
+            return {
+                'success': False,
+                'message': '该操作已处理，无法再次确认',
+            }
 
-        operation.status = 'confirmed'
-        operation.confirmed_payload = dict(operation.preview_payload or {})
-        operation.save(update_fields=['status', 'confirmed_payload', 'updated_at'])
+        with transaction.atomic():
+            confirmation.is_used = True
+            confirmation.confirmed_by = user
+            confirmation.confirmed_at = timezone.now()
+            confirmation.save(update_fields=['is_used', 'confirmed_by', 'confirmed_at'])
 
-        gateway = AIActionGateway()
-        gateway_result = gateway.execute_confirmed_action(operation, user)
-        for index, item in enumerate(gateway_result.get('change_set', []), start=1):
-            AIOperationChangeSet.objects.create(
-                operation=operation,
-                sequence=index,
-                app_label=item.get('app_label', ''),
-                model_name=item.get('model_name', ''),
-                object_pk=str(item.get('object_pk', '')),
-                change_type=item.get('change_type', 'update'),
-                before_snapshot=item.get('before_snapshot'),
-                after_snapshot=item.get('after_snapshot'),
-                changed_fields=item.get('changed_fields', []),
-                is_rollback_supported=True,
-                rollback_metadata=item.get('rollback_metadata', {}),
-            )
+            operation.status = 'confirmed'
+            operation.confirmed_payload = dict(operation.preview_payload or {})
+            operation.save(update_fields=['status', 'confirmed_payload', 'updated_at'])
 
-        operation.status = 'executed'
-        operation.executed_at = timezone.now()
-        operation.save(update_fields=['status', 'executed_at', 'updated_at'])
+            gateway = AIActionGateway()
+            gateway_result = gateway.execute_confirmed_action(operation, user)
+            success = bool(gateway_result.get('success'))
+            for index, item in enumerate(gateway_result.get('change_set', []), start=1):
+                AIOperationChangeSet.objects.create(
+                    operation=operation,
+                    sequence=index,
+                    app_label=item.get('app_label', ''),
+                    model_name=item.get('model_name', ''),
+                    object_pk=str(item.get('object_pk', '')),
+                    change_type=item.get('change_type', 'update'),
+                    before_snapshot=item.get('before_snapshot'),
+                    after_snapshot=item.get('after_snapshot'),
+                    changed_fields=item.get('changed_fields', []),
+                    is_rollback_supported=True,
+                    rollback_metadata=item.get('rollback_metadata', {}),
+                )
+
+            operation.status = 'executed' if success else 'failed'
+            update_fields = ['status', 'updated_at']
+            if success:
+                operation.executed_at = timezone.now()
+                update_fields.append('executed_at')
+            operation.save(update_fields=update_fields)
         return {
-            'success': bool(gateway_result.get('success')),
+            'success': success,
             'message': gateway_result.get('message', ''),
             'operation_id': operation.id,
             'gateway_result': gateway_result,
         }
 
+
+    def match_pending_operation_command(self, message: str):
+        normalised = (message or "").strip()
+        if not normalised:
+            return None
+        exact_confirm = {"确认", "执行", "继续", "可以", "好的", "行", "好", "嗯", "对", "是", "yes", "ok", "确定", "就这么办", "没问题"}
+        exact_cancel = {"取消", "不要了", "算了", "不执行", "撤回", "不了", "别执行", "停下", "中止", "停止", "撤销"}
+        if normalised in exact_confirm:
+            return "confirm"
+        if normalised in exact_cancel:
+            return "cancel"
+        if len(normalised) <= 20:
+            if any(kw in normalised for kw in ["查", "看", "列表", "明细", "多少", "几个", "项目", "客户", "合同", "审批"]):
+                return None
+            if any(kw in normalised for kw in ["确认执行", "确定执行", "确认提交", "执行吧", "就这么办"]):
+                return "confirm"
+            if any(kw in normalised for kw in ["取消操作", "取消吧", "不要执行", "别执行", "算了吧"]):
+                return "cancel"
+        return None
+
+    def get_latest_preview_operation(self, user, chat_id=None):
+        filters = {"user": user, "status": "preview"}
+        if chat_id is not None:
+            filters["chat_id"] = chat_id
+        from apps.ai.models_operation import AIOperation
+        return AIOperation.objects.filter(**filters).order_by("-created_at").first()
+
+    def cancel_operation(self, operation_id, token, user):
+        from apps.ai.models_operation import AIOperation
+        operation = AIOperation.objects.select_related("confirmation").get(
+            id=operation_id,
+            user=user,
+        )
+        confirmation = operation.confirmation
+        if confirmation.token != token:
+            return {"success": False, "message": "确认令牌无效"}
+        if getattr(confirmation, "is_used", False):
+            return {"success": False, "message": "确认令牌已使用"}
+        if operation.status != "preview":
+            return {"success": False, "message": "该操作已处理，无法取消"}
+        operation.status = "cancelled"
+        operation.save(update_fields=["status", "updated_at"])
+        return {
+            "success": True,
+            "message": "已取消上一步待确认操作，本次不会写入任何数据。",
+            "operation_id": operation.id,
+        }
 
 operation_service = AIOperationService()

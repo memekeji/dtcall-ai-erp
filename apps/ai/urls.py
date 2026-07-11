@@ -349,6 +349,7 @@ urlpatterns = [
     path('intent/recognize/', views.AIIntentRecognizeAPIView.as_view(), name='intent_recognize'),
     path('chat/stream/', views.AIChatStreamView.as_view(), name='chat_stream'),
     path('operation/confirm/', views.AIConfirmOperationView.as_view(), name='operation_confirm'),
+    path('operation/cancel/', views.AICancelOperationView.as_view(), name='operation_cancel'),
     path('voice/stt/', views.LocalSTTAPIView.as_view(), name='voice_stt'),
 
     # 节点配置Schema API

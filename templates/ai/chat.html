@@ -727,11 +727,19 @@ layui.use(['layer', 'jquery'], function() {
     function handleTaskOption(option, task) {
         if (!option || option.enabled === false) return;
         if (option.action === 'cancel') {
+            if (isDialogExecutableTask(task)) {
+                cancelChatOperation(option, task);
+                return;
+            }
             layer.msg('已取消当前业务操作');
             return;
         }
         if (option.action === 'confirm_operation') {
             confirmChatOperation(option, task);
+            return;
+        }
+        if (option.action === 'rollback_operation') {
+            rollbackChatOperation(option, task);
             return;
         }
         if (option.action === 'clarify') {
@@ -783,19 +791,114 @@ layui.use(['layer', 'jquery'], function() {
                     task.operation_result = response.gateway_result || {};
                     task.safety_notice = '本次操作已执行完成，支持按单条记录回退。';
                     task.message = response.message || task.message;
+                    task.options = [{
+                        text: '回退本次操作',
+                        intent: 'AI_OPERATION_ROLLBACK',
+                        action: 'rollback_operation',
+                        operation_id: operationId,
+                        enabled: true
+                    }];
                 }
                 if (task) {
                     var $card = $('.ai-task-card').filter(function() {
                         return $(this).data('task') === task;
                     }).first();
                     if ($card.length) {
-                        $card.find('.ai-task-option, .ai-task-confirm').prop('disabled', true);
+                        $card.replaceWith(renderTaskCard(task, task.options));
+                        bindRenderedTaskCards();
                     }
                 }
             },
             error: function(xhr) {
                 layer.close(loadingIndex);
                 layer.msg((xhr.responseJSON && xhr.responseJSON.message) || '确认执行失败', {icon: 2});
+            }
+        });
+    }
+
+    function cancelChatOperation(option, task) {
+        var operationId = option.operation_id || (task && task.operation_id);
+        var token = option.token || (task && task.confirmation_token);
+        if (!operationId || !token) {
+            layer.msg('缺少确认信息，无法取消');
+            return;
+        }
+        var loadingIndex = layer.load(1, {shade: [0.06, '#fff']});
+        $.ajax({
+            url: '/ai/operation/cancel/',
+            method: 'POST',
+            contentType: 'application/json',
+            dataType: 'json',
+            headers: {'X-CSRFToken': csrfToken},
+            data: JSON.stringify({operation_id: operationId, token: token}),
+            success: function(response) {
+                layer.close(loadingIndex);
+                if (!response.success) {
+                    layer.msg(response.message || '取消失败', {icon: 2});
+                    return;
+                }
+                layer.msg('已取消操作', {icon: 1});
+                if (task) {
+                    task.execution_status = 'cancelled';
+                    task.can_rollback = false;
+                    task.safety_notice = '本次操作已取消，未写入业务数据。';
+                    task.message = response.message || task.message;
+                    task.options = [];
+                    var $card = $('.ai-task-card').filter(function() {
+                        return $(this).data('task') === task;
+                    }).first();
+                    if ($card.length) {
+                        $card.replaceWith(renderTaskCard(task, []));
+                        bindRenderedTaskCards();
+                    }
+                }
+            },
+            error: function(xhr) {
+                layer.close(loadingIndex);
+                layer.msg((xhr.responseJSON && xhr.responseJSON.message) || '取消失败', {icon: 2});
+            }
+        });
+    }
+
+    function rollbackChatOperation(option, task) {
+        var operationId = option.operation_id || (task && task.operation_id);
+        if (!operationId) {
+            layer.msg('缺少操作信息，无法回退');
+            return;
+        }
+        var loadingIndex = layer.load(1, {shade: [0.06, '#fff']});
+        $.ajax({
+            url: '/ai/agent-center/rollback/',
+            method: 'POST',
+            contentType: 'application/json',
+            dataType: 'json',
+            headers: {'X-CSRFToken': csrfToken},
+            data: JSON.stringify({operation_id: operationId}),
+            success: function(response) {
+                layer.close(loadingIndex);
+                var payload = response && (response.data || response);
+                if (!response.success && !(payload && payload.success)) {
+                    layer.msg((payload && payload.message) || response.message || '回退失败', {icon: 2});
+                    return;
+                }
+                layer.msg('已回退本次操作', {icon: 1});
+                if (task) {
+                    task.execution_status = 'rolled_back';
+                    task.can_rollback = false;
+                    task.safety_notice = '本次操作已按单条记录完成物理回退。';
+                    task.options = [];
+                    var $card = $('.ai-task-card').filter(function() {
+                        return $(this).data('task') === task;
+                    }).first();
+                    if ($card.length) {
+                        $card.replaceWith(renderTaskCard(task, []));
+                        bindRenderedTaskCards();
+                    }
+                }
+            },
+            error: function(xhr) {
+                layer.close(loadingIndex);
+                layer.msg((xhr.responseJSON && xhr.responseJSON.message) || '回退失败', {icon: 2});
             }
         });
     }

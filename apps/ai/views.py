@@ -1932,6 +1932,13 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
     def _stream_chat_events(self, user, chat_id, message, request=None):
         yield self._serialize_stream_event('thinking', {'message': '正在思考....'})
         try:
+            follow_up_payload = self._build_pending_operation_follow_up_payload(user, chat_id, message)
+            if follow_up_payload:
+                for chunk in self._chunk_stream_text(follow_up_payload.get('ai_message') or follow_up_payload.get('message')):
+                    yield self._serialize_stream_event('chunk', {'content': chunk})
+                yield self._serialize_stream_event('done', follow_up_payload)
+                return
+
             request_obj = request or getattr(self, 'request', None)
             referrer = request_obj.session.get('ai_last_referrer') if request_obj else None
             page_context = None
@@ -2008,6 +2015,11 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
 
     def _build_intent_response_payload(self, user, chat_id, message, request=None):
         from apps.ai.services.intent_recognition_service import intent_recognition_service
+
+        follow_up_payload = self._build_pending_operation_follow_up_payload(user, chat_id, message)
+        if follow_up_payload:
+            return follow_up_payload
+
         request_obj = request or getattr(self, 'request', None)
         referrer = request_obj.session.get('ai_last_referrer') if request_obj else None
         page_context = None
@@ -2130,6 +2142,105 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
             ai_message.save(update_fields=['runtime_payload'])
         return payload
 
+    def _build_pending_operation_follow_up_payload(self, user, chat_id, message):
+        command = operation_service.match_pending_operation_command(message)
+        if not command:
+            return None
+
+        operation = operation_service.get_latest_preview_operation(user, chat_id=chat_id)
+        if not operation:
+            return None
+
+        if command == 'confirm':
+            result = operation_service.confirm_operation(
+                operation_id=operation.id,
+                token=operation.confirmation_token,
+                user=user,
+            )
+            return self._build_operation_result_payload(user, chat_id, message, operation, result, 'confirmed')
+
+        if command == 'cancel':
+            result = operation_service.cancel_operation(
+                operation_id=operation.id,
+                token=operation.confirmation_token,
+                user=user,
+            )
+            return self._build_operation_result_payload(user, chat_id, message, operation, result, 'cancelled')
+
+        return None
+
+    def _build_operation_result_payload(self, user, chat_id, message, operation, result, command):
+        success = bool(result.get('success'))
+        default_message = '已执行完成，支持按本次操作单独回退。' if command == 'confirmed' else '已取消上一步待确认操作，本次不会写入任何数据。'
+        ai_response = result.get('message') or default_message
+        chat, user_message, ai_message = self.save_chat_record(user, chat_id, message, ai_response)
+        task = self._build_operation_result_task(operation, result, command, success)
+        payload = {
+            'success': success,
+            'status': 'success' if success else 'error',
+            'message': ai_response,
+            'ai_message': ai_response,
+            'user_message': message,
+            'intent': 'AI_OPERATION_CONFIRM' if command == 'confirmed' else 'AI_OPERATION_CANCEL',
+            'intent_type': 'AI_OPERATION_CONFIRM' if command == 'confirmed' else 'AI_OPERATION_CANCEL',
+            'confidence': 1.0,
+            'operation_id': getattr(operation, 'id', None),
+            'operation_result': result,
+            'task': task,
+            'options': task.get('options', []) if isinstance(task, dict) else [],
+        }
+        if chat:
+            payload['chat_id'] = chat.id
+        if user_message:
+            payload['user_message_id'] = user_message.id
+        if ai_message:
+            payload['ai_message_id'] = ai_message.id
+            ai_message.runtime_payload = {
+                'task': payload.get('task'),
+                'options': payload.get('options'),
+                'intent_type': payload.get('intent_type'),
+                'confidence': payload.get('confidence'),
+                'operation_id': payload.get('operation_id'),
+                'operation_result': payload.get('operation_result'),
+                'status': payload.get('status'),
+            }
+            ai_message.save(update_fields=['runtime_payload'])
+        return payload
+
+    def _build_operation_result_task(self, operation, result, command, success):
+        previous_task = {}
+        ai_message = getattr(operation, 'ai_message', None)
+        runtime_payload = getattr(ai_message, 'runtime_payload', None)
+        if isinstance(runtime_payload, dict) and isinstance(runtime_payload.get('task'), dict):
+            previous_task = dict(runtime_payload.get('task'))
+
+        task = {
+            'type': 'business_handoff',
+            'title': previous_task.get('title') or '业务操作',
+            'module': previous_task.get('module') or getattr(operation, 'resource_type', '') or '业务模块',
+            'data_type': previous_task.get('data_type') or getattr(operation, 'resource_type', ''),
+            'action': previous_task.get('action') or getattr(operation, 'operation_type', ''),
+            'operation_id': getattr(operation, 'id', None),
+            'execution_status': 'executed' if command == 'confirmed' and success else ('cancelled' if command == 'cancelled' and success else 'failed'),
+            'operation_result': result,
+            'message': result.get('message') or '',
+            'options': [],
+        }
+        if command == 'confirmed' and success:
+            task['can_rollback'] = True
+            task['safety_notice'] = '本次操作已执行完成，支持按单条记录回退。'
+            task['options'] = [{
+                'text': '回退本次操作',
+                'intent': 'AI_OPERATION_ROLLBACK',
+                'action': 'rollback_operation',
+                'operation_id': getattr(operation, 'id', None),
+                'enabled': True,
+            }]
+        elif command == 'cancelled' and success:
+            task['can_rollback'] = False
+            task['safety_notice'] = '本次操作已取消，未写入业务数据。'
+        return task
+
     def _create_operation_preview(self, user, chat, user_message, ai_message, payload):
         from apps.ai.services.operation_service import operation_service
 
@@ -2237,6 +2348,27 @@ class AIConfirmOperationView(LoginRequiredMixin, View):
             return JsonResponse({'success': False, 'message': '缺少必要参数'}, status=400)
 
         result = operation_service.confirm_operation(
+            operation_id=operation_id,
+            token=token,
+            user=request.user,
+        )
+        status = 200 if result.get('success') else 400
+        return JsonResponse(result, status=status)
+
+
+class AICancelOperationView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        try:
+            data = json.loads(request.body or '{}')
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'message': '无效的JSON格式'}, status=400)
+
+        operation_id = data.get('operation_id')
+        token = data.get('token', '')
+        if not operation_id or not token:
+            return JsonResponse({'success': False, 'message': '缺少必要参数'}, status=400)
+
+        result = operation_service.cancel_operation(
             operation_id=operation_id,
             token=token,
             user=request.user,

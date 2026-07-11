@@ -40,7 +40,7 @@ def build_rollback_plan(change_sets):
 
 class AIOperationRollbackService:
     def rollback_operation(self, operation_id, user):
-        operation = AIOperation.objects.get(id=operation_id)
+        operation = AIOperation.objects.get(id=operation_id, user=user)
         rollback_record = AIOperationRollback.objects.create(
             operation=operation,
             requested_by=user,

@@ -8,6 +8,7 @@ class AIOperation(models.Model):
         ('confirmed', '已确认'),
         ('executed', '已执行'),
         ('failed', '执行失败'),
+        ('cancelled', '已取消'),
         ('rolled_back', '已回退'),
     ]
 
