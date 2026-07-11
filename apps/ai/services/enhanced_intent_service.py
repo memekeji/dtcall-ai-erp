@@ -1626,10 +1626,10 @@ class EnhancedIntentService:
                 message = business_task.get('message')
             else:
                 options = [
-                    {'text': '打开相关业务列表', 'intent': intent_type, 'action': 'open_business_page'},
+                    {'text': '确认并执行', 'intent': intent_type, 'action': 'confirm_operation'},
                     {'text': '取消操作', 'intent': 'AI_CHAT', 'action': 'cancel'},
                 ]
-                message = '已识别到数据新增、修改或删除意图。为保护业务数据安全，请在对应业务页面核对并确认后执行。'
+                message = '已识别到数据新增、修改或删除意图。请确认后直接执行，系统会保留本次操作的回退记录。'
         else:
             options = intent_result.get('fallback_options', [])
             if not options:
@@ -1852,10 +1852,10 @@ class EnhancedIntentService:
 
     def _get_business_safety_notice(self, action: str) -> str:
         if action == 'delete':
-            return 'AI 不会直接删除业务数据，只会打开对应业务页面或列表，请您核对记录后在页面内按系统流程确认。'
+            return 'AI 会在您确认后直接执行删除，并保留本次操作的单条回退记录。'
         if action in {'update', 'approve', 'reject', 'submit', 'publish', 'withdraw', 'stock'}:
-            return 'AI 不会直接修改业务数据，只会打开对应业务页面，请您核对记录和字段后再保存。'
-        return 'AI 只负责识别和带您进入业务页面，不会直接新增业务数据，请在页面内核对后再保存。'
+            return 'AI 会在您确认后直接执行修改，并保留本次操作的单条回退记录。'
+        return 'AI 会在您确认后直接执行新增，并保留本次操作的单条回退记录。'
 
     def _resolve_business_target_url(
             self, config: Dict[str, Any], action: str, intent_result: Dict[str, Any]):

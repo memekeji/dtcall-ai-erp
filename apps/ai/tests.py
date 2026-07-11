@@ -2172,6 +2172,38 @@ class AIConfigurationSourceTests(SimpleTestCase):
         self.assertIsNone(task['disabled_reason'])
         self.assertTrue(task['options'][0]['enabled'])
 
+    def test_mutating_confirmation_response_prefers_dialog_execution(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: True,
+        )
+
+        response = service._create_confirmation_response(
+            {
+                'intent': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'approval',
+                'entities': {'title': '新增审批'},
+                'confidence': 0.95,
+                'source': 'ai',
+                'ai_available': True,
+                'ai_configured': True,
+            },
+            '新增一个审批',
+            user,
+        )
+
+        self.assertTrue(response['requires_confirmation'])
+        self.assertIn('确认后直接执行', response['message'])
+        self.assertIn('task', response)
+        self.assertEqual(response['task']['type'], 'business_handoff')
+        self.assertIn('回退记录', response['task']['safety_notice'])
+        self.assertNotEqual(response['task']['options'][0]['action'], 'open_business_page')
+
     def test_order_create_handoff_uses_order_create_url(self):
         from apps.ai.services.enhanced_intent_service import EnhancedIntentService
 

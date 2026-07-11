@@ -682,8 +682,10 @@ layui.use(['layer', 'jquery'], function() {
             var cls = option.action === 'cancel' ? ' layui-btn-primary' : '';
             html += '<button type="button" class="layui-btn layui-btn-sm ai-task-option' + cls + '" data-option-index="' + index + '"' + disabled + '>' + escapeHtml(option.text || '操作') + '</button>';
         });
-        if (!safeOptions.length && task.target_url) {
-            html += '<button type="button" class="layui-btn layui-btn-sm ai-task-option" data-option-index="0">打开' + escapeHtml(task.title || '业务页面') + '</button>';
+        if (!safeOptions.length && task.confirmation_token && task.operation_id) {
+            html += '<button type="button" class="layui-btn layui-btn-normal layui-btn-sm ai-task-confirm" data-operation-id="' + escapeHtml(task.operation_id) + '" data-token="' + escapeHtml(task.confirmation_token) + '">确认并执行</button>';
+        } else if (!safeOptions.length && task.target_url) {
+            html += '<button type="button" class="layui-btn layui-btn-sm ai-task-option" data-option-index="0">查看' + escapeHtml(task.title || '业务页面') + '</button>';
         }
         html += '</div></div>';
         return html;
@@ -693,6 +695,10 @@ layui.use(['layer', 'jquery'], function() {
         if (!option || option.enabled === false) return;
         if (option.action === 'cancel') {
             layer.msg('已取消当前业务操作');
+            return;
+        }
+        if (option.action === 'confirm_operation') {
+            confirmChatOperation(option, task);
             return;
         }
         if (option.action === 'clarify') {
@@ -706,6 +712,51 @@ layui.use(['layer', 'jquery'], function() {
         if (option.action === 'open_business_page') {
             openSafeBusinessPage(option, task);
         }
+    }
+
+    function confirmChatOperation(option, task) {
+        var operationId = option.operation_id || (task && task.operation_id);
+        var token = option.token || (task && task.confirmation_token);
+        if (!operationId || !token) {
+            layer.msg('缺少确认信息，无法执行');
+            return;
+        }
+        var loadingIndex = layer.load(1, {shade: [0.06, '#fff']});
+        $.ajax({
+            url: '/ai/operation/confirm/',
+            method: 'POST',
+            contentType: 'application/json',
+            dataType: 'json',
+            headers: {'X-CSRFToken': csrfToken},
+            data: JSON.stringify({operation_id: operationId, token: token}),
+            success: function(response) {
+                layer.close(loadingIndex);
+                if (!response.success) {
+                    layer.msg(response.message || '确认执行失败', {icon: 2});
+                    return;
+                }
+                layer.msg('已执行完成', {icon: 1});
+                if (task) {
+                    task.execution_status = 'executed';
+                    task.can_rollback = true;
+                    task.operation_result = response.gateway_result || {};
+                    task.safety_notice = '本次操作已执行完成，支持按单条记录回退。';
+                    task.message = response.message || task.message;
+                }
+                if (task) {
+                    var $card = $('.ai-task-card').filter(function() {
+                        return $(this).data('task') === task;
+                    }).first();
+                    if ($card.length) {
+                        $card.find('.ai-task-option, .ai-task-confirm').prop('disabled', true);
+                    }
+                }
+            },
+            error: function(xhr) {
+                layer.close(loadingIndex);
+                layer.msg((xhr.responseJSON && xhr.responseJSON.message) || '确认执行失败', {icon: 2});
+            }
+        });
     }
 
     function openSafeBusinessPage(option, task) {
@@ -942,6 +993,16 @@ layui.use(['layer', 'jquery'], function() {
             };
         }
         handleTaskOption(option, task);
+    });
+
+    $('#chatMessages').on('click', '.ai-task-confirm', function() {
+        var $card = $(this).closest('.ai-task-card');
+        var task = $card.data('task') || null;
+        confirmChatOperation({
+            operation_id: $(this).data('operation-id'),
+            token: $(this).data('token'),
+            action: 'confirm_operation'
+        }, task);
     });
 
     $('#btnCreateChat').on('click', createChat);

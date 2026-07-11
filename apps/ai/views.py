@@ -1970,6 +1970,28 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
             if operation:
                 payload['operation_id'] = operation.id
                 payload['confirmation']['token'] = operation.confirmation_token
+                task = payload.get('task')
+                if isinstance(task, dict):
+                    task['operation_id'] = operation.id
+                    task['confirmation_token'] = operation.confirmation_token
+                    task['confirmation_message'] = payload.get('confirmation', {}).get('message', '')
+                    task_options = list(task.get('options') or [])
+                    confirm_option = {
+                        'text': '确认并执行',
+                        'intent': payload.get('intent_type'),
+                        'action': 'confirm_operation',
+                        'operation_id': operation.id,
+                        'token': operation.confirmation_token,
+                        'enabled': True,
+                    }
+                    if task_options:
+                        task['options'] = [confirm_option] + [
+                            option for option in task_options
+                            if not (isinstance(option, dict) and option.get('action') == 'open_business_page')
+                        ]
+                    else:
+                        task['options'] = [confirm_option]
+                    payload['options'] = task['options']
         task = payload.get('task')
         options = payload.get('options') or (task.get('options') if isinstance(task, dict) else [])
         if chat:
