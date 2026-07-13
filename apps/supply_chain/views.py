@@ -297,7 +297,12 @@ def forecast_run(request, pk):
     plan = get_object_or_404(DemandForecastPlan, pk=pk)
     if request.method != 'POST':
         return redirect('supply_chain:forecast_list')
-    if plan.status in {DemandForecastPlan.STATUS_APPROVED, DemandForecastPlan.STATUS_ARCHIVED}:
+    allowed_statuses = {
+        DemandForecastPlan.STATUS_DRAFT,
+        DemandForecastPlan.STATUS_GENERATED,
+        DemandForecastPlan.STATUS_REJECTED,
+    }
+    if plan.status not in allowed_statuses:
         messages.error(request, '当前预测计划已结束，不能重复生成预测结果')
         return redirect('supply_chain:forecast_list')
 
@@ -307,6 +312,10 @@ def forecast_run(request, pk):
         return redirect('supply_chain:forecast_list')
 
     with transaction.atomic():
+        plan = DemandForecastPlan.objects.select_for_update().get(pk=pk)
+        if plan.status not in allowed_statuses:
+            messages.error(request, '预测计划状态已变化，请刷新页面后重试')
+            return redirect('supply_chain:forecast_list')
         live_inputs = build_live_forecast_inputs(plan)
         payload = build_snapshot_payload(
             shipped_quantity=live_inputs['shipped_quantity'],
@@ -419,13 +428,17 @@ def forecast_review(request, pk):
     if not form.is_valid():
         messages.error(request, '评审参数无效')
         return redirect('supply_chain:forecast_list')
-    if review.status != MaterialPreparationReview.STATUS_PENDING:
-        messages.error(request, '当前评审单已处理，请勿重复提交')
-        return redirect('supply_chain:forecast_list')
-
-    plan = review.forecast_result.forecast_plan
     decision = form.cleaned_data['decision']
     with transaction.atomic():
+        review = MaterialPreparationReview.objects.select_for_update().select_related(
+            'forecast_result__forecast_plan',
+        ).get(pk=pk)
+        if review.status != MaterialPreparationReview.STATUS_PENDING:
+            messages.error(request, '当前评审单已处理，请勿重复提交')
+            return redirect('supply_chain:forecast_list')
+        plan = DemandForecastPlan.objects.select_for_update().get(
+            pk=review.forecast_result.forecast_plan_id,
+        )
         review.status = (
             MaterialPreparationReview.STATUS_APPROVED
             if decision == 'approve'
@@ -633,13 +646,14 @@ def outsource_status_update(request, pk):
 
     action = form.cleaned_data['action']
     transition = OUTSOURCE_STATUS_ACTIONS[action]
-    if order.status not in transition['from_statuses']:
-        messages.error(request, f'当前状态 {order.get_status_display()} 不允许执行该动作')
-        return redirect('supply_chain:outsource_list')
-    new_status = transition['to_status']
-    message_text = transition['message']
-    previous_status = order.status
     with transaction.atomic():
+        order = OutsourceIssueOrder.objects.select_for_update().get(pk=pk)
+        if order.status not in transition['from_statuses']:
+            messages.error(request, f'当前状态 {order.get_status_display()} 不允许执行该动作')
+            return redirect('supply_chain:outsource_list')
+        new_status = transition['to_status']
+        message_text = transition['message']
+        previous_status = order.status
         order.status = new_status
         order.save(update_fields=['status', 'update_time'])
         OutsourceIssueStatusLog.objects.create(
@@ -833,11 +847,11 @@ def pr_review_approve(request, pk):
     if not form.is_valid():
         messages.error(request, '审批备注无效')
         return redirect('supply_chain:pr_review_list')
-    if task.status in {PRReviewTask.STATUS_DONE, PRReviewTask.STATUS_REJECTED}:
-        messages.error(request, '当前任务已处理，不能重复审批')
-        return redirect('supply_chain:pr_review_list')
-
     with transaction.atomic():
+        task = PRReviewTask.objects.select_for_update().get(pk=pk)
+        if task.status in {PRReviewTask.STATUS_DONE, PRReviewTask.STATUS_REJECTED}:
+            messages.error(request, '当前任务已处理，不能重复审批')
+            return redirect('supply_chain:pr_review_list')
         task.status = PRReviewTask.STATUS_DONE
         task.reviewer = request.user
         if not task.recommended_action:
@@ -885,14 +899,13 @@ def pr_review_batch_approve(request):
         messages.error(request, '批量审批备注无效')
         return redirect('supply_chain:pr_review_list')
 
-    tasks = list(_get_batch_approvable_pr_tasks())
-    if not tasks:
-        messages.warning(request, '当前没有可批量审批的 PR 任务')
-        return redirect('supply_chain:pr_review_list')
-
     note = form.cleaned_data['note']
     notify_ids = set()
     with transaction.atomic():
+        tasks = list(_get_batch_approvable_pr_tasks().select_for_update())
+        if not tasks:
+            messages.warning(request, '当前没有可批量审批的 PR 任务')
+            return redirect('supply_chain:pr_review_list')
         for task in tasks:
             task.status = PRReviewTask.STATUS_DONE
             task.reviewer = request.user
@@ -1232,12 +1245,16 @@ def sample_receive(request, pk):
     )
     photo_file = form.cleaned_data.get('photo_file')
     photo_path = ''
-    if photo_file:
-        photo_path = default_storage.save(
-            f'supply_chain/sample_receipts/{timezone.now():%Y/%m}/{photo_file.name}',
-            photo_file,
-        )
     with transaction.atomic():
+        sample_request = SampleRequest.objects.select_for_update().get(pk=pk)
+        if sample_request.status not in {SampleRequest.STATUS_DRAFT, SampleRequest.STATUS_ORDERED}:
+            messages.error(request, '打样单状态已变化，请刷新页面后重试')
+            return redirect('supply_chain:sample_list')
+        if photo_file:
+            photo_path = default_storage.save(
+                f'supply_chain/sample_receipts/{timezone.now():%Y/%m}/{photo_file.name}',
+                photo_file,
+            )
         SampleReceipt.objects.create(
             sample_request=sample_request,
             received_quantity=form.cleaned_data['received_quantity'],
@@ -1296,6 +1313,19 @@ def sample_pickup(request, pk):
         current_time=picked_at,
     )
     with transaction.atomic():
+        sample_request = SampleRequest.objects.select_for_update().get(pk=pk)
+        if sample_request.status != SampleRequest.STATUS_PICKUP_PENDING:
+            messages.error(request, '打样单状态已变化，请刷新页面后重试')
+            return redirect('supply_chain:sample_list')
+        latest_receipt = sample_request.receipts.order_by('-received_at').first()
+        if latest_receipt is None:
+            messages.error(request, '尚未登记到货，不能确认领样')
+            return redirect('supply_chain:sample_list')
+        picked_at = timezone.now()
+        overdue = is_pickup_overdue(
+            received_at=latest_receipt.received_at,
+            current_time=picked_at,
+        )
         SamplePickupRecord.objects.create(
             sample_request=sample_request,
             picked_by=request.user,
@@ -1610,8 +1640,14 @@ def source_sync(request):
         f"核价 {result['price_review_created']} 条，"
         '打样不会自动生成，请按真实需求创建。',
     )
-    redirect_name = f'supply_chain:{target}' if ':' not in target else target
-    return redirect(redirect_name)
+    allowed_targets = {
+        'dashboard': 'supply_chain:dashboard',
+        'forecast_list': 'supply_chain:forecast_list',
+        'outsource_list': 'supply_chain:outsource_list',
+        'pr_review_list': 'supply_chain:pr_review_list',
+        'price_review_list': 'supply_chain:price_review_list',
+    }
+    return redirect(allowed_targets.get(target, 'supply_chain:dashboard'))
 
 
 source_sync.permission_required = 'user.view_supply_chain_dashboard'
