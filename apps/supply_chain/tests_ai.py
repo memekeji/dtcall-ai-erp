@@ -319,6 +319,7 @@ class SupplyChainAIIntegrationTests(TestCase):
         )
         self.forecast_plan = DemandForecastPlan.objects.create(
             name="集成预测", code="DFP-INT-001",
+            product=self.product,
             period_start=date(2026, 8, 1), period_end=date(2026, 8, 31),
             created_by=self.user, status="generated",
         )
@@ -449,7 +450,7 @@ class SupplyChainAIIntegrationTests(TestCase):
         self.assertEqual(response.status_code, 302)
         latest = self.forecast_plan.results.order_by("-id").first()
         self.assertTrue(mock_call.called)
-        self.assertEqual(latest.predicted_quantity, Decimal("180"))
+        self.assertEqual(latest.predicted_quantity, Decimal("100"))
         self.assertEqual(latest.confidence, Decimal("80.00"))
 
     @patch("apps.supply_chain.services.ai_services.AIAnalysisTool._call_ai")

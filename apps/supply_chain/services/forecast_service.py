@@ -75,10 +75,19 @@ def build_live_forecast_inputs(plan):
         product=product,
         status__in=[1, 2, 3],
     ) if product is not None else ProductionPlan.objects.none()
-    wip_quantity = active_plans.aggregate(total=Sum('quantity'))['total'] or Decimal('0')
+    planned_quantity = active_plans.filter(
+        plan_start_date__lte=plan.period_end,
+        plan_end_date__gte=plan.period_start,
+    ).aggregate(total=Sum('quantity'))['total'] or Decimal('0')
+    wip_quantity = active_plans.filter(status=3).aggregate(total=Sum('quantity'))['total'] or Decimal('0')
     source_plan_quantity = Decimal(str(plan.source_snapshot.get('plan_quantity') or 0))
     historical_monthly_average = (shipped_quantity / Decimal('3')).quantize(Decimal('0.01'))
-    predicted_quantity = max(source_plan_quantity, period_order_quantity, historical_monthly_average)
+    predicted_quantity = max(
+        source_plan_quantity,
+        planned_quantity,
+        period_order_quantity,
+        historical_monthly_average,
+    )
     period_days = max((plan.period_end - plan.period_start).days + 1, 1)
     avg_daily_demand = (
         shipped_quantity / Decimal('90')

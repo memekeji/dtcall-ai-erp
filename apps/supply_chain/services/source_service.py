@@ -24,6 +24,21 @@ DEFAULT_PR_RULES = (
 )
 
 
+def _get_or_create_source(model, *, prefix, source_type, source_id, defaults):
+    existing = model.objects.select_for_update().filter(
+        source_type=source_type,
+        source_id=source_id,
+    ).first()
+    if existing is not None:
+        return existing, False
+    return model.objects.create(
+        source_type=source_type,
+        source_id=source_id,
+        code=generate_business_code(prefix),
+        **defaults,
+    ), True
+
+
 def ensure_default_pr_rules():
     for code, name, scenario, conditions, action, priority in DEFAULT_PR_RULES:
         PRReviewRule.objects.update_or_create(
@@ -61,12 +76,13 @@ def sync_supply_chain_sources(*, user):
             'product_code': getattr(plan.product, 'code', ''),
             'bom_code': getattr(plan.bom, 'code', ''),
         }
-        _, created = DemandForecastPlan.objects.get_or_create(
+        _, created = _get_or_create_source(
+            DemandForecastPlan,
+            prefix='DFP',
             source_type='production_plan',
             source_id=plan.id,
             defaults={
                 'name': f'{plan.name}需求预测',
-                'code': generate_business_code('DFP'),
                 'source_code': plan.code,
                 'source_snapshot': snapshot,
                 'product': plan.product,
@@ -81,11 +97,12 @@ def sync_supply_chain_sources(*, user):
         if plan.bom_id is None:
             result['skipped'].append(f'生产计划 {plan.code} 未绑定BOM，未生成委外发料单')
             continue
-        order, created = OutsourceIssueOrder.objects.get_or_create(
+        order, created = _get_or_create_source(
+            OutsourceIssueOrder,
+            prefix='OIO',
             source_type='production_plan',
             source_id=plan.id,
             defaults={
-                'code': generate_business_code('OIO'),
                 'source_code': plan.code,
                 'source_snapshot': snapshot,
                 'product': plan.product,
@@ -120,11 +137,12 @@ def sync_supply_chain_sources(*, user):
                 for item in material_request.items.all()
             ],
         }
-        _, created = PRReviewTask.objects.get_or_create(
+        _, created = _get_or_create_source(
+            PRReviewTask,
+            prefix='PRR',
             source_type='material_request',
             source_id=material_request.id,
             defaults={
-                'code': generate_business_code('PRR'),
                 'title': f'领料申请审核 - {material_request.code}',
                 'source_code': material_request.code,
                 'source_snapshot': evidence,
@@ -147,11 +165,12 @@ def sync_supply_chain_sources(*, user):
             'supplier_code': purchase_order.supplier.code,
             'order_date': str(purchase_order.order_date),
         }
-        _, created = PriceReviewOrder.objects.get_or_create(
+        _, created = _get_or_create_source(
+            PriceReviewOrder,
+            prefix='PRC',
             source_type='purchase_order_item',
             source_id=purchase_item.id,
             defaults={
-                'code': generate_business_code('PRC'),
                 'source_code': f'{purchase_order.code}/{purchase_item.item.code}',
                 'source_snapshot': snapshot,
                 'purchase_order': purchase_order,

@@ -30,6 +30,10 @@ class _BaseStyledModelForm(forms.ModelForm):
 
 
 class DemandForecastPlanForm(_BaseStyledModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['product'].required = True
+
     class Meta:
         model = DemandForecastPlan
         fields = [

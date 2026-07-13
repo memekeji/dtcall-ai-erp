@@ -76,7 +76,6 @@ from .services.pr_review_service import evaluate_pr_payload
 from .services.sample_service import (
     build_receipt_payload,
     get_sample_statistics,
-    generate_sample_request_code,
     is_pickup_overdue,
 )
 from .services.sequence_service import generate_business_code
@@ -1174,14 +1173,6 @@ def sample_list(request):
         sample_requests = sample_requests.filter(status=status)
     page_obj = _paginate_queryset(request, sample_requests, per_page=8)
     stats = get_sample_statistics()
-    pending_receipts = SampleReceipt.objects.filter(
-        sample_request__status=SampleRequest.STATUS_PICKUP_PENDING,
-    ).select_related('sample_request')[:5]
-    overdue_details = [
-        receipt.sample_request.material_name
-        for receipt in pending_receipts
-        if is_pickup_overdue(receipt.received_at, current_time=timezone.now())
-    ]
     sample_insight = get_ai_insight('sample', 'sample_priority')
     context = {
         'page_title': '打样管理',
@@ -1650,4 +1641,10 @@ def source_sync(request):
     return redirect(allowed_targets.get(target, 'supply_chain:dashboard'))
 
 
-source_sync.permission_required = 'user.view_supply_chain_dashboard'
+source_sync.permission_required = (
+    'user.view_supply_chain_dashboard',
+    'user.view_supply_chain_forecast',
+    'user.view_supply_chain_outsource',
+    'user.view_supply_chain_pr_review',
+    'user.view_supply_chain_price_review',
+)
