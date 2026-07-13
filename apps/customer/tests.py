@@ -830,6 +830,7 @@ class CustomerListCustomFieldValueTests(TestCase):
             delete_time=0,
         )
         finance_invoice = FinanceInvoice.objects.create(
+            id=9001,
             code='FIN-INV-DETAIL-001',
             customer_id=customer.id,
             amount=200,
@@ -843,11 +844,21 @@ class CustomerListCustomFieldValueTests(TestCase):
             create_time=int(time.time()),
         )
 
-        response = self.client.get(reverse('customer:customer_detail', args=[customer.id]))
+        with patch('apps.customer.views.logger.error') as mock_logger_error:
+            response = self.client.get(reverse('customer:customer_detail', args=[customer.id]))
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context['invoices'])
         self.assertTrue(response.context['financial_records'])
+        self.assertFalse(
+            any('获取发票记录失败' in str(call.args[0]) for call in mock_logger_error.call_args_list)
+        )
+        invoice_codes = {
+            getattr(invoice, 'invoice_number', None) or getattr(invoice, 'code', None)
+            for invoice in response.context['invoices']
+        }
+        self.assertIn('CUST-INV-DETAIL-001', invoice_codes)
+        self.assertIn('FIN-INV-DETAIL-001', invoice_codes)
         self.assertTrue(
             any(record['type'] == 'income' for record in response.context['financial_records'])
         )

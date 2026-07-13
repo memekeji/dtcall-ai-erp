@@ -9,7 +9,7 @@ import operator
 import re
 import requests
 from decimal import Decimal, InvalidOperation
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 # Django核心导入
 from django.contrib import messages
@@ -1274,8 +1274,9 @@ class CustomerDetailView(LoginRequiredMixin, DetailView):
             seen_ids = set()
             unique_invoices = []
             for invoice in all_invoices:
-                if invoice.id not in seen_ids:
-                    seen_ids.add(invoice.id)
+                invoice_key = (invoice._meta.label_lower, invoice.id)
+                if invoice_key not in seen_ids:
+                    seen_ids.add(invoice_key)
                     unique_invoices.append(invoice)
             
             def invoice_sort_key(invoice):
@@ -1283,9 +1284,12 @@ class CustomerDetailView(LoginRequiredMixin, DetailView):
                     value = getattr(invoice, field_name, None)
                     if value:
                         if isinstance(value, (int, float)):
-                            return datetime.fromtimestamp(value)
-                        return value
-                return datetime.min
+                            return float(value)
+                        if isinstance(value, datetime):
+                            return value.timestamp()
+                        if isinstance(value, date):
+                            return datetime.combine(value, datetime.min.time()).timestamp()
+                return 0
 
             # 按开票时间排序
             unique_invoices.sort(key=invoice_sort_key, reverse=True)
