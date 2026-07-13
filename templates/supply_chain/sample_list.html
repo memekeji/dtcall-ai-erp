@@ -23,13 +23,6 @@
                     </div>
                 </div>
                 <div class="sc-toolbar-right">
-                    <form method="post" action="{% url 'supply_chain:bootstrap_workspace' %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="target" value="sample_list">
-                        <button type="submit" class="layui-btn layui-btn-sm layui-btn-primary">
-                            <i class="layui-icon layui-icon-refresh-3"></i> 从产品初始化
-                        </button>
-                    </form>
                     <a href="{% url 'supply_chain:sample_statistics' %}" class="layui-btn layui-btn-sm layui-btn-primary"><i class="layui-icon layui-icon-chart"></i> 台账统计</a>
                     <a href="{% url 'supply_chain:sample_create' %}" class="layui-btn layui-btn-sm">
                         <i class="layui-icon layui-icon-add-1"></i> 新建打样申请
@@ -53,7 +46,7 @@
                 </div>
             </div>
 
-            <div class="sc-table-caption">合法来源：产品主数据 {{ source_product_count }} 项。若暂无打样申请，可从现有产品快速初始化打样草稿。</div>
+            <div class="sc-table-caption">真实来源：采购或研发人员提交的打样申请。样品到货、领样和提醒只由实际业务操作产生，不从产品主数据自动生成。</div>
             {% if ai_sample_advice %}
             <div class="sc-form-section">
                 <div class="sc-form-section-title">AI打样建议</div>

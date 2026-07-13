@@ -23,11 +23,11 @@
                     </div>
                 </div>
                 <div class="sc-toolbar-right">
-                    <form method="post" action="{% url 'supply_chain:bootstrap_workspace' %}">
+                    <form method="post" action="{% url 'supply_chain:source_sync' %}">
                         {% csrf_token %}
                         <input type="hidden" name="target" value="forecast_list">
                         <button type="submit" class="layui-btn layui-btn-sm layui-btn-primary">
-                            <i class="layui-icon layui-icon-refresh-3"></i> 从产品初始化
+                            <i class="layui-icon layui-icon-refresh-3"></i> 同步生产计划
                         </button>
                     </form>
                     <a href="{% url 'supply_chain:forecast_trend' %}" class="layui-btn layui-btn-sm layui-btn-primary"><i class="layui-icon layui-icon-chart"></i> 趋势分析</a>
@@ -53,7 +53,7 @@
                 </div>
             </div>
 
-            <div class="sc-table-caption">合法来源：产品主数据 {{ source_product_count }} 项。若当前没有预测计划，可直接使用“从产品初始化”。</div>
+            <div class="sc-table-caption">真实来源：有效生产计划 {{ source_production_plan_count }} 条、产品主数据 {{ source_product_count }} 项。同步只创建待运行预测草稿，不会自动制造预测结果。</div>
 
             <form class="layui-form sc-inline-form" method="get">
                 <div class="layui-row layui-col-space10">

@@ -23,11 +23,11 @@
                     </div>
                 </div>
                 <div class="sc-toolbar-right">
-                    <form method="post" action="{% url 'supply_chain:bootstrap_workspace' %}">
+                    <form method="post" action="{% url 'supply_chain:source_sync' %}">
                         {% csrf_token %}
                         <input type="hidden" name="target" value="outsource_list">
                         <button type="submit" class="layui-btn layui-btn-sm layui-btn-primary">
-                            <i class="layui-icon layui-icon-refresh-3"></i> 从计划初始化
+                            <i class="layui-icon layui-icon-refresh-3"></i> 同步生产计划
                         </button>
                     </form>
                     <a href="{% url 'supply_chain:outsource_generate_from_plan' %}" class="layui-btn layui-btn-sm layui-btn-primary"><i class="layui-icon layui-icon-transfer"></i> 从计划生成</a>

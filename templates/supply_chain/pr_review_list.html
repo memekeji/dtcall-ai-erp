@@ -23,11 +23,11 @@
                     </div>
                 </div>
                 <div class="sc-toolbar-right">
-                    <form method="post" action="{% url 'supply_chain:bootstrap_workspace' %}">
+                    <form method="post" action="{% url 'supply_chain:source_sync' %}">
                         {% csrf_token %}
                         <input type="hidden" name="target" value="pr_review_list">
                         <button type="submit" class="layui-btn layui-btn-sm layui-btn-primary">
-                            <i class="layui-icon layui-icon-refresh-3"></i> 从库存风险初始化
+                            <i class="layui-icon layui-icon-refresh-3"></i> 同步待审领料申请
                         </button>
                     </form>
                     <a href="{% url 'supply_chain:pr_review_create' %}" class="layui-btn layui-btn-sm">
@@ -52,7 +52,7 @@
                 </div>
             </div>
 
-            <div class="sc-table-caption">合法来源：库存风险候选 {{ source_inventory_risk_count }} 条。当前模块可将缺料/补货风险派生成 PR 审核任务。</div>
+            <div class="sc-table-caption">真实来源：生产领料申请和明确登记的紧急采购需求。规则审核只给出建议，审批动作由有权限人员确认并全程留痕。</div>
 
             <form class="layui-form sc-inline-form" method="get">
                 <div class="layui-row layui-col-space10">

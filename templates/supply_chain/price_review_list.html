@@ -23,11 +23,11 @@
                     </div>
                 </div>
                 <div class="sc-toolbar-right">
-                    <form method="post" action="{% url 'supply_chain:bootstrap_workspace' %}">
+                    <form method="post" action="{% url 'supply_chain:source_sync' %}">
                         {% csrf_token %}
                         <input type="hidden" name="target" value="price_review_list">
                         <button type="submit" class="layui-btn layui-btn-sm layui-btn-primary">
-                            <i class="layui-icon layui-icon-refresh-3"></i> 从物料成本初始化
+                            <i class="layui-icon layui-icon-refresh-3"></i> 同步采购订单报价
                         </button>
                     </form>
                     <a href="{% url 'supply_chain:price_review_report' %}" class="layui-btn layui-btn-sm layui-btn-primary"><i class="layui-icon layui-icon-chart"></i> 成本报表</a>
@@ -53,7 +53,7 @@
                 </div>
             </div>
 
-            <div class="sc-table-caption">合法来源：库存物料 {{ source_inventory_item_count }} 项、供应商 {{ source_supplier_count }} 家。若暂无复核单，可从现有成本主数据初始化待复核报价。</div>
+            <div class="sc-table-caption">真实来源：采购订单明细、库存物料 {{ source_inventory_item_count }} 项、供应商 {{ source_supplier_count }} 家。同步仅建立待复核报价，不会自动生成成本拆解或结论。</div>
 
             <form class="layui-form sc-inline-form" method="get">
                 <div class="layui-row layui-col-space10">

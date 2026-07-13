@@ -52,7 +52,6 @@ from .models import (
     SampleReceipt,
     SampleRequest,
 )
-from .services.bootstrap_service import bootstrap_supply_chain_workspace
 from .services.event_service import log_supply_chain_event, send_supply_chain_notification
 from .services.ai_services import supply_chain_ai
 from .services.forecast_service import (
@@ -79,6 +78,7 @@ from .services.sample_service import (
     is_pickup_overdue,
 )
 from .services.sequence_service import generate_business_code
+from .services.source_service import sync_supply_chain_sources
 
 
 PRICE_COMPONENT_FIELDS = [
@@ -1612,28 +1612,25 @@ outsource_generate_from_plan.permission_required = 'user.view_supply_chain_outso
 
 
 @login_required
-def bootstrap_workspace(request):
+def source_sync(request):
     if request.method != 'POST':
         return redirect('supply_chain:dashboard')
 
     target = (request.POST.get('target') or 'dashboard').strip()
     with transaction.atomic():
-        result = bootstrap_supply_chain_workspace(
-            user=request.user,
-            serial_factory=_generate_serial,
-        )
+        result = sync_supply_chain_sources(user=request.user)
 
     messages.success(
         request,
-        '已基于系统现有主数据初始化供应链台账：'
+        '已同步项目真实业务来源：'
         f"预测 {result['forecast_created']} 条，"
         f"委外 {result['outsource_created']} 条，"
         f"PR {result['pr_created']} 条，"
         f"核价 {result['price_review_created']} 条，"
-        f"打样 {result['sample_created']} 条。",
+        '打样不会自动生成，请按真实需求创建。',
     )
     redirect_name = f'supply_chain:{target}' if ':' not in target else target
     return redirect(redirect_name)
 
 
-bootstrap_workspace.permission_required = 'user.view_supply_chain_dashboard'
+source_sync.permission_required = 'user.view_supply_chain_dashboard'

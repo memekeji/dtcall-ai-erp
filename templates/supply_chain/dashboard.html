@@ -22,11 +22,11 @@
                     </div>
                 </div>
                 <div class="sc-toolbar-right">
-                    <form method="post" action="{% url 'supply_chain:bootstrap_workspace' %}">
+                    <form method="post" action="{% url 'supply_chain:source_sync' %}">
                         {% csrf_token %}
                         <input type="hidden" name="target" value="dashboard">
                         <button type="submit" class="layui-btn layui-btn-sm layui-btn-primary">
-                            <i class="layui-icon layui-icon-refresh-3"></i> 从系统数据初始化台账
+                            <i class="layui-icon layui-icon-refresh-3"></i> 同步真实业务来源
                         </button>
                     </form>
                     <a href="{% url 'supply_chain:forecast_list' %}" class="layui-btn layui-btn-sm">

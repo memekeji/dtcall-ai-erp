@@ -664,48 +664,73 @@ class SupplyChainViewTests(TestCase):
         self.assertContains(inventory_response, '170.00', status_code=200)
         self.assertContains(inventory_response, '180.00', status_code=200)
 
-    def test_can_bootstrap_supply_chain_workspace_from_existing_modules(self):
+    def test_can_sync_real_supply_chain_sources_without_fabricating_events(self):
         from apps.supply_chain.models import (
             DemandForecastPlan,
+            DemandForecastResult,
             OutsourceIssueOrder,
             PRReviewRule,
             PRReviewTask,
+            PriceReviewComponent,
             PriceReviewOrder,
+            SamplePickupRecord,
+            SampleReceipt,
             SampleRequest,
         )
-        from apps.inventory.models import Inventory, InventoryItem
+        from apps.inventory.models import PurchaseOrder, PurchaseOrderItem
+        from apps.production.models import MaterialRequest, MaterialRequestItem
 
-        risk_item = InventoryItem.objects.create(
-            name='补货风险物料',
-            code='MAT-RISK-001',
-            category=self.inventory_category,
-            specification='Risk',
+        material_request = MaterialRequest.objects.create(
+            production_plan=self.production_plan,
+            code='MR-REAL-001',
+            created_by=self.user,
+            approved_by=self.user,
+        )
+        MaterialRequestItem.objects.create(
+            material_request=material_request,
+            material_name=self.inventory_item.name,
+            material_code=self.inventory_item.code,
+            specification=self.inventory_item.specification,
             unit='pcs',
-            safety_stock=Decimal('50'),
-            reorder_point=Decimal('40'),
-            standard_cost=Decimal('9.50'),
+            request_quantity=Decimal('30'),
         )
-        Inventory.objects.create(
-            item=risk_item,
+        purchase_order = PurchaseOrder.objects.create(
+            code='PO-REAL-001',
+            supplier=self.supplier,
             warehouse=self.warehouse,
-            quantity=Decimal('20'),
-            locked_quantity=Decimal('0'),
-            unit_cost=Decimal('9.50'),
+            order_date=date(2026, 7, 13),
+            creator=self.user,
+        )
+        purchase_item = PurchaseOrderItem.objects.create(
+            purchase_order=purchase_order,
+            item=self.inventory_item,
+            quantity=Decimal('100'),
+            unit_price=Decimal('12.5000'),
         )
 
-        response = self.client.post(reverse('supply_chain:bootstrap_workspace'), {
+        response = self.client.post(reverse('supply_chain:source_sync'), {
             'target': 'dashboard',
         })
 
         self.assertEqual(response.status_code, 302)
-        self.assertGreater(DemandForecastPlan.objects.count(), 0)
-        self.assertGreater(OutsourceIssueOrder.objects.count(), 0)
+        self.assertTrue(DemandForecastPlan.objects.filter(
+            source_type='production_plan', source_id=self.production_plan.id,
+        ).exists())
+        self.assertTrue(OutsourceIssueOrder.objects.filter(
+            source_type='production_plan', source_id=self.production_plan.id,
+        ).exists())
         self.assertGreater(PRReviewRule.objects.count(), 0)
-        self.assertGreater(PRReviewTask.objects.count(), 0)
-        self.assertGreater(PriceReviewOrder.objects.count(), 0)
-        self.assertGreater(SampleRequest.objects.count(), 0)
-        self.assertFalse(OutsourceIssueOrder.objects.filter(supplier__isnull=True).exists())
-        self.assertFalse(SampleRequest.objects.filter(supplier__isnull=True).exists())
+        self.assertTrue(PRReviewTask.objects.filter(
+            source_type='material_request', source_id=material_request.id,
+        ).exists())
+        self.assertTrue(PriceReviewOrder.objects.filter(
+            source_type='purchase_order_item', source_id=purchase_item.id,
+        ).exists())
+        self.assertEqual(DemandForecastResult.objects.count(), 0)
+        self.assertEqual(PriceReviewComponent.objects.count(), 0)
+        self.assertEqual(SampleRequest.objects.count(), 0)
+        self.assertEqual(SampleReceipt.objects.count(), 0)
+        self.assertEqual(SamplePickupRecord.objects.count(), 0)
 
     def test_can_approve_forecast_review(self):
         from apps.supply_chain.models import (
