@@ -64,6 +64,74 @@ def invalidate_ai_model_runtime_cache(model_id=None):
         logging.getLogger(__name__).warning(f"刷新AI配置缓存失败: {exc}")
 
 
+def normalize_confirmable_operation_payload(payload):
+    if not isinstance(payload, dict):
+        return payload
+
+    task = payload.get('task')
+    if not isinstance(task, dict):
+        return payload
+
+    if task.get('execution_status') in {'executed', 'cancelled', 'rolled_back'}:
+        return payload
+
+    action = str(payload.get('action') or task.get('action') or '').lower()
+    intent_type = str(payload.get('intent_type') or task.get('intent_type') or '')
+    if action not in enhanced_intent_service.MUTATING_ACTIONS and intent_type not in {'DATA_CREATE', 'DATA_UPDATE', 'DATA_DELETE'}:
+        return payload
+
+    confirmation = dict(payload.get('confirmation') or {})
+    operation_id = task.get('operation_id') or payload.get('operation_id')
+    token = task.get('confirmation_token') or confirmation.get('token')
+    if not operation_id or not token:
+        return payload
+
+    task_title = task.get('title') or '业务操作'
+    notice_action = action or task.get('action') or 'create'
+    safety_notice = enhanced_intent_service._get_business_safety_notice(notice_action)
+    message_text = f'已识别到{task_title}意图。{safety_notice}'
+    confirm_option = {
+        'text': '确认并执行',
+        'intent': task.get('intent_type') or intent_type or 'AI_CHAT',
+        'action': 'confirm_operation',
+        'operation_id': operation_id,
+        'token': token,
+        'enabled': True,
+    }
+    cancel_option = {
+        'text': '取消操作',
+        'intent': 'AI_CHAT',
+        'action': 'cancel',
+        'enabled': True,
+    }
+
+    normalized = dict(payload)
+    task_payload = dict(task)
+    task_payload.update({
+        'operation_id': operation_id,
+        'confirmation_token': token,
+        'confirmation_message': message_text,
+        'message': message_text,
+        'safety_notice': safety_notice,
+        'options': [confirm_option, cancel_option],
+    })
+    confirmation.update({
+        'required': True,
+        'token': token,
+        'message': message_text,
+    })
+    normalized.update({
+        'task': task_payload,
+        'options': [confirm_option, cancel_option],
+        'operation_id': operation_id,
+        'requires_confirmation': True,
+        'confirmation': confirmation,
+        'message': message_text,
+        'ai_message': message_text,
+    })
+    return normalized
+
+
 # AI模型配置视图
 class AIModelConfigListView(
         LoginRequiredMixin,
@@ -818,8 +886,10 @@ class AIChatDetailView(
         if action not in enhanced_intent_service.MUTATING_ACTIONS and intent_type not in {'DATA_CREATE', 'DATA_UPDATE', 'DATA_DELETE'}:
             return payload
 
-        if isinstance(task, dict) and task.get('operation_id') and task.get('confirmation_token'):
-            return payload
+        normalized_payload = normalize_confirmable_operation_payload(payload)
+        normalized_task = normalized_payload.get('task') if isinstance(normalized_payload, dict) else None
+        if isinstance(normalized_task, dict) and normalized_task.get('operation_id') and normalized_task.get('confirmation_token'):
+            return normalized_payload
 
         pending_operation = self._get_pending_operation_for_message(message)
         if not pending_operation:
@@ -864,7 +934,7 @@ class AIChatDetailView(
             'message': message_text,
         })
         hydrated['confirmation'] = confirmation
-        return hydrated
+        return normalize_confirmable_operation_payload(hydrated)
 
     def _get_pending_operation_for_message(self, message):
         user = getattr(getattr(self, 'request', None), 'user', None)
@@ -2055,6 +2125,8 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
 
         payload = dict(payload or {})
         payload = enhanced_intent_service._decorate_response_with_recognition_meta(payload, payload)
+        payload.setdefault('original_query', message)
+        payload.setdefault('query', message)
 
         ai_response = payload.get('ai_message') or self.get_response_text(payload)
         chat = None
@@ -2103,6 +2175,7 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
                     ]
                     payload['options'] = task['options']
 
+        payload = normalize_confirmable_operation_payload(payload)
         task = payload.get('task')
         options = payload.get('options') or (task.get('options') if isinstance(task, dict) else [])
         if chat:
@@ -2139,7 +2212,11 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
                 'recognition_meta': payload.get('recognition_meta'),
                 'mcp_context': payload.get('mcp_context'),
             }
-            ai_message.save(update_fields=['runtime_payload'])
+            update_fields = ['runtime_payload']
+            if payload.get('ai_message') and getattr(ai_message, 'content', None) != payload.get('ai_message'):
+                ai_message.content = payload.get('ai_message')
+                update_fields.append('content')
+            ai_message.save(update_fields=update_fields)
         return payload
 
     def _build_pending_operation_follow_up_payload(self, user, chat_id, message):

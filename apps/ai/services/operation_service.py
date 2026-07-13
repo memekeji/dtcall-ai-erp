@@ -58,6 +58,8 @@ class AIOperationService:
                 'message': '该操作已处理，无法再次确认',
             }
 
+        self._repair_preview_payload_if_needed(operation, user)
+
         with transaction.atomic():
             confirmation.is_used = True
             confirmation.confirmed_by = user
@@ -98,6 +100,42 @@ class AIOperationService:
             'operation_id': operation.id,
             'gateway_result': gateway_result,
         }
+
+    def _repair_preview_payload_if_needed(self, operation, user):
+        preview_payload = dict(operation.preview_payload or {})
+        changes = dict(preview_payload.get('changes') or {})
+        resource_type = getattr(operation, 'resource_type', preview_payload.get('resource', ''))
+        operation_type = getattr(operation, 'operation_type', preview_payload.get('operation', ''))
+        if (
+                resource_type != 'approval' or
+                operation_type != 'create' or
+                (changes.get('title') and changes.get('flow_id'))):
+            return
+
+        ai_message = getattr(operation, 'ai_message', None)
+        runtime_payload = dict(getattr(ai_message, 'runtime_payload', None) or {})
+        if not runtime_payload:
+            return
+
+        user_message = getattr(operation, 'user_message', None)
+        original_query = getattr(user_message, 'content', '') or runtime_payload.get('original_query') or runtime_payload.get('query') or ''
+        repair_payload = dict(runtime_payload)
+        repair_payload.setdefault('requires_confirmation', True)
+        repair_payload.setdefault('action', operation_type)
+        repair_payload.setdefault('data_type', resource_type)
+        repair_payload.setdefault('original_query', original_query)
+        repair_payload.setdefault('query', original_query)
+
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        repaired = confirmation_service.build_confirmation_payload(repair_payload, user=user)
+        action_plan = repaired.get('action_plan') or {}
+        repaired_changes = dict(action_plan.get('changes') or {})
+        if not (repaired_changes.get('title') and repaired_changes.get('flow_id')):
+            return
+
+        operation.preview_payload = action_plan
+        operation.save(update_fields=['preview_payload', 'updated_at'])
 
 
     def match_pending_operation_command(self, message: str):

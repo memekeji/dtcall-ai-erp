@@ -1240,6 +1240,55 @@ class AIChatHistorySerializationTests(SimpleTestCase):
         self.assertEqual(data['task']['options'][0]['action'], 'confirm_operation')
         self.assertEqual(data['options'][0]['action'], 'confirm_operation')
 
+    def test_serialize_message_normalizes_top_level_pending_operation(self):
+        from apps.ai.views import AIChatDetailView
+
+        view = AIChatDetailView()
+        view.request = SimpleNamespace(user=SimpleNamespace(id=9, is_authenticated=True))
+        message = SimpleNamespace(
+            id=4,
+            role='assistant',
+            content='已识别到新增审批意图。AI 只负责识别和带您进入业务页面，不会直接新增业务数据，请在页面内核对后再保存。',
+            created_at=timezone.now(),
+            runtime_payload={
+                'intent_type': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'approval',
+                'operation_id': 302,
+                'confirmation': {'required': True, 'token': 'token-302'},
+                'task': {
+                    'type': 'business_handoff',
+                    'intent_type': 'DATA_CREATE',
+                    'action': 'create',
+                    'data_type': 'approval',
+                    'module': '审批管理',
+                    'title': '新增审批',
+                    'target_url': '/approval/apply/',
+                    'requires_user_confirmation': True,
+                    'safety_notice': 'AI 只负责识别和带您进入业务页面，不会直接新增业务数据，请在页面内核对后再保存。',
+                    'message': '已识别到新增审批意图。AI 只负责识别和带您进入业务页面，不会直接新增业务数据，请在页面内核对后再保存。',
+                    'options': [
+                        {'text': '打开新增审批', 'intent': 'DATA_CREATE', 'action': 'open_business_page', 'target_url': '/approval/apply/'},
+                        {'text': '取消操作', 'intent': 'AI_CHAT', 'action': 'cancel'},
+                    ],
+                },
+                'options': [
+                    {'text': '打开新增审批', 'intent': 'DATA_CREATE', 'action': 'open_business_page', 'target_url': '/approval/apply/'},
+                    {'text': '取消操作', 'intent': 'AI_CHAT', 'action': 'cancel'},
+                ],
+            },
+        )
+
+        data = view._serialize_message(message)
+
+        self.assertIn('确认后直接执行', data['content'])
+        self.assertNotIn('不会直接新增业务数据', data['content'])
+        self.assertEqual(data['task']['operation_id'], 302)
+        self.assertEqual(data['task']['confirmation_token'], 'token-302')
+        self.assertEqual(data['task']['options'][0]['action'], 'confirm_operation')
+        self.assertEqual(data['task']['options'][0]['token'], 'token-302')
+        self.assertEqual(data['options'][0]['action'], 'confirm_operation')
+
 
 class AIOperationPreviewServiceTests(SimpleTestCase):
     def test_create_preview_operation_persists_operation_and_confirmation(self):
@@ -1501,6 +1550,84 @@ class AIApprovalConversationExecutionTests(TestCase):
         self.assertTrue(
             ApprovalTask.objects.filter(approval=approval, status='pending').exists()
         )
+
+    def test_confirm_operation_repairs_legacy_empty_approval_preview(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.models import AIChat, AIChatMessage
+        from apps.ai.services.operation_service import operation_service
+        from apps.approval.models import Approval, ApprovalFlow, ApprovalStep, ApprovalType
+
+        user_model = get_user_model()
+        user = user_model.objects.create_user(
+            username='approval-ai-legacy-preview',
+            password='test-pass-123',
+            is_superuser=True,
+        )
+        approval_type = ApprovalType.objects.create(
+            name='请假审批',
+            code='LEAVE-TYPE-LEGACY-AI',
+            is_active=True,
+        )
+        flow = ApprovalFlow.objects.create(
+            name='请假审批流程',
+            code='LEAVE-FLOW-LEGACY-AI',
+            approval_type=approval_type,
+            is_active=True,
+        )
+        ApprovalStep.objects.create(
+            flow=flow,
+            step_name='人事审批',
+            step_order=1,
+            step_type='specific_user',
+            action_type='approve',
+            approver=user,
+        )
+        chat = AIChat.objects.create(user=user, title='legacy-preview')
+        user_message = AIChatMessage.objects.create(chat=chat, role='user', content='帮我请个假')
+        ai_message = AIChatMessage.objects.create(
+            chat=chat,
+            role='assistant',
+            content='已识别到新增审批意图。AI 只负责识别和带您进入业务页面，不会直接新增业务数据，请在页面内核对后再保存。',
+            runtime_payload={
+                'success': True,
+                'requires_confirmation': True,
+                'intent_type': 'DATA_CREATE',
+                'action': 'create',
+                'data_type': 'approval',
+                'entities': {'request_type': '请假'},
+            },
+        )
+        operation = operation_service.create_preview_operation(
+            user=user,
+            chat=chat,
+            user_message=user_message,
+            ai_message=ai_message,
+            payload={
+                'action_plan': {
+                    'resource': 'approval',
+                    'operation': 'create',
+                    'object_ids': [],
+                    'changes': {},
+                    'filters': {},
+                    'context': {},
+                },
+                'confirmation': {'required': True, 'message': '待确认'},
+            },
+        )
+
+        result = operation_service.confirm_operation(
+            operation.id,
+            operation.confirmation_token,
+            user,
+        )
+
+        self.assertTrue(result['success'])
+        operation.refresh_from_db()
+        self.assertEqual(operation.preview_payload['changes']['flow_id'], flow.id)
+        self.assertEqual(operation.preview_payload['changes']['title'], '请假申请')
+        approval = Approval.objects.get(applicant_id=user.id)
+        self.assertEqual(approval.flow_id, flow.id)
+        self.assertEqual(approval.type_id, approval_type.id)
 
 
 class AIOperationConfirmServiceTests(SimpleTestCase):
