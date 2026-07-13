@@ -122,6 +122,8 @@
                         </td>
                         <td class="sc-list-actions">
                             <a href="{% url 'supply_chain:forecast_qa' plan.id %}" class="layui-btn layui-btn-xs layui-btn-primary">智能问答</a>
+                            <details class="sc-action-disclosure">
+                                <summary>展开预测与评审</summary>
                             <form method="post" action="{% url 'supply_chain:forecast_run' plan.id %}">
                                 {% csrf_token %}
                                 <div class="sc-note">系统自动读取销售订单、库存、生产在制及采购在途；人工仅填写有依据的修正量。</div>
@@ -145,6 +147,7 @@
                                 <button type="submit" class="layui-btn layui-btn-xs layui-btn-danger">评审驳回</button>
                             </form>
                             {% endif %}
+                            </details>
                         </td>
                     </tr>
                     {% endwith %}

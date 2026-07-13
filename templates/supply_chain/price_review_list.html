@@ -101,6 +101,8 @@
                             </span>
                         </td>
                         <td class="sc-list-actions">
+                            <details class="sc-action-disclosure">
+                                <summary>展开规格书解析</summary>
                             <form method="post" action="{% url 'supply_chain:price_review_parse_document' order.id %}" enctype="multipart/form-data">
                                 {% csrf_token %}
                                 <label class="sc-field-label" for="price-doc-{{ order.id }}">规格书附件（可选）</label>
@@ -110,8 +112,11 @@
                                 <textarea id="price-text-{{ order.id }}" name="raw_text" rows="2" placeholder="直接粘贴材质、尺寸、工艺、包装等规格" class="layui-textarea"></textarea>
                                 <button type="submit" class="layui-btn layui-btn-xs">AI解析规格书</button>
                             </form>
+                            </details>
                         </td>
                         <td class="sc-list-actions">
+                            <details class="sc-action-disclosure">
+                                <summary>展开成本复核</summary>
                             <form method="post" action="{% url 'supply_chain:price_review_analyze' order.id %}">
                                 {% csrf_token %}
                                 <div class="layui-row layui-col-space5">
@@ -151,6 +156,7 @@
                                 <div class="sc-note" style="margin-top:6px;">{{ order.conclusion.summary|truncatewords:24 }}</div>
                                 {% endif %}
                             </form>
+                            </details>
                         </td>
                     </tr>
                 {% empty %}

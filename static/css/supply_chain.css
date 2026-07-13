@@ -124,6 +124,23 @@
     margin-bottom: 8px;
 }
 
+.sc-action-disclosure > summary {
+    width: fit-content;
+    margin: 4px 0 8px;
+    padding: 5px 9px;
+    border: 1px solid var(--dt-border);
+    border-radius: 4px;
+    background: #fff;
+    color: var(--dt-primary);
+    font-size: 12px;
+    cursor: pointer;
+    list-style-position: inside;
+}
+
+.sc-action-disclosure[open] > summary {
+    background: #eef5ff;
+}
+
 .sc-action-panel {
     margin-bottom: 10px;
     padding: 10px;
@@ -258,6 +275,23 @@
 }
 
 @media (max-width: 900px) {
+    .layui-card-body {
+        overflow-x: auto;
+    }
+
+    .sc-table-compact {
+        min-width: 920px;
+    }
+
+    .sc-table-compact td,
+    .sc-table-compact th {
+        min-width: 110px;
+    }
+
+    .sc-table-compact .sc-list-actions {
+        min-width: 300px;
+    }
+
     .sc-grid-two {
         grid-template-columns: 1fr;
     }
