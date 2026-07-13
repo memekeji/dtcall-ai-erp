@@ -1,3 +1,6 @@
+import os
+from unittest.mock import patch
+
 from django.conf import settings
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -5,6 +8,7 @@ from django.urls import reverse
 from apps.common.constants import CUSTOMER_INDUSTRY_CHOICES
 from apps.contract.models import Contract
 from apps.customer.models import (
+    CallRecord,
     Customer,
     CustomerField,
     CustomerCustomFieldValue,
@@ -931,6 +935,96 @@ class CustomerStatusDisplayTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn('个人客户', content)
+
+
+@override_settings(MIDDLEWARE=TEST_MIDDLEWARE)
+class CustomerSipCallTests(TestCase):
+    def setUp(self):
+        self.user = Admin.objects.create_user(
+            username='customer-sip-user',
+            email='customer-sip@example.com',
+            password='password123',
+            name='客户拨号测试员',
+            sip_account='1001',
+            sip_password='secret',
+        )
+        self.client.force_login(self.user)
+
+    def test_sip_call_ignores_environment_proxy_settings(self):
+        class SipResponse:
+            text = '100'
+
+        def fake_request(session, method, url, **kwargs):
+            self.assertFalse(session.trust_env)
+            self.assertEqual(method, 'GET')
+            self.assertEqual(url, 'http://192.168.1.200:9078')
+            self.assertEqual(kwargs['params']['Exten'], '1001')
+            self.assertEqual(kwargs['params']['phone'], '14737363737')
+            return SipResponse()
+
+        proxy_env = {
+            'HTTP_PROXY': 'http://127.0.0.1:1080',
+            'HTTPS_PROXY': 'http://127.0.0.1:1080',
+            'ALL_PROXY': 'http://127.0.0.1:1080',
+        }
+
+        with patch.dict(os.environ, proxy_env), patch(
+            'requests.sessions.Session.request',
+            autospec=True,
+            side_effect=fake_request,
+        ):
+            response = self.client.post(
+                reverse('customer:sip_call'),
+                {'phone': '14737363737', 'customer_name': '测试客户'},
+            )
+
+        payload = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload['code'], 0)
+        self.assertEqual(payload['msg'], '呼叫成功')
+        call_record = CallRecord.objects.get()
+        self.assertEqual(call_record.phone, '14737363737')
+        self.assertEqual(call_record.status, 3)
+
+    def test_call_status_update_ignores_environment_proxy_settings(self):
+        CallRecord.objects.create(
+            create_user=self.user,
+            phone='14737363737',
+            customer_name='测试客户',
+            status=1,
+            flow_id='flow-1',
+        )
+
+        class SipResponse:
+            text = '[]'
+
+        def fake_request(session, method, url, **kwargs):
+            self.assertFalse(session.trust_env)
+            self.assertEqual(method, 'GET')
+            self.assertEqual(url, 'http://192.168.1.200:9078')
+            self.assertEqual(kwargs['params']['op'], 'outlist')
+            self.assertEqual(kwargs['params']['WorkerID'], '1001')
+            return SipResponse()
+
+        proxy_env = {
+            'HTTP_PROXY': 'http://127.0.0.1:1080',
+            'HTTPS_PROXY': 'http://127.0.0.1:1080',
+            'ALL_PROXY': 'http://127.0.0.1:1080',
+        }
+
+        with patch.dict(os.environ, proxy_env), patch(
+            'requests.sessions.Session.request',
+            autospec=True,
+            side_effect=fake_request,
+        ):
+            response = self.client.get(reverse('customer:update_call_status'))
+
+        payload = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload['code'], 0)
+        self.assertEqual(payload['updated_count'], 0)
 
 
 @override_settings(MIDDLEWARE=TEST_MIDDLEWARE)

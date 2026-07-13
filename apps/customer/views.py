@@ -7,6 +7,7 @@ import uuid
 import ast
 import operator
 import re
+import requests
 from decimal import Decimal, InvalidOperation
 from datetime import datetime, timedelta
 
@@ -59,6 +60,16 @@ CUSTOMER_SAFE_UNARY_OPERATORS = {
     ast.UAdd: lambda value: value,
     ast.USub: lambda value: -value,
 }
+
+
+def _sip_get(url, **kwargs):
+    """请求内网SIP服务时忽略系统代理，避免内网地址被本机代理劫持。"""
+    session = requests.Session()
+    session.trust_env = False
+    try:
+        return session.get(url, **kwargs)
+    finally:
+        session.close()
 
 
 def _get_customer_field_options(field):
@@ -4719,7 +4730,6 @@ def customer_field_page(request):
 @require_POST
 def sip_call(request):
     """SIP拨号接口"""
-    import requests
     import time
     from django.http import JsonResponse
     from .models import CallRecord
@@ -4748,7 +4758,7 @@ def sip_call(request):
             'flowid': f"{request.user.id}_{int(time.time() * 1000)}"
         }
 
-        response = requests.get(lycc_url, params=params, timeout=10)
+        response = _sip_get(lycc_url, params=params, timeout=10)
         result = response.text.strip()
         
         # 解析LYCC系统的返回结果
@@ -4804,7 +4814,6 @@ def sip_call(request):
 @login_required
 def update_call_status(request):
     """更新通话状态"""
-    import requests
     import json
     import datetime
     from django.http import JsonResponse
@@ -4824,7 +4833,7 @@ def update_call_status(request):
             'WorkerID': request.user.sip_account  # 使用SIP账号作为员工工号
         }
         
-        response = requests.get(lycc_url, params=params)
+        response = _sip_get(lycc_url, params=params, timeout=10)
         call_records_data = []
         
         # 尝试解析响应
