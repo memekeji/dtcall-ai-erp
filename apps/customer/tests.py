@@ -1,6 +1,8 @@
 import os
 from unittest.mock import patch
 
+from requests.exceptions import ConnectionError
+
 from django.conf import settings
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -1081,6 +1083,84 @@ class CustomerSipCallTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(payload['code'], 0)
         self.assertEqual(payload['updated_count'], 0)
+
+    def test_sip_call_returns_actionable_message_when_server_refuses_connection(self):
+        def fake_request(session, method, url, **kwargs):
+            raise ConnectionError('[WinError 10061] 由于目标计算机积极拒绝，无法连接。')
+
+        with patch(
+            'requests.sessions.Session.request',
+            autospec=True,
+            side_effect=fake_request,
+        ):
+            response = self.client.post(
+                reverse('customer:sip_call'),
+                {'phone': '14737363737', 'customer_name': '测试客户'},
+            )
+
+        payload = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload['code'], 1)
+        self.assertIn('SIP服务器连接失败', payload['msg'])
+        self.assertIn('http://192.168.1.200:9078', payload['msg'])
+        self.assertIn('LYCC/SIP服务已启动', payload['msg'])
+        call_record = CallRecord.objects.get()
+        self.assertEqual(call_record.status, 2)
+
+    def test_call_status_update_uses_configured_sip_server_url(self):
+        CallRecord.objects.create(
+            create_user=self.user,
+            phone='14737363737',
+            customer_name='测试客户',
+            status=1,
+            flow_id='flow-1',
+        )
+
+        class SipResponse:
+            text = '[]'
+
+        def fake_request(session, method, url, **kwargs):
+            self.assertEqual(url, 'http://10.0.0.8:9999')
+            return SipResponse()
+
+        with patch('apps.customer.views.config_service.get_config', return_value='http://10.0.0.8:9999/'), patch(
+            'requests.sessions.Session.request',
+            autospec=True,
+            side_effect=fake_request,
+        ):
+            response = self.client.get(reverse('customer:update_call_status'))
+
+        payload = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload['code'], 0)
+
+    def test_call_status_update_returns_actionable_message_when_server_refuses_connection(self):
+        CallRecord.objects.create(
+            create_user=self.user,
+            phone='14737363737',
+            customer_name='测试客户',
+            status=1,
+            flow_id='flow-1',
+        )
+
+        def fake_request(session, method, url, **kwargs):
+            raise ConnectionError('[WinError 10061] 由于目标计算机积极拒绝，无法连接。')
+
+        with patch(
+            'requests.sessions.Session.request',
+            autospec=True,
+            side_effect=fake_request,
+        ):
+            response = self.client.get(reverse('customer:update_call_status'))
+
+        payload = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload['code'], 1)
+        self.assertIn('SIP服务器连接失败', payload['msg'])
+        self.assertIn('http://192.168.1.200:9078', payload['msg'])
 
 
 @override_settings(MIDDLEWARE=TEST_MIDDLEWARE)

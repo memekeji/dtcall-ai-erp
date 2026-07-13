@@ -32,6 +32,7 @@ from apps.user.models import SystemLog, SystemConfiguration
 from apps.common.cache_service import SystemCache
 from apps.common.constants import CUSTOMER_INDUSTRY_CHOICES
 from apps.common.services import CommonService
+from apps.system.config_service import config_service
 
 # 本地应用导入
 from .models import (
@@ -70,6 +71,19 @@ def _sip_get(url, **kwargs):
         return session.get(url, **kwargs)
     finally:
         session.close()
+
+
+def _get_sip_server_url():
+    sip_server_url = config_service.get_config('sip_server_url', 'http://192.168.1.200:9078')
+    return f"{sip_server_url.rstrip('/')}" if sip_server_url else "http://192.168.1.200:9078"
+
+
+def _sip_connection_error_message(url):
+    return (
+        f"SIP服务器连接失败：无法连接到 {url}。"
+        "请检查系统配置中的SIP服务地址和端口是否正确，"
+        "并确认LYCC/SIP服务已启动且防火墙已放行该端口。"
+    )
 
 
 def _get_customer_field_options(field):
@@ -4747,8 +4761,9 @@ def sip_call(request):
     import time
     from django.http import JsonResponse
     from .models import CallRecord
-    from apps.system.config_service import config_service
     
+    params = {}
+    lycc_url = ''
     try:
         phone = request.POST.get('phone')
         customer_id = request.POST.get('customer_id')
@@ -4763,8 +4778,7 @@ def sip_call(request):
         if not sip_account or not sip_password:
             return JsonResponse({'code': 1, 'msg': '当前用户未配置SIP账号信息，请联系管理员'})
         
-        sip_server_url = config_service.get_config('sip_server_url', 'http://192.168.1.200:9078')
-        lycc_url = f"{sip_server_url.rstrip('/')}" if sip_server_url else "http://192.168.1.200:9078"
+        lycc_url = _get_sip_server_url()
         params = {
             'op': 'callout',
             'Exten': sip_account,
@@ -4810,6 +4824,32 @@ def sip_call(request):
             )
             return JsonResponse({'code': 1, 'msg': f'呼叫失败: {error_msg} (错误码: {result})', 'result_code': result, 'error_message': error_msg})
             
+    except requests.exceptions.ConnectionError:
+        try:
+            CallRecord.objects.create(
+                create_user=request.user,
+                customer_id=customer_id if customer_id else None,
+                customer_name=customer_name,
+                phone=phone,
+                status=2,
+                flow_id=params.get('flowid', '')
+            )
+        except Exception as create_error:
+            logger.error(f'创建拨号记录失败: {str(create_error)}')
+        return JsonResponse({'code': 1, 'msg': _sip_connection_error_message(lycc_url or _get_sip_server_url())})
+    except requests.exceptions.Timeout:
+        try:
+            CallRecord.objects.create(
+                create_user=request.user,
+                customer_id=customer_id if customer_id else None,
+                customer_name=customer_name,
+                phone=phone,
+                status=2,
+                flow_id=params.get('flowid', '')
+            )
+        except Exception as create_error:
+            logger.error(f'创建拨号记录失败: {str(create_error)}')
+        return JsonResponse({'code': 1, 'msg': f'SIP服务器请求超时：{lycc_url or _get_sip_server_url()} 响应超时，请检查服务状态和网络链路。'})
     except Exception as e:
         # 记录异常信息
         try:
@@ -4834,6 +4874,7 @@ def update_call_status(request):
     from django.utils import timezone
     from .models import CallRecord
     
+    lycc_url = ''
     try:
         # 从当前用户获取所有通话记录
         all_calls = CallRecord.objects.filter(
@@ -4841,7 +4882,7 @@ def update_call_status(request):
         )
         
         # 调用LYCC系统的外呼记录接口，获取最新的通话状态
-        lycc_url = "http://192.168.1.200:9078"
+        lycc_url = _get_sip_server_url()
         params = {
             'op': 'outlist',
             'WorkerID': request.user.sip_account  # 使用SIP账号作为员工工号
@@ -4957,6 +4998,14 @@ def update_call_status(request):
             updated_count += 1
         
         return JsonResponse({'code': 0, 'msg': f'成功更新{updated_count}条通话状态', 'updated_count': updated_count})
+    except requests.exceptions.ConnectionError:
+        message = _sip_connection_error_message(lycc_url or _get_sip_server_url())
+        logger.error(f'更新通话状态失败: {message}')
+        return JsonResponse({'code': 1, 'msg': message})
+    except requests.exceptions.Timeout:
+        message = f'SIP服务器请求超时：{lycc_url or _get_sip_server_url()} 响应超时，请检查服务状态和网络链路。'
+        logger.error(f'更新通话状态失败: {message}')
+        return JsonResponse({'code': 1, 'msg': message})
     except Exception as e:
         logger.error(f'更新通话状态失败: {str(e)}')
         return JsonResponse({'code': 1, 'msg': f'更新通话状态失败: {str(e)}'})
