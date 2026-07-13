@@ -5,7 +5,17 @@ from django.db import models
 from django.utils import timezone
 
 
-class DemandForecastPlan(models.Model):
+class SourceTrackedModel(models.Model):
+    source_type = models.CharField(max_length=50, blank=True, verbose_name='来源类型')
+    source_id = models.PositiveBigIntegerField(null=True, blank=True, verbose_name='来源记录ID')
+    source_code = models.CharField(max_length=100, blank=True, verbose_name='来源单号')
+    source_snapshot = models.JSONField(default=dict, blank=True, verbose_name='来源快照')
+
+    class Meta:
+        abstract = True
+
+
+class DemandForecastPlan(SourceTrackedModel):
     STATUS_DRAFT = 'draft'
     STATUS_RUNNING = 'running'
     STATUS_GENERATED = 'generated'
@@ -154,7 +164,7 @@ class MaterialPreparationReview(models.Model):
         ordering = ['-create_time']
 
 
-class OutsourceIssueOrder(models.Model):
+class OutsourceIssueOrder(SourceTrackedModel):
     STATUS_DRAFT = 'draft'
     STATUS_CHECKING = 'checking'
     STATUS_SHORTAGE = 'shortage'
@@ -326,7 +336,7 @@ class PRReviewRule(models.Model):
         ordering = ['priority', 'id']
 
 
-class PRReviewTask(models.Model):
+class PRReviewTask(SourceTrackedModel):
     STATUS_PENDING = 'pending'
     STATUS_RULE_MATCHED = 'rule_matched'
     STATUS_AUTO_APPROVED = 'auto_approved'
@@ -402,7 +412,7 @@ class PRReviewEvidence(models.Model):
         verbose_name_plural = verbose_name
 
 
-class PriceReviewOrder(models.Model):
+class PriceReviewOrder(SourceTrackedModel):
     STATUS_DRAFT = 'draft'
     STATUS_PARSING = 'parsing'
     STATUS_BREAKDOWN = 'breakdown'
@@ -530,7 +540,7 @@ class PriceReviewConclusion(models.Model):
         verbose_name_plural = verbose_name
 
 
-class SampleRequest(models.Model):
+class SampleRequest(SourceTrackedModel):
     STATUS_DRAFT = 'draft'
     STATUS_ORDERED = 'ordered'
     STATUS_RECEIVED = 'received'
@@ -664,4 +674,63 @@ class SupplyChainEventLog(models.Model):
         verbose_name = '供应链事件日志'
         verbose_name_plural = verbose_name
         ordering = ['-create_time']
+
+
+class SupplyChainSequence(models.Model):
+    prefix = models.CharField(max_length=20, verbose_name='业务前缀')
+    business_date = models.DateField(verbose_name='业务日期')
+    current_value = models.PositiveIntegerField(default=0, verbose_name='当前序号')
+    update_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+
+    class Meta:
+        db_table = 'supply_chain_sequence'
+        verbose_name = '供应链业务序列'
+        verbose_name_plural = verbose_name
+        constraints = [
+            models.UniqueConstraint(
+                fields=['prefix', 'business_date'],
+                name='supply_chain_unique_sequence_day',
+            ),
+        ]
+
+
+class SupplyChainAIInsight(models.Model):
+    STATUS_SUCCESS = 'success'
+    STATUS_ERROR = 'error'
+    STATUS_CHOICES = (
+        (STATUS_SUCCESS, '成功'),
+        (STATUS_ERROR, '失败'),
+    )
+
+    scope = models.CharField(max_length=50, verbose_name='分析范围')
+    object_type = models.CharField(max_length=50, verbose_name='对象类型')
+    object_id = models.PositiveBigIntegerField(default=0, verbose_name='对象ID')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, verbose_name='状态')
+    input_hash = models.CharField(max_length=64, blank=True, verbose_name='输入摘要')
+    content = models.TextField(blank=True, verbose_name='分析结论')
+    result_payload = models.JSONField(default=dict, blank=True, verbose_name='结构化结果')
+    error_message = models.TextField(blank=True, verbose_name='错误信息')
+    generated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name='生成人',
+    )
+    generated_at = models.DateTimeField(default=timezone.now, verbose_name='生成时间')
+    update_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+
+    class Meta:
+        db_table = 'supply_chain_ai_insight'
+        verbose_name = '供应链AI分析记录'
+        verbose_name_plural = verbose_name
+        constraints = [
+            models.UniqueConstraint(
+                fields=['scope', 'object_type', 'object_id'],
+                name='supply_chain_unique_ai_insight',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['scope', 'status', '-generated_at']),
+        ]
 

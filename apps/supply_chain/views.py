@@ -78,6 +78,7 @@ from .services.sample_service import (
     generate_sample_request_code,
     is_pickup_overdue,
 )
+from .services.sequence_service import generate_business_code
 
 
 PRICE_COMPONENT_FIELDS = [
@@ -115,10 +116,7 @@ OUTSOURCE_STATUS_ACTIONS = {
 
 
 def _generate_serial(prefix, model, date_part=True):
-    today = date.today()
-    base = f'{prefix}-{today:%Y%m%d}' if date_part else prefix
-    sequence = model.objects.count() + 1
-    return f'{base}-{sequence:03d}'
+    return generate_business_code(prefix)
 
 
 def _risk_level_by_gap(predicted_quantity, recommended_quantity):

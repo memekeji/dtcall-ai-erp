@@ -1143,3 +1143,54 @@ class SupplyChainAITests(TestCase):
         self.assertEqual(response.json()['status'], 'success')
         self.assertIn('manual_review', response.json()['data']['summary'])
         self.assertEqual(response.json()['data']['matched_rules'], ['NPI-001'])
+
+
+class SupplyChainFoundationTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='supply-chain-foundation-user',
+            password='test-pass-123',
+        )
+
+    def test_business_sequence_generates_unique_readable_codes(self):
+        from apps.supply_chain.services.sequence_service import generate_business_code
+
+        first = generate_business_code('DFP', current_date=date(2026, 7, 13))
+        second = generate_business_code('DFP', current_date=date(2026, 7, 13))
+
+        self.assertEqual(first, 'DFP-20260713-001')
+        self.assertEqual(second, 'DFP-20260713-002')
+
+    def test_forecast_plan_records_upstream_source(self):
+        from apps.supply_chain.models import DemandForecastPlan
+
+        plan = DemandForecastPlan.objects.create(
+            name='真实来源预测',
+            code='DFP-20260713-101',
+            period_start=date(2026, 7, 1),
+            period_end=date(2026, 7, 31),
+            source_type='production_plan',
+            source_id=42,
+            source_code='PP-202607-001',
+            source_snapshot={'quantity': '500'},
+            created_by=self.user,
+        )
+
+        self.assertEqual(plan.source_type, 'production_plan')
+        self.assertEqual(plan.source_snapshot['quantity'], '500')
+
+    def test_ai_insight_keeps_last_successful_result(self):
+        from apps.supply_chain.models import SupplyChainAIInsight
+
+        insight = SupplyChainAIInsight.objects.create(
+            scope='inventory',
+            object_type='inventory_overview',
+            object_id=0,
+            status=SupplyChainAIInsight.STATUS_SUCCESS,
+            content='库存风险可控',
+            result_payload={'risk_level': 'low'},
+            generated_by=self.user,
+        )
+
+        self.assertEqual(insight.content, '库存风险可控')
+        self.assertEqual(insight.result_payload['risk_level'], 'low')
