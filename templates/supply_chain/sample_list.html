@@ -47,12 +47,14 @@
             </div>
 
             <div class="sc-table-caption">真实来源：采购或研发人员提交的打样申请。样品到货、领样和提醒只由实际业务操作产生，不从产品主数据自动生成。</div>
-            {% if ai_sample_advice %}
             <div class="sc-form-section">
-                <div class="sc-form-section-title">AI打样建议</div>
-                <div class="sc-note" style="line-height:1.8;">{{ ai_sample_advice }}</div>
+                <div class="sc-form-section-title">AI打样建议 <span class="layui-badge layui-bg-blue">按需刷新</span></div>
+                <div class="sc-note" style="line-height:1.8;">{% if ai_sample_advice %}{{ ai_sample_advice }}{% else %}尚未生成AI优先级建议，待领与超期统计仍按实际到货时间计算。{% endif %}</div>
+                {% if ai_sample_insight %}<div class="sc-stat-footnote">更新于 {{ ai_sample_insight.generated_at|date:'Y-m-d H:i' }}{% if ai_sample_insight.error_message %}，本次刷新失败，当前保留上次有效结论{% endif %}</div>{% endif %}
+                <form method="post" action="{% url 'supply_chain:sample_ai_refresh' %}" style="margin-top:10px;">
+                    {% csrf_token %}<input type="hidden" name="next" value="supply_chain:sample_list"><button type="submit" class="layui-btn layui-btn-xs layui-btn-normal">刷新AI建议</button>
+                </form>
             </div>
-            {% endif %}
 
             <form class="layui-form sc-inline-form" method="get">
                 <div class="layui-row layui-col-space10">

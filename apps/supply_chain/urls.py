@@ -49,4 +49,7 @@ urlpatterns = [
     path('ai/forecast/<int:pk>/summary/', ai_views.forecast_ai_summary, name='forecast_ai_summary'),
     path('ai/pr-review/<int:pk>/summary/', ai_views.pr_review_ai_summary, name='pr_review_ai_summary'),
     path('ai/price-review/<int:pk>/summary/', ai_views.price_review_ai_summary, name='price_review_ai_summary'),
+    path('ai/dashboard/refresh/', ai_views.dashboard_ai_refresh, name='dashboard_ai_refresh'),
+    path('ai/inventory/refresh/', ai_views.inventory_ai_refresh, name='inventory_ai_refresh'),
+    path('ai/sample/refresh/', ai_views.sample_ai_refresh, name='sample_ai_refresh'),
 ]

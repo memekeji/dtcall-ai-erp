@@ -54,6 +54,7 @@ from .models import (
 )
 from .services.event_service import log_supply_chain_event, send_supply_chain_notification
 from .services.ai_services import supply_chain_ai
+from .services.ai_insight_service import get_ai_insight
 from .services.forecast_service import (
     build_forecast_trend_data,
     build_snapshot_payload,
@@ -200,18 +201,7 @@ def _build_supply_chain_source_summary():
 @login_required
 def dashboard(request):
     inventory_summary = build_inventory_analysis_summary()
-    ai_dashboard_summary = supply_chain_ai.analyze_inventory_risk(
-        total_items=inventory_summary.get('total_items', 0),
-        high_risk_count=inventory_summary.get('high_risk_count', 0),
-        medium_risk_count=inventory_summary.get('medium_risk_count', 0),
-        dead_stock_count=0,
-        safety_breach_count=inventory_summary.get('high_risk_count', 0),
-        top_risk_items=[
-            f"{row['item'].name}:{row['status']}"
-            for row in inventory_summary.get('risk_rows', [])
-            if row.get('risk_level') in {'high', 'medium'}
-        ][:5],
-    )
+    dashboard_insight = get_ai_insight('dashboard', 'inventory_overview')
     context = {
         'page_title': '供应链智能驾驶舱',
         'forecast_count': DemandForecastPlan.objects.count(),
@@ -225,7 +215,8 @@ def dashboard(request):
         'recent_samples': SampleRequest.objects.order_by('-create_time')[:5],
         'recent_pr_tasks': PRReviewTask.objects.order_by('-create_time')[:5],
         'has_forecast_history': DemandForecastResult.objects.exists(),
-        'ai_dashboard_summary': ai_dashboard_summary,
+        'ai_dashboard_summary': dashboard_insight.content if dashboard_insight else '',
+        'ai_dashboard_insight': dashboard_insight,
     }
     context.update(_build_supply_chain_source_summary())
     return render(request, 'supply_chain/dashboard.html', context)
@@ -240,17 +231,11 @@ def inventory_analysis(request):
         for row in inventory_summary.get('risk_rows', [])
         if row.get('risk_level') in {'high', 'medium'}
     ][:5]
-    ai_inventory_summary = supply_chain_ai.analyze_inventory_risk(
-        total_items=inventory_summary.get('total_items', 0),
-        high_risk_count=inventory_summary.get('high_risk_count', 0),
-        medium_risk_count=inventory_summary.get('medium_risk_count', 0),
-        dead_stock_count=deep_analysis.get('dead_stock_count', 0),
-        safety_breach_count=deep_analysis.get('safety_breach_count', 0),
-        top_risk_items=top_risk_items,
-    )
+    inventory_insight = get_ai_insight('inventory', 'inventory_overview')
     context = {
         'page_title': '库存智能分析',
-        'ai_inventory_summary': ai_inventory_summary,
+        'ai_inventory_summary': inventory_insight.content if inventory_insight else '',
+        'ai_inventory_insight': inventory_insight,
         **inventory_summary,
     }
     context.update(deep_analysis)
@@ -1182,11 +1167,7 @@ def sample_list(request):
         for receipt in pending_receipts
         if is_pickup_overdue(receipt.received_at, current_time=timezone.now())
     ]
-    ai_sample_advice = supply_chain_ai.suggest_sample_priority(
-        pending_count=SampleRequest.objects.filter(status=SampleRequest.STATUS_PICKUP_PENDING).count(),
-        overdue_count=stats['overdue_count'],
-        overdue_details=overdue_details,
-    )
+    sample_insight = get_ai_insight('sample', 'sample_priority')
     context = {
         'page_title': '打样管理',
         'requests': page_obj,
@@ -1198,7 +1179,8 @@ def sample_list(request):
         'pickup_pending_count': SampleRequest.objects.filter(status=SampleRequest.STATUS_PICKUP_PENDING).count(),
         'picked_up_count': SampleRequest.objects.filter(status=SampleRequest.STATUS_PICKED_UP).count(),
         'overdue_pickup_count': stats['overdue_count'],
-        'ai_sample_advice': ai_sample_advice,
+        'ai_sample_advice': sample_insight.content if sample_insight else '',
+        'ai_sample_insight': sample_insight,
     }
     context.update(_build_supply_chain_source_summary())
     return render(request, 'supply_chain/sample_list.html', context)
@@ -1210,10 +1192,7 @@ def sample_create(request):
         form = SampleRequestForm(request.POST)
         if form.is_valid():
             sample_request = form.save(commit=False)
-            sample_request.code = generate_sample_request_code(
-                current_date=date.today(),
-                sequence=SampleRequest.objects.count() + 1,
-            )
+            sample_request.code = generate_business_code('SMP')
             sample_request.requested_by = request.user
             sample_request.status = SampleRequest.STATUS_ORDERED
             sample_request.save()

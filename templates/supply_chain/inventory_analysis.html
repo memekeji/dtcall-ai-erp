@@ -44,12 +44,14 @@
             </div>
 
             <div class="sc-table-caption">数据来源：库存物料主数据 + 库存台账实时汇总。物料风险按库存实时聚合结果展示，便于计划与采购快速锁定补货对象。</div>
-            {% if ai_inventory_summary %}
             <div class="sc-form-section">
-                <div class="sc-form-section-title">AI库存体检</div>
-                <div class="sc-note" style="line-height:1.8;">{{ ai_inventory_summary }}</div>
+                <div class="sc-form-section-title">AI库存体检 <span class="layui-badge layui-bg-blue">按需刷新</span></div>
+                <div class="sc-note" style="line-height:1.8;">{% if ai_inventory_summary %}{{ ai_inventory_summary }}{% else %}尚未生成AI体检，库存风险表仍按实时库存规则正常工作。{% endif %}</div>
+                {% if ai_inventory_insight %}<div class="sc-stat-footnote">更新于 {{ ai_inventory_insight.generated_at|date:'Y-m-d H:i' }}{% if ai_inventory_insight.error_message %}，本次刷新失败，当前保留上次有效结论{% endif %}</div>{% endif %}
+                <form method="post" action="{% url 'supply_chain:inventory_ai_refresh' %}" style="margin-top:10px;">
+                    {% csrf_token %}<input type="hidden" name="next" value="supply_chain:inventory_analysis"><button type="submit" class="layui-btn layui-btn-xs layui-btn-normal">刷新AI体检</button>
+                </form>
             </div>
-            {% endif %}
             <table class="layui-table sc-table-compact" lay-skin="line">
                 <thead>
                     <tr>

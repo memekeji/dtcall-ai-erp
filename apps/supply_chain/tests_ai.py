@@ -465,7 +465,9 @@ class SupplyChainAIIntegrationTests(TestCase):
     @patch("apps.supply_chain.services.ai_services.AIAnalysisTool._call_ai")
     def test_inventory_analysis_page_uses_real_ai_summary(self, mock_call):
         mock_call.return_value = {"content": "AI库存体检：当前风险可控。"}
+        refresh_response = self.client.post(reverse("supply_chain:inventory_ai_refresh"))
         response = self.client.get(reverse("supply_chain:inventory_analysis"))
+        self.assertEqual(refresh_response.status_code, 200)
         self.assertEqual(response.status_code, 200)
         self.assertTrue(mock_call.called)
         self.assertContains(response, "AI库存体检")
@@ -473,7 +475,9 @@ class SupplyChainAIIntegrationTests(TestCase):
     @patch("apps.supply_chain.services.ai_services.AIAnalysisTool._call_ai")
     def test_dashboard_uses_real_ai_overview(self, mock_call):
         mock_call.return_value = {"content": "AI总览：供应链整体风险可控。"}
+        refresh_response = self.client.post(reverse("supply_chain:dashboard_ai_refresh"))
         response = self.client.get(reverse("supply_chain:dashboard"))
+        self.assertEqual(refresh_response.status_code, 200)
         self.assertEqual(response.status_code, 200)
         self.assertTrue(mock_call.called)
         self.assertContains(response, "AI总览")
@@ -574,6 +578,7 @@ class SupplyChainAIIntegrationTests(TestCase):
         response = self.client.post(reverse("supply_chain:outsource_check", args=[order.id]))
         self.assertEqual(response.status_code, 302)
         self.assertTrue(mock_call.called)
+
         self.assertTrue(order.status_logs.filter(message__icontains="AI齐套建议").exists())
 
     @patch("apps.supply_chain.services.ai_services.AIAnalysisTool._call_ai")
@@ -592,7 +597,9 @@ class SupplyChainAIIntegrationTests(TestCase):
             status="pickup_pending",
         )
         mock_call.return_value = {"content": "AI打样建议：优先催领超期样品。"}
+        refresh_response = self.client.post(reverse("supply_chain:sample_ai_refresh"))
         response = self.client.get(reverse("supply_chain:sample_list"))
+        self.assertEqual(refresh_response.status_code, 200)
         self.assertEqual(response.status_code, 200)
         self.assertTrue(mock_call.called)
         self.assertContains(response, "AI打样建议")
@@ -621,5 +628,62 @@ class SupplyChainAIIntegrationTests(TestCase):
 
         self.assertLess(elapsed, 0.5)
         self.assertIn("AI响应超时", result)
+
+
+class SupplyChainAIProductionTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='supply-chain-ai-production',
+            password='test-pass-123',
+        )
+        self.user.is_superuser = True
+        self.user.is_staff = True
+        self.user.status = 1
+        self.user.save(update_fields=['is_superuser', 'is_staff', 'status'])
+        self.client.force_login(self.user)
+
+    @patch('apps.supply_chain.services.ai_services.AIAnalysisTool._call_ai')
+    def test_dashboard_get_does_not_call_ai(self, mock_call):
+        response = self.client.get(reverse('supply_chain:dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        mock_call.assert_not_called()
+
+    def test_refresh_persists_successful_ai_result(self):
+        from apps.supply_chain.services.ai_insight_service import refresh_ai_insight
+
+        insight = refresh_ai_insight(
+            scope='inventory',
+            object_type='inventory_overview',
+            object_id=0,
+            generator=lambda: {'content': '库存风险可控', 'risk_level': 'low'},
+            user=self.user,
+        )
+
+        self.assertEqual(insight.status, 'success')
+        self.assertEqual(insight.content, '库存风险可控')
+        self.assertEqual(insight.result_payload['risk_level'], 'low')
+
+    def test_failed_refresh_preserves_last_successful_content(self):
+        from apps.supply_chain.services.ai_insight_service import refresh_ai_insight
+
+        refresh_ai_insight(
+            scope='inventory',
+            object_type='inventory_overview',
+            object_id=0,
+            generator=lambda: {'content': '上次有效结论'},
+            user=self.user,
+        )
+        insight = refresh_ai_insight(
+            scope='inventory',
+            object_type='inventory_overview',
+            object_id=0,
+            generator=lambda: {'error': '模型超时'},
+            user=self.user,
+        )
+
+        self.assertEqual(insight.status, 'error')
+        self.assertEqual(insight.content, '上次有效结论')
+        self.assertIn('模型超时', insight.error_message)
 
 

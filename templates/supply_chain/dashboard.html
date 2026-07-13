@@ -70,12 +70,14 @@
             </div>
 
             <div class="sc-grid-two">
-                {% if ai_dashboard_summary %}
                 <div class="sc-metric-panel">
-                    <h4>AI总览</h4>
-                    <p>{{ ai_dashboard_summary }}</p>
+                    <h4>AI总览 <span class="layui-badge layui-bg-blue">按需刷新</span></h4>
+                    <p>{% if ai_dashboard_summary %}{{ ai_dashboard_summary }}{% else %}尚未生成AI总览，核心指标已由业务规则实时计算。{% endif %}</p>
+                    {% if ai_dashboard_insight %}<div class="sc-stat-footnote">更新于 {{ ai_dashboard_insight.generated_at|date:'Y-m-d H:i' }}{% if ai_dashboard_insight.error_message %}，本次刷新失败，当前保留上次有效结论{% endif %}</div>{% endif %}
+                    <form method="post" action="{% url 'supply_chain:dashboard_ai_refresh' %}" style="margin-top:10px;">
+                        {% csrf_token %}<input type="hidden" name="next" value="supply_chain:dashboard"><button type="submit" class="layui-btn layui-btn-xs layui-btn-normal">刷新AI总览</button>
+                    </form>
                 </div>
-                {% endif %}
                 <div class="sc-metric-panel">
                     <h4>业务入口</h4>
                     <div class="sc-action-group">

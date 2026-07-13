@@ -1,9 +1,14 @@
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
+from django.utils import timezone
 
 from .models import DemandForecastPlan, DemandForecastResult, PRReviewTask, PriceReviewOrder
 from .services.ai_services import supply_chain_ai
+from .services.ai_insight_service import refresh_ai_insight
+from .services.inventory_analysis_service import build_inventory_analysis_summary, build_inventory_deep_analysis
+from .services.sample_service import get_sample_statistics, is_pickup_overdue
 
 
 @login_required
@@ -124,6 +129,105 @@ def pr_review_ai_summary(request, pk):
     })
 
 
+def _insight_response(insight):
+    return JsonResponse({
+        'status': insight.status,
+        'data': {
+            'content': insight.content,
+            'result': insight.result_payload,
+            'error': insight.error_message,
+            'generated_at': insight.generated_at.isoformat(),
+        },
+    })
+
+
+def _finish_refresh(request, insight):
+    next_route = request.POST.get('next')
+    if next_route:
+        if insight.status == insight.STATUS_SUCCESS:
+            messages.success(request, 'AI分析已刷新')
+        else:
+            messages.warning(request, 'AI刷新失败，已保留上次有效结论')
+        return redirect(next_route)
+    return _insight_response(insight)
+
+
+@login_required
+def dashboard_ai_refresh(request):
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': '仅支持POST刷新'}, status=405)
+    summary = build_inventory_analysis_summary()
+    insight = refresh_ai_insight(
+        scope='dashboard', object_type='inventory_overview', object_id=0, user=request.user,
+        generator=lambda: supply_chain_ai.analyze_inventory_risk(
+            total_items=summary.get('total_items', 0),
+            high_risk_count=summary.get('high_risk_count', 0),
+            medium_risk_count=summary.get('medium_risk_count', 0),
+            dead_stock_count=0,
+            safety_breach_count=summary.get('high_risk_count', 0),
+            top_risk_items=[
+                f"{row['item'].name}:{row['status']}"
+                for row in summary.get('risk_rows', [])
+                if row.get('risk_level') in {'high', 'medium'}
+            ][:5],
+        ),
+    )
+    return _finish_refresh(request, insight)
+
+
+@login_required
+def inventory_ai_refresh(request):
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': '仅支持POST刷新'}, status=405)
+    summary = build_inventory_analysis_summary()
+    deep_analysis = build_inventory_deep_analysis()
+    insight = refresh_ai_insight(
+        scope='inventory', object_type='inventory_overview', object_id=0, user=request.user,
+        generator=lambda: supply_chain_ai.analyze_inventory_risk(
+            total_items=summary.get('total_items', 0),
+            high_risk_count=summary.get('high_risk_count', 0),
+            medium_risk_count=summary.get('medium_risk_count', 0),
+            dead_stock_count=deep_analysis.get('dead_stock_count', 0),
+            safety_breach_count=deep_analysis.get('safety_breach_count', 0),
+            top_risk_items=[
+                f"{row['item'].name}:{row['status']}"
+                for row in summary.get('risk_rows', [])
+                if row.get('risk_level') in {'high', 'medium'}
+            ][:5],
+        ),
+    )
+    return _finish_refresh(request, insight)
+
+
+@login_required
+def sample_ai_refresh(request):
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': '仅支持POST刷新'}, status=405)
+    from .models import SampleReceipt, SampleRequest
+
+    stats = get_sample_statistics()
+    pending_receipts = SampleReceipt.objects.filter(
+        sample_request__status=SampleRequest.STATUS_PICKUP_PENDING,
+    ).select_related('sample_request')[:5]
+    overdue_details = [
+        receipt.sample_request.material_name
+        for receipt in pending_receipts
+        if is_pickup_overdue(receipt.received_at, current_time=timezone.now())
+    ]
+    insight = refresh_ai_insight(
+        scope='sample', object_type='sample_priority', object_id=0, user=request.user,
+        generator=lambda: supply_chain_ai.suggest_sample_priority(
+            pending_count=SampleRequest.objects.filter(status=SampleRequest.STATUS_PICKUP_PENDING).count(),
+            overdue_count=stats['overdue_count'],
+            overdue_details=overdue_details,
+        ),
+    )
+    return _finish_refresh(request, insight)
+
+
 forecast_ai_summary.permission_required = 'user.view_supply_chain_forecast'
 pr_review_ai_summary.permission_required = 'user.view_supply_chain_pr_review'
 price_review_ai_summary.permission_required = 'user.view_supply_chain_price_review'
+dashboard_ai_refresh.permission_required = 'user.view_supply_chain_dashboard'
+inventory_ai_refresh.permission_required = 'user.view_supply_chain_inventory_analysis'
+sample_ai_refresh.permission_required = 'user.view_supply_chain_sample'
