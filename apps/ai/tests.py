@@ -1053,6 +1053,55 @@ class AIChatStreamingResponseTests(SimpleTestCase):
         self.assertIn('event: done', stream_text)
         self.assertIn('"ai_message": "你好"', stream_text)
 
+    def test_stream_chat_events_uses_query_result_as_ai_message(self):
+        from apps.ai.views import AIChatStreamView
+
+        factory = RequestFactory()
+        request = factory.post('/ai/chat/stream/', data={'message': '我有几个客户'})
+        request.user = SimpleNamespace(is_authenticated=True, id=7)
+        request.session = {}
+        ai_message = SimpleNamespace(
+            id=41,
+            content='您有21个客户。',
+            runtime_payload={},
+            created_at=None,
+            save=MagicMock(),
+        )
+        stream_payload = {
+            'success': True,
+            'intent_type': 'DATA_QUERY',
+            'result': '您有21个客户。',
+            'confidence': 0.95,
+            'specific_intent': 'customer_count',
+            'source': 'ai',
+            'ai_available': True,
+            'ai_configured': True,
+        }
+
+        with patch(
+            'apps.ai.views.enhanced_intent_service.stream_user_request',
+            return_value=iter([{'type': 'done', 'payload': stream_payload}]),
+        ), patch.object(
+            AIChatStreamView,
+            'save_chat_record',
+            return_value=(SimpleNamespace(id=5), SimpleNamespace(id=21, created_at=None), ai_message),
+        ):
+            events = list(AIChatStreamView()._stream_chat_events(
+                user=request.user,
+                chat_id=None,
+                message='我有几个客户',
+                request=request,
+            ))
+
+        stream_text = ''.join(events)
+        done_event = next(item for item in events if 'event: done' in item)
+        payload = json.loads(done_event.split('data: ', 1)[1].strip())
+
+        self.assertIn('您有21个客户。', stream_text)
+        self.assertNotIn('抱歉，我无法处理您的请求', stream_text)
+        self.assertEqual(payload['ai_message'], '您有21个客户。')
+        self.assertEqual(payload['message'], '您有21个客户。')
+
     def test_stream_chat_events_upgrade_confirmable_write_to_confirm_operation(self):
         from apps.ai.views import AIChatStreamView
 

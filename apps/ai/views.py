@@ -2059,7 +2059,10 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
                 }
             if not final_payload.get('status'):
                 final_payload['status'] = 'success' if final_payload.get('success', True) else 'error'
-            final_payload.setdefault('ai_message', final_payload.get('message', '抱歉，我无法处理您的请求'))
+            if not final_payload.get('ai_message'):
+                final_payload['ai_message'] = self.get_response_text(final_payload)
+            if not final_payload.get('message'):
+                final_payload['message'] = final_payload.get('ai_message') or self.get_response_text(final_payload)
             final_payload.setdefault('user_message', message)
             final_payload.setdefault('intent', final_payload.get('intent_type') or final_payload.get('intent'))
             final_payload.setdefault('confidence', final_payload.get('confidence', 0))
