@@ -89,7 +89,7 @@
                 <tbody>
                 {% for order in orders %}
                     <tr>
-                        <td>{{ order.code }}</td>
+                        <td><div>{{ order.code }}</div><div class="sc-note">来源：{{ order.source_code|default:'人工创建' }}</div></td>
                         <td>
                             <div>{{ order.inventory_item|default:'-' }}</div>
                             <div class="sc-note">{{ order.supplier|default:'-' }}</div>
@@ -103,8 +103,11 @@
                         <td class="sc-list-actions">
                             <form method="post" action="{% url 'supply_chain:price_review_parse_document' order.id %}" enctype="multipart/form-data">
                                 {% csrf_token %}
-                                <input type="file" name="document_file" class="layui-input">
-                                <textarea name="raw_text" rows="2" placeholder="或直接粘贴规格文本" class="layui-textarea"></textarea>
+                                <label class="sc-field-label" for="price-doc-{{ order.id }}">规格书附件（可选）</label>
+                                <input id="price-doc-{{ order.id }}" type="file" name="document_file" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" class="layui-input">
+                                <div class="sc-note">支持 PDF、Word、TXT、PNG、JPG，最大15MB；附件用于提取规格和成本参数。</div>
+                                <label class="sc-field-label" for="price-text-{{ order.id }}">规格文本（与附件二选一）</label>
+                                <textarea id="price-text-{{ order.id }}" name="raw_text" rows="2" placeholder="直接粘贴材质、尺寸、工艺、包装等规格" class="layui-textarea"></textarea>
                                 <button type="submit" class="layui-btn layui-btn-xs">AI解析规格书</button>
                             </form>
                         </td>

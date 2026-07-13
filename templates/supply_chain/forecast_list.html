@@ -94,6 +94,7 @@
                     <tr>
                         <td>{{ plan.code }}</td>
                         <td>
+                            <div class="sc-note">来源：{{ plan.source_code|default:'人工创建' }}</div>
                             <div>{{ plan.name }}</div>
                             <div class="sc-note">版本 {{ plan.version }}</div>
                         </td>
@@ -123,22 +124,12 @@
                             <a href="{% url 'supply_chain:forecast_qa' plan.id %}" class="layui-btn layui-btn-xs layui-btn-primary">智能问答</a>
                             <form method="post" action="{% url 'supply_chain:forecast_run' plan.id %}">
                                 {% csrf_token %}
+                                <div class="sc-note">系统自动读取销售订单、库存、生产在制及采购在途；人工仅填写有依据的修正量。</div>
                                 <div class="layui-row layui-col-space10">
-                                    <div class="layui-col-md4"><input type="number" step="0.01" name="shipped_quantity" placeholder="出货" class="layui-input"></div>
-                                    <div class="layui-col-md4"><input type="number" step="0.01" name="inventory_quantity" placeholder="库存" class="layui-input"></div>
-                                    <div class="layui-col-md4"><input type="number" step="0.01" name="wip_quantity" placeholder="在制" class="layui-input"></div>
+                                    <div class="layui-col-md6"><input type="number" step="0.01" name="manual_adjustment" placeholder="人工修正量（可选）" class="layui-input"></div>
+                                    <div class="layui-col-md6"><input type="number" step="0.01" name="actual_quantity" placeholder="实际需求量（回溯时填写）" class="layui-input"></div>
                                 </div>
-                                <div class="layui-row layui-col-space10">
-                                    <div class="layui-col-md4"><input type="number" step="0.01" name="inbound_quantity" placeholder="在途" class="layui-input"></div>
-                                    <div class="layui-col-md4"><input type="number" step="0.01" name="prepared_quantity" placeholder="已备料" class="layui-input"></div>
-                                    <div class="layui-col-md4"><input type="number" step="0.01" name="manual_adjustment" placeholder="修正" class="layui-input"></div>
-                                </div>
-                                <div class="layui-row layui-col-space10">
-                                    <div class="layui-col-md4"><input type="number" step="0.01" name="predicted_quantity" placeholder="预测量" required class="layui-input"></div>
-                                    <div class="layui-col-md4"><input type="number" step="0.01" name="avg_daily_demand" placeholder="日均需求" required class="layui-input"></div>
-                                    <div class="layui-col-md4"><input type="number" step="0.01" name="actual_quantity" placeholder="实际量" class="layui-input"></div>
-                                </div>
-                                <button type="submit" class="layui-btn layui-btn-xs">生成预测</button>
+                                <button type="submit" class="layui-btn layui-btn-xs">按实时数据生成预测</button>
                             </form>
                             {% if latest and latest.reviews.first and latest.reviews.first.status == 'pending' %}
                             <form method="post" action="{% url 'supply_chain:forecast_review' latest.reviews.first.id %}">

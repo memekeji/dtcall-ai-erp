@@ -57,6 +57,7 @@ from .services.ai_services import supply_chain_ai
 from .services.ai_insight_service import get_ai_insight
 from .services.forecast_service import (
     build_forecast_trend_data,
+    build_live_forecast_inputs,
     build_snapshot_payload,
     calculate_forecast_accuracy,
     calculate_recommended_preparation_quantity,
@@ -306,12 +307,13 @@ def forecast_run(request, pk):
         return redirect('supply_chain:forecast_list')
 
     with transaction.atomic():
+        live_inputs = build_live_forecast_inputs(plan)
         payload = build_snapshot_payload(
-            shipped_quantity=form.cleaned_data['shipped_quantity'],
-            inventory_quantity=form.cleaned_data['inventory_quantity'],
-            wip_quantity=form.cleaned_data['wip_quantity'],
-            inbound_quantity=form.cleaned_data['inbound_quantity'],
-            prepared_quantity=form.cleaned_data['prepared_quantity'],
+            shipped_quantity=live_inputs['shipped_quantity'],
+            inventory_quantity=live_inputs['inventory_quantity'],
+            wip_quantity=live_inputs['wip_quantity'],
+            inbound_quantity=live_inputs['inbound_quantity'],
+            prepared_quantity=live_inputs['prepared_quantity'],
             manual_adjustment=form.cleaned_data['manual_adjustment'],
         )
         snapshot = DemandForecastSnapshot.objects.create(
@@ -323,11 +325,11 @@ def forecast_run(request, pk):
             inbound_quantity=payload['inbound_quantity'],
             prepared_quantity=payload['prepared_quantity'],
             manual_adjustment=payload['manual_adjustment'],
-            notes='系统自动生成预测快照',
+            notes=live_inputs['source_note'],
         )
-        safety_stock = calculate_safety_stock(form.cleaned_data['avg_daily_demand'])
+        safety_stock = calculate_safety_stock(live_inputs['avg_daily_demand'])
         rule_recommended_quantity = calculate_recommended_preparation_quantity(
-            predicted_quantity=form.cleaned_data['predicted_quantity'],
+            predicted_quantity=live_inputs['predicted_quantity'],
             safety_stock=safety_stock,
             inventory_quantity=payload['inventory_quantity'],
             wip_quantity=payload['wip_quantity'],
@@ -349,7 +351,7 @@ def forecast_run(request, pk):
         )
         predicted_quantity = _decimal_from_ai(
             ai_forecast.get('predicted_quantity'),
-            form.cleaned_data['predicted_quantity'],
+            live_inputs['predicted_quantity'],
         )
         recommended_quantity = _decimal_from_ai(
             ai_forecast.get('recommended_quantity'),

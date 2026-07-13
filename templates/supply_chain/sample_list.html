@@ -91,7 +91,7 @@
                 <tbody>
                 {% for request_obj in requests %}
                     <tr>
-                        <td>{{ request_obj.code }}</td>
+                        <td><div>{{ request_obj.code }}</div><div class="sc-note">申请人：{{ request_obj.requested_by|default:'-' }}</div></td>
                         <td>
                             <div>{{ request_obj.material_name }}</div>
                             <div class="sc-note">{{ request_obj.specification|default:'-' }}</div>
@@ -121,7 +121,8 @@
                                     <label class="sc-field-label" for="received-location-{{ request_obj.id }}">到货地点</label>
                                     <input id="received-location-{{ request_obj.id }}" type="text" name="location" placeholder="例如：研发样品柜" class="layui-input">
                                     <label class="sc-field-label" for="received-photo-{{ request_obj.id }}">到货照片（可选）</label>
-                                    <input id="received-photo-{{ request_obj.id }}" type="file" name="photo_file" class="layui-input">
+                                    <input id="received-photo-{{ request_obj.id }}" type="file" name="photo_file" accept=".png,.jpg,.jpeg" class="layui-input">
+                                    <div class="sc-note">仅支持 PNG、JPG，最大5MB，用于到货实物留档。</div>
                                     <button type="submit" class="layui-btn layui-btn-xs layui-btn-normal">登记到货</button>
                                 </form>
                             </div>

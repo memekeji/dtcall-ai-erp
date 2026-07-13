@@ -47,14 +47,7 @@ class DemandForecastPlanForm(_BaseStyledModelForm):
 
 
 class ForecastRunForm(forms.Form):
-    shipped_quantity = forms.DecimalField(max_digits=14, decimal_places=2, required=False)
-    inventory_quantity = forms.DecimalField(max_digits=14, decimal_places=2, required=False)
-    wip_quantity = forms.DecimalField(max_digits=14, decimal_places=2, required=False)
-    inbound_quantity = forms.DecimalField(max_digits=14, decimal_places=2, required=False)
-    prepared_quantity = forms.DecimalField(max_digits=14, decimal_places=2, required=False)
     manual_adjustment = forms.DecimalField(max_digits=14, decimal_places=2, required=False)
-    predicted_quantity = forms.DecimalField(max_digits=14, decimal_places=2)
-    avg_daily_demand = forms.DecimalField(max_digits=14, decimal_places=2)
     actual_quantity = forms.DecimalField(max_digits=14, decimal_places=2, required=False)
 
 

@@ -53,7 +53,7 @@
                 </div>
             </div>
 
-            <div class="sc-table-caption">合法来源：生产计划 {{ source_production_plan_count }} 条，BOM {{ source_bom_count }} 套。空列表通常表示尚未从计划派生委外单。</div>
+            <div class="sc-table-caption">真实来源：生产计划 {{ source_production_plan_count }} 条，BOM {{ source_bom_count }} 套。齐套数量来自BOM用量与库存实时可用量，供应商未确定时需在发料前补齐。</div>
 
             <form class="layui-form sc-inline-form" method="get">
                 <div class="layui-row layui-col-space10">
@@ -90,7 +90,7 @@
                 <tbody>
                     {% for order in orders %}
                     <tr>
-                        <td>{{ order.code }}</td>
+                        <td><div>{{ order.code }}</div><div class="sc-note">来源：{{ order.source_code|default:'人工创建' }}</div></td>
                         <td>
                             <div>{{ order.product|default:'-' }}</div>
                             <div class="sc-note">{{ order.supplier|default:'-' }}</div>
@@ -111,33 +111,33 @@
                             {% endif %}
                         </td>
                         <td class="sc-list-actions">
-                            <form method="post" action="{% url 'supply_chain:outsource_check' order.id %}">
+                            {% if order.status == 'draft' or order.status == 'shortage' %}<form method="post" action="{% url 'supply_chain:outsource_check' order.id %}">
                                 {% csrf_token %}
                                 <button type="submit" class="layui-btn layui-btn-xs">齐套校验</button>
-                            </form>
+                            </form>{% endif %}
                             <div class="sc-action-group">
-                                <form method="post" action="{% url 'supply_chain:outsource_status_update' order.id %}">
+                                {% if order.status == 'ready' %}<form method="post" action="{% url 'supply_chain:outsource_status_update' order.id %}">
                                     {% csrf_token %}
                                     <input type="hidden" name="action" value="start_picking">
                                     <button type="submit" class="layui-btn layui-btn-xs layui-btn-normal">开始备料</button>
-                                </form>
-                                <form method="post" action="{% url 'supply_chain:outsource_status_update' order.id %}">
+                                </form>{% endif %}
+                                {% if order.status == 'picking' %}<form method="post" action="{% url 'supply_chain:outsource_status_update' order.id %}">
                                     {% csrf_token %}
                                     <input type="hidden" name="action" value="mark_issued">
                                     <button type="submit" class="layui-btn layui-btn-xs layui-btn-warm">确认发料</button>
-                                </form>
+                                </form>{% endif %}
                             </div>
                             <div class="sc-action-group">
-                                <form method="post" action="{% url 'supply_chain:outsource_status_update' order.id %}">
+                                {% if order.status == 'issued' %}<form method="post" action="{% url 'supply_chain:outsource_status_update' order.id %}">
                                     {% csrf_token %}
                                     <input type="hidden" name="action" value="notify_pickup">
                                     <button type="submit" class="layui-btn layui-btn-xs layui-btn-primary">内部通知</button>
-                                </form>
-                                <form method="post" action="{% url 'supply_chain:outsource_status_update' order.id %}">
+                                </form>{% endif %}
+                                {% if order.status == 'notified' %}<form method="post" action="{% url 'supply_chain:outsource_status_update' order.id %}">
                                     {% csrf_token %}
                                     <input type="hidden" name="action" value="close_order">
                                     <button type="submit" class="layui-btn layui-btn-xs layui-btn-danger">关闭订单</button>
-                                </form>
+                                </form>{% endif %}
                             </div>
                         </td>
                     </tr>
