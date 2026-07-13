@@ -1266,7 +1266,7 @@ class CustomerDetailView(LoginRequiredMixin, DetailView):
             from apps.customer.models import CustomerInvoice
             customer_invoices = CustomerInvoice.objects.filter(customer_id=self.object.id, delete_time=0)[:5]
             
-            finance_invoices = FinanceInvoice.objects.filter(customer_id=self.object.id, is_deleted=False).order_by('-id')[:10]
+            finance_invoices = FinanceInvoice.objects.filter(customer_id=self.object.id).order_by('-id')[:10]
             
             # 合并发票记录，按开票时间排序
             all_invoices = list(customer_invoices) + list(finance_invoices)
@@ -1278,8 +1278,17 @@ class CustomerDetailView(LoginRequiredMixin, DetailView):
                     seen_ids.add(invoice.id)
                     unique_invoices.append(invoice)
             
+            def invoice_sort_key(invoice):
+                for field_name in ('issued_at', 'invoice_date', 'created_at', 'create_time', 'open_time'):
+                    value = getattr(invoice, field_name, None)
+                    if value:
+                        if isinstance(value, (int, float)):
+                            return datetime.fromtimestamp(value)
+                        return value
+                return datetime.min
+
             # 按开票时间排序
-            unique_invoices.sort(key=lambda x: x.issued_at if hasattr(x, 'issued_at') and x.issued_at else x.created_at, reverse=True)
+            unique_invoices.sort(key=invoice_sort_key, reverse=True)
             
             context['invoices'] = unique_invoices[:10]  # 显示最多10张发票
         except Exception as e:
@@ -1290,11 +1299,12 @@ class CustomerDetailView(LoginRequiredMixin, DetailView):
         try:
             from apps.finance.models import Invoice as FinanceInvoice, Income, Payment
             from apps.customer.models import CustomerInvoice
-            all_invoices = CustomerInvoice.objects.filter(customer=self.object.id, delete_time=0).order_by('-id')[:20]
-            
-            all_finance_invoices = FinanceInvoice.objects.filter(customer=self.object.id, is_deleted=False).order_by('-id')[:20]
-            
-            all_incomes = Income.objects.filter(invoice__customer=self.object.id).order_by('-id')[:20]
+            all_invoices = CustomerInvoice.objects.filter(customer_id=self.object.id, delete_time=0).order_by('-id')[:20]
+
+            all_finance_invoices = FinanceInvoice.objects.filter(customer_id=self.object.id).order_by('-id')[:20]
+            finance_invoice_ids = [invoice.id for invoice in all_finance_invoices]
+
+            all_incomes = Income.objects.filter(invoice_id__in=finance_invoice_ids).order_by('-id')[:20]
             
             # 获取所有付款记录（Payment模型）- 暂时不显示付款记录，因为Payment模型与客户没有直接关联
             all_payments = Payment.objects.none()

@@ -807,6 +807,51 @@ class CustomerListCustomFieldValueTests(TestCase):
         self.assertIn('acct-a@example.com', content)
         self.assertIn('custom-list-linked-group', content)
 
+    def test_customer_detail_loads_finance_invoice_and_income_records(self):
+        import time
+
+        from django.utils import timezone
+        from apps.customer.models import CustomerInvoice
+        from apps.finance.models import Income, Invoice as FinanceInvoice
+
+        customer = Customer.objects.create(
+            name='财务详情客户',
+            belong_uid=self.user.id,
+            admin_id=self.user.id,
+            delete_time=0,
+        )
+        CustomerInvoice.objects.create(
+            customer=customer,
+            invoice_number='CUST-INV-DETAIL-001',
+            amount=100,
+            tax_amount=13,
+            invoice_date=timezone.now().date(),
+            create_user=self.user,
+            delete_time=0,
+        )
+        finance_invoice = FinanceInvoice.objects.create(
+            code='FIN-INV-DETAIL-001',
+            customer_id=customer.id,
+            amount=200,
+            create_time=int(time.time()),
+            open_status=1,
+        )
+        Income.objects.create(
+            invoice_id=finance_invoice.id,
+            amount=80,
+            income_date=timezone.now(),
+            create_time=int(time.time()),
+        )
+
+        response = self.client.get(reverse('customer:customer_detail', args=[customer.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['invoices'])
+        self.assertTrue(response.context['financial_records'])
+        self.assertTrue(
+            any(record['type'] == 'income' for record in response.context['financial_records'])
+        )
+
     def test_customer_list_exposes_list_custom_field_values(self):
         customer = Customer.objects.create(
             name='列表多账号客户',
