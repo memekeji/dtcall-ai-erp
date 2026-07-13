@@ -32,6 +32,7 @@ from apps.ai.services.module_adapters.approval_task import ApprovalTaskModuleAda
 from apps.ai.services.module_adapters.contact import ContactModuleAdapter
 from apps.ai.services.module_adapters.production_resource import ProductionResourceModuleAdapter
 from apps.ai.services.module_adapters.alert import AlertModuleAdapter
+from apps.ai.services.module_adapters.configured_model import ConfiguredModelModuleAdapter
 
 
 class AIActionGateway:
@@ -97,6 +98,8 @@ class AIActionGateway:
         self.register(PersonalWorkspaceModuleAdapter('personal_note'))
         self.register(PersonalWorkspaceModuleAdapter('personal_task'))
         self.register(PersonalWorkspaceModuleAdapter('personal_contact'))
+        for resource in ConfiguredModelModuleAdapter.CONFIG:
+            self.register(ConfiguredModelModuleAdapter(resource))
 
     def register(self, adapter: AIBaseModuleAdapter):
         self._registry[adapter.resource] = adapter

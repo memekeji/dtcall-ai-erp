@@ -1,6 +1,20 @@
 from dataclasses import dataclass
 
+from django.db.models import Q
+
 from apps.system.middleware.data_permission_middleware import PermissionChecker
+
+
+def build_csv_membership_q(field_name: str, value) -> Q:
+    normalized = str(value or '').strip()
+    if not normalized:
+        return Q(pk__in=[])
+    return (
+        Q(**{field_name: normalized}) |
+        Q(**{f'{field_name}__startswith': f'{normalized},'}) |
+        Q(**{f'{field_name}__endswith': f',{normalized}'}) |
+        Q(**{f'{field_name}__contains': f',{normalized},'})
+    )
 
 
 @dataclass(slots=True)
@@ -25,7 +39,13 @@ class AIPermissionGuard:
         'invoice_request': 'invoice',
     }
 
-    def check_action_permission(self, user, action, permission_code: str, queryset=None):
+    def check_action_permission(
+            self,
+            user,
+            action,
+            permission_code: str,
+            queryset=None,
+            exact_permission: bool = False):
         if not getattr(user, 'is_authenticated', False):
             return PermissionCheckResult(allowed=False, reason='unauthenticated')
 
@@ -36,7 +56,7 @@ class AIPermissionGuard:
         resource_type = permission_name.split('_', 1)[-1] if '_' in permission_name else permission_name
         resource_type = self.RESOURCE_PERMISSION_ALIASES.get(resource_type, resource_type)
 
-        if checker_name == 'can_operate':
+        if exact_permission or checker_name == 'can_operate':
             allowed = self._check_exact_permission(user, permission_code)
         elif app_label != 'user':
             allowed = self._check_exact_permission(user, permission_code)

@@ -325,6 +325,17 @@ class AIIntentClassifier:
         ('personal_note', ['个人笔记', '我的笔记', '笔记']),
         ('personal_contact', ['个人通讯录', '我的联系人', '私人通讯录', '私人联系人']),
     )
+    APPROVAL_REQUEST_TYPE_KEYWORDS = {
+        'leave_request': ('请假', '请个假', '休假', '病假', '事假', '婚假', '年假', '调休'),
+        'business_trip': ('出差', '差旅'),
+        'reimbursement': ('报销申请', '费用报销', '差旅报销', '报销单'),
+        'purchase': ('采购申请',),
+    }
+    APPROVAL_DISCUSSION_KEYWORDS = (
+        '怎么', '如何', '说明', '介绍', '规则', '制度', '流程', '步骤',
+        '多久', '多少天', '几天', '可以吗', '能不能', '是否可以', '政策',
+        '是什么', '什么意思',
+    )
     CREATE_KEYWORDS = ('添加', '新增', '创建', '增加', '新建', '录入', '登记', '上传', '提交', '发起', '申请', '起草', '帮我加', '帮加', '帮我建', '帮建', '帮我录入', '帮我输入', '帮我登记', '加一个', '建一个', '录一个', '添一个', '创建一个')
     UPDATE_KEYWORDS = ('修改', '更新', '更改', '调整', '编辑', '维护', '设置', '共享', '分享', '审批通过', '驳回', '同意', '拒绝', '帮我改', '帮改', '帮我修改', '帮我更新', '帮我设置', '改一下', '更新一下', '修改一下', '变更为', '改成', '更改为')
     APPROVE_KEYWORDS = ('帮我审批', '请审批', '审批这', '审批一下', '帮我审核', '请审核', '审核这', '审核一下', '批准这', '通过这', '同意这', '审批通过', '审核通过', '批准通过', '过审', '处理预警', '处理一下预警', '确认预警', '处理这个预警', '处理库存预警')
@@ -815,6 +826,7 @@ class AIIntentClassifier:
         query_lower = (query or '').lower()
         candidate_data_types = []
         scored_matches = []
+        approval_request_type = self._infer_approval_request_type_from_query(query)
         for data_type, keywords in self.DATA_TYPE_KEYWORDS:
             matched_keywords = [keyword for keyword in keywords if keyword.lower() in query_lower]
             if not matched_keywords:
@@ -846,10 +858,15 @@ class AIIntentClassifier:
             candidate_data_types.append('production')
         if ('财务' in query_lower or '报销' in query_lower or '回款' in query_lower or '付款' in query_lower) and 'finance' not in candidate_data_types:
             candidate_data_types.append('finance')
+        if approval_request_type and self._looks_like_approval_creation_request(query, query_lower, approval_request_type):
+            if 'approval' in candidate_data_types:
+                candidate_data_types.remove('approval')
+            candidate_data_types.insert(0, 'approval')
         return candidate_data_types
 
     def _infer_action_from_query(self, query: str) -> str:
         query_lower = (query or '').lower()
+        approval_request_type = self._infer_approval_request_type_from_query(query)
         if any(keyword.lower() in query_lower for keyword in self.QUERY_KEYWORDS):
             if any(
                     phrase in query_lower for phrase in [
@@ -879,6 +896,8 @@ class AIIntentClassifier:
         if any(keyword.lower() in query_lower for keyword in self.DELETE_KEYWORDS):
             return 'delete'
         if any(keyword.lower() in query_lower for keyword in self.CREATE_KEYWORDS):
+            return 'create'
+        if approval_request_type and self._looks_like_approval_creation_request(query, query_lower, approval_request_type):
             return 'create'
         if any(keyword.lower() in query_lower for keyword in self.QUERY_KEYWORDS):
             if any(keyword in query_lower for keyword in ['多少', '数量', '总数', '统计', '合计']):
@@ -1000,6 +1019,7 @@ class AIIntentClassifier:
             self, result: Dict[str, Any], query: str) -> Dict[str, Any]:
         """增强结果，提取更多实体信息"""
         query_lower = (query or '').lower()
+        approval_request_type = self._infer_approval_request_type_from_query(query)
 
         result['intent'] = result.get('intent') if result.get('intent') in self.ALLOWED_INTENTS else 'AI_CHAT'
         result['action'] = result.get('action') if result.get('action') in self.ALLOWED_ACTIONS else self._default_action_for_intent(result['intent'])
@@ -1077,6 +1097,22 @@ class AIIntentClassifier:
             result['entities'].setdefault('candidate_data_types', candidate_data_types)
 
         rule_action = self._infer_action_from_query(query)
+        approval_create_request = bool(
+            approval_request_type and
+            self._looks_like_approval_creation_request(
+                query, query_lower, approval_request_type)
+        )
+        if (
+                approval_create_request and
+                result.get('data_type') != 'approval'):
+            result['action'] = 'create'
+            result['intent'] = 'DATA_CREATE'
+            result['data_type'] = 'approval'
+            result['confidence'] = max(result['confidence'], 0.78)
+            result['entities'].setdefault('request_type', approval_request_type)
+            if result.get('reasoning') in {None, '', '按业务关键词修正意图'}:
+                result['reasoning'] = '按审批申请关键词修正意图'
+
         if (
                 result.get('intent') == 'AI_CHAT' and
                 result.get('data_type') and
@@ -1085,6 +1121,9 @@ class AIIntentClassifier:
             result['intent'] = self._intent_for_action(rule_action)
             result['confidence'] = max(result['confidence'], 0.6)
             result['reasoning'] = result.get('reasoning') or '按业务关键词修正意图'
+
+        if result.get('data_type') == 'approval' and approval_request_type:
+            result['entities'].setdefault('request_type', approval_request_type)
 
         if result.get('time_range') not in self.ALLOWED_TIME_RANGES:
             result['time_range'] = None
@@ -1135,6 +1174,33 @@ class AIIntentClassifier:
             ]
 
         return result
+
+    def _infer_approval_request_type_from_query(self, query: str) -> str:
+        query_lower = (query or '').lower()
+        if not query_lower:
+            return ''
+        for request_type, keywords in self.APPROVAL_REQUEST_TYPE_KEYWORDS.items():
+            if any(keyword.lower() in query_lower for keyword in keywords):
+                return request_type
+        return ''
+
+    def _looks_like_approval_creation_request(
+            self, query: str, query_lower: str, approval_request_type: str) -> bool:
+        if not approval_request_type:
+            return False
+        if any(keyword in query_lower for keyword in self.APPROVAL_DISCUSSION_KEYWORDS):
+            return False
+        if any(keyword.lower() in query_lower for keyword in self.QUERY_KEYWORDS):
+            return False
+        request_markers = (
+            '帮我', '请帮我', '麻烦', '我要', '我想', '我得', '需要', '准备',
+            '打算', '申请', '发起', '提交', '请个', '请',
+        )
+        if any(marker in query_lower for marker in request_markers):
+            return True
+        if any(keyword.lower() in query_lower for keyword in self.APPROVAL_REQUEST_TYPE_KEYWORDS.get(approval_request_type, ())):
+            return len((query or '').strip()) <= 16
+        return False
 
     def _create_empty_result(self) -> Dict[str, Any]:
         """创建空结果"""

@@ -480,7 +480,12 @@ class EnhancedIntentService:
             'list_url': '/approval/my/',
             'create_url': '/approval/apply/',
             'edit_url_template': '/approval/{id}/process/',
-            'permission_base': 'approval',
+            'action_urls': {
+                'approve': '/approval/api/{id}/action/',
+                'reject': '/approval/api/{id}/action/',
+                'withdraw': '/approval/api/{id}/action/',
+            },
+            'write_operations': {'create', 'approve', 'reject', 'withdraw'},
             'skip_permission_gate': True,
         },
         'approval_type': {
@@ -531,7 +536,11 @@ class EnhancedIntentService:
             'list_url': '/approval/pending/',
             'create_url': None,
             'edit_url_template': '/approval/{id}/process/',
-            'permission_base': 'approval',
+            'action_urls': {
+                'approve': '/approval/api/{id}/action/',
+                'reject': '/approval/api/{id}/action/',
+            },
+            'write_operations': {'approve', 'reject'},
             'skip_permission_gate': True,
         },
         'meeting_minutes': {
@@ -1509,8 +1518,10 @@ class EnhancedIntentService:
             '你是 DTCall 系统内的 AI 助手。',
             '回答时优先结合当前系统、当前页面、当前业务模块，不要把自己描述成通用闲聊助手。',
             '当用户询问在这个项目、这个系统、这个页面里可以做什么时，应优先说明当前页面相关的业务功能、操作建议、数据理解和风险提示。',
-            '你可以解释 DTCall 中的客户、合同、项目、审批、财务、生产、网盘等模块。',
-            '不要声称会直接新增、修改、删除业务数据；涉及写操作时，应明确说明需要在业务页面内继续完成。',
+            '你可以解释 DTCall 中的客户、合同、项目、审批、人事、个人办公、财务、生产、供应链、库存、网盘等模块。',
+            '当用户发起明确的数据新增、修改、删除、审批、流程发起等写操作时，不要否认系统能力；应优先补齐缺失字段，或说明系统会在用户确认后直接执行。',
+            '所有写操作都必须先确认，再由系统直接执行，并保留该次操作的单条回退记录；不要要求用户必须回到业务页面才能完成。',
+            '请假、出差、报销、采购等申请属于审批 / 人事 / 个人办公能力范围，不能回答成系统不支持或只能做页面指引。',
         ]
         if model_name:
             prompt_parts.append(f'当前接入模型：{model_name}。')
@@ -1777,7 +1788,7 @@ class EnhancedIntentService:
             'list_url': None,
             'open_mode': 'tab',
             'requires_user_confirmation': True,
-            'safety_notice': 'AI 在规则降级下不会直接进入写操作页面，请先确认业务类型后再继续。',
+            'safety_notice': '请先确认业务类型；确认后 AI 会生成对应操作预览，并在用户确认后直接执行，同时保留该次操作的单条回退记录。',
             'message': message,
             'prefill': self._sanitize_prefill(intent_result.get('entities') or {}),
             'permission_required': None,
@@ -1817,7 +1828,7 @@ class EnhancedIntentService:
             'list_url': None,
             'open_mode': 'tab',
             'requires_user_confirmation': True,
-            'safety_notice': 'AI 不会直接新增、修改或删除业务数据。',
+            'safety_notice': '补充具体业务类型后，AI 才能生成可执行预览，并在用户确认后直接执行，同时保留该次操作的单条回退记录。',
             'message': message,
             'prefill': {},
             'permission_required': None,

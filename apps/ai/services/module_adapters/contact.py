@@ -3,7 +3,7 @@ from __future__ import annotations
 from django.db.models import Q
 
 from apps.ai.services.module_adapters.base import AIBaseModuleAdapter
-from apps.ai.services.permission_guard import AIPermissionGuard
+from apps.ai.services.permission_guard import AIPermissionGuard, build_csv_membership_q
 
 
 class ContactModuleAdapter(AIBaseModuleAdapter):
@@ -189,7 +189,7 @@ class ContactModuleAdapter(AIBaseModuleAdapter):
         user_id = str(getattr(user, 'id', '') or '')
         return queryset.filter(
             Q(belong_uid=getattr(user, 'id', None)) |
-            Q(share_ids__contains=user_id)
+            build_csv_membership_q('share_ids', user_id)
         ).distinct()
 
     def _visible_contact_queryset(self, user):
@@ -201,7 +201,7 @@ class ContactModuleAdapter(AIBaseModuleAdapter):
         user_id = str(getattr(user, 'id', '') or '')
         return queryset.filter(
             Q(customer__belong_uid=getattr(user, 'id', None)) |
-            Q(customer__share_ids__contains=user_id)
+            build_csv_membership_q('customer__share_ids', user_id)
         ).distinct()
 
     def _get_customer_for_action(self, customer_id, user):

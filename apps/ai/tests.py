@@ -4,7 +4,7 @@ from dataclasses import asdict
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 from django.apps import apps
 from django.utils import timezone
@@ -543,6 +543,37 @@ class AIRollbackServiceTests(SimpleTestCase):
 
         self.assertTrue(result['success'])
         get_operation.assert_called_once_with(id=77, user=user)
+
+    def test_rollback_operation_rejects_an_operation_that_was_already_rolled_back(self):
+        from apps.ai.services.rollback_service import rollback_service
+
+        user = SimpleNamespace(id=7, is_authenticated=True)
+        operation = SimpleNamespace(
+            id=77,
+            status='rolled_back',
+            rollback_status='completed',
+            change_sets=SimpleNamespace(all=lambda: []),
+            save=MagicMock(),
+        )
+        rollback_record = SimpleNamespace(
+            id=2,
+            status='pending',
+            result_summary={},
+            completed_at=None,
+            save=MagicMock(),
+        )
+
+        with patch('apps.ai.services.rollback_service.AIOperation.objects.get', return_value=operation), \
+                patch(
+                    'apps.ai.services.rollback_service.AIOperationRollback.objects.create',
+                    return_value=rollback_record,
+                ) as create_rollback, \
+                patch('apps.ai.services.rollback_service.transaction.atomic'):
+            result = rollback_service.rollback_operation(operation_id=77, user=user)
+
+        self.assertFalse(result['success'])
+        self.assertIn('已回退', result['message'])
+        create_rollback.assert_not_called()
 
 
 class AIChatExecutionPayloadTests(SimpleTestCase):
@@ -1460,6 +1491,329 @@ class AIOperationPreviewServiceTests(SimpleTestCase):
 
 
 class AIConfirmationServiceTests(SimpleTestCase):
+    def test_build_action_request_uses_entity_name_for_customer_create(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'create',
+            'data_type': 'customer',
+            'entities': {
+                'name': 'AI回归客户',
+            },
+        })
+
+        self.assertEqual(request.resource, 'customer')
+        self.assertEqual(request.operation, 'create')
+        self.assertEqual(request.changes['name'], 'AI回归客户')
+
+    def test_build_action_request_normalizes_customer_name_alias(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'create',
+            'data_type': 'customer',
+            'entities': {
+                'customer_name': 'AI全链路客户',
+            },
+        })
+
+        self.assertEqual(request.changes['name'], 'AI全链路客户')
+        self.assertNotIn('customer_name', request.changes)
+
+    def test_build_action_request_uses_entity_title_for_personal_task_create(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'create',
+            'data_type': 'personal_task',
+            'entities': {
+                'title': 'AI回归任务',
+            },
+        })
+
+        self.assertEqual(request.resource, 'personal_task')
+        self.assertEqual(request.operation, 'create')
+        self.assertEqual(request.changes['title'], 'AI回归任务')
+
+    def test_build_action_request_uses_due_date_content_for_personal_task_create(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'create',
+            'data_type': 'personal_task',
+            'original_query': '帮我新增一个个人任务，明天下午3点跟进客户',
+            'entities': {
+                'content': '跟进客户',
+                'due_date': '明天下午3点',
+            },
+        })
+
+        self.assertEqual(request.changes['title'], '跟进客户')
+        self.assertIn('due_date', request.changes)
+
+    def test_build_action_request_normalizes_model_personal_task_aliases(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'create',
+            'data_type': 'personal_task',
+            'original_query': '帮我新增一个个人任务，明天下午3点跟进客户925236',
+            'entities': {
+                'task_content': '跟进客户925236',
+                'due_date': '明天下午3点',
+            },
+        })
+
+        self.assertEqual(request.changes['title'], '跟进客户925236')
+        self.assertRegex(request.changes['due_date'], r'^\d{4}-\d{2}-\d{2} 15:00:00$')
+        self.assertNotIn('task_content', request.changes)
+
+    def test_build_action_request_parses_model_english_relative_due_time(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'create',
+            'data_type': 'personal_task',
+            'entities': {
+                'description': '跟进客户',
+                'due_time': 'tomorrow 15:00',
+            },
+        })
+
+        self.assertEqual(request.changes['title'], '跟进客户')
+        self.assertRegex(request.changes['due_date'], r'^\d{4}-\d{2}-\d{2} 15:00:00$')
+        self.assertNotIn('due_time', request.changes)
+
+    def test_build_action_request_extracts_task_title_when_model_only_returns_time(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'create',
+            'data_type': 'personal_task',
+            'original_query': '帮我新增一个个人任务，明天下午3点跟进客户925236',
+            'entities': {
+                'time': '明天下午3点',
+                'customer_id': '925236',
+            },
+        })
+
+        self.assertEqual(request.changes['title'], '跟进客户925236')
+        self.assertRegex(request.changes['due_date'], r'^\d{4}-\d{2}-\d{2} 15:00:00$')
+        self.assertNotIn('time', request.changes)
+        self.assertNotIn('customer_id', request.changes)
+
+    def test_build_action_request_normalizes_task_description_alias(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'create',
+            'data_type': 'personal_task',
+            'entities': {
+                'task_description': '跟进客户',
+                'due_time': 'tomorrow 15:00',
+            },
+        })
+
+        self.assertEqual(request.changes['title'], '跟进客户')
+        self.assertNotIn('task_description', request.changes)
+
+    def test_build_action_request_uses_item_code_for_inventory_create(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'create',
+            'data_type': 'inventory',
+            'entities': {
+                'item_code': 'MAT-001',
+            },
+        })
+
+        self.assertEqual(request.changes['code'], 'MAT-001')
+        self.assertEqual(request.changes['name'], 'MAT-001')
+        self.assertEqual(request.changes['unit'], '个')
+
+    def test_build_action_request_uses_query_title_for_document_create(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'create',
+            'data_type': 'document',
+            'original_query': '帮我起草一份公文，标题是质量巡检通知',
+            'entities': {},
+        })
+
+        self.assertEqual(request.changes['title'], '质量巡检通知')
+        self.assertIn('document_number', request.changes)
+        self.assertIn('content', request.changes)
+
+    def test_build_action_request_maps_meeting_chinese_entities(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'create',
+            'data_type': 'meeting',
+            'entities': {
+                '主题': 'AI回归例会',
+                '时间': '明天下午3点',
+            },
+        }, user=SimpleNamespace(id=9, did=3))
+
+        self.assertEqual(request.changes['title'], 'AI回归例会')
+        self.assertIn('meeting_date', request.changes)
+        self.assertIn('meeting_end_time', request.changes)
+        self.assertEqual(request.changes['host_id'], 9)
+
+    def test_build_action_request_combines_separate_meeting_date_and_time(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'create',
+            'data_type': 'meeting',
+            'entities': {
+                'meeting_title': 'AI项目例会',
+                'date': '明天',
+                'time': '下午3点',
+                'location': '第一会议室',
+            },
+        }, user=SimpleNamespace(id=9, did=3))
+
+        expected_date = (confirmation_service._local_now().date() + timedelta(days=1)).isoformat()
+        self.assertEqual(request.changes['meeting_date'], f'{expected_date} 15:00:00')
+        self.assertNotIn('date', request.changes)
+        self.assertNotIn('time', request.changes)
+
+    def test_build_action_request_maps_order_customer_name_to_customer_id(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        with patch.object(confirmation_service, '_resolve_customer_id_for_user', return_value=12):
+            request = confirmation_service.build_action_request({
+                'action': 'create',
+                'data_type': 'order',
+                'entities': {
+                    'customer_name': '阿里云国际站',
+                    'amount': 1100,
+                },
+            }, user=SimpleNamespace(id=9, is_superuser=False))
+
+        self.assertEqual(request.changes['customer_id'], 12)
+        self.assertEqual(request.changes['amount'], 1100)
+        self.assertIn('order_number', request.changes)
+        self.assertIn('order_date', request.changes)
+
+    def test_build_action_request_maps_production_plan_defaults(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'create',
+            'data_type': 'production_plan',
+            'entities': {
+                'name': 'AI回归生产计划',
+            },
+        }, user=SimpleNamespace(id=9, did=3))
+
+        self.assertEqual(request.changes['name'], 'AI回归生产计划')
+        self.assertEqual(request.changes['unit'], '件')
+        self.assertEqual(request.changes['quantity'], 1)
+        self.assertIn('code', request.changes)
+        self.assertIn('plan_start_date', request.changes)
+
+    def test_build_action_request_normalizes_configured_resource_aliases(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'create',
+            'data_type': 'finance_account',
+            'entities': {
+                'account_name': 'AI验证账户',
+                'account_type': 'bank',
+                'currency': 'CNY',
+                'initial_balance': 0,
+            },
+        })
+
+        self.assertEqual(request.changes['name'], 'AI验证账户')
+        self.assertEqual(request.changes['opening_balance'], 0)
+        self.assertNotIn('account_name', request.changes)
+        self.assertNotIn('initial_balance', request.changes)
+
+    def test_build_action_request_normalizes_aliases_inside_model_changes(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'create',
+            'data_type': 'finance_account',
+            'entities': {
+                'changes': {
+                    'account_name': 'AI嵌套结构账户',
+                    'initial_balance': 1200,
+                    'currency': 'CNY',
+                },
+            },
+        })
+
+        self.assertEqual(request.changes['name'], 'AI嵌套结构账户')
+        self.assertEqual(request.changes['opening_balance'], 1200)
+        self.assertNotIn('account_name', request.changes)
+        self.assertNotIn('initial_balance', request.changes)
+
+    def test_build_action_request_uses_text_host_for_meeting_minutes(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'create',
+            'data_type': 'meeting_minutes',
+            'entities': {
+                'title': 'AI验证纪要',
+                'meeting_date': 'today',
+            },
+        }, user=SimpleNamespace(id=9, name='验证用户', username='verify'))
+
+        self.assertEqual(request.changes['host'], '验证用户')
+        self.assertNotIn('host_id', request.changes)
+
+    def test_build_action_request_normalizes_supply_sample_required_date_alias(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'create',
+            'data_type': 'supply_chain_sample',
+            'entities': {
+                'material_name': 'AI验证物料',
+                'require_date': 'tomorrow',
+                'quantity': 1,
+            },
+        }, user=SimpleNamespace(id=9))
+
+        self.assertEqual(request.changes['required_date'], 'tomorrow')
+        self.assertNotIn('require_date', request.changes)
+
+    def test_build_action_request_uses_direct_model_fields_for_update(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'update',
+            'data_type': 'ai_knowledge_base',
+            'entities': {
+                'id': '3',
+                'name': 'AI已修改知识库',
+            },
+        })
+
+        self.assertEqual(request.object_ids, [3])
+        self.assertEqual(request.changes, {'name': 'AI已修改知识库'})
+
+    def test_build_action_request_uses_direct_model_id_for_delete(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        request = confirmation_service.build_action_request({
+            'action': 'delete',
+            'data_type': 'ai_knowledge_base',
+            'entities': {'id': '3'},
+        })
+
+        self.assertEqual(request.object_ids, [3])
+        self.assertEqual(request.changes, {})
+
     def test_build_action_request_normalizes_disk_share_resource(self):
         from apps.ai.services.confirmation_service import confirmation_service
 
@@ -2110,6 +2464,25 @@ class AIConfirmOperationViewTests(SimpleTestCase):
         self.assertTrue(payload['success'])
         self.assertEqual(payload['operation_id'], 9)
 
+    def test_confirm_operation_view_returns_json_when_execution_raises(self):
+        from apps.ai.views import AIConfirmOperationView
+
+        factory = RequestFactory()
+        request = factory.post(
+            '/ai/operation/confirm/',
+            data=json.dumps({'operation_id': 9, 'token': 'token-9'}),
+            content_type='application/json',
+        )
+        request.user = SimpleNamespace(id=7, is_authenticated=True)
+
+        with patch('apps.ai.views.operation_service.confirm_operation', side_effect=RuntimeError('database failed')):
+            response = AIConfirmOperationView.as_view()(request)
+
+        payload = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(response.status_code, 500)
+        self.assertFalse(payload['success'])
+        self.assertIn('执行失败', payload['message'])
+
 
 class AICancelOperationViewTests(SimpleTestCase):
     def test_cancel_operation_view_returns_service_result(self):
@@ -2249,6 +2622,43 @@ class AIIntentCoverageTests(SimpleTestCase):
         self.assertEqual(result['intent'], 'DATA_QUERY')
         self.assertEqual(result['action'], 'list')
         self.assertEqual(result['data_type'], 'approval_task')
+
+    def test_enhance_repairs_leave_request_ai_chat_to_confirmable_approval_create(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._enhance_result({
+            'intent': 'AI_CHAT',
+            'confidence': 0.4,
+            'entities': {},
+            'action': 'chat',
+            'data_type': None,
+        }, '帮我请假')
+
+        self.assertEqual(result['intent'], 'DATA_CREATE')
+        self.assertEqual(result['action'], 'create')
+        self.assertEqual(result['data_type'], 'approval')
+        self.assertEqual(result['entities']['request_type'], 'leave_request')
+        self.assertTrue(result['requires_confirmation'])
+
+    def test_enhance_overrides_wrong_ai_data_type_for_leave_request(self):
+        from apps.ai.services.ai_intent_classifier import AIIntentClassifier
+
+        classifier = AIIntentClassifier()
+        result = classifier._enhance_result({
+            'intent': 'DATA_CREATE',
+            'confidence': 0.9,
+            'entities': {},
+            'action': 'create',
+            'data_type': 'employee_care',
+            'source': 'ai',
+        }, '帮我请假')
+
+        self.assertEqual(result['intent'], 'DATA_CREATE')
+        self.assertEqual(result['action'], 'create')
+        self.assertEqual(result['data_type'], 'approval')
+        self.assertEqual(result['entities']['request_type'], 'leave_request')
+        self.assertTrue(result['requires_confirmation'])
 
     def test_safe_fallback_marks_configured_service_failure(self):
         from apps.ai.services.ai_intent_classifier import AIIntentClassifier
@@ -3235,6 +3645,23 @@ class AIConfigurationSourceTests(SimpleTestCase):
         self.assertEqual(response['task']['type'], 'business_handoff')
         self.assertIn('回退记录', response['task']['safety_notice'])
         self.assertNotEqual(response['task']['options'][0]['action'], 'open_business_page')
+
+    def test_ai_chat_prompt_describes_confirm_then_execute_for_write_requests(self):
+        from apps.ai.services.enhanced_intent_service import EnhancedIntentService
+
+        service = EnhancedIntentService()
+        prompt = service._build_ai_chat_system_prompt(
+            '帮我请假',
+            conversation_context={},
+            ai_config={'model_name': 'gpt-5.5'},
+        )
+
+        self.assertIn('确认后直接执行', prompt)
+        self.assertIn('单条回退记录', prompt)
+        self.assertIn('请假、出差、报销、采购', prompt)
+        self.assertIn('人事', prompt)
+        self.assertIn('个人办公', prompt)
+        self.assertNotIn('不要声称会直接新增、修改、删除业务数据', prompt)
 
     def test_order_create_handoff_uses_order_create_url(self):
         from apps.ai.services.enhanced_intent_service import EnhancedIntentService
@@ -7038,6 +7465,44 @@ class AIQueryServiceApprovalAndFinanceScopeTests(TestCase):
 
 
 class AIQueryServiceCustomerOrderTaskScopeTests(TestCase):
+    def test_customer_list_does_not_treat_partial_share_id_as_current_user(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.customer.models import Customer
+
+        User = get_user_model()
+        owner = User.objects.create_user(username='customer-share-boundary-owner')
+        other = User.objects.create_user(username='customer-share-boundary-other')
+
+        Customer.objects.create(
+            name='仅共享给相似ID的客户',
+            belong_uid=other.id,
+            share_ids=f'{owner.id}0',
+            delete_time=0,
+        )
+
+        result = QueryService().handle_customer_list({}, owner)
+
+        self.assertEqual(result['items'], [])
+
+    def test_customer_adapter_does_not_select_partial_share_id_match(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.module_adapters.customer import CustomerModuleAdapter
+        from apps.customer.models import Customer
+
+        User = get_user_model()
+        owner = User.objects.create_user(username='customer-adapter-boundary-owner')
+        other = User.objects.create_user(username='customer-adapter-boundary-other')
+        customer = Customer.objects.create(
+            name='不可操作的相似共享ID客户',
+            belong_uid=other.id,
+            share_ids=f'{owner.id}0',
+            delete_time=0,
+        )
+
+        with self.assertRaises(Customer.DoesNotExist):
+            CustomerModuleAdapter()._get_customer_for_update(customer.id, owner)
+
     def test_customer_list_owned_by_me_scope_only_returns_owned_customers(self):
         from django.contrib.auth import get_user_model
         from apps.ai.services.query_service import QueryService
@@ -7938,6 +8403,24 @@ class AIQueryServiceWorkHourAndAliasBridgeTests(TestCase):
 
 
 class AICustomerAdapterTests(SimpleTestCase):
+    def test_customer_adapter_builds_change_set_for_create(self):
+        from apps.ai.services.action_contracts import AIActionRequest
+        from apps.ai.services.module_adapters.customer import CustomerModuleAdapter
+
+        adapter = CustomerModuleAdapter()
+        action = AIActionRequest(
+            resource='customer',
+            operation='create',
+            object_ids=[],
+            changes={'name': '新客户'},
+        )
+
+        result = adapter.preview(action, user=SimpleNamespace(id=7))
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['change_set'][0]['change_type'], 'create')
+        self.assertEqual(result['change_set'][0]['after_snapshot']['name'], '新客户')
+
     def test_customer_adapter_rejects_fields_outside_allowlist(self):
         try:
             from apps.ai.services.action_contracts import AIActionRequest
@@ -8007,6 +8490,184 @@ class AIActionGatewayCustomerDispatchTests(SimpleTestCase):
         self.assertEqual(result['message'], 'updated')
 
 
+class AIActionGatewayProjectCoverageTests(SimpleTestCase):
+    def test_every_mcp_write_resource_has_an_action_adapter(self):
+        from apps.ai.services.action_gateway import AIActionGateway
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        gateway = AIActionGateway()
+        write_resources = sorted({
+            capability['resource']
+            for capability in project_mcp_service.get_capability_catalog()
+            if capability.get('intent_mode') == 'write'
+        })
+        missing = []
+        for resource in write_resources:
+            try:
+                gateway.get_adapter(resource)
+            except KeyError:
+                missing.append(resource)
+
+        self.assertEqual(missing, [])
+
+    def test_every_mcp_write_operation_is_supported_by_its_adapter(self):
+        from apps.ai.services.action_contracts import AIActionRequest
+        from apps.ai.services.action_gateway import AIActionGateway
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        gateway = AIActionGateway()
+        unsupported = []
+        errors = []
+        capabilities = [
+            item for item in project_mcp_service.get_capability_catalog()
+            if item.get('intent_mode') == 'write'
+        ]
+        for capability in capabilities:
+            adapter = gateway.get_adapter(capability['resource'])
+            required = getattr(adapter, 'required_create_fields', None) or set()
+            if isinstance(required, dict):
+                required = required.get(capability['resource']) or set()
+            action = AIActionRequest(
+                resource=capability['resource'],
+                operation=capability['operations'][0],
+                object_ids=[1],
+                changes={field: '1' for field in required},
+            )
+            try:
+                result = adapter.validate(action)
+            except Exception as exc:
+                errors.append((capability['id'], type(exc).__name__, str(exc)))
+                continue
+            if '暂不支持' in str(result.get('message', '')):
+                unsupported.append(capability['id'])
+
+        self.assertEqual(errors, [])
+        self.assertEqual(unsupported, [])
+
+    def test_mcp_write_capability_exposes_adapter_input_schema(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capability = next(
+            item for item in project_mcp_service.get_capability_catalog()
+            if item['id'] == 'write.finance_account.create'
+        )
+
+        schema = capability['input_schema']
+        self.assertEqual(schema['type'], 'object')
+        self.assertIn('name', schema['required'])
+        self.assertIn('opening_balance', schema['properties'])
+
+    def test_mcp_update_capability_requires_target_object_ids(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capability = next(
+            item for item in project_mcp_service.get_capability_catalog()
+            if item['id'] == 'write.finance_account.update'
+        )
+
+        schema = capability['input_schema']
+        self.assertIn('object_ids', schema['properties'])
+        self.assertIn('object_ids', schema['required'])
+        self.assertEqual(schema['properties']['object_ids']['items']['type'], 'integer')
+
+    def test_mcp_does_not_advertise_unconfigured_supply_chain_delete(self):
+        from apps.ai.services.project_mcp_service import project_mcp_service
+
+        capability_ids = {
+            item['id'] for item in project_mcp_service.get_capability_catalog()
+        }
+
+        self.assertNotIn('write.supply_chain_sample.delete', capability_ids)
+
+
+class AIConfiguredModelAdapterPermissionTests(SimpleTestCase):
+    def test_configured_adapter_accepts_configured_nonstandard_permission(self):
+        from apps.ai.services.action_contracts import AIActionRequest
+        from apps.ai.services.module_adapters.configured_model import ConfiguredModelModuleAdapter
+
+        adapter = ConfiguredModelModuleAdapter('supply_chain_forecast')
+        action = AIActionRequest(
+            resource='supply_chain_forecast',
+            operation='update',
+            object_ids=[3],
+            changes={'status': 'reviewed'},
+        )
+        user = SimpleNamespace(
+            id=7,
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda permission: permission == 'user.approve_supply_chain_forecast',
+        )
+        scoped = MagicMock()
+        scoped.filter.return_value.exists.return_value = True
+
+        with patch.object(adapter, '_scoped_queryset', return_value=scoped):
+            result = adapter._check_permission(action, user)
+
+        self.assertTrue(result['allowed'])
+
+    def test_configured_adapter_rejects_derived_permission_when_exact_permission_is_missing(self):
+        from apps.ai.services.action_contracts import AIActionRequest
+        from apps.ai.services.module_adapters.configured_model import ConfiguredModelModuleAdapter
+
+        adapter = ConfiguredModelModuleAdapter('supply_chain_forecast')
+        action = AIActionRequest(
+            resource='supply_chain_forecast',
+            operation='update',
+            object_ids=[3],
+            changes={'status': 'reviewed'},
+        )
+        user = SimpleNamespace(
+            id=7,
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda permission: permission == 'user.change_supply_chain_forecast',
+        )
+        scoped = MagicMock()
+        scoped.filter.return_value.exists.return_value = True
+
+        with patch.object(adapter, '_scoped_queryset', return_value=scoped):
+            result = adapter._check_permission(action, user)
+
+        self.assertFalse(result['allowed'])
+
+    def test_configured_adapter_rejects_user_without_exact_permission(self):
+        from apps.ai.services.action_contracts import AIActionRequest
+        from apps.ai.services.module_adapters.configured_model import ConfiguredModelModuleAdapter
+
+        adapter = ConfiguredModelModuleAdapter('approval_type')
+        action = AIActionRequest(
+            resource='approval_type',
+            operation='create',
+            changes={'name': '测试类型', 'code': 'TEST'},
+        )
+        user = SimpleNamespace(
+            id=7,
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda _permission: False,
+        )
+
+        result = adapter.preview(action, user)
+
+        self.assertFalse(result['success'])
+        self.assertIn('没有该操作权限', result['message'])
+
+    def test_configured_adapter_scopes_owned_resources_to_current_user(self):
+        from apps.ai.services.module_adapters.configured_model import ConfiguredModelModuleAdapter
+
+        adapter = ConfiguredModelModuleAdapter('ai_knowledge_base')
+        queryset = MagicMock()
+        model = SimpleNamespace(objects=SimpleNamespace(all=MagicMock(return_value=queryset)))
+        user = SimpleNamespace(id=7, is_superuser=False)
+
+        with patch.object(adapter, '_get_model', return_value=model):
+            result = adapter._scoped_queryset(user)
+
+        queryset.filter.assert_called_once_with(creator_id=7)
+        self.assertEqual(result, queryset.filter.return_value)
+
+
 class AIApprovalAdapterTests(SimpleTestCase):
     def test_approval_adapter_handles_withdraw_preview(self):
         try:
@@ -8021,6 +8682,10 @@ class AIApprovalAdapterTests(SimpleTestCase):
             status=1,
             current_step_order=3,
             title='测试审批',
+            applicant_id=7,
+            records=SimpleNamespace(
+                filter=lambda **_kwargs: SimpleNamespace(exists=lambda: False),
+            ),
         )
         action = AIActionRequest(
             resource='approval',
@@ -8036,7 +8701,7 @@ class AIApprovalAdapterTests(SimpleTestCase):
         self.assertEqual(result['change_set'][0]['before_snapshot']['status'], 1)
         self.assertEqual(result['change_set'][0]['after_snapshot']['status'], 0)
 
-    def test_approval_adapter_execute_withdraw_returns_change_set(self):
+    def test_approval_adapter_rejects_withdraw_after_next_node_was_processed(self):
         try:
             from apps.ai.services.action_contracts import AIActionRequest
             from apps.ai.services.module_adapters.approval import ApprovalModuleAdapter
@@ -8047,21 +8712,16 @@ class AIApprovalAdapterTests(SimpleTestCase):
         approval = SimpleNamespace(
             id=21,
             status=1,
-            current_step_order=3,
-            title='测试审批',
-        )
-        action = AIActionRequest(
-            resource='approval',
-            operation='withdraw',
-            object_ids=[21],
-            changes={},
+            applicant_id=7,
+            records=SimpleNamespace(
+                filter=lambda **_kwargs: SimpleNamespace(exists=lambda: True),
+            ),
         )
 
-        with patch.object(adapter, '_get_approval_for_action', return_value=approval):
-            result = adapter.execute(action, user=SimpleNamespace(id=7), operation=None)
+        result = adapter._validate_withdraw(approval, user=SimpleNamespace(id=7))
 
-        self.assertTrue(result['success'])
-        self.assertEqual(result['change_set'][0]['change_type'], 'update')
+        self.assertFalse(result['success'])
+        self.assertIn('申请人', result['message'])
 
     def test_approval_adapter_create_preview_builds_change_set(self):
         try:
@@ -8083,7 +8743,13 @@ class AIApprovalAdapterTests(SimpleTestCase):
             },
         )
 
-        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')):
+        flow = SimpleNamespace(
+            id=5,
+            approval_type_id=2,
+            steps=SimpleNamespace(exists=lambda: False),
+        )
+        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(adapter, '_get_create_flow', return_value=flow):
             result = adapter.preview(
                 action,
                 user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
@@ -8093,7 +8759,7 @@ class AIApprovalAdapterTests(SimpleTestCase):
         self.assertEqual(result['change_set'][0]['change_type'], 'create')
         self.assertEqual(result['change_set'][0]['after_snapshot']['title'], 'AI发起报销审批')
 
-    def test_approval_adapter_execute_approve_updates_status(self):
+    def test_approval_adapter_execute_approve_delegates_to_pending_task(self):
         try:
             from apps.ai.services.action_contracts import AIActionRequest
             from apps.ai.services.module_adapters.approval import ApprovalModuleAdapter
@@ -8115,10 +8781,20 @@ class AIApprovalAdapterTests(SimpleTestCase):
             object_ids=[21],
             changes={'comment': '同意'},
         )
+        task_action = AIActionRequest(
+            resource='approval_task',
+            operation='approve',
+            object_ids=[51],
+            changes={'comment': '同意'},
+        )
 
-        with patch.object(adapter.permission_guard, 'check_action_permission', return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+        with patch.object(adapter, 'preview', return_value={'success': True, 'change_set': []}), \
                 patch.object(adapter, '_get_approval_for_action', return_value=approval), \
-                patch('apps.ai.services.module_adapters.approval.timezone.now', return_value='NOW'):
+                patch.object(adapter, '_build_pending_task_action', return_value=task_action), \
+                patch(
+                    'apps.ai.services.module_adapters.approval_task.ApprovalTaskModuleAdapter.execute',
+                    return_value={'success': True, 'message': 'approve', 'change_set': []},
+                ) as execute_task:
             result = adapter.execute(
                 action,
                 user=SimpleNamespace(id=7, is_authenticated=True, has_perm=lambda code: True),
@@ -8126,9 +8802,215 @@ class AIApprovalAdapterTests(SimpleTestCase):
             )
 
         self.assertTrue(result['success'])
+        execute_task.assert_called_once_with(task_action, ANY, operation=None)
+
+
+class AIApprovalTaskExecutionIntegrationTests(TestCase):
+    def test_approval_create_rejects_user_outside_flow_initiator_scope(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.action_contracts import AIActionRequest
+        from apps.ai.services.module_adapters.approval import ApprovalModuleAdapter
+        from apps.approval.models import ApprovalFlow
+
+        User = get_user_model()
+        allowed_user = User.objects.create_user(username='ai-flow-allowed-user')
+        blocked_user = User.objects.create_user(username='ai-flow-blocked-user')
+        flow = ApprovalFlow.objects.create(
+            name='受限发起流程',
+            code='AI_RESTRICTED_INITIATOR',
+            initiator_users=str(allowed_user.id),
+        )
+        action = AIActionRequest(
+            resource='approval',
+            operation='create',
+            changes={'title': '越权发起测试', 'flow_id': flow.id},
+        )
+
+        result = ApprovalModuleAdapter().preview(action, blocked_user)
+
+        self.assertFalse(result['success'])
+        self.assertIn('发起', result['message'])
+
+    def test_approval_task_execution_uses_flow_engine_and_records_action(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.models import AIOperation, AIOperationChangeSet
+        from apps.ai.services.action_contracts import AIActionRequest
+        from apps.ai.services.module_adapters.approval_task import ApprovalTaskModuleAdapter
+        from apps.ai.services.rollback_service import rollback_service
+        from apps.approval.models import Approval, ApprovalFlow, ApprovalRecord, ApprovalStep, ApprovalTask
+
+        User = get_user_model()
+        applicant = User.objects.create_user(username='ai-approval-applicant')
+        handler = User.objects.create_user(username='ai-approval-handler')
+        flow = ApprovalFlow.objects.create(name='AI单节点审批', code='AI_SINGLE_STEP')
+        step = ApprovalStep.objects.create(
+            flow=flow,
+            step_name='负责人审批',
+            step_order=1,
+            step_type='specific_user',
+            approver=handler,
+        )
+        approval = Approval.objects.create(
+            title='AI真实审批推进',
+            applicant_id=applicant.id,
+            flow=flow,
+            status=1,
+            current_step_order=1,
+        )
+        task = ApprovalTask.objects.create(
+            approval=approval,
+            step=step,
+            handler=handler,
+            status='pending',
+        )
+        action = AIActionRequest(
+            resource='approval_task',
+            operation='approve',
+            object_ids=[task.id],
+            changes={'comment': '同意执行'},
+        )
+        adapter = ApprovalTaskModuleAdapter()
+
+        with patch.object(
+                adapter.permission_guard,
+                'check_action_permission',
+                return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            result = adapter.execute(action, handler)
+
+        task.refresh_from_db()
+        approval.refresh_from_db()
+        record = ApprovalRecord.objects.get(approval=approval, handler=handler)
+
+        self.assertTrue(result['success'])
+        self.assertEqual(task.status, 'completed')
+        self.assertEqual(task.result, 'approve')
         self.assertEqual(approval.status, 2)
-        self.assertEqual(approval.current_step_order, 3)
-        approval.save.assert_called_once()
+        self.assertEqual(approval.current_step_order, 0)
+        self.assertEqual(record.action, 'approve')
+        self.assertTrue(any(
+            item['model_name'] == 'ApprovalRecord' and item['change_type'] == 'create'
+            for item in result['change_set']
+        ))
+
+        operation = AIOperation.objects.create(
+            user=handler,
+            operation_type='approve',
+            resource_type='approval_task',
+            status='executed',
+        )
+        for sequence, item in enumerate(result['change_set'], start=1):
+            AIOperationChangeSet.objects.create(
+                operation=operation,
+                sequence=sequence,
+                app_label=item['app_label'],
+                model_name=item['model_name'],
+                object_pk=item['object_pk'],
+                change_type=item['change_type'],
+                before_snapshot=item['before_snapshot'],
+                after_snapshot=item['after_snapshot'],
+                changed_fields=item['changed_fields'],
+            )
+
+        rollback_result = rollback_service.rollback_operation(operation.id, handler)
+        task.refresh_from_db()
+        approval.refresh_from_db()
+
+        self.assertTrue(rollback_result['success'])
+        self.assertEqual(task.status, 'pending')
+        self.assertEqual(task.result, '')
+        self.assertEqual(approval.status, 1)
+        self.assertEqual(approval.current_step_order, 1)
+        self.assertFalse(ApprovalRecord.objects.filter(pk=record.pk).exists())
+
+    def test_approval_id_action_resolves_current_users_pending_task(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.action_contracts import AIActionRequest
+        from apps.ai.services.module_adapters.approval import ApprovalModuleAdapter
+        from apps.ai.services.module_adapters.approval_task import ApprovalTaskModuleAdapter
+        from apps.approval.models import Approval, ApprovalFlow, ApprovalRecord, ApprovalStep, ApprovalTask
+
+        User = get_user_model()
+        applicant = User.objects.create_user(username='ai-approval-id-applicant')
+        handler = User.objects.create_user(username='ai-approval-id-handler')
+        flow = ApprovalFlow.objects.create(name='AI审批单ID流程', code='AI_APPROVAL_ID')
+        step = ApprovalStep.objects.create(
+            flow=flow,
+            step_name='审批单ID处理',
+            step_order=1,
+            step_type='specific_user',
+            approver=handler,
+        )
+        approval = Approval.objects.create(
+            title='按审批单ID处理',
+            applicant_id=applicant.id,
+            flow=flow,
+            status=1,
+            current_step_order=1,
+        )
+        task = ApprovalTask.objects.create(
+            approval=approval,
+            step=step,
+            handler=handler,
+            status='pending',
+        )
+        action = AIActionRequest(
+            resource='approval',
+            operation='approve',
+            object_ids=[approval.id],
+            changes={'comment': '按审批单通过'},
+        )
+
+        with patch.object(
+                ApprovalModuleAdapter.permission_guard,
+                'check_action_permission',
+                return_value=SimpleNamespace(allowed=True, reason='allowed')), \
+                patch.object(
+                    ApprovalTaskModuleAdapter.permission_guard,
+                    'check_action_permission',
+                    return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            result = ApprovalModuleAdapter().execute(action, handler)
+
+        task.refresh_from_db()
+        approval.refresh_from_db()
+        self.assertTrue(result['success'])
+        self.assertEqual(task.status, 'completed')
+        self.assertEqual(approval.status, 2)
+        self.assertTrue(ApprovalRecord.objects.filter(
+            approval=approval,
+            handler=handler,
+            action='approve',
+        ).exists())
+
+    def test_approval_withdraw_rejects_non_applicant(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.action_contracts import AIActionRequest
+        from apps.ai.services.module_adapters.approval import ApprovalModuleAdapter
+        from apps.approval.models import Approval
+
+        User = get_user_model()
+        applicant = User.objects.create_user(username='ai-withdraw-applicant')
+        other = User.objects.create_user(username='ai-withdraw-other')
+        approval = Approval.objects.create(
+            title='不可越权撤回',
+            applicant_id=applicant.id,
+            status=1,
+        )
+        action = AIActionRequest(
+            resource='approval',
+            operation='withdraw',
+            object_ids=[approval.id],
+            changes={},
+        )
+        adapter = ApprovalModuleAdapter()
+
+        with patch.object(
+                adapter.permission_guard,
+                'check_action_permission',
+                return_value=SimpleNamespace(allowed=True, reason='allowed')):
+            result = adapter.preview(action, other)
+
+        self.assertFalse(result['success'])
+        self.assertIn('申请人', result['message'])
 
 
 class AIProjectAdapterTests(SimpleTestCase):
@@ -9718,7 +10600,44 @@ class AIStockDocumentWorkflowAdapterTests(SimpleTestCase):
 
 
 class AIApprovalTaskAdapterTests(SimpleTestCase):
-    def test_approval_task_adapter_approve_execute_completes_task(self):
+    def test_assigned_authenticated_handler_does_not_need_global_change_permission(self):
+        from apps.ai.services.action_contracts import AIActionRequest
+        from apps.ai.services.module_adapters.approval_task import ApprovalTaskModuleAdapter
+
+        adapter = ApprovalTaskModuleAdapter()
+        approval = SimpleNamespace(id=15, status=1, current_step_order=1)
+        step = SimpleNamespace(step_order=1)
+        task = SimpleNamespace(
+            id=51,
+            approval=approval,
+            approval_id=15,
+            step=step,
+            step_id=3,
+            handler_id=9,
+            status='pending',
+            result='',
+            comment='',
+            completed_at=None,
+        )
+        action = AIActionRequest(
+            resource='approval_task',
+            operation='approve',
+            object_ids=[51],
+            changes={},
+        )
+        user = SimpleNamespace(
+            id=9,
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda _permission: False,
+        )
+
+        with patch.object(adapter, '_get_task_for_action', return_value=task):
+            result = adapter.preview(action, user)
+
+        self.assertTrue(result['success'])
+
+    def test_approval_task_adapter_execute_delegates_to_flow_action(self):
         try:
             from apps.ai.services.action_contracts import AIActionRequest
             from apps.ai.services.module_adapters.approval_task import ApprovalTaskModuleAdapter
@@ -9752,7 +10671,11 @@ class AIApprovalTaskAdapterTests(SimpleTestCase):
 
         with patch.object(adapter, '_check_permission', return_value={'allowed': True, 'message': 'allowed'}), \
                 patch.object(adapter, '_get_task_for_action', return_value=task), \
-                patch('apps.ai.services.module_adapters.approval_task.timezone.now', return_value='NOW'):
+                patch.object(
+                    adapter,
+                    '_execute_flow_action',
+                    return_value={'success': True, 'message': 'approve', 'change_set': []},
+                ) as execute_flow_action:
             result = adapter.execute(
                 action,
                 user=SimpleNamespace(id=9, is_authenticated=True, has_perm=lambda code: True),
@@ -9760,11 +10683,7 @@ class AIApprovalTaskAdapterTests(SimpleTestCase):
             )
 
         self.assertTrue(result['success'])
-        self.assertEqual(task.status, 'completed')
-        self.assertEqual(task.result, 'approve')
-        self.assertEqual(task.completed_at, 'NOW')
-        self.assertEqual(task.handler.id, 9)
-        task.save.assert_called_once()
+        execute_flow_action.assert_called_once_with(task, action, ANY)
 
 
 class AIFinanceAdapterTests(SimpleTestCase):

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any
 
 
@@ -194,7 +195,7 @@ class ProjectMCPService:
             permission_base = config.get('permission_base')
             action_urls = config.get('action_urls') or {}
             create_target = config.get('create_url') or config.get('create_url_template')
-            if create_target:
+            if create_target and self._write_operation_enabled(config, 'create'):
                 capabilities.append({
                     'id': f'write.{resource}.create',
                     'resource': resource,
@@ -207,35 +208,43 @@ class ProjectMCPService:
                     'target_url': create_target,
                     'skill_tags': self._skill_tags_for_write(resource, 'create'),
                     'aliases': aliases,
+                    'input_schema': self._build_write_input_schema(resource, 'create'),
                 })
-            if config.get('edit_url_template') or config.get('list_url'):
-                capabilities.append({
-                    'id': f'write.{resource}.update',
-                    'resource': resource,
-                    'module': module,
-                    'label': label,
-                    'intent_mode': 'write',
-                    'execution_mode': 'business_handoff',
-                    'operations': ['update'],
-                    'permission_code': self._resolve_write_permission_code(config, 'update', permission_base),
-                    'target_url': config.get('edit_url_template') or config.get('list_url'),
-                    'skill_tags': self._skill_tags_for_write(resource, 'update'),
-                    'aliases': aliases,
-                })
-                capabilities.append({
-                    'id': f'write.{resource}.delete',
-                    'resource': resource,
-                    'module': module,
-                    'label': label,
-                    'intent_mode': 'write',
-                    'execution_mode': 'business_handoff',
-                    'operations': ['delete'],
-                    'permission_code': self._resolve_write_permission_code(config, 'delete', permission_base),
-                    'target_url': config.get('edit_url_template') or config.get('list_url'),
-                    'skill_tags': self._skill_tags_for_write(resource, 'delete'),
-                    'aliases': aliases,
-                })
+            edit_target = config.get('edit_url_template') or config.get('list_url')
+            if edit_target:
+                if self._write_operation_enabled(config, 'update'):
+                    capabilities.append({
+                        'id': f'write.{resource}.update',
+                        'resource': resource,
+                        'module': module,
+                        'label': label,
+                        'intent_mode': 'write',
+                        'execution_mode': 'business_handoff',
+                        'operations': ['update'],
+                        'permission_code': self._resolve_write_permission_code(config, 'update', permission_base),
+                        'target_url': edit_target,
+                        'skill_tags': self._skill_tags_for_write(resource, 'update'),
+                        'aliases': aliases,
+                        'input_schema': self._build_write_input_schema(resource, 'update'),
+                    })
+                if self._write_operation_enabled(config, 'delete'):
+                    capabilities.append({
+                        'id': f'write.{resource}.delete',
+                        'resource': resource,
+                        'module': module,
+                        'label': label,
+                        'intent_mode': 'write',
+                        'execution_mode': 'business_handoff',
+                        'operations': ['delete'],
+                        'permission_code': self._resolve_write_permission_code(config, 'delete', permission_base),
+                        'target_url': edit_target,
+                        'skill_tags': self._skill_tags_for_write(resource, 'delete'),
+                        'aliases': aliases,
+                        'input_schema': self._build_write_input_schema(resource, 'delete'),
+                    })
             for operation, target_url in action_urls.items():
+                if not self._write_operation_enabled(config, operation):
+                    continue
                 capabilities.append({
                     'id': f'write.{resource}.{operation}',
                     'resource': resource,
@@ -248,8 +257,18 @@ class ProjectMCPService:
                     'target_url': target_url,
                     'skill_tags': self._skill_tags_for_write(resource, operation),
                     'aliases': aliases,
+                    'input_schema': self._build_write_input_schema(resource, operation),
                 })
         return capabilities
+
+    def _write_operation_enabled(self, config: dict[str, Any], operation: str) -> bool:
+        write_operations = config.get('write_operations')
+        if write_operations is not None:
+            return operation in write_operations
+        permission_config = config.get('permission')
+        if isinstance(permission_config, dict):
+            return operation in permission_config
+        return True
 
     def _collect_candidate_resources(self, query_lower: str, intent_result: dict[str, Any]) -> list[str]:
         resources = []
@@ -280,7 +299,7 @@ class ProjectMCPService:
         return []
 
     def _public_capability(self, capability: dict[str, Any]) -> dict[str, Any]:
-        return {
+        public = {
             'id': capability['id'],
             'resource': capability['resource'],
             'label': capability['label'],
@@ -292,6 +311,85 @@ class ProjectMCPService:
             'target_url': capability.get('target_url'),
             'skill_tags': list(capability.get('skill_tags') or []),
         }
+        if capability.get('input_schema'):
+            public['input_schema'] = capability['input_schema']
+        return public
+
+    @lru_cache(maxsize=512)
+    def _build_write_input_schema(self, resource: str, operation: str) -> dict[str, Any]:
+        if operation == 'delete':
+            return {
+                'type': 'object',
+                'properties': {'object_ids': {'type': 'array', 'items': {'type': 'integer'}}},
+                'required': ['object_ids'],
+                'additionalProperties': False,
+            }
+
+        try:
+            from apps.ai.services.action_gateway import AIActionGateway
+
+            adapter = AIActionGateway().get_adapter(resource)
+        except (ImportError, KeyError):
+            return {'type': 'object', 'properties': {}, 'required': []}
+
+        allowed = self._adapter_field_set(adapter, resource)
+        required = set(getattr(adapter, 'required_create_fields', None) or set()) if operation == 'create' else set()
+        properties = {field: self._field_schema(adapter, field) for field in sorted(allowed)}
+        if operation != 'create':
+            properties['object_ids'] = {
+                'type': 'array',
+                'items': {'type': 'integer'},
+                'minItems': 1,
+            }
+            required.add('object_ids')
+        return {
+            'type': 'object',
+            'properties': properties,
+            'required': sorted(field for field in required if field in properties),
+            'additionalProperties': False,
+        }
+
+    def _adapter_field_set(self, adapter, resource: str) -> set[str]:
+        fields: set[str] = set()
+        adapter_resource = getattr(adapter, 'resource', resource)
+        for attribute in ('allowed_create_fields', 'allowed_fields', 'allowed_update_fields'):
+            configured = getattr(adapter, attribute, None)
+            if isinstance(configured, dict):
+                configured = configured.get(resource) or configured.get(adapter_resource)
+            if configured:
+                fields.update(configured)
+        config = getattr(adapter, 'CONFIG', None)
+        if isinstance(config, dict):
+            selected = config.get(resource) or config.get(adapter_resource) or {}
+            fields.update(selected.get('allowed_fields') or selected.get('allowed') or set())
+        return fields
+
+    def _field_schema(self, adapter, field_name: str) -> dict[str, Any]:
+        get_model = getattr(adapter, '_get_model', None)
+        if not callable(get_model):
+            return {}
+        try:
+            model = get_model()
+            field = model._meta.get_field(field_name)
+        except Exception:
+            try:
+                model = get_model()
+                field = model._meta.get_field(field_name[:-3] if field_name.endswith('_id') else field_name)
+            except Exception:
+                return {}
+
+        internal_type = field.get_internal_type()
+        if internal_type in {'AutoField', 'BigAutoField', 'IntegerField', 'BigIntegerField', 'PositiveIntegerField', 'SmallIntegerField'}:
+            schema_type = 'integer'
+        elif internal_type in {'DecimalField', 'FloatField'}:
+            schema_type = 'number'
+        elif internal_type in {'BooleanField', 'NullBooleanField'}:
+            schema_type = 'boolean'
+        elif internal_type == 'JSONField':
+            schema_type = ['object', 'array']
+        else:
+            schema_type = 'string'
+        return {'type': schema_type, 'description': str(getattr(field, 'verbose_name', field_name))}
 
     def _skill_tags_for_query(self, resource: str) -> list[str]:
         tags = ['query_execute', 'permission_guard']

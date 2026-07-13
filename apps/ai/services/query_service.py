@@ -12,6 +12,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
 from django.utils import timezone
 
+from apps.ai.services.permission_guard import build_csv_membership_q
+
 logger = logging.getLogger(__name__)
 
 
@@ -2913,7 +2915,7 @@ class QueryService:
             # 普通用户：只能查看自己的客户及共享给自己的客户
             queryset = queryset.filter(
                 models.Q(belong_uid=user.id) |
-                models.Q(share_ids__contains=str(user.id))
+                build_csv_membership_q('share_ids', user.id)
             )
 
         count = queryset.count()
@@ -2955,7 +2957,7 @@ class QueryService:
             # 普通用户：只能查看自己的客户及共享给自己的客户
             queryset = queryset.filter(
                 models.Q(belong_uid=user.id) |
-                models.Q(share_ids__contains=str(user.id))
+                build_csv_membership_q('share_ids', user.id)
             )
 
         if entities.get('scope') == 'owned_by_me':
@@ -7268,7 +7270,7 @@ class QueryService:
         return queryset.filter(
             Q(follow_user=user) |
             Q(customer__belong_uid=user_id) |
-            Q(customer__share_ids__contains=str(user_id or ''))
+            build_csv_membership_q('customer__share_ids', user_id)
         ).filter(
             delete_time=0,
             customer__delete_time=0,
@@ -7287,7 +7289,7 @@ class QueryService:
             return queryset
         return queryset.filter(
             Q(customer__belong_uid=getattr(user, 'id', None)) |
-            Q(customer__share_ids__contains=str(getattr(user, 'id', '')))
+            build_csv_membership_q('customer__share_ids', getattr(user, 'id', None))
         ).filter(customer__delete_time=0).distinct()
 
     def _filter_document_queryset(self, queryset, user):

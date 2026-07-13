@@ -2465,11 +2465,18 @@ class AIConfirmOperationView(LoginRequiredMixin, View):
         if not operation_id or not token:
             return JsonResponse({'success': False, 'message': '缺少必要参数'}, status=400)
 
-        result = operation_service.confirm_operation(
-            operation_id=operation_id,
-            token=token,
-            user=request.user,
-        )
+        try:
+            result = operation_service.confirm_operation(
+                operation_id=operation_id,
+                token=token,
+                user=request.user,
+            )
+        except Exception:
+            logger.exception('AI确认操作执行失败')
+            return JsonResponse({
+                'success': False,
+                'message': '操作执行失败，请检查字段后重试或联系管理员',
+            }, status=500)
         status = 200 if result.get('success') else 400
         return JsonResponse(result, status=status)
 

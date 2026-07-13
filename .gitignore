@@ -119,6 +119,7 @@ docs/
 
 # Codex / local temp artifacts
 .agents/
+runtime/
 .codex-*.png
 output/
 _fix*.py

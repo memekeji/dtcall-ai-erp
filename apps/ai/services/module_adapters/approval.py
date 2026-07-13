@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from django.utils import timezone
 
+from apps.ai.services.action_contracts import AIActionRequest
 from apps.ai.services.module_adapters.base import AIBaseModuleAdapter
 from apps.ai.services.permission_guard import AIPermissionGuard
 
@@ -25,7 +26,15 @@ class ApprovalModuleAdapter(AIBaseModuleAdapter):
             }
 
         if action.operation == 'create':
-            after_snapshot = self._build_create_snapshot(action, user, resolve_flow=False)
+            flow = self._get_create_flow(action, user)
+            if flow is None:
+                return {'success': False, 'message': '审批流程不存在、已停用或当前用户无权发起'}
+            after_snapshot = self._build_create_snapshot(
+                action,
+                user,
+                resolve_flow=False,
+                flow=flow,
+            )
             return {
                 'success': True,
                 'change_set': [
@@ -42,6 +51,18 @@ class ApprovalModuleAdapter(AIBaseModuleAdapter):
             }
 
         approval = self._get_approval_for_action(action.object_ids[0], user)
+        if action.operation in {'approve', 'reject'}:
+            task_action = self._build_pending_task_action(approval, action, user)
+            if task_action is None:
+                return {'success': False, 'message': '当前用户没有可处理的审批任务'}
+            from apps.ai.services.module_adapters.approval_task import ApprovalTaskModuleAdapter
+
+            return ApprovalTaskModuleAdapter().preview(task_action, user)
+        if action.operation == 'withdraw':
+            validation = self._validate_withdraw(approval, user)
+            if not validation.get('success'):
+                return validation
+
         before_snapshot = self._snapshot_approval(approval)
         after_snapshot = dict(before_snapshot)
         changed_fields = []
@@ -119,36 +140,42 @@ class ApprovalModuleAdapter(AIBaseModuleAdapter):
             }
 
         approval = self._get_approval_for_action(action.object_ids[0], user)
+        if action.operation in {'approve', 'reject'}:
+            task_action = self._build_pending_task_action(approval, action, user)
+            if task_action is None:
+                return {'success': False, 'message': '当前用户没有可处理的审批任务'}
+            from apps.ai.services.module_adapters.approval_task import ApprovalTaskModuleAdapter
+
+            return ApprovalTaskModuleAdapter().execute(task_action, user, operation=operation)
+
         if action.operation == 'withdraw':
+            validation = self._validate_withdraw(approval, user)
+            if not validation.get('success'):
+                return validation
+            from apps.approval.models import ApprovalRecord
+            from apps.approval.views import _cancel_pending_tasks
+            from apps.ai.services.module_adapters.approval_task import ApprovalTaskModuleAdapter
+
+            state_adapter = ApprovalTaskModuleAdapter()
+            before_state = state_adapter._snapshot_related_state(approval)
+            now = timezone.now()
+            _cancel_pending_tasks(approval, 'withdraw', now)
             approval.status = 0
             approval.current_step_order = 0
-            if hasattr(approval, 'save'):
-                approval.save(update_fields=['status', 'current_step_order', 'update_time'])
+            approval.save(update_fields=['status', 'current_step_order', 'update_time'])
+            ApprovalRecord.objects.create(
+                approval=approval,
+                step_order=0,
+                step_name='申请人撤回',
+                action='withdraw',
+                comment=action.changes.get('comment', ''),
+                handler=user,
+            )
+            after_state = state_adapter._snapshot_related_state(approval)
             return {
                 'success': True,
                 'message': 'withdrawn',
-                'change_set': preview['change_set'],
-            }
-
-        if action.operation == 'approve':
-            approval.status = 2
-            approval.current_step_order = (getattr(approval, 'current_step_order', 0) or 0) + 1
-            if hasattr(approval, 'save'):
-                approval.save(update_fields=['status', 'current_step_order', 'update_time'])
-            return {
-                'success': True,
-                'message': 'approved',
-                'change_set': preview['change_set'],
-            }
-
-        if action.operation == 'reject':
-            approval.status = 3
-            if hasattr(approval, 'save'):
-                approval.save(update_fields=['status', 'update_time'])
-            return {
-                'success': True,
-                'message': 'rejected',
-                'change_set': preview['change_set'],
+                'change_set': state_adapter._build_state_change_sets(before_state, after_state),
             }
 
         return {
@@ -160,6 +187,29 @@ class ApprovalModuleAdapter(AIBaseModuleAdapter):
         from apps.approval.models import Approval
 
         return Approval.objects.get(id=approval_id)
+
+    def _build_pending_task_action(self, approval, action, user):
+        from apps.approval.views import _get_user_pending_task
+
+        task = _get_user_pending_task(approval, user)
+        if task is None:
+            return None
+        return AIActionRequest(
+            resource='approval_task',
+            operation=action.operation,
+            object_ids=[task.id],
+            changes={'comment': action.changes.get('comment', '')},
+        )
+
+    def _validate_withdraw(self, approval, user):
+        from apps.approval.views import _can_withdraw_approval
+
+        if not _can_withdraw_approval(approval, user):
+            return {
+                'success': False,
+                'message': '仅申请人可撤回尚未进入下一节点处理的审批',
+            }
+        return {'success': True}
 
     def validate(self, action):
         if action.operation not in {'create', 'withdraw', 'approve', 'reject'}:
@@ -182,14 +232,11 @@ class ApprovalModuleAdapter(AIBaseModuleAdapter):
     def _check_permission(self, action, user):
         if not hasattr(user, 'is_authenticated'):
             return {'allowed': True, 'message': 'allowed'}
-        permission_map = {
-            'create': 'approval.add_approval',
-            'withdraw': 'approval.change_approval',
-            'approve': 'approval.change_approval',
-            'reject': 'approval.change_approval',
+        allowed = bool(getattr(user, 'is_authenticated', False))
+        return {
+            'allowed': allowed,
+            'message': '未登录，无法操作审批' if not allowed else 'allowed',
         }
-        result = self.permission_guard.check_action_permission(user, action, permission_map[action.operation])
-        return {'allowed': result.allowed, 'message': '权限不足，无法操作审批' if not result.allowed else 'allowed'}
 
     def _snapshot_approval(self, approval):
         return {
@@ -203,8 +250,9 @@ class ApprovalModuleAdapter(AIBaseModuleAdapter):
             'current_step_order': getattr(approval, 'current_step_order', 1),
         }
 
-    def _build_create_snapshot(self, action, user, resolve_flow=True):
-        flow = self._get_create_flow(action) if resolve_flow else None
+    def _build_create_snapshot(self, action, user, resolve_flow=True, flow=None):
+        if resolve_flow and flow is None:
+            flow = self._get_create_flow(action, user)
         has_steps = bool(flow and flow.steps.exists())
         return {
             'title': action.changes.get('title', ''),
@@ -217,10 +265,17 @@ class ApprovalModuleAdapter(AIBaseModuleAdapter):
             'current_step_order': 1 if has_steps else 0,
         }
 
-    def _get_create_flow(self, action):
+    def _get_create_flow(self, action, user=None):
         from apps.approval.models import ApprovalFlow
 
         flow_id = action.changes.get('flow_id')
         if not flow_id:
             return None
-        return ApprovalFlow.objects.filter(id=flow_id, is_active=True).first()
+        flow = ApprovalFlow.objects.filter(id=flow_id, is_active=True).first()
+        if flow is None:
+            return None
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        if not confirmation_service._user_can_initiate_approval_flow(user, flow):
+            return None
+        return flow

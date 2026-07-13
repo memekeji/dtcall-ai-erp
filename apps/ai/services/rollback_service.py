@@ -41,6 +41,20 @@ def build_rollback_plan(change_sets):
 class AIOperationRollbackService:
     def rollback_operation(self, operation_id, user):
         operation = AIOperation.objects.get(id=operation_id, user=user)
+        if (
+                getattr(operation, 'status', '') == 'rolled_back' or
+                getattr(operation, 'rollback_status', '') == 'completed'):
+            return {
+                'success': False,
+                'message': '该操作已回退，不能重复执行回退',
+                'operation_id': operation.id,
+            }
+        if getattr(operation, 'status', '') != 'executed':
+            return {
+                'success': False,
+                'message': '仅已执行且未回退的操作可以回退',
+                'operation_id': operation.id,
+            }
         rollback_record = AIOperationRollback.objects.create(
             operation=operation,
             requested_by=user,
