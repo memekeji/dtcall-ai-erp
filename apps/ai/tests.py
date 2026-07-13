@@ -925,6 +925,55 @@ class AIChatStreamingResponseTests(SimpleTestCase):
         self.assertEqual(classify_intent.call_count, 1)
         self.assertEqual(events[-1]['type'], 'done')
 
+    def test_stream_user_request_keeps_successful_ai_chat_when_model_stream_succeeds(self):
+        from apps.ai.services.enhanced_intent_service import enhanced_intent_service
+        from apps.ai.services.ai_intent_classifier import ai_intent_classifier
+
+        user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=True,
+            pk=7,
+            has_perm=lambda perm: True,
+        )
+        intent_result = {
+            'intent': 'AI_CHAT',
+            'confidence': 0.96,
+            'source': 'ai',
+            'ai_available': True,
+            'ai_configured': True,
+            'model_provider': 'openai',
+            'model_name': 'gpt-5.5',
+        }
+        ai_client = SimpleNamespace(
+            stream_chat_completion=MagicMock(return_value=iter(['上游', '成功']))
+        )
+
+        with patch.object(
+            enhanced_intent_service.classifier,
+            'classify_intent',
+            return_value=intent_result,
+        ), patch.object(
+            ai_intent_classifier,
+            '_ensure_ai_client',
+        ), patch.object(
+            ai_intent_classifier,
+            'ai_config',
+            {'provider': 'openai', 'model_name': 'gpt-5.5'},
+        ), patch.object(
+            ai_intent_classifier,
+            'ai_client',
+            ai_client,
+        ):
+            events = list(enhanced_intent_service.stream_user_request(user, '帮我解释一下当前页面', chat_id=None))
+
+        self.assertEqual([event['type'] for event in events], ['chunk', 'chunk', 'done'])
+        self.assertEqual(''.join(event.get('content', '') for event in events), '上游成功')
+        payload = events[-1]['payload']
+        self.assertEqual(payload['source'], 'ai')
+        self.assertTrue(payload['ai_available'])
+        self.assertNotEqual(payload.get('source'), 'safe_fallback')
+        self.assertEqual(payload['message'], '上游成功')
+
     def test_generate_streaming_response_emits_thinking_chunk_and_done_events(self):
         from apps.ai.views import AIChatStreamView
 
@@ -1184,6 +1233,35 @@ class AIChatStreamingResponseTests(SimpleTestCase):
         build_follow_up.assert_called_once()
         stream_user_request.assert_not_called()
         self.assertTrue(any('event: done' in item for item in events))
+
+
+class AIChatRecordPersistenceTests(TestCase):
+    def test_save_chat_record_creates_new_chat_when_user_has_multiple_existing_chats(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.models import AIChat, AIChatMessage
+        from apps.ai.views import AIChatStreamView
+
+        user_model = get_user_model()
+        user = user_model.objects.create_user(username='ai-chat-record-user')
+        AIChat.objects.create(user=user, session_id='existing-session-1', title='已有会话1')
+        AIChat.objects.create(user=user, session_id='existing-session-2', title='已有会话2')
+
+        chat, user_message, ai_message = AIChatStreamView().save_chat_record(
+            user,
+            chat_id=None,
+            message='你好',
+            ai_response='你好，我在',
+        )
+
+        self.assertIsNotNone(chat)
+        self.assertIsNotNone(user_message)
+        self.assertIsNotNone(ai_message)
+        self.assertEqual(AIChat.objects.filter(user=user).count(), 3)
+        self.assertNotIn(chat.session_id, {'existing-session-1', 'existing-session-2'})
+        self.assertEqual(
+            list(AIChatMessage.objects.filter(chat=chat).values_list('role', 'content')),
+            [('user', '你好'), ('assistant', '你好，我在')],
+        )
 
 
 class AIChatHistorySerializationTests(SimpleTestCase):

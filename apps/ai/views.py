@@ -1,5 +1,6 @@
 import logging
 import os
+import uuid
 from django.shortcuts import redirect, get_object_or_404
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView, TemplateView, View
 from django.urls import reverse_lazy
@@ -2375,9 +2376,11 @@ class AIChatStreamView(LoginRequiredMixin, CreateView):
                     chat = None
 
             if not chat:
-                chat, created = AIChat.objects.get_or_create(
-                    user=user, defaults={
-                        'title': f'聊天 {timezone.now().strftime("%Y-%m-%d %H:%M:%S")}'})
+                chat = AIChat.objects.create(
+                    user=user,
+                    session_id=uuid.uuid4().hex,
+                    title=f'聊天 {timezone.now().strftime("%Y-%m-%d %H:%M:%S")}',
+                )
 
             user_message = AIChatMessage.objects.create(
                 chat=chat,

@@ -1447,13 +1447,6 @@ class EnhancedIntentService:
                 }
                 payload = self._decorate_response_with_recognition_meta(payload, intent_result)
                 payload = self._attach_mcp_context(payload, intent_result or payload, query)
-                chat, user_message, ai_message = self.save_chat_record(user, None, query, response_text)
-                if chat:
-                    payload['chat_id'] = chat.id
-                if user_message:
-                    payload['user_message_id'] = user_message.id
-                if ai_message:
-                    payload['ai_message_id'] = ai_message.id
                 yield {'type': 'done', 'payload': payload}
                 return
 
@@ -1497,13 +1490,6 @@ class EnhancedIntentService:
             }
             payload = self._decorate_response_with_recognition_meta(payload, intent_result)
             payload = self._attach_mcp_context(payload, intent_result or payload, query)
-            chat, user_message, ai_message = self.save_chat_record(user, None, query, assistant_text)
-            if chat:
-                payload['chat_id'] = chat.id
-            if user_message:
-                payload['user_message_id'] = user_message.id
-            if ai_message:
-                payload['ai_message_id'] = ai_message.id
             yield {'type': 'done', 'payload': payload}
         except Exception as e:
             logger.error(f"AI 流式对话失败：{str(e)}")
