@@ -136,10 +136,14 @@
             flex-shrink: 0;
         }
 
-        #tableView .layui-table-body {
+        #tableView .layui-table-main .layui-table-body {
             flex: 1;
             min-height: 0;
             overflow: auto !important;
+        }
+
+        #tableView .layui-table-fixed .layui-table-body {
+            overflow: hidden !important;
         }
 
         #tableView .layui-table-page {

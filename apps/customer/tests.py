@@ -94,6 +94,28 @@ class CustomerKanbanDataViewTests(TestCase):
 
 
 @override_settings(MIDDLEWARE=TEST_MIDDLEWARE)
+class CustomerListLayoutTests(TestCase):
+    def setUp(self):
+        self.user = Admin.objects.create_user(
+            username='customer-list-layout-user',
+            email='customer-list-layout@example.com',
+            password='password123',
+            name='客户列表布局测试员',
+        )
+        self.client.force_login(self.user)
+
+    def test_customer_list_only_scrolls_main_table_body(self):
+        response = self.client.get(reverse('customer:customer_list'))
+        content = response.content.decode()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('#tableView .layui-table-main .layui-table-body {', content)
+        self.assertIn('#tableView .layui-table-fixed .layui-table-body {', content)
+        self.assertIn('overflow: hidden !important;', content)
+        self.assertNotIn('#tableView .layui-table-body {', content)
+
+
+@override_settings(MIDDLEWARE=TEST_MIDDLEWARE)
 class CustomerIntentFormViewTests(TestCase):
     def setUp(self):
         self.user = Admin.objects.create_user(
