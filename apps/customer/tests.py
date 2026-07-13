@@ -109,9 +109,10 @@ class CustomerListLayoutTests(TestCase):
         content = response.content.decode()
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn('#tableView .layui-table-main .layui-table-body {', content)
+        self.assertIn('#tableView .layui-table-body.layui-table-main {', content)
         self.assertIn('#tableView .layui-table-fixed .layui-table-body {', content)
         self.assertIn('overflow: hidden !important;', content)
+        self.assertNotIn('#tableView .layui-table-main .layui-table-body {', content)
         self.assertNotIn('#tableView .layui-table-body {', content)
 
 
