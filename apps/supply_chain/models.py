@@ -69,6 +69,13 @@ class DemandForecastPlan(SourceTrackedModel):
         verbose_name = '需求预测计划'
         verbose_name_plural = verbose_name
         ordering = ['-create_time']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['source_type', 'source_id'],
+                condition=models.Q(source_id__isnull=False),
+                name='supply_chain_unique_forecast_source',
+            ),
+        ]
 
     def __str__(self):
         return f'{self.code} - {self.name}'
@@ -226,6 +233,13 @@ class OutsourceIssueOrder(SourceTrackedModel):
         verbose_name = '委外发料单'
         verbose_name_plural = verbose_name
         ordering = ['-create_time']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['source_type', 'source_id'],
+                condition=models.Q(source_id__isnull=False),
+                name='supply_chain_unique_outsource_source',
+            ),
+        ]
 
 
 class OutsourceIssueItem(models.Model):
@@ -386,6 +400,13 @@ class PRReviewTask(SourceTrackedModel):
         verbose_name = 'PR审核任务'
         verbose_name_plural = verbose_name
         ordering = ['-create_time']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['source_type', 'source_id'],
+                condition=models.Q(source_id__isnull=False),
+                name='supply_chain_unique_pr_source',
+            ),
+        ]
 
 
 class PRReviewEvidence(models.Model):
@@ -471,6 +492,13 @@ class PriceReviewOrder(SourceTrackedModel):
         verbose_name = '单价复核单'
         verbose_name_plural = verbose_name
         ordering = ['-create_time']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['source_type', 'source_id'],
+                condition=models.Q(source_id__isnull=False),
+                name='supply_chain_unique_price_source',
+            ),
+        ]
 
 
 class PriceReviewDocument(models.Model):
@@ -595,6 +623,13 @@ class SampleRequest(SourceTrackedModel):
         verbose_name = '打样申请'
         verbose_name_plural = verbose_name
         ordering = ['-create_time']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['source_type', 'source_id'],
+                condition=models.Q(source_id__isnull=False),
+                name='supply_chain_unique_sample_source',
+            ),
+        ]
 
 
 class SampleReceipt(models.Model):
@@ -625,6 +660,12 @@ class SampleReceipt(models.Model):
         verbose_name = '样品到货'
         verbose_name_plural = verbose_name
         ordering = ['-received_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['sample_request'],
+                name='supply_chain_unique_sample_receipt',
+            ),
+        ]
 
 
 class SamplePickupRecord(models.Model):
@@ -652,6 +693,12 @@ class SamplePickupRecord(models.Model):
         verbose_name = '样品领样记录'
         verbose_name_plural = verbose_name
         ordering = ['-create_time']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['sample_request'],
+                name='supply_chain_unique_sample_pickup',
+            ),
+        ]
 
 
 class SupplyChainEventLog(models.Model):

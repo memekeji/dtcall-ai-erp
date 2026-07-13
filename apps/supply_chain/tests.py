@@ -1219,3 +1219,34 @@ class SupplyChainFoundationTests(TestCase):
 
         self.assertEqual(insight.content, '库存风险可控')
         self.assertEqual(insight.result_payload['risk_level'], 'low')
+
+
+class SupplyChainWorkflowReliabilityTests(TestCase):
+    def test_spec_document_rejects_unsupported_file_type(self):
+        from apps.supply_chain.forms import PriceReviewDocumentForm
+
+        uploaded = SimpleUploadedFile(
+            'malware.exe',
+            b'not-a-specification',
+            content_type='application/octet-stream',
+        )
+        form = PriceReviewDocumentForm(files={'document_file': uploaded})
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('仅支持', str(form.errors))
+
+    def test_sample_photo_rejects_oversized_upload(self):
+        from apps.supply_chain.forms import SampleReceiptForm
+
+        uploaded = SimpleUploadedFile(
+            'sample.jpg',
+            b'x' * (6 * 1024 * 1024),
+            content_type='image/jpeg',
+        )
+        form = SampleReceiptForm(
+            data={'received_quantity': '1', 'location': '样品柜'},
+            files={'photo_file': uploaded},
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('5MB', str(form.errors))

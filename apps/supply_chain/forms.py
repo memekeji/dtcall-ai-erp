@@ -1,5 +1,7 @@
 import json
 
+from pathlib import Path
+
 from django import forms
 
 from .models import (
@@ -235,6 +237,17 @@ class PriceReviewDocumentForm(forms.Form):
     document_file = forms.FileField(required=False)
     raw_text = forms.CharField(required=False, widget=forms.Textarea)
 
+    def clean_document_file(self):
+        document_file = self.cleaned_data.get('document_file')
+        if document_file is None:
+            return None
+        allowed_suffixes = {'.pdf', '.doc', '.docx', '.txt', '.png', '.jpg', '.jpeg'}
+        if Path(document_file.name).suffix.lower() not in allowed_suffixes:
+            raise forms.ValidationError('仅支持 PDF、Word、TXT、PNG、JPG 规格书文件')
+        if document_file.size > 15 * 1024 * 1024:
+            raise forms.ValidationError('规格书文件不能超过15MB')
+        return document_file
+
     def clean(self):
         cleaned_data = super().clean()
         if not cleaned_data.get('document_file') and not cleaned_data.get('raw_text'):
@@ -263,6 +276,16 @@ class SampleReceiptForm(forms.Form):
     received_quantity = forms.DecimalField(max_digits=14, decimal_places=2)
     location = forms.CharField(max_length=100)
     photo_file = forms.FileField(required=False)
+
+    def clean_photo_file(self):
+        photo_file = self.cleaned_data.get('photo_file')
+        if photo_file is None:
+            return None
+        if Path(photo_file.name).suffix.lower() not in {'.png', '.jpg', '.jpeg'}:
+            raise forms.ValidationError('到货照片仅支持 PNG、JPG 格式')
+        if photo_file.size > 5 * 1024 * 1024:
+            raise forms.ValidationError('到货照片不能超过5MB')
+        return photo_file
 
 
 class SamplePickupForm(forms.Form):
